@@ -19,7 +19,7 @@ interface ModifyBookingModalProps {
     roomName: string,
     date: Date,
     duration: number,
-    bookedDays: dayType[]
+    bookedDays: dayType[],
   ) => void;
   setSelectedModifyBooking: React.Dispatch<
     React.SetStateAction<bookingType | null>
@@ -59,7 +59,7 @@ const ModifyBookingModal = ({
 
     for (let i = 0; i < selectedModifyBooking.duration; i++) {
       const currentDay = monthMap.get(
-        addDays(startDate, i).toISOString().split("T")[0]
+        addDays(startDate, i).toISOString().split("T")[0],
       );
 
       if (currentDay) {
@@ -162,7 +162,7 @@ const ModifyBookingModal = ({
           bookingData.room,
           bookingData.date,
           bookingData.duration,
-          result
+          result,
         );
         setSelectedModifyBooking(null); // Close the modal on success
       })
@@ -199,7 +199,7 @@ const ModifyBookingModal = ({
       setValue("duration", newDuration);
     } else {
       console.warn(
-        "End date is not after start date. Duration will not be updated."
+        "End date is not after start date. Duration will not be updated.",
       );
     }
   };
@@ -213,7 +213,7 @@ const ModifyBookingModal = ({
     if (startDate && duration) {
       const newEndDate = format(
         addDays(toZonedTime(startDate, timeZone), duration),
-        "yyyy-MM-dd"
+        "yyyy-MM-dd",
       );
       setValue("endDate", newEndDate as unknown as Date); // Update the endDate field as a string
     }
@@ -229,7 +229,8 @@ const ModifyBookingModal = ({
         onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside modal
       >
         <h2 className="text-lg font-bold mb-4">
-          {selectedModifyBooking?.alias || selectedModifyBooking?.guest.name}
+          {selectedModifyBooking?.alias || selectedModifyBooking?.guest.name} (
+          {selectedModifyBooking?.room.name})
         </h2>
         <form className="flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)}>
           {/* Calendar */}

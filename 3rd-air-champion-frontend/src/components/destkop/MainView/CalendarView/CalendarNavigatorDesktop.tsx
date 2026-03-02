@@ -1,7 +1,8 @@
 import { addDays, compareAsc, isSameDay, isSameMonth } from "date-fns";
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { dayType } from "../../../../util/types/dayType";
 import { toZonedTime } from "date-fns-tz/toZonedTime";
+import { FooterContext } from "../../../../App";
 
 interface CalendarNavigatorProps {
   currentMonth: Date;
@@ -43,6 +44,11 @@ const CalendarNavigator = ({
   const [showDetails, setShowDetails] = useState(false);
   const [guestBill, setGuestBill] = useState<number | null>(null);
 
+  const footerContext = useContext(FooterContext) as {
+    isFooterVisible: boolean;
+    setIsFooterVisible: React.Dispatch<React.SetStateAction<boolean>>;
+  };
+
   const formattedDate = currentMonth.toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",
@@ -57,6 +63,12 @@ const CalendarNavigator = ({
     }
   }, [currentGuest, currentMonth]);
 
+  const { isFooterVisible, setIsFooterVisible } = footerContext;
+
+  const handleToggleFooter = () => {
+    setIsFooterVisible(!isFooterVisible);
+  };
+
   return (
     <div className="flex flex-col justify-between h-full max-h-[80px] bg-white drop-shadow-sm p-2 sm:max-h-[120px]">
       {/* Date */}
@@ -64,6 +76,13 @@ const CalendarNavigator = ({
         <>
           <div className="flex h-full w-full items-center text-nowrap">
             <div className="basis-2/3 flex justify-end w-full space-x-2">
+              <button
+                type="button"
+                className="text-white bg-black p-1 text-xs rounded-md"
+                onClick={handleToggleFooter}
+              >
+                {isFooterVisible ? "Hide Footer" : "Show Footer"}
+              </button>
               <span className="font-bold text-xl text-gray-800">
                 {formattedDate}
               </span>
@@ -99,20 +118,20 @@ const CalendarNavigator = ({
 
                 const paidDatesSet = new Set<string>(
                   paidDates.map(
-                    (paidDate) => paidDate.toISOString().split("T")[0]
-                  )
+                    (paidDate) => paidDate.toISOString().split("T")[0],
+                  ),
                 );
 
                 monthMap.forEach((day, dateKey) => {
                   const booking = day.bookings.find(
-                    (booking) => booking.guest.name === currentGuest
+                    (booking) => booking.guest.name === currentGuest,
                   );
 
                   if (booking) {
                     const localDate = toZonedTime(dateKey, timeZone);
                     const localStartDate = toZonedTime(
                       booking.startDate,
-                      timeZone
+                      timeZone,
                     );
                     if (
                       isSameDay(localDate, localStartDate) &&
@@ -122,7 +141,7 @@ const CalendarNavigator = ({
                         paidDatesSet.add(
                           toZonedTime(addDays(localStartDate, i), timeZone)
                             .toISOString()
-                            .split("T")[0]
+                            .split("T")[0],
                         );
                       }
                     }
@@ -130,7 +149,7 @@ const CalendarNavigator = ({
                 });
 
                 const updatedPaidDates = Array.from(paidDatesSet, (date) =>
-                  toZonedTime(date, timeZone)
+                  toZonedTime(date, timeZone),
                 ).sort((a, b) => {
                   return compareAsc(a, b);
                 });
@@ -173,8 +192,8 @@ const CalendarNavigator = ({
                     object.occupancy < 33.33
                       ? "text-red-500"
                       : object.occupancy < 66.67
-                      ? "text-yellow-500"
-                      : "text-green-500";
+                        ? "text-yellow-500"
+                        : "text-green-500";
                   return (
                     <div key={index} className="space-x-1">
                       <span className="font-medium">{object.name}: </span>
@@ -195,8 +214,8 @@ const CalendarNavigator = ({
                   occupancy.totalOccupancy < 33.33
                     ? "text-red-500"
                     : occupancy.totalOccupancy < 66.67
-                    ? "text-yellow-500"
-                    : "text-green-500"
+                      ? "text-yellow-500"
+                      : "text-green-500"
                 }`}
               >
                 {Math.round(occupancy.totalOccupancy)}% occupancy
@@ -206,8 +225,8 @@ const CalendarNavigator = ({
                   occupancy.airbnbOccupancy < 33.33
                     ? "text-red-500"
                     : occupancy.airbnbOccupancy < 66.67
-                    ? "text-yellow-500"
-                    : "text-green-500"
+                      ? "text-yellow-500"
+                      : "text-green-500"
                 }`}
               >
                 {Math.round(occupancy.airbnbOccupancy)}% (A)booking

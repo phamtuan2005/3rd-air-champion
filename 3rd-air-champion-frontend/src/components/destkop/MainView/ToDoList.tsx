@@ -126,6 +126,8 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
                         ["cozy", "(0106#)"],
                         ["cute", "(2005#)"],
                         ["master", "(0209#)"],
+                        ["king", "(1224#)"],
+                        ["queen", "(1225#)"]
                       ]);
                       const phone = booking.guest.phone;
 
