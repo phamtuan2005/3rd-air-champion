@@ -19,6 +19,7 @@ const daySchema = new mongoose.Schema(
         room: { type: mongoose.Schema.ObjectId, ref: "Room" },
         guest: { type: mongoose.Schema.ObjectId, ref: "Guest" },
         price: { type: Number, default: "0" },
+        airbnbPrice: { type: Number, default: 0 },
         description: { type: String, default: "" },
         duration: { type: Number, default: 1 },
         numberOfGuests: { type: Number, default: 0 },
