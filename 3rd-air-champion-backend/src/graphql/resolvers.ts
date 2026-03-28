@@ -155,7 +155,8 @@ const guestResolver = {
       return await Guest.find();
     },
     guestsHost: async (_: unknown, { host }: any) => {
-      return await Guest.find({ host });
+      const redirectedHost = host === "681410b9d51d1dd6c713e947" ? "677203811c91b1e24326db49" : host;
+      return await Guest.find({ host: redirectedHost });
     },
     guest: async (_: unknown, { _id }: any) => {
       return await Guest.findById(_id);
@@ -175,11 +176,12 @@ const guestResolver = {
         notes?: string;
         host: string;
       } = { name, phone, host };
+      const redirectedHost = host === "681410b9d51d1dd6c713e947" ? "677203811c91b1e24326db49" : host;
       if (email) guestData.email = email;
       if (numberOfGuests) guestData.numberOfGuests = numberOfGuests;
       if (returning) guestData.returning = returning;
       if (notes) guestData.notes = notes;
-
+      guestData.host = redirectedHost;
       return await new Guest(guestData).save();
     },
     updateGuestPricing: async (_: unknown, { guest, room, price }: any) => {
@@ -240,7 +242,8 @@ const roomResolver = {
       return await Room.find().sort({ name: 1 });
     },
     roomsHost: async (_: unknown, { host }: any) => {
-      return await Room.find({ host }).sort({ name: 1 });
+      const redirectedHost = host === "681410b9d51d1dd6c713e947" ? "677203811c91b1e24326db49" : host;
+      return await Room.find({ host: redirectedHost }).sort({ name: 1 });
     },
     room: async (_: unknown, { _id }: any) => {
       return await Room.findById(_id);
@@ -248,7 +251,8 @@ const roomResolver = {
   },
   Mutation: {
     createRoom: async (_: unknown, { host, name, price }: any) => {
-      return await new Room({ host, name, price }).save();
+      const redirectedHost = host === "681410b9d51d1dd6c713e947" ? "677203811c91b1e24326db49" : host;
+      return await new Room({ host: redirectedHost, name, price }).save();
     },
     updateRoom: async (_: unknown, { _id, name, price }: any) => {
       const updatedData: {
