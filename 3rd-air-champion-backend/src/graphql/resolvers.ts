@@ -35,17 +35,23 @@ const hostResolvers = {
       // Redirect airbnbsync to the correct host
       const hostData = await Host.findById(_id);
 
-      let airBnBSync = [];
+      let airBnBSync: { room: mongoose.Types.ObjectId; link: string }[] = [];
 
       if (_id === "681410b9d51d1dd6c713e947") {
 
         const mainHost = await Host.findById("677203811c91b1e24326db49");
         if (mainHost) {
-          airBnBSync = mainHost.airbnbsync;
+          airBnBSync = mainHost.airbnbsync.map((sync) => ({
+            room: sync.room as mongoose.Types.ObjectId,
+            link: sync.link,
+          }));
         }
 
       } else {
-        airBnBSync = hostData?.airbnbsync || [];
+        airBnBSync = hostData?.airbnbsync.map((sync) => ({
+          room: sync.room as mongoose.Types.ObjectId,
+          link: sync.link,
+        })) || [];
       }
 
       return {
