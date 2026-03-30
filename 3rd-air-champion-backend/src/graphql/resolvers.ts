@@ -32,7 +32,26 @@ const hostResolvers = {
       return await Host.find();
     },
     host: async (_: unknown, { _id }: any) => {
-      return await Host.findById(_id);
+      // Redirect airbnbsync to the correct host
+      const hostData = await Host.findById(_id);
+
+      let airBnBSync = [];
+
+      if (_id === "681410b9d51d1dd6c713e947") {
+
+        const mainHost = await Host.findById("677203811c91b1e24326db49");
+        if (mainHost) {
+          airBnBSync = mainHost.airbnbsync;
+        }
+
+      } else {
+        airBnBSync = hostData?.airbnbsync || [];
+      }
+
+      return {
+        ...hostData,
+        airbnbsync: airBnBSync,
+      };
     },
   },
   Mutation: {
