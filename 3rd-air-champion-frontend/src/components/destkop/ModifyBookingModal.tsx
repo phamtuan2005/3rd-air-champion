@@ -8,18 +8,20 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { addDays, differenceInDays, format, isAfter } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { dayType } from "../../util/types/dayType";
+import { roomType } from "../../util/types/roomType";
 import { postBooking, updateUnbookGuest } from "../../util/bookingOperations";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 interface ModifyBookingModalProps {
   calendarId: string;
   monthMap: Map<string, dayType>;
+  rooms: roomType[];
   selectedModifyBooking: bookingType;
   onBooking: (
     roomName: string,
     date: Date,
     duration: number,
-    bookedDays: dayType[]
+    bookedDays: dayType[],
   ) => void;
   setSelectedModifyBooking: React.Dispatch<
     React.SetStateAction<bookingType | null>
@@ -29,6 +31,7 @@ interface ModifyBookingModalProps {
 const ModifyBookingModal = ({
   calendarId,
   monthMap,
+  rooms,
   selectedModifyBooking,
   onBooking,
   setSelectedModifyBooking,
@@ -42,12 +45,37 @@ const ModifyBookingModal = ({
   } = useForm<modifyBookingSchema>({
     resolver: zodResolver(modifyBookingObject),
     defaultValues: {
+      room: selectedModifyBooking.room.id,
       duration: selectedModifyBooking.duration,
     },
   });
   const [bookingErrorMessage, setBookingErrorMessage] = useState("");
 
   const token = localStorage.getItem("token");
+
+  const watchedStartDate = watch("startDate");
+  const watchedDuration = watch("duration");
+
+  const unavailableRoomIds = useMemo(() => {
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const start = watchedStartDate
+      ? toZonedTime(watchedStartDate, timeZone)
+      : toZonedTime(selectedModifyBooking.startDate, timeZone);
+    const duration = watchedDuration ?? selectedModifyBooking.duration;
+    const blocked = new Set<string>();
+    for (let i = 0; i < duration; i++) {
+      const dayKey = addDays(start, i).toISOString().split("T")[0];
+      const day = monthMap.get(dayKey);
+      if (day) {
+        day.bookings.forEach((b) => {
+          if (b.guest.id !== selectedModifyBooking.guest.id) {
+            blocked.add(b.room.id);
+          }
+        });
+      }
+    }
+    return blocked;
+  }, [watchedStartDate, watchedDuration, monthMap, selectedModifyBooking]);
 
   const onSubmit: SubmitHandler<modifyBookingSchema> = (data) => {
     console.log(data);
@@ -59,7 +87,7 @@ const ModifyBookingModal = ({
 
     for (let i = 0; i < selectedModifyBooking.duration; i++) {
       const currentDay = monthMap.get(
-        addDays(startDate, i).toISOString().split("T")[0]
+        addDays(startDate, i).toISOString().split("T")[0],
       );
 
       if (currentDay) {
@@ -78,7 +106,7 @@ const ModifyBookingModal = ({
     const searchMap = new Map<string, { guestId: string; bookingId: string }>(); // Map of date to guest ID
     monthMap.forEach((day, date) => {
       day.bookings.forEach((booking) => {
-        if (booking.room.id === selectedModifyBooking.room.id) {
+        if (booking.room.id === data.room) {
           searchMap.set(date, {
             guestId: booking.guest.id,
             bookingId: booking.id,
@@ -120,7 +148,7 @@ const ModifyBookingModal = ({
       numberOfGuests: number;
     } = {
       date: data.startDate,
-      room: selectedModifyBooking.room.id,
+      room: data.room,
       guest: selectedModifyBooking.guest.id,
       isAirBnB: false,
       duration: data.duration,
@@ -162,9 +190,9 @@ const ModifyBookingModal = ({
           bookingData.room,
           bookingData.date,
           bookingData.duration,
-          result
+          result,
         );
-        setSelectedModifyBooking(null); // Close the modal on success
+        setSelectedModifyBooking(null);
       })
       .catch((err) => {
         setBookingErrorMessage(err);
@@ -199,7 +227,7 @@ const ModifyBookingModal = ({
       setValue("duration", newDuration);
     } else {
       console.warn(
-        "End date is not after start date. Duration will not be updated."
+        "End date is not after start date. Duration will not be updated.",
       );
     }
   };
@@ -213,7 +241,7 @@ const ModifyBookingModal = ({
     if (startDate && duration) {
       const newEndDate = format(
         addDays(toZonedTime(startDate, timeZone), duration),
-        "yyyy-MM-dd"
+        "yyyy-MM-dd",
       );
       setValue("endDate", newEndDate as unknown as Date); // Update the endDate field as a string
     }
@@ -229,7 +257,8 @@ const ModifyBookingModal = ({
         onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside modal
       >
         <h2 className="text-lg font-bold mb-4">
-          {selectedModifyBooking?.alias || selectedModifyBooking?.guest.name}
+          {selectedModifyBooking?.alias || selectedModifyBooking?.guest.name} (
+          {selectedModifyBooking?.room.name})
         </h2>
         <form className="flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)}>
           {/* Calendar */}
@@ -267,6 +296,39 @@ const ModifyBookingModal = ({
             {errors.endDate && (
               <span className="text-red-500 text-sm">
                 {errors.endDate.message}
+              </span>
+            )}
+          </div>
+
+          {/* Room Selection */}
+          <div>
+            <label htmlFor="room" className="block text-sm font-medium">
+              Room
+            </label>
+            <select
+              id="room"
+              className="border border-gray-300 rounded px-2 py-1 w-full"
+              {...register("room")}
+            >
+              {rooms.map((room) => (
+                <option
+                  key={room.id}
+                  value={room.id}
+                  disabled={unavailableRoomIds.has(room.id)}
+                  className={
+                    unavailableRoomIds.has(room.id) ? "text-gray-400" : ""
+                  }
+                >
+                  {room.name}
+                  {room.id === selectedModifyBooking.room.id
+                    ? " (current)"
+                    : ""}
+                </option>
+              ))}
+            </select>
+            {errors.room && (
+              <span className="text-red-500 text-sm">
+                {errors.room.message}
               </span>
             )}
           </div>

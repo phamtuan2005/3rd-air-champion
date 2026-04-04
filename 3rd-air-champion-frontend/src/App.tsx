@@ -26,10 +26,17 @@ interface AddPaneContextType {
   setRoomErrorMessage: React.Dispatch<React.SetStateAction<string>>;
 }
 
+interface FooterContextType {
+  isFooterVisible: boolean;
+  setIsFooterVisible: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
 export const isSyncModalOpenContext =
   createContext<SyncModalContextType | null>(null);
 
 export const AddPaneContext = createContext<AddPaneContextType | null>(null);
+
+export const FooterContext = createContext<FooterContextType | null>(null);
 
 function App() {
   const [host, setHost] = useState<hostType | null>(null); // Track host data
@@ -48,6 +55,8 @@ function App() {
   
   const [guestErrorMessage, setGuestErrorMessage] = useState("");
   const [roomErrorMessage, setRoomErrorMessage] = useState("");
+
+  const [isFooterVisible, setIsFooterVisible] = useState(true);
 
   const navigate = useNavigate();
 
@@ -120,34 +129,37 @@ function App() {
             setRoomErrorMessage,
           }}
         >
-          <div className="grid grid-rows-[80px_1fr] h-screen lg:grid-rows-[120px_1fr]">
-            {/* Navbar */}
-            <NavBarDesktop
-              handleLogout={handleLogout}
-              name={host?.name}
-              setIsAboutModalOpen={setIsAboutModalOpen}
-            />
+          <FooterContext.Provider
+            value={{
+              isFooterVisible,
+              setIsFooterVisible,
+            }}
+          >
+            <div className="grid grid-rows-[80px_1fr] h-screen lg:grid-rows-[120px_1fr]">
+              {/* Navbar */}
+              <NavBarDesktop
+                handleLogout={handleLogout}
+                name={host?.name}
+                setIsAboutModalOpen={setIsAboutModalOpen}
+              />
 
-            {/* About Modal */}
-            {isAboutModalOpen && (
-              <About setIsAboutModalOpen={setIsAboutModalOpen} />
-            )}
+              {/* About Modal */}
+              {isAboutModalOpen && (
+                <About setIsAboutModalOpen={setIsAboutModalOpen} />
+              )}
 
-            {showMessageTemplatePane && (
-            <MessageTemplate setIsMessageTemplateModalOpen={setShowMessageTemplatePane}/> 
-            )}
+              {/* Main Content Area */}
+              <div className="grid grid-cols-5 overflow-hidden">
+                <MainView
+                  calendarId={host.calendar}
+                  hostId={host.id}
+                  airbnbsync={host.airbnbsync}
+                ></MainView>
+              </div>
 
-            {/* Main Content Area */}
-            <div className="grid grid-cols-5 overflow-hidden">
-              <MainView
-                calendarId={host.calendar}
-                hostId={host.id}
-                airbnbsync={host.airbnbsync}
-              ></MainView>
+              <Footer />
             </div>
-
-            <Footer />
-          </div>
+          </FooterContext.Provider>
         </AddPaneContext.Provider>
       </isSyncModalOpenContext.Provider>
     )

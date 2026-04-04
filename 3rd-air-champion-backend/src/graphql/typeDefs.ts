@@ -178,6 +178,7 @@ const dayDefs = gql`
     id: ID
     alias: String
     price: Float
+    airbnbPrice: Float
     guest: Guest
     notes: String
     room: Room
@@ -266,6 +267,11 @@ const dayDefs = gql`
       alias: String
       notes: String
       numberOfGuests: Int
+    ): [Day]
+
+    updateBookingAirbnbPrice(
+      _id: String!
+      airbnbPrice: Float!
     ): [Day]
 
     unbookGuest(_id: String!): [Day]

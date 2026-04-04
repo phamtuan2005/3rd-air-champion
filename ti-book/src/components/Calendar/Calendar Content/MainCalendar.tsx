@@ -61,9 +61,9 @@ const MainCalendar = () => {
 
         // Initialize placeholders for the three rows
         const gridContent: {
-          red: JSX.Element;
-          blue: JSX.Element;
-          green: JSX.Element;
+          red: React.ReactNode;
+          blue: React.ReactNode;
+          green: React.ReactNode;
         } = {
           red: <div className="row-span-1 h-full min-h-[16px]" />, // Ensure full height
           blue: <div className="row-span-1 h-full min-h-[16px]" />,
