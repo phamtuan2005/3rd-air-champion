@@ -1,5 +1,6 @@
 import { FaDatabase, FaSync, FaUser } from "react-icons/fa";
 import { TiUserAdd } from "react-icons/ti";
+import { HiAnnotation } from "react-icons/hi"
 import { MdBedroomParent } from "react-icons/md";
 import { ImExit } from "react-icons/im";
 import AirBnBSyncButton from "./AirBnBSyncButton";
@@ -7,6 +8,7 @@ import LogoutButton from "./LogoutButton";
 import RoomSyncButton from "./RoomSyncButton";
 import AddGuestButton from "./AddGuestButton";
 import AddRoomButton from "./AddRoomButton";
+import MessageTemplateButton from "./MessageTemplateButton";
 
 interface LogoutButtonProps {
   user: string;
@@ -37,6 +39,17 @@ const DropDownMenu = ({
         </div>
         <div className="basis-4/5">
           <AddGuestButton />
+        </div>
+      </div>
+      <div
+        className="flex items-center border-b border-solid w-full hover:bg-[#D9D9D9]"
+        onClick={() => setIsDropdownOpen(false)}
+      >
+        <div className="basis-1/5 flex w-full items-center justify-center">
+          <HiAnnotation />
+        </div>
+        <div className="basis-4/5">
+          <MessageTemplateButton />
         </div>
       </div>
       <div

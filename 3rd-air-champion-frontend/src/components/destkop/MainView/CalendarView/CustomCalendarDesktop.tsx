@@ -397,6 +397,12 @@ const CustomCalendar = ({
             <span>&nbsp;</span>
           );
 
+          // IDEA PROPOSAL: CHANGE BORDER WIDTH
+          // const roundedClass = `${
+          //   isSameDay(date, startDate) ? "border-l-8" : ""
+          // } ${isSameDay(date, endDate) ? "border-r-[80px]" : ""}`;
+
+          // IDEA PROPOSAL: CHANGE BORDER WIDTH
           const roundedClass = `${
             isSameDay(date, startDate) ? "rounded-l-lg" : ""
           } ${isSameDay(date, endDate) ? "rounded-r-lg" : ""}`;

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { dayType } from "../../../util/types/dayType";
+import { bookingType } from "../../../util/types/bookingType";
 import { addDays, startOfToday, format } from "date-fns";
 
 interface ToDoListProps {
@@ -8,6 +9,7 @@ interface ToDoListProps {
 
 const ToDoList = ({ monthMap }: ToDoListProps) => {
   const [upcomingDays, setUpcomingDays] = useState<dayType[]>([]);
+  const [checkoutBookings, setCheckoutBookings] = useState<bookingType[]>([]);
 
   const [completedTasks, setCompletedTasks] = useState<
     Record<string, { completed: boolean; date: string | null }>
@@ -19,6 +21,12 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
       return monthMap.get(dateKey);
     });
     setUpcomingDays(dates.filter((day) => day !== undefined) as dayType[]);
+
+    const todayKey = startOfToday().toISOString().split("T")[0];
+    const todayDay = monthMap.get(todayKey);
+    setCheckoutBookings(
+      todayDay?.bookings.filter((booking) => booking.endDate === todayKey) ?? []
+    );
   }, [monthMap]);
 
   useEffect(() => {
@@ -43,11 +51,16 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
     roomId: string
   ) => `${startDate}-${endDate}-${guestId}-${roomId}`;
 
+  const generateCleaningTaskId = (endDate: string, roomId: string) =>
+    `clean-${endDate}-${roomId}`;
+
   const upcomingDates = [1, 2].map(
     (days) => addDays(startOfToday(), days).toISOString().split("T")[0]
   );
 
-  return upcomingDays.length > 0 ? (
+  const hasAnything = upcomingDays.length > 0 || checkoutBookings.length > 0;
+
+  return hasAnything ? (
     <div className="flex flex-col h-full px-2 overflow-y-scroll">
       <h1 className="font-bold self-center text-lg">
         To Do for Today ({format(startOfToday(), "MM/dd/yyyy")})
@@ -70,24 +83,12 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
 
           const isAirBnB = booking.guest.name === "AirBnB";
 
-          const isUpcomingForAirBnB =
-            isAirBnB &&
-            (booking.startDate === upcomingDates[0] ||
-              booking.startDate === upcomingDates[1]) &&
-            day.date.toString() === booking.startDate;
-
-          const isUpcomingForNonAirBnB =
+          const shouldShowReminder =
             !isAirBnB &&
             booking.startDate === upcomingDates[0] &&
             day.date.toString() === upcomingDates[0];
 
-          const shouldShowReminder =
-            isUpcomingForAirBnB || isUpcomingForNonAirBnB;
-
           if (!shouldShowReminder) return null;
-
-          const reminderType =
-            booking.startDate === upcomingDates[1] ? "48-hour" : "24-hour";
 
           return (
             <div
@@ -110,7 +111,7 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
                 <div className="flex flex-col">
                   {booking.guest.alias || booking.alias || booking.guest.name} (
                   {booking.room.name})
-                  <p className="text-sm text-gray-600">In {reminderType}</p>
+                  <p className="text-sm text-gray-600">In 24-hour</p>
                   {isCompleted && (
                     <p className="text-sm">Sent on {task.date}</p>
                   )}
@@ -155,18 +156,12 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
                           booking.guest.name
                         }, I would like to remind you that you will stay at TT house AirBnB for ${
                           booking.duration > 1
-                            ? `${booking.duration} nights, starting ${
-                                reminderType === "48-hour"
-                                  ? "in 2 days"
-                                  : "tomorrow"
-                              }.`
-                            : reminderType === "48-hour"
-                            ? "the day after tomorrow."
-                            : "tomorrow night."
+                            ? `${booking.duration} nights, starting tomorrow`
+                            : "tomorrow night"
                         }. Your room is ${booking.room.name} ${
                           roomCodes.get(booking.room.name.toLowerCase()) ||
                           "Code"
-                        }. During the construction, please use the garage door to enter the house. The garage door opener code is 1268Enter. Many thanks for staying at TT House. I wish you a pleasant stay!`
+                        }. During the construction, please use the garage door to enter the house. The garage door opener code is 1268Enter. Please note that the last character is Enter. Please enter the code slowly and firmly to the key pad. Many thanks for staying at TT House. I wish you a pleasant stay!`
                       );
 
                       window.location.href = `sms:${phone}?&body=${constructionMessage}`;
@@ -198,6 +193,72 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
             </div>
           );
         })
+      )}
+
+      {checkoutBookings.length > 0 && (
+        <>
+          <h2 className="font-bold self-center text-md mt-4 mb-1">
+            Rooms to Clean
+          </h2>
+          {checkoutBookings.map((booking, index) => {
+            const cleaningTaskId = generateCleaningTaskId(
+              booking.endDate,
+              booking.room.id
+            );
+            const task = completedTasks[cleaningTaskId] || {
+              completed: false,
+              date: null,
+            };
+            const isCompleted = task.completed;
+
+            const todayKey = startOfToday().toISOString().split("T")[0];
+            const checkInBooking = monthMap
+              .get(todayKey)
+              ?.bookings.find(
+                (b) => b.startDate === todayKey && b.room.id === booking.room.id
+              );
+
+            if (!checkInBooking) return null;
+
+            return (
+              <div
+                key={`clean-${index}`}
+                className={`h-full w-full border-b border-solid flex justify-center items-center ${
+                  isCompleted ? "bg-gray-200" : ""
+                }`}
+              >
+                <div
+                  className={`basis-full font-bold text-lg flex ${
+                    isCompleted ? "line-through text-gray-500" : ""
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    className="mr-2"
+                    checked={isCompleted}
+                    onChange={() => toggleTaskCompletion(cleaningTaskId)}
+                  />
+                  <div className="flex flex-col">
+                    {booking.room.name}
+                    {checkInBooking && (
+                      <p className="text-sm text-gray-600">
+                        {checkInBooking.guest.alias || checkInBooking.alias || checkInBooking.guest.name}{" "}
+                        checking in &mdash;{" "}
+                        <span className="font-bold text-black">
+                          {checkInBooking.numberOfGuests}{" "}
+                          {checkInBooking.numberOfGuests === 1 ? "person" : "persons"}
+                        </span>
+                      </p>
+                    )}
+                    {isCompleted && (
+                      <p className="text-sm">Cleaned on {task.date}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </>
       )}
     </div>
   ) : (

@@ -1,4 +1,5 @@
 import React from "react";
+import { FaWindowClose } from "react-icons/fa";
 import { MdEmail, MdOutlineSmartphone } from "react-icons/md";
 
 interface AboutProps {
@@ -13,7 +14,7 @@ const About = ({ setIsAboutModalOpen }: AboutProps) => {
           className="absolute top-4 right-4 hover:text-black text-gray-700 font-bold text-[1.5rem]"
           onClick={() => setIsAboutModalOpen(false)}
         >
-          &times;
+          <FaWindowClose />
         </button>
         <h2 className="w-full flex items-center justify-center text-xl font-bold mb-2">
           <img

@@ -6,6 +6,7 @@ import NavBarDesktop from "./components/destkop/NavBar/NavBarDesktop";
 import MainView from "./components/destkop/MainView/MainView";
 import About from "./components/About";
 import Footer from "./components/destkop/Footer/Footer";
+import MessageTemplate from "./components/MessageTemplate";
 
 interface SyncModalContextType {
   isSyncModalOpen: boolean;
@@ -15,8 +16,10 @@ interface SyncModalContextType {
 }
 
 interface AddPaneContextType {
+  showMessageTemplatePane: boolean;
   showAddPane: "guest" | "room" | null;
   setShowAddPane: React.Dispatch<React.SetStateAction<"guest" | "room" | null>>;
+  setShowMessageTemplatePane: React.Dispatch<React.SetStateAction<boolean>>;
   guestErrorMessage: string;
   setGuestErrorMessage: React.Dispatch<React.SetStateAction<string>>;
   roomErrorMessage: string;
@@ -36,10 +39,13 @@ function App() {
 
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
 
+
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [shouldCallOnSync, setShouldCallOnSync] = useState(false);
 
   const [showAddPane, setShowAddPane] = useState<"guest" | "room" | null>(null);
+  const [showMessageTemplatePane, setShowMessageTemplatePane] = useState(false);
+  
   const [guestErrorMessage, setGuestErrorMessage] = useState("");
   const [roomErrorMessage, setRoomErrorMessage] = useState("");
 
@@ -105,7 +111,9 @@ function App() {
         <AddPaneContext.Provider
           value={{
             showAddPane,
+            showMessageTemplatePane,
             setShowAddPane,
+            setShowMessageTemplatePane,
             guestErrorMessage,
             setGuestErrorMessage,
             roomErrorMessage,
@@ -123,6 +131,10 @@ function App() {
             {/* About Modal */}
             {isAboutModalOpen && (
               <About setIsAboutModalOpen={setIsAboutModalOpen} />
+            )}
+
+            {showMessageTemplatePane && (
+            <MessageTemplate setIsMessageTemplateModalOpen={setShowMessageTemplatePane}/> 
             )}
 
             {/* Main Content Area */}

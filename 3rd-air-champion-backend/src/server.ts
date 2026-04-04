@@ -13,6 +13,7 @@ import roomRoute from "./route/roomRoute";
 import dayRoute from "./route/dayRoute";
 import hostRoute from "./route/hostRoute";
 import syncRoute from "./route/syncRoute";
+import settingRoute from "./route/settingRoute";
 import { authenticateToken } from "./middleware/authenticateJWT";
 import cors from "cors";
 
@@ -78,6 +79,9 @@ const startServer = async () => {
     app.get("/", (req: Request, res: Response) => {
       res.status(200).json({ message: "Hello World!" });
     });
+
+    // Landing route
+    app.use("/setting", settingRoute)
 
     // Authorization route
     app.use("/auth", authorizationRoute);
