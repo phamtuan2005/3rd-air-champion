@@ -1053,7 +1053,9 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
             currentBookings={currentBookings}
             currentAirBnBGuest={currentAirBnBGuest}
             currentGuest={currentGuest}
+            monthMap={monthMap}
             rooms={rooms}
+            selectedDate={selectedDate}
             handleBookingConfirmation={handleBookingConfirmation}
             onAirbnbPriceUpdate={onAirbnbPriceUpdate}
             onPricingUpdate={onPricingUpdate}
@@ -1123,7 +1125,9 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
             currentBookings={currentBookings}
             currentAirBnBGuest={currentAirBnBGuest}
             currentGuest={currentGuest}
+            monthMap={monthMap}
             rooms={rooms}
+            selectedDate={selectedDate}
             handleBookingConfirmation={handleBookingConfirmation}
             onAirbnbPriceUpdate={onAirbnbPriceUpdate}
             onPricingUpdate={onPricingUpdate}

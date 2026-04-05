@@ -1,5 +1,6 @@
 import { formatDate } from "../../../../util/formatDate";
 import { bookingType } from "../../../../util/types/bookingType";
+import { dayType } from "../../../../util/types/dayType";
 import { roomType } from "../../../../util/types/roomType";
 import { FaMinus } from "react-icons/fa";
 import { CiCalendar } from "react-icons/ci";
@@ -7,6 +8,7 @@ import Pricing from "./Pricing";
 import React, { useState } from "react";
 import AirBnBPricing from "./AirBnBPricing";
 import RebookCount from "./RebookCount";
+import RoomsToClean from "./RoomsToClean";
 
 interface GuestViewProps {
   airBnBBookingCount: {
@@ -18,7 +20,9 @@ interface GuestViewProps {
   currentBookings: bookingType[];
   currentAirBnBGuest: string | null;
   currentGuest: string | null;
+  monthMap: Map<string, dayType>;
   rooms: roomType[];
+  selectedDate: Date;
   handleBookingConfirmation: (phone: string) => void;
   onAirbnbPriceUpdate: (bookingId: string, airbnbPrice: number) => void;
   onPricingUpdate: (
@@ -41,7 +45,9 @@ const GuestView = ({
   currentBookings,
   currentAirBnBGuest,
   currentGuest,
+  monthMap,
   rooms,
+  selectedDate,
   onAirbnbPriceUpdate,
   onPricingUpdate,
   airBnBBookingCount,
@@ -257,6 +263,8 @@ const GuestView = ({
             })}
           </div>
         ))}
+
+      <RoomsToClean selectedDate={selectedDate} monthMap={monthMap} />
     </div>
   );
 };
