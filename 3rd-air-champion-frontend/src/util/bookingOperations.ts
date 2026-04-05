@@ -33,6 +33,7 @@ export const updateBookingGuest = async (
   request: {
     id: string;
     notes?: string;
+    earlyCheckin?: boolean;
     numberOfGuests?: number;
     alias?: string;
   },

@@ -608,6 +608,7 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
     alias: string;
     numberOfGuests: number;
     notes?: string;
+    earlyCheckin?: boolean;
   }) => {
     updateBookingGuest(data, token as string)
       .then((result) => {

@@ -6,6 +6,7 @@ export interface bookingType {
   alias: string;
   price: number;
   notes: string;
+  earlyCheckin: boolean;
   guest: guestType;
   room: roomType;
   description: string;

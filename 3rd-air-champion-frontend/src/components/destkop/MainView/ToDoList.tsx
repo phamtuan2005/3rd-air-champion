@@ -22,10 +22,12 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
     });
     setUpcomingDays(dates.filter((day) => day !== undefined) as dayType[]);
 
-    const todayKey = startOfToday().toISOString().split("T")[0];
-    const todayDay = monthMap.get(todayKey);
+    const yesterdayKey = addDays(startOfToday(), -1).toISOString().split("T")[0];
+    const yesterdayDay = monthMap.get(yesterdayKey);
     setCheckoutBookings(
-      todayDay?.bookings.filter((booking) => booking.endDate === todayKey) ?? []
+      yesterdayDay?.bookings.filter(
+        (booking) => booking.endDate.split("T")[0] === yesterdayKey
+      ) ?? []
     );
   }, [monthMap]);
 
@@ -86,7 +88,7 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
           const shouldShowReminder =
             !isAirBnB &&
             booking.startDate === upcomingDates[0] &&
-            day.date.toString() === upcomingDates[0];
+            day.date.toString().split("T")[0] === upcomingDates[0];
 
           if (!shouldShowReminder) return null;
 
@@ -211,14 +213,23 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
             };
             const isCompleted = task.completed;
 
-            const todayKey = startOfToday().toISOString().split("T")[0];
-            const checkInBooking = monthMap
-              .get(todayKey)
-              ?.bookings.find(
-                (b) => b.startDate === todayKey && b.room.id === booking.room.id
-              );
-
-            if (!checkInBooking) return null;
+            // Find the next check-in for this room starting from today
+            let nextCheckIn: bookingType | null = null;
+            let nextCheckInDate: string | null = null;
+            for (let i = 0; i <= 30; i++) {
+              const dateKey = addDays(startOfToday(), i).toISOString().split("T")[0];
+              const day = monthMap.get(dateKey);
+              if (day) {
+                const found = day.bookings.find(
+                  (b) => b.startDate.split("T")[0] === dateKey && b.room.id === booking.room.id
+                );
+                if (found) {
+                  nextCheckIn = found;
+                  nextCheckInDate = dateKey;
+                  break;
+                }
+              }
+            }
 
             return (
               <div
@@ -240,15 +251,21 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
                   />
                   <div className="flex flex-col">
                     {booking.room.name}
-                    {checkInBooking && (
+                    {nextCheckIn && nextCheckInDate ? (
                       <p className="text-sm text-gray-600">
-                        {checkInBooking.guest.alias || checkInBooking.alias || checkInBooking.guest.name}{" "}
-                        checking in &mdash;{" "}
+                        {nextCheckIn.guest.alias || nextCheckIn.alias || nextCheckIn.guest.name}{" "}
+                        checking in on {format(new Date(nextCheckInDate + "T00:00:00"), "MM/dd")}{" "}
+                        &mdash;{" "}
                         <span className="font-bold text-black">
-                          {checkInBooking.numberOfGuests}{" "}
-                          {checkInBooking.numberOfGuests === 1 ? "person" : "persons"}
+                          {nextCheckIn.numberOfGuests}{" "}
+                          {nextCheckIn.numberOfGuests === 1 ? "person" : "persons"}
                         </span>
                       </p>
+                    ) : (
+                      <p className="text-sm text-gray-600">No upcoming check-in</p>
+                    )}
+                    {nextCheckIn?.earlyCheckin && (
+                      <p className="text-sm font-semibold text-orange-500">Early Check-in Requested</p>
                     )}
                     {isCompleted && (
                       <p className="text-sm">Cleaned on {task.date}</p>
