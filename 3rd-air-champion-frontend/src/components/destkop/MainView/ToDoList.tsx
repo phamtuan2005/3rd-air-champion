@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { dayType } from "../../../util/types/dayType";
 import { bookingType } from "../../../util/types/bookingType";
 import { addDays, startOfToday, format } from "date-fns";
+import { getRoomColor } from "../../../util/getRoomColor";
 
 interface ToDoListProps {
   monthMap: Map<string, dayType>;
@@ -22,12 +23,14 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
     });
     setUpcomingDays(dates.filter((day) => day !== undefined) as dayType[]);
 
-    const yesterdayKey = addDays(startOfToday(), -1).toISOString().split("T")[0];
+    const yesterdayKey = addDays(startOfToday(), -1)
+      .toISOString()
+      .split("T")[0];
     const yesterdayDay = monthMap.get(yesterdayKey);
     setCheckoutBookings(
       yesterdayDay?.bookings.filter(
-        (booking) => booking.endDate.split("T")[0] === yesterdayKey
-      ) ?? []
+        (booking) => booking.endDate.split("T")[0] === yesterdayKey,
+      ) ?? [],
     );
   }, [monthMap]);
 
@@ -50,14 +53,14 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
     startDate: string,
     endDate: string,
     guestId: string,
-    roomId: string
+    roomId: string,
   ) => `${startDate}-${endDate}-${guestId}-${roomId}`;
 
   const generateCleaningTaskId = (endDate: string, roomId: string) =>
     `clean-${endDate}-${roomId}`;
 
   const upcomingDates = [1, 2].map(
-    (days) => addDays(startOfToday(), days).toISOString().split("T")[0]
+    (days) => addDays(startOfToday(), days).toISOString().split("T")[0],
   );
 
   const hasAnything = upcomingDays.length > 0 || checkoutBookings.length > 0;
@@ -74,7 +77,7 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
             booking.startDate,
             booking.endDate,
             booking.guest.id,
-            booking.room.id
+            booking.room.id,
           );
 
           const task = completedTasks[taskId] || {
@@ -130,7 +133,7 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
                         ["cute", "(2005#)"],
                         ["master", "(0209#)"],
                         ["king", "(1224#)"],
-                        ["queen", "(1225#)"]
+                        ["queen", "(1225#)"],
                       ]);
                       const phone = booking.guest.phone;
 
@@ -165,7 +168,7 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
                         } Your room is ${booking.room.name} ${
                           roomCodes.get(booking.room.name.toLowerCase()) ||
                           "Code"
-                        }. The main entrance door code is 1268=. Many thanks for staying at TT House. I wish you a pleasant stay!`
+                        }. The main entrance door code is 1268=. Many thanks for staying at TT House. I wish you a pleasant stay!`,
                       );
 
                       window.location.href = `sms:${phone}?&body=${constructionMessage}`;
@@ -180,7 +183,7 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
                     className="rounded-full shadow-md bg-black text-white font-semibold h-[64px] w-[64px] text-[0.6rem]"
                     onClick={() => {
                       const url = booking.description.match(
-                        /https:\/\/www\.airbnb\.com\/hosting\/reservations\/details\/\S+/
+                        /https:\/\/www\.airbnb\.com\/hosting\/reservations\/details\/\S+/,
                       )?.[0];
                       if (url) {
                         window.open(url, "_blank", "noopener,noreferrer");
@@ -196,24 +199,28 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
               </div>
             </div>
           );
-        })
+        }),
       )}
 
       {checkoutBookings.length > 0 && (
         <>
           <h2 className="font-bold self-center text-md mt-4 mb-1">
-            Rooms to Clean
+            {checkoutBookings.length} Rooms to Clean
           </h2>
           {checkoutBookings
             .map((booking) => {
               let nextCheckIn: bookingType | null = null;
               let nextCheckInDate: string | null = null;
               for (let i = 0; i <= 30; i++) {
-                const dateKey = addDays(startOfToday(), i).toISOString().split("T")[0];
+                const dateKey = addDays(startOfToday(), i)
+                  .toISOString()
+                  .split("T")[0];
                 const day = monthMap.get(dateKey);
                 if (day) {
                   const found = day.bookings.find(
-                    (b) => b.startDate.split("T")[0] === dateKey && b.room.id === booking.room.id
+                    (b) =>
+                      b.startDate.split("T")[0] === dateKey &&
+                      b.room.id === booking.room.id,
                   );
                   if (found) {
                     nextCheckIn = found;
@@ -235,7 +242,7 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
             .map(({ booking, nextCheckIn, nextCheckInDate }, index) => {
               const cleaningTaskId = generateCleaningTaskId(
                 booking.endDate,
-                booking.room.id
+                booking.room.id,
               );
               const task = completedTasks[cleaningTaskId] || {
                 completed: false,
@@ -262,25 +269,43 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
                       onChange={() => toggleTaskCompletion(cleaningTaskId)}
                     />
                     <div className="flex flex-col">
-                      {booking.room.name}
+                      <span
+                        className={`${getRoomColor(booking.room.name)} ${nextCheckIn?.guest.name === "AirBnB" ? "text-white" : "text-black"} p-1 rounded-md`}
+                      >
+                        {booking.room.name}
+                      </span>
                       {nextCheckIn && nextCheckInDate ? (
                         <p className="text-sm text-gray-600">
-                          {nextCheckIn.guest.alias || nextCheckIn.alias || nextCheckIn.guest.name}{" "}
-                          checking in on {format(new Date(nextCheckInDate + "T00:00:00"), "MM/dd")}{" "}
+                          {nextCheckIn.guest.alias ||
+                            nextCheckIn.alias ||
+                            nextCheckIn.guest.name}{" "}
+                          checking in on{" "}
+                          {format(
+                            new Date(nextCheckInDate + "T00:00:00"),
+                            "MM/dd",
+                          )}{" "}
                           &mdash;{" "}
                           <span className="font-bold text-black">
                             {nextCheckIn.numberOfGuests}{" "}
-                            {nextCheckIn.numberOfGuests === 1 ? "person" : "persons"}
+                            {nextCheckIn.numberOfGuests === 1
+                              ? "person"
+                              : "persons"}
                           </span>
                         </p>
                       ) : (
-                        <p className="text-sm text-gray-600">No upcoming check-in</p>
+                        <p className="text-sm text-gray-600">
+                          No upcoming check-in
+                        </p>
                       )}
                       {nextCheckIn?.earlyCheckin && (
-                        <p className="text-sm font-semibold text-orange-500">Early Check-in Requested</p>
+                        <p className="text-sm font-semibold text-orange-500">
+                          Early Check-in Requested
+                        </p>
                       )}
                       {booking.lateCheckout && (
-                        <p className="text-sm font-semibold text-blue-500">Late Checkout Requested</p>
+                        <p className="text-sm font-semibold text-blue-500">
+                          Late Checkout Requested
+                        </p>
                       )}
                       {isCompleted && (
                         <p className="text-sm">Cleaned on {task.date}</p>

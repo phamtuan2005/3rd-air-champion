@@ -15,6 +15,7 @@ import { bookingType } from "../../../../util/types/bookingType";
 import { roomType } from "../../../../util/types/roomType";
 import { toZonedTime } from "date-fns-tz";
 import { useDoubleClick } from "../../../../util/useDoubleClick";
+import { getRoomColor } from "../../../../util/getRoomColor";
 
 interface CustomCalendarProps {
   currentMonth: Date;
@@ -63,7 +64,7 @@ const CustomCalendar = ({
       const month = new Date(
         currentMonth.getFullYear(),
         currentMonth.getMonth() + i,
-        1
+        1,
       );
       monthsArray.push(month);
     }
@@ -83,7 +84,7 @@ const CustomCalendar = ({
     if (calendarWrapperRef.current) {
       // Find the first tile element inside the calendar wrapper
       const tile = calendarWrapperRef.current.querySelector(
-        ".react-calendar__tile"
+        ".react-calendar__tile",
       );
       if (tile) {
         setTileWidth(tile.getBoundingClientRect().width);
@@ -98,7 +99,7 @@ const CustomCalendar = ({
 
       monthMap.forEach((dayEntry, date) => {
         const guestBookings = dayEntry.bookings.filter(
-          (booking) => booking.guest.id == currentGuest
+          (booking) => booking.guest.id == currentGuest,
         );
 
         if (guestBookings.length > 0) {
@@ -110,7 +111,7 @@ const CustomCalendar = ({
         }
 
         const booking = guestBookings.find(
-          (booking) => booking.guest.id === currentGuest
+          (booking) => booking.guest.id === currentGuest,
         );
 
         if (booking) {
@@ -136,7 +137,7 @@ const CustomCalendar = ({
 
       monthMap.forEach((dayEntry, date) => {
         const airbnbBookings = dayEntry.bookings.filter(
-          (booking) => booking.alias === currentAirBnBGuest
+          (booking) => booking.alias === currentAirBnBGuest,
         );
 
         if (airbnbBookings.length > 0) {
@@ -175,7 +176,7 @@ const CustomCalendar = ({
         currentMaxRooms = Math.max(
           currentMaxRooms,
           dayEntry.bookings.length,
-          roomsInMonth.length
+          roomsInMonth.length,
         );
       }
     });
@@ -192,7 +193,7 @@ const CustomCalendar = ({
         .forEach((tile) => {
           (tile as HTMLElement).style.setProperty(
             "--max-rows",
-            (maxRooms + 1).toString()
+            (maxRooms + 1).toString(),
           );
         });
     }
@@ -215,7 +216,7 @@ const CustomCalendar = ({
 
     if (foundDate) {
       updatedPaidDates = paidDates.filter(
-        (paidDate) => !isSameDay(date, paidDate)
+        (paidDate) => !isSameDay(date, paidDate),
       );
     } else {
       updatedPaidDates = [...paidDates, date];
@@ -262,7 +263,7 @@ const CustomCalendar = ({
       className.push("react-calendar__custom_tile_blocked");
 
     const totalAvailableRooms = new Set(
-      usedRooms.map((room) => room.name.replace(/(.+?)\1+$/, "$1"))
+      usedRooms.map((room) => room.name.replace(/(.+?)\1+$/, "$1")),
     ).size;
     if (day && day.bookings.length >= totalAvailableRooms)
       className.push("react-calendar__custom_tile_full");
@@ -294,7 +295,7 @@ const CustomCalendar = ({
 
           return acc;
         },
-        { isStart: false, isInbetween: false, isEnd: false }
+        { isStart: false, isInbetween: false, isEnd: false },
       );
 
       // Refined class assignment logic
@@ -320,7 +321,7 @@ const CustomCalendar = ({
       const day = useMonthMap.get(date.toISOString().split("T")[0]);
       if (day) {
         const sortedUsedRooms = usedRooms.sort((a, b) =>
-          a.name.localeCompare(b.name)
+          a.name.localeCompare(b.name),
         );
 
         // Initialize grid with empty placeholders
@@ -340,15 +341,15 @@ const CustomCalendar = ({
             booking.guest.name === "AirBnB" && booking.alias
               ? `${booking.alias} (A)`
               : currentGuest
-              ? booking.room.name
-              : booking.guest.name;
+                ? booking.room.name
+                : booking.guest.name;
 
           const dayIndex = getDay(date);
           let maxDuration = Math.max(
             booking.duration - dayIndex > 1
               ? Math.min(booking.duration, booking.duration - dayIndex)
               : booking.duration,
-            1
+            1,
           );
 
           if (isSameDay(date, endOfMonth(date))) maxDuration = 1;
@@ -398,32 +399,6 @@ const CustomCalendar = ({
     }
 
     return null;
-  };
-
-  // Function to dynamically assign colors to rooms
-  const getRoomColor = (roomName: string) => {
-    if (roomName.toLowerCase().includes("master") || roomName.toLowerCase().includes("king")) return "bg-red-500";
-    if (roomName.toLowerCase().includes("queen")) return "bg-yellow-500";
-    if (roomName.toLowerCase().includes("cozy")) return "bg-blue-500";
-    if (roomName.toLowerCase().includes("cute")) return "bg-green-500";
-
-    // Default dynamic colors for other rooms
-    const colors = [
-      "bg-yellow-500",
-      "bg-purple-500",
-      "bg-pink-500",
-      "bg-indigo-500",
-      "bg-gray-500",
-      "bg-teal-500",
-      "bg-orange-500",
-    ];
-
-    let hash = 0;
-    for (let i = 0; i < roomName.length; i++) {
-      hash = roomName.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    const index = Math.abs(hash) % colors.length;
-    return colors[index];
   };
 
   const getDayContent = useDoubleClick<Date>(onSingleClick, onDoubleClick);
