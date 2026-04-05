@@ -34,6 +34,7 @@ export const updateBookingGuest = async (
     id: string;
     notes?: string;
     earlyCheckin?: boolean;
+    lateCheckout?: boolean;
     numberOfGuests?: number;
     alias?: string;
   },

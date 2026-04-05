@@ -181,6 +181,7 @@ const dayDefs = gql`
     guest: Guest
     notes: String
     earlyCheckin: Boolean
+    lateCheckout: Boolean
     room: Room
     description: String
     duration: Int
@@ -267,6 +268,7 @@ const dayDefs = gql`
       alias: String
       notes: String
       earlyCheckin: Boolean
+      lateCheckout: Boolean
       numberOfGuests: Int
     ): [Day]
 

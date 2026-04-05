@@ -720,13 +720,14 @@ const dayResolver = {
     },
     updateBookingGuest: async (
       _: unknown,
-      { _id, alias, notes, earlyCheckin, numberOfGuests }: any
+      { _id, alias, notes, earlyCheckin, lateCheckout, numberOfGuests }: any
     ) => {
       const updateBody: {
         "bookings.$[matchingBooking].alias"?: string;
         "bookings.$[matchingBooking].price"?: number;
         "bookings.$[matchingBooking].notes"?: string;
         "bookings.$[matchingBooking].earlyCheckin"?: boolean;
+        "bookings.$[matchingBooking].lateCheckout"?: boolean;
         "bookings.$[matchingBooking].numberOfGuests"?: number;
       } = {};
 
@@ -734,6 +735,8 @@ const dayResolver = {
       if (notes) updateBody["bookings.$[matchingBooking].notes"] = notes;
       if (earlyCheckin !== undefined)
         updateBody["bookings.$[matchingBooking].earlyCheckin"] = earlyCheckin;
+      if (lateCheckout !== undefined)
+        updateBody["bookings.$[matchingBooking].lateCheckout"] = lateCheckout;
       if (numberOfGuests)
         updateBody["bookings.$[matchingBooking].numberOfGuests"] =
           numberOfGuests;

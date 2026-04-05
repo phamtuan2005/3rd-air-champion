@@ -202,7 +202,35 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
           <h2 className="font-bold self-center text-md mt-4 mb-1">
             Rooms to Clean
           </h2>
-          {checkoutBookings.map((booking, index) => {
+          {checkoutBookings
+            .map((booking) => {
+              let nextCheckIn: bookingType | null = null;
+              let nextCheckInDate: string | null = null;
+              for (let i = 0; i <= 30; i++) {
+                const dateKey = addDays(startOfToday(), i).toISOString().split("T")[0];
+                const day = monthMap.get(dateKey);
+                if (day) {
+                  const found = day.bookings.find(
+                    (b) => b.startDate.split("T")[0] === dateKey && b.room.id === booking.room.id
+                  );
+                  if (found) {
+                    nextCheckIn = found;
+                    nextCheckInDate = dateKey;
+                    break;
+                  }
+                }
+              }
+              return { booking, nextCheckIn, nextCheckInDate };
+            })
+            .sort((a, b) => {
+              const priorityOf = (item: typeof a) => {
+                if (item.nextCheckIn?.earlyCheckin) return 0;
+                if (item.booking.lateCheckout) return 2;
+                return 1;
+              };
+              return priorityOf(a) - priorityOf(b);
+            })
+            .map(({ booking, nextCheckIn, nextCheckInDate }, index) => {
             const cleaningTaskId = generateCleaningTaskId(
               booking.endDate,
               booking.room.id
@@ -212,24 +240,6 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
               date: null,
             };
             const isCompleted = task.completed;
-
-            // Find the next check-in for this room starting from today
-            let nextCheckIn: bookingType | null = null;
-            let nextCheckInDate: string | null = null;
-            for (let i = 0; i <= 30; i++) {
-              const dateKey = addDays(startOfToday(), i).toISOString().split("T")[0];
-              const day = monthMap.get(dateKey);
-              if (day) {
-                const found = day.bookings.find(
-                  (b) => b.startDate.split("T")[0] === dateKey && b.room.id === booking.room.id
-                );
-                if (found) {
-                  nextCheckIn = found;
-                  nextCheckInDate = dateKey;
-                  break;
-                }
-              }
-            }
 
             return (
               <div
@@ -266,6 +276,9 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
                     )}
                     {nextCheckIn?.earlyCheckin && (
                       <p className="text-sm font-semibold text-orange-500">Early Check-in Requested</p>
+                    )}
+                    {booking.lateCheckout && (
+                      <p className="text-sm font-semibold text-blue-500">Late Checkout Requested</p>
                     )}
                     {isCompleted && (
                       <p className="text-sm">Cleaned on {task.date}</p>

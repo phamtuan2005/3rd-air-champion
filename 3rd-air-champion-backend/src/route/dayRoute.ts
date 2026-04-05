@@ -27,6 +27,7 @@ router.get("/get", async (req: Request, res: any) => {
               price
               notes
               earlyCheckin
+              lateCheckout
               guest {
                 id
                 name
@@ -143,6 +144,7 @@ router.post("/get/host", async (req: Request, res: any) => {
               price
               notes
               earlyCheckin
+              lateCheckout
               guest {
                 id
                 name
@@ -437,23 +439,25 @@ router.post("/update/booking/guest", async (req: Request, res: any) => {
   if (!("user" in req))
     return res.status(401).json({ error: "Invalid or expired token" });
 
-  const { id, alias, notes, earlyCheckin, numberOfGuests } = req.body;
+  const { id, alias, notes, earlyCheckin, lateCheckout, numberOfGuests } = req.body;
 
   const variables: {
     id: string;
     alias?: string;
     notes?: string;
     earlyCheckin?: boolean;
+    lateCheckout?: boolean;
     numberOfGuests?: number;
   } = { id };
   if (alias) variables.alias = alias;
   if (notes) variables.notes = notes;
   if (earlyCheckin !== undefined) variables.earlyCheckin = earlyCheckin;
+  if (lateCheckout !== undefined) variables.lateCheckout = lateCheckout;
   if (numberOfGuests) variables.numberOfGuests = numberOfGuests;
 
   const query = `
-        mutation UpdateBookingGuest($id: String!, $alias: String, $notes: String, $earlyCheckin: Boolean, $numberOfGuests: Int) {
-          updateBookingGuest(_id: $id, alias: $alias, notes: $notes, earlyCheckin: $earlyCheckin, numberOfGuests: $numberOfGuests) {
+        mutation UpdateBookingGuest($id: String!, $alias: String, $notes: String, $earlyCheckin: Boolean, $lateCheckout: Boolean, $numberOfGuests: Int) {
+          updateBookingGuest(_id: $id, alias: $alias, notes: $notes, earlyCheckin: $earlyCheckin, lateCheckout: $lateCheckout, numberOfGuests: $numberOfGuests) {
             id
             calendar
             date
@@ -470,6 +474,7 @@ router.post("/update/booking/guest", async (req: Request, res: any) => {
               alias
               notes
               earlyCheckin
+              lateCheckout
               price
               guest {
                 id
@@ -541,6 +546,7 @@ router.post("/update/unbook/guest", async (req: Request, res: any) => {
               alias
               notes
               earlyCheckin
+              lateCheckout
               price
               guest {
                 id

@@ -7,6 +7,7 @@ export interface bookingType {
   price: number;
   notes: string;
   earlyCheckin: boolean;
+  lateCheckout: boolean;
   guest: guestType;
   room: roomType;
   description: string;
