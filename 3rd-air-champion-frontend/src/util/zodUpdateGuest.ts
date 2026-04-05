@@ -8,6 +8,8 @@ export const guestUpdateZodObject = z.object({
       message: "Name cannot contain a special character",
     }),
   notes: z.string().optional(),
+  earlyCheckin: z.boolean().optional(),
+  lateCheckout: z.boolean().optional(),
   numberOfGuests: z
     .number("Must be a number")
     .min(1, { message: "Must be at least 1 guest" }),

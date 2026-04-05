@@ -16,6 +16,8 @@ interface DetailsModalProps {
     alias: string;
     numberOfGuests: number;
     notes?: string;
+    earlyCheckin?: boolean;
+    lateCheckout?: boolean;
   }) => void;
 }
 
@@ -35,6 +37,8 @@ const DetailsModal = ({
     defaultValues: {
       alias: booking.alias || booking.guest.name,
       notes: booking.notes || "",
+      earlyCheckin: booking.earlyCheckin || false,
+      lateCheckout: booking.lateCheckout || false,
       numberOfGuests: booking.numberOfGuests || 1,
     },
   });
@@ -116,6 +120,50 @@ const DetailsModal = ({
               />
             ) : (
               <p>{booking.notes || "No notes available"}</p>
+            )}
+          </div>
+          <div className="flex items-center space-x-2">
+            <label htmlFor="earlyCheckin" className="font-semibold">
+              Early Check-in:
+            </label>
+            {isWriting ? (
+              <Controller
+                name="earlyCheckin"
+                control={control}
+                render={({ field }) => (
+                  <input
+                    id="earlyCheckin"
+                    type="checkbox"
+                    checked={field.value ?? false}
+                    onChange={(e) => field.onChange(e.target.checked)}
+                    className="w-4 h-4"
+                  />
+                )}
+              />
+            ) : (
+              <span>{booking.earlyCheckin ? "Yes" : "No"}</span>
+            )}
+          </div>
+          <div className="flex items-center space-x-2">
+            <label htmlFor="lateCheckout" className="font-semibold">
+              Late Checkout:
+            </label>
+            {isWriting ? (
+              <Controller
+                name="lateCheckout"
+                control={control}
+                render={({ field }) => (
+                  <input
+                    id="lateCheckout"
+                    type="checkbox"
+                    checked={field.value ?? false}
+                    onChange={(e) => field.onChange(e.target.checked)}
+                    className="w-4 h-4"
+                  />
+                )}
+              />
+            ) : (
+              <span>{booking.lateCheckout ? "Yes" : "No"}</span>
             )}
           </div>
           <div>
