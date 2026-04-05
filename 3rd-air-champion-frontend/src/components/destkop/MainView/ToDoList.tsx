@@ -304,7 +304,12 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
                       )}
                       {booking.lateCheckout && (
                         <p className="text-sm font-semibold text-blue-500">
-                          Late Checkout Requested
+                          {booking.guest.name === "AirBnB"
+                            ? booking.guest.alias ||
+                              booking.alias ||
+                              booking.guest.name
+                            : booking.guest.name}{" "}
+                          requested late checkout
                         </p>
                       )}
                       {isCompleted && (

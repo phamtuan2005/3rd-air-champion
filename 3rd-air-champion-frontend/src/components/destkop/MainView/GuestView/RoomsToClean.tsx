@@ -17,9 +17,7 @@ const RoomsToClean = ({ selectedDate, monthMap }: RoomsToCleanProps) => {
   >(() => JSON.parse(localStorage.getItem("completedTasks") || "{}"));
 
   useEffect(() => {
-    const yesterdayKey = addDays(selectedDate, -1)
-      .toISOString()
-      .split("T")[0];
+    const yesterdayKey = addDays(selectedDate, -1).toISOString().split("T")[0];
     const yesterdayDay = monthMap.get(yesterdayKey);
     setCheckoutBookings(
       yesterdayDay?.bookings.filter(
@@ -126,10 +124,7 @@ const RoomsToClean = ({ selectedDate, monthMap }: RoomsToCleanProps) => {
                         nextCheckIn.alias ||
                         nextCheckIn.guest.name}{" "}
                       checking in on{" "}
-                      {format(
-                        new Date(nextCheckInDate + "T00:00:00"),
-                        "MM/dd",
-                      )}{" "}
+                      {format(new Date(nextCheckInDate + "T00:00:00"), "MM/dd")}{" "}
                       &mdash;{" "}
                       <span className="font-bold text-black">
                         {nextCheckIn.numberOfGuests}{" "}
@@ -150,7 +145,12 @@ const RoomsToClean = ({ selectedDate, monthMap }: RoomsToCleanProps) => {
                   )}
                   {booking.lateCheckout && (
                     <p className="text-sm font-semibold text-blue-500">
-                      Late Checkout Requested
+                      {booking.guest.name === "AirBnB"
+                        ? booking.guest.alias ||
+                          booking.alias ||
+                          booking.guest.name
+                        : booking.guest.name}{" "}
+                      requested late checkout
                     </p>
                   )}
                   {isCompleted && (
