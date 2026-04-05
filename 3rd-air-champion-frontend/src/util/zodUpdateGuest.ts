@@ -11,7 +11,7 @@ export const guestUpdateZodObject = z.object({
   earlyCheckin: z.boolean().optional(),
   lateCheckout: z.boolean().optional(),
   numberOfGuests: z
-    .number({ invalid_type_error: "Must be a number" })
+    .number("Must be a number")
     .min(1, { message: "Must be at least 1 guest" }),
 });
 

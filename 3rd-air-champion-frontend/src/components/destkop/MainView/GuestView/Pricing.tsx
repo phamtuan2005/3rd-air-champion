@@ -11,6 +11,7 @@ import {
   pricingZodObject,
   pricingZodSchema,
 } from "../../../../util/zodPricing";
+import PricingDropdown from "./PricingDropdown";
 
 interface PricingProps {
   booking: bookingType;
@@ -21,7 +22,7 @@ interface PricingProps {
       guest: string;
       room: string;
       price: number;
-    }[]
+    }[],
   ) => void;
   setIsEditing: React.Dispatch<React.SetStateAction<boolean>>;
 }
@@ -39,7 +40,7 @@ const Pricing = ({
     defaultValues: {
       pricing: rooms.map((room) => {
         const roomPricing = booking.guest.pricing?.find(
-          (price) => price.room === room.id
+          (price) => price.room === room.id,
         );
         return {
           room: room.id,
@@ -70,7 +71,7 @@ const Pricing = ({
       {isEditing ? (
         <form
           onSubmit={handleSubmit(onSubmit)}
-          className="flex flex-col space-y-1"
+          className="flex flex-col space-y-1 py-1"
         >
           {fields.map((field, index) => (
             <div key={field.id} className="flex items-center space-x-4">
@@ -89,7 +90,7 @@ const Pricing = ({
                         field.onChange(
                           event.target.value === ""
                             ? event.target.value
-                            : +event.target.value
+                            : +event.target.value,
                         )
                       }
                     />
@@ -120,20 +121,14 @@ const Pricing = ({
           </div>
         </form>
       ) : (
-        <div>
-          <div
-            className="flex space-x-1 cursor-pointer underline"
+        <div className="flex w-full justify-between items-center space-x-2 py-1">
+          <button
+            className="bg-blue-500 text-white px-2 py-1 rounded-md"
             onClick={() => setIsEditing(true)}
           >
-            {fields.map((field, index) => (
-              <div key={field.id} className="flex items-center">
-                <span className="text-sm whitespace-nowrap">
-                  {rooms[index].name}: ${field.price}
-                  {index !== rooms.length - 1 ? "," : ""}
-                </span>
-              </div>
-            ))}
-          </div>
+            Edit Pricing
+          </button>
+          <PricingDropdown fields={fields} rooms={rooms} />
         </div>
       )}
     </div>

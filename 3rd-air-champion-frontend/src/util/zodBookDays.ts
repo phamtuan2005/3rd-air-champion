@@ -9,14 +9,13 @@ export const bookDaysZodObject = z.object({
     message: "Invalid guest",
   }),
   date: z.date({
-    required_error: "Please select a date and time",
-    invalid_type_error: "That's not a date!",
+    message: "Please select a date and time",
   }),
   duration: z
-    .number({ invalid_type_error: "Must be a number" })
+    .number("Must be a number")
     .min(1, { message: "Must stay for at least 1 day" }),
   numberOfGuests: z
-    .number({ invalid_type_error: "Must be a number" })
+    .number("Must be a number")
     .min(1, { message: "Must be at least 1 guest" }),
 });
 

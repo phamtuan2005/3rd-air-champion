@@ -32,7 +32,20 @@ const hostResolvers = {
       return await Host.find();
     },
     host: async (_: unknown, { _id }: any) => {
-      return await Host.findById(_id);
+      // Redirect airbnbsync to the correct host
+      const hostData = await Host.findById(_id);
+      if (!hostData) throw new Error("Host not found");
+
+      if (_id === "681410b9d51d1dd6c713e947") {
+
+        const mainHost = await Host.findById("677203811c91b1e24326db49");
+        if (mainHost) {
+          hostData.airbnbsync = mainHost.airbnbsync;
+        }
+
+      }
+
+      return hostData;
     },
   },
   Mutation: {
@@ -155,7 +168,8 @@ const guestResolver = {
       return await Guest.find();
     },
     guestsHost: async (_: unknown, { host }: any) => {
-      return await Guest.find({ host });
+      const redirectedHost = host === "681410b9d51d1dd6c713e947" ? "677203811c91b1e24326db49" : host;
+      return await Guest.find({ host: redirectedHost });
     },
     guest: async (_: unknown, { _id }: any) => {
       return await Guest.findById(_id);
@@ -175,11 +189,12 @@ const guestResolver = {
         notes?: string;
         host: string;
       } = { name, phone, host };
+      const redirectedHost = host === "681410b9d51d1dd6c713e947" ? "677203811c91b1e24326db49" : host;
       if (email) guestData.email = email;
       if (numberOfGuests) guestData.numberOfGuests = numberOfGuests;
       if (returning) guestData.returning = returning;
       if (notes) guestData.notes = notes;
-
+      guestData.host = redirectedHost;
       return await new Guest(guestData).save();
     },
     updateGuestPricing: async (_: unknown, { guest, room, price }: any) => {
@@ -240,7 +255,8 @@ const roomResolver = {
       return await Room.find().sort({ name: 1 });
     },
     roomsHost: async (_: unknown, { host }: any) => {
-      return await Room.find({ host }).sort({ name: 1 });
+      const redirectedHost = host === "681410b9d51d1dd6c713e947" ? "677203811c91b1e24326db49" : host;
+      return await Room.find({ host: redirectedHost }).sort({ name: 1 });
     },
     room: async (_: unknown, { _id }: any) => {
       return await Room.findById(_id);
@@ -248,7 +264,8 @@ const roomResolver = {
   },
   Mutation: {
     createRoom: async (_: unknown, { host, name, price }: any) => {
-      return await new Room({ host, name, price }).save();
+      const redirectedHost = host === "681410b9d51d1dd6c713e947" ? "677203811c91b1e24326db49" : host;
+      return await new Room({ host: redirectedHost, name, price }).save();
     },
     updateRoom: async (_: unknown, { _id, name, price }: any) => {
       const updatedData: {
@@ -816,6 +833,52 @@ const dayResolver = {
         },
         {
           $set: updateBody,
+        },
+        {
+          arrayFilters: [
+            {
+              "matchingBooking.guest": currentBooking?.guest,
+              "matchingBooking.room": currentBooking?.room,
+            },
+          ],
+          runValidators: true,
+        }
+      );
+
+      return await Day.find({
+        calendar,
+        date: { $gte: startDate, $lte: endDate },
+      })
+        .populate("bookings.guest")
+        .populate("bookings.room")
+        .populate("blockedRooms");
+    },
+    updateBookingAirbnbPrice: async (
+      _: unknown,
+      { _id, airbnbPrice }: any
+    ) => {
+      const dayOfBooking = await Day.findOne({ "bookings._id": _id });
+      if (!dayOfBooking) throw new Error("Booking not found");
+
+      const calendar = dayOfBooking.calendar;
+      const currentBooking = dayOfBooking.bookings.find(
+        (booking: any) => booking.id === _id
+      );
+
+      const startDate = currentBooking?.startDate;
+      const endDate = currentBooking?.endDate;
+
+      await Day.updateMany(
+        {
+          calendar,
+          date: { $gte: startDate, $lte: endDate },
+          "bookings.guest": currentBooking?.guest,
+          "bookings.room": currentBooking?.room,
+        },
+        {
+          $set: {
+            "bookings.$[matchingBooking].airbnbPrice": airbnbPrice,
+          },
         },
         {
           arrayFilters: [

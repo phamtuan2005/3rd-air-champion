@@ -9,18 +9,18 @@ import AirBnBPricing from "./AirBnBPricing";
 import RebookCount from "./RebookCount";
 
 interface GuestViewProps {
-  airBnBPrices: Map<string, number> | undefined;
   airBnBBookingCount: {
     Alias: string;
     Room: string;
     DistinctStartDateCount: number;
   }[];
-  children: JSX.Element;
+  children: React.ReactNode;
   currentBookings: bookingType[];
   currentAirBnBGuest: string | null;
   currentGuest: string | null;
   rooms: roomType[];
   handleBookingConfirmation: (phone: string) => void;
+  onAirbnbPriceUpdate: (bookingId: string, airbnbPrice: number) => void;
   onPricingUpdate: (
     data: {
       guest: string;
@@ -28,9 +28,6 @@ interface GuestViewProps {
       price: number;
     }[]
   ) => void;
-  setAirBnBPrices: React.Dispatch<
-    React.SetStateAction<Map<string, number> | undefined>
-  >;
   setCurrentAirBnBGuest: React.Dispatch<React.SetStateAction<string | null>>;
   setCurrentGuest: React.Dispatch<React.SetStateAction<string | null>>;
   setIsMobileModalOpen?: React.Dispatch<React.SetStateAction<boolean>>;
@@ -40,13 +37,12 @@ interface GuestViewProps {
 }
 
 const GuestView = ({
-  airBnBPrices,
   children,
   currentBookings,
   currentAirBnBGuest,
   currentGuest,
   rooms,
-  setAirBnBPrices,
+  onAirbnbPriceUpdate,
   onPricingUpdate,
   airBnBBookingCount,
   handleBookingConfirmation,
@@ -148,10 +144,9 @@ const GuestView = ({
                     />
                   ) : (
                     <AirBnBPricing
-                      airBnBPrices={airBnBPrices}
                       booking={booking}
                       editingKey={editingKey}
-                      setAirBnBPrices={setAirBnBPrices}
+                      onAirbnbPriceUpdate={onAirbnbPriceUpdate}
                       setEditingKey={setEditingKey}
                     />
                   )}
@@ -251,7 +246,15 @@ const GuestView = ({
             className="flex flex-col items-center justify-center border-b border-solid h-full w-full space-y-2"
           >
             <p>{room.name}</p>
-            {React.cloneElement(children, { room: room })}
+            {React.Children.map(children, (child) => {
+              if (React.isValidElement(child)) {
+                return React.cloneElement(
+                  child as React.ReactElement<{ room?: roomType }>,
+                  { room: room }
+                );
+              }
+              return child;
+            })}
           </div>
         ))}
     </div>

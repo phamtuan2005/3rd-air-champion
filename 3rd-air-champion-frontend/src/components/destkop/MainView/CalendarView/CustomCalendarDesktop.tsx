@@ -156,40 +156,10 @@ const CustomCalendar = ({
     }
   }, [currentGuest, currentAirBnBGuest]);
 
-  // useEffect(() => {
-  //   if (currentGuest && paidDates.length > 0) {
-  //     if (paidDates.some((paidDate) => isSameMonth(paidDate, currentMonth)))
-  //       return;
-
-  //     // Turn the paidDates into a set to add to it
-  //     const paidDatesSet = new Set<Date>(paidDates);
-  //     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-  //     for (const [dateKey, day] of useMonthMap.entries()) {
-  //       const localDateKey = toZonedTime(dateKey, timeZone);
-  //       const guestBooking = day.bookings.find(
-  //         (booking) => booking.guest.id === currentGuest
-  //       );
-
-  //       if (guestBooking) {
-  //         if (isSameDay(localDateKey, guestBooking.startDate)) {
-  //           for (let i = 0; i < guestBooking.duration; i += 1) {
-  //             paidDatesSet.add(addDays(localDateKey, i));
-  //           }
-  //         }
-  //       }
-  //     }
-
-  //     const updatedPaidDates = Array.from(paidDatesSet);
-
-  //     setPaidDates(updatedPaidDates);
-  //   }
-  // }, [currentGuest, currentMonth]);
-
   useEffect(() => {
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-    let maxRooms = 0;
+    let currentMaxRooms = 0;
     const roomsInMonth: roomType[] = [];
     const usedRoomsInMonth = new Set<string>();
 
@@ -202,11 +172,15 @@ const CustomCalendar = ({
             roomsInMonth.push(booking.room);
           usedRoomsInMonth.add(booking.room.name);
         });
-        maxRooms = Math.max(maxRooms, dayEntry.bookings.length);
+        currentMaxRooms = Math.max(
+          currentMaxRooms,
+          dayEntry.bookings.length,
+          roomsInMonth.length
+        );
       }
     });
 
-    setMaxRooms(maxRooms);
+    setMaxRooms(currentMaxRooms);
     setUsedRooms(roomsInMonth);
   }, [currentMonth]);
 
@@ -345,12 +319,12 @@ const CustomCalendar = ({
 
       const day = useMonthMap.get(date.toISOString().split("T")[0]);
       if (day) {
-        const sortedUsedRooms = [...usedRooms].sort((a, b) =>
+        const sortedUsedRooms = usedRooms.sort((a, b) =>
           a.name.localeCompare(b.name)
         );
 
         // Initialize grid with empty placeholders
-        const gridContent: Record<string, JSX.Element> = {};
+        const gridContent: Record<string, React.ReactNode> = {};
         sortedUsedRooms.forEach((room) => {
           gridContent[room.name] = (
             <div key={room.name} className="row-span-1 h-full min-h-[16px]" />
@@ -434,7 +408,8 @@ const CustomCalendar = ({
 
   // Function to dynamically assign colors to rooms
   const getRoomColor = (roomName: string) => {
-    if (roomName.toLowerCase().includes("master")) return "bg-red-500";
+    if (roomName.toLowerCase().includes("master") || roomName.toLowerCase().includes("king")) return "bg-red-500";
+    if (roomName.toLowerCase().includes("queen")) return "bg-yellow-500";
     if (roomName.toLowerCase().includes("cozy")) return "bg-blue-500";
     if (roomName.toLowerCase().includes("cute")) return "bg-green-500";
 

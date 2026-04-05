@@ -56,6 +56,28 @@ export const updateBookingGuest = async (
     });
 };
 
+export const updateBookingAirbnbPrice = async (
+  request: {
+    id: string;
+    airbnbPrice: number;
+  },
+  token: string
+) => {
+  return axios
+    .post(`${BACKEND_ENDPOINT}/day/update/booking/airbnb-price`, request, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+    .then((result) => result.data)
+    .catch((err) => {
+      if (err.response && err.response.data && err.response.data.errors) {
+        throw err.response.data.errors;
+      }
+      throw "An unexpected error occurred. Please try again.";
+    });
+};
+
 export const updateUnbookGuest = async (id: string, token: string) => {
   return axios
     .post(

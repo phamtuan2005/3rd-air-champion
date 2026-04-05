@@ -2,7 +2,7 @@ import { Navigate } from "react-router";
 import { isTokenValid } from "../util/validateJWT";
 
 interface PrivateProps {
-  children: JSX.Element;
+  children: React.ReactNode;
 }
 
 const Private = ({ children }: PrivateProps) => {

@@ -8,7 +8,7 @@ export const roomAddZodObject = z.object({
       message: "Name cannot contain a special character",
     }),
   price: z
-    .number({ invalid_type_error: "Must be a number" })
+    .number("Must be a number")
     .min(0, { message: "Price cannot be negative" }),
 });
 

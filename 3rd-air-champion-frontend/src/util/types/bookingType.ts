@@ -5,6 +5,7 @@ export interface bookingType {
   id: string;
   alias: string;
   price: number;
+  airbnbPrice: number;
   notes: string;
   earlyCheckin: boolean;
   lateCheckout: boolean;

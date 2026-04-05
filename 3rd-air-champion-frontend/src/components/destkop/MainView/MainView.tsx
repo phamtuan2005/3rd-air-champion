@@ -36,6 +36,7 @@ import BookButton from "../BookButton";
 import { AddPaneContext, isSyncModalOpenContext } from "../../../App";
 import DetailsModal from "./GuestView/DetailsModal";
 import {
+  updateBookingAirbnbPrice,
   updateBookingGuest,
   updateUnbookGuest,
 } from "../../../util/bookingOperations";
@@ -110,7 +111,7 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
   const [selectedDate, setSelectedDate] = useState<Date>(startOfToday());
   const [selectedRoom, setSelectedRoom] = useState<roomType>();
   const [selectedBooking, setSelectedBooking] = useState<bookingType | null>(
-    null
+    null,
   );
   const [selectedUnbooking, setSelectedUnbooking] =
     useState<bookingType | null>(null);
@@ -123,7 +124,6 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
     roomOccupancy: { name: string; occupancy: number }[];
   }>({ totalOccupancy: 0, airbnbOccupancy: 0, roomOccupancy: [] });
 
-  const [airBnBPrices, setAirBnBPrices] = useState<Map<string, number>>();
   const [profit, setProfit] = useState<{ total: number; airbnb: number }>({
     total: 0,
     airbnb: 0,
@@ -131,7 +131,7 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
 
   //AirBnB Display States
   const [currentAirBnBGuest, setCurrentAirBnBGuest] = useState<string | null>(
-    null
+    null,
   );
 
   // Billing States
@@ -159,7 +159,7 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
         guest: string;
         data: { room: string; link: string }[];
       },
-      token as string
+      token as string,
     )
       .then((result) => {
         setIsBlockedAirBnBDates(result.blocked);
@@ -180,11 +180,6 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
       .catch((err) => {
         console.error("Error fetching guests:", err);
       });
-
-    const storedPrices = localStorage.getItem("airBnBPrices");
-    if (storedPrices) {
-      setAirBnBPrices(new Map<string, number>(JSON.parse(storedPrices)));
-    }
   }, []);
 
   useEffect(() => {
@@ -212,7 +207,7 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
         .catch((err) => {
           console.error("Error fetching data:", err);
           setCalendarErrorMessage(
-            "Failed to fetch calendar data. Please try again."
+            "Failed to fetch calendar data. Please try again.",
           );
           setIsCalendarLoading(false); // Ensure loading stops even on error
         });
@@ -231,6 +226,65 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
         });
     }
   }, [guests]);
+
+  // Migrate localStorage airBnB prices to DB, then clear localStorage
+  useEffect(() => {
+    const storedPrices = localStorage.getItem("airBnBPrices");
+    if (!storedPrices || days.length === 0) return;
+
+    const priceMap = new Map<string, number>(JSON.parse(storedPrices));
+    if (priceMap.size === 0) {
+      localStorage.removeItem("airBnBPrices");
+      return;
+    }
+
+    const updates: Promise<unknown>[] = [];
+    const matchedKeys = new Set<string>();
+
+    for (const day of days) {
+      for (const booking of day.bookings) {
+        if (booking.guest.name !== "AirBnB") continue;
+        const key = `${booking.room.name}_${booking.startDate}_${booking.endDate}`;
+        if (matchedKeys.has(key)) continue;
+
+        const localPrice = priceMap.get(key);
+        if (localPrice !== undefined && localPrice > 0) {
+          matchedKeys.add(key);
+          updates.push(
+            updateBookingAirbnbPrice(
+              { id: booking.id, airbnbPrice: localPrice },
+              token as string,
+            ),
+          );
+        }
+      }
+    }
+
+    if (updates.length > 0) {
+      Promise.all(updates)
+        .then(() => {
+          localStorage.removeItem("airBnBPrices");
+          setIsCalendarLoading(true); // Reload to pick up new DB values
+        })
+        .catch((err) => {
+          console.error("Error migrating airBnB prices to DB:", err);
+        });
+    } else {
+      localStorage.removeItem("airBnBPrices");
+    }
+  }, [days]);
+
+  const onAirbnbPriceUpdate = (bookingId: string, airbnbPrice: number) => {
+    console.log("Updating airbnb price for booking:", bookingId, airbnbPrice);
+
+    updateBookingAirbnbPrice({ id: bookingId, airbnbPrice }, token as string)
+      .then(() => {
+        setIsCalendarLoading(true);
+      })
+      .catch((err) => {
+        console.error("Error updating airbnb price:", err);
+      });
+  };
 
   const onAddGuest = (guestObject: { name: string; phone: string }) => {
     createGuest(guestObject, token as string)
@@ -258,7 +312,7 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
 
   const transformBookings = (
     monthMap: Map<string, dayType>,
-    timeZone: string
+    timeZone: string,
   ) => {
     const propagateBooking = (
       booking: bookingType,
@@ -266,7 +320,7 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
       sortedKeys: string[],
       index: number,
       tracking: { startDate: string; endDate: string; duration: number },
-      processedBookings: Set<string>
+      processedBookings: Set<string>,
     ): void => {
       const finalizeBooking = () => {
         // Update the current booking after recursion unwinds
@@ -313,7 +367,7 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
           sortedKeys,
           nextIndex,
           tracking,
-          processedBookings
+          processedBookings,
         );
       }
 
@@ -359,7 +413,7 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
           sortedKeys,
           i,
           tracking,
-          processedBookings
+          processedBookings,
         );
       });
     }
@@ -379,7 +433,7 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
     const sortedMap = new Map(
       [...map.entries()].sort(([keyA], [keyB]) => {
         return keyA.localeCompare(keyB); // Lexicographical comparison
-      })
+      }),
     );
 
     transformBookings(sortedMap, timeZone);
@@ -417,8 +471,8 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
         // Filter the dayType objects by the room.id in their bookings
         const roomSpecificSet = new Set(
           occupiedDays.filter((day) =>
-            day.bookings.some((booking) => booking.room.id === roomId)
-          )
+            day.bookings.some((booking) => booking.room.id === roomId),
+          ),
         );
 
         // Add the Set to the Map (using base name as key)
@@ -471,7 +525,7 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
 
       // Calculate total occupancy percentage (excluding "Master")
       const totalRooms = [...roomSets.keys()].filter(
-        (name) => name !== "Master"
+        (name) => name !== "Master",
       ).length;
       const totalOccupancy =
         (totalOccupiedDays / (totalRooms * daysInMonth)) * 100;
@@ -521,18 +575,15 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
         for (const booking of day.bookings) {
           if (booking.guest.name != "AirBnB") {
             const guestPricing = booking.guest.pricing.find(
-              (pricing) => pricing.room === booking.room.id
+              (pricing) => pricing.room === booking.room.id,
             );
 
             if (guestPricing) {
               guestProfit += guestPricing.price;
             }
           } else {
-            const key = `${booking.room.name}_${booking.startDate}_${booking.endDate}`;
-            const profit = airBnBPrices?.get(key);
-
-            if (profit) {
-              const singleDayProfit = profit / booking.duration;
+            if (booking.airbnbPrice && booking.duration) {
+              const singleDayProfit = booking.airbnbPrice / booking.duration;
               guestProfit += singleDayProfit;
               airBnBProfit += singleDayProfit;
             }
@@ -542,13 +593,13 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
     }
 
     setProfit({ ...profit, total: guestProfit, airbnb: airBnBProfit });
-  }, [airBnBPrices, monthMap, currentMonth]);
+  }, [monthMap, currentMonth]);
 
   const onBooking = (
     roomName: string,
     date: Date,
     duration: number,
-    bookedDays: dayType[]
+    bookedDays: dayType[],
   ) => {
     // Ensure the roomName exists in blockedAirBnBDates and calculate the date ranges
     if (blockedAirBnBDates && roomName in blockedAirBnBDates) {
@@ -566,7 +617,7 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
       // Calculate the end date for the booking
       const bookingStart = toZonedTime(
         date.toISOString().split("T")[0],
-        timeZone
+        timeZone,
       );
       const bookingEnd = addDays(bookingStart, duration - 1);
 
@@ -581,7 +632,7 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
               bookingEnd.toISOString().split("T")[0]
             } is within ${start.toISOString().split("T")[0]} to ${
               end.toISOString().split("T")[0]
-            }`
+            }`,
           );
           return true;
         }
@@ -594,7 +645,7 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
         alert(
           `Please block ${date.toISOString().split("T")[0]} to ${
             bookingEnd.toISOString().split("T")[0]
-          } for Room: ${room?.name}`
+          } for Room: ${room?.name}`,
         );
       }
     }
@@ -657,12 +708,12 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
       guest: string;
       room: string;
       price: number;
-    }[]
+    }[],
   ) => {
     Promise.all(
       data.map((priceUpdate) =>
-        updateGuestPricing(priceUpdate, token as string)
-      )
+        updateGuestPricing(priceUpdate, token as string),
+      ),
     )
       .then((results) => {
         console.log("All updates completed:", results);
@@ -685,7 +736,7 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
         if (isSameMonth(date, currentMonth)) {
           const matchingBookings = dayEntry.bookings.filter(
             (booking) =>
-              booking.guest.name === guest && booking.startDate === dateStr
+              booking.guest.name === guest && booking.startDate === dateStr,
           );
 
           return (
@@ -702,7 +753,7 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
 
         return total;
       },
-      0
+      0,
     );
 
     return totalPriceOfMonth;
@@ -720,12 +771,12 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
 
     const uniqueMonths = new Set<string>(
       paidDates.map(
-        (paidDate) => startOfMonth(paidDate).toISOString().split("T")[0]
-      )
+        (paidDate) => startOfMonth(paidDate).toISOString().split("T")[0],
+      ),
     );
 
     const months = Array.from(uniqueMonths, (uniqueMonth) =>
-      toZonedTime(uniqueMonth, timeZone)
+      toZonedTime(uniqueMonth, timeZone),
     );
 
     const monthStrings = months.map((month) => format(month, "LLLL"));
@@ -742,7 +793,7 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
         const dateA = toZonedTime(dateStrA, timeZone);
         const dateB = toZonedTime(dateStrB, timeZone);
         return compareAsc(dateA, dateB);
-      }
+      },
     );
 
     let totalPriceOfMonth = 0;
@@ -762,7 +813,7 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
         // Filter bookings that match the phone number and start date
         const matchingBookings = dayEntry.bookings.filter(
           (booking) =>
-            booking.guest.phone === phone && booking.startDate === dateStr
+            booking.guest.phone === phone && booking.startDate === dateStr,
         );
 
         // If matching bookings exist, format them and add to accumulator
@@ -773,11 +824,11 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
 
               const startDate = toZonedTime(
                 booking.startDate.split("T")[0],
-                timeZone
+                timeZone,
               );
 
               const isPaid = paidDates.some((paidDate) =>
-                isSameDay(toZonedTime(paidDate, timeZone), startDate)
+                isSameDay(toZonedTime(paidDate, timeZone), startDate),
               );
 
               const weekday = format(startDate, "EEE"); // Mon, Tue, etc.
@@ -984,6 +1035,7 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
                 calendarId={calendarId}
                 monthMap={monthMap}
                 onBooking={onBooking}
+                rooms={rooms}
                 selectedModifyBooking={selectedModifyBooking}
                 setSelectedModifyBooking={setSelectedModifyBooking}
               />
@@ -997,15 +1049,14 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
           <ToDoList monthMap={monthMap} />
         ) : currentBookings && currentBookings.length > 0 ? (
           <GuestView
-            airBnBPrices={airBnBPrices}
             airBnBBookingCount={airBnBBookingCount}
             currentBookings={currentBookings}
             currentAirBnBGuest={currentAirBnBGuest}
             currentGuest={currentGuest}
             rooms={rooms}
             handleBookingConfirmation={handleBookingConfirmation}
+            onAirbnbPriceUpdate={onAirbnbPriceUpdate}
             onPricingUpdate={onPricingUpdate}
-            setAirBnBPrices={setAirBnBPrices}
             setCurrentGuest={setCurrentGuest}
             setCurrentAirBnBGuest={setCurrentAirBnBGuest}
             setSelectedBooking={
@@ -1068,15 +1119,14 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
 
         {currentBookings && currentBookings.length > 0 ? (
           <GuestView
-            airBnBPrices={airBnBPrices}
             airBnBBookingCount={airBnBBookingCount}
             currentBookings={currentBookings}
             currentAirBnBGuest={currentAirBnBGuest}
             currentGuest={currentGuest}
             rooms={rooms}
             handleBookingConfirmation={handleBookingConfirmation}
+            onAirbnbPriceUpdate={onAirbnbPriceUpdate}
             onPricingUpdate={onPricingUpdate}
-            setAirBnBPrices={setAirBnBPrices}
             setCurrentAirBnBGuest={setCurrentAirBnBGuest}
             setCurrentGuest={setCurrentGuest}
             setIsMobileModalOpen={setIsMobileModalOpen}
