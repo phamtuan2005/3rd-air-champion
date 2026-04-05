@@ -27,6 +27,8 @@ router.get("/get", async (req: Request, res: any) => {
               price
               airbnbPrice
               notes
+              earlyCheckin
+              lateCheckout
               guest {
                 id
                 name
@@ -143,6 +145,8 @@ router.post("/get/host", async (req: Request, res: any) => {
               price
               airbnbPrice
               notes
+              earlyCheckin
+              lateCheckout
               guest {
                 id
                 name
@@ -379,6 +383,8 @@ router.post("/book/range", async (req: Request, res: any) => {
               id
               alias
               notes
+              earlyCheckin
+              lateCheckout
               price
               airbnbPrice
               guest {
@@ -545,6 +551,8 @@ router.post("/update/booking/airbnb-price", async (req: Request, res: any) => {
               id
               alias
               notes
+              earlyCheckin
+              lateCheckout
               price
               airbnbPrice
               guest {
@@ -614,6 +622,8 @@ router.post("/update/unbook/guest", async (req: Request, res: any) => {
               id
               alias
               notes
+              earlyCheckin
+              lateCheckout
               price
               airbnbPrice
               guest {
