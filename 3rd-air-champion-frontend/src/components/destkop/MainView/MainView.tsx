@@ -1199,6 +1199,7 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
           booking={selectedBooking}
           onClose={() => setSelectedBooking(null)}
           onUpdateGuests={onUpdateGuest}
+          onAirbnbPriceUpdate={onAirbnbPriceUpdate}
         />
       )}
       {selectedUnbooking && (

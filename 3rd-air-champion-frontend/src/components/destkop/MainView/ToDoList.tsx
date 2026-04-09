@@ -163,7 +163,7 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
                           booking.guest.name
                         }, I would like to remind you that you will stay at TT house AirBnB for ${
                           booking.duration > 1
-                            ? `${booking.duration} nights, starting tomorrow.`
+                            ? `${booking.duration} nights, starting tomorrow (${format(addDays(startOfToday(), 1), "MMMM do")}).`
                             : "tomorrow night."
                         } Your room is ${booking.room.name} ${
                           roomCodes.get(booking.room.name.toLowerCase()) ||

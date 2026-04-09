@@ -19,14 +19,18 @@ interface DetailsModalProps {
     earlyCheckin?: boolean;
     lateCheckout?: boolean;
   }) => void;
+  onAirbnbPriceUpdate?: (bookingId: string, airbnbPrice: number) => void;
 }
 
 const DetailsModal = ({
   booking,
   onClose,
   onUpdateGuests,
+  onAirbnbPriceUpdate,
 }: DetailsModalProps) => {
+  const isAirBnB = booking.guest.name === "AirBnB";
   const [isWriting, setIsWriting] = useState(false);
+  const [profitInput, setProfitInput] = useState(String(booking.airbnbPrice || 0));
   const {
     control,
     handleSubmit,
@@ -48,10 +52,15 @@ const DetailsModal = ({
     setIsWriting(false);
     onClose();
     onUpdateGuests(processedData);
+    if (isAirBnB && onAirbnbPriceUpdate) {
+      const parsed = parseFloat(profitInput);
+      onAirbnbPriceUpdate(booking.id, isNaN(parsed) ? 0 : parsed);
+    }
   };
 
   const handleCancel = () => {
     reset();
+    setProfitInput(String(booking.airbnbPrice || 0));
     setIsWriting(false);
   };
 
@@ -201,6 +210,31 @@ const DetailsModal = ({
               <p>{booking.numberOfGuests}</p>
             )}
           </div>
+          {isAirBnB && (
+            <div>
+              <label htmlFor="airbnbPrice" className="font-semibold">
+                Profit:
+              </label>
+              {isWriting ? (
+                <input
+                  id="airbnbPrice"
+                  type="text"
+                  inputMode="decimal"
+                  value={profitInput}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (/^\d*\.?\d{0,2}$/.test(val)) {
+                      setProfitInput(val);
+                    }
+                  }}
+                  className="border rounded px-2 py-1 w-full"
+                  placeholder="0.00"
+                />
+              ) : (
+                <p>${booking.airbnbPrice || 0}</p>
+              )}
+            </div>
+          )}
           {isWriting && (
             <div className="flex justify-end space-x-4 mt-4">
               <button
