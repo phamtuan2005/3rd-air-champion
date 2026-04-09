@@ -2,25 +2,29 @@ import { FaDatabase, FaSync, FaUser } from "react-icons/fa";
 import { TiUserAdd } from "react-icons/ti";
 import { MdBedroomParent } from "react-icons/md";
 import { ImExit } from "react-icons/im";
+import { MdOutlineMessage } from "react-icons/md";
 import AirBnBSyncButton from "./AirBnBSyncButton";
 import LogoutButton from "./LogoutButton";
 import RoomSyncButton from "./RoomSyncButton";
 import AddGuestButton from "./AddGuestButton";
 import AddRoomButton from "./AddRoomButton";
+import ReminderTemplateButton from "./ReminderTemplateButton";
 
-interface LogoutButtonProps {
+interface DropDownMenuProps {
   user: string;
   handleLogout: () => void;
   setIsDropdownOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  onOpenReminderTemplate: () => void;
 }
 
 const DropDownMenu = ({
   user,
   handleLogout,
   setIsDropdownOpen,
-}: LogoutButtonProps) => {
+  onOpenReminderTemplate,
+}: DropDownMenuProps) => {
   return (
-    <div className="absolute left-0 min-w-[160px] w-full bg-white rounded-md grid grid-rows-4 drop-shadow-md">
+    <div className="absolute left-0 min-w-[160px] w-full bg-white rounded-md grid grid-rows-5 drop-shadow-md">
       {/* Options */}
       <div className="flex items-center border-b border-solid w-full hover:bg-[#D9D9D9]">
         <div className="basis-1/5 flex w-full items-center justify-center">
@@ -70,6 +74,20 @@ const DropDownMenu = ({
         </div>
         <div className="basis-4/5">
           <RoomSyncButton />
+        </div>
+      </div>
+      <div
+        className="flex items-center border-b border-solid w-full hover:bg-[#D9D9D9]"
+        onClick={() => {
+          setIsDropdownOpen(false);
+          onOpenReminderTemplate();
+        }}
+      >
+        <div className="basis-1/5 flex w-full items-center justify-center">
+          <MdOutlineMessage />
+        </div>
+        <div className="basis-4/5">
+          <ReminderTemplateButton onOpen={onOpenReminderTemplate} />
         </div>
       </div>
       <div
