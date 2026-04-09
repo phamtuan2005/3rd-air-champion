@@ -4,8 +4,7 @@ import { dayType } from "../../../../util/types/dayType";
 import { roomType } from "../../../../util/types/roomType";
 import { FaMinus } from "react-icons/fa";
 import { CiCalendar } from "react-icons/ci";
-import Pricing from "./Pricing";
-import React, { useState } from "react";
+import React from "react";
 import RebookCount from "./RebookCount";
 import RoomsToClean from "./RoomsToClean";
 
@@ -24,13 +23,6 @@ interface GuestViewProps {
   selectedDate: Date;
   handleBookingConfirmation: (phone: string) => void;
   onAirbnbPriceUpdate: (bookingId: string, airbnbPrice: number) => void;
-  onPricingUpdate: (
-    data: {
-      guest: string;
-      room: string;
-      price: number;
-    }[],
-  ) => void;
   setCurrentAirBnBGuest: React.Dispatch<React.SetStateAction<string | null>>;
   setCurrentGuest: React.Dispatch<React.SetStateAction<string | null>>;
   setIsMobileModalOpen?: React.Dispatch<React.SetStateAction<boolean>>;
@@ -47,7 +39,6 @@ const GuestView = ({
   monthMap,
   rooms,
   selectedDate,
-  onPricingUpdate,
   airBnBBookingCount,
   handleBookingConfirmation,
   setIsMobileModalOpen,
@@ -57,7 +48,7 @@ const GuestView = ({
   setSelectedModifyBooking,
   setSelectedUnbooking,
 }: GuestViewProps) => {
-  const [isEditing, setIsEditing] = useState(false); // State to toggle edit mode
+  const [selectedAvailableRoom, setSelectedAvailableRoom] = React.useState<string>("");
 
   return (
     <div className={`flex flex-col h-full px-2 overflow-y-scroll`}>
@@ -68,7 +59,7 @@ const GuestView = ({
             <div className="basis-4/5">
               <div className="h-full w-full flex flex-col">
                 {/* Name */}
-                <div className="flex flex-col h-full border-b border-solid mb-1">
+                <div className="flex flex-col h-full mb-1">
                   <div className="flex items-center">
                     <h1 className="basis-2/3 font-bold text-lg">
                       {booking.numberOfGuests > 1 &&
@@ -118,7 +109,7 @@ const GuestView = ({
                 </div>
 
                 {/* Room information */}
-                <div className="flex flex-col h-full justify-center  border-b border-solid mb-2">
+                <div className="flex flex-col h-full justify-center mb-2">
                   <p>
                     {booking.duration}{" "}
                     {booking.duration > 1 ? "nights" : "night"}
@@ -135,18 +126,6 @@ const GuestView = ({
                   )}
                 </div>
 
-                <div className="flex flex-col h-full justify-center">
-                  {/* Room Pricing */}
-                  {booking.guest.name !== "AirBnB" && (
-                    <Pricing
-                      booking={booking}
-                      isEditing={isEditing}
-                      onPricingUpdate={onPricingUpdate}
-                      setIsEditing={setIsEditing}
-                      rooms={rooms}
-                    />
-                  )}
-                </div>
               </div>
             </div>
 
@@ -232,27 +211,38 @@ const GuestView = ({
       })}
 
       {/* Remaining rooms to book */}
-      {rooms
-        .filter((room) =>
+      {(() => {
+        const availableRooms = rooms.filter((room) =>
           currentBookings.every((booking) => room.name !== booking.room.name),
-        )
-        .map((room, index) => (
-          <div
-            key={index}
-            className="flex flex-col items-center justify-center border-b border-solid h-full w-full space-y-2"
-          >
-            <p>{room.name}</p>
-            {React.Children.map(children, (child) => {
-              if (React.isValidElement(child)) {
-                return React.cloneElement(
-                  child as React.ReactElement<{ room?: roomType }>,
-                  { room: room },
-                );
-              }
-              return child;
-            })}
+        );
+        if (availableRooms.length === 0) return null;
+
+        const activeRoom =
+          availableRooms.find((r) => r.id === selectedAvailableRoom) ||
+          availableRooms[0];
+
+        const bookChild = React.Children.toArray(children).find(
+          React.isValidElement,
+        ) as React.ReactElement<{ room?: roomType }> | undefined;
+
+        return (
+          <div className="flex items-center justify-center border-b border-solid w-full py-2 gap-2">
+            <select
+              className="border rounded px-2 py-1"
+              value={activeRoom.id}
+              onChange={(e) => setSelectedAvailableRoom(e.target.value)}
+            >
+              {availableRooms.map((room) => (
+                <option key={room.id} value={room.id}>
+                  {room.name}
+                </option>
+              ))}
+            </select>
+            {bookChild &&
+              React.cloneElement(bookChild, { room: activeRoom })}
           </div>
-        ))}
+        );
+      })()}
 
       <RoomsToClean selectedDate={selectedDate} monthMap={monthMap} />
     </div>

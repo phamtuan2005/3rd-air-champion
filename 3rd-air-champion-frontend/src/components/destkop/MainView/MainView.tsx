@@ -1058,7 +1058,6 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
             selectedDate={selectedDate}
             handleBookingConfirmation={handleBookingConfirmation}
             onAirbnbPriceUpdate={onAirbnbPriceUpdate}
-            onPricingUpdate={onPricingUpdate}
             setCurrentGuest={setCurrentGuest}
             setCurrentAirBnBGuest={setCurrentAirBnBGuest}
             setSelectedBooking={
@@ -1130,7 +1129,6 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
             selectedDate={selectedDate}
             handleBookingConfirmation={handleBookingConfirmation}
             onAirbnbPriceUpdate={onAirbnbPriceUpdate}
-            onPricingUpdate={onPricingUpdate}
             setCurrentAirBnBGuest={setCurrentAirBnBGuest}
             setCurrentGuest={setCurrentGuest}
             setIsMobileModalOpen={setIsMobileModalOpen}
@@ -1197,9 +1195,11 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
       {selectedBooking && (
         <DetailsModal
           booking={selectedBooking}
+          rooms={rooms}
           onClose={() => setSelectedBooking(null)}
           onUpdateGuests={onUpdateGuest}
           onAirbnbPriceUpdate={onAirbnbPriceUpdate}
+          onPricingUpdate={onPricingUpdate}
         />
       )}
       {selectedUnbooking && (

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { bookingType } from "../../../../util/types/bookingType";
+import { roomType } from "../../../../util/types/roomType";
 import { FaRegEdit } from "react-icons/fa";
 import { useForm, Controller, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -7,9 +8,11 @@ import {
   guestUpdateSchema,
   guestUpdateZodObject,
 } from "../../../../util/zodUpdateGuest";
+import Pricing from "./Pricing";
 
 interface DetailsModalProps {
   booking: bookingType;
+  rooms: roomType[];
   onClose: () => void;
   onUpdateGuests: (data: {
     id: string;
@@ -20,16 +23,20 @@ interface DetailsModalProps {
     lateCheckout?: boolean;
   }) => void;
   onAirbnbPriceUpdate?: (bookingId: string, airbnbPrice: number) => void;
+  onPricingUpdate: (data: { guest: string; room: string; price: number }[]) => void;
 }
 
 const DetailsModal = ({
   booking,
+  rooms,
   onClose,
   onUpdateGuests,
   onAirbnbPriceUpdate,
+  onPricingUpdate,
 }: DetailsModalProps) => {
   const isAirBnB = booking.guest.name === "AirBnB";
   const [isWriting, setIsWriting] = useState(false);
+  const [isPricingEditing, setIsPricingEditing] = useState(false);
   const [profitInput, setProfitInput] = useState(String(booking.airbnbPrice || 0));
   const {
     control,
@@ -210,6 +217,21 @@ const DetailsModal = ({
               <p>{booking.numberOfGuests}</p>
             )}
           </div>
+          {!isAirBnB && (
+            <div>
+              <label className="font-semibold">Pricing:</label>
+              <Pricing
+                booking={booking}
+                rooms={rooms}
+                isEditing={isPricingEditing}
+                onPricingUpdate={(data) => {
+                  onPricingUpdate(data);
+                  setIsPricingEditing(false);
+                }}
+                setIsEditing={setIsPricingEditing}
+              />
+            </div>
+          )}
           {isAirBnB && (
             <div>
               <label htmlFor="airbnbPrice" className="font-semibold">
