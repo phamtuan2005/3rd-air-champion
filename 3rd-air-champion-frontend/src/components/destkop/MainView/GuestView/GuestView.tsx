@@ -29,7 +29,7 @@ interface GuestViewProps {
       guest: string;
       room: string;
       price: number;
-    }[]
+    }[],
   ) => void;
   setCurrentAirBnBGuest: React.Dispatch<React.SetStateAction<string | null>>;
   setCurrentGuest: React.Dispatch<React.SetStateAction<string | null>>;
@@ -47,7 +47,6 @@ const GuestView = ({
   monthMap,
   rooms,
   selectedDate,
-  onAirbnbPriceUpdate,
   onPricingUpdate,
   airBnBBookingCount,
   handleBookingConfirmation,
@@ -72,7 +71,8 @@ const GuestView = ({
                 <div className="flex flex-col h-full border-b border-solid mb-1">
                   <div className="flex items-center">
                     <h1 className="basis-2/3 font-bold text-lg">
-                      {booking.numberOfGuests > 1 && `(${booking.numberOfGuests}) `}
+                      {booking.numberOfGuests > 1 &&
+                        `(${booking.numberOfGuests}) `}
                       {booking.guest.alias ||
                         booking.alias ||
                         booking.guest.name}{" "}
@@ -212,7 +212,7 @@ const GuestView = ({
                       className="rounded-full shadow-md bg-black text-white font-semibold h-[64px] w-[64px] text-[0.6rem] row-start-2"
                       onClick={() => {
                         const url = booking.description.match(
-                          /https:\/\/www\.airbnb\.com\/hosting\/reservations\/details\/\S+/
+                          /https:\/\/www\.airbnb\.com\/hosting\/reservations\/details\/\S+/,
                         )?.[0]; // Safely access the matched URL
                         if (url) {
                           window.open(url, "_blank", "noopener,noreferrer");
@@ -234,7 +234,7 @@ const GuestView = ({
       {/* Remaining rooms to book */}
       {rooms
         .filter((room) =>
-          currentBookings.every((booking) => room.name !== booking.room.name)
+          currentBookings.every((booking) => room.name !== booking.room.name),
         )
         .map((room, index) => (
           <div
@@ -246,7 +246,7 @@ const GuestView = ({
               if (React.isValidElement(child)) {
                 return React.cloneElement(
                   child as React.ReactElement<{ room?: roomType }>,
-                  { room: room }
+                  { room: room },
                 );
               }
               return child;
