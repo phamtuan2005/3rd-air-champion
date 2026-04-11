@@ -51,97 +51,104 @@ const GuestView = ({
 }: GuestViewProps) => {
   const [selectedAvailableRoom, setSelectedAvailableRoom] = React.useState<string>("");
 
+  const getBookingLabel = (booking: bookingType) => {
+    const guestPart = `${booking.numberOfGuests > 1 ? `(${booking.numberOfGuests}) ` : ""}${booking.guest.alias || booking.alias || booking.guest.name} (${booking.room.name})`;
+    const pricePart = booking.guest.name === "AirBnB"
+      ? booking.airbnbPrice ? `, $${booking.airbnbPrice.toFixed(2)}` : ""
+      : (() => {
+          const guestRate = booking.guest.pricing?.find(p => p.room === booking.room.id)?.price ?? booking.price;
+          return guestRate ? `, $${(guestRate * booking.duration).toFixed(2)}` : "";
+        })();
+    return guestPart + pricePart;
+  };
+
+  const maxLabelLen = currentBookings.length > 0
+    ? Math.max(...currentBookings.map(b => getBookingLabel(b).length))
+    : 0;
+
   return (
     <div className={`flex flex-col h-full px-2 overflow-y-scroll`}>
       {currentBookings.map((booking, index) => {
         return (
-          <div key={index} className="h-full border-b border-solid flex w-full">
-            {/* Guest Info */}
-            <div className="basis-4/5">
-              <div className="h-full w-full flex flex-col">
-                {/* Name */}
-                <div className="flex flex-col h-full mb-1">
-                  <div className="flex items-center">
-                    <div className={`basis-2/3 ${getRoomColor(booking.room.name)} ${booking.guest.name === "AirBnB" ? "text-white" : "text-black"} px-2 py-1 rounded-md font-bold text-lg`}>
-                      {booking.numberOfGuests > 1 &&
-                        `(${booking.numberOfGuests}) `}
-                      {booking.guest.alias ||
-                        booking.alias ||
-                        booking.guest.name}{" "}
-                      ({booking.room.name})
-                      {booking.guest.name === "AirBnB"
-                        ? booking.airbnbPrice ? `, $${booking.airbnbPrice.toFixed(2)}` : ""
-                        : (() => {
-                            const guestRate = booking.guest.pricing?.find(p => p.room === booking.room.id)?.price ?? booking.price;
-                            return guestRate ? `, $${(guestRate * booking.duration).toFixed(2)}` : "";
-                          })()}
-                    </div>
-
-                    {/* Quick Change Button */}
-                    <div className="flex gap-9">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedBooking(booking)}
-                        className="flex justify-center w-[24px] h-[24px] items-center rounded-full shadow-md bg-orange-400 hover:bg-orange-500 text-white font-semibold"
-                      >
-                        <FaRegEdit size={14} />
-                      </button>
-                      {booking.guest.name !== "AirBnB" && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedModifyBooking(booking);
-                            if (typeof setIsMobileModalOpen !== "undefined")
-                              setIsMobileModalOpen(false);
-                          }}
-                          className="flex justify-center w-[24px] h-[24px] items-center rounded-full shadow-md bg-green-500 hover:bg-green-600 text-white font-semibold"
-                        >
-                          <CiCalendar size={14} />
-                        </button>
-                      )}
-                      {booking.guest.name !== "AirBnB" && (
-                        <button
-                          type="button"
-                          onClick={() => setSelectedUnbooking(booking)}
-                          className="flex justify-center w-[24px] h-[24px] items-center rounded-full shadow-md bg-red-500 hover:bg-red-600 text-white font-semibold"
-                        >
-                          <FaMinus size={14} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  {/* Notes */}
-                  {(booking.guest.notes || booking.notes) && (
-                    <div className="text-gray-600">
-                      {booking.guest.notes || booking.notes}
-                    </div>
-                  )}
-                </div>
-
-                {/* Room information */}
-                <div className="flex flex-col h-full justify-center mb-2">
-                  <p>
-                    {booking.duration}{" "}
-                    {booking.duration > 1 ? "nights" : "night"}
-                  </p>
-                  <p>
-                    {formatDate(booking.startDate)} -{" "}
-                    {formatDate(booking.endDate)}
-                  </p>
-                  {booking.guest.name === "AirBnB" && (
-                    <RebookCount
-                      booking={booking}
-                      airBnBBookingCount={airBnBBookingCount}
-                    />
-                  )}
-                </div>
-
-              </div>
+          <div key={index} className="border-b border-solid w-full py-1" style={{ display: 'grid', gridTemplateColumns: `min(${maxLabelLen}ch, 50vw) 1fr`, gap: '0 0.75rem' }}>
+            {/* Row 1, Col 1: Color box */}
+            <div
+              className={`${getRoomColor(booking.room.name)} ${booking.guest.name === "AirBnB" ? "text-white" : "text-black"} px-2 py-1 rounded-md font-bold text-lg mb-1`}
+            >
+              {booking.numberOfGuests > 1 &&
+                `(${booking.numberOfGuests}) `}
+              {booking.guest.alias ||
+                booking.alias ||
+                booking.guest.name}{" "}
+              ({booking.room.name})
+              {booking.guest.name === "AirBnB"
+                ? booking.airbnbPrice ? `, $${booking.airbnbPrice.toFixed(2)}` : ""
+                : (() => {
+                    const guestRate = booking.guest.pricing?.find(p => p.room === booking.room.id)?.price ?? booking.price;
+                    return guestRate ? `, $${(guestRate * booking.duration).toFixed(2)}` : "";
+                  })()}
             </div>
 
-            {/* Action */}
-            <div className="basis-1/5">
-              <div className={`flex flex-col gap-y-2 p-2 items-center`}>
+            {/* Row 1, Col 2: Quick change buttons */}
+            <div className="flex items-center gap-4 mb-1">
+              <button
+                type="button"
+                onClick={() => setSelectedBooking(booking)}
+                className="flex justify-center w-[24px] h-[24px] items-center rounded-full shadow-md bg-orange-400 hover:bg-orange-500 text-white font-semibold"
+              >
+                <FaRegEdit size={14} />
+              </button>
+              {booking.guest.name !== "AirBnB" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedModifyBooking(booking);
+                    if (typeof setIsMobileModalOpen !== "undefined")
+                      setIsMobileModalOpen(false);
+                  }}
+                  className="flex justify-center w-[24px] h-[24px] items-center rounded-full shadow-md bg-green-500 hover:bg-green-600 text-white font-semibold"
+                >
+                  <CiCalendar size={14} />
+                </button>
+              )}
+              {booking.guest.name !== "AirBnB" && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedUnbooking(booking)}
+                  className="flex justify-center w-[24px] h-[24px] items-center rounded-full shadow-md bg-red-500 hover:bg-red-600 text-white font-semibold"
+                >
+                  <FaMinus size={14} />
+                </button>
+              )}
+            </div>
+
+            {/* Notes — spans both columns */}
+            {(booking.guest.notes || booking.notes) && (
+              <div className="text-gray-600 mb-1" style={{ gridColumn: '1 / -1' }}>
+                {booking.guest.notes || booking.notes}
+              </div>
+            )}
+
+            {/* Row 2, Col 1: Room information */}
+            <div className="flex flex-col mb-2">
+              <p>
+                {booking.duration}{" "}
+                {booking.duration > 1 ? "nights" : "night"}
+              </p>
+              <p>
+                {formatDate(booking.startDate)} -{" "}
+                {formatDate(booking.endDate)}
+              </p>
+              {booking.guest.name === "AirBnB" && (
+                <RebookCount
+                  booking={booking}
+                  airBnBBookingCount={airBnBBookingCount}
+                />
+              )}
+            </div>
+
+            {/* Row 2, Col 2: Action — aligns with edit button above */}
+            <div className={`flex items-center gap-2 mb-2`}>
                 {booking.description === "" ? (
                   <>
                     <input
@@ -155,7 +162,7 @@ const GuestView = ({
                         }
                       }}
                       checked={currentGuest === booking.guest.id}
-                      className="w-4 h-4 mx-auto"
+                      className="w-4 h-4"
                     />
                     {currentGuest && (
                       <button
@@ -171,7 +178,6 @@ const GuestView = ({
                       className="rounded-full shadow-md bg-black text-white font-semibold h-[44px] w-[44px] text-[0.55rem]"
                       onClick={() => {
                         const phone = booking.guest.phone;
-
                         window.location.href = `sms:${phone}`;
                       }}
                     >
@@ -192,7 +198,7 @@ const GuestView = ({
                           }
                         }}
                         checked={currentAirBnBGuest === booking.alias}
-                        className="w-4 h-4 mx-auto"
+                        className="w-4 h-4"
                       />
                     )}
                     <button
@@ -200,7 +206,7 @@ const GuestView = ({
                       onClick={() => {
                         const url = booking.description.match(
                           /https:\/\/www\.airbnb\.com\/hosting\/reservations\/details\/\S+/,
-                        )?.[0]; // Safely access the matched URL
+                        )?.[0];
                         if (url) {
                           window.open(url, "_blank", "noopener,noreferrer");
                         } else {
@@ -212,7 +218,6 @@ const GuestView = ({
                     </button>
                   </>
                 )}
-              </div>
             </div>
           </div>
         );
