@@ -194,39 +194,47 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
             {checkoutBookings.length} Rooms to Clean
           </h2>
           {(() => {
-            return checkoutBookings
-            .map((booking) => {
-              let nextCheckIn: bookingType | null = null;
-              let nextCheckInDate: string | null = null;
-              for (let i = 0; i <= 30; i++) {
-                const dateKey = addDays(startOfToday(), i)
-                  .toISOString()
-                  .split("T")[0];
-                const day = monthMap.get(dateKey);
-                if (day) {
-                  const found = day.bookings.find(
-                    (b) =>
-                      b.startDate.split("T")[0] === dateKey &&
-                      b.room.id === booking.room.id,
-                  );
-                  if (found) {
-                    nextCheckIn = found;
-                    nextCheckInDate = dateKey;
-                    break;
+            const items = checkoutBookings
+              .map((booking) => {
+                let nextCheckIn: bookingType | null = null;
+                let nextCheckInDate: string | null = null;
+                for (let i = 0; i <= 30; i++) {
+                  const dateKey = addDays(startOfToday(), i)
+                    .toISOString()
+                    .split("T")[0];
+                  const day = monthMap.get(dateKey);
+                  if (day) {
+                    const found = day.bookings.find(
+                      (b) =>
+                        b.startDate.split("T")[0] === dateKey &&
+                        b.room.id === booking.room.id,
+                    );
+                    if (found) {
+                      nextCheckIn = found;
+                      nextCheckInDate = dateKey;
+                      break;
+                    }
                   }
                 }
-              }
-              return { booking, nextCheckIn, nextCheckInDate };
-            })
-            .sort((a, b) => {
-              const priorityOf = (item: typeof a) => {
-                if (item.nextCheckIn?.earlyCheckin) return 0;
-                if (item.booking.lateCheckout) return 2;
-                return 1;
-              };
-              return priorityOf(a) - priorityOf(b);
-            })
-            .map(({ booking, nextCheckIn, nextCheckInDate }, index) => {
+                return { booking, nextCheckIn, nextCheckInDate };
+              })
+              .sort((a, b) => {
+                const priorityOf = (item: typeof a) => {
+                  if (item.nextCheckIn?.earlyCheckin) return 0;
+                  if (item.booking.lateCheckout) return 2;
+                  return 1;
+                };
+                return priorityOf(a) - priorityOf(b);
+              });
+
+            const maxLabelLen = Math.max(
+              ...items.map(({ booking: b, nextCheckIn: n }) => {
+                const label = `${b.room.name}${n ? `, ${n.numberOfGuests} ${n.numberOfGuests === 1 ? "person" : "persons"}` : ""}`;
+                return label.length;
+              }),
+            );
+
+            return items.map(({ booking, nextCheckIn, nextCheckInDate }, index) => {
               const cleaningTaskId = generateCleaningTaskId(
                 booking.endDate,
                 booking.room.id,
@@ -251,12 +259,12 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
                   >
                     <input
                       type="checkbox"
-                      className="mr-2"
+                      className="mr-2 shrink-0"
                       checked={isCompleted}
                       onChange={() => toggleTaskCompletion(cleaningTaskId)}
                     />
                     <div className="flex flex-col">
-                      <div className={`${getRoomColor(booking.room.name)} ${nextCheckIn?.guest.name === "AirBnB" ? "text-white" : "text-black"} p-1 rounded-md self-start`}>
+                      <div className={`${getRoomColor(booking.room.name)} ${nextCheckIn?.guest.name === "AirBnB" ? "text-white" : "text-black"} p-1 rounded-md`} style={{ width: `${maxLabelLen}ch`, maxWidth: '50vw' }}>
                         {booking.room.name}
                         {nextCheckIn && `, ${nextCheckIn.numberOfGuests} ${nextCheckIn.numberOfGuests === 1 ? "person" : "persons"}`}
                       </div>
