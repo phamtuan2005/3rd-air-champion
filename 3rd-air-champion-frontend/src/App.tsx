@@ -50,7 +50,7 @@ function App() {
   const [guestErrorMessage, setGuestErrorMessage] = useState("");
   const [roomErrorMessage, setRoomErrorMessage] = useState("");
 
-  const [isFooterVisible, setIsFooterVisible] = useState(true);
+  const [isFooterVisible, setIsFooterVisible] = useState(false);
 
   const navigate = useNavigate();
 

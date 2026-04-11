@@ -1,5 +1,6 @@
 import { useState } from "react";
 import DropDownMenu from "./DropDown/DropDownMenu";
+import ReminderTemplateModal from "./DropDown/ReminderTemplateModal";
 
 interface ProfileDesktopProps {
   handleLogout: () => void;
@@ -13,6 +14,7 @@ const ProfileDesktop = ({
   name,
 }: ProfileDesktopProps) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isReminderTemplateOpen, setIsReminderTemplateOpen] = useState(false);
 
   const toggleDropdown = () => setIsDropdownOpen(!isDropdownOpen);
 
@@ -62,7 +64,13 @@ const ProfileDesktop = ({
           user={children}
           handleLogout={handleLogout}
           setIsDropdownOpen={setIsDropdownOpen}
+          onOpenReminderTemplate={() => setIsReminderTemplateOpen(true)}
         />
+      )}
+
+      {/* Reminder Template Modal — rendered outside dropdown so it persists */}
+      {isReminderTemplateOpen && (
+        <ReminderTemplateModal onClose={() => setIsReminderTemplateOpen(false)} />
       )}
     </div>
   );

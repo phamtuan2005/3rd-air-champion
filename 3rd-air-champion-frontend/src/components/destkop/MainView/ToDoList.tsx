@@ -4,6 +4,32 @@ import { bookingType } from "../../../util/types/bookingType";
 import { addDays, startOfToday, format } from "date-fns";
 import { getRoomColor } from "../../../util/getRoomColor";
 
+const ROOM_CODES = new Map([
+  ["chill", "(0205#)"],
+  ["cozy", "(0106#)"],
+  ["cute", "(2005#)"],
+  ["master", "(0209#)"],
+  ["king", "(1224#)"],
+  ["queen", "(1225#)"],
+]);
+
+const DEFAULT_TEMPLATE =
+  "Hello {{name}}, I would like to remind you that you will stay at TT house AirBnB for {{duration}} {{nightWord}}, starting tomorrow ({{startDate}}). Your room is {{room}} {{roomCode}}. The main entrance door code is {{doorCode}}. Many thanks for staying at TT House. I wish you a pleasant stay!";
+
+const resolveTemplate = (
+  template: string,
+  booking: bookingType,
+  startDate: string,
+) =>
+  template
+    .replace(/\{\{name\}\}/g, booking.guest.alias || booking.alias || booking.guest.name)
+    .replace(/\{\{duration\}\}/g, String(booking.duration))
+    .replace(/\{\{nightWord\}\}/g, booking.duration === 1 ? "night" : "nights")
+    .replace(/\{\{startDate\}\}/g, startDate)
+    .replace(/\{\{room\}\}/g, booking.room.name)
+    .replace(/\{\{roomCode\}\}/g, ROOM_CODES.get(booking.room.name.toLowerCase()) || "")
+    .replace(/\{\{doorCode\}\}/g, "1268=");
+
 interface ToDoListProps {
   monthMap: Map<string, dayType>;
 }
@@ -123,55 +149,15 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
                 </div>
               </div>
               <div className="basis-1/5">
-                {booking.description === "" ? (
+                {!booking.description ? (
                   <button
                     className="rounded-full shadow-md bg-black text-white font-semibold h-[64px] w-[64px] text-[0.6rem]"
                     onClick={() => {
-                      const roomCodes = new Map([
-                        ["chill", "(0205#)"],
-                        ["cozy", "(0106#)"],
-                        ["cute", "(2005#)"],
-                        ["master", "(0209#)"],
-                        ["king", "(1224#)"],
-                        ["queen", "(1225#)"],
-                      ]);
                       const phone = booking.guest.phone;
-
-                      // Regular message
-                      // const messageBody = encodeURIComponent(
-                      //   `Hello ${
-                      //     booking.guest.name
-                      //   }, I would like to remind you that you will stay at TT house AirBnB for ${
-                      //     booking.duration > 1
-                      //       ? `${booking.duration} nights, starting ${
-                      //           reminderType === "48-hour"
-                      //             ? "in 2 days"
-                      //             : "tomorrow"
-                      //         }.`
-                      //       : reminderType === "48-hour"
-                      //       ? "the day after tomorrow."
-                      //       : "tomorrow night."
-                      //   } Your room is ${booking.room.name} ${
-                      //     roomCodes.get(booking.room.name.toLowerCase()) ||
-                      //     "Code"
-                      //   }. The main entrance door code is 1268=. I wish you a pleasant stay. Thanks!`
-                      // );
-
-                      // Construction message
-                      const constructionMessage = encodeURIComponent(
-                        `Hello ${
-                          booking.guest.name
-                        }, I would like to remind you that you will stay at TT house AirBnB for ${
-                          booking.duration > 1
-                            ? `${booking.duration} nights, starting tomorrow (${format(addDays(startOfToday(), 1), "MMMM do")}).`
-                            : "tomorrow night."
-                        } Your room is ${booking.room.name} ${
-                          roomCodes.get(booking.room.name.toLowerCase()) ||
-                          "Code"
-                        }. The main entrance door code is 1268=. Many thanks for staying at TT House. I wish you a pleasant stay!`,
-                      );
-
-                      window.location.href = `sms:${phone}?&body=${constructionMessage}`;
+                      const startDate = format(addDays(startOfToday(), 1), "MMMM do");
+                      const currentTemplate = localStorage.getItem("reminderMessageTemplate") || DEFAULT_TEMPLATE;
+                      const message = resolveTemplate(currentTemplate, booking, startDate);
+                      window.location.href = `sms:${phone}?&body=${encodeURIComponent(message)}`;
                       toggleTaskCompletion(taskId);
                     }}
                     disabled={isCompleted}
@@ -207,7 +193,8 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
           <h2 className="font-bold self-center text-md mt-4 mb-1">
             {checkoutBookings.length} Rooms to Clean
           </h2>
-          {checkoutBookings
+          {(() => {
+            return checkoutBookings
             .map((booking) => {
               let nextCheckIn: bookingType | null = null;
               let nextCheckInDate: string | null = null;
@@ -269,11 +256,10 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
                       onChange={() => toggleTaskCompletion(cleaningTaskId)}
                     />
                     <div className="flex flex-col">
-                      <span
-                        className={`${getRoomColor(booking.room.name)} ${nextCheckIn?.guest.name === "AirBnB" ? "text-white" : "text-black"} p-1 rounded-md`}
-                      >
+                      <div className={`${getRoomColor(booking.room.name)} ${nextCheckIn?.guest.name === "AirBnB" ? "text-white" : "text-black"} p-1 rounded-md self-start`}>
                         {booking.room.name}
-                      </span>
+                        {nextCheckIn && `, ${nextCheckIn.numberOfGuests} ${nextCheckIn.numberOfGuests === 1 ? "person" : "persons"}`}
+                      </div>
                       {nextCheckIn && nextCheckInDate ? (
                         <p className="text-sm text-gray-600">
                           {nextCheckIn.guest.alias ||
@@ -283,14 +269,7 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
                           {format(
                             new Date(nextCheckInDate + "T00:00:00"),
                             "MM/dd",
-                          )}{" "}
-                          &mdash;{" "}
-                          <span className="font-bold text-black">
-                            {nextCheckIn.numberOfGuests}{" "}
-                            {nextCheckIn.numberOfGuests === 1
-                              ? "person"
-                              : "persons"}
-                          </span>
+                          )}
                         </p>
                       ) : (
                         <p className="text-sm text-gray-600">
@@ -319,7 +298,8 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
                   </div>
                 </div>
               );
-            })}
+            });
+          })()}
         </>
       )}
     </div>

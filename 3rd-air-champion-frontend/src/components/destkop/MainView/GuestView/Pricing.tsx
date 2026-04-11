@@ -35,7 +35,7 @@ const Pricing = ({
   setIsEditing,
 }: PricingProps) => {
   // Initialize React Hook Form
-  const { control, handleSubmit } = useForm<pricingZodSchema>({
+  const { control, handleSubmit, reset } = useForm<pricingZodSchema>({
     resolver: zodResolver(pricingZodObject),
     defaultValues: {
       pricing: rooms.map((room) => {
@@ -61,9 +61,9 @@ const Pricing = ({
       guest: booking.guest.id,
     }));
 
-    console.log("Updated Pricing:", updatedPricing);
     onPricingUpdate(updatedPricing);
-    setIsEditing(false); // Exit edit mode after saving
+    reset(data);
+    setIsEditing(false);
   };
 
   return (
