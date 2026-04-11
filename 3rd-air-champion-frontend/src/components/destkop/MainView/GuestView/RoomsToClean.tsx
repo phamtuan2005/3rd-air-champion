@@ -83,7 +83,13 @@ const RoomsToClean = ({ selectedDate, monthMap }: RoomsToCleanProps) => {
           };
           return priorityOf(a) - priorityOf(b);
         })
-        .map(({ booking, nextCheckIn, nextCheckInDate }, index) => {
+        .map(({ booking, nextCheckIn, nextCheckInDate }, index, arr) => {
+          const maxLabelLen = Math.max(
+            ...arr.map(({ booking: b, nextCheckIn: n }) => {
+              const label = `${b.room.name}${n ? `, ${n.numberOfGuests} ${n.numberOfGuests === 1 ? "person" : "persons"}` : ""}`;
+              return label.length;
+            }),
+          );
           const cleaningTaskId = generateCleaningTaskId(
             booking.endDate,
             booking.room.id,
@@ -113,25 +119,20 @@ const RoomsToClean = ({ selectedDate, monthMap }: RoomsToCleanProps) => {
                   onChange={() => toggleTaskCompletion(cleaningTaskId)}
                 />
                 <div className="flex flex-col">
-                  <span
+                  <div
                     className={`${getRoomColor(booking.room.name)} ${nextCheckIn?.guest.name === "AirBnB" ? "text-white" : "text-black"} p-1 rounded-md`}
+                    style={{ width: `${maxLabelLen + 1}ch` }}
                   >
                     {booking.room.name}
-                  </span>
+                    {nextCheckIn && `, ${nextCheckIn.numberOfGuests} ${nextCheckIn.numberOfGuests === 1 ? "person" : "persons"}`}
+                  </div>
                   {nextCheckIn && nextCheckInDate ? (
                     <p className="text-sm text-gray-600">
                       {nextCheckIn.guest.alias ||
                         nextCheckIn.alias ||
                         nextCheckIn.guest.name}{" "}
                       checking in on{" "}
-                      {format(new Date(nextCheckInDate + "T00:00:00"), "MM/dd")}{" "}
-                      &mdash;{" "}
-                      <span className="font-bold text-black">
-                        {nextCheckIn.numberOfGuests}{" "}
-                        {nextCheckIn.numberOfGuests === 1
-                          ? "person"
-                          : "persons"}
-                      </span>
+                      {format(new Date(nextCheckInDate + "T00:00:00"), "MM/dd")}
                     </p>
                   ) : (
                     <p className="text-sm text-gray-600">

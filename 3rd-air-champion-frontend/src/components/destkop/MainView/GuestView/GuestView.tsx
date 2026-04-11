@@ -1,8 +1,9 @@
 import { formatDate } from "../../../../util/formatDate";
+import { getRoomColor } from "../../../../util/getRoomColor";
 import { bookingType } from "../../../../util/types/bookingType";
 import { dayType } from "../../../../util/types/dayType";
 import { roomType } from "../../../../util/types/roomType";
-import { FaMinus } from "react-icons/fa";
+import { FaMinus, FaRegEdit } from "react-icons/fa";
 import { CiCalendar } from "react-icons/ci";
 import React from "react";
 import RebookCount from "./RebookCount";
@@ -61,20 +62,30 @@ const GuestView = ({
                 {/* Name */}
                 <div className="flex flex-col h-full mb-1">
                   <div className="flex items-center">
-                    <h1 className="basis-2/3 font-bold text-lg">
+                    <div className={`basis-2/3 ${getRoomColor(booking.room.name)} ${booking.guest.name === "AirBnB" ? "text-white" : "text-black"} px-2 py-1 rounded-md font-bold text-lg`}>
                       {booking.numberOfGuests > 1 &&
                         `(${booking.numberOfGuests}) `}
                       {booking.guest.alias ||
                         booking.alias ||
                         booking.guest.name}{" "}
                       ({booking.room.name})
-                      {booking.guest.name === "AirBnB" && booking.airbnbPrice
-                        ? `, $${booking.airbnbPrice.toFixed(2)}`
-                        : ""}
-                    </h1>
+                      {booking.guest.name === "AirBnB"
+                        ? booking.airbnbPrice ? `, $${booking.airbnbPrice.toFixed(2)}` : ""
+                        : (() => {
+                            const guestRate = booking.guest.pricing?.find(p => p.room === booking.room.id)?.price ?? booking.price;
+                            return guestRate ? `, $${(guestRate * booking.duration).toFixed(2)}` : "";
+                          })()}
+                    </div>
 
                     {/* Quick Change Button */}
                     <div className="flex gap-9">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedBooking(booking)}
+                        className="flex justify-center w-[24px] h-[24px] items-center rounded-full shadow-md bg-orange-400 hover:bg-orange-500 text-white font-semibold"
+                      >
+                        <FaRegEdit size={14} />
+                      </button>
                       {booking.guest.name !== "AirBnB" && (
                         <button
                           type="button"
@@ -100,12 +111,11 @@ const GuestView = ({
                     </div>
                   </div>
                   {/* Notes */}
-                  <div
-                    className="h-full cursor-pointer underline text-blue-500"
-                    onClick={() => setSelectedBooking(booking)}
-                  >
-                    {booking.guest.notes || booking.notes || "Details..."}
-                  </div>
+                  {(booking.guest.notes || booking.notes) && (
+                    <div className="text-gray-600">
+                      {booking.guest.notes || booking.notes}
+                    </div>
+                  )}
                 </div>
 
                 {/* Room information */}
@@ -131,7 +141,7 @@ const GuestView = ({
 
             {/* Action */}
             <div className="basis-1/5">
-              <div className={`grid grid-rows-3 gap-y-2 p-2`}>
+              <div className={`flex flex-col gap-y-2 p-2 items-center`}>
                 {booking.description === "" ? (
                   <>
                     <input
@@ -149,9 +159,7 @@ const GuestView = ({
                     />
                     {currentGuest && (
                       <button
-                        className={`rounded-full shadow-md bg-black text-white font-semibold h-[64px] w-[64px] text-[0.6rem] ${
-                          !currentGuest && "row-start-2"
-                        }`}
+                        className="rounded-full shadow-md bg-black text-white font-semibold h-[44px] w-[44px] text-[0.55rem]"
                         onClick={() =>
                           handleBookingConfirmation(booking.guest.phone)
                         }
@@ -160,7 +168,7 @@ const GuestView = ({
                       </button>
                     )}
                     <button
-                      className="rounded-full shadow-md bg-black text-white font-semibold h-[64px] w-[64px] text-[0.6rem]"
+                      className="rounded-full shadow-md bg-black text-white font-semibold h-[44px] w-[44px] text-[0.55rem]"
                       onClick={() => {
                         const phone = booking.guest.phone;
 
@@ -188,7 +196,7 @@ const GuestView = ({
                       />
                     )}
                     <button
-                      className="rounded-full shadow-md bg-black text-white font-semibold h-[64px] w-[64px] text-[0.6rem] row-start-2"
+                      className="rounded-full shadow-md bg-black text-white font-semibold h-[44px] w-[44px] text-[0.55rem]"
                       onClick={() => {
                         const url = booking.description.match(
                           /https:\/\/www\.airbnb\.com\/hosting\/reservations\/details\/\S+/,

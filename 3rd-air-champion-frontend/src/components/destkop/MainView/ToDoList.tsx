@@ -193,7 +193,8 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
           <h2 className="font-bold self-center text-md mt-4 mb-1">
             {checkoutBookings.length} Rooms to Clean
           </h2>
-          {checkoutBookings
+          {(() => {
+            return checkoutBookings
             .map((booking) => {
               let nextCheckIn: bookingType | null = null;
               let nextCheckInDate: string | null = null;
@@ -255,11 +256,10 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
                       onChange={() => toggleTaskCompletion(cleaningTaskId)}
                     />
                     <div className="flex flex-col">
-                      <span
-                        className={`${getRoomColor(booking.room.name)} ${nextCheckIn?.guest.name === "AirBnB" ? "text-white" : "text-black"} p-1 rounded-md`}
-                      >
+                      <div className={`${getRoomColor(booking.room.name)} ${nextCheckIn?.guest.name === "AirBnB" ? "text-white" : "text-black"} p-1 rounded-md self-start`}>
                         {booking.room.name}
-                      </span>
+                        {nextCheckIn && `, ${nextCheckIn.numberOfGuests} ${nextCheckIn.numberOfGuests === 1 ? "person" : "persons"}`}
+                      </div>
                       {nextCheckIn && nextCheckInDate ? (
                         <p className="text-sm text-gray-600">
                           {nextCheckIn.guest.alias ||
@@ -269,14 +269,7 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
                           {format(
                             new Date(nextCheckInDate + "T00:00:00"),
                             "MM/dd",
-                          )}{" "}
-                          &mdash;{" "}
-                          <span className="font-bold text-black">
-                            {nextCheckIn.numberOfGuests}{" "}
-                            {nextCheckIn.numberOfGuests === 1
-                              ? "person"
-                              : "persons"}
-                          </span>
+                          )}
                         </p>
                       ) : (
                         <p className="text-sm text-gray-600">
@@ -305,7 +298,8 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
                   </div>
                 </div>
               );
-            })}
+            });
+          })()}
         </>
       )}
     </div>
