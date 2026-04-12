@@ -8,6 +8,8 @@ const roomSchema = new mongoose.Schema(
     host: { type: mongoose.Schema.ObjectId, ref: "Host", required: true },
     name: { type: String, required: true },
     price: { type: Number, required: true },
+    roomCode: { type: String, default: "" },
+    active: { type: Boolean, default: true },
   },
   { timestamps: true }
 );
@@ -48,15 +50,17 @@ roomSchema.pre(
     const rooms = await mongoose.model("Room").find(query);
 
     if (update && typeof update === "object" && !Array.isArray(update)) {
-      if ("price" in update) {
-        const newPrice = update.price;
+      const fields = (update as any).$set ?? update;
+
+      if ("price" in fields) {
+        const newPrice = fields.price;
         if (typeof newPrice !== "number" || newPrice <= 0) {
           return next(new Error("Price must be a positive number"));
         }
       }
 
-      if ("host" in update) {
-        const newHost = update.host;
+      if ("host" in fields) {
+        const newHost = fields.host;
         if (!(await Host.exists(newHost)))
           return next(new Error("Host does not exist"));
       }

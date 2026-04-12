@@ -51,6 +51,30 @@ export const updateSync = async (
     });
 };
 
+export const updateDoorCode = async (
+  id: string,
+  doorCode: string,
+  token: string
+) => {
+  return axios
+    .put(
+      `${BACKEND_ENDPOINT}/host/update/doorcode`,
+      { id, doorCode },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    )
+    .then((result) => result.data)
+    .catch((err) => {
+      if (err.response && err.response.data && err.response.data.errors) {
+        throw err.response.data.errors;
+      }
+      throw "An unexpected error occurred. Please try again.";
+    });
+};
+
 export const getHost = () => {
   const token = localStorage.getItem("token");
   if (!token) throw new Error("Invalid or expired token");

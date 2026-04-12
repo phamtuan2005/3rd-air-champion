@@ -19,6 +19,7 @@ router.post("/get/one", async (req: Request, res: any) => {
                     name
                     cohosts
                     calendar
+                    doorCode
                 }
             }
     `;
@@ -94,6 +95,28 @@ router.post("/update/sync", async (req: Request, res: any) => {
     })
     .catch((error: any) => {
       // Handle errors from the helper function
+      res.status(500).json({ error: error.message });
+    });
+});
+
+router.put("/update/doorcode", async (req: Request, res: any) => {
+  const { id, doorCode } = req.body;
+
+  const query = `
+            mutation UpdateHost($id: String!, $doorCode: String) {
+              updateHost(_id: $id, doorCode: $doorCode) {
+                doorCode
+              }
+            }`;
+
+  sendGraphQLRequest(query, { id, doorCode })
+    .then((result: any) => {
+      if (result.errors) {
+        return res.status(400).json({ errors: result.errors[0].message });
+      }
+      res.status(200).json(result.data.updateHost);
+    })
+    .catch((error: any) => {
       res.status(500).json({ error: error.message });
     });
 });

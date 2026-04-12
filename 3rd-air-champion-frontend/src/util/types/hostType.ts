@@ -7,4 +7,5 @@ export interface hostType {
   name: string;
   cohosts?: string[];
   calendar: string;
+  doorCode?: string;
 }

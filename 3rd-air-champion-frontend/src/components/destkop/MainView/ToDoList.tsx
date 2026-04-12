@@ -3,38 +3,14 @@ import { dayType } from "../../../util/types/dayType";
 import { bookingType } from "../../../util/types/bookingType";
 import { addDays, startOfToday, format } from "date-fns";
 import { getRoomColor } from "../../../util/getRoomColor";
-
-const ROOM_CODES = new Map([
-  ["chill", "(0205#)"],
-  ["cozy", "(0106#)"],
-  ["cute", "(2005#)"],
-  ["master", "(0209#)"],
-  ["king", "(1224#)"],
-  ["queen", "(1225#)"],
-]);
-
-const DEFAULT_TEMPLATE =
-  "Hello {{name}}, I would like to remind you that you will stay at TT house AirBnB for {{duration}} {{nightWord}}, starting tomorrow ({{startDate}}). Your room is {{room}} {{roomCode}}. The main entrance door code is {{doorCode}}. Many thanks for staying at TT House. I wish you a pleasant stay!";
-
-const resolveTemplate = (
-  template: string,
-  booking: bookingType,
-  startDate: string,
-) =>
-  template
-    .replace(/\{\{name\}\}/g, booking.guest.alias || booking.alias || booking.guest.name)
-    .replace(/\{\{duration\}\}/g, String(booking.duration))
-    .replace(/\{\{nightWord\}\}/g, booking.duration === 1 ? "night" : "nights")
-    .replace(/\{\{startDate\}\}/g, startDate)
-    .replace(/\{\{room\}\}/g, booking.room.name)
-    .replace(/\{\{roomCode\}\}/g, ROOM_CODES.get(booking.room.name.toLowerCase()) || "")
-    .replace(/\{\{doorCode\}\}/g, "1268=");
+import { DEFAULT_TEMPLATE, TEMPLATE_KEY, resolveTemplate } from "../../../util/reminderTemplate";
 
 interface ToDoListProps {
   monthMap: Map<string, dayType>;
+  doorCode: string;
 }
 
-const ToDoList = ({ monthMap }: ToDoListProps) => {
+const ToDoList = ({ monthMap, doorCode }: ToDoListProps) => {
   const [upcomingDays, setUpcomingDays] = useState<dayType[]>([]);
   const [checkoutBookings, setCheckoutBookings] = useState<bookingType[]>([]);
 
@@ -142,7 +118,6 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
                 <div className="flex flex-col">
                   {booking.guest.alias || booking.alias || booking.guest.name} (
                   {booking.room.name})
-                  <p className="text-sm text-gray-600">In 24-hour</p>
                   {isCompleted && (
                     <p className="text-sm">Sent on {task.date}</p>
                   )}
@@ -155,8 +130,8 @@ const ToDoList = ({ monthMap }: ToDoListProps) => {
                     onClick={() => {
                       const phone = booking.guest.phone;
                       const startDate = format(addDays(startOfToday(), 1), "MMMM do");
-                      const currentTemplate = localStorage.getItem("reminderMessageTemplate") || DEFAULT_TEMPLATE;
-                      const message = resolveTemplate(currentTemplate, booking, startDate);
+                      const currentTemplate = localStorage.getItem(TEMPLATE_KEY) || DEFAULT_TEMPLATE;
+                      const message = resolveTemplate(currentTemplate, booking, startDate, doorCode);
                       window.location.href = `sms:${phone}?&body=${encodeURIComponent(message)}`;
                       toggleTaskCompletion(taskId);
                     }}

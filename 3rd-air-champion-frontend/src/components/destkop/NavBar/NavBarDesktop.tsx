@@ -4,18 +4,22 @@ interface NavBarDesktopProps {
   name: string;
   handleLogout: () => void;
   setIsAboutModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  doorCode: string;
+  onDoorCodeSaved: (newDoorCode: string) => void;
 }
 
 const NavBarDesktop = ({
   name,
   handleLogout,
   setIsAboutModalOpen,
+  doorCode,
+  onDoorCodeSaved,
 }: NavBarDesktopProps) => {
   return (
     <div className="px-1 flex items-center justify-between w-full h-[80px] bg-white drop-shadow-md z-50 lg:h-[120px]">
       {/* Profile Section */}
       <div className="">
-        <ProfileDesktop handleLogout={handleLogout} name={name}>
+        <ProfileDesktop handleLogout={handleLogout} name={name} doorCode={doorCode} onDoorCodeSaved={onDoorCodeSaved}>
           {name}
         </ProfileDesktop>
       </div>

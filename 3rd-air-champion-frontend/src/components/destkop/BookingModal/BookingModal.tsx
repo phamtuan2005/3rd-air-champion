@@ -83,6 +83,15 @@ const BookingModal = ({
         className="bg-white rounded-lg shadow-lg p-4 sm:w-1/3 h-fit transform transition-transform"
         onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside modal
       >
+        <div className="flex justify-center mb-1">
+          <button
+            type="button"
+            className="text-gray-500 font-bold text-[1.5rem] leading-none px-6 py-0.5 rounded hover:bg-gray-100"
+            onClick={() => setIsModalOpen(false)}
+          >
+            &times;
+          </button>
+        </div>
         <h2 className="text-lg font-bold mb-4">Book a Room</h2>
         <form className="flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)}>
           {/* Guest Selection */}
@@ -185,14 +194,7 @@ const BookingModal = ({
           </div>
 
           {/* Buttons */}
-          <div className="flex justify-between">
-            <button
-              type="button"
-              className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-              onClick={() => setIsModalOpen(false)}
-            >
-              Close
-            </button>
+          <div className="flex justify-end">
             <button
               type="submit"
               className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"

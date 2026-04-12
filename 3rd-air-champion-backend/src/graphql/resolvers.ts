@@ -55,13 +55,14 @@ const hostResolvers = {
     },
     updateHost: async (
       _: unknown,
-      { _id, email, name, password, airbnbsync }: any
+      { _id, email, name, password, airbnbsync, doorCode }: any
     ) => {
       const updateData: {
         email?: string;
         name?: string;
         password?: string;
-        airbnbsync?: string;
+        airbnbsync?: any;
+        doorCode?: string;
       } = {};
       if (email) updateData.email = email;
       if (name) updateData.name = name;
@@ -71,9 +72,10 @@ const hostResolvers = {
       if (airbnbsync) {
         updateData.airbnbsync = JSON.parse(airbnbsync);
       }
+      if (doorCode !== undefined) updateData.doorCode = doorCode;
 
       // Perform the update
-      const updatedHost = await Host.findByIdAndUpdate(_id, updateData, {
+      const updatedHost = await Host.findByIdAndUpdate(_id, { $set: updateData }, {
         new: true,
         runValidators: true,
       });
@@ -267,18 +269,26 @@ const roomResolver = {
       const redirectedHost = host === "681410b9d51d1dd6c713e947" ? "677203811c91b1e24326db49" : host;
       return await new Room({ host: redirectedHost, name, price }).save();
     },
-    updateRoom: async (_: unknown, { _id, name, price }: any) => {
+    updateRoom: async (_: unknown, { _id, name, price, roomCode, active }: any) => {
+      console.log("[resolver updateRoom] args:", { _id, name, price, roomCode, active });
       const updatedData: {
         name?: string;
         price?: number;
+        roomCode?: string;
+        active?: boolean;
       } = {};
-      if (name) updatedData.name = name;
-      if (price) updatedData.price = price;
+      if (name !== undefined) updatedData.name = name;
+      if (price !== undefined) updatedData.price = price;
+      if (roomCode !== undefined) updatedData.roomCode = roomCode;
+      if (active !== undefined) updatedData.active = active;
 
-      return await Room.findByIdAndUpdate(_id, updatedData, {
+      console.log("[resolver updateRoom] updatedData:", updatedData);
+      const result = await Room.findByIdAndUpdate(_id, { $set: updatedData }, {
         runValidators: true,
         new: true,
       });
+      console.log("[resolver updateRoom] result:", result);
+      return result;
     },
   },
 };

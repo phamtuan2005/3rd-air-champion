@@ -21,6 +21,8 @@ interface AddPaneContextType {
   setGuestErrorMessage: React.Dispatch<React.SetStateAction<string>>;
   roomErrorMessage: string;
   setRoomErrorMessage: React.Dispatch<React.SetStateAction<string>>;
+  isEditRoomOpen: boolean;
+  setIsEditRoomOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 interface FooterContextType {
@@ -49,8 +51,10 @@ function App() {
   const [showAddPane, setShowAddPane] = useState<"guest" | "room" | null>(null);
   const [guestErrorMessage, setGuestErrorMessage] = useState("");
   const [roomErrorMessage, setRoomErrorMessage] = useState("");
+  const [isEditRoomOpen, setIsEditRoomOpen] = useState(false);
 
   const [isFooterVisible, setIsFooterVisible] = useState(false);
+  const [doorCode, setDoorCode] = useState("");
 
   const navigate = useNavigate();
 
@@ -67,6 +71,7 @@ function App() {
     fetchHost(hostId, token as string)
       .then((result) => {
         setHost({ ...result, id: hostId });
+        setDoorCode(result.doorCode ?? "");
         setIsLoading(false); // Data fetched, stop loading
       })
       .catch((err) => {
@@ -119,6 +124,8 @@ function App() {
             setGuestErrorMessage,
             roomErrorMessage,
             setRoomErrorMessage,
+            isEditRoomOpen,
+            setIsEditRoomOpen,
           }}
         >
           <FooterContext.Provider
@@ -133,6 +140,8 @@ function App() {
                 handleLogout={handleLogout}
                 name={host?.name}
                 setIsAboutModalOpen={setIsAboutModalOpen}
+                doorCode={doorCode}
+                onDoorCodeSaved={setDoorCode}
               />
 
               {/* About Modal */}
@@ -146,6 +155,7 @@ function App() {
                   calendarId={host.calendar}
                   hostId={host.id}
                   airbnbsync={host.airbnbsync}
+                  doorCode={doorCode}
                 ></MainView>
               </div>
 

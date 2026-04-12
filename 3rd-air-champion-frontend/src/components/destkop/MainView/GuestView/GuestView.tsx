@@ -230,8 +230,18 @@ const GuestView = ({
         );
         if (availableRooms.length === 0) return null;
 
+        const allInactive = availableRooms.every((r) => !r.active);
+        if (allInactive) {
+          return (
+            <div className="flex items-center justify-center border-b border-solid w-full py-2">
+              <p className="font-bold text-green-600">Sold Out!</p>
+            </div>
+          );
+        }
+
         const activeRoom =
           availableRooms.find((r) => r.id === selectedAvailableRoom) ||
+          availableRooms.find((r) => r.active) ||
           availableRooms[0];
 
         const bookChild = React.Children.toArray(children).find(
@@ -246,8 +256,8 @@ const GuestView = ({
               onChange={(e) => setSelectedAvailableRoom(e.target.value)}
             >
               {availableRooms.map((room) => (
-                <option key={room.id} value={room.id}>
-                  {room.name}
+                <option key={room.id} value={room.id} disabled={!room.active}>
+                  {room.name}{!room.active ? " (inactive)" : ""}
                 </option>
               ))}
             </select>

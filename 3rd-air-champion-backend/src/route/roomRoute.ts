@@ -72,6 +72,8 @@ router.post("/get/host", async (req: Request, res: any) => {
             id
             name
             price
+            roomCode
+            active
           }
         }`;
 
@@ -122,34 +124,43 @@ router.put("/update", async (req: Request, res: any) => {
   if (!("user" in req))
     return res.status(401).json({ error: "Invalid or expired token" });
 
-  const { id, name, price } = req.body;
+  const { id, name, price, roomCode, active } = req.body;
+  console.log("[PUT /room/update] body:", req.body);
 
   const variables: {
     id: string;
     name?: string;
     price?: number;
+    roomCode?: string;
+    active?: boolean;
   } = { id };
-  if (name) variables.name = name;
-  if (price) variables.price = price;
+  if (name !== undefined) variables.name = name;
+  if (price !== undefined) variables.price = price;
+  if (roomCode !== undefined) variables.roomCode = roomCode;
+  if (active !== undefined) variables.active = active;
+  console.log("[PUT /room/update] variables:", variables);
 
   const query = `
-          mutation UpdateRoom($id: String!, $name: String, $price: Float) {
-                updateRoom(_id: $id, name: $name, price: $price) {
+          mutation UpdateRoom($id: String!, $name: String, $price: Float, $roomCode: String, $active: Boolean) {
+                updateRoom(_id: $id, name: $name, price: $price, roomCode: $roomCode, active: $active) {
+                    id
                     name
                     price
+                    roomCode
+                    active
                 }
             }`;
 
   sendGraphQLRequest(query, variables)
     .then((result: any) => {
+      console.log("[PUT /room/update] GraphQL result:", JSON.stringify(result));
       if (result.errors) {
         return res.status(400).json({ errors: result.errors[0].message });
       }
-      // Send the successful login response
       res.status(200).json(result.data.updateRoom);
     })
     .catch((error: any) => {
-      // Handle errors from the helper function
+      console.log("[PUT /room/update] error:", error.message);
       res.status(500).json({ error: error.message });
     });
 });

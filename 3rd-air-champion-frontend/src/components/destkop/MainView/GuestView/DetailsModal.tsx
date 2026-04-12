@@ -74,12 +74,14 @@ const DetailsModal = ({
   return (
     <div className="fixed bottom-0 left-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center z-50">
       <div className="bg-white rounded-lg p-4 max-w-lg w-full shadow-lg">
-        <button
-          onClick={onClose}
-          className="text-gray-700 font-bold text-[1.5rem]"
-        >
-          &times;
-        </button>
+        <div className="flex justify-center">
+          <button
+            onClick={onClose}
+            className="text-gray-500 font-bold text-[1.5rem] leading-none px-6 py-0.5 rounded hover:bg-gray-100"
+          >
+            &times;
+          </button>
+        </div>
         <div className="space-y-4">
           <div className="flex items-center space-x-4">
             {isWriting ? (
