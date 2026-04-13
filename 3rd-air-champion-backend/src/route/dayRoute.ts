@@ -168,6 +168,7 @@ router.post("/get/host", async (req: Request, res: any) => {
                 host
                 name
                 price
+                roomCode
               }
               description
               duration

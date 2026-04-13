@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { DEFAULT_TEMPLATE, TEMPLATE_KEY } from "./ReminderTemplateButton";
+import { DEFAULT_TEMPLATE, TEMPLATE_KEY } from "../../../../util/reminderTemplate";
 
 interface ReminderTemplateModalProps {
   onClose: () => void;
@@ -19,14 +19,14 @@ const ReminderTemplateModal = ({ onClose }: ReminderTemplateModalProps) => {
   return createPortal(
     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
       <div className="bg-white rounded-lg p-4 w-full max-w-lg shadow-lg flex flex-col gap-3">
-        <div className="flex justify-between items-center">
-          <h2 className="font-bold text-lg">Reminder Template</h2>
+        <div className="flex flex-col items-center gap-1">
           <button
             onClick={onClose}
-            className="text-gray-700 font-bold text-[1.5rem] leading-none"
+            className="text-gray-500 font-bold text-[1.5rem] leading-none px-6 py-0.5 rounded hover:bg-gray-100"
           >
             &times;
           </button>
+          <h2 className="font-bold text-lg">Reminder Template</h2>
         </div>
 
         <textarea

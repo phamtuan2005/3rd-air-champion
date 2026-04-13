@@ -22,6 +22,7 @@ const hostDefs = gql`
     calendar: ID
     guests: [ID]
     cohosts: [ID]
+    doorCode: String
     createdAt: String
     updatedAt: String
   }
@@ -39,6 +40,7 @@ const hostDefs = gql`
       name: String
       password: String
       airbnbsync: String
+      doorCode: String
     ): Host!
     deleteCohosts(_id: String!, cohostIds: [String]!): Host!
     deleteGuests(_id: String!, guestIds: [String!]!): Host!
@@ -155,6 +157,8 @@ const roomDefs = gql`
     host: ID!
     name: String!
     price: Float!
+    roomCode: String
+    active: Boolean
     createdAt: String
     updatedAt: String
   }
@@ -167,7 +171,7 @@ const roomDefs = gql`
 
   type Mutation {
     createRoom(host: String!, name: String!, price: Float!): Room!
-    updateRoom(_id: String!, name: String, price: Float): Room!
+    updateRoom(_id: String!, name: String, price: Float, roomCode: String, active: Boolean): Room!
   }
 `;
 

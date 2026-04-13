@@ -45,14 +45,17 @@ import ToDoList from "./ToDoList";
 import ModifyBookingModal from "../ModifyBookingModal";
 import GuestAddPane from "../BookingModal/GuestAddPane";
 import RoomAddPane from "../BookingModal/RoomAddPane";
+import EditRoomModal from "../NavBar/DropDown/EditRoomModal";
+import { updateRoom } from "../../../util/roomOperations";
 
 interface MainViewProps {
   calendarId: string;
   hostId: string;
   airbnbsync: { room: string; link: string }[] | undefined;
+  doorCode: string;
 }
 
-const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
+const MainView = ({ calendarId, hostId, airbnbsync, doorCode }: MainViewProps) => {
   const token = localStorage.getItem("token");
 
   const context = useContext(isSyncModalOpenContext) as {
@@ -71,6 +74,8 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
     setGuestErrorMessage: React.Dispatch<React.SetStateAction<string>>;
     roomErrorMessage: string;
     setRoomErrorMessage: React.Dispatch<React.SetStateAction<string>>;
+    isEditRoomOpen: boolean;
+    setIsEditRoomOpen: React.Dispatch<React.SetStateAction<boolean>>;
   };
 
   const { isSyncModalOpen, shouldCallOnSync, setShouldCallOnSync } = context;
@@ -81,6 +86,8 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
     setGuestErrorMessage,
     roomErrorMessage,
     setRoomErrorMessage,
+    isEditRoomOpen,
+    setIsEditRoomOpen,
   } = addPaneContext;
   const [initialSync, setIsInitialSync] = useState(true);
 
@@ -91,6 +98,7 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
   const [days, setDays] = useState<dayType[]>([]);
   const [guests, setGuests] = useState<guestType[]>([]);
   const [rooms, setRooms] = useState<roomType[]>([]);
+  const [editingRoomId, setEditingRoomId] = useState<string>("");
   const [airBnBBookingCount, setAirBnBBookingCount] = useState<
     { Alias: string; Room: string; DistinctStartDateCount: number }[]
   >([]);
@@ -307,6 +315,21 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
       .catch((err) => {
         setRoomErrorMessage(err);
         console.error("Error creating room:", err);
+      });
+  };
+
+  const onSaveRoom = (room: roomType, onError: (msg: string) => void) => {
+    updateRoom(room, token as string)
+      .then(() => {
+        setRooms((prev) => prev.map((r) => (r.id === room.id ? room : r)));
+        setEditingRoomId(room.id);
+        setIsEditRoomOpen(false);
+        fetchRooms(hostId, token as string)
+          .then(setRooms)
+          .catch((err) => console.error("Error refreshing rooms after save:", err));
+      })
+      .catch((err) => {
+        onError(typeof err === "string" ? err : "Failed to update room. Please try again.");
       });
   };
 
@@ -894,13 +917,11 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
       numberOfNights === 1 ? "inquiry" : "inquiries"
     }!`;
 
-    const accomodationPreface = `${
-      numberOfNights > 3 ? "I do my best to accomodate you. " : ""
-    }Unfortunately, not all of your requested days are available.`;
+    const accomodationPreface = numberOfNights > 3 ? "I do my best to accomodate you." : "";
 
     const fullBody = `${
       guestName === "" ? "" : `Hi ${guestName},`
-    }\n${politePreface}\n${accomodationPreface}\n${body}${bookingDetails}\nTotal price = $${totalPriceOfMonth}${
+    }\n${politePreface}${accomodationPreface ? `\n${accomodationPreface}` : ""}\n${body}${bookingDetails}\nTotal price = $${totalPriceOfMonth}${
       totalPaidAmount > 0 ? `\nTotal paid = $${totalPaidAmount}` : ""
     }${
       unpaid > 0
@@ -1046,11 +1067,11 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
 
       <div className="hidden bg-white border-l sm:block">
         {isTodoModalOpen ? (
-          <ToDoList monthMap={monthMap} />
-        ) : currentBookings && currentBookings.length > 0 ? (
+          <ToDoList monthMap={monthMap} doorCode={doorCode} />
+        ) : (
           <GuestView
             airBnBBookingCount={airBnBBookingCount}
-            currentBookings={currentBookings}
+            currentBookings={currentBookings || []}
             currentAirBnBGuest={currentAirBnBGuest}
             currentGuest={currentGuest}
             monthMap={monthMap}
@@ -1081,22 +1102,6 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
               setSelectedRoom={setSelectedRoom}
             />
           </GuestView>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full w-full">
-            {rooms.map((room, index) => (
-              <div
-                key={index}
-                className="flex flex-col items-center justify-center border-b border-solid h-full w-full space-y-2"
-              >
-                <p>{room.name}</p>
-                <BookButton
-                  room={room}
-                  setIsModalOpen={setIsModalOpen}
-                  setSelectedRoom={setSelectedRoom}
-                />
-              </div>
-            ))}
-          </div>
         )}
       </div>
 
@@ -1108,20 +1113,21 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
         style={{ height: "calc(100% - 15rem)" }} // Leaves a 4px margin at the top
       >
         {/* Close Button */}
-        <button
-          className="text-gray-700 font-bold text-[1.5rem]"
-          onClick={() => {
-            setCurrentBookings(null);
-            setIsMobileModalOpen(false);
-          }} // Close the modal
-        >
-          &times;
-        </button>
+        <div className="flex justify-center">
+          <button
+            className="text-gray-500 font-bold text-[1.5rem] leading-none px-6 py-0.5 rounded hover:bg-gray-100"
+            onClick={() => {
+              setCurrentBookings(null);
+              setIsMobileModalOpen(false);
+            }}
+          >
+            &times;
+          </button>
+        </div>
 
-        {currentBookings && currentBookings.length > 0 ? (
-          <GuestView
+        <GuestView
             airBnBBookingCount={airBnBBookingCount}
-            currentBookings={currentBookings}
+            currentBookings={currentBookings || []}
             currentAirBnBGuest={currentAirBnBGuest}
             currentGuest={currentGuest}
             monthMap={monthMap}
@@ -1154,24 +1160,6 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
               setSelectedRoom={setSelectedRoom}
             />
           </GuestView>
-        ) : (
-          <div className="flex flex-col w-full h-full justify-center items-center">
-            {rooms.map((room, index) => (
-              <div
-                key={index}
-                className="flex flex-col items-center justify-center border-b border-solid h-full w-full space-y-2"
-              >
-                <p>{room.name}</p>
-                <BookButton
-                  room={room}
-                  setIsModalOpen={setIsModalOpen}
-                  setIsMobileModalOpen={setIsMobileModalOpen}
-                  setSelectedRoom={setSelectedRoom}
-                />
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       <div
@@ -1180,16 +1168,16 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
         }`}
       >
         {/* Close Button */}
-        <button
-          className="text-gray-700 font-bold text-[1.5rem]"
-          onClick={() => {
-            setIsTodoModalOpen(false);
-          }} // Close the modal
-        >
-          &times;
-        </button>
+        <div className="flex justify-center">
+          <button
+            className="text-gray-500 font-bold text-[1.5rem] leading-none px-6 py-0.5 rounded hover:bg-gray-100"
+            onClick={() => setIsTodoModalOpen(false)}
+          >
+            &times;
+          </button>
+        </div>
 
-        <ToDoList monthMap={monthMap} />
+        <ToDoList monthMap={monthMap} doorCode={doorCode} />
       </div>
 
       {selectedBooking && (
@@ -1208,6 +1196,14 @@ const MainView = ({ calendarId, hostId, airbnbsync }: MainViewProps) => {
           booking={selectedUnbooking}
           onClose={() => setSelectedUnbooking(null)}
           onUnbook={onUnbook}
+        />
+      )}
+      {isEditRoomOpen && rooms.length > 0 && (
+        <EditRoomModal
+          rooms={rooms}
+          defaultRoomId={editingRoomId}
+          onClose={() => setIsEditRoomOpen(false)}
+          onSave={onSaveRoom}
         />
       )}
     </>

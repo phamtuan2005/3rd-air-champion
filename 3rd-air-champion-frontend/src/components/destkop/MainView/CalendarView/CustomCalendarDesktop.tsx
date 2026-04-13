@@ -275,40 +275,6 @@ const CustomCalendar = ({
 
     if (day && day.bookings.length > 0) {
       className.push("react-calendar__custom_tile_booking");
-      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-      // Aggregate booking conditions in one pass
-      const { isStart, isInbetween, isEnd } = day.bookings.reduce(
-        (acc, booking) => {
-          const startDate = toZonedTime(booking.startDate, timeZone);
-          const endDate = toZonedTime(booking.endDate, timeZone);
-
-          if (
-            isWithinInterval(date, { start: startDate, end: endDate }) &&
-            !(isSameDay(date, startDate) || isSameDay(date, endDate))
-          ) {
-            acc.isInbetween = true;
-          }
-
-          if (isSameDay(date, startDate)) acc.isStart = true;
-          if (isSameDay(date, endDate)) acc.isEnd = true;
-
-          return acc;
-        },
-        { isStart: false, isInbetween: false, isEnd: false },
-      );
-
-      // Refined class assignment logic
-      if (isInbetween) {
-        className.push("react-calendar__custom_tile_booking_between");
-      } else {
-        if (isStart && !isEnd) {
-          className.push("react-calendar__custom_tile_booking_start");
-        }
-        if (isEnd && !isStart) {
-          className.push("react-calendar__custom_tile_booking_end");
-        }
-      }
     }
 
     return className;
@@ -319,82 +285,212 @@ const CustomCalendar = ({
       const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
       const day = useMonthMap.get(date.toISOString().split("T")[0]);
-      if (day) {
-        const sortedUsedRooms = usedRooms.sort((a, b) =>
+
+      // Checkouts: a booking's checkout morning is endDate (last night) + 1 day.
+      // That checkout day has no booking record of its own, so we look at the
+      // previous day's records to find any bookings whose checkout falls today.
+      const prevDay = useMonthMap.get(
+        addDays(date, -1).toISOString().split("T")[0],
+      );
+      const checkoutBookings: bookingType[] = prevDay
+        ? prevDay.bookings.filter((b) =>
+            b.endDate && b.room && b.guest
+              ? isSameDay(
+                  date,
+                  addDays(toZonedTime(b.endDate, timeZone), 1),
+                )
+              : false,
+          )
+        : [];
+
+      if (!day && checkoutBookings.length === 0) return null;
+
+      if (day || checkoutBookings.length > 0) {
+        // Spread to avoid mutating state; extra rooms are added lazily via ensureGridRow
+        const sortedUsedRooms = [...usedRooms].sort((a, b) =>
           a.name.localeCompare(b.name),
         );
 
-        // Initialize grid with empty placeholders
-        const gridContent: Record<string, React.ReactNode> = {};
+        // Each room tracks two slots:
+        //   am = guest checking OUT (still occupying in the morning until ~11am)
+        //   pm = guest checking IN  (arriving in the afternoon from ~2pm)
+        const gridContent: Record<
+          string,
+          { am: bookingType | null; pm: bookingType | null }
+        > = {};
         sortedUsedRooms.forEach((room) => {
-          gridContent[room.name] = (
-            <div key={room.name} className="row-span-1 h-full min-h-[16px]" />
-          );
+          gridContent[room.name] = { am: null, pm: null };
         });
 
-        // Fill placeholders with actual booking data
-        day.bookings.forEach((booking) => {
-          const startDate = toZonedTime(booking.startDate, timeZone);
-          const endDate = toZonedTime(booking.endDate, timeZone);
+        // Helper: get or create a gridContent entry for a room that may not
+        // be in usedRooms yet (usedRooms can be stale between re-renders).
+        const ensureGridRow = (room: roomType) => {
+          if (!gridContent[room.name]) {
+            gridContent[room.name] = { am: null, pm: null };
+            sortedUsedRooms.push(room);
+          }
+        };
 
-          const name =
-            booking.guest.name === "AirBnB" && booking.alias
-              ? `${booking.alias} (A)`
-              : currentGuest
-                ? booking.room.name
-                : booking.guest.name;
+        // AM slot: populate from previous day's bookings whose checkout is today
+        checkoutBookings.forEach((booking) => {
+          ensureGridRow(booking.room);
+          gridContent[booking.room.name].am = booking;
+        });
 
-          const dayIndex = getDay(date);
-          let maxDuration = Math.max(
-            booking.duration - dayIndex > 1
-              ? Math.min(booking.duration, booking.duration - dayIndex)
-              : booking.duration,
-            1,
-          );
+        // Current day: check-ins (isStart) and mid-stay nights (isBetween)
+        if (day) {
+          day.bookings.forEach((booking) => {
+            if (!booking.startDate || !booking.endDate || !booking.room || !booking.guest) return;
 
-          if (isSameDay(date, endOfMonth(date))) maxDuration = 1;
+            const startDate = toZonedTime(booking.startDate, timeZone);
+            const dbEndDate = toZonedTime(booking.endDate, timeZone);
 
-          const availableTileWidth = tileWidth ? tileWidth * maxDuration : 0;
+            const isStart = isSameDay(date, startDate);
+            // isBetween: any night after check-in up to and including the last night
+            const isBetween =
+              !isStart &&
+              isWithinInterval(date, { start: startDate, end: dbEndDate });
 
-          const textSize = 0.65;
+            ensureGridRow(booking.room);
 
-          const content = isSameDay(date, startDate) ? (
-            <span
-              className="absolute top-auto left-1 truncate z-10"
-              style={{
-                maxWidth: `${availableTileWidth - maxDuration * 3}px`,
-              }}
-            >
-              {booking.numberOfGuests > 1 ? `(${booking.numberOfGuests})` : ""}{" "}
-              {name}
-            </span>
-          ) : (
-            <span>&nbsp;</span>
-          );
+            // AM slot for mid-stay: guest occupied the room last night too
+            if (isBetween) {
+              gridContent[booking.room.name].am = booking;
+            }
+            // PM slot: guest is arriving or still in-stay
+            if (isStart || isBetween) {
+              gridContent[booking.room.name].pm = booking;
+            }
+          });
+        }
 
-          const roundedClass = `${
-            isSameDay(date, startDate) ? "rounded-l-lg" : ""
-          } ${isSameDay(date, endDate) ? "rounded-r-lg" : ""}`;
+        // Re-sort in case ensureGridRow added new rooms
+        sortedUsedRooms.sort((a, b) => a.name.localeCompare(b.name));
 
-          const roomColor = getRoomColor(booking.room.name);
+        const textSize = 0.65;
 
-          gridContent[booking.room.name] = (
-            <div
-              key={booking.room.name}
-              className={`${roomColor} ${roundedClass} relative text-nowrap h-full flex items-center pl-1 ${
-                booking.guest.name === "AirBnB"
+        return (
+          <>
+            {sortedUsedRooms.map((room) => {
+              const { am: amBooking, pm: pmBooking } = gridContent[room.name];
+
+              if (!amBooking && !pmBooking) {
+                return (
+                  <div key={room.name} className="row-span-1 min-h-[16px]" />
+                );
+              }
+
+              // AM slot (checkout side — left half)
+              const amColor = amBooking?.room?.name
+                ? getRoomColor(amBooking.room.name)
+                : "";
+              const amIsEnd =
+                amBooking?.endDate
+                  ? isSameDay(date, addDays(toZonedTime(amBooking.endDate, timeZone), 1))
+                  : false;
+              // PM slot (checkin side — right half)
+              const pmStartDate =
+                pmBooking?.startDate
+                  ? toZonedTime(pmBooking.startDate, timeZone)
+                  : null;
+              const pmIsStart =
+                pmBooking && pmStartDate
+                  ? isSameDay(date, pmStartDate)
+                  : false;
+              const pmColor = pmBooking?.room?.name
+                ? getRoomColor(pmBooking.room.name)
+                : "";
+              const pmTextColor =
+                pmBooking?.guest?.name === "AirBnB"
                   ? "text-white"
-                  : "text-black font-bold"
-              } justify-center`}
-              style={{ fontSize: `${textSize}rem` }}
-            >
-              {content}
-            </div>
-          );
-        });
+                  : "text-black font-bold";
 
-        // Render all rooms in order (even if unoccupied)
-        return <>{sortedUsedRooms.map((room) => gridContent[room.name])}</>;
+              // Guest name shown in the PM slot on check-in day only
+              const pmName = pmBooking
+                ? pmBooking.guest?.name === "AirBnB" && pmBooking.alias
+                  ? `${pmBooking.alias} (A)`
+                  : currentGuest
+                    ? pmBooking.room?.name ?? ""
+                    : pmBooking.guest?.name ?? ""
+                : "";
+
+              // Available width for name text: starts from the PM half of the
+              // check-in tile, so subtract half a tile from the total span.
+              let maxDuration = 1;
+              if (pmBooking && pmIsStart) {
+                const dayIndex = getDay(date);
+                maxDuration = Math.max(
+                  pmBooking.duration - dayIndex > 1
+                    ? Math.min(
+                        pmBooking.duration,
+                        pmBooking.duration - dayIndex,
+                      )
+                    : pmBooking.duration,
+                  1,
+                );
+                if (isSameDay(date, endOfMonth(date))) maxDuration = 1;
+              }
+
+              const availableTileWidth = tileWidth
+                ? tileWidth * maxDuration - tileWidth / 5
+                : 0;
+
+              const pmNameContent = pmIsStart ? (
+                <span
+                  className="absolute top-auto left-1 truncate z-10"
+                  style={{
+                    maxWidth: `${availableTileWidth - maxDuration * 3}px`,
+                  }}
+                >
+                  {pmBooking!.numberOfGuests > 1
+                    ? `(${pmBooking!.numberOfGuests})`
+                    : ""}{" "}
+                  {pmName}
+                </span>
+              ) : null;
+
+              return (
+                <div
+                  key={room.name}
+                  className="row-span-1 min-h-[16px]"
+                  style={{ position: "relative" }}
+                >
+                  {/* AM slot — checkout side: left 1/3 + 1px bleed left so the
+                      bar bridges any sub-pixel gap with the previous tile's PM bar */}
+                  {amBooking && (
+                    <div
+                      className={`${amColor} ${amIsEnd ? "rounded-r-lg" : ""}`}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        bottom: 0,
+                        left: "-1px",
+                        right: amIsEnd ? "80%" : "-1px",
+                      }}
+                    />
+                  )}
+                  {/* PM slot — checkin side: right 2/3 + 1px bleed right so the
+                      bar bridges any sub-pixel gap with the next tile's AM bar */}
+                  {pmBooking && (
+                    <div
+                      className={`${pmColor} ${pmIsStart ? "rounded-l-lg" : ""} ${pmTextColor} flex items-center`}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        bottom: 0,
+                        left: pmIsStart ? "20%" : "-1px",
+                        right: "-1px",
+                        fontSize: `${textSize}rem`,
+                      }}
+                    >
+                      {pmNameContent}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </>
+        );
       }
     }
 

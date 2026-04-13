@@ -72,6 +72,14 @@ const RoomLinkModal = ({
   return (
     <div className="fixed inset-0 bg-gray-500 bg-opacity-50 flex justify-center items-center z-30">
       <div className="bg-white p-6 rounded shadow-lg w-96">
+        <div className="flex justify-center mb-1">
+          <button
+            onClick={handleSaveAndClose}
+            className="text-gray-500 font-bold text-[1.5rem] leading-none px-6 py-0.5 rounded hover:bg-gray-100"
+          >
+            &times;
+          </button>
+        </div>
         <h2 className="text-lg font-bold mb-4">Add Room and Link</h2>
 
         <select
@@ -116,7 +124,7 @@ const RoomLinkModal = ({
             onClick={handleSaveAndClose}
             className="bg-gray-300 text-black px-4 py-2 rounded mr-2"
           >
-            Close
+            Save
           </button>
         </div>
       </div>

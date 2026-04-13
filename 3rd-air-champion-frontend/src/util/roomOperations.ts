@@ -18,7 +18,41 @@ export const fetchRooms = async (host: string, token: string) => {
       if (err.response && err.response.data && err.response.data.errors) {
         throw err.response.data.errors;
       }
-      // Default error message if no backend message is available
+      throw "An unexpected error occurred. Please try again.";
+    });
+};
+
+export const updateRoom = async (
+  roomObject: { id: string; name: string; price: number; roomCode: string; active: boolean },
+  token: string
+) => {
+  const body = {
+    id: roomObject.id,
+    name: roomObject.name,
+    price: roomObject.price,
+    roomCode: roomObject.roomCode,
+    active: roomObject.active,
+  };
+  console.log("[updateRoom] sending:", body);
+  return axios
+    .put(
+      `${BACKEND_ENDPOINT}/room/update`,
+      body,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    )
+    .then((result) => {
+      console.log("[updateRoom] response:", result.data);
+      return result.data;
+    })
+    .catch((err) => {
+      console.log("[updateRoom] error:", err.response?.data ?? err);
+      if (err.response && err.response.data && err.response.data.errors) {
+        throw err.response.data.errors;
+      }
       throw "An unexpected error occurred. Please try again.";
     });
 };
@@ -42,7 +76,6 @@ export const createRoom = async (
       if (err.response && err.response.data && err.response.data.errors) {
         throw err.response.data.errors;
       }
-      // Default error message if no backend message is available
       throw "An unexpected error occurred. Please try again.";
     });
 };
