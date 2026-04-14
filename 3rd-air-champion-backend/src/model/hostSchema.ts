@@ -28,6 +28,9 @@ const hostSchema = new mongoose.Schema(
       },
     ],
     doorCode: { type: String, default: "" },
+    airbnbName: { type: String, default: "" },
+    airbnbAddress: { type: String, default: "" },
+    houseRules: { type: String, default: "" },
   },
   { timestamps: true }
 );

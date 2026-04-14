@@ -24,14 +24,18 @@ interface EditRoomModalProps {
   defaultRoomId?: string;
   onClose: () => void;
   onSave: (room: roomType, onError: (msg: string) => void) => void;
+  onAdd: (room: { name: string; price: number; roomCode?: string }, onError: (msg: string) => void) => void;
+  onDelete: (roomId: string, onError: (msg: string) => void) => void;
 }
 
-const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave }: EditRoomModalProps) => {
+const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave, onAdd, onDelete }: EditRoomModalProps) => {
   const initialId = (defaultRoomId && rooms.some((r) => r.id === defaultRoomId))
     ? defaultRoomId
     : rooms[0]?.id ?? "";
   const [selectedRoomId, setSelectedRoomId] = useState<string>(initialId);
   const [errorMessage, setErrorMessage] = useState("");
+  const [pendingConfirm, setPendingConfirm] = useState<EditRoomFormData | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId) ?? rooms[0];
 
@@ -67,6 +71,11 @@ const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave }: EditRoomModalP
   const onSubmit: SubmitHandler<EditRoomFormData> = (data) => {
     if (!selectedRoom) return;
     setErrorMessage("");
+    const nameExistsInList = rooms.some((r) => r.name === data.name);
+    if (!nameExistsInList) {
+      setPendingConfirm(data);
+      return;
+    }
     onSave({ ...selectedRoom, ...data }, (msg) => setErrorMessage(msg));
   };
 
@@ -86,7 +95,7 @@ const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave }: EditRoomModalP
           >
             &times;
           </button>
-          <h2 className="font-bold text-lg">Edit Room</h2>
+          <h2 className="font-bold text-lg">Manage Room</h2>
         </div>
 
         {/* Room selector */}
@@ -163,22 +172,102 @@ const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave }: EditRoomModalP
             <p className="text-red-500 text-sm">{errorMessage}</p>
           )}
 
-          <div className="flex gap-2 justify-end">
+          <div className="flex gap-2 justify-between">
             <button
               type="button"
-              onClick={onClose}
-              className="px-3 py-1 bg-gray-400 text-white text-sm rounded"
+              onClick={() => { setConfirmDelete(true); setPendingConfirm(null); }}
+              className="px-3 py-1 bg-red-500 text-white text-sm rounded"
             >
-              Cancel
+              Delete
             </button>
-            <button
-              type="submit"
-              className="px-3 py-1 bg-green-500 text-white text-sm rounded"
-            >
-              Save
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-3 py-1 bg-gray-400 text-white text-sm rounded"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-3 py-1 bg-green-500 text-white text-sm rounded"
+              >
+                Save
+              </button>
+            </div>
           </div>
         </form>
+
+        {/* Delete confirmation */}
+        {confirmDelete && (
+          <div className="border border-red-400 bg-red-50 rounded p-3 flex flex-col gap-2">
+            <p className="text-sm font-medium text-red-800">
+              Delete "{selectedRoom?.name}"? This cannot be undone.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="flex-1 px-2 py-1 bg-red-500 text-white text-sm rounded"
+                onClick={() => {
+                  if (!selectedRoom) return;
+                  onDelete(selectedRoom.id, (msg) => { setErrorMessage(msg); setConfirmDelete(false); });
+                }}
+              >
+                Yes, Delete
+              </button>
+              <button
+                type="button"
+                className="flex-1 px-2 py-1 bg-gray-300 text-gray-700 text-sm rounded"
+                onClick={() => setConfirmDelete(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Confirmation dialog when name doesn't match any existing room */}
+        {pendingConfirm && (
+          <div className="border border-yellow-400 bg-yellow-50 rounded p-3 flex flex-col gap-2">
+            <p className="text-sm font-medium text-yellow-800">
+              "{pendingConfirm.name}" is not in your room list. What would you like to do?
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="flex-1 px-2 py-1 bg-blue-500 text-white text-sm rounded"
+                onClick={() => {
+                  onAdd(
+                    { name: pendingConfirm.name, price: pendingConfirm.price, roomCode: pendingConfirm.roomCode },
+                    (msg) => { setErrorMessage(msg); setPendingConfirm(null); },
+                  );
+                }}
+              >
+                Add New Room
+              </button>
+              <button
+                type="button"
+                className="flex-1 px-2 py-1 bg-green-500 text-white text-sm rounded"
+                onClick={() => {
+                  if (!selectedRoom) return;
+                  onSave({ ...selectedRoom, ...pendingConfirm }, (msg) => {
+                    setErrorMessage(msg);
+                    setPendingConfirm(null);
+                  });
+                }}
+              >
+                Rename Room
+              </button>
+              <button
+                type="button"
+                className="px-2 py-1 bg-gray-300 text-gray-700 text-sm rounded"
+                onClick={() => setPendingConfirm(null)}
+              >
+                Back
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>,
     document.body,

@@ -1,25 +1,32 @@
 import ProfileDesktop from "./ProfileDesktop";
 
+interface AirBnBInfo {
+  doorCode: string;
+  airbnbName: string;
+  airbnbAddress: string;
+  houseRules: string;
+}
+
 interface NavBarDesktopProps {
   name: string;
   handleLogout: () => void;
   setIsAboutModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  doorCode: string;
-  onDoorCodeSaved: (newDoorCode: string) => void;
+  airBnBInfo: AirBnBInfo;
+  onAirBnBInfoSaved: (info: AirBnBInfo) => void;
 }
 
 const NavBarDesktop = ({
   name,
   handleLogout,
   setIsAboutModalOpen,
-  doorCode,
-  onDoorCodeSaved,
+  airBnBInfo,
+  onAirBnBInfoSaved,
 }: NavBarDesktopProps) => {
   return (
     <div className="px-1 flex items-center justify-between w-full h-[80px] bg-white drop-shadow-md z-50 lg:h-[120px]">
       {/* Profile Section */}
       <div className="">
-        <ProfileDesktop handleLogout={handleLogout} name={name} doorCode={doorCode} onDoorCodeSaved={onDoorCodeSaved}>
+        <ProfileDesktop handleLogout={handleLogout} name={name} airBnBInfo={airBnBInfo} onAirBnBInfoSaved={onAirBnBInfoSaved}>
           {name}
         </ProfileDesktop>
       </div>

@@ -1,5 +1,5 @@
 import { useContext } from "react";
-import { AddPaneContext } from "../../../../App";
+import { AddPaneContext } from "../../../../context";
 
 const AddRoomButton = () => {
   const context = useContext(AddPaneContext) as {

@@ -1,5 +1,5 @@
 import { useContext } from "react";
-import { isSyncModalOpenContext } from "../../../../App";
+import { isSyncModalOpenContext } from "../../../../context";
 
 const RoomSyncButton = () => {
   const context = useContext(isSyncModalOpenContext) as {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext } from "react";
 import { roomType } from "../../../../util/types/roomType";
 import { updateSync } from "../../../../util/hostOperations";
-import { isSyncModalOpenContext } from "../../../../App";
+import { isSyncModalOpenContext } from "../../../../context";
 
 interface RoomLinkModalProps {
   airbnbsync: { room: string; link: string }[] | undefined;

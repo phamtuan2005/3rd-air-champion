@@ -68,6 +68,41 @@ export const createGuest = async (
     });
 };
 
+export const updateGuest = async (
+  guest: { id: string; name: string; phone: string; email?: string; notes?: string; returning?: boolean },
+  token: string
+) => {
+  return axios
+    .put(
+      `${BACKEND_ENDPOINT}/guest/update`,
+      { ...guest },
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    .then((result) => result.data)
+    .catch((err) => {
+      if (err.response && err.response.data && err.response.data.errors) {
+        throw err.response.data.errors;
+      }
+      throw "An unexpected error occurred. Please try again.";
+    });
+};
+
+export const deleteGuest = async (guestId: string, token: string) => {
+  return axios
+    .post(
+      `${BACKEND_ENDPOINT}/guest/remove`,
+      { guestIds: [guestId] },
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    .then((result) => result.data)
+    .catch((err) => {
+      if (err.response && err.response.data && err.response.data.errors) {
+        throw err.response.data.errors;
+      }
+      throw "An unexpected error occurred. Please try again.";
+    });
+};
+
 export const updateGuestPricing = async (
   body: { guest: string; room: string; price: number },
   token: string

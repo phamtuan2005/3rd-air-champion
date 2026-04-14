@@ -55,7 +55,7 @@ const hostResolvers = {
     },
     updateHost: async (
       _: unknown,
-      { _id, email, name, password, airbnbsync, doorCode }: any
+      { _id, email, name, password, airbnbsync, doorCode, airbnbName, airbnbAddress, houseRules }: any
     ) => {
       const updateData: {
         email?: string;
@@ -63,6 +63,9 @@ const hostResolvers = {
         password?: string;
         airbnbsync?: any;
         doorCode?: string;
+        airbnbName?: string;
+        airbnbAddress?: string;
+        houseRules?: string;
       } = {};
       if (email) updateData.email = email;
       if (name) updateData.name = name;
@@ -73,6 +76,9 @@ const hostResolvers = {
         updateData.airbnbsync = JSON.parse(airbnbsync);
       }
       if (doorCode !== undefined) updateData.doorCode = doorCode;
+      if (airbnbName !== undefined) updateData.airbnbName = airbnbName;
+      if (airbnbAddress !== undefined) updateData.airbnbAddress = airbnbAddress;
+      if (houseRules !== undefined) updateData.houseRules = houseRules;
 
       // Perform the update
       const updatedHost = await Host.findByIdAndUpdate(_id, { $set: updateData }, {
@@ -265,9 +271,11 @@ const roomResolver = {
     },
   },
   Mutation: {
-    createRoom: async (_: unknown, { host, name, price }: any) => {
+    createRoom: async (_: unknown, { host, name, price, roomCode }: any) => {
       const redirectedHost = host === "681410b9d51d1dd6c713e947" ? "677203811c91b1e24326db49" : host;
-      return await new Room({ host: redirectedHost, name, price }).save();
+      const roomData: { host: string; name: string; price: number; roomCode?: string } = { host: redirectedHost, name, price };
+      if (roomCode !== undefined) roomData.roomCode = roomCode;
+      return await new Room(roomData).save();
     },
     updateRoom: async (_: unknown, { _id, name, price, roomCode, active }: any) => {
       console.log("[resolver updateRoom] args:", { _id, name, price, roomCode, active });

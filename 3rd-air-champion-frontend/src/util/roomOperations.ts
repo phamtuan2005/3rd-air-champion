@@ -57,8 +57,28 @@ export const updateRoom = async (
     });
 };
 
+export const deleteRoom = async (roomId: string, token: string) => {
+  return axios
+    .post(
+      `${BACKEND_ENDPOINT}/room/delete`,
+      { roomIds: [roomId] },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    )
+    .then((result) => result.data)
+    .catch((err) => {
+      if (err.response && err.response.data && err.response.data.errors) {
+        throw err.response.data.errors;
+      }
+      throw "An unexpected error occurred. Please try again.";
+    });
+};
+
 export const createRoom = async (
-  roomObject: { name: string; price: number },
+  roomObject: { name: string; price: number; roomCode?: string },
   token: string
 ) => {
   return axios
