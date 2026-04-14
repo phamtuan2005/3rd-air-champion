@@ -1,6 +1,6 @@
 import { useContext } from "react";
 import { LuMail, LuMapPin, LuPhoneCall } from "react-icons/lu";
-import { FooterContext } from "../../../App";
+import { FooterContext } from "../../../context";
 
 const Footer = () => {
   const footerContext = useContext(FooterContext) as {

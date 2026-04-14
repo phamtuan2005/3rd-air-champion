@@ -1,23 +1,22 @@
 import { useContext } from "react";
 import { FaDatabase, FaDoorOpen, FaSync, FaUser } from "react-icons/fa";
 import { TiUserAdd } from "react-icons/ti";
-import { MdBedroomParent, MdOutlineMessage } from "react-icons/md";
+import { MdOutlineMessage } from "react-icons/md";
 import { MdEditNote } from "react-icons/md";
 import { ImExit } from "react-icons/im";
 import AirBnBSyncButton from "./AirBnBSyncButton";
 import LogoutButton from "./LogoutButton";
 import RoomSyncButton from "./RoomSyncButton";
 import AddGuestButton from "./AddGuestButton";
-import AddRoomButton from "./AddRoomButton";
 import ReminderTemplateButton from "./ReminderTemplateButton";
-import { AddPaneContext } from "../../../../App";
+import { AddPaneContext } from "../../../../context";
 
 interface DropDownMenuProps {
   user: string;
   handleLogout: () => void;
   setIsDropdownOpen: React.Dispatch<React.SetStateAction<boolean>>;
   onOpenReminderTemplate: () => void;
-  onOpenDoorCode: () => void;
+  onOpenMyAirBnB: () => void;
 }
 
 const DropDownMenu = ({
@@ -25,7 +24,7 @@ const DropDownMenu = ({
   handleLogout,
   setIsDropdownOpen,
   onOpenReminderTemplate,
-  onOpenDoorCode,
+  onOpenMyAirBnB,
 }: DropDownMenuProps) => {
   const { setIsEditRoomOpen } = useContext(AddPaneContext)!;
 
@@ -51,17 +50,6 @@ const DropDownMenu = ({
       </div>
       <div
         className="flex items-center border-b border-solid w-full hover:bg-[#D9D9D9]"
-        onClick={() => setIsDropdownOpen(false)}
-      >
-        <div className="basis-1/5 flex w-full items-center justify-center">
-          <MdBedroomParent />
-        </div>
-        <div className="basis-4/5">
-          <AddRoomButton />
-        </div>
-      </div>
-      <div
-        className="flex items-center border-b border-solid w-full hover:bg-[#D9D9D9]"
         onClick={() => {
           setIsDropdownOpen(false);
           setIsEditRoomOpen(true);
@@ -70,7 +58,7 @@ const DropDownMenu = ({
         <div className="basis-1/5 flex w-full items-center justify-center">
           <MdEditNote />
         </div>
-        <div className="basis-4/5 py-1 px-2">Edit Room</div>
+        <div className="basis-4/5 py-1 px-2">Room</div>
       </div>
       <div
         className="flex items-center border-b border-solid w-full hover:bg-[#D9D9D9]"
@@ -112,13 +100,13 @@ const DropDownMenu = ({
         className="flex items-center border-b border-solid w-full hover:bg-[#D9D9D9]"
         onClick={() => {
           setIsDropdownOpen(false);
-          onOpenDoorCode();
+          onOpenMyAirBnB();
         }}
       >
         <div className="basis-1/5 flex w-full items-center justify-center">
           <FaDoorOpen />
         </div>
-        <div className="basis-4/5 py-1 px-2">Door Code</div>
+        <div className="basis-4/5 py-1 px-2">My AirBnB</div>
       </div>
       <div
         className="flex items-center border-b border-solid w-full hover:bg-[#D9D9D9]"

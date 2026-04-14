@@ -1,4 +1,5 @@
 import { useContext, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import CalendarNavigator from "./CalendarView/CalendarNavigatorDesktop";
 import CustomCalendar from "./CalendarView/CustomCalendarDesktop";
 import { dayType } from "../../../util/types/dayType";
@@ -22,7 +23,7 @@ import {
 } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { roomType } from "../../../util/types/roomType";
-import { createRoom, fetchRooms } from "../../../util/roomOperations";
+import { createRoom, deleteRoom, fetchRooms } from "../../../util/roomOperations";
 import RoomLinkModal from "./CalendarView/RoomLinkModal";
 import { guestType } from "../../../util/types/guestType";
 import {
@@ -33,7 +34,7 @@ import {
 import { syncCalendars } from "../../../util/syncOperations";
 import GuestView from "./GuestView/GuestView";
 import BookButton from "../BookButton";
-import { AddPaneContext, isSyncModalOpenContext } from "../../../App";
+import { AddPaneContext, isSyncModalOpenContext } from "../../../context";
 import DetailsModal from "./GuestView/DetailsModal";
 import {
   updateBookingAirbnbPrice,
@@ -44,18 +45,21 @@ import UnbookingConfirmation from "./GuestView/UnbookingConfirmation";
 import ToDoList from "./ToDoList";
 import ModifyBookingModal from "../ModifyBookingModal";
 import GuestAddPane from "../BookingModal/GuestAddPane";
-import RoomAddPane from "../BookingModal/RoomAddPane";
 import EditRoomModal from "../NavBar/DropDown/EditRoomModal";
+import ManageGuestModal from "../NavBar/DropDown/ManageGuestModal";
 import { updateRoom } from "../../../util/roomOperations";
+import { updateGuest, deleteGuest } from "../../../util/guestOperations";
 
 interface MainViewProps {
   calendarId: string;
   hostId: string;
   airbnbsync: { room: string; link: string }[] | undefined;
   doorCode: string;
+  airbnbName: string;
+  airbnbAddress: string;
 }
 
-const MainView = ({ calendarId, hostId, airbnbsync, doorCode }: MainViewProps) => {
+const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnbAddress }: MainViewProps) => {
   const token = localStorage.getItem("token");
 
   const context = useContext(isSyncModalOpenContext) as {
@@ -76,6 +80,8 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode }: MainViewProps) =
     setRoomErrorMessage: React.Dispatch<React.SetStateAction<string>>;
     isEditRoomOpen: boolean;
     setIsEditRoomOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    isManageGuestOpen: boolean;
+    setIsManageGuestOpen: React.Dispatch<React.SetStateAction<boolean>>;
   };
 
   const { isSyncModalOpen, shouldCallOnSync, setShouldCallOnSync } = context;
@@ -84,10 +90,10 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode }: MainViewProps) =
     setShowAddPane,
     guestErrorMessage,
     setGuestErrorMessage,
-    roomErrorMessage,
-    setRoomErrorMessage,
     isEditRoomOpen,
     setIsEditRoomOpen,
+    isManageGuestOpen,
+    setIsManageGuestOpen,
   } = addPaneContext;
   const [initialSync, setIsInitialSync] = useState(true);
 
@@ -110,6 +116,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode }: MainViewProps) =
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
+  const [icsModal, setIcsModal] = useState<{ icsContent: string; phone: string } | null>(null);
   const [isTodoModalOpen, setIsTodoModalOpen] = useState(true);
 
   const [blockedAirBnBDates, setIsBlockedAirBnBDates] = useState<{
@@ -306,15 +313,17 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode }: MainViewProps) =
       });
   };
 
-  const onAddRoom = (roomObject: { name: string; price: number }) => {
+  const onAddRoomFromModal = (
+    roomObject: { name: string; price: number; roomCode?: string },
+    onError: (msg: string) => void,
+  ) => {
     createRoom(roomObject, token as string)
       .then((result) => {
-        setRooms([...rooms, result]);
-        setShowAddPane(null);
+        setRooms((prev) => [...prev, result]);
+        setIsEditRoomOpen(false);
       })
       .catch((err) => {
-        setRoomErrorMessage(err);
-        console.error("Error creating room:", err);
+        onError(typeof err === "string" ? err : "Failed to create room. Please try again.");
       });
   };
 
@@ -330,6 +339,56 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode }: MainViewProps) =
       })
       .catch((err) => {
         onError(typeof err === "string" ? err : "Failed to update room. Please try again.");
+      });
+  };
+
+  const onDeleteRoom = (roomId: string, onError: (msg: string) => void) => {
+    deleteRoom(roomId, token as string)
+      .then(() => {
+        setRooms((prev) => prev.filter((r) => r.id !== roomId));
+        setIsEditRoomOpen(false);
+      })
+      .catch((err) => {
+        onError(typeof err === "string" ? err : "Failed to delete room. Please try again.");
+      });
+  };
+
+  const onAddGuestFromModal = (
+    guestObject: { name: string; phone: string; email?: string; notes?: string; returning: boolean },
+    onError: (msg: string) => void,
+  ) => {
+    createGuest(guestObject, token as string)
+      .then((result) => {
+        setGuests((prev) => [...prev, result]);
+        setIsManageGuestOpen(false);
+      })
+      .catch((err) => {
+        onError(typeof err === "string" ? err : "Failed to create guest. Please try again.");
+      });
+  };
+
+  const onUpdateGuestFromModal = (guest: guestType, onError: (msg: string) => void) => {
+    updateGuest(
+      { id: guest.id, name: guest.name, phone: guest.phone, email: guest.email, notes: guest.notes, returning: guest.returning },
+      token as string,
+    )
+      .then((result) => {
+        setGuests((prev) => prev.map((g) => (g.id === guest.id ? { ...g, ...result } : g)));
+        setIsManageGuestOpen(false);
+      })
+      .catch((err) => {
+        onError(typeof err === "string" ? err : "Failed to update guest. Please try again.");
+      });
+  };
+
+  const onDeleteGuestFromModal = (guestId: string, onError: (msg: string) => void) => {
+    deleteGuest(guestId, token as string)
+      .then(() => {
+        setGuests((prev) => prev.filter((g) => g.id !== guestId));
+        setIsManageGuestOpen(false);
+      })
+      .catch((err) => {
+        onError(typeof err === "string" ? err : "Failed to delete guest. Please try again.");
       });
   };
 
@@ -936,6 +995,52 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode }: MainViewProps) =
     window.location.href = `sms:${phone}?&body=${encodeURIComponent(fullBody)}`;
   };
 
+  const handleSendCalEvents = (phone: string) => {
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    const sortedEntries = Array.from(monthMap.entries()).sort(
+      ([a], [b]) => compareAsc(toZonedTime(a, timeZone), toZonedTime(b, timeZone))
+    );
+
+    const guestBookings: bookingType[] = [];
+    for (const [dateStr, dayEntry] of sortedEntries) {
+      const matching = dayEntry.bookings.filter(
+        (b) => b.guest.phone === phone && b.startDate === dateStr
+      );
+      guestBookings.push(...matching);
+    }
+
+    if (guestBookings.length === 0) return;
+
+    const formatICSDateTime = (date: Date, hour: number) =>
+      format(date, `yyyyMMdd'T'${String(hour).padStart(2, "0")}0000`);
+
+    const icsEvents = guestBookings.map((booking) => {
+      const checkinDate = toZonedTime(booking.startDate.split("T")[0], timeZone);
+      const checkoutDate = addDays(checkinDate, booking.duration);
+      return [
+        "BEGIN:VEVENT",
+        `DTSTART;TZID=${timeZone}:${formatICSDateTime(checkinDate, 14)}`,
+        `DTEND;TZID=${timeZone}:${formatICSDateTime(checkoutDate, 11)}`,
+        `SUMMARY:Stay at ${booking.room.name}${airbnbName ? ` @ ${airbnbName}` : ""}`,
+        `DESCRIPTION:${booking.duration} night${booking.duration > 1 ? "s" : ""} at ${booking.room.name}`,
+        ...(airbnbAddress ? [`LOCATION:${airbnbAddress.split("\n").join(", ")}`] : []),
+        "END:VEVENT",
+      ].join("\r\n");
+    });
+
+    const icsContent = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//3rd Air Champion//Bookings//EN",
+      "CALSCALE:GREGORIAN",
+      ...icsEvents,
+      "END:VCALENDAR",
+    ].join("\r\n");
+
+    setIcsModal({ icsContent, phone });
+  };
+
   return (
     <>
       <div className="col-span-5 bg-gray-100 overflow-hidden sm:col-span-4">
@@ -1026,28 +1131,6 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode }: MainViewProps) =
                   </div>
                 )}
 
-                {/* RoomAddPane */}
-                {showAddPane === "room" && (
-                  <div
-                    className="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center z-50"
-                    onClick={() => {
-                      setShowAddPane(null); // Close modal on background click
-                    }}
-                  >
-                    <div
-                      className="w-full max-w-md bg-white p-4 rounded-lg shadow-lg"
-                      onClick={(e) => e.stopPropagation()} // Prevent background click inside modal
-                    >
-                      <RoomAddPane
-                        roomErrorMessage={roomErrorMessage}
-                        onAddRoom={(roomData) => {
-                          onAddRoom(roomData); // Handle room addition
-                          setShowAddPane(null); // Close modal after adding room
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
               </>
             )}
 
@@ -1067,7 +1150,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode }: MainViewProps) =
 
       <div className="hidden bg-white border-l sm:block">
         {isTodoModalOpen ? (
-          <ToDoList monthMap={monthMap} doorCode={doorCode} />
+          <ToDoList monthMap={monthMap} doorCode={doorCode} airbnbName={airbnbName} airbnbAddress={airbnbAddress} />
         ) : (
           <GuestView
             airBnBBookingCount={airBnBBookingCount}
@@ -1078,6 +1161,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode }: MainViewProps) =
             rooms={rooms}
             selectedDate={selectedDate}
             handleBookingConfirmation={handleBookingConfirmation}
+            handleSendCalEvents={handleSendCalEvents}
             onAirbnbPriceUpdate={onAirbnbPriceUpdate}
             setCurrentGuest={setCurrentGuest}
             setCurrentAirBnBGuest={setCurrentAirBnBGuest}
@@ -1134,6 +1218,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode }: MainViewProps) =
             rooms={rooms}
             selectedDate={selectedDate}
             handleBookingConfirmation={handleBookingConfirmation}
+            handleSendCalEvents={handleSendCalEvents}
             onAirbnbPriceUpdate={onAirbnbPriceUpdate}
             setCurrentAirBnBGuest={setCurrentAirBnBGuest}
             setCurrentGuest={setCurrentGuest}
@@ -1177,7 +1262,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode }: MainViewProps) =
           </button>
         </div>
 
-        <ToDoList monthMap={monthMap} doorCode={doorCode} />
+        <ToDoList monthMap={monthMap} doorCode={doorCode} airbnbName={airbnbName} airbnbAddress={airbnbAddress} />
       </div>
 
       {selectedBooking && (
@@ -1204,7 +1289,63 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode }: MainViewProps) =
           defaultRoomId={editingRoomId}
           onClose={() => setIsEditRoomOpen(false)}
           onSave={onSaveRoom}
+          onAdd={onAddRoomFromModal}
+          onDelete={onDeleteRoom}
         />
+      )}
+      {isManageGuestOpen && guests.length > 0 && (
+        <ManageGuestModal
+          guests={guests}
+          onClose={() => setIsManageGuestOpen(false)}
+          onSave={onUpdateGuestFromModal}
+          onAdd={onAddGuestFromModal}
+          onDelete={onDeleteGuestFromModal}
+        />
+      )}
+      {icsModal && createPortal(
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"
+          onClick={() => setIcsModal(null)}
+        >
+          <div
+            className="bg-white rounded-lg p-4 w-full max-w-lg shadow-lg flex flex-col gap-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-col items-center gap-1">
+              <button
+                onClick={() => setIcsModal(null)}
+                className="text-gray-500 font-bold text-[1.5rem] leading-none px-6 py-0.5 rounded hover:bg-gray-100"
+              >
+                &times;
+              </button>
+              <h2 className="font-bold text-lg">Calendar Events</h2>
+            </div>
+            <textarea
+              readOnly
+              className="border rounded px-2 py-1 text-sm w-full resize-none font-mono"
+              rows={14}
+              value={icsModal.icsContent}
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setIcsModal(null)}
+                className="px-3 py-1 bg-gray-400 text-white text-sm rounded"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  window.location.href = `sms:${icsModal.phone}?&body=${encodeURIComponent(icsModal.icsContent)}`;
+                  setIcsModal(null);
+                }}
+                className="px-3 py-1 bg-blue-600 text-white text-sm rounded"
+              >
+                Send
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </>
   );

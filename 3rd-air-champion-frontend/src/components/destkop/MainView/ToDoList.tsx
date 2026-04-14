@@ -8,9 +8,11 @@ import { DEFAULT_TEMPLATE, TEMPLATE_KEY, resolveTemplate } from "../../../util/r
 interface ToDoListProps {
   monthMap: Map<string, dayType>;
   doorCode: string;
+  airbnbName: string;
+  airbnbAddress: string;
 }
 
-const ToDoList = ({ monthMap, doorCode }: ToDoListProps) => {
+const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress }: ToDoListProps) => {
   const [upcomingDays, setUpcomingDays] = useState<dayType[]>([]);
   const [checkoutBookings, setCheckoutBookings] = useState<bookingType[]>([]);
 
@@ -131,7 +133,7 @@ const ToDoList = ({ monthMap, doorCode }: ToDoListProps) => {
                       const phone = booking.guest.phone;
                       const startDate = format(addDays(startOfToday(), 1), "MMMM do");
                       const currentTemplate = localStorage.getItem(TEMPLATE_KEY) || DEFAULT_TEMPLATE;
-                      const message = resolveTemplate(currentTemplate, booking, startDate, doorCode);
+                      const message = resolveTemplate(currentTemplate, booking, startDate, doorCode, airbnbName, airbnbAddress);
                       window.location.href = `sms:${phone}?&body=${encodeURIComponent(message)}`;
                       toggleTaskCompletion(taskId);
                     }}

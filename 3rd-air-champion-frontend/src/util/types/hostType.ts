@@ -8,4 +8,7 @@ export interface hostType {
   cohosts?: string[];
   calendar: string;
   doorCode?: string;
+  airbnbName?: string;
+  airbnbAddress?: string;
+  houseRules?: string;
 }

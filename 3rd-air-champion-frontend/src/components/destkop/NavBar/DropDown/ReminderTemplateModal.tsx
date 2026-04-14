@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { DEFAULT_TEMPLATE, TEMPLATE_KEY } from "../../../../util/reminderTemplate";
 
@@ -6,14 +6,44 @@ interface ReminderTemplateModalProps {
   onClose: () => void;
 }
 
+const PLACEHOLDERS = [
+  { label: "Name", value: "{{name}}" },
+  { label: "Duration", value: "{{duration}}" },
+  { label: "Night Word", value: "{{nightWord}}" },
+  { label: "Start Date", value: "{{startDate}}" },
+  { label: "Room", value: "{{room}}" },
+  { label: "Room Code", value: "{{roomCode}}" },
+  { label: "Door Code", value: "{{doorCode}}" },
+  { label: "AirBnB Name", value: "{{airBnBName}}" },
+  { label: "AirBnB Address", value: "{{airBnBAddress}}" },
+];
+
 const ReminderTemplateModal = ({ onClose }: ReminderTemplateModalProps) => {
   const [draft, setDraft] = useState(
     () => localStorage.getItem(TEMPLATE_KEY) || DEFAULT_TEMPLATE,
   );
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const save = () => {
     localStorage.setItem(TEMPLATE_KEY, draft);
     onClose();
+  };
+
+  const insertPlaceholder = (placeholder: string) => {
+    const el = textareaRef.current;
+    if (!el) return;
+
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const newValue = draft.slice(0, start) + placeholder + draft.slice(end);
+    setDraft(newValue);
+
+    // Restore focus and move cursor to after the inserted placeholder
+    requestAnimationFrame(() => {
+      el.focus();
+      const cursor = start + placeholder.length;
+      el.setSelectionRange(cursor, cursor);
+    });
   };
 
   return createPortal(
@@ -30,21 +60,23 @@ const ReminderTemplateModal = ({ onClose }: ReminderTemplateModalProps) => {
         </div>
 
         <textarea
+          ref={textareaRef}
           className="border rounded px-2 py-1 text-sm w-full min-h-[120px]"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
         />
 
-        <p className="text-xs text-gray-500">
-          Available placeholders:{" "}
-          <code>{"{{name}}"}</code>,{" "}
-          <code>{"{{duration}}"}</code>,{" "}
-          <code>{"{{nightWord}}"}</code>,{" "}
-          <code>{"{{startDate}}"}</code>,{" "}
-          <code>{"{{room}}"}</code>,{" "}
-          <code>{"{{roomCode}}"}</code>,{" "}
-          <code>{"{{doorCode}}"}</code>
-        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {PLACEHOLDERS.map(({ label, value }) => (
+            <button
+              key={value}
+              onClick={() => insertPlaceholder(value)}
+              className="px-2 py-0.5 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-xs rounded font-mono"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
         <div className="flex gap-2 justify-end">
           <button

@@ -23,6 +23,7 @@ interface GuestViewProps {
   rooms: roomType[];
   selectedDate: Date;
   handleBookingConfirmation: (phone: string) => void;
+  handleSendCalEvents: (phone: string) => void;
   onAirbnbPriceUpdate: (bookingId: string, airbnbPrice: number) => void;
   setCurrentAirBnBGuest: React.Dispatch<React.SetStateAction<string | null>>;
   setCurrentGuest: React.Dispatch<React.SetStateAction<string | null>>;
@@ -42,6 +43,7 @@ const GuestView = ({
   selectedDate,
   airBnBBookingCount,
   handleBookingConfirmation,
+  handleSendCalEvents,
   setIsMobileModalOpen,
   setCurrentAirBnBGuest,
   setCurrentGuest,
@@ -165,14 +167,24 @@ const GuestView = ({
                       className="w-4 h-4"
                     />
                     {currentGuest && (
-                      <button
-                        className="rounded-full shadow-md bg-black text-white font-semibold h-[44px] w-[44px] text-[0.55rem]"
-                        onClick={() =>
-                          handleBookingConfirmation(booking.guest.phone)
-                        }
-                      >
-                        Confirm Booking
-                      </button>
+                      <>
+                        <button
+                          className="rounded-full shadow-md bg-black text-white font-semibold h-[44px] w-[44px] text-[0.55rem]"
+                          onClick={() =>
+                            handleBookingConfirmation(booking.guest.phone)
+                          }
+                        >
+                          Confirm Booking
+                        </button>
+                        <button
+                          className="rounded-full shadow-md bg-blue-600 hover:bg-blue-700 text-white font-semibold h-[44px] w-[44px] text-[0.55rem]"
+                          onClick={() =>
+                            handleSendCalEvents(booking.guest.phone)
+                          }
+                        >
+                          Cal Events
+                        </button>
+                      </>
                     )}
                     <button
                       className="rounded-full shadow-md bg-black text-white font-semibold h-[44px] w-[44px] text-[0.55rem]"

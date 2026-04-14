@@ -1,23 +1,17 @@
 import { useContext } from "react";
-import { AddPaneContext } from "../../../../App";
+import { AddPaneContext } from "../../../../context";
 
 const AddGuestButton = () => {
-  const context = useContext(AddPaneContext) as {
-    setShowAddPane: React.Dispatch<
-      React.SetStateAction<"guest" | "room" | null>
-    >;
+  const { setIsManageGuestOpen } = useContext(AddPaneContext) as {
+    setIsManageGuestOpen: React.Dispatch<React.SetStateAction<boolean>>;
   };
-
-  const { setShowAddPane } = context;
 
   return (
     <button
       className="py-1 px-2"
-      onClick={() => {
-        setShowAddPane("guest");
-      }}
+      onClick={() => setIsManageGuestOpen(true)}
     >
-      Add Guest
+      Guest
     </button>
   );
 };

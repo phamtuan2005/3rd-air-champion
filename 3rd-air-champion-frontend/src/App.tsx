@@ -1,4 +1,4 @@
-import { createContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { fetchHost, getHost } from "./util/hostOperations";
 import { hostType } from "./util/types/hostType";
 import { useNavigate } from "react-router";
@@ -6,36 +6,7 @@ import NavBarDesktop from "./components/destkop/NavBar/NavBarDesktop";
 import MainView from "./components/destkop/MainView/MainView";
 import About from "./components/About";
 import Footer from "./components/destkop/Footer/Footer";
-
-interface SyncModalContextType {
-  isSyncModalOpen: boolean;
-  setIsSyncModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  shouldCallOnSync: boolean;
-  setShouldCallOnSync: React.Dispatch<React.SetStateAction<boolean>>;
-}
-
-interface AddPaneContextType {
-  showAddPane: "guest" | "room" | null;
-  setShowAddPane: React.Dispatch<React.SetStateAction<"guest" | "room" | null>>;
-  guestErrorMessage: string;
-  setGuestErrorMessage: React.Dispatch<React.SetStateAction<string>>;
-  roomErrorMessage: string;
-  setRoomErrorMessage: React.Dispatch<React.SetStateAction<string>>;
-  isEditRoomOpen: boolean;
-  setIsEditRoomOpen: React.Dispatch<React.SetStateAction<boolean>>;
-}
-
-interface FooterContextType {
-  isFooterVisible: boolean;
-  setIsFooterVisible: React.Dispatch<React.SetStateAction<boolean>>;
-}
-
-export const isSyncModalOpenContext =
-  createContext<SyncModalContextType | null>(null);
-
-export const AddPaneContext = createContext<AddPaneContextType | null>(null);
-
-export const FooterContext = createContext<FooterContextType | null>(null);
+import { isSyncModalOpenContext, AddPaneContext, FooterContext } from "./context";
 
 function App() {
   const [host, setHost] = useState<hostType | null>(null); // Track host data
@@ -52,9 +23,15 @@ function App() {
   const [guestErrorMessage, setGuestErrorMessage] = useState("");
   const [roomErrorMessage, setRoomErrorMessage] = useState("");
   const [isEditRoomOpen, setIsEditRoomOpen] = useState(false);
+  const [isManageGuestOpen, setIsManageGuestOpen] = useState(false);
 
   const [isFooterVisible, setIsFooterVisible] = useState(false);
-  const [doorCode, setDoorCode] = useState("");
+  const [airBnBInfo, setAirBnBInfo] = useState({
+    doorCode: "",
+    airbnbName: "",
+    airbnbAddress: "",
+    houseRules: "",
+  });
 
   const navigate = useNavigate();
 
@@ -71,7 +48,12 @@ function App() {
     fetchHost(hostId, token as string)
       .then((result) => {
         setHost({ ...result, id: hostId });
-        setDoorCode(result.doorCode ?? "");
+        setAirBnBInfo({
+          doorCode: result.doorCode ?? "",
+          airbnbName: result.airbnbName ?? "",
+          airbnbAddress: result.airbnbAddress ?? "",
+          houseRules: result.houseRules ?? "",
+        });
         setIsLoading(false); // Data fetched, stop loading
       })
       .catch((err) => {
@@ -126,6 +108,8 @@ function App() {
             setRoomErrorMessage,
             isEditRoomOpen,
             setIsEditRoomOpen,
+            isManageGuestOpen,
+            setIsManageGuestOpen,
           }}
         >
           <FooterContext.Provider
@@ -140,8 +124,8 @@ function App() {
                 handleLogout={handleLogout}
                 name={host?.name}
                 setIsAboutModalOpen={setIsAboutModalOpen}
-                doorCode={doorCode}
-                onDoorCodeSaved={setDoorCode}
+                airBnBInfo={airBnBInfo}
+                onAirBnBInfoSaved={setAirBnBInfo}
               />
 
               {/* About Modal */}
@@ -155,7 +139,9 @@ function App() {
                   calendarId={host.calendar}
                   hostId={host.id}
                   airbnbsync={host.airbnbsync}
-                  doorCode={doorCode}
+                  doorCode={airBnBInfo.doorCode}
+                  airbnbName={airBnBInfo.airbnbName}
+                  airbnbAddress={airBnBInfo.airbnbAddress}
                 ></MainView>
               </div>
 

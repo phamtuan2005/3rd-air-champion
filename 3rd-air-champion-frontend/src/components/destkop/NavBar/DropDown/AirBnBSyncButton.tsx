@@ -1,5 +1,5 @@
 import { useContext, useEffect, useState } from "react";
-import { isSyncModalOpenContext } from "../../../../App";
+import { isSyncModalOpenContext } from "../../../../context";
 
 const AirBnBSyncButton = () => {
   const context = useContext(isSyncModalOpenContext) as {

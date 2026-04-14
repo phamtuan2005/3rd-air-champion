@@ -10,6 +10,8 @@ export const resolveTemplate = (
   booking: bookingType,
   startDate: string,
   doorCode: string,
+  airBnBName: string = "",
+  airBnBAddress: string = "",
 ) =>
   template
     .replace(/\{\{name\}\}/g, booking.guest.alias || booking.alias || booking.guest.name)
@@ -21,4 +23,6 @@ export const resolveTemplate = (
     .replace(/\{\{startDate\}\}/g, startDate)
     .replace(/\{\{room\}\}/g, booking.room.name)
     .replace(/\{\{roomCode\}\}/g, booking.room.roomCode || "")
-    .replace(/\{\{doorCode\}\}/g, doorCode);
+    .replace(/\{\{doorCode\}\}/g, doorCode)
+    .replace(/\{\{airBnBName\}\}/g, airBnBName)
+    .replace(/\{\{airBnBAddress\}\}/g, airBnBAddress.split("\n").join(", "));

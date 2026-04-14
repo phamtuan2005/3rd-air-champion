@@ -2,7 +2,7 @@ import { addDays, compareAsc, isSameDay, isSameMonth } from "date-fns";
 import { useContext, useEffect, useState } from "react";
 import { dayType } from "../../../../util/types/dayType";
 import { toZonedTime } from "date-fns-tz/toZonedTime";
-import { FooterContext } from "../../../../App";
+import { FooterContext } from "../../../../context";
 
 interface CalendarNavigatorProps {
   currentMonth: Date;
@@ -43,6 +43,7 @@ const CalendarNavigator = ({
 }: CalendarNavigatorProps) => {
   const [showDetails, setShowDetails] = useState(false);
   const [guestBill, setGuestBill] = useState<number | null>(null);
+  const [airBnBGuestBill, setAirBnBGuestBill] = useState<number | null>(null);
 
   const footerContext = useContext(FooterContext) as {
     isFooterVisible: boolean;
@@ -62,6 +63,26 @@ const CalendarNavigator = ({
       setGuestBill(null);
     }
   }, [currentGuest, currentMonth]);
+
+  useEffect(() => {
+    if (currentAirBnBGuest) {
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      let total = 0;
+      monthMap.forEach((dayEntry, dateStr) => {
+        const localDate = toZonedTime(dateStr, timeZone);
+        if (isSameMonth(localDate, currentMonth)) {
+          dayEntry.bookings.forEach((booking) => {
+            if (booking.alias === currentAirBnBGuest && booking.startDate === dateStr) {
+              total += booking.airbnbPrice ?? 0;
+            }
+          });
+        }
+      });
+      setAirBnBGuestBill(total);
+    } else {
+      setAirBnBGuestBill(null);
+    }
+  }, [currentAirBnBGuest, currentMonth]);
 
   const { isFooterVisible, setIsFooterVisible } = footerContext;
 
@@ -172,6 +193,8 @@ const CalendarNavigator = ({
             <span className="font-bold text-xl text-gray-800 mx-auto">
               {formattedDate}
             </span>
+            {/* PROFIT */}
+            <div className="text-xl font-bold">${airBnBGuestBill?.toFixed(2)}</div>
           </div>
         </>
       )}

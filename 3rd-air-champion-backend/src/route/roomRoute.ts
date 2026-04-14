@@ -7,19 +7,23 @@ router.post("/create", async (req: Request, res: any) => {
   if (!("user" in req))
     return res.status(401).json({ error: "Invalid or expired token" });
 
-  const { name, price } = req.body;
+  const { name, price, roomCode } = req.body;
   const { hostId } = req.user as any;
 
   const query = `
-        mutation CreateRoom($host: String!, $name: String!, $price: Float!) {
-            createRoom(host: $host, name: $name, price: $price) {
+        mutation CreateRoom($host: String!, $name: String!, $price: Float!, $roomCode: String) {
+            createRoom(host: $host, name: $name, price: $price, roomCode: $roomCode) {
                 id
                 name
                 price
+                roomCode
             }
         }`;
 
-  sendGraphQLRequest(query, { name, price, host: hostId })
+  const variables: { host: string; name: string; price: number; roomCode?: string } = { name, price, host: hostId };
+  if (roomCode !== undefined) variables.roomCode = roomCode;
+
+  sendGraphQLRequest(query, variables)
     .then((result: any) => {
       if (result.errors) {
         return res.status(400).json({ errors: result.errors[0].message });
