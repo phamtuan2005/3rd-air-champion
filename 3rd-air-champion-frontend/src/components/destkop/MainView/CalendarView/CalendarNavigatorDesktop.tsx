@@ -1,8 +1,9 @@
 import { addDays, compareAsc, isSameDay, isSameMonth } from "date-fns";
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { dayType } from "../../../../util/types/dayType";
 import { roomType } from "../../../../util/types/roomType";
 import { toZonedTime } from "date-fns-tz/toZonedTime";
+import { FooterContext } from "../../../../context";
 
 interface CalendarNavigatorProps {
   currentMonth: Date;
@@ -47,6 +48,7 @@ const CalendarNavigator = ({
   setPaidDates,
   setSelectedRoomName,
 }: CalendarNavigatorProps) => {
+  const { setIsFooterVisible } = useContext(FooterContext)!;
   const [showDetails, setShowDetails] = useState(false);
   const [guestBill, setGuestBill] = useState<number | null>(null);
   const [airBnBGuestBill, setAirBnBGuestBill] = useState<number | null>(null);
@@ -96,7 +98,15 @@ const CalendarNavigator = ({
               <select
                 className="text-xs border border-gray-300 rounded-md p-1 w-full max-w-[130px] bg-white"
                 value={selectedRoomName ?? ""}
-                onChange={(e) => setSelectedRoomName(e.target.value || null)}
+                onChange={(e) => {
+                  const value = e.target.value || null;
+                  setSelectedRoomName(value);
+                  if (value) {
+                    setIsFooterVisible(true);
+                  } else if (!currentGuest && !currentAirBnBGuest) {
+                    setIsFooterVisible(false);
+                  }
+                }}
               >
                 <option value="">-- All rooms --</option>
                 {rooms.filter(r => r.active).map((room) => (

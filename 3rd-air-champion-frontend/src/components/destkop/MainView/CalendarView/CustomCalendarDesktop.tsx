@@ -170,14 +170,15 @@ const CustomCalendar = ({
       const localDate = toZonedTime(dateString.split("T")[0], timeZone);
 
       if (isSameMonth(localDate, currentMonth)) {
-        dayEntry.bookings.map((booking) => {
-          if (!usedRoomsInMonth.has(booking.room.name))
-            roomsInMonth.push(booking.room);
-          usedRoomsInMonth.add(booking.room.name);
-        });
+        dayEntry.bookings
+          .filter((b) => !selectedRoomName || b.room.name === selectedRoomName)
+          .forEach((booking) => {
+            if (!usedRoomsInMonth.has(booking.room.name))
+              roomsInMonth.push(booking.room);
+            usedRoomsInMonth.add(booking.room.name);
+          });
         currentMaxRooms = Math.max(
           currentMaxRooms,
-          dayEntry.bookings.length,
           roomsInMonth.length,
         );
       }
@@ -185,7 +186,7 @@ const CustomCalendar = ({
 
     setMaxRooms(currentMaxRooms);
     setUsedRooms(roomsInMonth);
-  }, [currentMonth, useMonthMap]);
+  }, [currentMonth, useMonthMap, selectedRoomName]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
