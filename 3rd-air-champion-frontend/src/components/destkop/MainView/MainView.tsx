@@ -57,9 +57,13 @@ interface MainViewProps {
   doorCode: string;
   airbnbName: string;
   airbnbAddress: string;
+  isTodoModalOpen: boolean;
+  setIsTodoModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isModalOpen: boolean;
+  setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnbAddress }: MainViewProps) => {
+const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnbAddress, isTodoModalOpen, setIsTodoModalOpen, isModalOpen, setIsModalOpen }: MainViewProps) => {
   const token = localStorage.getItem("token");
 
   const context = useContext(isSyncModalOpenContext) as {
@@ -115,10 +119,9 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
 
   const [monthMap, setMonthMap] = useState<Map<string, dayType>>(new Map());
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
   const [icsModal, setIcsModal] = useState<{ icsContent: string; phone: string; email?: string } | null>(null);
-  const [isTodoModalOpen, setIsTodoModalOpen] = useState(true);
+  const [scrollToTodayTrigger, setScrollToTodayTrigger] = useState(0);
 
   const [blockedAirBnBDates, setIsBlockedAirBnBDates] = useState<{
     room: { duration: number; start: string }[];
@@ -678,6 +681,13 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
     setProfit({ ...profit, total: guestProfit, airbnb: airBnBProfit });
   }, [monthMap, currentMonth]);
 
+  useEffect(() => {
+    if (isTodoModalOpen) {
+      setCurrentMonth(new Date());
+      setScrollToTodayTrigger((t) => t + 1);
+    }
+  }, [isTodoModalOpen]);
+
   const onBooking = (
     roomName: string,
     date: Date,
@@ -1068,11 +1078,9 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
               currentMonth={currentMonth}
               paidDates={paidDates}
               profit={profit}
-              isTodoModalOpen={isTodoModalOpen}
               rooms={rooms}
               selectedRoomName={selectedRoomName}
               getCurrentGuestBill={getCurrentGuestBill}
-              setIsTodoModalOpen={setIsTodoModalOpen}
               setPaidDates={setPaidDates}
               setSelectedRoomName={setSelectedRoomName}
             />
@@ -1097,6 +1105,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
               setIsMobileModalOpen={setIsMobileModalOpen}
               setPaidDates={setPaidDates}
               setSelectedDate={setSelectedDate}
+              scrollToTodayTrigger={scrollToTodayTrigger}
             />
             {isModalOpen && (
               <BookingModal

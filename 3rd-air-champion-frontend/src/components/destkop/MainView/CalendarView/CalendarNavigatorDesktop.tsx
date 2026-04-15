@@ -9,7 +9,6 @@ interface CalendarNavigatorProps {
   currentMonth: Date;
   currentAirBnBGuest: string | null;
   currentGuest: string | null;
-  isTodoModalOpen: boolean;
   monthMap: Map<string, dayType>;
   occupancy: {
     totalOccupancy: number;
@@ -27,7 +26,6 @@ interface CalendarNavigatorProps {
   rooms: roomType[];
   selectedRoomName: string | null;
   getCurrentGuestBill: (guest: string) => number;
-  setIsTodoModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setPaidDates: React.Dispatch<React.SetStateAction<Date[]>>;
   setSelectedRoomName: React.Dispatch<React.SetStateAction<string | null>>;
 }
@@ -44,7 +42,6 @@ const CalendarNavigator = ({
   rooms,
   selectedRoomName,
   getCurrentGuestBill,
-  setIsTodoModalOpen,
   setPaidDates,
   setSelectedRoomName,
 }: CalendarNavigatorProps) => {
@@ -118,18 +115,6 @@ const CalendarNavigator = ({
               <span className="font-bold text-xl text-gray-800">
                 {formattedDate}
               </span>
-              {isSameMonth(new Date(), currentMonth) && !currentGuest && (
-                <button
-                  type="button"
-                  className={`text-white bg-black p-1 text-xs rounded-md ${
-                    isTodoModalOpen &&
-                    "drop-shadow-[0_4px_6px_rgba(59,130,246,0.5)]"
-                  }`}
-                  onClick={() => setIsTodoModalOpen(!isTodoModalOpen)}
-                >
-                  To Do
-                </button>
-              )}
             </div>
             {/* PROFIT */}
             <div className="basis-1/4 flex justify-end w-full text-xl font-bold">

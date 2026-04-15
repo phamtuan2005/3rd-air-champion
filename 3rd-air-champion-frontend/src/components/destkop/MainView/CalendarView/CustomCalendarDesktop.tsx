@@ -28,6 +28,7 @@ interface CustomCalendarProps {
   setCurrentBookings: React.Dispatch<
     React.SetStateAction<bookingType[] | null | undefined>
   >;
+  scrollToTodayTrigger: number;
   setCurrentMonth: React.Dispatch<React.SetStateAction<Date>>;
   setIsMobileModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setPaidDates: React.Dispatch<React.SetStateAction<Date[]>>;
@@ -41,6 +42,7 @@ const CustomCalendar = ({
   monthMap,
   paidDates,
   rooms,
+  scrollToTodayTrigger,
   selectedRoomName,
   setCurrentBookings,
   setCurrentMonth,
@@ -76,11 +78,22 @@ const CustomCalendar = ({
 
   useEffect(() => {
     if (scrollContainerRef.current && months.length > 0) {
-      const currentIndex = 24; // Current month in the middle
+      const today = new Date();
+      const monthDiff =
+        (currentMonth.getFullYear() - today.getFullYear()) * 12 +
+        (currentMonth.getMonth() - today.getMonth());
+      const targetIndex = 24 + monthDiff; // 24 is the base index for today's month
       const calendarHeight = scrollContainerRef.current.offsetHeight;
-      scrollContainerRef.current.scrollTop = currentIndex * calendarHeight;
+      scrollContainerRef.current.scrollTop = targetIndex * calendarHeight;
     }
-  }, [months]);
+  }, [months]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (scrollToTodayTrigger > 0 && scrollContainerRef.current && months.length > 0) {
+      const calendarHeight = scrollContainerRef.current.offsetHeight;
+      scrollContainerRef.current.scrollTop = 24 * calendarHeight; // index 24 = today's month
+    }
+  }, [scrollToTodayTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (calendarWrapperRef.current) {

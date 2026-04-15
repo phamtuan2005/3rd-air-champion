@@ -25,6 +25,8 @@ function App() {
   const [isManageGuestOpen, setIsManageGuestOpen] = useState(false);
 
   const [isFooterVisible, setIsFooterVisible] = useState(false);
+  const [isTodoModalOpen, setIsTodoModalOpen] = useState(true);
+  const [isBookModalOpen, setIsBookModalOpen] = useState(false);
 
   const [airBnBInfo, setAirBnBInfo] = useState({
     doorCode: "",
@@ -123,6 +125,10 @@ function App() {
                 onAirBnBInfoSaved={setAirBnBInfo}
                 isFooterVisible={isFooterVisible}
                 onToggleFooter={() => setIsFooterVisible(v => !v)}
+                isTodoModalOpen={isTodoModalOpen}
+                setIsTodoModalOpen={setIsTodoModalOpen}
+                isBookModalOpen={isBookModalOpen}
+                setIsBookModalOpen={setIsBookModalOpen}
               />
 
               {/* About Modal */}
@@ -141,6 +147,10 @@ function App() {
                     doorCode={airBnBInfo.doorCode}
                     airbnbName={airBnBInfo.airbnbName}
                     airbnbAddress={airBnBInfo.airbnbAddress}
+                    isTodoModalOpen={isTodoModalOpen}
+                    setIsTodoModalOpen={setIsTodoModalOpen}
+                    isModalOpen={isBookModalOpen}
+                    setIsModalOpen={setIsBookModalOpen}
                   ></MainView>
                 </div>
 
