@@ -695,6 +695,11 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
     }
   }, [isTodoModalOpen]);
 
+  const onBookingComplete = (bookedDays: dayType[]) => {
+    setDays((prev) => [...prev, ...bookedDays]);
+    setIsCalendarLoading(true);
+  };
+
   const onBooking = (
     roomName: string,
     date: Date,
@@ -1114,19 +1119,6 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
               setSelectedDate={setSelectedDate}
               scrollToTodayTrigger={scrollToTodayTrigger}
             />
-            {isModalOpen && (
-              <BookingModal
-                calendarId={calendarId}
-                guests={guests}
-                rooms={rooms}
-                selectedDate={selectedDate}
-                selectedRoom={selectedRoom}
-                showAddPane={showAddPane}
-                onBooking={onBooking}
-                setIsModalOpen={setIsModalOpen}
-                setShowAddPane={setShowAddPane}
-              />
-            )}
             {showAddPane && (
               <>
                 {/* GuestAddPane */}
@@ -1166,6 +1158,19 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
               />
             )}
           </>
+        )}
+        {isModalOpen && (
+          <BookingModal
+            calendarId={calendarId}
+            guests={guests}
+            rooms={rooms}
+            selectedDate={selectedDate}
+            selectedRoom={selectedRoom}
+            showAddPane={showAddPane}
+            onBooking={onBookingComplete}
+            setIsModalOpen={setIsModalOpen}
+            setShowAddPane={setShowAddPane}
+          />
         )}
       </div>
 

@@ -373,6 +373,52 @@ const dayResolver = {
         },
       ]);
     },
+    availableRooms: async (
+      _: unknown,
+      { calendar, date, duration }: any
+    ) => {
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const localDate = toZonedTime(date.split("T")[0], timeZone);
+
+      const dates: Date[] = [];
+      for (let i = 0; i < duration; i++) {
+        dates.push(addDays(localDate, i));
+      }
+
+      // Collect all booked and blocked room IDs across the date range
+      const occupiedDays = await Day.find({
+        calendar,
+        date: { $in: dates },
+      });
+
+      const unavailableRoomIds = new Set<string>();
+      for (const day of occupiedDays) {
+        if (day.isBlocked) {
+          // Whole day is blocked — all rooms unavailable on this day;
+          // signal by returning empty list
+          const cal = await Calendar.findById(calendar);
+          if (!cal) throw new Error("Calendar not found");
+          const allRooms = await Room.find({ host: cal.host, active: true });
+          allRooms.forEach((r) => unavailableRoomIds.add(r._id.toString()));
+          break;
+        }
+        for (const booking of day.bookings as any[]) {
+          unavailableRoomIds.add(booking.room.toString());
+        }
+        for (const blockedRoom of day.blockedRooms as any[]) {
+          unavailableRoomIds.add(blockedRoom.toString());
+        }
+      }
+
+      const cal = await Calendar.findById(calendar);
+      if (!cal) throw new Error("Calendar not found");
+
+      return await Room.find({
+        host: cal.host,
+        active: true,
+        _id: { $nin: [...unavailableRoomIds] },
+      });
+    },
   },
   Mutation: {
     blockDay: async (_: unknown, { calendar, date }: any) => {
