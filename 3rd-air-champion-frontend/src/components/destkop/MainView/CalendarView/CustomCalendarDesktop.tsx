@@ -166,7 +166,7 @@ const CustomCalendar = ({
     const roomsInMonth: roomType[] = [];
     const usedRoomsInMonth = new Set<string>();
 
-    monthMap.forEach((dayEntry, dateString) => {
+    useMonthMap.forEach((dayEntry, dateString) => {
       const localDate = toZonedTime(dateString.split("T")[0], timeZone);
 
       if (isSameMonth(localDate, currentMonth)) {
@@ -185,7 +185,7 @@ const CustomCalendar = ({
 
     setMaxRooms(currentMaxRooms);
     setUsedRooms(roomsInMonth);
-  }, [currentMonth]);
+  }, [currentMonth, useMonthMap]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
