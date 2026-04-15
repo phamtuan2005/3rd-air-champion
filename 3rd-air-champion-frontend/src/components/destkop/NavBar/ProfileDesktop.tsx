@@ -1,6 +1,8 @@
 import { useState } from "react";
 import DropDownMenu from "./DropDown/DropDownMenu";
 import ReminderTemplateModal from "./DropDown/ReminderTemplateModal";
+import BookingTemplateModal from "./DropDown/BookingTemplateModal";
+import TemplatePickerModal from "./DropDown/TemplatePickerModal";
 import MyAirBnBModal from "./DropDown/MyAirBnBModal";
 
 interface AirBnBInfo {
@@ -30,7 +32,9 @@ const ProfileDesktop = ({
   onToggleFooter,
 }: ProfileDesktopProps) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isTemplatePickerOpen, setIsTemplatePickerOpen] = useState(false);
   const [isReminderTemplateOpen, setIsReminderTemplateOpen] = useState(false);
+  const [isBookingTemplateOpen, setIsBookingTemplateOpen] = useState(false);
   const [isMyAirBnBOpen, setIsMyAirBnBOpen] = useState(false);
 
   const toggleDropdown = () => setIsDropdownOpen(!isDropdownOpen);
@@ -81,16 +85,30 @@ const ProfileDesktop = ({
           user={children}
           handleLogout={handleLogout}
           setIsDropdownOpen={setIsDropdownOpen}
-          onOpenReminderTemplate={() => setIsReminderTemplateOpen(true)}
+          onOpenReminderTemplate={() => setIsTemplatePickerOpen(true)}
           onOpenMyAirBnB={() => setIsMyAirBnBOpen(true)}
           isFooterVisible={isFooterVisible}
           onToggleFooter={onToggleFooter}
         />
       )}
 
-      {/* Reminder Template Modal — rendered outside dropdown so it persists */}
+      {/* Template Picker Modal */}
+      {isTemplatePickerOpen && (
+        <TemplatePickerModal
+          onClose={() => setIsTemplatePickerOpen(false)}
+          onOpenReminderTemplate={() => setIsReminderTemplateOpen(true)}
+          onOpenBookingTemplate={() => setIsBookingTemplateOpen(true)}
+        />
+      )}
+
+      {/* Reminder Template Modal */}
       {isReminderTemplateOpen && (
         <ReminderTemplateModal onClose={() => setIsReminderTemplateOpen(false)} />
+      )}
+
+      {/* Booking Template Modal */}
+      {isBookingTemplateOpen && (
+        <BookingTemplateModal onClose={() => setIsBookingTemplateOpen(false)} />
       )}
 
       {/* My AirBnB Modal */}

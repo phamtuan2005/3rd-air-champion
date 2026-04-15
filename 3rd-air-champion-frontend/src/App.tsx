@@ -5,7 +5,7 @@ import { useNavigate } from "react-router";
 import NavBarDesktop from "./components/destkop/NavBar/NavBarDesktop";
 import MainView from "./components/destkop/MainView/MainView";
 import About from "./components/About";
-import { isSyncModalOpenContext, AddPaneContext } from "./context";
+import { isSyncModalOpenContext, AddPaneContext, FooterContext } from "./context";
 
 function App() {
   const [host, setHost] = useState<hostType | null>(null); // Track host data
@@ -90,6 +90,7 @@ function App() {
   // Render the host data once it's fetched
   return (
     host && (
+      <FooterContext.Provider value={{ isFooterVisible, setIsFooterVisible }}>
       <isSyncModalOpenContext.Provider
         value={{
           isSyncModalOpen,
@@ -161,6 +162,7 @@ function App() {
             </div>
         </AddPaneContext.Provider>
       </isSyncModalOpenContext.Provider>
+      </FooterContext.Provider>
     )
   );
 }
