@@ -24,6 +24,7 @@ interface CustomCalendarProps {
   monthMap: Map<string, dayType>;
   paidDates: Date[];
   rooms: roomType[];
+  selectedRoomName: string | null;
   setCurrentBookings: React.Dispatch<
     React.SetStateAction<bookingType[] | null | undefined>
   >;
@@ -40,6 +41,7 @@ const CustomCalendar = ({
   monthMap,
   paidDates,
   rooms,
+  selectedRoomName,
   setCurrentBookings,
   setCurrentMonth,
   setIsMobileModalOpen,
@@ -298,18 +300,22 @@ const CustomCalendar = ({
               ? isSameDay(
                   date,
                   addDays(toZonedTime(b.endDate, timeZone), 1),
-                )
+                ) && (!selectedRoomName || b.room.name === selectedRoomName)
               : false,
           )
         : [];
 
-      if (!day && checkoutBookings.length === 0) return null;
+      const filteredDay = day && selectedRoomName
+        ? { ...day, bookings: day.bookings.filter((b) => b.room?.name === selectedRoomName) }
+        : day;
 
-      if (day || checkoutBookings.length > 0) {
+      if (!filteredDay && checkoutBookings.length === 0) return null;
+
+      if (filteredDay || checkoutBookings.length > 0) {
         // Spread to avoid mutating state; extra rooms are added lazily via ensureGridRow
-        const sortedUsedRooms = [...usedRooms].sort((a, b) =>
-          a.name.localeCompare(b.name),
-        );
+        const sortedUsedRooms = [...usedRooms]
+          .filter((r) => !selectedRoomName || r.name === selectedRoomName)
+          .sort((a, b) => a.name.localeCompare(b.name));
 
         // Each room tracks two slots:
         //   am = guest checking OUT (still occupying in the morning until ~11am)
@@ -338,8 +344,8 @@ const CustomCalendar = ({
         });
 
         // Current day: check-ins (isStart) and mid-stay nights (isBetween)
-        if (day) {
-          day.bookings.forEach((booking) => {
+        if (filteredDay) {
+          filteredDay.bookings.forEach((booking) => {
             if (!booking.startDate || !booking.endDate || !booking.room || !booking.guest) return;
 
             const startDate = toZonedTime(booking.startDate, timeZone);

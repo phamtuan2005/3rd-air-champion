@@ -104,6 +104,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
   const [days, setDays] = useState<dayType[]>([]);
   const [guests, setGuests] = useState<guestType[]>([]);
   const [rooms, setRooms] = useState<roomType[]>([]);
+  const [selectedRoomName, setSelectedRoomName] = useState<string | null>(null);
   const [editingRoomId, setEditingRoomId] = useState<string>("");
   const [airBnBBookingCount, setAirBnBBookingCount] = useState<
     { Alias: string; Room: string; DistinctStartDateCount: number }[]
@@ -1068,9 +1069,12 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
               paidDates={paidDates}
               profit={profit}
               isTodoModalOpen={isTodoModalOpen}
+              rooms={rooms}
+              selectedRoomName={selectedRoomName}
               getCurrentGuestBill={getCurrentGuestBill}
               setIsTodoModalOpen={setIsTodoModalOpen}
               setPaidDates={setPaidDates}
+              setSelectedRoomName={setSelectedRoomName}
             />
             {isSyncModalOpen && (
               <RoomLinkModal
@@ -1087,6 +1091,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
               monthMap={monthMap}
               paidDates={paidDates}
               rooms={rooms}
+              selectedRoomName={selectedRoomName}
               setCurrentBookings={setCurrentBookings}
               setCurrentMonth={setCurrentMonth}
               setIsMobileModalOpen={setIsMobileModalOpen}

@@ -1,8 +1,8 @@
 import { addDays, compareAsc, isSameDay, isSameMonth } from "date-fns";
-import { useContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { dayType } from "../../../../util/types/dayType";
+import { roomType } from "../../../../util/types/roomType";
 import { toZonedTime } from "date-fns-tz/toZonedTime";
-import { FooterContext } from "../../../../context";
 
 interface CalendarNavigatorProps {
   currentMonth: Date;
@@ -23,9 +23,12 @@ interface CalendarNavigatorProps {
     total: number;
     airbnb: number;
   };
+  rooms: roomType[];
+  selectedRoomName: string | null;
   getCurrentGuestBill: (guest: string) => number;
   setIsTodoModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setPaidDates: React.Dispatch<React.SetStateAction<Date[]>>;
+  setSelectedRoomName: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
 const CalendarNavigator = ({
@@ -37,18 +40,16 @@ const CalendarNavigator = ({
   isTodoModalOpen,
   profit,
   paidDates,
+  rooms,
+  selectedRoomName,
   getCurrentGuestBill,
   setIsTodoModalOpen,
   setPaidDates,
+  setSelectedRoomName,
 }: CalendarNavigatorProps) => {
   const [showDetails, setShowDetails] = useState(false);
   const [guestBill, setGuestBill] = useState<number | null>(null);
   const [airBnBGuestBill, setAirBnBGuestBill] = useState<number | null>(null);
-
-  const footerContext = useContext(FooterContext) as {
-    isFooterVisible: boolean;
-    setIsFooterVisible: React.Dispatch<React.SetStateAction<boolean>>;
-  };
 
   const formattedDate = currentMonth.toLocaleDateString("en-US", {
     year: "numeric",
@@ -84,26 +85,26 @@ const CalendarNavigator = ({
     }
   }, [currentAirBnBGuest, currentMonth]);
 
-  const { isFooterVisible, setIsFooterVisible } = footerContext;
-
-  const handleToggleFooter = () => {
-    setIsFooterVisible(!isFooterVisible);
-  };
-
   return (
     <div className="flex flex-col justify-between h-full max-h-[80px] bg-white drop-shadow-sm p-2 sm:max-h-[120px]">
       {/* Date */}
       {!currentGuest && !currentAirBnBGuest ? (
         <>
-          <div className="flex h-full w-full items-center text-nowrap">
-            <div className="basis-2/3 flex justify-end w-full space-x-2">
-              <button
-                type="button"
-                className="text-white bg-black p-1 text-xs rounded-md"
-                onClick={handleToggleFooter}
+          <div className="flex h-full w-full items-center text-nowrap gap-2">
+            {/* Room filter */}
+            <div className="basis-1/4 flex items-center">
+              <select
+                className="text-xs border border-gray-300 rounded-md p-1 w-full max-w-[130px] bg-white"
+                value={selectedRoomName ?? ""}
+                onChange={(e) => setSelectedRoomName(e.target.value || null)}
               >
-                {isFooterVisible ? "Hide Footer" : "Show Footer"}
-              </button>
+                <option value="">-- All rooms --</option>
+                {rooms.filter(r => r.active).map((room) => (
+                  <option key={room.id} value={room.name}>{room.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="basis-1/2 flex justify-center w-full space-x-2">
               <span className="font-bold text-xl text-gray-800">
                 {formattedDate}
               </span>
@@ -121,7 +122,7 @@ const CalendarNavigator = ({
               )}
             </div>
             {/* PROFIT */}
-            <div className="basis-1/3 flex justify-end w-full text-xl font-bold">
+            <div className="basis-1/4 flex justify-end w-full text-xl font-bold">
               ${profit.total.toFixed(2)}
             </div>
           </div>

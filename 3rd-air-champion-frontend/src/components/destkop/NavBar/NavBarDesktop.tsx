@@ -13,6 +13,8 @@ interface NavBarDesktopProps {
   setIsAboutModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   airBnBInfo: AirBnBInfo;
   onAirBnBInfoSaved: (info: AirBnBInfo) => void;
+  isFooterVisible: boolean;
+  onToggleFooter: () => void;
 }
 
 const NavBarDesktop = ({
@@ -21,12 +23,14 @@ const NavBarDesktop = ({
   setIsAboutModalOpen,
   airBnBInfo,
   onAirBnBInfoSaved,
+  isFooterVisible,
+  onToggleFooter,
 }: NavBarDesktopProps) => {
   return (
     <div className="px-1 flex items-center justify-between w-full h-[80px] bg-white drop-shadow-md z-50 lg:h-[120px]">
       {/* Profile Section */}
       <div className="">
-        <ProfileDesktop handleLogout={handleLogout} name={name} airBnBInfo={airBnBInfo} onAirBnBInfoSaved={onAirBnBInfoSaved}>
+        <ProfileDesktop handleLogout={handleLogout} name={name} airBnBInfo={airBnBInfo} onAirBnBInfoSaved={onAirBnBInfoSaved} isFooterVisible={isFooterVisible} onToggleFooter={onToggleFooter}>
           {name}
         </ProfileDesktop>
       </div>

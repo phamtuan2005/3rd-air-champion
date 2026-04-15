@@ -5,8 +5,7 @@ import { useNavigate } from "react-router";
 import NavBarDesktop from "./components/destkop/NavBar/NavBarDesktop";
 import MainView from "./components/destkop/MainView/MainView";
 import About from "./components/About";
-import Footer from "./components/destkop/Footer/Footer";
-import { isSyncModalOpenContext, AddPaneContext, FooterContext } from "./context";
+import { isSyncModalOpenContext, AddPaneContext } from "./context";
 
 function App() {
   const [host, setHost] = useState<hostType | null>(null); // Track host data
@@ -26,6 +25,7 @@ function App() {
   const [isManageGuestOpen, setIsManageGuestOpen] = useState(false);
 
   const [isFooterVisible, setIsFooterVisible] = useState(false);
+
   const [airBnBInfo, setAirBnBInfo] = useState({
     doorCode: "",
     airbnbName: "",
@@ -112,12 +112,6 @@ function App() {
             setIsManageGuestOpen,
           }}
         >
-          <FooterContext.Provider
-            value={{
-              isFooterVisible,
-              setIsFooterVisible,
-            }}
-          >
             <div className="grid grid-rows-[80px_1fr] h-screen lg:grid-rows-[120px_1fr]">
               {/* Navbar */}
               <NavBarDesktop
@@ -126,6 +120,8 @@ function App() {
                 setIsAboutModalOpen={setIsAboutModalOpen}
                 airBnBInfo={airBnBInfo}
                 onAirBnBInfoSaved={setAirBnBInfo}
+                isFooterVisible={isFooterVisible}
+                onToggleFooter={() => setIsFooterVisible(v => !v)}
               />
 
               {/* About Modal */}
@@ -133,21 +129,36 @@ function App() {
                 <About setIsAboutModalOpen={setIsAboutModalOpen} />
               )}
 
-              {/* Main Content Area */}
-              <div className="grid grid-cols-5 overflow-hidden">
-                <MainView
-                  calendarId={host.calendar}
-                  hostId={host.id}
-                  airbnbsync={host.airbnbsync}
-                  doorCode={airBnBInfo.doorCode}
-                  airbnbName={airBnBInfo.airbnbName}
-                  airbnbAddress={airBnBInfo.airbnbAddress}
-                ></MainView>
-              </div>
+              {/* Content + Footer */}
+              <div className="flex flex-col overflow-hidden">
+                {/* Main Content Area */}
+                <div className="grid grid-cols-5 flex-1 min-h-0 overflow-hidden">
+                  <MainView
+                    calendarId={host.calendar}
+                    hostId={host.id}
+                    airbnbsync={host.airbnbsync}
+                    doorCode={airBnBInfo.doorCode}
+                    airbnbName={airBnBInfo.airbnbName}
+                    airbnbAddress={airBnBInfo.airbnbAddress}
+                  ></MainView>
+                </div>
 
-              <Footer />
+                {isFooterVisible && <footer className="bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] p-2 shrink-0">
+                  <div className="container flex flex-col md:flex-row md:justify-between items-center text-xs gap-2">
+                    <p className="text-center md:text-left">
+                      TT House & Garden is permitted by Milpitas City for STR. License# 45542
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <span>(408) 306 2119</span>
+                      <span>|</span>
+                      <span>phamtuan2005@yahoo.com</span>
+                      <span>|</span>
+                      <span>1682 Blue Spruce Way, Milpitas, CA 95035</span>
+                    </div>
+                  </div>
+                </footer>}
+              </div>
             </div>
-          </FooterContext.Provider>
         </AddPaneContext.Provider>
       </isSyncModalOpenContext.Provider>
     )

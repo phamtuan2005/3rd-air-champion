@@ -16,6 +16,8 @@ interface ProfileDesktopProps {
   name: string;
   airBnBInfo: AirBnBInfo;
   onAirBnBInfoSaved: (info: AirBnBInfo) => void;
+  isFooterVisible: boolean;
+  onToggleFooter: () => void;
 }
 
 const ProfileDesktop = ({
@@ -24,6 +26,8 @@ const ProfileDesktop = ({
   name,
   airBnBInfo,
   onAirBnBInfoSaved,
+  isFooterVisible,
+  onToggleFooter,
 }: ProfileDesktopProps) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isReminderTemplateOpen, setIsReminderTemplateOpen] = useState(false);
@@ -79,6 +83,8 @@ const ProfileDesktop = ({
           setIsDropdownOpen={setIsDropdownOpen}
           onOpenReminderTemplate={() => setIsReminderTemplateOpen(true)}
           onOpenMyAirBnB={() => setIsMyAirBnBOpen(true)}
+          isFooterVisible={isFooterVisible}
+          onToggleFooter={onToggleFooter}
         />
       )}
 

@@ -1,5 +1,5 @@
 import { useContext } from "react";
-import { FaDatabase, FaDoorOpen, FaSync, FaUser } from "react-icons/fa";
+import { FaDatabase, FaDoorOpen, FaSync, FaUser, FaEye, FaEyeSlash } from "react-icons/fa";
 import { TiUserAdd } from "react-icons/ti";
 import { MdOutlineMessage } from "react-icons/md";
 import { MdEditNote } from "react-icons/md";
@@ -17,6 +17,8 @@ interface DropDownMenuProps {
   setIsDropdownOpen: React.Dispatch<React.SetStateAction<boolean>>;
   onOpenReminderTemplate: () => void;
   onOpenMyAirBnB: () => void;
+  isFooterVisible: boolean;
+  onToggleFooter: () => void;
 }
 
 const DropDownMenu = ({
@@ -25,6 +27,8 @@ const DropDownMenu = ({
   setIsDropdownOpen,
   onOpenReminderTemplate,
   onOpenMyAirBnB,
+  isFooterVisible,
+  onToggleFooter,
 }: DropDownMenuProps) => {
   const { setIsEditRoomOpen } = useContext(AddPaneContext)!;
 
@@ -107,6 +111,17 @@ const DropDownMenu = ({
           <FaDoorOpen />
         </div>
         <div className="basis-4/5 py-1 px-2">My AirBnB</div>
+      </div>
+      <div
+        className="flex items-center border-b border-solid w-full hover:bg-[#D9D9D9] cursor-pointer"
+        onClick={() => { onToggleFooter(); setIsDropdownOpen(false); }}
+      >
+        <div className="basis-1/5 flex w-full items-center justify-center">
+          {isFooterVisible ? <FaEyeSlash /> : <FaEye />}
+        </div>
+        <div className="basis-4/5 py-1 px-2">
+          {isFooterVisible ? "Hide Footer" : "Show Footer"}
+        </div>
       </div>
       <div
         className="flex items-center border-b border-solid w-full hover:bg-[#D9D9D9]"
