@@ -12,13 +12,10 @@ const manageGuestSchema = z.object({
     .regex(/^[^!@#$%^&*()_+=[\]{};:"\\|,<>/?~]+$/, {
       message: "Name cannot contain a special character",
     }),
-  phone: z.string().refine(
-    (val) => {
-      const digits = val.replace(/\D/g, "");
-      return digits.length >= 10 && digits.length <= 15;
-    },
-    "Phone number must have between 10 and 15 digits."
-  ),
+  phone: z.string().refine((val) => {
+    const digits = val.replace(/\D/g, "");
+    return digits.length >= 10 && digits.length <= 15;
+  }, "Phone number must have between 10 and 15 digits."),
   email: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -29,21 +26,41 @@ interface ManageGuestModalProps {
   guests: guestType[];
   onClose: () => void;
   onSave: (guest: guestType, onError: (msg: string) => void) => void;
-  onAdd: (guest: { name: string; phone: string; email?: string; notes?: string; returning: boolean }, onError: (msg: string) => void) => void;
+  onAdd: (
+    guest: {
+      name: string;
+      phone: string;
+      email?: string;
+      notes?: string;
+      returning: boolean;
+    },
+    onError: (msg: string) => void,
+  ) => void;
   onDelete: (guestId: string, onError: (msg: string) => void) => void;
 }
 
-const ManageGuestModal = ({ guests, onClose, onSave, onAdd, onDelete }: ManageGuestModalProps) => {
+const ManageGuestModal = ({
+  guests,
+  onClose,
+  onSave,
+  onAdd,
+  onDelete,
+}: ManageGuestModalProps) => {
   const selectableGuests = guests
-    .filter((g) => g.name !== "AirBnB" && g.returning === true)
+    .filter((g) => g.name !== "AirBnB")
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const [selectedGuestId, setSelectedGuestId] = useState<string>(selectableGuests[0]?.id ?? "");
+  const [selectedGuestId, setSelectedGuestId] = useState<string>(
+    selectableGuests[0]?.id ?? "",
+  );
   const [errorMessage, setErrorMessage] = useState("");
-  const [pendingConfirm, setPendingConfirm] = useState<ManageGuestFormData | null>(null);
+  const [pendingConfirm, setPendingConfirm] =
+    useState<ManageGuestFormData | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const selectedGuest = selectableGuests.find((g) => g.id === selectedGuestId) ?? selectableGuests[0];
+  const selectedGuest =
+    selectableGuests.find((g) => g.id === selectedGuestId) ??
+    selectableGuests[0];
 
   const {
     register,
@@ -80,7 +97,9 @@ const ManageGuestModal = ({ guests, onClose, onSave, onAdd, onDelete }: ManageGu
     if (!selectedGuest) return;
     setErrorMessage("");
     const cleaned = { ...data, phone: data.phone.replace(/\D/g, "") };
-    const nameExistsInList = selectableGuests.some((g) => g.name === cleaned.name);
+    const nameExistsInList = selectableGuests.some(
+      (g) => g.name === cleaned.name,
+    );
     if (!nameExistsInList) {
       setPendingConfirm(cleaned);
       return;
@@ -108,12 +127,16 @@ const ManageGuestModal = ({ guests, onClose, onSave, onAdd, onDelete }: ManageGu
         </div>
 
         {selectableGuests.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-2">No returning guests found.</p>
+          <p className="text-sm text-gray-500 text-center py-2">
+            No returning guests found.
+          </p>
         ) : (
           <>
             {/* Guest selector */}
             <div>
-              <label className="block text-sm font-medium mb-1">Select Guest</label>
+              <label className="block text-sm font-medium mb-1">
+                Select Guest
+              </label>
               <select
                 className="border border-gray-300 rounded px-2 py-1 w-full"
                 value={selectedGuestId}
@@ -131,7 +154,9 @@ const ManageGuestModal = ({ guests, onClose, onSave, onAdd, onDelete }: ManageGu
               className="flex flex-col gap-3"
               onSubmit={handleSubmit(onSubmit, (validationErrors) => {
                 const first = Object.values(validationErrors)[0];
-                setErrorMessage(first?.message ?? "Please fix the errors above.");
+                setErrorMessage(
+                  first?.message ?? "Please fix the errors above.",
+                );
               })}
             >
               <div>
@@ -141,7 +166,11 @@ const ManageGuestModal = ({ guests, onClose, onSave, onAdd, onDelete }: ManageGu
                   className="border border-gray-300 rounded px-2 py-1 w-full"
                   {...register("name")}
                 />
-                {errors.name && <span className="text-red-500 text-sm">{errors.name.message}</span>}
+                {errors.name && (
+                  <span className="text-red-500 text-sm">
+                    {errors.name.message}
+                  </span>
+                )}
               </div>
 
               <div>
@@ -151,7 +180,11 @@ const ManageGuestModal = ({ guests, onClose, onSave, onAdd, onDelete }: ManageGu
                   className="border border-gray-300 rounded px-2 py-1 w-full"
                   {...register("phone")}
                 />
-                {errors.phone && <span className="text-red-500 text-sm">{errors.phone.message}</span>}
+                {errors.phone && (
+                  <span className="text-red-500 text-sm">
+                    {errors.phone.message}
+                  </span>
+                )}
               </div>
 
               <div>
@@ -172,12 +205,17 @@ const ManageGuestModal = ({ guests, onClose, onSave, onAdd, onDelete }: ManageGu
                 />
               </div>
 
-              {errorMessage && <p className="text-red-500 text-sm">{errorMessage}</p>}
+              {errorMessage && (
+                <p className="text-red-500 text-sm">{errorMessage}</p>
+              )}
 
               <div className="flex gap-2 justify-between">
                 <button
                   type="button"
-                  onClick={() => { setConfirmDelete(true); setPendingConfirm(null); }}
+                  onClick={() => {
+                    setConfirmDelete(true);
+                    setPendingConfirm(null);
+                  }}
                   className="px-3 py-1 bg-red-500 text-white text-sm rounded"
                 >
                   Delete
@@ -204,7 +242,8 @@ const ManageGuestModal = ({ guests, onClose, onSave, onAdd, onDelete }: ManageGu
             {pendingConfirm && (
               <div className="border border-yellow-400 bg-yellow-50 rounded p-3 flex flex-col gap-2">
                 <p className="text-sm font-medium text-yellow-800">
-                  "{pendingConfirm.name}" is not in your guest list. What would you like to do?
+                  "{pendingConfirm.name}" is not in your guest list. What would
+                  you like to do?
                 </p>
                 <div className="flex gap-2">
                   <button
@@ -212,8 +251,17 @@ const ManageGuestModal = ({ guests, onClose, onSave, onAdd, onDelete }: ManageGu
                     className="flex-1 px-2 py-1 bg-blue-500 text-white text-sm rounded"
                     onClick={() => {
                       onAdd(
-                        { name: pendingConfirm.name, phone: pendingConfirm.phone, email: pendingConfirm.email, notes: pendingConfirm.notes, returning: true },
-                        (msg) => { setErrorMessage(msg); setPendingConfirm(null); },
+                        {
+                          name: pendingConfirm.name,
+                          phone: pendingConfirm.phone,
+                          email: pendingConfirm.email,
+                          notes: pendingConfirm.notes,
+                          returning: true,
+                        },
+                        (msg) => {
+                          setErrorMessage(msg);
+                          setPendingConfirm(null);
+                        },
                       );
                     }}
                   >
@@ -255,7 +303,10 @@ const ManageGuestModal = ({ guests, onClose, onSave, onAdd, onDelete }: ManageGu
                     className="flex-1 px-2 py-1 bg-red-500 text-white text-sm rounded"
                     onClick={() => {
                       if (!selectedGuest) return;
-                      onDelete(selectedGuest.id, (msg) => { setErrorMessage(msg); setConfirmDelete(false); });
+                      onDelete(selectedGuest.id, (msg) => {
+                        setErrorMessage(msg);
+                        setConfirmDelete(false);
+                      });
                     }}
                   >
                     Yes, Delete
