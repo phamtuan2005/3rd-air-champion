@@ -549,8 +549,12 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
         return roomName.replace(/^(.+)\1$/, "$1");
       };
 
-      // Iterate over each room in the state
-      rooms.forEach((room) => {
+      // Iterate over each room in the state (filter to selected room if one is chosen)
+      const filteredRooms = selectedRoomName
+        ? rooms.filter((r) => r.name === selectedRoomName)
+        : rooms;
+
+      filteredRooms.forEach((room) => {
         const baseRoomName = getBaseRoomName(room.name); // Normalize name
         const roomId = room.id;
 
@@ -625,7 +629,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
         roomOccupancy: roomOccupancy,
       });
     }
-  }, [days, currentMonth]);
+  }, [days, currentMonth, rooms, selectedRoomName]);
 
   useEffect(() => {
     if (shouldCallOnSync) {
@@ -659,6 +663,9 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
         if (!isSameMonth(currentLocalDate, currentMonth)) break;
 
         for (const booking of day.bookings) {
+          if (selectedRoomName && booking.room.name !== selectedRoomName)
+            continue;
+
           if (booking.guest.name != "AirBnB") {
             const guestPricing = booking.guest.pricing.find(
               (pricing) => pricing.room === booking.room.id,
@@ -678,8 +685,8 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
       }
     }
 
-    setProfit({ ...profit, total: guestProfit, airbnb: airBnBProfit });
-  }, [monthMap, currentMonth]);
+    setProfit((p) => ({ ...p, total: guestProfit, airbnb: airBnBProfit }));
+  }, [monthMap, currentMonth, selectedRoomName]);
 
   useEffect(() => {
     if (isTodoModalOpen) {
