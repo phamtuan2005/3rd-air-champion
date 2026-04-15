@@ -23,7 +23,7 @@ interface GuestViewProps {
   rooms: roomType[];
   selectedDate: Date;
   handleBookingConfirmation: (phone: string) => void;
-  handleSendCalEvents: (phone: string) => void;
+  handleSendCalEvents: (phone: string, email?: string) => void;
   onAirbnbPriceUpdate: (bookingId: string, airbnbPrice: number) => void;
   setCurrentAirBnBGuest: React.Dispatch<React.SetStateAction<string | null>>;
   setCurrentGuest: React.Dispatch<React.SetStateAction<string | null>>;
@@ -179,7 +179,7 @@ const GuestView = ({
                         <button
                           className="rounded-full shadow-md bg-blue-600 hover:bg-blue-700 text-white font-semibold h-[44px] w-[44px] text-[0.55rem]"
                           onClick={() =>
-                            handleSendCalEvents(booking.guest.phone)
+                            handleSendCalEvents(booking.guest.phone, booking.guest.email)
                           }
                         >
                           Cal Events

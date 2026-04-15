@@ -117,7 +117,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
-  const [icsModal, setIcsModal] = useState<{ icsContent: string; phone: string } | null>(null);
+  const [icsModal, setIcsModal] = useState<{ icsContent: string; phone: string; email?: string } | null>(null);
   const [isTodoModalOpen, setIsTodoModalOpen] = useState(true);
 
   const [blockedAirBnBDates, setIsBlockedAirBnBDates] = useState<{
@@ -996,7 +996,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
     window.location.href = `sms:${phone}?&body=${encodeURIComponent(fullBody)}`;
   };
 
-  const handleSendCalEvents = (phone: string) => {
+  const handleSendCalEvents = (phone: string, email?: string) => {
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     const sortedEntries = Array.from(monthMap.entries()).sort(
@@ -1039,7 +1039,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
       "END:VCALENDAR",
     ].join("\r\n");
 
-    setIcsModal({ icsContent, phone });
+    setIcsModal({ icsContent, phone, email });
   };
 
   return (
@@ -1339,8 +1339,24 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  window.location.href = `sms:${icsModal.phone}?&body=${encodeURIComponent(icsModal.icsContent)}`;
+                onClick={async () => {
+                  const blob = new Blob([icsModal.icsContent], { type: "text/calendar;charset=utf-8" });
+                  const file = new File([blob], "booking.ics", { type: "text/calendar" });
+                  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    try {
+                      await navigator.share({ files: [file], title: "Calendar Events" });
+                    } catch {
+                      // user cancelled share sheet
+                    }
+                  } else {
+                    // desktop fallback: download the .ics file
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = "booking.ics";
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }
                   setIcsModal(null);
                 }}
                 className="px-3 py-1 bg-blue-600 text-white text-sm rounded"
