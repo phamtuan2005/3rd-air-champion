@@ -56,7 +56,6 @@
 }
 
 .react-calendar__custom_tile_full {
-  @apply bg-slate-400;
 }
 
 .react-calendar__custom_tile_paid {
