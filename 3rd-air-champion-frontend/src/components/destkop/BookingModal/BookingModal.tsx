@@ -2,12 +2,13 @@ import { useState } from "react";
 import { guestType } from "../../../util/types/guestType";
 import { roomType } from "../../../util/types/roomType";
 import GuestInput from "./GuestInput";
-import { SubmitHandler, useForm, useFieldArray, Controller } from "react-hook-form";
+import RoomMultiSelect from "./RoomMultiSelect";
+import { SubmitHandler, useForm, useFieldArray, Controller, useWatch } from "react-hook-form";
 import { bookDaySchema, bookDaysZodObject } from "../../../util/zodBookDays";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { getAvailableRooms, postBooking } from "../../../util/bookingOperations";
 import { dayType } from "../../../util/types/dayType";
-import { format } from "date-fns";
+import { format, addDays } from "date-fns";
 import { ANY_ROOM_SENTINEL } from "../../../util/zodBookDays";
 
 interface BookingModalProps {
@@ -22,6 +23,28 @@ interface BookingModalProps {
   setShowAddPane: React.Dispatch<React.SetStateAction<"guest" | "room" | null>>;
 }
 
+type FlatBooking = { room: string; date: Date; duration: number };
+
+type BookingResult = {
+  label: string;
+  status: "success" | "error";
+  message?: string;
+  booking?: FlatBooking;
+};
+
+const extractErrorMessage = (err: unknown): string => {
+  if (typeof err === "string") return err;
+  if (Array.isArray(err)) {
+    const first = err[0];
+    if (typeof first === "string") return first;
+    if (first && typeof first === "object" && "message" in first)
+      return String((first as { message: string }).message);
+  }
+  if (err && typeof err === "object" && "message" in err)
+    return String((err as { message: string }).message);
+  return "An unexpected error occurred";
+};
+
 const BookingModal = ({
   calendarId,
   guests,
@@ -34,20 +57,16 @@ const BookingModal = ({
   setShowAddPane,
 }: BookingModalProps) => {
   const token = localStorage.getItem("token");
-  type BookingResult = {
-    label: string;
-    status: "success" | "error";
-    message?: string;
-  };
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bookingResults, setBookingResults] = useState<BookingResult[]>([]);
 
   const {
-    register,
     handleSubmit,
     setValue,
     control,
+    getValues,
+    register,
     formState: { errors },
   } = useForm<bookDaySchema>({
     resolver: zodResolver(bookDaysZodObject),
@@ -56,7 +75,7 @@ const BookingModal = ({
       numberOfGuests: 1,
       bookings: [
         {
-          room: selectedRoom?.id || ANY_ROOM_SENTINEL,
+          rooms: [selectedRoom?.id ?? ANY_ROOM_SENTINEL],
           date: selectedDate,
           duration: 1,
         },
@@ -69,76 +88,120 @@ const BookingModal = ({
     name: "bookings",
   });
 
+  const watchedBookings = useWatch({ control, name: "bookings" });
+
+  const processBooking = async (
+    flat: FlatBooking,
+    guestId: string,
+    numberOfGuests: number
+  ): Promise<{ result: BookingResult; bookedDays: dayType[] }> => {
+    const dateLabel = format(flat.date, "MMM d, yyyy");
+    const durationLabel = `${flat.duration} day${flat.duration > 1 ? "s" : ""}`;
+
+    try {
+      let roomId = flat.room;
+      let roomLabel = rooms.find((r) => r.id === flat.room)?.name ?? "---";
+
+      if (roomId === ANY_ROOM_SENTINEL) {
+        const available = await getAvailableRooms(
+          {
+            calendar: calendarId,
+            date: flat.date.toISOString(),
+            duration: flat.duration,
+          },
+          token as string
+        );
+        if (available.length === 0) {
+          return {
+            result: {
+              label: `${dateLabel} · ${durationLabel}`,
+              status: "error",
+              message: "No available room",
+              booking: flat,
+            },
+            bookedDays: [],
+          };
+        }
+        roomId = available[0].id;
+        roomLabel = available[0].name;
+      }
+
+      const days = await postBooking(
+        {
+          calendar: calendarId,
+          date: flat.date.toISOString(),
+          guest: guestId,
+          isAirBnB: false,
+          numberOfGuests,
+          room: roomId,
+          duration: flat.duration,
+        },
+        token as string
+      );
+      return {
+        result: {
+          label: `${roomLabel} · ${dateLabel} · ${durationLabel}`,
+          status: "success",
+        },
+        bookedDays: days,
+      };
+    } catch (err) {
+      return {
+        result: {
+          label: `${dateLabel} · ${durationLabel}`,
+          status: "error",
+          message: extractErrorMessage(err),
+          booking: flat,
+        },
+        bookedDays: [],
+      };
+    }
+  };
+
   const onSubmit: SubmitHandler<bookDaySchema> = async (data) => {
     setIsSubmitting(true);
-
     const results: BookingResult[] = [];
     const allBookedDays: dayType[] = [];
 
     for (const booking of data.bookings) {
-      const dateLabel = format(booking.date, "MMM d, yyyy");
-      const durationLabel = `${booking.duration} day${booking.duration > 1 ? "s" : ""}`;
-
-      try {
-        let roomId = booking.room;
-        let roomLabel =
-          rooms.find((r) => r.id === booking.room)?.name ?? "---";
-
-        if (roomId === ANY_ROOM_SENTINEL) {
-          const available = await getAvailableRooms(
-            {
-              calendar: calendarId,
-              date: booking.date.toISOString(),
-              duration: booking.duration,
-            },
-            token as string
-          );
-          if (available.length === 0) {
-            results.push({
-              label: `${dateLabel} · ${durationLabel}`,
-              status: "error",
-              message: "No available room",
-            });
-            continue;
-          }
-          roomId = available[0].id;
-          roomLabel = available[0].name;
-        }
-
-        const result = await postBooking(
-          {
-            calendar: calendarId,
-            date: booking.date.toISOString(),
-            guest: data.guest,
-            isAirBnB: false,
-            numberOfGuests: data.numberOfGuests,
-            room: roomId,
-            duration: booking.duration,
-          },
-          token as string
+      for (const room of booking.rooms) {
+        const { result, bookedDays } = await processBooking(
+          { room, date: booking.date, duration: booking.duration },
+          data.guest,
+          data.numberOfGuests
         );
-        allBookedDays.push(...result);
-        results.push({
-          label: `${roomLabel} · ${dateLabel} · ${durationLabel}`,
-          status: "success",
-        });
-      } catch (err) {
-        const dateLabel = format(booking.date, "MMM d, yyyy");
-        const durationLabel = `${booking.duration} day${booking.duration > 1 ? "s" : ""}`;
-        results.push({
-          label: `${dateLabel} · ${durationLabel}`,
-          status: "error",
-          message: "unavailable",
-        });
+        results.push(result);
+        allBookedDays.push(...bookedDays);
       }
     }
 
     setIsSubmitting(false);
     setBookingResults(results);
+    if (allBookedDays.length > 0) onBooking(allBookedDays);
+  };
 
-    if (allBookedDays.length > 0) {
-      onBooking(allBookedDays);
+  const handleRetry = async () => {
+    setIsSubmitting(true);
+    const guestId = getValues("guest");
+    const numberOfGuests = getValues("numberOfGuests");
+    const newResults = [...bookingResults];
+    const allBookedDays: dayType[] = [];
+
+    for (let i = 0; i < newResults.length; i++) {
+      if (newResults[i].status === "error" && newResults[i].booking) {
+        const { result, bookedDays } = await processBooking(
+          newResults[i].booking!,
+          guestId,
+          numberOfGuests
+        );
+        newResults[i] = result;
+        allBookedDays.push(...bookedDays);
+      }
     }
+
+    setIsSubmitting(false);
+    setBookingResults([...newResults]);
+    if (allBookedDays.length > 0) onBooking(allBookedDays);
   };
 
   return (
@@ -147,179 +210,238 @@ const BookingModal = ({
       onClick={() => setIsModalOpen(false)}
     >
       <div
-        className="bg-white rounded-lg shadow-lg p-4 w-full sm:max-w-2xl h-fit transform transition-transform"
+        className="bg-white rounded-lg shadow-lg w-full sm:max-w-2xl max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex justify-center mb-1">
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-gray-100 flex-shrink-0">
+          <h2 className="text-lg font-bold">Book Rooms</h2>
           <button
             type="button"
-            className="text-gray-500 font-bold text-[1.5rem] leading-none px-6 py-0.5 rounded hover:bg-gray-100"
+            className="text-gray-400 hover:text-gray-600 text-xl leading-none px-2"
             onClick={() => setIsModalOpen(false)}
           >
             &times;
           </button>
         </div>
-        <h2 className="text-lg font-bold mb-4">Book Rooms</h2>
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)}>
-          {/* Guest + Number of Guests row */}
-          <div className="flex gap-4 items-start">
-            <div className="flex-1">
-              <GuestInput
-                guests={guests}
-                showAddPane={showAddPane}
-                setShowAddPane={setShowAddPane}
-                setValue={setValue}
-              />
-              {errors.guest && (
-                <span className="text-red-500 text-sm">
-                  {errors.guest.message}
-                </span>
-              )}
-            </div>
-            <div className="w-36">
-              <label
-                htmlFor="numberOfGuests"
-                className="block text-sm font-medium"
-              >
-                # of Guests
-              </label>
-              <select
-                id="numberOfGuests"
-                className="border border-gray-300 rounded px-2 py-1 w-full"
-                {...register("numberOfGuests", { valueAsNumber: true })}
-              >
-                <option value={1}>1</option>
-                <option value={2}>2</option>
-                <option value={3}>3</option>
-                <option value={4}>4</option>
-              </select>
-              {errors.numberOfGuests && (
-                <span className="text-red-500 text-sm">
-                  {errors.numberOfGuests.message}
-                </span>
-              )}
-            </div>
-          </div>
 
-          {/* Bookings table */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left font-medium pb-2 pr-2">Room</th>
-                  <th className="text-left font-medium pb-2 pr-2">Date</th>
-                  <th className="text-left font-medium pb-2 pr-2 w-28">
-                    Duration (Days)
-                  </th>
-                  <th className="w-8" />
-                </tr>
-              </thead>
-              <tbody>
-                {fields.map((field, index) => (
-                  <tr key={field.id} className="border-b border-gray-100">
-                    <td className="py-2 pr-2">
-                      <select
-                        className="border border-gray-300 rounded px-2 py-1 w-full"
-                        {...register(`bookings.${index}.room`)}
-                      >
-                        <option value={ANY_ROOM_SENTINEL}>---</option>
-                        {rooms.map((room) => (
-                          <option key={room.id} value={room.id}>
-                            {room.name}
-                          </option>
-                        ))}
-                      </select>
-                      {errors.bookings?.[index]?.room && (
-                        <span className="text-red-500 text-xs block">
-                          {errors.bookings[index].room?.message}
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-2 pr-2">
+        <form
+          className="flex flex-col flex-1 min-h-0"
+          onSubmit={handleSubmit(onSubmit)}
+        >
+          {/* Scrollable body */}
+          <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-4">
+            {/* Guest + Number of Guests row */}
+            <div className="flex gap-4 items-start">
+              <div className="flex-1">
+                <GuestInput
+                  guests={guests}
+                  showAddPane={showAddPane}
+                  setShowAddPane={setShowAddPane}
+                  setValue={setValue}
+                />
+                {errors.guest && (
+                  <span className="text-red-500 text-sm">
+                    {errors.guest.message}
+                  </span>
+                )}
+              </div>
+              <div className="w-36">
+                <label
+                  htmlFor="numberOfGuests"
+                  className="block text-sm font-medium mb-1"
+                >
+                  # of Guests
+                </label>
+                <select
+                  id="numberOfGuests"
+                  className="border border-gray-300 rounded px-2 py-1 w-full"
+                  {...register("numberOfGuests", { valueAsNumber: true })}
+                >
+                  <option value={1}>1</option>
+                  <option value={2}>2</option>
+                  <option value={3}>3</option>
+                  <option value={4}>4</option>
+                </select>
+                {errors.numberOfGuests && (
+                  <span className="text-red-500 text-sm">
+                    {errors.numberOfGuests.message}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Booking cards */}
+            <div className="flex flex-col gap-2">
+              {fields.map((field, index) => {
+                const wb = watchedBookings?.[index];
+                const wbDate =
+                  wb?.date instanceof Date && !isNaN(wb.date.getTime())
+                    ? wb.date
+                    : null;
+                const wbDur =
+                  typeof wb?.duration === "number" && wb.duration >= 1
+                    ? wb.duration
+                    : null;
+
+                return (
+                  <div
+                    key={field.id}
+                    className="border border-gray-200 rounded-lg p-3 flex flex-col gap-2"
+                  >
+                    {/* Room selector — full width, unobstructed */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">
+                        Room
+                      </label>
                       <Controller
                         control={control}
-                        name={`bookings.${index}.date`}
-                        render={({ field }) => (
-                          <input
-                            type="date"
-                            className="border border-gray-300 rounded px-2 py-1 w-full"
-                            value={
-                              field.value instanceof Date && !isNaN(field.value.getTime())
-                                ? format(field.value, "yyyy-MM-dd")
-                                : ""
-                            }
-                            onChange={(e) =>
-                              field.onChange(
-                                e.target.value ? new Date(e.target.value + "T00:00:00") : null
-                              )
-                            }
+                        name={`bookings.${index}.rooms`}
+                        render={({ field: f }) => (
+                          <RoomMultiSelect
+                            rooms={rooms}
+                            value={f.value}
+                            onChange={f.onChange}
                           />
                         )}
                       />
-                      {errors.bookings?.[index]?.date && (
-                        <span className="text-red-500 text-xs block">
-                          {errors.bookings[index].date?.message}
+                      {errors.bookings?.[index]?.rooms && (
+                        <span className="text-red-500 text-xs mt-0.5 block">
+                          {errors.bookings[index].rooms?.message}
                         </span>
                       )}
-                    </td>
-                    <td className="py-2 pr-2">
-                      <input
-                        type="number"
-                        step={1}
-                        min={1}
-                        className="border border-gray-300 rounded px-2 py-1 w-full"
-                        {...register(`bookings.${index}.duration`, {
-                          valueAsNumber: true,
-                        })}
-                      />
-                      {errors.bookings?.[index]?.duration && (
-                        <span className="text-red-500 text-xs block">
-                          {errors.bookings[index].duration?.message}
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-2 text-center">
+                    </div>
+
+                    {/* Date + Duration + delete */}
+                    <div className="flex gap-3 items-start">
+                      <div className="flex-1">
+                        <label className="block text-xs font-medium text-gray-500 mb-1">
+                          Check-in date
+                        </label>
+                        <Controller
+                          control={control}
+                          name={`bookings.${index}.date`}
+                          render={({ field: f }) => (
+                            <input
+                              type="date"
+                              className="border border-gray-300 rounded px-2 py-1 w-full text-sm"
+                              value={
+                                f.value instanceof Date &&
+                                !isNaN(f.value.getTime())
+                                  ? format(f.value, "yyyy-MM-dd")
+                                  : ""
+                              }
+                              onChange={(e) =>
+                                f.onChange(
+                                  e.target.value
+                                    ? new Date(e.target.value + "T00:00:00")
+                                    : null
+                                )
+                              }
+                            />
+                          )}
+                        />
+                        {errors.bookings?.[index]?.date && (
+                          <span className="text-red-500 text-xs mt-0.5 block">
+                            {errors.bookings[index].date?.message}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="w-28">
+                        <label className="block text-xs font-medium text-gray-500 mb-1">
+                          Duration (days)
+                        </label>
+                        <input
+                          type="number"
+                          step={1}
+                          min={1}
+                          className="border border-gray-300 rounded px-2 py-1 w-full text-sm"
+                          {...register(`bookings.${index}.duration`, {
+                            valueAsNumber: true,
+                          })}
+                        />
+                        {wbDate && wbDur && (
+                          <span className="text-gray-400 text-xs block mt-0.5">
+                            checkout {format(addDays(wbDate, wbDur), "MMM d")}
+                          </span>
+                        )}
+                        {errors.bookings?.[index]?.duration && (
+                          <span className="text-red-500 text-xs mt-0.5 block">
+                            {errors.bookings[index].duration?.message}
+                          </span>
+                        )}
+                      </div>
+
                       {fields.length > 1 && (
                         <button
                           type="button"
-                          className="text-gray-400 hover:text-red-500 font-bold leading-none"
+                          className="mt-5 text-gray-400 hover:text-red-500 font-bold text-lg leading-none"
                           onClick={() => remove(index)}
                         >
                           &times;
                         </button>
                       )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {errors.bookings && !Array.isArray(errors.bookings) && (
+              <span className="text-red-500 text-sm">
+                {errors.bookings.message}
+              </span>
+            )}
+
+            {/* Results summary */}
+            {bookingResults.length > 0 && (
+              <div className="border-t border-gray-200 pt-3">
+                <p className="text-sm font-medium mb-2">Booking Summary</p>
+                <ul className="flex flex-col gap-1">
+                  {bookingResults.map((r, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm">
+                      {r.status === "success" ? (
+                        <span className="text-green-500 font-bold mt-0.5">
+                          &#10003;
+                        </span>
+                      ) : (
+                        <span className="text-red-500 font-bold mt-0.5">
+                          &#10007;
+                        </span>
+                      )}
+                      <span>
+                        {r.label}
+                        {r.message && (
+                          <span className="text-red-500 ml-1">
+                            — {r.message}
+                          </span>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
 
-          {errors.bookings && !Array.isArray(errors.bookings) && (
-            <span className="text-red-500 text-sm">
-              {errors.bookings.message}
-            </span>
-          )}
-
-          {bookingResults.length === 0 && (
-            <>
-              {/* Add row */}
-              <button
-                type="button"
-                className="self-start border border-dashed border-blue-400 text-blue-500 rounded px-3 py-1 text-sm hover:bg-blue-50"
-                onClick={() =>
-                  append({
-                    room: ANY_ROOM_SENTINEL,
-                    date: new Date(),
-                    duration: 1,
-                  })
-                }
-              >
-                + Add Row
-              </button>
-
-              {/* Submit */}
-              <div className="flex justify-end">
+          {/* Sticky footer */}
+          <div className="flex-shrink-0 border-t border-gray-100 px-4 py-3">
+            {bookingResults.length === 0 ? (
+              <div className="flex justify-between items-center">
+                <button
+                  type="button"
+                  className="border border-dashed border-blue-400 text-blue-500 rounded px-3 py-1 text-sm hover:bg-blue-50"
+                  onClick={() =>
+                    append({
+                      rooms: [ANY_ROOM_SENTINEL],
+                      date: new Date(),
+                      duration: 1,
+                    })
+                  }
+                >
+                  + Add Row
+                </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
@@ -328,33 +450,20 @@ const BookingModal = ({
                   {isSubmitting ? "Booking..." : "Book All"}
                 </button>
               </div>
-            </>
-          )}
-
-          {/* Results summary */}
-          {bookingResults.length > 0 && (
-            <>
-              <div className="border-t border-gray-200 pt-3">
-                <p className="text-sm font-medium mb-2">Booking Summary</p>
-                <ul className="flex flex-col gap-1">
-                  {bookingResults.map((r, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm">
-                      {r.status === "success" ? (
-                        <span className="text-green-500 font-bold mt-0.5">&#10003;</span>
-                      ) : (
-                        <span className="text-red-500 font-bold mt-0.5">&#10007;</span>
-                      )}
-                      <span>
-                        {r.label}
-                        {r.message && (
-                          <span className="text-red-500 ml-1">— {r.message}</span>
-                        )}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="flex justify-end">
+            ) : (
+              <div className="flex justify-end gap-2">
+                {bookingResults.some(
+                  (r) => r.status === "error" && r.booking
+                ) && (
+                  <button
+                    type="button"
+                    disabled={isSubmitting}
+                    className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600 disabled:opacity-50"
+                    onClick={handleRetry}
+                  >
+                    {isSubmitting ? "Retrying..." : "Retry Failed"}
+                  </button>
+                )}
                 <button
                   type="button"
                   className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
@@ -363,8 +472,8 @@ const BookingModal = ({
                   Close
                 </button>
               </div>
-            </>
-          )}
+            )}
+          </div>
         </form>
       </div>
     </div>
