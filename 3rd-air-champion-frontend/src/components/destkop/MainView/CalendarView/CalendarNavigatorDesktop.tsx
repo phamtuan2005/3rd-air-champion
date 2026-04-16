@@ -105,7 +105,7 @@ const CalendarNavigator = ({
                   }
                 }}
               >
-                <option value="">-- All rooms --</option>
+                <option value="">+ All rooms +</option>
                 {rooms.filter(r => r.active).map((room) => (
                   <option key={room.id} value={room.name}>{room.name}</option>
                 ))}
