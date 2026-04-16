@@ -1028,7 +1028,15 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
     const guestBookings: bookingType[] = [];
     for (const [dateStr, dayEntry] of sortedEntries) {
       const matching = dayEntry.bookings.filter(
-        (b) => b.guest.phone === phone && b.startDate === dateStr
+        (b) =>
+          b.guest.phone === phone &&
+          b.startDate === dateStr &&
+          paidDates.some((paidDate) =>
+            isSameDay(
+              toZonedTime(paidDate, timeZone),
+              toZonedTime(dateStr, timeZone)
+            )
+          )
       );
       guestBookings.push(...matching);
     }
