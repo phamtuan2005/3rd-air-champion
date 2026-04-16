@@ -19,6 +19,8 @@ interface NavBarDesktopProps {
   setIsTodoModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isBookModalOpen: boolean;
   setIsBookModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isLeftoverModalOpen: boolean;
+  setIsLeftoverModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const NavBarDesktop = ({
@@ -33,6 +35,8 @@ const NavBarDesktop = ({
   setIsTodoModalOpen,
   isBookModalOpen,
   setIsBookModalOpen,
+  isLeftoverModalOpen,
+  setIsLeftoverModalOpen,
 }: NavBarDesktopProps) => {
   return (
     <div className="px-1 flex items-center justify-between w-full h-[80px] bg-white drop-shadow-md z-50 lg:h-[120px]">
@@ -54,7 +58,10 @@ const NavBarDesktop = ({
             className={`text-white bg-black px-2 py-1 text-xs rounded-md ${
               isTodoModalOpen ? "drop-shadow-[0_4px_6px_rgba(59,130,246,0.5)]" : ""
             }`}
-            onClick={() => setIsTodoModalOpen(!isTodoModalOpen)}
+            onClick={() => {
+              setIsTodoModalOpen(!isTodoModalOpen);
+              setIsLeftoverModalOpen(false);
+            }}
           >
             To Do
           </button>
@@ -66,6 +73,18 @@ const NavBarDesktop = ({
             onClick={() => setIsBookModalOpen(true)}
           >
             Book
+          </button>
+          <button
+            type="button"
+            className={`text-white bg-emerald-600 px-2 py-1 text-xs rounded-md ${
+              isLeftoverModalOpen ? "drop-shadow-[0_4px_6px_rgba(59,130,246,0.5)]" : ""
+            }`}
+            onClick={() => {
+              setIsLeftoverModalOpen(!isLeftoverModalOpen);
+              setIsTodoModalOpen(false);
+            }}
+          >
+            Left over
           </button>
         </div>
       </div>
