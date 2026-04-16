@@ -23,6 +23,7 @@
   max-height: 120px; /* corresponds to max-h-[120px] */
   max-width: 100%; /* corresponds to max-w-full */
   overflow: visible !important;
+  position: relative; /* needed for absolutely-positioned overlays (e.g. paid background) */
 }
 
 .react-calendar__custom_tile:hover {
@@ -56,10 +57,6 @@
 }
 
 .react-calendar__custom_tile_full {
-}
-
-.react-calendar__custom_tile_paid {
-  @apply bg-green-400;
 }
 
 /* Base styling for tiles without bookings */

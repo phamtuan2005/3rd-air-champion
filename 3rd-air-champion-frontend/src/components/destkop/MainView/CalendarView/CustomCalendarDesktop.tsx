@@ -265,14 +265,6 @@ const CustomCalendar = ({
     if (isSameDay(date, startOfToday()))
       className.push("react-calendar__custom_tile_today");
 
-    if (paidDates.length > 0) {
-      if (
-        currentGuest &&
-        paidDates.find((paidDate) => isSameDay(paidDate, date))
-      )
-        className.push("react-calendar__custom_tile_paid");
-    }
-
     const day = useMonthMap.get(date.toISOString().split("T")[0]);
 
     if (day && day.isBlocked)
@@ -387,10 +379,54 @@ const CustomCalendar = ({
         // Re-sort in case ensureGridRow added new rooms
         sortedUsedRooms.sort((a, b) => a.name.localeCompare(b.name));
 
+        // Paid overlay: visible when a guest is selected and this date is marked paid.
+        // Offset matches the booking bar — 20% left on check-in day, flush otherwise.
+        const isPaid = !!(currentGuest && paidDates.some((pd) => isSameDay(pd, date)));
+        const isGuestCheckIn =
+          isPaid &&
+          !!filteredDay?.bookings.some((b) => {
+            if (!b.startDate) return false;
+            return isSameDay(date, toZonedTime(b.startDate, timeZone));
+          });
+        // Checkout morning (endDate + 1) is not in paidDates but still shows the AM bar
+        // on the left 20%. Show the green AM sliver here if the last night was paid.
+        const isGuestCheckoutPaid =
+          !isPaid &&
+          !!currentGuest &&
+          checkoutBookings.some((b) => {
+            if (!b.endDate) return false;
+            const endDate = toZonedTime(b.endDate, timeZone);
+            return paidDates.some((pd) => isSameDay(pd, endDate));
+          });
+
         const textSize = 0.65;
 
         return (
           <>
+            {isPaid && (
+              <div
+                className="bg-green-400"
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  bottom: 0,
+                  left: isGuestCheckIn ? "20%" : "-1px",
+                  right: "-1px",
+                }}
+              />
+            )}
+            {isGuestCheckoutPaid && (
+              <div
+                className="bg-green-400"
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  bottom: 0,
+                  left: "-1px",
+                  right: "80%",
+                }}
+              />
+            )}
             {sortedUsedRooms.map((room) => {
               const { am: amBooking, pm: pmBooking } = gridContent[room.name];
 
