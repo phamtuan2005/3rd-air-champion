@@ -126,7 +126,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
   const [monthMap, setMonthMap] = useState<Map<string, dayType>>(new Map());
 
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
-  const [icsModal, setIcsModal] = useState<{ icsContent: string; phone: string; email?: string } | null>(null);
+  const [icsModal, setIcsModal] = useState<{ icsContent: string; phone: string; email?: string; guestName: string; checkinDate: string; fileName: string } | null>(null);
   const [scrollToTodayTrigger, setScrollToTodayTrigger] = useState(0);
 
   const [blockedAirBnBDates, setIsBlockedAirBnBDates] = useState<{
@@ -1075,7 +1075,10 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
       "END:VCALENDAR",
     ].join("\r\n");
 
-    setIcsModal({ icsContent, phone, email });
+    const firstBooking = guestBookings[0];
+    const guestName = firstBooking.guest.name.trim().replace(/\s+/g, "_");
+    const checkinDate = format(toZonedTime(firstBooking.startDate.split("T")[0], timeZone), "yyyy-MM-dd");
+    setIcsModal({ icsContent, phone, email, guestName, checkinDate, fileName: `booking_${guestName}_${checkinDate}.ics` });
   };
 
   return (
@@ -1406,6 +1409,15 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
               rows={14}
               value={icsModal.icsContent}
             />
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600 whitespace-nowrap">File name</label>
+              <input
+                type="text"
+                className="border rounded px-2 py-1 text-sm flex-1"
+                value={icsModal.fileName}
+                onChange={(e) => setIcsModal({ ...icsModal, fileName: e.target.value })}
+              />
+            </div>
             <div className="flex gap-2 justify-end">
               <button
                 onClick={() => setIcsModal(null)}
@@ -1415,8 +1427,9 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
               </button>
               <button
                 onClick={async () => {
+                  const fileName = icsModal.fileName.endsWith(".ics") ? icsModal.fileName : `${icsModal.fileName}.ics`;
                   const blob = new Blob([icsModal.icsContent], { type: "text/calendar;charset=utf-8" });
-                  const file = new File([blob], "booking.ics", { type: "text/calendar" });
+                  const file = new File([blob], fileName, { type: "text/calendar" });
                   if (navigator.canShare && navigator.canShare({ files: [file] })) {
                     try {
                       await navigator.share({ files: [file], title: "Calendar Events" });
@@ -1428,7 +1441,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     a.href = url;
-                    a.download = "booking.ics";
+                    a.download = fileName;
                     a.click();
                     URL.revokeObjectURL(url);
                   }
@@ -1436,7 +1449,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
                 }}
                 className="px-3 py-1 bg-blue-600 text-white text-sm rounded"
               >
-                Send
+                Save
               </button>
             </div>
           </div>
