@@ -44,6 +44,7 @@ import {
 import UnbookingConfirmation from "./GuestView/UnbookingConfirmation";
 import ToDoList from "./ToDoList";
 import LeftOverModal from "./LeftOverModal";
+import BlockAirBnBModal from "./BlockAirBnBModal";
 import ModifyBookingModal from "../ModifyBookingModal";
 import GuestAddPane from "../BookingModal/GuestAddPane";
 import EditRoomModal from "../NavBar/DropDown/EditRoomModal";
@@ -64,9 +65,11 @@ interface MainViewProps {
   setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isLeftoverModalOpen: boolean;
   setIsLeftoverModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isBlockAirBnBModalOpen: boolean;
+  setIsBlockAirBnBModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnbAddress, isTodoModalOpen, setIsTodoModalOpen, isModalOpen, setIsModalOpen, isLeftoverModalOpen, setIsLeftoverModalOpen }: MainViewProps) => {
+const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnbAddress, isTodoModalOpen, setIsTodoModalOpen, isModalOpen, setIsModalOpen, isLeftoverModalOpen, setIsLeftoverModalOpen, isBlockAirBnBModalOpen, setIsBlockAirBnBModalOpen }: MainViewProps) => {
   const token = localStorage.getItem("token");
 
   const context = useContext(isSyncModalOpenContext) as {
@@ -1186,7 +1189,9 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
       </div>
 
       <div className="hidden bg-white border-l sm:block">
-        {isLeftoverModalOpen ? (
+        {isBlockAirBnBModalOpen ? (
+          <BlockAirBnBModal monthMap={monthMap} rooms={rooms} blockedAirBnBDates={blockedAirBnBDates as Record<string, { start: string; duration: number }[]> | undefined} />
+        ) : isLeftoverModalOpen ? (
           <LeftOverModal monthMap={monthMap} rooms={rooms} currentMonth={currentMonth} />
         ) : isTodoModalOpen ? (
           <ToDoList monthMap={monthMap} doorCode={doorCode} airbnbName={airbnbName} airbnbAddress={airbnbAddress} />
@@ -1320,6 +1325,24 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
         </div>
 
         <LeftOverModal monthMap={monthMap} rooms={rooms} currentMonth={currentMonth} />
+      </div>
+
+      <div
+        className={`fixed bottom-0 left-0 w-full h-auto bg-white p-1 border-t border-gray-300 z-50 overflow-y-scroll sm:hidden transition-transform duration-300 ${
+          isBlockAirBnBModalOpen ? "translate-y-0" : "translate-y-full"
+        }`}
+      >
+        {/* Close Button */}
+        <div className="flex justify-center">
+          <button
+            className="text-gray-500 font-bold text-[1.5rem] leading-none px-6 py-0.5 rounded hover:bg-gray-100"
+            onClick={() => setIsBlockAirBnBModalOpen(false)}
+          >
+            &times;
+          </button>
+        </div>
+
+        <BlockAirBnBModal monthMap={monthMap} rooms={rooms} blockedAirBnBDates={blockedAirBnBDates as Record<string, { start: string; duration: number }[]> | undefined} />
       </div>
 
       {selectedBooking && (

@@ -21,6 +21,8 @@ interface NavBarDesktopProps {
   setIsBookModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isLeftoverModalOpen: boolean;
   setIsLeftoverModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isBlockAirBnBModalOpen: boolean;
+  setIsBlockAirBnBModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const NavBarDesktop = ({
@@ -37,6 +39,8 @@ const NavBarDesktop = ({
   setIsBookModalOpen,
   isLeftoverModalOpen,
   setIsLeftoverModalOpen,
+  isBlockAirBnBModalOpen,
+  setIsBlockAirBnBModalOpen,
 }: NavBarDesktopProps) => {
   return (
     <div className="px-1 flex items-center justify-between w-full h-[80px] bg-white drop-shadow-md z-50 lg:h-[120px]">
@@ -61,6 +65,7 @@ const NavBarDesktop = ({
             onClick={() => {
               setIsTodoModalOpen(!isTodoModalOpen);
               setIsLeftoverModalOpen(false);
+              setIsBlockAirBnBModalOpen(false);
             }}
           >
             To Do
@@ -82,9 +87,23 @@ const NavBarDesktop = ({
             onClick={() => {
               setIsLeftoverModalOpen(!isLeftoverModalOpen);
               setIsTodoModalOpen(false);
+              setIsBlockAirBnBModalOpen(false);
             }}
           >
             Left over
+          </button>
+          <button
+            type="button"
+            className={`text-white bg-rose-500 px-2 py-1 text-xs rounded-md ${
+              isBlockAirBnBModalOpen ? "drop-shadow-[0_4px_6px_rgba(244,63,94,0.5)]" : ""
+            }`}
+            onClick={() => {
+              setIsBlockAirBnBModalOpen(!isBlockAirBnBModalOpen);
+              setIsTodoModalOpen(false);
+              setIsLeftoverModalOpen(false);
+            }}
+          >
+            Block AirBnB
           </button>
         </div>
       </div>

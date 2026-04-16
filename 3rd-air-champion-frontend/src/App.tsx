@@ -28,6 +28,7 @@ function App() {
   const [isTodoModalOpen, setIsTodoModalOpen] = useState(true);
   const [isBookModalOpen, setIsBookModalOpen] = useState(false);
   const [isLeftoverModalOpen, setIsLeftoverModalOpen] = useState(false);
+  const [isBlockAirBnBModalOpen, setIsBlockAirBnBModalOpen] = useState(false);
 
   const [airBnBInfo, setAirBnBInfo] = useState({
     doorCode: "",
@@ -132,6 +133,8 @@ function App() {
                 setIsBookModalOpen={setIsBookModalOpen}
                 isLeftoverModalOpen={isLeftoverModalOpen}
                 setIsLeftoverModalOpen={setIsLeftoverModalOpen}
+                isBlockAirBnBModalOpen={isBlockAirBnBModalOpen}
+                setIsBlockAirBnBModalOpen={setIsBlockAirBnBModalOpen}
               />
 
               {/* About Modal */}
@@ -156,6 +159,8 @@ function App() {
                     setIsModalOpen={setIsBookModalOpen}
                     isLeftoverModalOpen={isLeftoverModalOpen}
                     setIsLeftoverModalOpen={setIsLeftoverModalOpen}
+                    isBlockAirBnBModalOpen={isBlockAirBnBModalOpen}
+                    setIsBlockAirBnBModalOpen={setIsBlockAirBnBModalOpen}
                   ></MainView>
                 </div>
 
