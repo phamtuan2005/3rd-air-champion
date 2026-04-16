@@ -126,7 +126,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
   const [monthMap, setMonthMap] = useState<Map<string, dayType>>(new Map());
 
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
-  const [icsModal, setIcsModal] = useState<{ icsContent: string; phone: string; email?: string; guestName: string; checkinDate: string; fileName: string } | null>(null);
+  const [icsModal, setIcsModal] = useState<{ icsContent: string; phone: string; email?: string; guestName: string; guestDisplayName: string; checkinDate: string; fileName: string } | null>(null);
   const [scrollToTodayTrigger, setScrollToTodayTrigger] = useState(0);
 
   const [blockedAirBnBDates, setIsBlockedAirBnBDates] = useState<{
@@ -1076,9 +1076,10 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
     ].join("\r\n");
 
     const firstBooking = guestBookings[0];
-    const guestName = firstBooking.guest.name.trim().replace(/\s+/g, "_");
+    const guestDisplayName = firstBooking.guest.name.trim();
+    const guestName = guestDisplayName.replace(/\s+/g, "_");
     const checkinDate = format(toZonedTime(firstBooking.startDate.split("T")[0], timeZone), "yyyy-MM-dd");
-    setIcsModal({ icsContent, phone, email, guestName, checkinDate, fileName: `booking_${guestName}_${checkinDate}.ics` });
+    setIcsModal({ icsContent, phone, email, guestName, guestDisplayName, checkinDate, fileName: `booking_${guestName}_${checkinDate}.ics` });
   };
 
   return (
@@ -1445,11 +1446,22 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
                     a.click();
                     URL.revokeObjectURL(url);
                   }
-                  setIcsModal(null);
                 }}
                 className="px-3 py-1 bg-blue-600 text-white text-sm rounded"
               >
                 Save
+              </button>
+              <button
+                onClick={() => {
+                  const checkin = new Date(icsModal.checkinDate);
+                  const month = checkin.toLocaleString("en-US", { month: "long" });
+                  const year = checkin.getFullYear();
+                  const body = `Hello ${icsModal.guestDisplayName}, please find attached your calendar events of your booking for ${month} ${year}. Please download the file and save to your phone calendar for better reminding of your upcoming stays at ${airbnbName}. Thanks!`;
+                  window.location.href = `sms:${icsModal.phone}?&body=${encodeURIComponent(body)}`;
+                }}
+                className="px-3 py-1 bg-green-600 text-white text-sm rounded"
+              >
+                Send Message
               </button>
             </div>
           </div>
