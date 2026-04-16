@@ -1,18 +1,13 @@
 import React, { useState } from "react";
 import { guestType } from "../../../util/types/guestType";
 import { UseFormSetValue } from "react-hook-form";
+import { bookDaySchema } from "../../../util/zodBookDays";
 
 interface GuestInputProps {
   guests: guestType[];
   showAddPane: "guest" | "room" | null;
   setShowAddPane: React.Dispatch<React.SetStateAction<"guest" | "room" | null>>;
-  setValue: UseFormSetValue<{
-    guest: string;
-    room: string;
-    date: Date;
-    duration: number;
-    numberOfGuests: number;
-  }>;
+  setValue: UseFormSetValue<bookDaySchema>;
 }
 
 const GuestInput = ({

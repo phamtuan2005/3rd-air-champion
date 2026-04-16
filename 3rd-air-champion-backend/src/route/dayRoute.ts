@@ -359,6 +359,42 @@ router.post("/unblock/range", async (req: Request, res: any) => {
     });
 });
 
+router.get("/available-rooms", async (req: Request, res: any) => {
+  if (!("user" in req))
+    return res.status(401).json({ error: "Invalid or expired token" });
+
+  const { calendar, date, duration } = req.query as {
+    calendar: string;
+    date: string;
+    duration: string;
+  };
+
+  const query = `
+    query AvailableRooms($calendar: String!, $date: String!, $duration: Int!) {
+      availableRooms(calendar: $calendar, date: $date, duration: $duration) {
+        id
+        name
+        price
+        roomCode
+      }
+    }`;
+
+  sendGraphQLRequest(query, {
+    calendar,
+    date,
+    duration: parseInt(duration, 10),
+  })
+    .then((result: any) => {
+      if (result.errors) {
+        return res.status(400).json({ errors: result.errors[0].message });
+      }
+      res.status(200).json(result.data.availableRooms);
+    })
+    .catch((error: any) => {
+      res.status(500).json({ error: error.message });
+    });
+});
+
 router.post("/book/range", async (req: Request, res: any) => {
   if (!("user" in req))
     return res.status(401).json({ error: "Invalid or expired token" });

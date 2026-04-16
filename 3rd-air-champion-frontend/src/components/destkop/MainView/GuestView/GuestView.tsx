@@ -5,9 +5,10 @@ import { dayType } from "../../../../util/types/dayType";
 import { roomType } from "../../../../util/types/roomType";
 import { FaMinus, FaRegEdit } from "react-icons/fa";
 import { CiCalendar } from "react-icons/ci";
-import React from "react";
+import React, { useContext } from "react";
 import RebookCount from "./RebookCount";
 import RoomsToClean from "./RoomsToClean";
+import { FooterContext } from "../../../../context";
 
 interface GuestViewProps {
   airBnBBookingCount: {
@@ -23,7 +24,7 @@ interface GuestViewProps {
   rooms: roomType[];
   selectedDate: Date;
   handleBookingConfirmation: (phone: string) => void;
-  handleSendCalEvents: (phone: string) => void;
+  handleSendCalEvents: (phone: string, email?: string) => void;
   onAirbnbPriceUpdate: (bookingId: string, airbnbPrice: number) => void;
   setCurrentAirBnBGuest: React.Dispatch<React.SetStateAction<string | null>>;
   setCurrentGuest: React.Dispatch<React.SetStateAction<string | null>>;
@@ -51,6 +52,7 @@ const GuestView = ({
   setSelectedModifyBooking,
   setSelectedUnbooking,
 }: GuestViewProps) => {
+  const { setIsFooterVisible } = useContext(FooterContext)!;
   const [selectedAvailableRoom, setSelectedAvailableRoom] = React.useState<string>("");
 
   const getBookingLabel = (booking: bookingType) => {
@@ -161,6 +163,7 @@ const GuestView = ({
                           setCurrentGuest(null);
                         } else {
                           setCurrentGuest(event.target.value);
+                          setIsFooterVisible(true);
                         }
                       }}
                       checked={currentGuest === booking.guest.id}
@@ -179,7 +182,7 @@ const GuestView = ({
                         <button
                           className="rounded-full shadow-md bg-blue-600 hover:bg-blue-700 text-white font-semibold h-[44px] w-[44px] text-[0.55rem]"
                           onClick={() =>
-                            handleSendCalEvents(booking.guest.phone)
+                            handleSendCalEvents(booking.guest.phone, booking.guest.email)
                           }
                         >
                           Cal Events
@@ -207,6 +210,7 @@ const GuestView = ({
                             setCurrentAirBnBGuest(null);
                           } else {
                             setCurrentAirBnBGuest(event.target.value);
+                            setIsFooterVisible(true);
                           }
                         }}
                         checked={currentAirBnBGuest === booking.alias}

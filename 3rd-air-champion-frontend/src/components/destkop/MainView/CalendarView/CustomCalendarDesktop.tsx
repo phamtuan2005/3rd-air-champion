@@ -24,9 +24,11 @@ interface CustomCalendarProps {
   monthMap: Map<string, dayType>;
   paidDates: Date[];
   rooms: roomType[];
+  selectedRoomName: string | null;
   setCurrentBookings: React.Dispatch<
     React.SetStateAction<bookingType[] | null | undefined>
   >;
+  scrollToTodayTrigger: number;
   setCurrentMonth: React.Dispatch<React.SetStateAction<Date>>;
   setIsMobileModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setPaidDates: React.Dispatch<React.SetStateAction<Date[]>>;
@@ -40,6 +42,8 @@ const CustomCalendar = ({
   monthMap,
   paidDates,
   rooms,
+  scrollToTodayTrigger,
+  selectedRoomName,
   setCurrentBookings,
   setCurrentMonth,
   setIsMobileModalOpen,
@@ -74,11 +78,22 @@ const CustomCalendar = ({
 
   useEffect(() => {
     if (scrollContainerRef.current && months.length > 0) {
-      const currentIndex = 24; // Current month in the middle
+      const today = new Date();
+      const monthDiff =
+        (currentMonth.getFullYear() - today.getFullYear()) * 12 +
+        (currentMonth.getMonth() - today.getMonth());
+      const targetIndex = 24 + monthDiff; // 24 is the base index for today's month
       const calendarHeight = scrollContainerRef.current.offsetHeight;
-      scrollContainerRef.current.scrollTop = currentIndex * calendarHeight;
+      scrollContainerRef.current.scrollTop = targetIndex * calendarHeight;
     }
-  }, [months]);
+  }, [months]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (scrollToTodayTrigger > 0 && scrollContainerRef.current && months.length > 0) {
+      const calendarHeight = scrollContainerRef.current.offsetHeight;
+      scrollContainerRef.current.scrollTop = 24 * calendarHeight; // index 24 = today's month
+    }
+  }, [scrollToTodayTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (calendarWrapperRef.current) {
@@ -164,18 +179,19 @@ const CustomCalendar = ({
     const roomsInMonth: roomType[] = [];
     const usedRoomsInMonth = new Set<string>();
 
-    monthMap.forEach((dayEntry, dateString) => {
+    useMonthMap.forEach((dayEntry, dateString) => {
       const localDate = toZonedTime(dateString.split("T")[0], timeZone);
 
       if (isSameMonth(localDate, currentMonth)) {
-        dayEntry.bookings.map((booking) => {
-          if (!usedRoomsInMonth.has(booking.room.name))
-            roomsInMonth.push(booking.room);
-          usedRoomsInMonth.add(booking.room.name);
-        });
+        dayEntry.bookings
+          .filter((b) => !selectedRoomName || b.room.name === selectedRoomName)
+          .forEach((booking) => {
+            if (!usedRoomsInMonth.has(booking.room.name))
+              roomsInMonth.push(booking.room);
+            usedRoomsInMonth.add(booking.room.name);
+          });
         currentMaxRooms = Math.max(
           currentMaxRooms,
-          dayEntry.bookings.length,
           roomsInMonth.length,
         );
       }
@@ -183,7 +199,7 @@ const CustomCalendar = ({
 
     setMaxRooms(currentMaxRooms);
     setUsedRooms(roomsInMonth);
-  }, [currentMonth]);
+  }, [currentMonth, useMonthMap, selectedRoomName]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -298,18 +314,22 @@ const CustomCalendar = ({
               ? isSameDay(
                   date,
                   addDays(toZonedTime(b.endDate, timeZone), 1),
-                )
+                ) && (!selectedRoomName || b.room.name === selectedRoomName)
               : false,
           )
         : [];
 
-      if (!day && checkoutBookings.length === 0) return null;
+      const filteredDay = day && selectedRoomName
+        ? { ...day, bookings: day.bookings.filter((b) => b.room?.name === selectedRoomName) }
+        : day;
 
-      if (day || checkoutBookings.length > 0) {
+      if (!filteredDay && checkoutBookings.length === 0) return null;
+
+      if (filteredDay || checkoutBookings.length > 0) {
         // Spread to avoid mutating state; extra rooms are added lazily via ensureGridRow
-        const sortedUsedRooms = [...usedRooms].sort((a, b) =>
-          a.name.localeCompare(b.name),
-        );
+        const sortedUsedRooms = [...usedRooms]
+          .filter((r) => !selectedRoomName || r.name === selectedRoomName)
+          .sort((a, b) => a.name.localeCompare(b.name));
 
         // Each room tracks two slots:
         //   am = guest checking OUT (still occupying in the morning until ~11am)
@@ -338,8 +358,8 @@ const CustomCalendar = ({
         });
 
         // Current day: check-ins (isStart) and mid-stay nights (isBetween)
-        if (day) {
-          day.bookings.forEach((booking) => {
+        if (filteredDay) {
+          filteredDay.bookings.forEach((booking) => {
             if (!booking.startDate || !booking.endDate || !booking.room || !booking.guest) return;
 
             const startDate = toZonedTime(booking.startDate, timeZone);

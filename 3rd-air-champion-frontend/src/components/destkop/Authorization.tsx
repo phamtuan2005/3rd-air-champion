@@ -38,7 +38,7 @@ const Authorization = () => {
           alt="User Reviews"
           className="max-w-[256px] mb-4"
         />
-        <p className="flex w-full max-w-[80%] items-center justify-center space-x-4 mb-4">
+        <div className="flex w-full max-w-[80%] items-center justify-center space-x-4 mb-4">
           <div className="flex-shrink-0 flex items-center justify-center">
             <img
               src={"./Login/ProfilePic.jpg"}
@@ -47,9 +47,9 @@ const Authorization = () => {
             />
           </div>
           <span>Stay with Anh-Tuan, AirBnB Super host, PhD, Engineer</span>
-        </p>
+        </div>
 
-        <p className="flex w-full max-w-[80%] items-center justify-center space-x-4">
+        <div className="flex w-full max-w-[80%] items-center justify-center space-x-4">
           <div className="flex-shrink-0 flex items-center justify-center">
             <img
               src={"./Login/Trophy.jpg"}
@@ -60,7 +60,7 @@ const Authorization = () => {
           <span>
             Top 5% of homes based on ratings, ranking, and reliability.
           </span>
-        </p>
+        </div>
       </div>
 
       {/* Login/ Register */}

@@ -1,3 +1,4 @@
+import React from "react";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { loginSchema, loginZodObject } from "../../util/zodLogin";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -106,7 +107,7 @@ const Login = ({ listings, setIsLogin }: LoginProps) => {
         <div className="flex flex-wrap justify-center mt-2 gap-x-1">
           <span>Three listings on AirBnB: </span>
           {listings.map((listing, index) => (
-            <>
+            <React.Fragment key={listing.url}>
               <a
                 href={listing.url}
                 target="_blank"
@@ -118,7 +119,7 @@ const Login = ({ listings, setIsLogin }: LoginProps) => {
               {index <= listings.length - 2 && (
                 <span>{index === listings.length - 2 ? ", and " : ", "}</span>
               )}
-            </>
+            </React.Fragment>
           ))}
           <span>rooms.</span>
         </div>
