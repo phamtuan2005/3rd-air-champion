@@ -43,6 +43,8 @@ import {
 } from "../../../util/bookingOperations";
 import UnbookingConfirmation from "./GuestView/UnbookingConfirmation";
 import ToDoList from "./ToDoList";
+import LeftOverModal from "./LeftOverModal";
+import BlockAirBnBModal from "./BlockAirBnBModal";
 import ModifyBookingModal from "../ModifyBookingModal";
 import GuestAddPane from "../BookingModal/GuestAddPane";
 import EditRoomModal from "../NavBar/DropDown/EditRoomModal";
@@ -61,9 +63,13 @@ interface MainViewProps {
   setIsTodoModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isModalOpen: boolean;
   setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isLeftoverModalOpen: boolean;
+  setIsLeftoverModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isBlockAirBnBModalOpen: boolean;
+  setIsBlockAirBnBModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnbAddress, isTodoModalOpen, setIsTodoModalOpen, isModalOpen, setIsModalOpen }: MainViewProps) => {
+const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnbAddress, isTodoModalOpen, setIsTodoModalOpen, isModalOpen, setIsModalOpen, isLeftoverModalOpen, setIsLeftoverModalOpen, isBlockAirBnBModalOpen, setIsBlockAirBnBModalOpen }: MainViewProps) => {
   const token = localStorage.getItem("token");
 
   const context = useContext(isSyncModalOpenContext) as {
@@ -120,7 +126,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
   const [monthMap, setMonthMap] = useState<Map<string, dayType>>(new Map());
 
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
-  const [icsModal, setIcsModal] = useState<{ icsContent: string; phone: string; email?: string } | null>(null);
+  const [icsModal, setIcsModal] = useState<{ icsContent: string; phone: string; email?: string; guestName: string; guestDisplayName: string; checkinDate: string; fileName: string } | null>(null);
   const [scrollToTodayTrigger, setScrollToTodayTrigger] = useState(0);
 
   const [blockedAirBnBDates, setIsBlockedAirBnBDates] = useState<{
@@ -1069,7 +1075,11 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
       "END:VCALENDAR",
     ].join("\r\n");
 
-    setIcsModal({ icsContent, phone, email });
+    const firstBooking = guestBookings[0];
+    const guestDisplayName = firstBooking.guest.name.trim();
+    const guestName = guestDisplayName.replace(/\s+/g, "_");
+    const checkinDate = format(toZonedTime(firstBooking.startDate.split("T")[0], timeZone), "yyyy-MM-dd");
+    setIcsModal({ icsContent, phone, email, guestName, guestDisplayName, checkinDate, fileName: `booking_${guestName}_${checkinDate}.ics` });
   };
 
   return (
@@ -1183,7 +1193,11 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
       </div>
 
       <div className="hidden bg-white border-l sm:block">
-        {isTodoModalOpen ? (
+        {isBlockAirBnBModalOpen ? (
+          <BlockAirBnBModal monthMap={monthMap} rooms={rooms} blockedAirBnBDates={blockedAirBnBDates as Record<string, { start: string; duration: number }[]> | undefined} />
+        ) : isLeftoverModalOpen ? (
+          <LeftOverModal monthMap={monthMap} rooms={rooms} currentMonth={currentMonth} />
+        ) : isTodoModalOpen ? (
           <ToDoList monthMap={monthMap} doorCode={doorCode} airbnbName={airbnbName} airbnbAddress={airbnbAddress} />
         ) : (
           <GuestView
@@ -1299,6 +1313,42 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
         <ToDoList monthMap={monthMap} doorCode={doorCode} airbnbName={airbnbName} airbnbAddress={airbnbAddress} />
       </div>
 
+      <div
+        className={`fixed bottom-0 left-0 w-full h-auto bg-white p-1 border-t border-gray-300 z-50 overflow-y-scroll sm:hidden transition-transform duration-300 ${
+          isLeftoverModalOpen ? "translate-y-0" : "translate-y-full"
+        }`}
+      >
+        {/* Close Button */}
+        <div className="flex justify-center">
+          <button
+            className="text-gray-500 font-bold text-[1.5rem] leading-none px-6 py-0.5 rounded hover:bg-gray-100"
+            onClick={() => setIsLeftoverModalOpen(false)}
+          >
+            &times;
+          </button>
+        </div>
+
+        <LeftOverModal monthMap={monthMap} rooms={rooms} currentMonth={currentMonth} />
+      </div>
+
+      <div
+        className={`fixed bottom-0 left-0 w-full h-auto bg-white p-1 border-t border-gray-300 z-50 overflow-y-scroll sm:hidden transition-transform duration-300 ${
+          isBlockAirBnBModalOpen ? "translate-y-0" : "translate-y-full"
+        }`}
+      >
+        {/* Close Button */}
+        <div className="flex justify-center">
+          <button
+            className="text-gray-500 font-bold text-[1.5rem] leading-none px-6 py-0.5 rounded hover:bg-gray-100"
+            onClick={() => setIsBlockAirBnBModalOpen(false)}
+          >
+            &times;
+          </button>
+        </div>
+
+        <BlockAirBnBModal monthMap={monthMap} rooms={rooms} blockedAirBnBDates={blockedAirBnBDates as Record<string, { start: string; duration: number }[]> | undefined} />
+      </div>
+
       {selectedBooking && (
         <DetailsModal
           booking={selectedBooking}
@@ -1360,6 +1410,15 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
               rows={14}
               value={icsModal.icsContent}
             />
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600 whitespace-nowrap">File name</label>
+              <input
+                type="text"
+                className="border rounded px-2 py-1 text-sm flex-1"
+                value={icsModal.fileName}
+                onChange={(e) => setIcsModal({ ...icsModal, fileName: e.target.value })}
+              />
+            </div>
             <div className="flex gap-2 justify-end">
               <button
                 onClick={() => setIcsModal(null)}
@@ -1369,8 +1428,9 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
               </button>
               <button
                 onClick={async () => {
+                  const fileName = icsModal.fileName.endsWith(".ics") ? icsModal.fileName : `${icsModal.fileName}.ics`;
                   const blob = new Blob([icsModal.icsContent], { type: "text/calendar;charset=utf-8" });
-                  const file = new File([blob], "booking.ics", { type: "text/calendar" });
+                  const file = new File([blob], fileName, { type: "text/calendar" });
                   if (navigator.canShare && navigator.canShare({ files: [file] })) {
                     try {
                       await navigator.share({ files: [file], title: "Calendar Events" });
@@ -1382,15 +1442,26 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     a.href = url;
-                    a.download = "booking.ics";
+                    a.download = fileName;
                     a.click();
                     URL.revokeObjectURL(url);
                   }
-                  setIcsModal(null);
                 }}
                 className="px-3 py-1 bg-blue-600 text-white text-sm rounded"
               >
-                Send
+                Save
+              </button>
+              <button
+                onClick={() => {
+                  const checkin = new Date(icsModal.checkinDate);
+                  const month = checkin.toLocaleString("en-US", { month: "long" });
+                  const year = checkin.getFullYear();
+                  const body = `Hello ${icsModal.guestDisplayName}, please find attached your calendar events of your booking for ${month} ${year}. Please download the file and save to your phone calendar for better reminding of your upcoming stays at ${airbnbName}. Thanks!`;
+                  window.location.href = `sms:${icsModal.phone}?&body=${encodeURIComponent(body)}`;
+                }}
+                className="px-3 py-1 bg-green-600 text-white text-sm rounded"
+              >
+                Send Message
               </button>
             </div>
           </div>

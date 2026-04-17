@@ -4,12 +4,14 @@ import mongoose from "mongoose";
 export const ANY_ROOM_SENTINEL = "__any__";
 
 const bookingItemSchema = z.object({
-  room: z
-    .string()
-    .refine(
-      (val) => val === ANY_ROOM_SENTINEL || mongoose.Types.ObjectId.isValid(val),
-      { message: "Invalid room" }
-    ),
+  rooms: z
+    .array(
+      z.string().refine(
+        (val) => val === ANY_ROOM_SENTINEL || mongoose.Types.ObjectId.isValid(val),
+        { message: "Invalid room" }
+      )
+    )
+    .min(1, { message: "Select at least one room" }),
   date: z.date({
     message: "Please select a date",
   }),

@@ -54,9 +54,18 @@ const GuestInput = ({
             type="text"
             value={searchQuery}
             onChange={handleSearchChange}
-            className="border border-gray-300 rounded px-2 py-1 w-full"
+            className={`border rounded px-2 py-1 w-full pr-7 ${
+              isGuestFound
+                ? "border-green-400 bg-green-50"
+                : "border-gray-300"
+            }`}
             placeholder="Type guest name..."
           />
+          {isGuestFound && (
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-green-500 font-bold text-sm pointer-events-none">
+              ✓
+            </span>
+          )}
           {filteredGuests.length > 0 && searchQuery !== "" ? (
             <ul className="absolute bg-white border border-gray-300 rounded w-full mt-1 max-h-40 overflow-y-auto z-20">
               {filteredGuests.map((guest) => (
