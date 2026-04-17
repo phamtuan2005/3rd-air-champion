@@ -14,6 +14,7 @@ import {
   addDays,
   startOfToday,
   parseISO,
+  format,
 } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 
@@ -598,7 +599,9 @@ const dayResolver = {
       });
 
       if (conflictingDays.length > 0) {
-        const conflictingDates = conflictingDays.map((day) => day.date);
+        const conflictingDates = conflictingDays.map((day) =>
+          format(toZonedTime(day.date, timeZone), "yyyy-MM-dd")
+        );
         throw new Error(
           `The following dates are unavailable: ${conflictingDates.join(", ")}`
         );
@@ -655,7 +658,9 @@ const dayResolver = {
       });
 
       if (conflictingDays.length > 0) {
-        const conflictingDates = conflictingDays.map((day) => day.date);
+        const conflictingDates = conflictingDays.map((day) =>
+          format(toZonedTime(day.date, timeZone), "yyyy-MM-dd")
+        );
         throw new Error(
           `The following dates are unavailable: ${conflictingDates.join(", ")}`
         );

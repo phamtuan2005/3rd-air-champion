@@ -527,7 +527,7 @@ const CustomCalendar = ({
         return (
           <div
             key={index}
-            className="snap-start h-full"
+            className="snap-start h-full main-calendar-wrapper"
             ref={index === visibleIndex ? calendarWrapperRef : undefined}
           >
             {inWindow && (

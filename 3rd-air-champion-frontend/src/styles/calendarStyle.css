@@ -1,7 +1,59 @@
 @import "tailwindcss";
 
-.react-calendar__month-view__weekdays {
+.main-calendar-wrapper .react-calendar__month-view__weekdays {
   display: none !important;
+}
+
+.react-calendar__month-view__weekdays__weekday {
+  text-align: center;
+}
+
+.react-calendar__month-view__days__day {
+  text-align: center;
+}
+
+/* Horizontal navigation bar */
+.react-calendar__navigation {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+/* Larger navigation buttons in the DatePickerModal calendar */
+.react-calendar__navigation__arrow {
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+  cursor: pointer;
+}
+
+.react-calendar__navigation__arrow:hover {
+  background-color: #f3f4f6;
+}
+
+.react-calendar__navigation__label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0 0.5rem;
+  min-height: 44px;
+  border-radius: 0.375rem;
+  cursor: pointer;
+}
+
+.react-calendar__navigation__label:hover {
+  background-color: #f3f4f6;
+}
+
+/* Highlight today in the DatePickerModal calendar */
+.react-calendar__tile--now:not(.react-calendar__custom_tile) {
+  background-color: #dbeafe !important; /* blue-100 */
+  border-radius: 0.375rem;
+  font-weight: 700 !important;
 }
 
 /* .react-calendar__custom_tile {

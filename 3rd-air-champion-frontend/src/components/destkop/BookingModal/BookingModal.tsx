@@ -3,6 +3,7 @@ import { guestType } from "../../../util/types/guestType";
 import { roomType } from "../../../util/types/roomType";
 import GuestInput from "./GuestInput";
 import RoomMultiSelect from "./RoomMultiSelect";
+import DatePickerModal from "./DatePickerModal";
 import { SubmitHandler, useForm, useFieldArray, Controller, useWatch } from "react-hook-form";
 import { bookDaySchema, bookDaysZodObject } from "../../../util/zodBookDays";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -26,7 +27,8 @@ interface BookingModalProps {
 type FlatBooking = { room: string; date: Date; duration: number };
 
 type BookingResult = {
-  label: string;
+  label: string;       // "Apr 17, 2026 · 1 day"
+  roomName: string;
   status: "success" | "error";
   message?: string;
   booking?: FlatBooking;
@@ -43,6 +45,13 @@ const extractErrorMessage = (err: unknown): string => {
   if (err && typeof err === "object" && "message" in err)
     return String((err as { message: string }).message);
   return "An unexpected error occurred";
+};
+
+const humanizeError = (raw: string): string => {
+  if (/the following dates are unavailable/i.test(raw)) return "Already booked";
+  if (/no available room/i.test(raw)) return "No rooms available";
+  if (/unexpected error/i.test(raw)) return "Something went wrong. Please try again.";
+  return raw;
 };
 
 const BookingModal = ({
@@ -89,6 +98,9 @@ const BookingModal = ({
   });
 
   const watchedBookings = useWatch({ control, name: "bookings" });
+  const watchedGuestId = useWatch({ control, name: "guest" });
+  const watchedGuestName =
+    guests.find((g) => g.id === watchedGuestId)?.name ?? "";
 
   const processBooking = async (
     flat: FlatBooking,
@@ -98,15 +110,16 @@ const BookingModal = ({
     const dateLabel = format(flat.date, "MMM d, yyyy");
     const durationLabel = `${flat.duration} day${flat.duration > 1 ? "s" : ""}`;
 
+    let roomId = flat.room;
+    let roomLabel = rooms.find((r) => r.id === flat.room)?.name ?? "---";
+
     try {
-      let roomId = flat.room;
-      let roomLabel = rooms.find((r) => r.id === flat.room)?.name ?? "---";
 
       if (roomId === ANY_ROOM_SENTINEL) {
         const available = await getAvailableRooms(
           {
             calendar: calendarId,
-            date: flat.date.toISOString(),
+            date: format(flat.date, "yyyy-MM-dd'T'HH:mm:ss"),
             duration: flat.duration,
           },
           token as string
@@ -115,8 +128,9 @@ const BookingModal = ({
           return {
             result: {
               label: `${dateLabel} · ${durationLabel}`,
+              roomName: roomLabel,
               status: "error",
-              message: "No available room",
+              message: "No rooms available for these dates",
               booking: flat,
             },
             bookedDays: [],
@@ -129,7 +143,7 @@ const BookingModal = ({
       const days = await postBooking(
         {
           calendar: calendarId,
-          date: flat.date.toISOString(),
+          date: format(flat.date, "yyyy-MM-dd'T'HH:mm:ss"),
           guest: guestId,
           isAirBnB: false,
           numberOfGuests,
@@ -140,7 +154,8 @@ const BookingModal = ({
       );
       return {
         result: {
-          label: `${roomLabel} · ${dateLabel} · ${durationLabel}`,
+          label: `${dateLabel} · ${durationLabel}`,
+          roomName: roomLabel,
           status: "success",
         },
         bookedDays: days,
@@ -149,8 +164,9 @@ const BookingModal = ({
       return {
         result: {
           label: `${dateLabel} · ${durationLabel}`,
+          roomName: roomLabel,
           status: "error",
-          message: extractErrorMessage(err),
+          message: humanizeError(extractErrorMessage(err)),
           booking: flat,
         },
         bookedDays: [],
@@ -322,22 +338,19 @@ const BookingModal = ({
                           control={control}
                           name={`bookings.${index}.date`}
                           render={({ field: f }) => (
-                            <input
-                              type="date"
-                              className="border border-gray-300 rounded px-2 py-1 w-full text-sm"
+                            <DatePickerModal
                               value={
                                 f.value instanceof Date &&
                                 !isNaN(f.value.getTime())
-                                  ? format(f.value, "yyyy-MM-dd")
-                                  : ""
+                                  ? f.value
+                                  : null
                               }
-                              onChange={(e) =>
-                                f.onChange(
-                                  e.target.value
-                                    ? new Date(e.target.value + "T00:00:00")
-                                    : null
-                                )
-                              }
+                              onChange={(date) => f.onChange(date)}
+                              calendarId={calendarId}
+                              token={token ?? ""}
+                              selectedRoomIds={watchedBookings?.[index]?.rooms ?? []}
+                              activeRooms={rooms.filter((r) => r.active)}
+                              guestName={watchedGuestName}
                             />
                           )}
                         />
@@ -399,27 +412,45 @@ const BookingModal = ({
               <div className="border-t border-gray-200 pt-3">
                 <p className="text-sm font-medium mb-2">Booking Summary</p>
                 <ul className="flex flex-col gap-1">
-                  {bookingResults.map((r, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm">
-                      {r.status === "success" ? (
-                        <span className="text-green-500 font-bold mt-0.5">
-                          &#10003;
-                        </span>
-                      ) : (
-                        <span className="text-red-500 font-bold mt-0.5">
-                          &#10007;
-                        </span>
-                      )}
-                      <span>
-                        {r.label}
-                        {r.message && (
-                          <span className="text-red-500 ml-1">
-                            — {r.message}
+                  {Object.entries(
+                    bookingResults.reduce<Record<string, BookingResult[]>>(
+                      (acc, r) => { (acc[r.label] ??= []).push(r); return acc; },
+                      {}
+                    )
+                  ).map(([label, group]) => {
+                    const failed = group.filter((r) => r.status === "error");
+                    const succeeded = group.filter((r) => r.status === "success");
+                    const rows = [];
+
+                    if (succeeded.length > 0) {
+                      const names = succeeded.map((r) => r.roomName).join(", ");
+                      rows.push(
+                        <li key={`${label}-ok`} className="flex items-start gap-2 text-sm">
+                          <span className="text-green-500 font-bold mt-0.5">&#10003;</span>
+                          <span>{label} — Booked: {names}</span>
+                        </li>
+                      );
+                    }
+
+                    if (failed.length > 0) {
+                      const names = failed.map((r) => r.roomName);
+                      const nameList = names.length > 1
+                        ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`
+                        : names[0];
+                      const msg = failed[0].message;
+                      rows.push(
+                        <li key={`${label}-err`} className="flex items-start gap-2 text-sm">
+                          <span className="text-red-500 font-bold mt-0.5">&#10007;</span>
+                          <span>
+                            {label} — Not available for {nameList}
+                            {msg && <span className="text-red-500 ml-1">({msg})</span>}
                           </span>
-                        )}
-                      </span>
-                    </li>
-                  ))}
+                        </li>
+                      );
+                    }
+
+                    return rows;
+                  })}
                 </ul>
               </div>
             )}
