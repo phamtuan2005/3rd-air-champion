@@ -19,8 +19,8 @@ interface NavBarDesktopProps {
   setIsTodoModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isBookModalOpen: boolean;
   setIsBookModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  isLeftoverModalOpen: boolean;
-  setIsLeftoverModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isAvailabilitiesModalOpen: boolean;
+  setIsAvailabilitiesModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isBlockAirBnBModalOpen: boolean;
   setIsBlockAirBnBModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
@@ -37,8 +37,8 @@ const NavBarDesktop = ({
   setIsTodoModalOpen,
   isBookModalOpen,
   setIsBookModalOpen,
-  isLeftoverModalOpen,
-  setIsLeftoverModalOpen,
+  isAvailabilitiesModalOpen,
+  setIsAvailabilitiesModalOpen,
   isBlockAirBnBModalOpen,
   setIsBlockAirBnBModalOpen,
 }: NavBarDesktopProps) => {
@@ -64,7 +64,7 @@ const NavBarDesktop = ({
             }`}
             onClick={() => {
               setIsTodoModalOpen(!isTodoModalOpen);
-              setIsLeftoverModalOpen(false);
+              setIsAvailabilitiesModalOpen(false);
               setIsBlockAirBnBModalOpen(false);
             }}
           >
@@ -82,15 +82,15 @@ const NavBarDesktop = ({
           <button
             type="button"
             className={`text-white bg-emerald-600 px-2 py-1 text-xs rounded-md ${
-              isLeftoverModalOpen ? "drop-shadow-[0_4px_6px_rgba(59,130,246,0.5)]" : ""
+              isAvailabilitiesModalOpen ? "drop-shadow-[0_4px_6px_rgba(59,130,246,0.5)]" : ""
             }`}
             onClick={() => {
-              setIsLeftoverModalOpen(!isLeftoverModalOpen);
+              setIsAvailabilitiesModalOpen(!isAvailabilitiesModalOpen);
               setIsTodoModalOpen(false);
               setIsBlockAirBnBModalOpen(false);
             }}
           >
-            Left over
+            Availabilities
           </button>
           <button
             type="button"
@@ -100,7 +100,7 @@ const NavBarDesktop = ({
             onClick={() => {
               setIsBlockAirBnBModalOpen(!isBlockAirBnBModalOpen);
               setIsTodoModalOpen(false);
-              setIsLeftoverModalOpen(false);
+              setIsAvailabilitiesModalOpen(false);
             }}
           >
             Block AirBnB

@@ -27,7 +27,7 @@ function App() {
   const [isFooterVisible, setIsFooterVisible] = useState(false);
   const [isTodoModalOpen, setIsTodoModalOpen] = useState(true);
   const [isBookModalOpen, setIsBookModalOpen] = useState(false);
-  const [isLeftoverModalOpen, setIsLeftoverModalOpen] = useState(false);
+  const [isAvailabilitiesModalOpen, setIsAvailabilitiesModalOpen] = useState(false);
   const [isBlockAirBnBModalOpen, setIsBlockAirBnBModalOpen] = useState(false);
 
   const [airBnBInfo, setAirBnBInfo] = useState({
@@ -131,8 +131,8 @@ function App() {
                 setIsTodoModalOpen={setIsTodoModalOpen}
                 isBookModalOpen={isBookModalOpen}
                 setIsBookModalOpen={setIsBookModalOpen}
-                isLeftoverModalOpen={isLeftoverModalOpen}
-                setIsLeftoverModalOpen={setIsLeftoverModalOpen}
+                isAvailabilitiesModalOpen={isAvailabilitiesModalOpen}
+                setIsAvailabilitiesModalOpen={setIsAvailabilitiesModalOpen}
                 isBlockAirBnBModalOpen={isBlockAirBnBModalOpen}
                 setIsBlockAirBnBModalOpen={setIsBlockAirBnBModalOpen}
               />
@@ -157,8 +157,8 @@ function App() {
                     setIsTodoModalOpen={setIsTodoModalOpen}
                     isModalOpen={isBookModalOpen}
                     setIsModalOpen={setIsBookModalOpen}
-                    isLeftoverModalOpen={isLeftoverModalOpen}
-                    setIsLeftoverModalOpen={setIsLeftoverModalOpen}
+                    isAvailabilitiesModalOpen={isAvailabilitiesModalOpen}
+                    setIsAvailabilitiesModalOpen={setIsAvailabilitiesModalOpen}
                     isBlockAirBnBModalOpen={isBlockAirBnBModalOpen}
                     setIsBlockAirBnBModalOpen={setIsBlockAirBnBModalOpen}
                   ></MainView>
