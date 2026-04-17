@@ -59,31 +59,11 @@
 .react-calendar__custom_tile_full {
 }
 
-/* Paid state — ::before spans the full tile height and paints behind all content */
-.react-calendar__custom_tile_paid_mid::before,
-.react-calendar__custom_tile_paid_start::before,
-.react-calendar__custom_tile_paid_checkout::before {
-  content: "";
-  position: absolute;
-  top: calc(100% / var(--max-rows)); /* skip the abbr (day number) row */
-  bottom: 0;
-  background: rgb(74 222 128); /* green-400 */
-  pointer-events: none;
-}
-
-.react-calendar__custom_tile_paid_mid::before {
-  left: -1px;
-  right: -1px;
-}
-
-.react-calendar__custom_tile_paid_start::before {
-  left: 20%;
-  right: -1px;
-}
-
-.react-calendar__custom_tile_paid_checkout::before {
-  left: -1px;
-  right: 80%;
+/* Paid state — bold red day number */
+.react-calendar__custom_tile_paid > abbr {
+  color: rgb(220 38 38); /* red-600 */
+  font-weight: bold;
+  font-size: 1rem;
 }
 
 /* Base styling for tiles without bookings */
