@@ -963,6 +963,49 @@ const dayResolver = {
         .populate("bookings.room")
         .populate("blockedRooms");
     },
+    markAirBnBBlocked: async (_: unknown, { _id, blocked }: any) => {
+      const dayOfBooking = await Day.findOne({ "bookings._id": _id });
+      if (!dayOfBooking) throw new Error("Booking not found");
+
+      const calendar = dayOfBooking.calendar;
+      const currentBooking = dayOfBooking.bookings.find(
+        (booking: any) => booking.id === _id
+      );
+
+      const startDate = currentBooking?.startDate;
+      const endDate = currentBooking?.endDate;
+
+      await Day.updateMany(
+        {
+          calendar,
+          date: { $gte: startDate, $lte: endDate },
+          "bookings.guest": currentBooking?.guest,
+          "bookings.room": currentBooking?.room,
+        },
+        {
+          $set: {
+            "bookings.$[matchingBooking].airbnbBlocked": blocked,
+          },
+        },
+        {
+          arrayFilters: [
+            {
+              "matchingBooking.guest": currentBooking?.guest,
+              "matchingBooking.room": currentBooking?.room,
+            },
+          ],
+          runValidators: true,
+        }
+      );
+
+      return await Day.find({
+        calendar,
+        date: { $gte: startDate, $lte: endDate },
+      })
+        .populate("bookings.guest")
+        .populate("bookings.room")
+        .populate("blockedRooms");
+    },
     unbookGuest: async (_: unknown, { _id }: any) => {
       const dayOfBooking = await Day.findOne({ "bookings._id": _id });
       const calendar = dayOfBooking?.calendar;

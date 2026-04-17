@@ -1194,7 +1194,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
 
       <div className="hidden bg-white border-l sm:block">
         {isBlockAirBnBModalOpen ? (
-          <BlockAirBnBModal monthMap={monthMap} rooms={rooms} blockedAirBnBDates={blockedAirBnBDates as Record<string, { start: string; duration: number }[]> | undefined} />
+          <BlockAirBnBModal monthMap={monthMap} rooms={rooms} blockedAirBnBDates={blockedAirBnBDates as Record<string, { start: string; duration: number }[]> | undefined} token={token as string} onDaysUpdate={(updated) => setDays((prev) => { const ids = new Set(updated.map((d) => d.id)); return [...prev.filter((d) => !ids.has(d.id)), ...updated]; })} />
         ) : isAvailabilitiesModalOpen ? (
           <AvailabilitiesModal monthMap={monthMap} rooms={rooms} currentMonth={currentMonth} />
         ) : isTodoModalOpen ? (
@@ -1346,7 +1346,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
           </button>
         </div>
 
-        <BlockAirBnBModal monthMap={monthMap} rooms={rooms} blockedAirBnBDates={blockedAirBnBDates as Record<string, { start: string; duration: number }[]> | undefined} />
+        <BlockAirBnBModal monthMap={monthMap} rooms={rooms} blockedAirBnBDates={blockedAirBnBDates as Record<string, { start: string; duration: number }[]> | undefined} token={token as string} onDaysUpdate={(updated) => setDays((prev) => { const ids = new Set(updated.map((d) => d.id)); return [...prev.filter((d) => !ids.has(d.id)), ...updated]; })} />
       </div>
 
       {selectedBooking && (

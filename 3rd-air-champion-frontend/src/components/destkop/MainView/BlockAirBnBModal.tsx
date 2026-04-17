@@ -5,6 +5,7 @@ import { dayType } from "../../../util/types/dayType";
 import { roomType } from "../../../util/types/roomType";
 import { bookingType } from "../../../util/types/bookingType";
 import { getRoomColor } from "../../../util/getRoomColor";
+import { markAirBnBBlocked } from "../../../util/bookingOperations";
 
 type BlockedAirBnBDates = Record<string, { start: string; duration: number }[]>;
 
@@ -12,21 +13,8 @@ interface BlockAirBnBModalProps {
   monthMap: Map<string, dayType>;
   rooms: roomType[];
   blockedAirBnBDates?: BlockedAirBnBDates;
-}
-
-const STORAGE_KEY = "airbnbBlockConfirmed";
-
-function loadConfirmed(): Set<string> {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? new Set(JSON.parse(raw)) : new Set();
-  } catch {
-    return new Set();
-  }
-}
-
-function saveConfirmed(set: Set<string>) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify([...set]));
+  token: string;
+  onDaysUpdate: (updatedDays: dayType[]) => void;
 }
 
 function toRangeKey(booking: bookingType): string {
@@ -60,19 +48,32 @@ function formatDateRange(startDate: string, endDate: string, timeZone: string): 
     : `${startStr}–${endStr}`;
 }
 
-const BlockAirBnBModal = ({ monthMap, rooms, blockedAirBnBDates }: BlockAirBnBModalProps) => {
+const BlockAirBnBModal = ({ monthMap, rooms, blockedAirBnBDates, token, onDaysUpdate }: BlockAirBnBModalProps) => {
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const today = startOfToday();
 
-  const [confirmed, setConfirmed] = useState<Set<string>>(loadConfirmed);
   // Selected dropdown value per room: roomId -> rangeKey
   const [selected, setSelected] = useState<Record<string, string>>({});
+  // Optimistic: keys the user has marked done locally (instant UI feedback)
+  const [localDone, setLocalDone] = useState<Set<string>>(new Set());
 
-  const setDone = (key: string) => {
-    const next = new Set(confirmed);
-    next.add(key);
-    saveConfirmed(next);
-    setConfirmed(next);
+  const setBlocked = (bookingId: string, rangeKey: string) => {
+    // Immediately hide the item
+    setLocalDone((prev) => new Set(prev).add(rangeKey));
+    markAirBnBBlocked({ id: bookingId, blocked: true }, token)
+      .then((updatedDays: dayType[]) => {
+        // Patch days state in place — no full reload, modal stays mounted
+        onDaysUpdate(updatedDays);
+      })
+      .catch((err) => {
+        // Revert on error so the item reappears
+        setLocalDone((prev) => {
+          const next = new Set(prev);
+          next.delete(rangeKey);
+          return next;
+        });
+        console.error("Failed to mark as blocked on AirBnB:", err);
+      });
   };
 
   // Collect unique non-AirBnB bookings — dedup by ID then by (room, start, end)
@@ -84,17 +85,16 @@ const BlockAirBnBModal = ({ monthMap, rooms, blockedAirBnBDates }: BlockAirBnBMo
       }
     }
   }
-  const seenRanges = new Set<string>();
-  const uniqueBookings: bookingType[] = [];
+  const seenRanges = new Map<string, bookingType>();
   for (const booking of uniqueById.values()) {
     const key = toRangeKey(booking);
     if (!seenRanges.has(key)) {
-      seenRanges.add(key);
-      uniqueBookings.push(booking);
+      seenRanges.set(key, booking);
     }
   }
+  const uniqueBookings: bookingType[] = [...seenRanges.values()];
 
-  // Upcoming + not auto-blocked by AirBnB sync + not manually confirmed
+  // Upcoming + not auto-blocked by AirBnB sync + not already marked blocked on backend
   const actionable = uniqueBookings
     .filter((b) => {
       const end = toZonedTime(b.endDate, timeZone);
@@ -105,7 +105,7 @@ const BlockAirBnBModal = ({ monthMap, rooms, blockedAirBnBDates }: BlockAirBnBMo
         ? !isAlreadyBlockedOnAirBnB(b, blockedAirBnBDates, timeZone)
         : true,
     )
-    .filter((b) => !confirmed.has(toRangeKey(b)))
+    .filter((b) => !b.airbnbBlocked && !localDone.has(toRangeKey(b)))
     .sort((a, b) => parseISO(a.startDate).getTime() - parseISO(b.startDate).getTime());
 
   // Group by active room
@@ -146,6 +146,9 @@ const BlockAirBnBModal = ({ monthMap, rooms, blockedAirBnBDates }: BlockAirBnBMo
           <tbody>
             {roomStats.map(({ room, bookings }) => {
               const currentKey = selected[room.id] ?? toRangeKey(bookings[0]);
+              const currentBooking =
+                bookings.find((b) => toRangeKey(b) === currentKey) ?? bookings[0];
+              const isLoading = localDone.has(currentKey);
 
               return (
                 <tr key={room.id} className="border-b border-gray-100">
@@ -176,27 +179,14 @@ const BlockAirBnBModal = ({ monthMap, rooms, blockedAirBnBDates }: BlockAirBnBMo
                     </select>
                   </td>
                   <td className="py-2 align-middle">
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        className="text-[10px] px-1.5 py-0.5 rounded text-white bg-emerald-500 hover:bg-emerald-600"
-                        onClick={() => setDone(currentKey)}
-                      >
-                        Done
-                      </button>
-                      <button
-                        type="button"
-                        className="text-[10px] px-1.5 py-0.5 rounded text-white bg-rose-400 hover:bg-rose-500"
-                        onClick={() => {
-                          const next = new Set(confirmed);
-                          next.delete(currentKey);
-                          saveConfirmed(next);
-                          setConfirmed(next);
-                        }}
-                      >
-                        Not done
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      disabled={isLoading}
+                      className="text-[10px] px-1.5 py-0.5 rounded text-white bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50"
+                      onClick={() => setBlocked(currentBooking.id, currentKey)}
+                    >
+                      {isLoading ? "…" : "Done"}
+                    </button>
                   </td>
                 </tr>
               );
@@ -207,7 +197,7 @@ const BlockAirBnBModal = ({ monthMap, rooms, blockedAirBnBDates }: BlockAirBnBMo
 
       <p className="text-[10px] text-gray-400 mt-auto">
         Select a date, press <span className="text-emerald-600 font-medium">Done</span> after
-        blocking it on AirBnB. List auto-clears on next sync.
+        blocking it on AirBnB. Synced across devices.
       </p>
     </div>
   );
