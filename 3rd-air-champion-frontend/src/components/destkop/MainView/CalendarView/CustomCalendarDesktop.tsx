@@ -35,6 +35,8 @@ interface CustomCalendarProps {
   setSelectedDate: React.Dispatch<React.SetStateAction<Date>>;
 }
 
+const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
 const CustomCalendar = ({
   currentMonth,
   currentAirBnBGuest,
@@ -51,6 +53,7 @@ const CustomCalendar = ({
   setSelectedDate,
 }: CustomCalendarProps) => {
   const [months, setMonths] = useState<Date[]>([]);
+  const [visibleIndex, setVisibleIndex] = useState<number>(24); // 24 = today's month
   const [tileWidth, setTileWidth] = useState<number | null>(null);
   const [useMonthMap, setUseMonthMap] =
     useState<Map<string, dayType>>(monthMap);
@@ -130,7 +133,6 @@ const CustomCalendar = ({
         );
 
         if (booking) {
-          const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
           const localDate = toZonedTime(date, timeZone);
           const localStartDate = toZonedTime(booking.startDate, timeZone);
 
@@ -173,7 +175,6 @@ const CustomCalendar = ({
   }, [currentGuest, currentAirBnBGuest]);
 
   useEffect(() => {
-    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     let currentMaxRooms = 0;
     const roomsInMonth: roomType[] = [];
@@ -222,6 +223,7 @@ const CustomCalendar = ({
     const snappedMonth = months[snappedIndex];
     if (snappedMonth) {
       setCurrentMonth(snappedMonth);
+      setVisibleIndex(snappedIndex);
     }
   };
 
@@ -285,12 +287,43 @@ const CustomCalendar = ({
       className.push("react-calendar__custom_tile_booking");
     }
 
+    if (currentGuest && paidDates.length > 0) {
+      const isPaid = paidDates.find((pd) => isSameDay(pd, date));
+      if (isPaid) {
+        const isStart = day?.bookings.some((b) => {
+          if (!b.startDate) return false;
+          return isSameDay(date, toZonedTime(b.startDate, timeZone));
+        });
+        className.push(
+          isStart
+            ? "react-calendar__custom_tile_paid_start"
+            : "react-calendar__custom_tile_paid_mid",
+        );
+      } else {
+        // Checkout morning (endDate + 1) is not in paidDates — check previous day
+        const prevDay = useMonthMap.get(
+          addDays(date, -1).toISOString().split("T")[0],
+        );
+        if (prevDay) {
+          const isCheckoutPaid = prevDay.bookings.some((b) => {
+            if (!b.endDate) return false;
+            const endDate = toZonedTime(b.endDate, timeZone);
+            return (
+              isSameDay(date, addDays(endDate, 1)) &&
+              paidDates.some((pd) => isSameDay(pd, endDate))
+            );
+          });
+          if (isCheckoutPaid)
+            className.push("react-calendar__custom_tile_paid_checkout");
+        }
+      }
+    }
+
     return className;
   };
 
   const customTileContent = ({ date, view }: { date: Date; view: string }) => {
     if (view === "month") {
-      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
       const day = useMonthMap.get(date.toISOString().split("T")[0]);
 
@@ -379,54 +412,10 @@ const CustomCalendar = ({
         // Re-sort in case ensureGridRow added new rooms
         sortedUsedRooms.sort((a, b) => a.name.localeCompare(b.name));
 
-        // Paid overlay: visible when a guest is selected and this date is marked paid.
-        // Offset matches the booking bar — 20% left on check-in day, flush otherwise.
-        const isPaid = !!(currentGuest && paidDates.some((pd) => isSameDay(pd, date)));
-        const isGuestCheckIn =
-          isPaid &&
-          !!filteredDay?.bookings.some((b) => {
-            if (!b.startDate) return false;
-            return isSameDay(date, toZonedTime(b.startDate, timeZone));
-          });
-        // Checkout morning (endDate + 1) is not in paidDates but still shows the AM bar
-        // on the left 20%. Show the green AM sliver here if the last night was paid.
-        const isGuestCheckoutPaid =
-          !isPaid &&
-          !!currentGuest &&
-          checkoutBookings.some((b) => {
-            if (!b.endDate) return false;
-            const endDate = toZonedTime(b.endDate, timeZone);
-            return paidDates.some((pd) => isSameDay(pd, endDate));
-          });
-
         const textSize = 0.65;
 
         return (
           <>
-            {isPaid && (
-              <div
-                className="bg-green-400"
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  bottom: 0,
-                  left: isGuestCheckIn ? "20%" : "-1px",
-                  right: "-1px",
-                }}
-              />
-            )}
-            {isGuestCheckoutPaid && (
-              <div
-                className="bg-green-400"
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  bottom: 0,
-                  left: "-1px",
-                  right: "80%",
-                }}
-              />
-            )}
             {sortedUsedRooms.map((room) => {
               const { am: amBooking, pm: pmBooking } = gridContent[room.name];
 
@@ -561,20 +550,29 @@ const CustomCalendar = ({
       className="h-full overflow-y-scroll snap-y snap-mandatory"
       onScroll={handleScroll}
     >
-      {months.map((month, index) => (
-        <div key={index} className="snap-start h-full" ref={calendarWrapperRef}>
-          <Calendar
-            activeStartDate={month}
-            showNavigation={false}
-            showNeighboringMonth={false}
-            value={currentMonth}
-            onClickDay={getDayContent}
-            tileClassName={customTile}
-            tileContent={customTileContent}
-            calendarType="gregory"
-          />
-        </div>
-      ))}
+      {months.map((month, index) => {
+        const inWindow = Math.abs(index - visibleIndex) <= 1;
+        return (
+          <div
+            key={index}
+            className="snap-start h-full"
+            ref={index === visibleIndex ? calendarWrapperRef : undefined}
+          >
+            {inWindow && (
+              <Calendar
+                activeStartDate={month}
+                showNavigation={false}
+                showNeighboringMonth={false}
+                value={currentMonth}
+                onClickDay={getDayContent}
+                tileClassName={customTile}
+                tileContent={customTileContent}
+                calendarType="gregory"
+              />
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 };
