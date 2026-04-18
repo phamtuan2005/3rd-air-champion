@@ -77,7 +77,7 @@ const GuestView = ({
           <div key={index} className="border-b border-solid w-full py-1" style={{ display: 'grid', gridTemplateColumns: `min(${maxLabelLen}ch, 50vw) 1fr`, gap: '0 0.75rem' }}>
             {/* Row 1, Col 1: Color box */}
             <div
-              className={`${getRoomColor(booking.room.name)} ${booking.guest.name === "AirBnB" ? "text-white" : "text-black"} px-2 py-1 rounded-md font-bold text-lg mb-1`}
+              className={`${getRoomColor(booking.room.name, booking.room.color)} ${booking.guest.name === "AirBnB" ? "text-white" : "text-black"} px-2 py-1 rounded-md font-bold text-lg mb-1`}
             >
               {booking.numberOfGuests > 1 &&
                 `(${booking.numberOfGuests}) `}

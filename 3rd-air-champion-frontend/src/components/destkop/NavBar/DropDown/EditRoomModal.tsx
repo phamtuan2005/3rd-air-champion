@@ -5,6 +5,19 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { roomType } from "../../../../util/types/roomType";
 
+const COLOR_OPTIONS = [
+  "bg-red-500",
+  "bg-orange-500",
+  "bg-yellow-500",
+  "bg-green-500",
+  "bg-teal-500",
+  "bg-blue-500",
+  "bg-indigo-500",
+  "bg-purple-500",
+  "bg-pink-500",
+  "bg-gray-500",
+];
+
 const editRoomSchema = z.object({
   name: z
     .string()
@@ -24,7 +37,7 @@ interface EditRoomModalProps {
   defaultRoomId?: string;
   onClose: () => void;
   onSave: (room: roomType, onError: (msg: string) => void) => void;
-  onAdd: (room: { name: string; price: number; roomCode?: string }, onError: (msg: string) => void) => void;
+  onAdd: (room: { name: string; price: number; roomCode?: string; color?: string }, onError: (msg: string) => void) => void;
   onDelete: (roomId: string, onError: (msg: string) => void) => void;
 }
 
@@ -33,6 +46,9 @@ const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave, onAdd, onDelete 
     ? defaultRoomId
     : rooms[0]?.id ?? "";
   const [selectedRoomId, setSelectedRoomId] = useState<string>(initialId);
+  const [selectedColor, setSelectedColor] = useState<string>(
+    rooms.find((r) => r.id === initialId)?.color ?? ""
+  );
   const [errorMessage, setErrorMessage] = useState("");
   const [pendingConfirm, setPendingConfirm] = useState<EditRoomFormData | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -59,6 +75,7 @@ const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave, onAdd, onDelete 
     setErrorMessage("");
     const room = rooms.find((r) => r.id === id);
     if (room) {
+      setSelectedColor(room.color ?? "");
       reset({
         name: room.name,
         price: room.price,
@@ -76,7 +93,7 @@ const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave, onAdd, onDelete 
       setPendingConfirm(data);
       return;
     }
-    onSave({ ...selectedRoom, ...data }, (msg) => setErrorMessage(msg));
+    onSave({ ...selectedRoom, ...data, color: selectedColor }, (msg) => setErrorMessage(msg));
   };
 
   return createPortal(
@@ -154,6 +171,20 @@ const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave, onAdd, onDelete 
               className="border border-gray-300 rounded px-2 py-1 w-full"
               {...register("roomCode")}
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Color</label>
+            <div className="flex flex-wrap gap-2">
+              {COLOR_OPTIONS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  className={`w-7 h-7 rounded-full ${c} ${selectedColor === c ? "ring-2 ring-offset-2 ring-gray-800" : ""}`}
+                  onClick={() => setSelectedColor(selectedColor === c ? "" : c)}
+                />
+              ))}
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -238,7 +269,7 @@ const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave, onAdd, onDelete 
                 className="flex-1 px-2 py-1 bg-blue-500 text-white text-sm rounded"
                 onClick={() => {
                   onAdd(
-                    { name: pendingConfirm.name, price: pendingConfirm.price, roomCode: pendingConfirm.roomCode },
+                    { name: pendingConfirm.name, price: pendingConfirm.price, roomCode: pendingConfirm.roomCode, color: selectedColor },
                     (msg) => { setErrorMessage(msg); setPendingConfirm(null); },
                   );
                 }}
@@ -250,7 +281,7 @@ const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave, onAdd, onDelete 
                 className="flex-1 px-2 py-1 bg-green-500 text-white text-sm rounded"
                 onClick={() => {
                   if (!selectedRoom) return;
-                  onSave({ ...selectedRoom, ...pendingConfirm }, (msg) => {
+                  onSave({ ...selectedRoom, ...pendingConfirm, color: selectedColor }, (msg) => {
                     setErrorMessage(msg);
                     setPendingConfirm(null);
                   });

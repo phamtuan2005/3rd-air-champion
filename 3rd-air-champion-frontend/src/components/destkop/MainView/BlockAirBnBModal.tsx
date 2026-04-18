@@ -154,7 +154,7 @@ const BlockAirBnBModal = ({ monthMap, rooms, blockedAirBnBDates, token, onDaysUp
                 <tr key={room.id} className="border-b border-gray-100">
                   <td className="py-2 pr-1 align-middle">
                     <span
-                      className={`${getRoomColor(room.name)} text-white text-[10px] font-medium py-0.5 rounded inline-block text-center whitespace-nowrap`}
+                      className={`${getRoomColor(room.name, room.color)} text-white text-[10px] font-medium py-0.5 rounded inline-block text-center whitespace-nowrap`}
                       style={{ width: roomBoxWidth }}
                     >
                       {room.name}

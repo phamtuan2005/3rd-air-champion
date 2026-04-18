@@ -120,7 +120,7 @@ const RoomsToClean = ({ selectedDate, monthMap }: RoomsToCleanProps) => {
               />
               <div className="flex flex-col">
                 <div
-                  className={`${getRoomColor(booking.room.name)} ${nextCheckIn?.guest.name === "AirBnB" ? "text-white" : "text-black"} p-1 rounded-md`}
+                  className={`${getRoomColor(booking.room.name, booking.room.color)} ${nextCheckIn?.guest.name === "AirBnB" ? "text-white" : "text-black"} p-1 rounded-md`}
                   style={{ width: `${maxLabelLen}ch`, maxWidth: '50vw' }}
                 >
                   {booking.room.name}
