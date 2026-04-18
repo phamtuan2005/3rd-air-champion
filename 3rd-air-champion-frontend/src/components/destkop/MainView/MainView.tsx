@@ -1110,6 +1110,10 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
               rooms={rooms}
               selectedRoomName={selectedRoomName}
               getCurrentGuestBill={getCurrentGuestBill}
+              onGoToToday={() => {
+                setCurrentMonth(new Date());
+                setScrollToTodayTrigger((t) => t + 1);
+              }}
               setPaidDates={setPaidDates}
               setSelectedRoomName={setSelectedRoomName}
             />
