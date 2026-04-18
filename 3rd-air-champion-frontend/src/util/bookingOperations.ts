@@ -25,6 +25,7 @@ export const getAvailableRooms = async (
           name: string;
           price: number;
           roomCode: string;
+          color?: string;
         }[]
     )
     .catch((err) => {

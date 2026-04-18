@@ -164,6 +164,7 @@ const roomDefs = gql`
     name: String!
     price: Float!
     roomCode: String
+    color: String
     active: Boolean
     createdAt: String
     updatedAt: String
@@ -176,8 +177,8 @@ const roomDefs = gql`
   }
 
   type Mutation {
-    createRoom(host: String!, name: String!, price: Float!, roomCode: String): Room!
-    updateRoom(_id: String!, name: String, price: Float, roomCode: String, active: Boolean): Room!
+    createRoom(host: String!, name: String!, price: Float!, roomCode: String, color: String): Room!
+    updateRoom(_id: String!, name: String, price: Float, roomCode: String, color: String, active: Boolean): Room!
   }
 `;
 

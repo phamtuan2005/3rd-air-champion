@@ -9,6 +9,7 @@ const roomSchema = new mongoose.Schema(
     name: { type: String, required: true },
     price: { type: Number, required: true },
     roomCode: { type: String, default: "" },
+    color: { type: String, default: "" },
     active: { type: Boolean, default: true },
   },
   { timestamps: true }

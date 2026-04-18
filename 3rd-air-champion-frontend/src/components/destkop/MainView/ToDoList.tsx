@@ -241,7 +241,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress }: ToDoListPro
                       onChange={() => toggleTaskCompletion(cleaningTaskId)}
                     />
                     <div className="flex flex-col">
-                      <div className={`${getRoomColor(booking.room.name)} ${nextCheckIn?.guest.name === "AirBnB" ? "text-white" : "text-black"} p-1 rounded-md`} style={{ width: `${maxLabelLen}ch`, maxWidth: '50vw' }}>
+                      <div className={`${getRoomColor(booking.room.name, booking.room.color)} ${nextCheckIn?.guest.name === "AirBnB" ? "text-white" : "text-black"} p-1 rounded-md`} style={{ width: `${maxLabelLen}ch`, maxWidth: '50vw' }}>
                         {booking.room.name}
                         {nextCheckIn && `, ${nextCheckIn.numberOfGuests} ${nextCheckIn.numberOfGuests === 1 ? "person" : "persons"}`}
                       </div>

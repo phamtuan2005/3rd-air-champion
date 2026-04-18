@@ -138,6 +138,7 @@ router.post("/get/host", async (req: Request, res: any) => {
               id
               name
               price
+              color
             }
             bookings {
               id
@@ -169,6 +170,7 @@ router.post("/get/host", async (req: Request, res: any) => {
                 name
                 price
                 roomCode
+                color
               }
               description
               duration

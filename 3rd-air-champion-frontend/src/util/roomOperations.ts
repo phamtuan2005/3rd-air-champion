@@ -23,17 +23,11 @@ export const fetchRooms = async (host: string, token: string) => {
 };
 
 export const updateRoom = async (
-  roomObject: { id: string; name: string; price: number; roomCode: string; active: boolean },
+  roomObject: { id: string; name: string; price: number; roomCode: string; color?: string; active: boolean },
   token: string
 ) => {
-  const body = {
-    id: roomObject.id,
-    name: roomObject.name,
-    price: roomObject.price,
-    roomCode: roomObject.roomCode,
-    active: roomObject.active,
-  };
-  console.log("[updateRoom] sending:", body);
+  const { color, ...rest } = roomObject;
+  const body = color !== undefined ? { ...rest, color } : rest;
   return axios
     .put(
       `${BACKEND_ENDPOINT}/room/update`,
@@ -44,12 +38,8 @@ export const updateRoom = async (
         },
       }
     )
-    .then((result) => {
-      console.log("[updateRoom] response:", result.data);
-      return result.data;
-    })
+    .then((result) => result.data)
     .catch((err) => {
-      console.log("[updateRoom] error:", err.response?.data ?? err);
       if (err.response && err.response.data && err.response.data.errors) {
         throw err.response.data.errors;
       }
@@ -78,7 +68,7 @@ export const deleteRoom = async (roomId: string, token: string) => {
 };
 
 export const createRoom = async (
-  roomObject: { name: string; price: number; roomCode?: string },
+  roomObject: { name: string; price: number; roomCode?: string; color?: string },
   token: string
 ) => {
   return axios

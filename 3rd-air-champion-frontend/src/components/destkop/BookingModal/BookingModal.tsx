@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { guestType } from "../../../util/types/guestType";
 import { roomType } from "../../../util/types/roomType";
+import { getRoomColor } from "../../../util/getRoomColor";
 import GuestInput from "./GuestInput";
 import RoomMultiSelect from "./RoomMultiSelect";
 import DatePickerModal from "./DatePickerModal";
@@ -29,6 +30,7 @@ type FlatBooking = { room: string; date: Date; duration: number };
 type BookingResult = {
   label: string;       // "Apr 17, 2026 · 1 day"
   roomName: string;
+  roomColor?: string;
   status: "success" | "error";
   message?: string;
   booking?: FlatBooking;
@@ -111,7 +113,9 @@ const BookingModal = ({
     const durationLabel = `${flat.duration} day${flat.duration > 1 ? "s" : ""}`;
 
     let roomId = flat.room;
-    let roomLabel = rooms.find((r) => r.id === flat.room)?.name ?? "---";
+    const flatRoom = rooms.find((r) => r.id === flat.room);
+    let roomLabel = flatRoom?.name ?? "---";
+    let roomColor = flatRoom?.color;
 
     try {
 
@@ -138,6 +142,7 @@ const BookingModal = ({
         }
         roomId = available[0].id;
         roomLabel = available[0].name;
+        roomColor = available[0].color;
       }
 
       const days = await postBooking(
@@ -156,6 +161,7 @@ const BookingModal = ({
         result: {
           label: `${dateLabel} · ${durationLabel}`,
           roomName: roomLabel,
+          roomColor,
           status: "success",
         },
         bookedDays: days,
@@ -165,6 +171,7 @@ const BookingModal = ({
         result: {
           label: `${dateLabel} · ${durationLabel}`,
           roomName: roomLabel,
+          roomColor,
           status: "error",
           message: humanizeError(extractErrorMessage(err)),
           booking: flat,
@@ -423,26 +430,39 @@ const BookingModal = ({
                     const rows = [];
 
                     if (succeeded.length > 0) {
-                      const names = succeeded.map((r) => r.roomName).join(", ");
                       rows.push(
                         <li key={`${label}-ok`} className="flex items-start gap-2 text-sm">
                           <span className="text-green-500 font-bold mt-0.5">&#10003;</span>
-                          <span>{label} — Booked: {names}</span>
+                          <span className="flex items-center gap-1 flex-wrap">
+                            {label} — Booked:
+                            {succeeded.map((r) => (
+                              <span
+                                key={r.roomName}
+                                className={`${getRoomColor(r.roomName, r.roomColor)} text-white text-xs font-medium px-2 py-0.5 rounded whitespace-nowrap`}
+                              >
+                                {r.roomName}
+                              </span>
+                            ))}
+                          </span>
                         </li>
                       );
                     }
 
                     if (failed.length > 0) {
-                      const names = failed.map((r) => r.roomName);
-                      const nameList = names.length > 1
-                        ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`
-                        : names[0];
                       const msg = failed[0].message;
                       rows.push(
                         <li key={`${label}-err`} className="flex items-start gap-2 text-sm">
                           <span className="text-red-500 font-bold mt-0.5">&#10007;</span>
-                          <span>
-                            {label} — Not available for {nameList}
+                          <span className="flex items-center gap-1 flex-wrap">
+                            {label} — Not available for:
+                            {failed.map((r) => (
+                              <span
+                                key={r.roomName}
+                                className={`${getRoomColor(r.roomName, r.roomColor)} text-white text-xs font-medium px-2 py-0.5 rounded whitespace-nowrap`}
+                              >
+                                {r.roomName}
+                              </span>
+                            ))}
                             {msg && <span className="text-red-500 ml-1">({msg})</span>}
                           </span>
                         </li>
