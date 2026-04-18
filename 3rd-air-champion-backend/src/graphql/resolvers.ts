@@ -14,6 +14,7 @@ import {
   addDays,
   startOfToday,
   parseISO,
+  format,
 } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 
@@ -598,7 +599,9 @@ const dayResolver = {
       });
 
       if (conflictingDays.length > 0) {
-        const conflictingDates = conflictingDays.map((day) => day.date);
+        const conflictingDates = conflictingDays.map((day) =>
+          format(toZonedTime(day.date, timeZone), "yyyy-MM-dd")
+        );
         throw new Error(
           `The following dates are unavailable: ${conflictingDates.join(", ")}`
         );
@@ -655,7 +658,9 @@ const dayResolver = {
       });
 
       if (conflictingDays.length > 0) {
-        const conflictingDates = conflictingDays.map((day) => day.date);
+        const conflictingDates = conflictingDays.map((day) =>
+          format(toZonedTime(day.date, timeZone), "yyyy-MM-dd")
+        );
         throw new Error(
           `The following dates are unavailable: ${conflictingDates.join(", ")}`
         );
@@ -942,6 +947,49 @@ const dayResolver = {
         {
           $set: {
             "bookings.$[matchingBooking].airbnbPrice": airbnbPrice,
+          },
+        },
+        {
+          arrayFilters: [
+            {
+              "matchingBooking.guest": currentBooking?.guest,
+              "matchingBooking.room": currentBooking?.room,
+            },
+          ],
+          runValidators: true,
+        }
+      );
+
+      return await Day.find({
+        calendar,
+        date: { $gte: startDate, $lte: endDate },
+      })
+        .populate("bookings.guest")
+        .populate("bookings.room")
+        .populate("blockedRooms");
+    },
+    markAirBnBBlocked: async (_: unknown, { _id, blocked }: any) => {
+      const dayOfBooking = await Day.findOne({ "bookings._id": _id });
+      if (!dayOfBooking) throw new Error("Booking not found");
+
+      const calendar = dayOfBooking.calendar;
+      const currentBooking = dayOfBooking.bookings.find(
+        (booking: any) => booking.id === _id
+      );
+
+      const startDate = currentBooking?.startDate;
+      const endDate = currentBooking?.endDate;
+
+      await Day.updateMany(
+        {
+          calendar,
+          date: { $gte: startDate, $lte: endDate },
+          "bookings.guest": currentBooking?.guest,
+          "bookings.room": currentBooking?.room,
+        },
+        {
+          $set: {
+            "bookings.$[matchingBooking].airbnbBlocked": blocked,
           },
         },
         {

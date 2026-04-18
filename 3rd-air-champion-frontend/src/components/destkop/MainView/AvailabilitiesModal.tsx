@@ -4,24 +4,26 @@ import { dayType } from "../../../util/types/dayType";
 import { roomType } from "../../../util/types/roomType";
 import { getRoomColor } from "../../../util/getRoomColor";
 
-interface LeftOverModalProps {
+interface AvailabilitiesModalProps {
   monthMap: Map<string, dayType>;
   rooms: roomType[];
   currentMonth: Date;
 }
 
-const LeftOverModal = ({ monthMap, rooms, currentMonth }: LeftOverModalProps) => {
+const AvailabilitiesModal = ({ monthMap, rooms, currentMonth }: AvailabilitiesModalProps) => {
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const today = startOfToday();
 
+  // All date keys in the current month
+  const allMonthDateKeys = [...monthMap.keys()].filter((dateKey) =>
+    isSameMonth(toZonedTime(dateKey, timeZone), currentMonth)
+  );
+
   // Collect date keys that are in the current month and >= today, sorted chronologically
-  const eligibleDateKeys = [...monthMap.keys()]
+  const eligibleDateKeys = allMonthDateKeys
     .filter((dateKey) => {
       const date = toZonedTime(dateKey, timeZone);
-      return (
-        isSameMonth(date, currentMonth) &&
-        (isAfter(date, today) || date.toDateString() === today.toDateString())
-      );
+      return isAfter(date, today) || date.toDateString() === today.toDateString();
     })
     .sort();
 
@@ -53,6 +55,30 @@ const LeftOverModal = ({ monthMap, rooms, currentMonth }: LeftOverModalProps) =>
   const totalNights = stats.reduce((sum, s) => sum + s.unbookedNights, 0);
   const totalProfit = stats.reduce((sum, s) => sum + s.potentialProfit, 0);
 
+  // Actual profit: same logic as the main page profit indicator (per-day accumulation)
+  const actualProfit = allMonthDateKeys.reduce((total, dateKey) => {
+    const day = monthMap.get(dateKey);
+    if (!day) return total;
+    return (
+      total +
+      day.bookings.reduce((sum, booking) => {
+        if (booking.guest.name !== "AirBnB") {
+          const guestPricing = booking.guest.pricing.find(
+            (p) => p.room === booking.room.id,
+          );
+          return sum + (guestPricing ? guestPricing.price : 0);
+        } else {
+          if (booking.airbnbPrice && booking.duration) {
+            return sum + booking.airbnbPrice / booking.duration;
+          }
+          return sum;
+        }
+      }, 0)
+    );
+  }, 0);
+
+  const totalMonthProfit = actualProfit + totalProfit;
+
   const monthLabel = currentMonth.toLocaleString("default", {
     month: "long",
     year: "numeric",
@@ -61,7 +87,7 @@ const LeftOverModal = ({ monthMap, rooms, currentMonth }: LeftOverModalProps) =>
   return (
     <div className="p-3 flex flex-col gap-3 h-full overflow-y-auto">
       <h2 className="text-sm font-bold text-gray-700">
-        Left Over — {monthLabel}
+        Availabilities — {monthLabel}
       </h2>
 
       {stats.length === 0 ? (
@@ -72,7 +98,7 @@ const LeftOverModal = ({ monthMap, rooms, currentMonth }: LeftOverModalProps) =>
             <tr className="text-left text-gray-500 border-b">
               <th className="pb-1 font-semibold">Room</th>
               <th className="pb-1 font-semibold">Nights left</th>
-              <th className="pb-1 font-semibold text-right">Potential</th>
+              <th className="pb-1 font-semibold text-right">Estimated profit</th>
             </tr>
           </thead>
           <tbody>
@@ -124,11 +150,20 @@ const LeftOverModal = ({ monthMap, rooms, currentMonth }: LeftOverModalProps) =>
         </table>
       )}
 
-      <p className="text-[10px] text-gray-400 mt-auto">
+      {stats.length > 0 && (
+        <div className="mt-auto flex flex-col gap-1 rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-gray-700">Estimated total month profit</span>
+            <span className="text-sm font-bold text-emerald-700">${totalMonthProfit.toFixed(2)}</span>
+          </div>
+        </div>
+      )}
+
+      <p className="text-[10px] text-gray-400">
         Based on room default nightly rate · from today to end of month
       </p>
     </div>
   );
 };
 
-export default LeftOverModal;
+export default AvailabilitiesModal;

@@ -43,7 +43,7 @@ import {
 } from "../../../util/bookingOperations";
 import UnbookingConfirmation from "./GuestView/UnbookingConfirmation";
 import ToDoList from "./ToDoList";
-import LeftOverModal from "./LeftOverModal";
+import AvailabilitiesModal from "./AvailabilitiesModal";
 import BlockAirBnBModal from "./BlockAirBnBModal";
 import ModifyBookingModal from "../ModifyBookingModal";
 import GuestAddPane from "../BookingModal/GuestAddPane";
@@ -63,13 +63,13 @@ interface MainViewProps {
   setIsTodoModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isModalOpen: boolean;
   setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  isLeftoverModalOpen: boolean;
-  setIsLeftoverModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isAvailabilitiesModalOpen: boolean;
+  setIsAvailabilitiesModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isBlockAirBnBModalOpen: boolean;
   setIsBlockAirBnBModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnbAddress, isTodoModalOpen, setIsTodoModalOpen, isModalOpen, setIsModalOpen, isLeftoverModalOpen, setIsLeftoverModalOpen, isBlockAirBnBModalOpen, setIsBlockAirBnBModalOpen }: MainViewProps) => {
+const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnbAddress, isTodoModalOpen, setIsTodoModalOpen, isModalOpen, setIsModalOpen, isAvailabilitiesModalOpen, setIsAvailabilitiesModalOpen, isBlockAirBnBModalOpen, setIsBlockAirBnBModalOpen }: MainViewProps) => {
   const token = localStorage.getItem("token");
 
   const context = useContext(isSyncModalOpenContext) as {
@@ -1194,9 +1194,9 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
 
       <div className="hidden bg-white border-l sm:block">
         {isBlockAirBnBModalOpen ? (
-          <BlockAirBnBModal monthMap={monthMap} rooms={rooms} blockedAirBnBDates={blockedAirBnBDates as Record<string, { start: string; duration: number }[]> | undefined} />
-        ) : isLeftoverModalOpen ? (
-          <LeftOverModal monthMap={monthMap} rooms={rooms} currentMonth={currentMonth} />
+          <BlockAirBnBModal monthMap={monthMap} rooms={rooms} blockedAirBnBDates={blockedAirBnBDates as Record<string, { start: string; duration: number }[]> | undefined} token={token as string} onDaysUpdate={(updated) => setDays((prev) => { const ids = new Set(updated.map((d) => d.id)); return [...prev.filter((d) => !ids.has(d.id)), ...updated]; })} />
+        ) : isAvailabilitiesModalOpen ? (
+          <AvailabilitiesModal monthMap={monthMap} rooms={rooms} currentMonth={currentMonth} />
         ) : isTodoModalOpen ? (
           <ToDoList monthMap={monthMap} doorCode={doorCode} airbnbName={airbnbName} airbnbAddress={airbnbAddress} />
         ) : (
@@ -1315,20 +1315,20 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
 
       <div
         className={`fixed bottom-0 left-0 w-full h-auto bg-white p-1 border-t border-gray-300 z-50 overflow-y-scroll sm:hidden transition-transform duration-300 ${
-          isLeftoverModalOpen ? "translate-y-0" : "translate-y-full"
+          isAvailabilitiesModalOpen ? "translate-y-0" : "translate-y-full"
         }`}
       >
         {/* Close Button */}
         <div className="flex justify-center">
           <button
             className="text-gray-500 font-bold text-[1.5rem] leading-none px-6 py-0.5 rounded hover:bg-gray-100"
-            onClick={() => setIsLeftoverModalOpen(false)}
+            onClick={() => setIsAvailabilitiesModalOpen(false)}
           >
             &times;
           </button>
         </div>
 
-        <LeftOverModal monthMap={monthMap} rooms={rooms} currentMonth={currentMonth} />
+        <AvailabilitiesModal monthMap={monthMap} rooms={rooms} currentMonth={currentMonth} />
       </div>
 
       <div
@@ -1346,7 +1346,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
           </button>
         </div>
 
-        <BlockAirBnBModal monthMap={monthMap} rooms={rooms} blockedAirBnBDates={blockedAirBnBDates as Record<string, { start: string; duration: number }[]> | undefined} />
+        <BlockAirBnBModal monthMap={monthMap} rooms={rooms} blockedAirBnBDates={blockedAirBnBDates as Record<string, { start: string; duration: number }[]> | undefined} token={token as string} onDaysUpdate={(updated) => setDays((prev) => { const ids = new Set(updated.map((d) => d.id)); return [...prev.filter((d) => !ids.has(d.id)), ...updated]; })} />
       </div>
 
       {selectedBooking && (

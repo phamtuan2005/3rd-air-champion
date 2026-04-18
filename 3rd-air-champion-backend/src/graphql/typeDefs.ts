@@ -199,6 +199,7 @@ const dayDefs = gql`
     numberOfGuests: Int
     startDate: Date
     endDate: Date
+    airbnbBlocked: Boolean
   }
 
   type Day {
@@ -288,6 +289,8 @@ const dayDefs = gql`
       _id: String!
       airbnbPrice: Float!
     ): [Day]
+
+    markAirBnBBlocked(_id: String!, blocked: Boolean!): [Day]
 
     unbookGuest(_id: String!): [Day]
 

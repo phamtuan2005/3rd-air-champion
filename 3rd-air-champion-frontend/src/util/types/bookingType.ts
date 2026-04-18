@@ -16,4 +16,5 @@ export interface bookingType {
   numberOfGuests: number;
   startDate: string;
   endDate: string;
+  airbnbBlocked: boolean;
 }

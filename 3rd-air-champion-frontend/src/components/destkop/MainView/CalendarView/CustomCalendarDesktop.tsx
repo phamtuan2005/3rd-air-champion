@@ -287,36 +287,8 @@ const CustomCalendar = ({
       className.push("react-calendar__custom_tile_booking");
     }
 
-    if (currentGuest && paidDates.length > 0) {
-      const isPaid = paidDates.find((pd) => isSameDay(pd, date));
-      if (isPaid) {
-        const isStart = day?.bookings.some((b) => {
-          if (!b.startDate) return false;
-          return isSameDay(date, toZonedTime(b.startDate, timeZone));
-        });
-        className.push(
-          isStart
-            ? "react-calendar__custom_tile_paid_start"
-            : "react-calendar__custom_tile_paid_mid",
-        );
-      } else {
-        // Checkout morning (endDate + 1) is not in paidDates — check previous day
-        const prevDay = useMonthMap.get(
-          addDays(date, -1).toISOString().split("T")[0],
-        );
-        if (prevDay) {
-          const isCheckoutPaid = prevDay.bookings.some((b) => {
-            if (!b.endDate) return false;
-            const endDate = toZonedTime(b.endDate, timeZone);
-            return (
-              isSameDay(date, addDays(endDate, 1)) &&
-              paidDates.some((pd) => isSameDay(pd, endDate))
-            );
-          });
-          if (isCheckoutPaid)
-            className.push("react-calendar__custom_tile_paid_checkout");
-        }
-      }
+    if (currentGuest && paidDates.some((pd) => isSameDay(pd, date))) {
+      className.push("react-calendar__custom_tile_paid");
     }
 
     return className;
@@ -555,7 +527,7 @@ const CustomCalendar = ({
         return (
           <div
             key={index}
-            className="snap-start h-full"
+            className="snap-start h-full main-calendar-wrapper"
             ref={index === visibleIndex ? calendarWrapperRef : undefined}
           >
             {inWindow && (

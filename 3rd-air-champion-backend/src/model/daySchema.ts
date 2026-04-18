@@ -27,6 +27,7 @@ const daySchema = new mongoose.Schema(
         numberOfGuests: { type: Number, default: 0 },
         startDate: { type: Date },
         endDate: { type: Date },
+        airbnbBlocked: { type: Boolean, default: false },
       },
     ],
     blockedRooms: [{ type: mongoose.Schema.ObjectId, ref: "Room" }],

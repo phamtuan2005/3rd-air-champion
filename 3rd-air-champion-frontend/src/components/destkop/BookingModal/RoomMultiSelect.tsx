@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { createPortal } from "react-dom";
 import { roomType } from "../../../util/types/roomType";
 import { ANY_ROOM_SENTINEL } from "../../../util/zodBookDays";
 
@@ -10,17 +11,7 @@ interface RoomMultiSelectProps {
 
 const RoomMultiSelect = ({ rooms, value, onChange }: RoomMultiSelectProps) => {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  const activeRooms = rooms.filter((r) => r.active);
 
   const isAny = value.includes(ANY_ROOM_SENTINEL);
 
@@ -28,19 +19,15 @@ const RoomMultiSelect = ({ rooms, value, onChange }: RoomMultiSelectProps) => {
     if (isAny) return "Any available";
     if (value.length === 0) return "Select rooms…";
     if (value.length === 1) {
-      return rooms.find((r) => r.id === value[0])?.name ?? "1 room";
+      return activeRooms.find((r) => r.id === value[0])?.name ?? "1 room";
     }
-    if (value.length <= 2) {
-      return value
-        .map((id) => rooms.find((r) => r.id === id)?.name ?? id)
-        .join(", ");
-    }
-    return `${value.length} rooms`;
+    return value
+      .map((id) => activeRooms.find((r) => r.id === id)?.name ?? id)
+      .join(", ");
   };
 
   const handleToggleAny = () => {
     if (isAny) {
-      // deselect — leave empty (user must pick a room)
       onChange([]);
     } else {
       onChange([ANY_ROOM_SENTINEL]);
@@ -50,63 +37,103 @@ const RoomMultiSelect = ({ rooms, value, onChange }: RoomMultiSelectProps) => {
   const handleToggleRoom = (id: string) => {
     const withoutAny = value.filter((v) => v !== ANY_ROOM_SENTINEL);
     if (withoutAny.includes(id)) {
-      const next = withoutAny.filter((v) => v !== id);
-      onChange(next);
+      onChange(withoutAny.filter((v) => v !== id));
     } else {
       onChange([...withoutAny, id]);
     }
   };
 
+  const modal = open
+    ? createPortal(
+        <div
+          className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-[300]"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl w-80 flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <h3 className="text-sm font-semibold text-gray-700">
+                Select Rooms
+              </h3>
+              <button
+                type="button"
+                className="text-gray-400 hover:text-gray-600 text-xl leading-none px-1"
+                onClick={() => setOpen(false)}
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Room list — no height cap, shows all rooms */}
+            <ul className="flex flex-col py-1">
+              {/* Any available */}
+              <li
+                className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer text-sm"
+                onClick={handleToggleAny}
+              >
+                <input
+                  type="checkbox"
+                  readOnly
+                  checked={isAny}
+                  className="pointer-events-none w-4 h-4"
+                />
+                <span className="italic text-gray-500">Any available</span>
+              </li>
+
+              <li className="border-t border-gray-100 mx-4" />
+
+              {activeRooms.map((room) => {
+                const checked = !isAny && value.includes(room.id);
+                return (
+                  <li
+                    key={room.id}
+                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer text-sm"
+                    onClick={() => handleToggleRoom(room.id)}
+                  >
+                    <input
+                      type="checkbox"
+                      readOnly
+                      checked={checked}
+                      className="pointer-events-none w-4 h-4"
+                    />
+                    <span>{room.name}</span>
+                  </li>
+                );
+              })}
+            </ul>
+
+            {/* Footer */}
+            <div className="px-4 py-3 border-t border-gray-100 flex justify-end">
+              <button
+                type="button"
+                className="bg-blue-500 text-white text-sm px-4 py-1.5 rounded hover:bg-blue-600"
+                onClick={() => setOpen(false)}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )
+    : null;
+
   return (
-    <div className="relative" ref={ref}>
+    <>
       <button
         type="button"
         className="border border-gray-300 rounded px-2 py-1 w-full text-left text-sm flex justify-between items-center gap-1"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setOpen(true)}
       >
         <span className="truncate">{triggerLabel()}</span>
         <span className="text-gray-400 text-xs flex-shrink-0">▾</span>
       </button>
 
-      {open && (
-        <ul className="absolute z-30 bg-white border border-gray-300 rounded w-full mt-1 max-h-48 overflow-y-auto shadow-md">
-          {/* Any available */}
-          <li
-            className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-100 cursor-pointer text-sm"
-            onClick={handleToggleAny}
-          >
-            <input
-              type="checkbox"
-              readOnly
-              checked={isAny}
-              className="pointer-events-none"
-            />
-            <span className="italic text-gray-500">Any available</span>
-          </li>
-
-          <li className="border-t border-gray-100" />
-
-          {rooms.map((room) => {
-            const checked = !isAny && value.includes(room.id);
-            return (
-              <li
-                key={room.id}
-                className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-100 cursor-pointer text-sm"
-                onClick={() => handleToggleRoom(room.id)}
-              >
-                <input
-                  type="checkbox"
-                  readOnly
-                  checked={checked}
-                  className="pointer-events-none"
-                />
-                <span>{room.name}</span>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
+      {modal}
+    </>
   );
 };
 
