@@ -86,9 +86,14 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth }: AvailabilitiesMo
 
   return (
     <div className="p-3 flex flex-col gap-3 h-full overflow-y-auto">
-      <h2 className="text-sm font-bold text-gray-700">
-        Availabilities — {monthLabel}
-      </h2>
+      <div className="flex flex-col gap-0.5">
+        <h2 className="text-sm font-bold text-gray-700">
+          Availabilities — {monthLabel}
+        </h2>
+        <span className="text-xs text-gray-500">
+          Today: <span className="font-semibold text-gray-700">{format(today, "MMM d, yyyy")}</span>
+        </span>
+      </div>
 
       {stats.length === 0 ? (
         <p className="text-xs text-gray-500">No active rooms found.</p>
@@ -118,7 +123,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth }: AvailabilitiesMo
                 <tr key={room.id} className="border-b border-gray-100">
                   <td className="py-1.5">
                     <span
-                      className={`${getRoomColor(room.name)} text-white text-[10px] font-medium py-0.5 rounded inline-block text-center whitespace-nowrap`}
+                      className={`${getRoomColor(room.name, room.color)} text-white text-[10px] font-medium py-0.5 rounded inline-block text-center whitespace-nowrap`}
                       style={{ width: roomBoxWidth }}
                     >
                       {room.name}

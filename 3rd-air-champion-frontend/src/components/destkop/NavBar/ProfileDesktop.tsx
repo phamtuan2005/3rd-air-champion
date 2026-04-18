@@ -42,7 +42,7 @@ const ProfileDesktop = ({
   console.log(name);
 
   return (
-    <div className="relative">
+    <div>
       <div
         className="flex items-center cursor-pointer space-x-2"
         onClick={toggleDropdown}

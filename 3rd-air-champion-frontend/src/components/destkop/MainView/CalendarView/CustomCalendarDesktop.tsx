@@ -399,7 +399,7 @@ const CustomCalendar = ({
 
               // AM slot (checkout side — left half)
               const amColor = amBooking?.room?.name
-                ? getRoomColor(amBooking.room.name)
+                ? getRoomColor(amBooking.room.name, amBooking.room.color)
                 : "";
               const amIsEnd =
                 amBooking?.endDate
@@ -415,7 +415,7 @@ const CustomCalendar = ({
                   ? isSameDay(date, pmStartDate)
                   : false;
               const pmColor = pmBooking?.room?.name
-                ? getRoomColor(pmBooking.room.name)
+                ? getRoomColor(pmBooking.room.name, pmBooking.room.color)
                 : "";
               const pmTextColor =
                 pmBooking?.guest?.name === "AirBnB"

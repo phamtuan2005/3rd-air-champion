@@ -1,4 +1,5 @@
 import { useContext } from "react";
+import { createPortal } from "react-dom";
 import { FaDatabase, FaDoorOpen, FaSync, FaUser, FaEye, FaEyeSlash } from "react-icons/fa";
 import { TiUserAdd } from "react-icons/ti";
 import { MdOutlineMessage } from "react-icons/md";
@@ -32,109 +33,93 @@ const DropDownMenu = ({
 }: DropDownMenuProps) => {
   const { setIsEditRoomOpen } = useContext(AddPaneContext)!;
 
-  return (
-    <div className="absolute left-0 min-w-[160px] w-full bg-white rounded-md grid grid-rows-5 drop-shadow-md">
-      {/* Options */}
-      <div className="flex items-center border-b border-solid w-full hover:bg-[#D9D9D9]">
-        <div className="basis-1/5 flex w-full items-center justify-center">
-          <FaUser />
-        </div>
-        <div className="basis-4/5 py-1 px-2">{user}</div>
-      </div>
+  const close = () => setIsDropdownOpen(false);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200]"
+      onClick={close}
+    >
       <div
-        className="flex items-center border-b border-solid w-full hover:bg-[#D9D9D9]"
-        onClick={() => setIsDropdownOpen(false)}
+        className="bg-white rounded-xl shadow-2xl w-72 flex flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
       >
-        <div className="basis-1/5 flex w-full items-center justify-center">
-          <TiUserAdd />
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
+          <div className="flex items-center gap-2 text-gray-700">
+            <FaUser className="text-sm" />
+            <span className="font-semibold text-sm">{user}</span>
+          </div>
+          <button
+            className="text-gray-400 hover:text-gray-600 text-xl leading-none px-1"
+            onClick={close}
+          >
+            &times;
+          </button>
         </div>
-        <div className="basis-4/5">
-          <AddGuestButton />
-        </div>
+
+        {/* Menu items */}
+        <ul className="flex flex-col py-1">
+          <li
+            className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer text-sm text-gray-700 border-b border-gray-100"
+            onClick={close}
+          >
+            <TiUserAdd className="text-base flex-shrink-0" />
+            <AddGuestButton />
+          </li>
+          <li
+            className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer text-sm text-gray-700 border-b border-gray-100"
+            onClick={() => { close(); setIsEditRoomOpen(true); }}
+          >
+            <MdEditNote className="text-base flex-shrink-0" />
+            <span>Room</span>
+          </li>
+          <li
+            className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer text-sm text-gray-700 border-b border-gray-100"
+            onClick={close}
+          >
+            <FaSync className="text-base flex-shrink-0" />
+            <AirBnBSyncButton />
+          </li>
+          <li
+            className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer text-sm text-gray-700 border-b border-gray-100"
+            onClick={close}
+          >
+            <FaDatabase className="text-base flex-shrink-0" />
+            <RoomSyncButton />
+          </li>
+          <li
+            className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer text-sm text-gray-700 border-b border-gray-100"
+            onClick={() => { close(); onOpenReminderTemplate(); }}
+          >
+            <MdOutlineMessage className="text-base flex-shrink-0" />
+            <ReminderTemplateButton onOpen={onOpenReminderTemplate} />
+          </li>
+          <li
+            className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer text-sm text-gray-700 border-b border-gray-100"
+            onClick={() => { close(); onOpenMyAirBnB(); }}
+          >
+            <FaDoorOpen className="text-base flex-shrink-0" />
+            <span>My AirBnB</span>
+          </li>
+          <li
+            className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer text-sm text-gray-700 border-b border-gray-100"
+            onClick={() => { onToggleFooter(); close(); }}
+          >
+            {isFooterVisible ? <FaEyeSlash className="text-base flex-shrink-0" /> : <FaEye className="text-base flex-shrink-0" />}
+            <span>{isFooterVisible ? "Hide Footer" : "Show Footer"}</span>
+          </li>
+          <li
+            className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer text-sm text-red-500"
+            onClick={close}
+          >
+            <ImExit className="text-base flex-shrink-0" />
+            <LogoutButton handleLogout={handleLogout} />
+          </li>
+        </ul>
       </div>
-      <div
-        className="flex items-center border-b border-solid w-full hover:bg-[#D9D9D9]"
-        onClick={() => {
-          setIsDropdownOpen(false);
-          setIsEditRoomOpen(true);
-        }}
-      >
-        <div className="basis-1/5 flex w-full items-center justify-center">
-          <MdEditNote />
-        </div>
-        <div className="basis-4/5 py-1 px-2">Room</div>
-      </div>
-      <div
-        className="flex items-center border-b border-solid w-full hover:bg-[#D9D9D9]"
-        onClick={() => setIsDropdownOpen(false)}
-      >
-        <div className="basis-1/5 flex w-full items-center justify-center">
-          <FaSync />
-        </div>
-        <div className="basis-4/5">
-          <AirBnBSyncButton />
-        </div>
-      </div>
-      <div
-        className="flex items-center border-b border-solid w-full hover:bg-[#D9D9D9]"
-        onClick={() => setIsDropdownOpen(false)}
-      >
-        <div className="basis-1/5 flex w-full items-center justify-center">
-          <FaDatabase />
-        </div>
-        <div className="basis-4/5">
-          <RoomSyncButton />
-        </div>
-      </div>
-      <div
-        className="flex items-center border-b border-solid w-full hover:bg-[#D9D9D9]"
-        onClick={() => {
-          setIsDropdownOpen(false);
-          onOpenReminderTemplate();
-        }}
-      >
-        <div className="basis-1/5 flex w-full items-center justify-center">
-          <MdOutlineMessage />
-        </div>
-        <div className="basis-4/5">
-          <ReminderTemplateButton onOpen={onOpenReminderTemplate} />
-        </div>
-      </div>
-      <div
-        className="flex items-center border-b border-solid w-full hover:bg-[#D9D9D9]"
-        onClick={() => {
-          setIsDropdownOpen(false);
-          onOpenMyAirBnB();
-        }}
-      >
-        <div className="basis-1/5 flex w-full items-center justify-center">
-          <FaDoorOpen />
-        </div>
-        <div className="basis-4/5 py-1 px-2">My AirBnB</div>
-      </div>
-      <div
-        className="flex items-center border-b border-solid w-full hover:bg-[#D9D9D9] cursor-pointer"
-        onClick={() => { onToggleFooter(); setIsDropdownOpen(false); }}
-      >
-        <div className="basis-1/5 flex w-full items-center justify-center">
-          {isFooterVisible ? <FaEyeSlash /> : <FaEye />}
-        </div>
-        <div className="basis-4/5 py-1 px-2">
-          {isFooterVisible ? "Hide Footer" : "Show Footer"}
-        </div>
-      </div>
-      <div
-        className="flex items-center border-b border-solid w-full hover:bg-[#D9D9D9]"
-        onClick={() => setIsDropdownOpen(false)}
-      >
-        <div className="basis-1/5 flex w-full items-center justify-center">
-          <ImExit />
-        </div>
-        <div className="basis-4/5">
-          <LogoutButton handleLogout={handleLogout} />
-        </div>
-      </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

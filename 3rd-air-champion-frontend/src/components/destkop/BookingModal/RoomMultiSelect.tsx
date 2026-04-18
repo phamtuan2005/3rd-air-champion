@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { roomType } from "../../../util/types/roomType";
 import { ANY_ROOM_SENTINEL } from "../../../util/zodBookDays";
+import { getRoomColor } from "../../../util/getRoomColor";
 
 interface RoomMultiSelectProps {
   rooms: roomType[];
@@ -11,20 +12,34 @@ interface RoomMultiSelectProps {
 
 const RoomMultiSelect = ({ rooms, value, onChange }: RoomMultiSelectProps) => {
   const [open, setOpen] = useState(false);
-  const activeRooms = rooms.filter((r) => r.active);
+  const activeRooms = useMemo(() => rooms.filter((r) => r.active), [rooms]);
+  const roomBoxWidth = useMemo(() => {
+    const maxLen = activeRooms.reduce((max, r) => Math.max(max, r.name.length), 0);
+    return `${maxLen * 6.5 + 16}px`;
+  }, [activeRooms]);
 
   const isAny = value.includes(ANY_ROOM_SENTINEL);
 
-  const triggerLabel = () => {
-    if (isAny) return "Any available";
-    if (value.length === 0) return "Select rooms…";
-    if (value.length === 1) {
-      return activeRooms.find((r) => r.id === value[0])?.name ?? "1 room";
-    }
-    return value
-      .map((id) => activeRooms.find((r) => r.id === id)?.name ?? id)
-      .join(", ");
-  };
+  const triggerContent = useMemo(() => {
+    if (isAny) return <span className="italic text-gray-500">Any available</span>;
+    if (value.length === 0) return <span className="text-gray-400">Select rooms…</span>;
+    const selected = value
+      .map((id) => activeRooms.find((r) => r.id === id))
+      .filter(Boolean) as typeof activeRooms;
+    return (
+      <span className="flex items-center gap-1 flex-wrap">
+        {selected.map((room) => (
+          <span
+            key={room.id}
+            className={`${getRoomColor(room.name, room.color)} text-white text-xs font-medium py-0.5 rounded inline-block text-center whitespace-nowrap`}
+            style={{ width: roomBoxWidth }}
+          >
+            {room.name}
+          </span>
+        ))}
+      </span>
+    );
+  }, [isAny, value, activeRooms, roomBoxWidth]);
 
   const handleToggleAny = () => {
     if (isAny) {
@@ -99,7 +114,12 @@ const RoomMultiSelect = ({ rooms, value, onChange }: RoomMultiSelectProps) => {
                       checked={checked}
                       className="pointer-events-none w-4 h-4"
                     />
-                    <span>{room.name}</span>
+                    <span
+                      className={`${getRoomColor(room.name, room.color)} text-white text-xs font-medium py-0.5 rounded inline-block text-center whitespace-nowrap`}
+                      style={{ width: roomBoxWidth }}
+                    >
+                      {room.name}
+                    </span>
                   </li>
                 );
               })}
@@ -128,7 +148,7 @@ const RoomMultiSelect = ({ rooms, value, onChange }: RoomMultiSelectProps) => {
         className="border border-gray-300 rounded px-2 py-1 w-full text-left text-sm flex justify-between items-center gap-1"
         onClick={() => setOpen(true)}
       >
-        <span className="truncate">{triggerLabel()}</span>
+        <span className="flex-1 min-w-0">{triggerContent}</span>
         <span className="text-gray-400 text-xs flex-shrink-0">▾</span>
       </button>
 

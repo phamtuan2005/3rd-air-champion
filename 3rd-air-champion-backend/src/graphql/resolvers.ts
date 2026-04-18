@@ -272,32 +272,31 @@ const roomResolver = {
     },
   },
   Mutation: {
-    createRoom: async (_: unknown, { host, name, price, roomCode }: any) => {
+    createRoom: async (_: unknown, { host, name, price, roomCode, color }: any) => {
       const redirectedHost = host === "681410b9d51d1dd6c713e947" ? "677203811c91b1e24326db49" : host;
-      const roomData: { host: string; name: string; price: number; roomCode?: string } = { host: redirectedHost, name, price };
+      const roomData: { host: string; name: string; price: number; roomCode?: string; color?: string } = { host: redirectedHost, name, price };
       if (roomCode !== undefined) roomData.roomCode = roomCode;
+      if (color !== undefined) roomData.color = color;
       return await new Room(roomData).save();
     },
-    updateRoom: async (_: unknown, { _id, name, price, roomCode, active }: any) => {
-      console.log("[resolver updateRoom] args:", { _id, name, price, roomCode, active });
+    updateRoom: async (_: unknown, { _id, name, price, roomCode, color, active }: any) => {
       const updatedData: {
         name?: string;
         price?: number;
         roomCode?: string;
+        color?: string;
         active?: boolean;
       } = {};
       if (name !== undefined) updatedData.name = name;
       if (price !== undefined) updatedData.price = price;
       if (roomCode !== undefined) updatedData.roomCode = roomCode;
+      if (color !== undefined) updatedData.color = color;
       if (active !== undefined) updatedData.active = active;
 
-      console.log("[resolver updateRoom] updatedData:", updatedData);
-      const result = await Room.findByIdAndUpdate(_id, { $set: updatedData }, {
+      return await Room.findByIdAndUpdate(_id, { $set: updatedData }, {
         runValidators: true,
         new: true,
       });
-      console.log("[resolver updateRoom] result:", result);
-      return result;
     },
   },
 };

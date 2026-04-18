@@ -1,5 +1,7 @@
 // Function to dynamically assign colors to rooms
-export const getRoomColor = (roomName: string) => {
+export const getRoomColor = (roomName: string, color?: string) => {
+    if (color) return color;
+
     if (roomName.toLowerCase().includes("master") || roomName.toLowerCase().includes("king")) return "bg-red-500";
     if (roomName.toLowerCase().includes("queen")) return "bg-yellow-500";
     if (roomName.toLowerCase().includes("cozy")) return "bg-blue-500";

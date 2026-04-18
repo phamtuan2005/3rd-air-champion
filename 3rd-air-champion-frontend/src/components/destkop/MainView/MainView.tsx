@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import CalendarNavigator from "./CalendarView/CalendarNavigatorDesktop";
 import CustomCalendar from "./CalendarView/CustomCalendarDesktop";
@@ -71,6 +71,10 @@ interface MainViewProps {
 
 const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnbAddress, isTodoModalOpen, setIsTodoModalOpen, isModalOpen, setIsModalOpen, isAvailabilitiesModalOpen, setIsAvailabilitiesModalOpen, isBlockAirBnBModalOpen, setIsBlockAirBnBModalOpen }: MainViewProps) => {
   const token = localStorage.getItem("token");
+  const airbnbsyncRef = useRef(airbnbsync);
+  // Set by the isCalendarLoading effect after fetching; cleared by useEffect([days])
+  // after monthMap is built. Ensures the calendar is never shown with an empty monthMap.
+  const pendingLoadingClearRef = useRef(false);
 
   const context = useContext(isSyncModalOpenContext) as {
     isSyncModalOpen: boolean;
@@ -194,17 +198,9 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
   };
 
   useEffect(() => {
-    if (airbnbsync) {
-      localStorage.setItem("syncData", JSON.stringify(airbnbsync));
+    if (airbnbsyncRef.current) {
+      localStorage.setItem("syncData", JSON.stringify(airbnbsyncRef.current));
     }
-
-    fetchGuests(hostId, token as string)
-      .then((result) => {
-        setGuests(result);
-      })
-      .catch((err) => {
-        console.error("Error fetching guests:", err);
-      });
   }, []);
 
   useEffect(() => {
@@ -216,25 +212,23 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
 
   useEffect(() => {
     if (isCalendarLoading) {
-      fetchGuests(hostId, token as string)
-        .then((guests) => {
+      Promise.all([
+        fetchGuests(hostId, token as string),
+        fetchDays(calendarId, token as string),
+        fetchRooms(hostId, token as string),
+      ])
+        .then(([guests, days, rooms]) => {
           setGuests(guests);
-          return fetchDays(calendarId, token as string); // Chain the next fetch
-        })
-        .then((days) => {
-          setDays(days);
-          return fetchRooms(hostId, token as string); // Chain the final fetch
-        })
-        .then((rooms) => {
           setRooms(rooms);
-          setIsCalendarLoading(false); // All data fetched, stop loading
+          pendingLoadingClearRef.current = true;
+          setDays(days); // triggers useEffect([days]) which clears isCalendarLoading
         })
         .catch((err) => {
           console.error("Error fetching data:", err);
           setCalendarErrorMessage(
             "Failed to fetch calendar data. Please try again.",
           );
-          setIsCalendarLoading(false); // Ensure loading stops even on error
+          setIsCalendarLoading(false);
         });
     }
   }, [isCalendarLoading]);
@@ -324,7 +318,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
   };
 
   const onAddRoomFromModal = (
-    roomObject: { name: string; price: number; roomCode?: string },
+    roomObject: { name: string; price: number; roomCode?: string; color?: string },
     onError: (msg: string) => void,
   ) => {
     createRoom(roomObject, token as string)
@@ -529,6 +523,11 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
     );
 
     transformBookings(sortedMap, timeZone);
+
+    if (pendingLoadingClearRef.current) {
+      pendingLoadingClearRef.current = false;
+      setIsCalendarLoading(false);
+    }
   }, [days]);
 
   useEffect(() => {
@@ -1111,6 +1110,10 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
               rooms={rooms}
               selectedRoomName={selectedRoomName}
               getCurrentGuestBill={getCurrentGuestBill}
+              onGoToToday={() => {
+                setCurrentMonth(new Date());
+                setScrollToTodayTrigger((t) => t + 1);
+              }}
               setPaidDates={setPaidDates}
               setSelectedRoomName={setSelectedRoomName}
             />

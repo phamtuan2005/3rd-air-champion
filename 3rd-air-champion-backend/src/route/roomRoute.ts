@@ -7,21 +7,23 @@ router.post("/create", async (req: Request, res: any) => {
   if (!("user" in req))
     return res.status(401).json({ error: "Invalid or expired token" });
 
-  const { name, price, roomCode } = req.body;
+  const { name, price, roomCode, color } = req.body;
   const { hostId } = req.user as any;
 
   const query = `
-        mutation CreateRoom($host: String!, $name: String!, $price: Float!, $roomCode: String) {
-            createRoom(host: $host, name: $name, price: $price, roomCode: $roomCode) {
+        mutation CreateRoom($host: String!, $name: String!, $price: Float!, $roomCode: String, $color: String) {
+            createRoom(host: $host, name: $name, price: $price, roomCode: $roomCode, color: $color) {
                 id
                 name
                 price
                 roomCode
+                color
             }
         }`;
 
-  const variables: { host: string; name: string; price: number; roomCode?: string } = { name, price, host: hostId };
+  const variables: { host: string; name: string; price: number; roomCode?: string; color?: string } = { name, price, host: hostId };
   if (roomCode !== undefined) variables.roomCode = roomCode;
+  if (color !== undefined) variables.color = color;
 
   sendGraphQLRequest(query, variables)
     .then((result: any) => {
@@ -77,6 +79,7 @@ router.post("/get/host", async (req: Request, res: any) => {
             name
             price
             roomCode
+            color
             active
           }
         }`;
@@ -128,43 +131,42 @@ router.put("/update", async (req: Request, res: any) => {
   if (!("user" in req))
     return res.status(401).json({ error: "Invalid or expired token" });
 
-  const { id, name, price, roomCode, active } = req.body;
-  console.log("[PUT /room/update] body:", req.body);
+  const { id, name, price, roomCode, color, active } = req.body;
 
   const variables: {
     id: string;
     name?: string;
     price?: number;
     roomCode?: string;
+    color?: string;
     active?: boolean;
   } = { id };
   if (name !== undefined) variables.name = name;
   if (price !== undefined) variables.price = price;
   if (roomCode !== undefined) variables.roomCode = roomCode;
+  if (color !== undefined) variables.color = color;
   if (active !== undefined) variables.active = active;
-  console.log("[PUT /room/update] variables:", variables);
 
   const query = `
-          mutation UpdateRoom($id: String!, $name: String, $price: Float, $roomCode: String, $active: Boolean) {
-                updateRoom(_id: $id, name: $name, price: $price, roomCode: $roomCode, active: $active) {
+          mutation UpdateRoom($id: String!, $name: String, $price: Float, $roomCode: String, $color: String, $active: Boolean) {
+                updateRoom(_id: $id, name: $name, price: $price, roomCode: $roomCode, color: $color, active: $active) {
                     id
                     name
                     price
                     roomCode
+                    color
                     active
                 }
             }`;
 
   sendGraphQLRequest(query, variables)
     .then((result: any) => {
-      console.log("[PUT /room/update] GraphQL result:", JSON.stringify(result));
       if (result.errors) {
         return res.status(400).json({ errors: result.errors[0].message });
       }
       res.status(200).json(result.data.updateRoom);
     })
     .catch((error: any) => {
-      console.log("[PUT /room/update] error:", error.message);
       res.status(500).json({ error: error.message });
     });
 });
