@@ -26,6 +26,7 @@ interface CalendarNavigatorProps {
   rooms: roomType[];
   selectedRoomName: string | null;
   getCurrentGuestBill: (guest: string) => number;
+  onGoToToday: () => void;
   setPaidDates: React.Dispatch<React.SetStateAction<Date[]>>;
   setSelectedRoomName: React.Dispatch<React.SetStateAction<string | null>>;
 }
@@ -36,12 +37,12 @@ const CalendarNavigator = ({
   currentGuest,
   monthMap,
   occupancy,
-  isTodoModalOpen,
   profit,
   paidDates,
   rooms,
   selectedRoomName,
   getCurrentGuestBill,
+  onGoToToday,
   setPaidDates,
   setSelectedRoomName,
 }: CalendarNavigatorProps) => {
@@ -54,6 +55,20 @@ const CalendarNavigator = ({
     year: "numeric",
     month: "long",
   });
+  const isCurrentMonth = isSameMonth(currentMonth, new Date());
+  const todayButton = (
+    <button
+      onClick={onGoToToday}
+      disabled={isCurrentMonth}
+      className={`text-xs px-2 py-0.5 rounded border transition-colors ${
+        isCurrentMonth
+          ? "text-gray-300 border-gray-200 cursor-default"
+          : "text-blue-500 border-blue-300 hover:bg-blue-50 cursor-pointer"
+      }`}
+    >
+      Today
+    </button>
+  );
 
   useEffect(() => {
     if (currentGuest) {
@@ -111,10 +126,11 @@ const CalendarNavigator = ({
                 ))}
               </select>
             </div>
-            <div className="basis-1/2 flex justify-center w-full space-x-2">
+            <div className="basis-1/2 flex justify-center items-center w-full gap-2">
               <span className="font-bold text-xl text-gray-800">
                 {formattedDate}
               </span>
+              {todayButton}
             </div>
             {/* PROFIT */}
             <div className="basis-1/4 flex justify-end w-full text-xl font-bold">
@@ -127,54 +143,57 @@ const CalendarNavigator = ({
           <div className="flex h-full w-full justify-between items-center">
             {/* Guest */}
             <span className="text-xl text-gray-800">{currentGuest}</span>
-            <div
-              className="font-bold text-xl text-gray-800"
-              onDoubleClick={() => {
-                const timeZone =
-                  Intl.DateTimeFormat().resolvedOptions().timeZone;
+            <div className="flex items-center gap-2">
+              <div
+                className="font-bold text-xl text-gray-800"
+                onDoubleClick={() => {
+                  const timeZone =
+                    Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-                const paidDatesSet = new Set<string>(
-                  paidDates.map(
-                    (paidDate) => paidDate.toISOString().split("T")[0],
-                  ),
-                );
-
-                monthMap.forEach((day, dateKey) => {
-                  const booking = day.bookings.find(
-                    (booking) => booking.guest.name === currentGuest,
+                  const paidDatesSet = new Set<string>(
+                    paidDates.map(
+                      (paidDate) => paidDate.toISOString().split("T")[0],
+                    ),
                   );
 
-                  if (booking) {
-                    const localDate = toZonedTime(dateKey, timeZone);
-                    const localStartDate = toZonedTime(
-                      booking.startDate,
-                      timeZone,
+                  monthMap.forEach((day, dateKey) => {
+                    const booking = day.bookings.find(
+                      (booking) => booking.guest.name === currentGuest,
                     );
-                    if (
-                      isSameDay(localDate, localStartDate) &&
-                      isSameMonth(localStartDate, currentMonth)
-                    ) {
-                      for (let i = 0; i < booking.duration; i += 1) {
-                        paidDatesSet.add(
-                          toZonedTime(addDays(localStartDate, i), timeZone)
-                            .toISOString()
-                            .split("T")[0],
-                        );
+
+                    if (booking) {
+                      const localDate = toZonedTime(dateKey, timeZone);
+                      const localStartDate = toZonedTime(
+                        booking.startDate,
+                        timeZone,
+                      );
+                      if (
+                        isSameDay(localDate, localStartDate) &&
+                        isSameMonth(localStartDate, currentMonth)
+                      ) {
+                        for (let i = 0; i < booking.duration; i += 1) {
+                          paidDatesSet.add(
+                            toZonedTime(addDays(localStartDate, i), timeZone)
+                              .toISOString()
+                              .split("T")[0],
+                          );
+                        }
                       }
                     }
-                  }
-                });
+                  });
 
-                const updatedPaidDates = Array.from(paidDatesSet, (date) =>
-                  toZonedTime(date, timeZone),
-                ).sort((a, b) => {
-                  return compareAsc(a, b);
-                });
+                  const updatedPaidDates = Array.from(paidDatesSet, (date) =>
+                    toZonedTime(date, timeZone),
+                  ).sort((a, b) => {
+                    return compareAsc(a, b);
+                  });
 
-                setPaidDates(updatedPaidDates);
-              }}
-            >
-              {formattedDate}
+                  setPaidDates(updatedPaidDates);
+                }}
+              >
+                {formattedDate}
+              </div>
+              {todayButton}
             </div>
             {/* PROFIT */}
             <div className="text-xl font-bold">${guestBill?.toFixed(2)}</div>
@@ -186,9 +205,10 @@ const CalendarNavigator = ({
             <span className="text-xl text-gray-800">
               {currentAirBnBGuest} (A)
             </span>
-            <span className="font-bold text-xl text-gray-800 mx-auto">
-              {formattedDate}
-            </span>
+            <div className="flex items-center gap-2 mx-auto">
+              <span className="font-bold text-xl text-gray-800">{formattedDate}</span>
+              {todayButton}
+            </div>
             {/* PROFIT */}
             <div className="text-xl font-bold">${airBnBGuestBill?.toFixed(2)}</div>
           </div>
