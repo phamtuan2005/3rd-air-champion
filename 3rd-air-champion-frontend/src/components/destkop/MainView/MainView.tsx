@@ -24,7 +24,6 @@ import {
 import { toZonedTime } from "date-fns-tz";
 import { roomType } from "../../../util/types/roomType";
 import { createRoom, deleteRoom, fetchRooms } from "../../../util/roomOperations";
-import RoomLinkModal from "./CalendarView/RoomLinkModal";
 import { guestType } from "../../../util/types/guestType";
 import {
   createGuest,
@@ -77,8 +76,6 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
   const pendingLoadingClearRef = useRef(false);
 
   const context = useContext(isSyncModalOpenContext) as {
-    isSyncModalOpen: boolean;
-    setIsSyncModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
     shouldCallOnSync: boolean;
     setShouldCallOnSync: React.Dispatch<React.SetStateAction<boolean>>;
   };
@@ -98,7 +95,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
     setIsManageGuestOpen: React.Dispatch<React.SetStateAction<boolean>>;
   };
 
-  const { isSyncModalOpen, shouldCallOnSync, setShouldCallOnSync } = context;
+  const { shouldCallOnSync, setShouldCallOnSync } = context;
   const {
     showAddPane,
     setShowAddPane,
@@ -1117,14 +1114,6 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
               setPaidDates={setPaidDates}
               setSelectedRoomName={setSelectedRoomName}
             />
-            {isSyncModalOpen && (
-              <RoomLinkModal
-                hostId={hostId}
-                airbnbsync={airbnbsync}
-                token={token as string}
-                rooms={rooms}
-              />
-            )}
             <CustomCalendar
               currentGuest={currentGuest}
               currentAirBnBGuest={currentAirBnBGuest}
@@ -1378,6 +1367,9 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
           onSave={onSaveRoom}
           onAdd={onAddRoomFromModal}
           onDelete={onDeleteRoom}
+          airbnbsync={airbnbsync}
+          hostId={hostId}
+          token={token as string}
         />
       )}
       {isManageGuestOpen && guests.length > 0 && (

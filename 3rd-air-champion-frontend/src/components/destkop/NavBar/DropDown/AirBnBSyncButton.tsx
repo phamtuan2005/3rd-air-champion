@@ -24,7 +24,7 @@ const AirBnBSyncButton = () => {
         setShouldCallOnSync(true);
       }}
     >
-      Sync
+      Sync Calendar
     </button>
   );
 };

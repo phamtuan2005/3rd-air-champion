@@ -23,6 +23,10 @@ interface AddPaneContextType {
 interface FooterContextType {
   isFooterVisible: boolean;
   setIsFooterVisible: React.Dispatch<React.SetStateAction<boolean>>;
+  phone: string;
+  contactEmail: string;
+  licenseNumber: string;
+  airbnbAddress: string;
 }
 
 export const isSyncModalOpenContext = createContext<SyncModalContextType | null>(null);

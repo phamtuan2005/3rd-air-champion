@@ -7,6 +7,9 @@ interface MyAirBnBInfo {
   airbnbName: string;
   airbnbAddress: string;
   houseRules: string;
+  phone: string;
+  contactEmail: string;
+  licenseNumber: string;
 }
 
 interface MyAirBnBModalProps {
@@ -78,6 +81,9 @@ const MyAirBnBModal = ({ current, onClose, onSaved }: MyAirBnBModalProps) => {
         </div>
 
         {field("AirBnB Name", "airbnbName")}
+        {field("Phone", "phone")}
+        {field("Contact Email", "contactEmail")}
+        {field("STR License Number", "licenseNumber")}
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium">AirBnB Address</label>
           <input

@@ -35,6 +35,9 @@ function App() {
     airbnbName: "",
     airbnbAddress: "",
     houseRules: "",
+    phone: "",
+    contactEmail: "",
+    licenseNumber: "",
   });
 
   const navigate = useNavigate();
@@ -57,6 +60,9 @@ function App() {
           airbnbName: result.airbnbName ?? "",
           airbnbAddress: result.airbnbAddress ?? "",
           houseRules: result.houseRules ?? "",
+          phone: result.phone ?? "",
+          contactEmail: result.contactEmail ?? "",
+          licenseNumber: result.licenseNumber ?? "",
         });
         setIsLoading(false); // Data fetched, stop loading
       })
@@ -94,7 +100,7 @@ function App() {
   // Render the host data once it's fetched
   return (
     host && (
-      <FooterContext.Provider value={{ isFooterVisible, setIsFooterVisible }}>
+      <FooterContext.Provider value={{ isFooterVisible, setIsFooterVisible, phone: airBnBInfo.phone, contactEmail: airBnBInfo.contactEmail, licenseNumber: airBnBInfo.licenseNumber, airbnbAddress: airBnBInfo.airbnbAddress }}>
       <isSyncModalOpenContext.Provider
         value={{
           isSyncModalOpen,

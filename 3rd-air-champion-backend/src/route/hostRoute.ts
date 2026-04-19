@@ -23,6 +23,9 @@ router.post("/get/one", async (req: Request, res: any) => {
                     airbnbName
                     airbnbAddress
                     houseRules
+                    phone
+                    contactEmail
+                    licenseNumber
                 }
             }
     `;
@@ -126,19 +129,22 @@ router.put("/update/doorcode", async (req: Request, res: any) => {
 
 
 router.put('/update/airbnbinfo', async (req: Request, res: any) => {
-  const { id, doorCode, airbnbName, airbnbAddress, houseRules } = req.body;
+  const { id, doorCode, airbnbName, airbnbAddress, houseRules, phone, contactEmail, licenseNumber } = req.body;
 
   const query = `
-    mutation UpdateHost($id: String!, $doorCode: String, $airbnbName: String, $airbnbAddress: String, $houseRules: String) {
-      updateHost(_id: $id, doorCode: $doorCode, airbnbName: $airbnbName, airbnbAddress: $airbnbAddress, houseRules: $houseRules) {
+    mutation UpdateHost($id: String!, $doorCode: String, $airbnbName: String, $airbnbAddress: String, $houseRules: String, $phone: String, $contactEmail: String, $licenseNumber: String) {
+      updateHost(_id: $id, doorCode: $doorCode, airbnbName: $airbnbName, airbnbAddress: $airbnbAddress, houseRules: $houseRules, phone: $phone, contactEmail: $contactEmail, licenseNumber: $licenseNumber) {
         doorCode
         airbnbName
         airbnbAddress
         houseRules
+        phone
+        contactEmail
+        licenseNumber
       }
     }`;
 
-  sendGraphQLRequest(query, { id, doorCode, airbnbName, airbnbAddress, houseRules })
+  sendGraphQLRequest(query, { id, doorCode, airbnbName, airbnbAddress, houseRules, phone, contactEmail, licenseNumber })
     .then((result: any) => {
       if (result.errors) {
         return res.status(400).json({ errors: result.errors[0].message });
