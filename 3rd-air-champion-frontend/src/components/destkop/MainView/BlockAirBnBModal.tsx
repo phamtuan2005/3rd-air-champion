@@ -17,6 +17,10 @@ interface BlockAirBnBModalProps {
   onDaysUpdate: (updatedDays: dayType[]) => void;
 }
 
+type ChecklistItem =
+  | { kind: "booking"; key: string; label: string; bookingId: string }
+  | { kind: "block"; key: string; label: string };
+
 function toRangeKey(booking: bookingType): string {
   return `${booking.room.id}|${booking.startDate}|${booking.endDate}`;
 }
@@ -48,75 +52,114 @@ function formatDateRange(startDate: string, endDate: string, timeZone: string): 
     : `${startStr}–${endStr}`;
 }
 
+function getBlockedRoomRanges(
+  monthMap: Map<string, dayType>,
+  timeZone: string,
+  today: Date,
+): Map<string, { startDate: string; endDate: string }[]> {
+  const roomDateMap = new Map<string, string[]>();
+  for (const [dateStr, day] of monthMap.entries()) {
+    const localDate = toZonedTime(dateStr, timeZone);
+    if (isBefore(localDate, today) && localDate.toDateString() !== today.toDateString()) continue;
+    for (const room of day.blockedRooms) {
+      if (!roomDateMap.has(room.id)) roomDateMap.set(room.id, []);
+      roomDateMap.get(room.id)!.push(dateStr);
+    }
+  }
+
+  const result = new Map<string, { startDate: string; endDate: string }[]>();
+  for (const [roomId, dates] of roomDateMap.entries()) {
+    const sorted = [...dates].sort();
+    const ranges: { startDate: string; endDate: string }[] = [];
+    let i = 0;
+    while (i < sorted.length) {
+      let j = i;
+      while (
+        j + 1 < sorted.length &&
+        format(addDays(toZonedTime(sorted[j], timeZone), 1), "yyyy-MM-dd") === sorted[j + 1]
+      ) j++;
+      ranges.push({ startDate: sorted[i], endDate: sorted[j] });
+      i = j + 1;
+    }
+    result.set(roomId, ranges);
+  }
+  return result;
+}
+
 const BlockAirBnBModal = ({ monthMap, rooms, blockedAirBnBDates, token, onDaysUpdate }: BlockAirBnBModalProps) => {
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const today = startOfToday();
 
-  // Selected dropdown value per room: roomId -> rangeKey
   const [selected, setSelected] = useState<Record<string, string>>({});
-  // Optimistic: keys the user has marked done locally (instant UI feedback)
   const [localDone, setLocalDone] = useState<Set<string>>(new Set());
 
-  const setBlocked = (bookingId: string, rangeKey: string) => {
-    // Immediately hide the item
+  const markBookingBlocked = (bookingId: string, rangeKey: string) => {
     setLocalDone((prev) => new Set(prev).add(rangeKey));
     markAirBnBBlocked({ id: bookingId, blocked: true }, token)
-      .then((updatedDays: dayType[]) => {
-        // Patch days state in place — no full reload, modal stays mounted
-        onDaysUpdate(updatedDays);
-      })
+      .then((updatedDays: dayType[]) => onDaysUpdate(updatedDays))
       .catch((err) => {
-        // Revert on error so the item reappears
-        setLocalDone((prev) => {
-          const next = new Set(prev);
-          next.delete(rangeKey);
-          return next;
-        });
+        setLocalDone((prev) => { const next = new Set(prev); next.delete(rangeKey); return next; });
         console.error("Failed to mark as blocked on AirBnB:", err);
       });
   };
 
-  // Collect unique non-AirBnB bookings — dedup by ID then by (room, start, end)
+  const markLocalDone = (key: string) => setLocalDone((prev) => new Set(prev).add(key));
+
+  // --- Bookings ---
   const uniqueById = new Map<string, bookingType>();
   for (const day of monthMap.values()) {
     for (const booking of day.bookings) {
-      if (booking.guest.name !== "AirBnB" && !uniqueById.has(booking.id)) {
+      if (booking.guest.name !== "AirBnB" && !uniqueById.has(booking.id))
         uniqueById.set(booking.id, booking);
-      }
     }
   }
   const seenRanges = new Map<string, bookingType>();
   for (const booking of uniqueById.values()) {
     const key = toRangeKey(booking);
-    if (!seenRanges.has(key)) {
-      seenRanges.set(key, booking);
-    }
+    if (!seenRanges.has(key)) seenRanges.set(key, booking);
   }
-  const uniqueBookings: bookingType[] = [...seenRanges.values()];
-
-  // Upcoming + not auto-blocked by AirBnB sync + not already marked blocked on backend
-  const actionable = uniqueBookings
+  const actionableBookings = [...seenRanges.values()]
     .filter((b) => {
       const end = toZonedTime(b.endDate, timeZone);
       return isAfter(end, today) || end.toDateString() === today.toDateString();
     })
-    .filter((b) =>
-      blockedAirBnBDates
-        ? !isAlreadyBlockedOnAirBnB(b, blockedAirBnBDates, timeZone)
-        : true,
-    )
+    .filter((b) => blockedAirBnBDates ? !isAlreadyBlockedOnAirBnB(b, blockedAirBnBDates, timeZone) : true)
     .filter((b) => !b.airbnbBlocked && !localDone.has(toRangeKey(b)))
     .sort((a, b) => parseISO(a.startDate).getTime() - parseISO(b.startDate).getTime());
 
-  // Group by active room
+  // --- Blocked room ranges ---
+  const blockedRangesByRoom = getBlockedRoomRanges(monthMap, timeZone, today);
+
+  // --- Build per-room checklist items ---
   const roomStats = rooms
     .filter((r) => r.active)
-    .map((room) => ({
-      room,
-      bookings: actionable.filter((b) => b.room.id === room.id),
-    }))
-    .filter((s) => s.bookings.length > 0);
+    .map((room) => {
+      const bookingItems: ChecklistItem[] = actionableBookings
+        .filter((b) => b.room.id === room.id)
+        .map((b) => ({
+          kind: "booking" as const,
+          key: toRangeKey(b),
+          label: formatDateRange(b.startDate, b.endDate, timeZone),
+          bookingId: b.id,
+        }));
 
+      const blockItems: ChecklistItem[] = (blockedRangesByRoom.get(room.id) ?? [])
+        .filter(({ startDate, endDate }) => {
+          const key = `block|${room.id}|${startDate}|${endDate}`;
+          return !localDone.has(key);
+        })
+        .map(({ startDate, endDate }) => ({
+          kind: "block" as const,
+          key: `block|${room.id}|${startDate}|${endDate}`,
+          label: `${formatDateRange(startDate, endDate, timeZone)} 🔒`,
+        }));
+
+      const items: ChecklistItem[] = [...bookingItems, ...blockItems];
+      return { room, items };
+    })
+    .filter((s) => s.items.length > 0);
+
+  const totalPending = roomStats.reduce((sum, s) => sum + s.items.length, 0);
   const maxNameLen = Math.max(...roomStats.map((s) => s.room.name.length), 0);
   const roomBoxWidth = `${maxNameLen * 6.5 + 16}px`;
 
@@ -124,16 +167,16 @@ const BlockAirBnBModal = ({ monthMap, rooms, blockedAirBnBDates, token, onDaysUp
     <div className="p-3 flex flex-col gap-3 h-full overflow-y-auto">
       <h2 className="text-sm font-bold text-gray-700">
         Block AirBnB
-        {roomStats.length > 0 && (
+        {totalPending > 0 && (
           <span className="ml-2 text-[10px] font-normal text-rose-500">
-            {actionable.length} pending
+            {totalPending} pending
           </span>
         )}
       </h2>
 
       {roomStats.length === 0 ? (
         <p className="text-xs text-emerald-600 font-medium mt-2">
-          All non-AirBnB bookings are already blocked on AirBnB.
+          All bookings and blocked rooms are already reflected on AirBnB.
         </p>
       ) : (
         <table className="w-full text-xs border-collapse">
@@ -144,10 +187,9 @@ const BlockAirBnBModal = ({ monthMap, rooms, blockedAirBnBDates, token, onDaysUp
             </tr>
           </thead>
           <tbody>
-            {roomStats.map(({ room, bookings }) => {
-              const currentKey = selected[room.id] ?? toRangeKey(bookings[0]);
-              const currentBooking =
-                bookings.find((b) => toRangeKey(b) === currentKey) ?? bookings[0];
+            {roomStats.map(({ room, items }) => {
+              const currentKey = selected[room.id] ?? items[0].key;
+              const currentItem = items.find((i) => i.key === currentKey) ?? items[0];
               const isLoading = localDone.has(currentKey);
 
               return (
@@ -168,14 +210,11 @@ const BlockAirBnBModal = ({ monthMap, rooms, blockedAirBnBDates, token, onDaysUp
                         setSelected((prev) => ({ ...prev, [room.id]: e.target.value }))
                       }
                     >
-                      {bookings.map((b) => {
-                        const key = toRangeKey(b);
-                        return (
-                          <option key={key} value={key}>
-                            {formatDateRange(b.startDate, b.endDate, timeZone)}
-                          </option>
-                        );
-                      })}
+                      {items.map((item) => (
+                        <option key={item.key} value={item.key}>
+                          {item.label}
+                        </option>
+                      ))}
                     </select>
                   </td>
                   <td className="py-2 align-middle">
@@ -183,7 +222,13 @@ const BlockAirBnBModal = ({ monthMap, rooms, blockedAirBnBDates, token, onDaysUp
                       type="button"
                       disabled={isLoading}
                       className="text-[10px] px-1.5 py-0.5 rounded text-white bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50"
-                      onClick={() => setBlocked(currentBooking.id, currentKey)}
+                      onClick={() => {
+                        if (currentItem.kind === "booking") {
+                          markBookingBlocked(currentItem.bookingId, currentKey);
+                        } else {
+                          markLocalDone(currentKey);
+                        }
+                      }}
                     >
                       {isLoading ? "…" : "Done"}
                     </button>
