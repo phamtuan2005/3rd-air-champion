@@ -5,6 +5,7 @@ import {
   addDays,
   endOfMonth,
   getDay,
+  isBefore,
   isSameDay,
   isSameMonth,
   isWithinInterval,
@@ -283,6 +284,13 @@ const CustomCalendar = ({
       className.push("react-calendar__custom_tile_no_booking");
     }
 
+    // Highlight future empty dates as booking opportunities
+    const isFutureOrToday = !isBefore(date, startOfToday());
+    const isBlocked = day && day.isBlocked;
+    if (isFutureOrToday && !isBlocked && (!day || day.bookings.length === 0)) {
+      className.push("react-calendar__custom_tile_opportunity");
+    }
+
     if (day && day.bookings.length > 0) {
       className.push("react-calendar__custom_tile_booking");
     }
@@ -392,8 +400,12 @@ const CustomCalendar = ({
               const { am: amBooking, pm: pmBooking } = gridContent[room.name];
 
               if (!amBooking && !pmBooking) {
+                const isFutureOrToday = !isBefore(date, startOfToday());
                 return (
-                  <div key={room.name} className="row-span-1 min-h-[16px]" />
+                  <div
+                    key={room.name}
+                    className={`row-span-1 min-h-[16px]${isFutureOrToday ? " react-calendar__opportunity_row" : ""}`}
+                  />
                 );
               }
 
@@ -488,7 +500,7 @@ const CustomCalendar = ({
                   )}
                   {/* PM slot — checkin side: right 2/3 + 1px bleed right so the
                       bar bridges any sub-pixel gap with the next tile's AM bar */}
-                  {pmBooking && (
+                  {pmBooking ? (
                     <div
                       className={`${pmColor} ${pmIsStart ? "rounded-l-lg" : ""} ${pmTextColor} flex items-center`}
                       style={{
@@ -502,6 +514,17 @@ const CustomCalendar = ({
                     >
                       {pmNameContent}
                     </div>
+                  ) : !isBefore(date, startOfToday()) && (
+                    <div
+                      className="react-calendar__opportunity_pm"
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        bottom: 0,
+                        left: "20%",
+                        right: "-1px",
+                      }}
+                    />
                   )}
                 </div>
               );
