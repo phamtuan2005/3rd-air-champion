@@ -13,9 +13,32 @@ import { dayType } from "../../../util/types/dayType";
 import { format, addDays } from "date-fns";
 import { ANY_ROOM_SENTINEL } from "../../../util/zodBookDays";
 
+function getUnavailableRoomIds(
+  monthMap: Map<string, dayType>,
+  allRooms: roomType[],
+  date: Date | null,
+  duration: number
+): Set<string> {
+  const unavailable = new Set<string>();
+  if (!date) return unavailable;
+  for (let i = 0; i < duration; i++) {
+    const key = format(addDays(date, i), "yyyy-MM-dd");
+    const day = monthMap.get(key);
+    if (!day) continue;
+    if (day.isBlocked) {
+      allRooms.forEach((r) => unavailable.add(r.id));
+      return unavailable;
+    }
+    day.bookings.forEach((b) => unavailable.add(b.room.id));
+    day.blockedRooms.forEach((r) => unavailable.add(r.id));
+  }
+  return unavailable;
+}
+
 interface BookingModalProps {
   calendarId: string;
   guests: guestType[];
+  monthMap: Map<string, dayType>;
   rooms: roomType[];
   selectedDate: Date;
   selectedRoom: roomType | undefined;
@@ -59,6 +82,7 @@ const humanizeError = (raw: string): string => {
 const BookingModal = ({
   calendarId,
   guests,
+  monthMap,
   rooms,
   selectedDate,
   selectedRoom,
@@ -306,6 +330,7 @@ const BookingModal = ({
                   typeof wb?.duration === "number" && wb.duration >= 1
                     ? wb.duration
                     : null;
+                const unavailableIds = getUnavailableRoomIds(monthMap, rooms, wbDate, wbDur ?? 1);
 
                 return (
                   <div
@@ -323,6 +348,7 @@ const BookingModal = ({
                         render={({ field: f }) => (
                           <RoomMultiSelect
                             rooms={rooms}
+                            unavailableRoomIds={unavailableIds}
                             value={f.value}
                             onChange={f.onChange}
                           />

@@ -328,13 +328,28 @@ const CustomCalendar = ({
         ? { ...day, bookings: day.bookings.filter((b) => b.room?.name === selectedRoomName) }
         : day;
 
-      if (!filteredDay && checkoutBookings.length === 0) return null;
+      // Blocked rooms on this day (per-room blocks via blockedRooms array)
+      const blockedRoomIds = new Set(
+        (day?.blockedRooms ?? []).map((r) => r.id)
+      );
 
-      if (filteredDay || checkoutBookings.length > 0) {
+      if (!filteredDay && checkoutBookings.length === 0 && blockedRoomIds.size === 0) return null;
+
+      if (filteredDay || checkoutBookings.length > 0 || blockedRoomIds.size > 0) {
         // Spread to avoid mutating state; extra rooms are added lazily via ensureGridRow
         const sortedUsedRooms = [...usedRooms]
           .filter((r) => !selectedRoomName || r.name === selectedRoomName)
           .sort((a, b) => a.name.localeCompare(b.name));
+
+        // Ensure blocked rooms appear in the grid even if they have no bookings
+        for (const blockedRoom of (day?.blockedRooms ?? [])) {
+          if (!selectedRoomName || blockedRoom.name === selectedRoomName) {
+            if (!sortedUsedRooms.find((r) => r.id === blockedRoom.id)) {
+              sortedUsedRooms.push(blockedRoom);
+            }
+          }
+        }
+        sortedUsedRooms.sort((a, b) => a.name.localeCompare(b.name));
 
         // Each room tracks two slots:
         //   am = guest checking OUT (still occupying in the morning until ~11am)
@@ -401,6 +416,20 @@ const CustomCalendar = ({
 
               if (!amBooking && !pmBooking) {
                 const isFutureOrToday = !isBefore(date, startOfToday());
+                const isRoomBlocked = blockedRoomIds.has(room.id);
+                if (isRoomBlocked) {
+                  return (
+                    <div
+                      key={room.name}
+                      className="row-span-1 min-h-[16px] relative"
+                    >
+                      <div
+                        className="react-calendar__room_blocked_bar absolute inset-0"
+                        style={{ left: "-1px", right: "-1px" }}
+                      />
+                    </div>
+                  );
+                }
                 return (
                   <div
                     key={room.name}

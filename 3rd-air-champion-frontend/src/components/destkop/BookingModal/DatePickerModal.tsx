@@ -219,7 +219,7 @@ const DatePickerModal = ({
         className="border border-gray-300 rounded px-2 py-1 w-full text-left text-sm flex justify-between items-center gap-1"
         onClick={handleOpen}
       >
-        <span>{value ? format(value, "MM/dd/yyyy") : "Select date…"}</span>
+        <span>{value ? format(value, "MMM d, yyyy") : "Select date…"}</span>
         <span className="text-gray-400 text-xs flex-shrink-0">📅</span>
       </button>
 

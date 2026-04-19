@@ -44,6 +44,7 @@ import UnbookingConfirmation from "./GuestView/UnbookingConfirmation";
 import ToDoList from "./ToDoList";
 import AvailabilitiesModal from "./AvailabilitiesModal";
 import BlockAirBnBModal from "./BlockAirBnBModal";
+import BlockRoomsModal from "./BlockRoomsModal";
 import ModifyBookingModal from "../ModifyBookingModal";
 import GuestAddPane from "../BookingModal/GuestAddPane";
 import EditRoomModal from "../NavBar/DropDown/EditRoomModal";
@@ -66,9 +67,11 @@ interface MainViewProps {
   setIsAvailabilitiesModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isBlockAirBnBModalOpen: boolean;
   setIsBlockAirBnBModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isBlockRoomsModalOpen: boolean;
+  setIsBlockRoomsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnbAddress, isTodoModalOpen, setIsTodoModalOpen, isModalOpen, setIsModalOpen, isAvailabilitiesModalOpen, setIsAvailabilitiesModalOpen, isBlockAirBnBModalOpen, setIsBlockAirBnBModalOpen }: MainViewProps) => {
+const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnbAddress, isTodoModalOpen, setIsTodoModalOpen, isModalOpen, setIsModalOpen, isAvailabilitiesModalOpen, setIsAvailabilitiesModalOpen, isBlockAirBnBModalOpen, setIsBlockAirBnBModalOpen, isBlockRoomsModalOpen, setIsBlockRoomsModalOpen }: MainViewProps) => {
   const token = localStorage.getItem("token");
   const airbnbsyncRef = useRef(airbnbsync);
   // Set by the isCalendarLoading effect after fetching; cleared by useEffect([days])
@@ -939,11 +942,11 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
               );
 
               const weekday = format(startDate, "EEE"); // Mon, Tue, etc.
-              const dateFormatted = format(startDate, "M/d"); // month/day format
+              const dateFormatted = format(startDate, "MMM d");
               const duration = booking.duration;
               const endDate = addDays(startDate, duration);
               const endWeekday = format(endDate, "EEE");
-              const endDateFormatted = format(endDate, "M/d");
+              const endDateFormatted = format(endDate, "MMM d");
 
               // Get the room name and price
               const roomName = booking.room.name;
@@ -1176,6 +1179,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
           <BookingModal
             calendarId={calendarId}
             guests={guests}
+            monthMap={monthMap}
             rooms={rooms}
             selectedDate={selectedDate}
             selectedRoom={selectedRoom}
@@ -1188,7 +1192,9 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
       </div>
 
       <div className="hidden bg-white border-l sm:block">
-        {isBlockAirBnBModalOpen ? (
+        {isBlockRoomsModalOpen ? (
+          <BlockRoomsModal calendarId={calendarId} monthMap={monthMap} rooms={rooms} token={token as string} onDaysUpdate={(updated) => setDays((prev) => { const ids = new Set(updated.map((d) => d.id)); return [...prev.filter((d) => !ids.has(d.id)), ...updated]; })} />
+        ) : isBlockAirBnBModalOpen ? (
           <BlockAirBnBModal monthMap={monthMap} rooms={rooms} blockedAirBnBDates={blockedAirBnBDates as Record<string, { start: string; duration: number }[]> | undefined} token={token as string} onDaysUpdate={(updated) => setDays((prev) => { const ids = new Set(updated.map((d) => d.id)); return [...prev.filter((d) => !ids.has(d.id)), ...updated]; })} />
         ) : isAvailabilitiesModalOpen ? (
           <AvailabilitiesModal monthMap={monthMap} rooms={rooms} currentMonth={currentMonth} airbnbName={airbnbName} />
@@ -1342,6 +1348,23 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
         </div>
 
         <BlockAirBnBModal monthMap={monthMap} rooms={rooms} blockedAirBnBDates={blockedAirBnBDates as Record<string, { start: string; duration: number }[]> | undefined} token={token as string} onDaysUpdate={(updated) => setDays((prev) => { const ids = new Set(updated.map((d) => d.id)); return [...prev.filter((d) => !ids.has(d.id)), ...updated]; })} />
+      </div>
+
+      <div
+        className={`fixed bottom-0 left-0 w-full h-auto bg-white p-1 border-t border-gray-300 z-50 overflow-y-scroll sm:hidden transition-transform duration-300 ${
+          isBlockRoomsModalOpen ? "translate-y-0" : "translate-y-full"
+        }`}
+      >
+        <div className="flex justify-center">
+          <button
+            className="text-gray-500 font-bold text-[1.5rem] leading-none px-6 py-0.5 rounded hover:bg-gray-100"
+            onClick={() => setIsBlockRoomsModalOpen(false)}
+          >
+            &times;
+          </button>
+        </div>
+
+        <BlockRoomsModal calendarId={calendarId} monthMap={monthMap} rooms={rooms} token={token as string} onDaysUpdate={(updated) => setDays((prev) => { const ids = new Set(updated.map((d) => d.id)); return [...prev.filter((d) => !ids.has(d.id)), ...updated]; })} />
       </div>
 
       {selectedBooking && (

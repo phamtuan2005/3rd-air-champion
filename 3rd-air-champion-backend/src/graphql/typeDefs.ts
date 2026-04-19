@@ -254,6 +254,13 @@ const dayDefs = gql`
       duration: Int!
     ): [Day]
 
+    unblockRoom(
+      calendar: String!
+      room: String!
+      date: String!
+      duration: Int!
+    ): [Day]
+
     unblockDay(calendar: String!, date: String!): Day
     unblockManyDays(calendar: String!, dates: [String!]!): [Day]
     unblockRange(calendar: String!, startDate: String!, endDate: String!): [Day]

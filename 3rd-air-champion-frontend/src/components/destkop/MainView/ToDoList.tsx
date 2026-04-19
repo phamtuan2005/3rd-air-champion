@@ -43,7 +43,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress }: ToDoListPro
   }, [completedTasks]);
 
   const toggleTaskCompletion = (taskId: string) => {
-    const currentDate = format(startOfToday(), "MM/dd/yyyy");
+    const currentDate = format(startOfToday(), "MMM d, yyyy");
     setCompletedTasks((prev) => ({
       ...prev,
       [taskId]: {
@@ -72,7 +72,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress }: ToDoListPro
   return hasAnything ? (
     <div className="flex flex-col h-full px-2 overflow-y-scroll">
       <h1 className="font-bold self-center text-lg">
-        To Do for Today ({format(startOfToday(), "MM/dd/yyyy")})
+        To Do for Today ({format(startOfToday(), "MMM d, yyyy")})
       </h1>
 
       {upcomingDays.flatMap((day, dayIndex) =>

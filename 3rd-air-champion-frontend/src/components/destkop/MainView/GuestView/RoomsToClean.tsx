@@ -31,7 +31,7 @@ const RoomsToClean = ({ selectedDate, monthMap }: RoomsToCleanProps) => {
   }, [completedTasks]);
 
   const toggleTaskCompletion = (taskId: string) => {
-    const currentDate = format(selectedDate, "MM/dd/yyyy");
+    const currentDate = format(selectedDate, "MMM d, yyyy");
     setCompletedTasks((prev) => ({
       ...prev,
       [taskId]: {
@@ -132,7 +132,7 @@ const RoomsToClean = ({ selectedDate, monthMap }: RoomsToCleanProps) => {
                       nextCheckIn.alias ||
                       nextCheckIn.guest.name}{" "}
                     checking in on{" "}
-                    {format(new Date(nextCheckInDate + "T00:00:00"), "MM/dd")}
+                    {format(new Date(nextCheckInDate + "T00:00:00"), "MMM d")}
                   </p>
                 ) : (
                   <p className="text-sm text-gray-600">
