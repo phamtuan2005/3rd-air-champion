@@ -8,6 +8,7 @@ import { dayType } from "../../../util/types/dayType";
 import { roomType } from "../../../util/types/roomType";
 import { getRoomColor } from "../../../util/getRoomColor";
 import { blockRoom, unblockRoom } from "../../../util/dayOperations";
+import RoomMultiSelect from "../BookingModal/RoomMultiSelect";
 
 interface BlockRoomsModalProps {
   calendarId: string;
@@ -67,7 +68,7 @@ const BlockRoomsModal = ({
   const today = startOfToday();
 
 
-  const [selectedRoom, setSelectedRoom] = useState<string>("");
+  const [selectedRooms, setSelectedRooms] = useState<string[]>([]);
   const [startDate, setStartDate] = useState<Date>(today);
   const [duration, setDuration] = useState<number>(1);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
@@ -77,29 +78,29 @@ const BlockRoomsModal = ({
 
   const activeRooms = rooms.filter((r) => r.active);
   const blockedRanges = getBlockedRanges(monthMap);
-  const selectedRoomObj = activeRooms.find((r) => r.id === selectedRoom);
+  const hasSelection = selectedRooms.length > 0;
 
-  // Build a set of unavailable date strings for the selected room
+  // Unavailable = unavailable for ANY of the selected rooms (union)
   const unavailableDates = useMemo<Set<string>>(() => {
     const s = new Set<string>();
-    if (!selectedRoom) return s;
+    if (!hasSelection) return s;
     for (const [dateStr, day] of monthMap.entries()) {
-      const isRoomBooked = day.bookings.some((b) => b.room.id === selectedRoom);
-      const isRoomBlocked = day.blockedRooms.some((r) => r.id === selectedRoom);
-      if (day.isBlocked || isRoomBooked || isRoomBlocked) {
-        s.add(dateStr);
-      }
+      const anyBooked = selectedRooms.some((id) => day.bookings.some((b) => b.room.id === id));
+      const anyBlocked = selectedRooms.some((id) => day.blockedRooms.some((r) => r.id === id));
+      if (day.isBlocked || anyBooked || anyBlocked) s.add(dateStr);
     }
     return s;
-  }, [selectedRoom, monthMap]);
+  }, [selectedRooms, monthMap]);
 
   const handleBlock = () => {
-    if (!selectedRoom || duration < 1) return;
+    if (!hasSelection || duration < 1) return;
     setIsBlocking(true);
     setErrorMsg("");
-    blockRoom(calendarId, selectedRoom, format(startDate, "yyyy-MM-dd"), duration, token)
-      .then((updatedDays: dayType[]) => {
-        onDaysUpdate(updatedDays);
+    const dateKey = format(startDate, "yyyy-MM-dd");
+    Promise.all(selectedRooms.map((id) => blockRoom(calendarId, id, dateKey, duration, token)))
+      .then((results: dayType[][]) => {
+        const merged = results.flat();
+        onDaysUpdate(merged);
         setDuration(1);
       })
       .catch((err: unknown) => {
@@ -134,10 +135,12 @@ const BlockRoomsModal = ({
     if (view !== "month") return null;
     if (isBefore(date, today)) return "!text-gray-300 !italic";
     const key = format(date, "yyyy-MM-dd");
-    if (!selectedRoom) return "!text-gray-400";
+    if (!hasSelection) return "!text-gray-400";
     if (unavailableDates.has(key)) return "!text-gray-400 !line-through";
     return "!text-green-600 !font-semibold";
   };
+
+  const selectedRoomObjs = activeRooms.filter((r) => selectedRooms.includes(r.id));
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
@@ -155,28 +158,16 @@ const BlockRoomsModal = ({
           <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
             Room
           </label>
-          <div className="flex flex-wrap gap-2">
-            {activeRooms.map((room) => {
-              const isSelected = selectedRoom === room.id;
-              return (
-                <button
-                  key={room.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedRoom(isSelected ? "" : room.id);
-                    setErrorMsg("");
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border-2 ${
-                    isSelected
-                      ? `${getRoomColor(room.name, room.color)} text-white border-transparent shadow-md scale-105`
-                      : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
-                  }`}
-                >
-                  {room.name}
-                </button>
-              );
-            })}
-          </div>
+          <RoomMultiSelect
+            rooms={activeRooms}
+            value={selectedRooms}
+            showAny={false}
+            showAll={true}
+            onChange={(ids) => {
+              setSelectedRooms(ids);
+              setErrorMsg("");
+            }}
+          />
         </div>
 
         {/* Start date picker */}
@@ -187,19 +178,19 @@ const BlockRoomsModal = ({
           <button
             type="button"
             className={`border rounded-lg px-3 py-2 text-sm text-left flex justify-between items-center transition-colors ${
-              selectedRoom
+              hasSelection
                 ? "border-gray-200 hover:border-rose-300 focus:outline-none focus:ring-2 focus:ring-rose-300"
                 : "border-gray-100 text-gray-400 cursor-not-allowed bg-gray-50"
             }`}
-            disabled={!selectedRoom}
-            onClick={() => selectedRoom && setIsCalendarOpen(true)}
+            disabled={!hasSelection}
+            onClick={() => hasSelection && setIsCalendarOpen(true)}
           >
-            <span className={selectedRoom ? "text-gray-800" : "text-gray-400"}>
+            <span className={hasSelection ? "text-gray-800" : "text-gray-400"}>
               {format(startDate, "MMM d, yyyy")}
             </span>
             <span className="text-gray-400 text-base">📅</span>
           </button>
-          {!selectedRoom && (
+          {!hasSelection && (
             <p className="text-[11px] text-gray-400">Select a room first to see availability.</p>
           )}
         </div>
@@ -226,7 +217,7 @@ const BlockRoomsModal = ({
 
         <button
           type="button"
-          disabled={isBlocking || !selectedRoom}
+          disabled={isBlocking || !hasSelection}
           className="w-full py-2 rounded-lg text-sm font-semibold text-white bg-rose-500 hover:bg-rose-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
           onClick={handleBlock}
         >
@@ -266,10 +257,10 @@ const BlockRoomsModal = ({
                     <button
                       type="button"
                       disabled={isUnblocking}
-                      className="text-[11px] font-medium px-2.5 py-1 rounded-md text-gray-600 border border-gray-300 hover:bg-white hover:border-gray-400 disabled:opacity-50 whitespace-nowrap transition-colors"
+                      className="flex justify-center w-[32px] h-[32px] items-center rounded-full shadow-md bg-gray-700 hover:bg-gray-800 text-white text-base disabled:opacity-50 flex-shrink-0"
                       onClick={() => handleUnblock(range)}
                     >
-                      {isUnblocking ? "…" : "Unblock"}
+                      {isUnblocking ? "…" : "🔓"}
                     </button>
                   </div>
                 );
@@ -298,14 +289,17 @@ const BlockRoomsModal = ({
             <div className="flex items-center justify-between mb-1">
               <div>
                 <h3 className="text-sm font-semibold text-gray-800">Select Start Date</h3>
-                {selectedRoomObj && (
-                  <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1.5">
+                {selectedRoomObjs.length > 0 && (
+                  <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1 flex-wrap">
                     Availability for{" "}
-                    <span
-                      className={`${getRoomColor(selectedRoomObj.name, selectedRoomObj.color)} text-white text-[10px] font-semibold px-2 py-0.5 rounded`}
-                    >
-                      {selectedRoomObj.name}
-                    </span>
+                    {selectedRoomObjs.map((r) => (
+                      <span
+                        key={r.id}
+                        className={`${getRoomColor(r.name, r.color)} text-white text-[10px] font-semibold px-2 py-0.5 rounded`}
+                      >
+                        {r.name}
+                      </span>
+                    ))}
                   </p>
                 )}
               </div>

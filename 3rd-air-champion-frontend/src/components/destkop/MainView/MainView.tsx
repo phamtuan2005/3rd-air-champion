@@ -559,6 +559,9 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
         ? rooms.filter((r) => r.name === selectedRoomName)
         : rooms;
 
+      // blocked nights per room (base name) — subtracted from denominator
+      const blockedNightsMap = new Map<string, number>();
+
       filteredRooms.forEach((room) => {
         const baseRoomName = getBaseRoomName(room.name); // Normalize name
         const roomId = room.id;
@@ -568,6 +571,15 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
           occupiedDays.filter((day) =>
             day.bookings.some((booking) => booking.room.id === roomId),
           ),
+        );
+
+        // Count blocked nights for this room
+        const blockedCount = occupiedDays.filter((day) =>
+          day.isBlocked || day.blockedRooms.some((r) => r.id === roomId),
+        ).length;
+        blockedNightsMap.set(
+          baseRoomName,
+          (blockedNightsMap.get(baseRoomName) ?? 0) + blockedCount,
         );
 
         // Add the Set to the Map (using base name as key)
@@ -584,19 +596,20 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
 
       // Initialize total occupancy and room-wise occupancy
       let totalOccupiedDays = 0;
+      let totalAvailableDays = 0;
       let totalAirbnbGuests = 0;
+      let totalAirbnbAvailableDays = 0;
       const roomOccupancy = [];
       const airbnbGuestCountMap = new Map(); // Map for storing counts of Airbnb guests
 
       for (const [roomName, roomSet] of roomSets.entries()) {
-        const occupancyPercentage = (roomSet.size / daysInMonth) * 100;
+        const blockedNights = blockedNightsMap.get(roomName) ?? 0;
+        const availableNights = Math.max(daysInMonth - blockedNights, 1);
+        const occupancyPercentage = (roomSet.size / availableNights) * 100;
         roomOccupancy.push({ name: roomName, occupancy: occupancyPercentage });
 
-        // Exclude "Master" room from total occupancy calculation
-        // if (roomName !== "Master") {
-        //   totalOccupiedDays += roomSet.size;
-        // }
         totalOccupiedDays += roomSet.size;
+        if (roomName !== "Master") totalAvailableDays += availableNights;
 
         // Count "Airbnb" guests for the current room
         let airbnbCount = 0;
@@ -615,17 +628,19 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
         airbnbGuestCountMap.set(roomName, airbnbCount);
 
         // Add to total Airbnb guest count
-        totalAirbnbGuests += airbnbCount;
+        if (roomName !== "Master") {
+          totalAirbnbGuests += airbnbCount;
+          totalAirbnbAvailableDays += availableNights;
+        }
       }
 
       // Calculate total occupancy percentage (excluding "Master")
-      const totalRooms = [...roomSets.keys()].filter(
-        (name) => name !== "Master",
-      ).length;
-      const totalOccupancy =
-        (totalOccupiedDays / (totalRooms * daysInMonth)) * 100;
-      const airbnbOccupancy =
-        (totalAirbnbGuests / (totalRooms * daysInMonth)) * 100;
+      const totalOccupancy = totalAvailableDays > 0
+        ? (totalOccupiedDays / totalAvailableDays) * 100
+        : 0;
+      const airbnbOccupancy = totalAirbnbAvailableDays > 0
+        ? (totalAirbnbGuests / totalAirbnbAvailableDays) * 100
+        : 0;
 
       // Update state
       setOccupancy({
@@ -1179,7 +1194,6 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
           <BookingModal
             calendarId={calendarId}
             guests={guests}
-            monthMap={monthMap}
             rooms={rooms}
             selectedDate={selectedDate}
             selectedRoom={selectedRoom}
@@ -1203,6 +1217,8 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
         ) : (
           <GuestView
             airBnBBookingCount={airBnBBookingCount}
+            calendarId={calendarId}
+            token={token as string}
             currentBookings={currentBookings || []}
             currentAirBnBGuest={currentAirBnBGuest}
             currentGuest={currentGuest}
@@ -1212,6 +1228,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
             handleBookingConfirmation={handleBookingConfirmation}
             handleSendCalEvents={handleSendCalEvents}
             onAirbnbPriceUpdate={onAirbnbPriceUpdate}
+            onDaysUpdate={(updated) => setDays((prev) => { const ids = new Set(updated.map((d) => d.id)); return [...prev.filter((d) => !ids.has(d.id)), ...updated]; })}
             setCurrentGuest={setCurrentGuest}
             setCurrentAirBnBGuest={setCurrentAirBnBGuest}
             setSelectedBooking={
@@ -1260,6 +1277,8 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
 
         <GuestView
             airBnBBookingCount={airBnBBookingCount}
+            calendarId={calendarId}
+            token={token as string}
             currentBookings={currentBookings || []}
             currentAirBnBGuest={currentAirBnBGuest}
             currentGuest={currentGuest}
@@ -1269,6 +1288,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
             handleBookingConfirmation={handleBookingConfirmation}
             handleSendCalEvents={handleSendCalEvents}
             onAirbnbPriceUpdate={onAirbnbPriceUpdate}
+            onDaysUpdate={(updated) => setDays((prev) => { const ids = new Set(updated.map((d) => d.id)); return [...prev.filter((d) => !ids.has(d.id)), ...updated]; })}
             setCurrentAirBnBGuest={setCurrentAirBnBGuest}
             setCurrentGuest={setCurrentGuest}
             setIsMobileModalOpen={setIsMobileModalOpen}

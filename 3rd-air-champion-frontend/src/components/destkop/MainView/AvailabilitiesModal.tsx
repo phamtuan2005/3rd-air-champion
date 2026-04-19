@@ -35,10 +35,9 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName }: Avai
       const unbookedDates: string[] = [];
       for (const dateKey of eligibleDateKeys) {
         const day = monthMap.get(dateKey);
-        const isBooked = day
-          ? day.bookings.some((b) => b.room.id === room.id)
-          : false;
-        if (!isBooked) unbookedDates.push(dateKey);
+        const isBooked = day ? day.bookings.some((b) => b.room.id === room.id) : false;
+        const isBlocked = day ? (day.isBlocked || day.blockedRooms.some((r) => r.id === room.id)) : false;
+        if (!isBooked && !isBlocked) unbookedDates.push(dateKey);
       }
       return {
         room,
