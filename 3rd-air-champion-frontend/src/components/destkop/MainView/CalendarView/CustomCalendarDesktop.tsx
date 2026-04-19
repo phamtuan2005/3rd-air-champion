@@ -112,8 +112,12 @@ const CustomCalendar = ({
   }, [currentMonth]);
 
   useEffect(() => {
+    setIsMobileModalOpen(false);
+    if (!currentGuest && !currentAirBnBGuest) setPaidDates([]);
+  }, [currentGuest, currentAirBnBGuest]);
+
+  useEffect(() => {
     if (currentGuest && !currentAirBnBGuest && useMonthMap.size > 0) {
-      setIsMobileModalOpen(false);
       const filteredMap = new Map<string, dayType>();
 
       monthMap.forEach((dayEntry, date) => {
@@ -150,7 +154,6 @@ const CustomCalendar = ({
 
       setUseMonthMap(filteredMap);
     } else if (currentAirBnBGuest && useMonthMap.size > 0) {
-      setIsMobileModalOpen(false);
       const filteredMap = new Map<string, dayType>();
 
       monthMap.forEach((dayEntry, date) => {
@@ -169,11 +172,9 @@ const CustomCalendar = ({
         setUseMonthMap(filteredMap);
       });
     } else {
-      setIsMobileModalOpen(false);
-      setPaidDates([]);
       setUseMonthMap(monthMap);
     }
-  }, [currentGuest, currentAirBnBGuest]);
+  }, [currentGuest, currentAirBnBGuest, monthMap]);
 
   useEffect(() => {
 
@@ -413,10 +414,10 @@ const CustomCalendar = ({
           <>
             {sortedUsedRooms.map((room) => {
               const { am: amBooking, pm: pmBooking } = gridContent[room.name];
+              const isRoomBlocked = blockedRoomIds.has(room.id);
 
               if (!amBooking && !pmBooking) {
                 const isFutureOrToday = !isBefore(date, startOfToday());
-                const isRoomBlocked = blockedRoomIds.has(room.id);
                 if (isRoomBlocked) {
                   return (
                     <div
@@ -543,6 +544,17 @@ const CustomCalendar = ({
                     >
                       {pmNameContent}
                     </div>
+                  ) : isRoomBlocked ? (
+                    <div
+                      className="react-calendar__room_blocked_bar"
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        bottom: 0,
+                        left: "20%",
+                        right: "-1px",
+                      }}
+                    />
                   ) : !isBefore(date, startOfToday()) && (
                     <div
                       className="react-calendar__opportunity_pm"

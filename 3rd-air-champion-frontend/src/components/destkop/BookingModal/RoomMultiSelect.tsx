@@ -6,12 +6,13 @@ import { getRoomColor } from "../../../util/getRoomColor";
 
 interface RoomMultiSelectProps {
   rooms: roomType[];
-  unavailableRoomIds?: Set<string>;
   value: string[];
   onChange: (rooms: string[]) => void;
+  showAny?: boolean;
+  showAll?: boolean;
 }
 
-const RoomMultiSelect = ({ rooms, unavailableRoomIds, value, onChange }: RoomMultiSelectProps) => {
+const RoomMultiSelect = ({ rooms, value, onChange, showAny = true, showAll = false }: RoomMultiSelectProps) => {
   const [open, setOpen] = useState(false);
   const activeRooms = useMemo(() => rooms.filter((r) => r.active), [rooms]);
   const roomBoxWidth = useMemo(() => {
@@ -20,9 +21,19 @@ const RoomMultiSelect = ({ rooms, unavailableRoomIds, value, onChange }: RoomMul
   }, [activeRooms]);
 
   const isAny = value.includes(ANY_ROOM_SENTINEL);
+  const isAll = showAll && activeRooms.length > 0 && activeRooms.every((r) => value.includes(r.id));
+
+  const handleToggleAll = () => {
+    if (isAll) {
+      onChange([]);
+    } else {
+      onChange(activeRooms.map((r) => r.id));
+    }
+  };
 
   const triggerContent = useMemo(() => {
     if (isAny) return <span className="italic text-gray-500">Any available</span>;
+    if (isAll) return <span className="italic text-gray-500">All rooms</span>;
     if (value.length === 0) return <span className="text-gray-400">Select rooms…</span>;
     const selected = value
       .map((id) => activeRooms.find((r) => r.id === id))
@@ -85,36 +96,43 @@ const RoomMultiSelect = ({ rooms, unavailableRoomIds, value, onChange }: RoomMul
 
             {/* Room list — no height cap, shows all rooms */}
             <ul className="flex flex-col py-1">
-              {/* Any available */}
-              <li
-                className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer text-sm"
-                onClick={handleToggleAny}
-              >
-                <input
-                  type="checkbox"
-                  readOnly
-                  checked={isAny}
-                  className="pointer-events-none w-4 h-4"
-                />
-                <span className="italic text-gray-500">Any available</span>
-              </li>
-
-              <li className="border-t border-gray-100 mx-4" />
+              {showAny && (
+                <>
+                  <li
+                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer text-sm"
+                    onClick={handleToggleAny}
+                  >
+                    <input type="checkbox" readOnly checked={isAny} className="pointer-events-none w-4 h-4" />
+                    <span className="italic text-gray-500">Any available</span>
+                  </li>
+                  <li className="border-t border-gray-100 mx-4" />
+                </>
+              )}
+              {showAll && (
+                <>
+                  <li
+                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer text-sm"
+                    onClick={handleToggleAll}
+                  >
+                    <input type="checkbox" readOnly checked={isAll} className="pointer-events-none w-4 h-4" />
+                    <span className="italic text-gray-500">All rooms</span>
+                  </li>
+                  <li className="border-t border-gray-100 mx-4" />
+                </>
+              )}
 
               {activeRooms.map((room) => {
-                const isUnavailable = unavailableRoomIds?.has(room.id) ?? false;
                 const checked = !isAny && value.includes(room.id);
                 return (
                   <li
                     key={room.id}
-                    className={`flex items-center gap-3 px-4 py-2.5 text-sm ${isUnavailable ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50 cursor-pointer"}`}
-                    onClick={() => !isUnavailable && handleToggleRoom(room.id)}
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 cursor-pointer"
+                    onClick={() => handleToggleRoom(room.id)}
                   >
                     <input
                       type="checkbox"
                       readOnly
                       checked={checked}
-                      disabled={isUnavailable}
                       className="pointer-events-none w-4 h-4"
                     />
                     <span
@@ -123,9 +141,6 @@ const RoomMultiSelect = ({ rooms, unavailableRoomIds, value, onChange }: RoomMul
                     >
                       {room.name}
                     </span>
-                    {isUnavailable && (
-                      <span className="text-xs text-gray-400 italic">(blocked)</span>
-                    )}
                   </li>
                 );
               })}
