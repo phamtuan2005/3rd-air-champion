@@ -10,6 +10,9 @@ interface AirBnBInfo {
   airbnbName: string;
   airbnbAddress: string;
   houseRules: string;
+  phone: string;
+  contactEmail: string;
+  licenseNumber: string;
 }
 
 interface ProfileDesktopProps {

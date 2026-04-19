@@ -26,6 +26,9 @@ const hostDefs = gql`
     airbnbName: String
     airbnbAddress: String
     houseRules: String
+    phone: String
+    contactEmail: String
+    licenseNumber: String
     createdAt: String
     updatedAt: String
   }
@@ -47,6 +50,9 @@ const hostDefs = gql`
       airbnbName: String
       airbnbAddress: String
       houseRules: String
+      phone: String
+      contactEmail: String
+      licenseNumber: String
     ): Host!
     deleteCohosts(_id: String!, cohostIds: [String]!): Host!
     deleteGuests(_id: String!, guestIds: [String!]!): Host!
