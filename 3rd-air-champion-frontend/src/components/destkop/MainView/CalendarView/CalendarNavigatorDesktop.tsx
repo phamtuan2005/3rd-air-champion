@@ -4,6 +4,7 @@ import { dayType } from "../../../../util/types/dayType";
 import { roomType } from "../../../../util/types/roomType";
 import { toZonedTime } from "date-fns-tz/toZonedTime";
 import { FooterContext } from "../../../../context";
+import RoomSingleSelect from "./RoomSingleSelect";
 
 interface CalendarNavigatorProps {
   currentMonth: Date;
@@ -107,24 +108,18 @@ const CalendarNavigator = ({
           <div className="flex h-full w-full items-center text-nowrap gap-2">
             {/* Room filter */}
             <div className="basis-1/4 flex items-center">
-              <select
-                className="text-xs border border-gray-300 rounded-md p-1 w-full max-w-[130px] bg-white"
-                value={selectedRoomName ?? ""}
-                onChange={(e) => {
-                  const value = e.target.value || null;
-                  setSelectedRoomName(value);
-                  if (value) {
+              <RoomSingleSelect
+                rooms={rooms}
+                value={selectedRoomName}
+                onChange={(roomName) => {
+                  setSelectedRoomName(roomName);
+                  if (roomName) {
                     setIsFooterVisible(true);
                   } else if (!currentGuest && !currentAirBnBGuest) {
                     setIsFooterVisible(false);
                   }
                 }}
-              >
-                <option value="">+ All rooms +</option>
-                {rooms.filter(r => r.active).map((room) => (
-                  <option key={room.id} value={room.name}>{room.name}</option>
-                ))}
-              </select>
+              />
             </div>
             <div className="basis-1/2 flex justify-center items-center w-full gap-2">
               <span className="font-bold text-xl text-gray-800">

@@ -1,11 +1,13 @@
 import { getRoomColor } from "../../../../util/getRoomColor";
+import RoomPickerDropdown from "./RoomPickerDropdown";
 import { bookingType } from "../../../../util/types/bookingType";
 import { dayType } from "../../../../util/types/dayType";
 import { roomType } from "../../../../util/types/roomType";
 import { FaMinus, FaRegEdit } from "react-icons/fa";
 import { CiCalendar } from "react-icons/ci";
-import React, { useContext } from "react";
+import React, { useContext, useState } from "react";
 import { format, parseISO } from "date-fns";
+import { blockRoom, unblockRoom } from "../../../../util/dayOperations";
 import RebookCount from "./RebookCount";
 import RoomsToClean from "./RoomsToClean";
 import { FooterContext } from "../../../../context";
@@ -16,6 +18,8 @@ interface GuestViewProps {
     Room: string;
     DistinctStartDateCount: number;
   }[];
+  calendarId: string;
+  token: string;
   children: React.ReactNode;
   currentBookings: bookingType[];
   currentAirBnBGuest: string | null;
@@ -26,6 +30,7 @@ interface GuestViewProps {
   handleBookingConfirmation: (phone: string) => void;
   handleSendCalEvents: (phone: string, email?: string) => void;
   onAirbnbPriceUpdate: (bookingId: string, airbnbPrice: number) => void;
+  onDaysUpdate: (updatedDays: dayType[]) => void;
   setCurrentAirBnBGuest: React.Dispatch<React.SetStateAction<string | null>>;
   setCurrentGuest: React.Dispatch<React.SetStateAction<string | null>>;
   setIsMobileModalOpen?: React.Dispatch<React.SetStateAction<boolean>>;
@@ -36,6 +41,8 @@ interface GuestViewProps {
 
 const GuestView = ({
   children,
+  calendarId,
+  token,
   currentBookings,
   currentAirBnBGuest,
   currentGuest,
@@ -45,6 +52,7 @@ const GuestView = ({
   airBnBBookingCount,
   handleBookingConfirmation,
   handleSendCalEvents,
+  onDaysUpdate,
   setIsMobileModalOpen,
   setCurrentAirBnBGuest,
   setCurrentGuest,
@@ -54,6 +62,7 @@ const GuestView = ({
 }: GuestViewProps) => {
   const { setIsFooterVisible } = useContext(FooterContext)!;
   const [selectedAvailableRoom, setSelectedAvailableRoom] = React.useState<string>("");
+  const [blockingRoomId, setBlockingRoomId] = useState<string | null>(null);
 
   const getBookingLabel = (booking: bookingType) => {
     const guestPart = `${booking.numberOfGuests > 1 ? `(${booking.numberOfGuests}) ` : ""}${booking.guest.alias || booking.alias || booking.guest.name} (${booking.room.name})`;
@@ -246,22 +255,15 @@ const GuestView = ({
         const blockedRoomIds = new Set((dayEntry?.blockedRooms ?? []).map((r) => r.id));
 
         const unbookedRooms = rooms.filter((room) =>
-          currentBookings.every((booking) => room.name !== booking.room.name),
+          room.active && currentBookings.every((booking) => room.name !== booking.room.name),
         );
         if (unbookedRooms.length === 0) return null;
 
-        const allInactiveOrBlocked = unbookedRooms.every((r) => !r.active || blockedRoomIds.has(r.id));
-        if (allInactiveOrBlocked) {
-          return (
-            <div className="flex items-center justify-center border-b border-solid w-full py-2">
-              <p className="font-bold text-green-600">Sold Out!</p>
-            </div>
-          );
-        }
+        const allInactiveOrBlocked = unbookedRooms.every((r) => blockedRoomIds.has(r.id));
 
         const activeRoom =
-          unbookedRooms.find((r) => r.id === selectedAvailableRoom && r.active && !blockedRoomIds.has(r.id)) ||
-          unbookedRooms.find((r) => r.active && !blockedRoomIds.has(r.id)) ||
+          unbookedRooms.find((r) => r.id === selectedAvailableRoom) ||
+          unbookedRooms.find((r) => !blockedRoomIds.has(r.id)) ||
           unbookedRooms[0];
 
         const bookChild = React.Children.toArray(children).find(
@@ -271,32 +273,36 @@ const GuestView = ({
         const canBook = activeRoom.active && !blockedRoomIds.has(activeRoom.id);
 
         return (
-          <div className="flex items-center justify-center flex-wrap border-b border-solid w-full py-2 gap-2">
-            {unbookedRooms.map((room) => {
-              const isBlocked = blockedRoomIds.has(room.id);
-              const isInactive = !room.active;
-              const isDisabled = isBlocked || isInactive;
-              const isSelected = room.id === activeRoom.id;
-              return (
-                <button
-                  key={room.id}
-                  type="button"
-                  disabled={isDisabled}
-                  onClick={() => setSelectedAvailableRoom(room.id)}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all border-2 ${
-                    isDisabled
-                      ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                      : isSelected
-                      ? `${getRoomColor(room.name, room.color)} text-white border-transparent shadow-md scale-105`
-                      : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
-                  }`}
-                >
-                  {room.name}
-                  {isBlocked && <span className="ml-1 font-normal opacity-75">(blocked)</span>}
-                  {isInactive && <span className="ml-1 font-normal opacity-75">(inactive)</span>}
-                </button>
-              );
-            })}
+          <div className="flex items-center justify-center border-b border-solid w-full py-2 gap-2">
+            {allInactiveOrBlocked && (
+              <span className="font-bold text-green-600 text-sm">Sold Out!</span>
+            )}
+            <RoomPickerDropdown
+              rooms={unbookedRooms}
+              blockedRoomIds={blockedRoomIds}
+              value={activeRoom.id}
+              onChange={setSelectedAvailableRoom}
+            />
+            <button
+              type="button"
+              disabled={blockingRoomId === activeRoom.id}
+              className="flex justify-center w-[32px] h-[32px] items-center rounded-full shadow-md bg-gray-700 hover:bg-gray-800 text-white text-base disabled:opacity-50"
+              onClick={async () => {
+                const isBlocked = blockedRoomIds.has(activeRoom.id);
+                setBlockingRoomId(activeRoom.id);
+                try {
+                  const dateKey = format(selectedDate, "yyyy-MM-dd");
+                  const updated = isBlocked
+                    ? await unblockRoom(calendarId, activeRoom.id, dateKey, 1, token)
+                    : await blockRoom(calendarId, activeRoom.id, dateKey, 1, token);
+                  onDaysUpdate(updated);
+                } finally {
+                  setBlockingRoomId(null);
+                }
+              }}
+            >
+              {blockingRoomId === activeRoom.id ? "…" : blockedRoomIds.has(activeRoom.id) ? "🔓" : "🔒"}
+            </button>
             {bookChild && canBook &&
               React.cloneElement(bookChild, { room: activeRoom })}
           </div>
