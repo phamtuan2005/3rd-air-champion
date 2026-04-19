@@ -31,6 +31,9 @@ const hostSchema = new mongoose.Schema(
     airbnbName: { type: String, default: "" },
     airbnbAddress: { type: String, default: "" },
     houseRules: { type: String, default: "" },
+    phone: { type: String, default: "" },
+    contactEmail: { type: String, default: "" },
+    licenseNumber: { type: String, default: "" },
   },
   { timestamps: true }
 );

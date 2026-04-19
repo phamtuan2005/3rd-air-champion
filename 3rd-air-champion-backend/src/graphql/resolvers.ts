@@ -625,6 +625,31 @@ const dayResolver = {
         .populate("bookings.room")
         .populate("blockedRooms");
     },
+    unblockRoom: async (_: unknown, { calendar, room, date, duration }: any) => {
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const localDate = toZonedTime(date.split("T")[0], timeZone);
+
+      const dates: Date[] = [];
+      for (let i = 0; i < duration; i++) {
+        dates.push(addDays(localDate, i));
+      }
+
+      const bulkOperation = dates.map((bookingDate) => ({
+        updateOne: {
+          filter: { calendar, date: bookingDate },
+          update: {
+            $pull: { blockedRooms: new mongoose.Types.ObjectId(room) },
+          },
+        },
+      }));
+
+      await Day.bulkWrite(bulkOperation);
+
+      return await Day.find({ calendar, date: { $in: dates } })
+        .populate("bookings.guest")
+        .populate("bookings.room")
+        .populate("blockedRooms");
+    },
     bookDays: async (
       _: unknown,
       { calendar, date, guest, isAirBnB, numberOfGuests, room, duration }: any

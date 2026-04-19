@@ -362,6 +362,132 @@ router.post("/unblock/range", async (req: Request, res: any) => {
     });
 });
 
+router.post("/block/room", async (req: Request, res: any) => {
+  if (!("user" in req))
+    return res.status(401).json({ error: "Invalid or expired token" });
+
+  const { calendar, room, date, duration } = req.body;
+
+  const query = `
+    mutation BlockRoom($calendar: String!, $room: String!, $date: String!, $duration: Int!) {
+      blockRoom(calendar: $calendar, room: $room, date: $date, duration: $duration) {
+        id
+        calendar
+        date
+        isAirBnB
+        isBlocked
+        blockedRooms {
+          id
+          name
+          color
+          host
+          price
+        }
+        bookings {
+          id
+          alias
+          price
+          airbnbPrice
+          notes
+          earlyCheckin
+          lateCheckout
+          airbnbBlocked
+          guest {
+            id
+            name
+            alias
+            email
+            phone
+            numberOfGuests
+            returning
+            notes
+            host
+            pricing { id price room }
+          }
+          room { id host name price roomCode color }
+          duration
+          numberOfGuests
+          startDate
+          endDate
+        }
+      }
+    }`;
+
+  sendGraphQLRequest(query, { calendar, room, date, duration })
+    .then((result: any) => {
+      if (result.errors) {
+        return res.status(400).json({ errors: result.errors[0].message });
+      }
+      res.status(200).json(result.data.blockRoom);
+    })
+    .catch((error: any) => {
+      res.status(500).json({ error: error.message });
+    });
+});
+
+router.post("/unblock/room", async (req: Request, res: any) => {
+  if (!("user" in req))
+    return res.status(401).json({ error: "Invalid or expired token" });
+
+  const { calendar, room, date, duration } = req.body;
+
+  const query = `
+    mutation UnblockRoom($calendar: String!, $room: String!, $date: String!, $duration: Int!) {
+      unblockRoom(calendar: $calendar, room: $room, date: $date, duration: $duration) {
+        id
+        calendar
+        date
+        isAirBnB
+        isBlocked
+        blockedRooms {
+          id
+          name
+          color
+          host
+          price
+        }
+        bookings {
+          id
+          alias
+          price
+          airbnbPrice
+          notes
+          earlyCheckin
+          lateCheckout
+          airbnbBlocked
+          guest {
+            id
+            name
+            alias
+            email
+            phone
+            numberOfGuests
+            returning
+            notes
+            host
+            pricing { id price room }
+          }
+          room { id host name price roomCode color }
+          duration
+          numberOfGuests
+          startDate
+          endDate
+        }
+      }
+    }`;
+
+  sendGraphQLRequest(query, { calendar, room, date, duration })
+    .then((result: any) => {
+      if (result.errors) {
+        return res.status(400).json({ errors: result.errors[0].message });
+      }
+      res.status(200).json(result.data.unblockRoom);
+    })
+    .catch((error: any) => {
+      res.status(500).json({ error: error.message });
+    });
+});
+
 router.get("/available-rooms", async (req: Request, res: any) => {
   if (!("user" in req))
     return res.status(401).json({ error: "Invalid or expired token" });

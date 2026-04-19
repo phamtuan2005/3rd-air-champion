@@ -133,7 +133,7 @@ const CalendarNavigator = ({
               {todayButton}
             </div>
             {/* PROFIT */}
-            <div className="basis-1/4 flex justify-end w-full text-xl font-bold">
+            <div className="basis-1/4 flex justify-end w-full text-2xl font-bold text-emerald-600">
               ${profit.total.toFixed(2)}
             </div>
           </div>

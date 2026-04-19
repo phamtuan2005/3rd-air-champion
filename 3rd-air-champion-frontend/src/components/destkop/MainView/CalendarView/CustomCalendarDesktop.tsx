@@ -5,6 +5,7 @@ import {
   addDays,
   endOfMonth,
   getDay,
+  isBefore,
   isSameDay,
   isSameMonth,
   isWithinInterval,
@@ -283,6 +284,13 @@ const CustomCalendar = ({
       className.push("react-calendar__custom_tile_no_booking");
     }
 
+    // Highlight future empty dates as booking opportunities
+    const isFutureOrToday = !isBefore(date, startOfToday());
+    const isBlocked = day && day.isBlocked;
+    if (isFutureOrToday && !isBlocked && (!day || day.bookings.length === 0)) {
+      className.push("react-calendar__custom_tile_opportunity");
+    }
+
     if (day && day.bookings.length > 0) {
       className.push("react-calendar__custom_tile_booking");
     }
@@ -320,13 +328,28 @@ const CustomCalendar = ({
         ? { ...day, bookings: day.bookings.filter((b) => b.room?.name === selectedRoomName) }
         : day;
 
-      if (!filteredDay && checkoutBookings.length === 0) return null;
+      // Blocked rooms on this day (per-room blocks via blockedRooms array)
+      const blockedRoomIds = new Set(
+        (day?.blockedRooms ?? []).map((r) => r.id)
+      );
 
-      if (filteredDay || checkoutBookings.length > 0) {
+      if (!filteredDay && checkoutBookings.length === 0 && blockedRoomIds.size === 0) return null;
+
+      if (filteredDay || checkoutBookings.length > 0 || blockedRoomIds.size > 0) {
         // Spread to avoid mutating state; extra rooms are added lazily via ensureGridRow
         const sortedUsedRooms = [...usedRooms]
           .filter((r) => !selectedRoomName || r.name === selectedRoomName)
           .sort((a, b) => a.name.localeCompare(b.name));
+
+        // Ensure blocked rooms appear in the grid even if they have no bookings
+        for (const blockedRoom of (day?.blockedRooms ?? [])) {
+          if (!selectedRoomName || blockedRoom.name === selectedRoomName) {
+            if (!sortedUsedRooms.find((r) => r.id === blockedRoom.id)) {
+              sortedUsedRooms.push(blockedRoom);
+            }
+          }
+        }
+        sortedUsedRooms.sort((a, b) => a.name.localeCompare(b.name));
 
         // Each room tracks two slots:
         //   am = guest checking OUT (still occupying in the morning until ~11am)
@@ -392,8 +415,26 @@ const CustomCalendar = ({
               const { am: amBooking, pm: pmBooking } = gridContent[room.name];
 
               if (!amBooking && !pmBooking) {
+                const isFutureOrToday = !isBefore(date, startOfToday());
+                const isRoomBlocked = blockedRoomIds.has(room.id);
+                if (isRoomBlocked) {
+                  return (
+                    <div
+                      key={room.name}
+                      className="row-span-1 min-h-[16px] relative"
+                    >
+                      <div
+                        className="react-calendar__room_blocked_bar absolute inset-0"
+                        style={{ left: "-1px", right: "-1px" }}
+                      />
+                    </div>
+                  );
+                }
                 return (
-                  <div key={room.name} className="row-span-1 min-h-[16px]" />
+                  <div
+                    key={room.name}
+                    className={`row-span-1 min-h-[16px]${isFutureOrToday ? " react-calendar__opportunity_row" : ""}`}
+                  />
                 );
               }
 
@@ -488,7 +529,7 @@ const CustomCalendar = ({
                   )}
                   {/* PM slot — checkin side: right 2/3 + 1px bleed right so the
                       bar bridges any sub-pixel gap with the next tile's AM bar */}
-                  {pmBooking && (
+                  {pmBooking ? (
                     <div
                       className={`${pmColor} ${pmIsStart ? "rounded-l-lg" : ""} ${pmTextColor} flex items-center`}
                       style={{
@@ -502,6 +543,17 @@ const CustomCalendar = ({
                     >
                       {pmNameContent}
                     </div>
+                  ) : !isBefore(date, startOfToday()) && (
+                    <div
+                      className="react-calendar__opportunity_pm"
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        bottom: 0,
+                        left: "20%",
+                        right: "-1px",
+                      }}
+                    />
                   )}
                 </div>
               );

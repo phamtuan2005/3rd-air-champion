@@ -4,6 +4,7 @@ import { useForm, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { roomType } from "../../../../util/types/roomType";
+import { updateSync } from "../../../../util/hostOperations";
 
 const COLOR_OPTIONS = [
   "bg-red-500",
@@ -39,9 +40,12 @@ interface EditRoomModalProps {
   onSave: (room: roomType, onError: (msg: string) => void) => void;
   onAdd: (room: { name: string; price: number; roomCode?: string; color?: string }, onError: (msg: string) => void) => void;
   onDelete: (roomId: string, onError: (msg: string) => void) => void;
+  airbnbsync?: { room: string; link: string }[];
+  hostId: string;
+  token: string;
 }
 
-const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave, onAdd, onDelete }: EditRoomModalProps) => {
+const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave, onAdd, onDelete, airbnbsync, hostId, token }: EditRoomModalProps) => {
   const initialId = (defaultRoomId && rooms.some((r) => r.id === defaultRoomId))
     ? defaultRoomId
     : rooms[0]?.id ?? "";
@@ -53,7 +57,21 @@ const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave, onAdd, onDelete 
   const [pendingConfirm, setPendingConfirm] = useState<EditRoomFormData | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  const [linkData, setLinkData] = useState<{ room: string; link: string }[]>(() => {
+    const saved = localStorage.getItem("syncData");
+    return saved ? JSON.parse(saved) : (airbnbsync ?? []);
+  });
+  const [newLink, setNewLink] = useState("");
+
+  const saveLinks = (updated: { room: string; link: string }[]) => {
+    setLinkData(updated);
+    localStorage.setItem("syncData", JSON.stringify(updated));
+    updateSync(hostId, JSON.stringify(updated), token).catch(console.error);
+  };
+
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId) ?? rooms[0];
+
+  const roomLinks = linkData.filter((e) => e.room === selectedRoom?.id);
 
   const {
     register,
@@ -256,6 +274,49 @@ const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave, onAdd, onDelete 
             </div>
           </div>
         )}
+
+        {/* Link AirBnB */}
+        <div className="flex flex-col gap-2 border-t border-gray-200 pt-3">
+          <p className="text-sm font-semibold text-gray-700">Link AirBnB Calendar</p>
+          {roomLinks.length > 0 ? (
+            <ul className="flex flex-col gap-1">
+              {roomLinks.map((entry, i) => (
+                <li key={i} className="flex items-center gap-2 text-xs text-gray-600">
+                  <span className="flex-1 truncate">{entry.link}</span>
+                  <button
+                    type="button"
+                    className="text-red-500 hover:text-red-700 text-xs font-medium shrink-0"
+                    onClick={() => saveLinks(linkData.filter((e) => e !== entry))}
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-gray-400">No link set for this room.</p>
+          )}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Paste AirBnB .ics link"
+              className="border border-gray-300 rounded px-2 py-1 text-xs flex-1"
+              value={newLink}
+              onChange={(e) => setNewLink(e.target.value)}
+            />
+            <button
+              type="button"
+              className="px-3 py-1 bg-blue-500 text-white text-xs rounded shrink-0"
+              onClick={() => {
+                if (!newLink.trim() || !selectedRoom) return;
+                saveLinks([...linkData, { room: selectedRoom.id, link: newLink.trim() }]);
+                setNewLink("");
+              }}
+            >
+              Add
+            </button>
+          </div>
+        </div>
 
         {/* Confirmation dialog when name doesn't match any existing room */}
         {pendingConfirm && (

@@ -108,6 +108,17 @@
   @apply bg-slate-700;
 }
 
+.react-calendar__room_blocked_bar {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(100, 116, 139, 0.45) 0px,
+    rgba(100, 116, 139, 0.45) 3px,
+    transparent 3px,
+    transparent 7px
+  );
+  background-color: rgba(148, 163, 184, 0.15);
+}
+
 .react-calendar__custom_tile_full {
 }
 
@@ -121,6 +132,29 @@
 /* Base styling for tiles without bookings */
 .react-calendar__custom_tile_no_booking {
   @apply border;
+}
+
+/* Future empty dates — booking opportunity highlight */
+.react-calendar__custom_tile_opportunity {
+  background-color: #fffbeb; /* amber-50 */
+  border: 1px dashed #f59e0b !important; /* amber-400 */
+}
+
+/* Empty room row on a future partially-booked date */
+.react-calendar__opportunity_row {
+  background-color: #fffbeb; /* amber-50 */
+  border: 1px dashed #f59e0b; /* amber-400 */
+  border-radius: 2px;
+  margin: 1px 0;
+}
+
+/* PM half of a checkout day with no incoming guest */
+.react-calendar__opportunity_pm {
+  background-color: #fffbeb; /* amber-50 */
+  border-top: 1px dashed #f59e0b;
+  border-bottom: 1px dashed #f59e0b;
+  border-right: 1px dashed #f59e0b;
+  border-radius: 0 2px 2px 0;
 }
 
 /* Base styles for tiles with bookings */

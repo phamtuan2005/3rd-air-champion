@@ -10,6 +10,9 @@ interface AirBnBInfo {
   airbnbName: string;
   airbnbAddress: string;
   houseRules: string;
+  phone: string;
+  contactEmail: string;
+  licenseNumber: string;
 }
 
 interface ProfileDesktopProps {
@@ -49,11 +52,7 @@ const ProfileDesktop = ({
       >
         {/* Parent Container for Profile and Tick */}
         <div
-          className={`${
-            window.screen.availWidth > 640
-              ? "h-[76px] w-[76px]"
-              : "h-[44px] w-[44px]"
-          } relative flex items-center justify-center`}
+          className="h-[44px] w-[44px] sm:h-[76px] sm:w-[76px] relative flex items-center justify-center"
         >
           {/* Profile Image Container */}
           <div className="h-full w-full rounded-full border border-solid border-black overflow-hidden">
@@ -70,11 +69,7 @@ const ProfileDesktop = ({
           </div>
         </div>
 
-        <span
-          className={`${
-            window.screen.availWidth > 640 ? "text-[1.25rem]" : "hidden"
-          }`}
-        >
+        <span className="hidden sm:inline text-[1.25rem]">
           {children}
         </span>
       </div>

@@ -20,8 +20,8 @@ interface DatePickerModalProps {
 type Availability = "available" | "unavailable";
 
 const TILE_COLOR: Record<Availability, string> = {
-  available: "",
-  unavailable: "!text-red-500 !font-semibold",
+  available: "!text-green-600 !font-semibold",
+  unavailable: "!text-gray-400 !line-through",
 };
 
 const DatePickerModal = ({
@@ -191,7 +191,8 @@ const DatePickerModal = ({
             {/* Legend + Today button */}
             <div className="mt-3 flex items-center justify-between">
               <div className="flex items-center gap-3 text-xs">
-                <span className="text-red-500 font-semibold">Full</span>
+                <span className="text-green-600 font-semibold">Available</span>
+                <span className="text-gray-400 line-through">Full</span>
               </div>
               <button
                 type="button"
@@ -218,7 +219,7 @@ const DatePickerModal = ({
         className="border border-gray-300 rounded px-2 py-1 w-full text-left text-sm flex justify-between items-center gap-1"
         onClick={handleOpen}
       >
-        <span>{value ? format(value, "MM/dd/yyyy") : "Select date…"}</span>
+        <span>{value ? format(value, "MMM d, yyyy") : "Select date…"}</span>
         <span className="text-gray-400 text-xs flex-shrink-0">📅</span>
       </button>
 
