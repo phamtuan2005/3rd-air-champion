@@ -6,11 +6,12 @@ import { getRoomColor } from "../../../util/getRoomColor";
 
 interface RoomMultiSelectProps {
   rooms: roomType[];
+  unavailableRoomIds?: Set<string>;
   value: string[];
   onChange: (rooms: string[]) => void;
 }
 
-const RoomMultiSelect = ({ rooms, value, onChange }: RoomMultiSelectProps) => {
+const RoomMultiSelect = ({ rooms, unavailableRoomIds, value, onChange }: RoomMultiSelectProps) => {
   const [open, setOpen] = useState(false);
   const activeRooms = useMemo(() => rooms.filter((r) => r.active), [rooms]);
   const roomBoxWidth = useMemo(() => {
@@ -101,17 +102,19 @@ const RoomMultiSelect = ({ rooms, value, onChange }: RoomMultiSelectProps) => {
               <li className="border-t border-gray-100 mx-4" />
 
               {activeRooms.map((room) => {
+                const isUnavailable = unavailableRoomIds?.has(room.id) ?? false;
                 const checked = !isAny && value.includes(room.id);
                 return (
                   <li
                     key={room.id}
-                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer text-sm"
-                    onClick={() => handleToggleRoom(room.id)}
+                    className={`flex items-center gap-3 px-4 py-2.5 text-sm ${isUnavailable ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50 cursor-pointer"}`}
+                    onClick={() => !isUnavailable && handleToggleRoom(room.id)}
                   >
                     <input
                       type="checkbox"
                       readOnly
                       checked={checked}
+                      disabled={isUnavailable}
                       className="pointer-events-none w-4 h-4"
                     />
                     <span
@@ -120,6 +123,9 @@ const RoomMultiSelect = ({ rooms, value, onChange }: RoomMultiSelectProps) => {
                     >
                       {room.name}
                     </span>
+                    {isUnavailable && (
+                      <span className="text-xs text-gray-400 italic">(blocked)</span>
+                    )}
                   </li>
                 );
               })}

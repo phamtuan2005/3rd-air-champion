@@ -108,6 +108,17 @@
   @apply bg-slate-700;
 }
 
+.react-calendar__room_blocked_bar {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(100, 116, 139, 0.45) 0px,
+    rgba(100, 116, 139, 0.45) 3px,
+    transparent 3px,
+    transparent 7px
+  );
+  background-color: rgba(148, 163, 184, 0.15);
+}
+
 .react-calendar__custom_tile_full {
 }
 
