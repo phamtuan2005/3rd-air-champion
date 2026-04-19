@@ -1,4 +1,4 @@
-import { isSameMonth, isAfter, startOfToday, format } from "date-fns";
+import { isAfter, startOfToday, format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { dayType } from "../../../util/types/dayType";
 import { roomType } from "../../../util/types/roomType";
@@ -14,10 +14,11 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth }: AvailabilitiesMo
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const today = startOfToday();
 
-  // All date keys in the current month
-  const allMonthDateKeys = [...monthMap.keys()].filter((dateKey) =>
-    isSameMonth(toZonedTime(dateKey, timeZone), currentMonth)
-  );
+  // All date keys in the current month (includes days with no bookings)
+  const allMonthDateKeys = eachDayOfInterval({
+    start: startOfMonth(currentMonth),
+    end: endOfMonth(currentMonth),
+  }).map((date) => format(date, "yyyy-MM-dd"));
 
   // Collect date keys that are in the current month and >= today, sorted chronologically
   const eligibleDateKeys = allMonthDateKeys

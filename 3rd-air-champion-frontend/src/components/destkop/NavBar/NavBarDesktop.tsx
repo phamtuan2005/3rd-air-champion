@@ -53,13 +53,13 @@ const NavBarDesktop = ({
 
       {/* Centered Navigation Buttons */}
       <div className="flex flex-col items-center gap-1">
-        <h1 className="p-1 hover:rounded-md sm:p-2 text-lg">
+        <h1 className="p-1 sm:p-2 text-base sm:text-xl font-bold tracking-wide text-gray-800">
           TT House Booking Manager
         </h1>
-        <div className="flex gap-2">
+        <div className="flex gap-1 sm:gap-2">
           <button
             type="button"
-            className={`text-white bg-black px-2 py-1 text-xs rounded-md ${
+            className={`flex-1 text-white bg-black px-1 py-1 text-xs sm:flex-none sm:px-2 rounded-md whitespace-nowrap ${
               isTodoModalOpen ? "drop-shadow-[0_4px_6px_rgba(59,130,246,0.5)]" : ""
             }`}
             onClick={() => {
@@ -72,7 +72,7 @@ const NavBarDesktop = ({
           </button>
           <button
             type="button"
-            className={`text-white bg-blue-500 px-2 py-1 text-xs rounded-md ${
+            className={`flex-1 text-white bg-blue-500 px-1 py-1 text-xs sm:flex-none sm:px-2 rounded-md ${
               isBookModalOpen ? "drop-shadow-[0_4px_6px_rgba(59,130,246,0.5)]" : ""
             }`}
             onClick={() => setIsBookModalOpen(true)}
@@ -81,7 +81,7 @@ const NavBarDesktop = ({
           </button>
           <button
             type="button"
-            className={`text-white bg-emerald-600 px-2 py-1 text-xs rounded-md ${
+            className={`flex-1 text-white bg-emerald-600 px-1 py-1 text-xs sm:flex-none sm:px-2 rounded-md ${
               isAvailabilitiesModalOpen ? "drop-shadow-[0_4px_6px_rgba(59,130,246,0.5)]" : ""
             }`}
             onClick={() => {
@@ -94,7 +94,7 @@ const NavBarDesktop = ({
           </button>
           <button
             type="button"
-            className={`text-white bg-rose-500 px-2 py-1 text-xs rounded-md ${
+            className={`flex-1 text-white bg-rose-500 px-1 py-1 text-xs sm:flex-none sm:px-2 rounded-md whitespace-nowrap ${
               isBlockAirBnBModalOpen ? "drop-shadow-[0_4px_6px_rgba(244,63,94,0.5)]" : ""
             }`}
             onClick={() => {
@@ -111,11 +111,7 @@ const NavBarDesktop = ({
       {/* About */}
       <button type="button" onClick={() => setIsAboutModalOpen(true)}>
         <img
-          className={`${
-            window.screen.availWidth > 640
-              ? "h-[76px] w-[76px]"
-              : "h-[44px] w-[44px]"
-          }`}
+          className="h-[44px] w-[44px] sm:h-[76px] sm:w-[76px]"
           alt="About"
           title="About"
           src="./TiMagLogo.svg"
