@@ -1191,7 +1191,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
         {isBlockAirBnBModalOpen ? (
           <BlockAirBnBModal monthMap={monthMap} rooms={rooms} blockedAirBnBDates={blockedAirBnBDates as Record<string, { start: string; duration: number }[]> | undefined} token={token as string} onDaysUpdate={(updated) => setDays((prev) => { const ids = new Set(updated.map((d) => d.id)); return [...prev.filter((d) => !ids.has(d.id)), ...updated]; })} />
         ) : isAvailabilitiesModalOpen ? (
-          <AvailabilitiesModal monthMap={monthMap} rooms={rooms} currentMonth={currentMonth} />
+          <AvailabilitiesModal monthMap={monthMap} rooms={rooms} currentMonth={currentMonth} airbnbName={airbnbName} />
         ) : isTodoModalOpen ? (
           <ToDoList monthMap={monthMap} doorCode={doorCode} airbnbName={airbnbName} airbnbAddress={airbnbAddress} />
         ) : (
@@ -1323,7 +1323,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
           </button>
         </div>
 
-        <AvailabilitiesModal monthMap={monthMap} rooms={rooms} currentMonth={currentMonth} />
+        <AvailabilitiesModal monthMap={monthMap} rooms={rooms} currentMonth={currentMonth} airbnbName={airbnbName} />
       </div>
 
       <div
