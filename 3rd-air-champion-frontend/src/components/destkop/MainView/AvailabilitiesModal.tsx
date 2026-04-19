@@ -8,9 +8,10 @@ interface AvailabilitiesModalProps {
   monthMap: Map<string, dayType>;
   rooms: roomType[];
   currentMonth: Date;
+  airbnbName?: string;
 }
 
-const AvailabilitiesModal = ({ monthMap, rooms, currentMonth }: AvailabilitiesModalProps) => {
+const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName }: AvailabilitiesModalProps) => {
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const today = startOfToday();
 
@@ -89,7 +90,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth }: AvailabilitiesMo
     <div className="p-3 flex flex-col gap-3 h-full overflow-y-auto">
       <div className="flex flex-col gap-0.5">
         <h2 className="text-sm font-bold text-gray-700">
-          Availabilities — {monthLabel}
+          {airbnbName ? `${airbnbName}: Availabilities` : "Availabilities"} — {monthLabel}
         </h2>
         <span className="text-xs text-gray-500">
           Today: <span className="font-semibold text-gray-700">{format(today, "MMM d, yyyy")}</span>
