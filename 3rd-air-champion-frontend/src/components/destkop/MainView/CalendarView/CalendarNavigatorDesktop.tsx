@@ -188,7 +188,6 @@ const CalendarNavigator = ({
               >
                 {formattedDate}
               </div>
-              {todayButton}
             </div>
             {/* PROFIT */}
             <div className="text-xl font-bold">${guestBill?.toFixed(2)}</div>
@@ -202,7 +201,6 @@ const CalendarNavigator = ({
             </span>
             <div className="flex items-center gap-2 mx-auto">
               <span className="font-bold text-xl text-gray-800">{formattedDate}</span>
-              {todayButton}
             </div>
             {/* PROFIT */}
             <div className="text-xl font-bold">${airBnBGuestBill?.toFixed(2)}</div>

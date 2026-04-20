@@ -5,7 +5,7 @@ import { useNavigate } from "react-router";
 import NavBarDesktop from "./components/destkop/NavBar/NavBarDesktop";
 import MainView from "./components/destkop/MainView/MainView";
 import About from "./components/About";
-import { isSyncModalOpenContext, AddPaneContext, FooterContext } from "./context";
+import { isSyncModalOpenContext, AddPaneContext, FooterContext, GuestModeContext } from "./context";
 
 const formatPhone = (raw: string) => {
   const digits = raw.replace(/\D/g, "");
@@ -32,6 +32,9 @@ function App() {
   const [roomErrorMessage, setRoomErrorMessage] = useState("");
   const [isEditRoomOpen, setIsEditRoomOpen] = useState(false);
   const [isManageGuestOpen, setIsManageGuestOpen] = useState(false);
+
+  const [currentGuest, setCurrentGuest] = useState<string | null>(null);
+  const [currentAirBnBGuest, setCurrentAirBnBGuest] = useState<string | null>(null);
 
   const [isFooterVisible, setIsFooterVisible] = useState(false);
   const [isTodoModalOpen, setIsTodoModalOpen] = useState(true);
@@ -110,6 +113,7 @@ function App() {
   // Render the host data once it's fetched
   return (
     host && (
+      <GuestModeContext.Provider value={{ currentGuest, setCurrentGuest, currentAirBnBGuest, setCurrentAirBnBGuest }}>
       <FooterContext.Provider value={{ isFooterVisible, setIsFooterVisible, phone: airBnBInfo.phone, contactEmail: airBnBInfo.contactEmail, licenseNumber: airBnBInfo.licenseNumber, airbnbAddress: airBnBInfo.airbnbAddress }}>
       <isSyncModalOpenContext.Provider
         value={{
@@ -203,6 +207,7 @@ function App() {
         </AddPaneContext.Provider>
       </isSyncModalOpenContext.Provider>
       </FooterContext.Provider>
+      </GuestModeContext.Provider>
     )
   );
 }

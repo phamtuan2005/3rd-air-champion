@@ -288,7 +288,7 @@ const CustomCalendar = ({
     // Highlight future empty dates as booking opportunities
     const isFutureOrToday = !isBefore(date, startOfToday());
     const isBlocked = day && day.isBlocked;
-    if (isFutureOrToday && !isBlocked && (!day || day.bookings.length === 0)) {
+    if (isFutureOrToday && !isBlocked && (!day || day.bookings.length === 0) && !currentGuest && !currentAirBnBGuest) {
       className.push("react-calendar__custom_tile_opportunity");
     }
 
@@ -434,7 +434,7 @@ const CustomCalendar = ({
                 return (
                   <div
                     key={room.name}
-                    className={`row-span-1 min-h-[16px]${isFutureOrToday ? " react-calendar__opportunity_row" : ""}`}
+                    className={`row-span-1 min-h-[16px]${isFutureOrToday && !currentGuest && !currentAirBnBGuest ? " react-calendar__opportunity_row" : ""}`}
                   />
                 );
               }
@@ -555,7 +555,7 @@ const CustomCalendar = ({
                         right: "-1px",
                       }}
                     />
-                  ) : !isBefore(date, startOfToday()) && (
+                  ) : !isBefore(date, startOfToday()) && !currentGuest && !currentAirBnBGuest && (
                     <div
                       className="react-calendar__opportunity_pm"
                       style={{
