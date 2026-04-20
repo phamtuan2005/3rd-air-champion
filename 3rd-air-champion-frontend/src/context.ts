@@ -29,6 +29,14 @@ interface FooterContextType {
   airbnbAddress: string;
 }
 
+interface GuestModeContextType {
+  currentGuest: string | null;
+  setCurrentGuest: React.Dispatch<React.SetStateAction<string | null>>;
+  currentAirBnBGuest: string | null;
+  setCurrentAirBnBGuest: React.Dispatch<React.SetStateAction<string | null>>;
+}
+
 export const isSyncModalOpenContext = createContext<SyncModalContextType | null>(null);
 export const AddPaneContext = createContext<AddPaneContextType | null>(null);
 export const FooterContext = createContext<FooterContextType | null>(null);
+export const GuestModeContext = createContext<GuestModeContextType | null>(null);
