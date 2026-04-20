@@ -81,7 +81,7 @@ const GuestView = ({
 
   return (
     <div className={`flex flex-col h-full px-2 overflow-y-scroll`}>
-      {currentBookings.map((booking, index) => {
+      {[...currentBookings].sort((a, b) => a.room.name.localeCompare(b.room.name)).map((booking, index) => {
         return (
           <div key={index} className="border-b border-solid w-full py-1" style={{ display: 'grid', gridTemplateColumns: `min(${maxLabelLen}ch, 50vw) 1fr`, gap: '0 0.75rem' }}>
             {/* Row 1, Col 1: Color box */}
