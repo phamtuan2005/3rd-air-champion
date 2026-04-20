@@ -56,7 +56,7 @@ const hostResolvers = {
     },
     updateHost: async (
       _: unknown,
-      { _id, email, name, password, airbnbsync, doorCode, airbnbName, airbnbAddress, houseRules }: any
+      { _id, email, name, password, airbnbsync, doorCode, airbnbName, airbnbAddress, houseRules, phone, contactEmail, licenseNumber }: any
     ) => {
       const updateData: {
         email?: string;
@@ -67,6 +67,9 @@ const hostResolvers = {
         airbnbName?: string;
         airbnbAddress?: string;
         houseRules?: string;
+        phone?: string;
+        contactEmail?: string;
+        licenseNumber?: string;
       } = {};
       if (email) updateData.email = email;
       if (name) updateData.name = name;
@@ -80,6 +83,9 @@ const hostResolvers = {
       if (airbnbName !== undefined) updateData.airbnbName = airbnbName;
       if (airbnbAddress !== undefined) updateData.airbnbAddress = airbnbAddress;
       if (houseRules !== undefined) updateData.houseRules = houseRules;
+      if (phone !== undefined) updateData.phone = phone;
+      if (contactEmail !== undefined) updateData.contactEmail = contactEmail;
+      if (licenseNumber !== undefined) updateData.licenseNumber = licenseNumber;
 
       // Perform the update
       const updatedHost = await Host.findByIdAndUpdate(_id, { $set: updateData }, {
