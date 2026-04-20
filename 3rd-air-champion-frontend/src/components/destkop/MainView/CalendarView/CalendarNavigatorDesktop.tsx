@@ -101,7 +101,7 @@ const CalendarNavigator = ({
   }, [currentAirBnBGuest, currentMonth]);
 
   return (
-    <div className="flex flex-col justify-between h-full max-h-[80px] bg-white drop-shadow-sm p-2 sm:max-h-[120px]">
+    <div className="flex flex-col justify-between h-full max-h-[100px] bg-white drop-shadow-sm p-2 pb-1 sm:max-h-[140px] sm:pb-2">
       {/* Date */}
       {!currentGuest && !currentAirBnBGuest ? (
         <>
@@ -289,7 +289,7 @@ const CalendarNavigator = ({
           <abbr
             key={index}
             title={day}
-            className="text-xs font-medium sm:text-sm md:text-base"
+            className="text-base font-medium sm:text-lg md:text-xl"
           >
             {day.substring(0, 3)}
           </abbr>
