@@ -189,18 +189,12 @@ function App() {
                 </div>
 
                 {isFooterVisible && <footer className="bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] p-2 shrink-0">
-                  <div className="container flex flex-col md:flex-row md:justify-between items-center text-xs gap-2">
-                    <p className="text-center md:text-left">
-                      {airBnBInfo.airbnbName} is permitted for STR. License# {airBnBInfo.licenseNumber}
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      <span>{formatPhone(airBnBInfo.phone)}</span>
-                      <span>|</span>
-                      <span>{airBnBInfo.contactEmail}</span>
-                      <span>|</span>
-                      <span>{airBnBInfo.airbnbAddress.replace("\n", ", ")}</span>
-                    </div>
-                  </div>
+                  <p className="text-xs text-center leading-relaxed">
+                    {airBnBInfo.licenseNumber && <>{airBnBInfo.airbnbName} is permitted for STR. License# {airBnBInfo.licenseNumber}{(airBnBInfo.phone || airBnBInfo.contactEmail || airBnBInfo.airbnbAddress) ? "  |  " : ""}</>}
+                    {airBnBInfo.phone && <>{formatPhone(airBnBInfo.phone)}{(airBnBInfo.contactEmail || airBnBInfo.airbnbAddress) ? "  |  " : ""}</>}
+                    {airBnBInfo.contactEmail && <>{airBnBInfo.contactEmail}{airBnBInfo.airbnbAddress ? "  |  " : ""}</>}
+                    {airBnBInfo.airbnbAddress && <>{airBnBInfo.airbnbAddress.replace("\n", ", ")}</>}
+                  </p>
                 </footer>}
               </div>
             </div>
