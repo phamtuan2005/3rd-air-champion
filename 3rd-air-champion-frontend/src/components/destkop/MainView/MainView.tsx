@@ -1095,7 +1095,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
 
   return (
     <>
-      <div className="col-span-5 bg-gray-100 overflow-hidden sm:col-span-4">
+      <div className="col-span-5 bg-gray-100 overflow-hidden sm:col-span-4 flex flex-col">
         {isCalendarLoading ? (
           <div className="flex items-center justify-center h-full">
             Loading...
