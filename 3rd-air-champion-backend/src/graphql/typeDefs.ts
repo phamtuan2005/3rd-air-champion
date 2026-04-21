@@ -228,6 +228,12 @@ const dayDefs = gql`
     DistinctStartDateCount: Int
   }
 
+  type GuestBookingCount {
+    GuestId: String
+    DistinctStartDateCount: Int
+    FirstStayDate: String
+  }
+
   input UnbookBookingInput {
     room: String!
     date: String!
@@ -239,6 +245,7 @@ const dayDefs = gql`
     hostDays(calendarId: String!): [Day]
     airBnBDays(calendar: String!, guest: String!): [Day]
     airBnBBookingCount(guest: String!): [AirBnBBookingCount]
+    guestBookingCount(calendarId: String!): [GuestBookingCount]
     availableRooms(calendar: String!, date: String!, duration: Int!): [Room]
   }
 

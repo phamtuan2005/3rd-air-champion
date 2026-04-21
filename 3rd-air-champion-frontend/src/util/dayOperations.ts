@@ -24,6 +24,22 @@ export const fetchDays = async (calendarId: string, token: string) => {
     });
 };
 
+export const fetchGuestBookingCount = async (calendarId: string, token: string) => {
+  return axios
+    .post(
+      `${BACKEND_ENDPOINT}/day/get/guest/count`,
+      { calendarId },
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    .then((result) => result.data)
+    .catch((err) => {
+      if (err.response && err.response.data && err.response.data.errors) {
+        throw err.response.data.errors;
+      }
+      throw "An unexpected error occurred. Please try again.";
+    });
+};
+
 export const fetchAirBnBBookingCount = async (guest: string, token: string) => {
   return axios
     .post(
