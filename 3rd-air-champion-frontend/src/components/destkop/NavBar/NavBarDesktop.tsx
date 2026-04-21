@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { createPortal } from "react-dom";
 import ProfileDesktop from "./ProfileDesktop";
+import { GuestModeContext } from "../../../context";
 
 interface AirBnBInfo {
   doorCode: string;
@@ -51,6 +52,8 @@ const NavBarDesktop = ({
   isBlockRoomsModalOpen,
   setIsBlockRoomsModalOpen,
 }: NavBarDesktopProps) => {
+  const { currentGuest, currentAirBnBGuest } = useContext(GuestModeContext)!;
+  const isGuestMode = !!(currentGuest || currentAirBnBGuest);
   const [isBlockChooserOpen, setIsBlockChooserOpen] = useState(false);
 
   const isBlockActive = isBlockAirBnBModalOpen || isBlockRoomsModalOpen;
@@ -76,7 +79,7 @@ const NavBarDesktop = ({
         <h1 className="p-1 sm:p-2 text-base sm:text-xl font-bold tracking-wide text-gray-800">
           TT House Booking Manager
         </h1>
-        <div className="flex gap-1 sm:gap-2">
+        {!isGuestMode && <div className="flex gap-1 sm:gap-2">
           <button
             type="button"
             className={`flex-1 text-white bg-black px-1 py-1 text-xs sm:flex-none sm:px-2 rounded-md whitespace-nowrap ${
@@ -119,7 +122,7 @@ const NavBarDesktop = ({
           >
             Block
           </button>
-        </div>
+        </div>}
       </div>
 
       {/* About */}

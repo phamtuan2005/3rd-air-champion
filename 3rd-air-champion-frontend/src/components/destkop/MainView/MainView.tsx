@@ -33,7 +33,7 @@ import {
 import { syncCalendars } from "../../../util/syncOperations";
 import GuestView from "./GuestView/GuestView";
 import BookButton from "../BookButton";
-import { AddPaneContext, isSyncModalOpenContext } from "../../../context";
+import { AddPaneContext, GuestModeContext, isSyncModalOpenContext } from "../../../context";
 import DetailsModal from "./GuestView/DetailsModal";
 import {
   updateBookingAirbnbPrice,
@@ -158,13 +158,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
     airbnb: 0,
   });
 
-  //AirBnB Display States
-  const [currentAirBnBGuest, setCurrentAirBnBGuest] = useState<string | null>(
-    null,
-  );
-
-  // Billing States
-  const [currentGuest, setCurrentGuest] = useState<string | null>(null);
+  const { currentGuest, setCurrentGuest, currentAirBnBGuest, setCurrentAirBnBGuest } = useContext(GuestModeContext)!;
   const [paidDates, setPaidDates] = useState<Date[]>([]);
 
   const onSync = () => {

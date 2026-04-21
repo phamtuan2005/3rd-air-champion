@@ -5,7 +5,16 @@ import { useNavigate } from "react-router";
 import NavBarDesktop from "./components/destkop/NavBar/NavBarDesktop";
 import MainView from "./components/destkop/MainView/MainView";
 import About from "./components/About";
-import { isSyncModalOpenContext, AddPaneContext, FooterContext } from "./context";
+import { isSyncModalOpenContext, AddPaneContext, FooterContext, GuestModeContext } from "./context";
+
+const formatPhone = (raw: string) => {
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 10)
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  if (digits.length === 11 && digits[0] === "1")
+    return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  return raw;
+};
 
 function App() {
   const [host, setHost] = useState<hostType | null>(null); // Track host data
@@ -23,6 +32,9 @@ function App() {
   const [roomErrorMessage, setRoomErrorMessage] = useState("");
   const [isEditRoomOpen, setIsEditRoomOpen] = useState(false);
   const [isManageGuestOpen, setIsManageGuestOpen] = useState(false);
+
+  const [currentGuest, setCurrentGuest] = useState<string | null>(null);
+  const [currentAirBnBGuest, setCurrentAirBnBGuest] = useState<string | null>(null);
 
   const [isFooterVisible, setIsFooterVisible] = useState(false);
   const [isTodoModalOpen, setIsTodoModalOpen] = useState(true);
@@ -101,6 +113,7 @@ function App() {
   // Render the host data once it's fetched
   return (
     host && (
+      <GuestModeContext.Provider value={{ currentGuest, setCurrentGuest, currentAirBnBGuest, setCurrentAirBnBGuest }}>
       <FooterContext.Provider value={{ isFooterVisible, setIsFooterVisible, phone: airBnBInfo.phone, contactEmail: airBnBInfo.contactEmail, licenseNumber: airBnBInfo.licenseNumber, airbnbAddress: airBnBInfo.airbnbAddress }}>
       <isSyncModalOpenContext.Provider
         value={{
@@ -178,14 +191,14 @@ function App() {
                 {isFooterVisible && <footer className="bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] p-2 shrink-0">
                   <div className="container flex flex-col md:flex-row md:justify-between items-center text-xs gap-2">
                     <p className="text-center md:text-left">
-                      TT House & Garden is permitted by Milpitas City for STR. License# 45542
+                      {airBnBInfo.airbnbName} is permitted for STR. License# {airBnBInfo.licenseNumber}
                     </p>
                     <div className="flex flex-wrap gap-2">
-                      <span>(408) 306 2119</span>
+                      <span>{formatPhone(airBnBInfo.phone)}</span>
                       <span>|</span>
-                      <span>phamtuan2005@yahoo.com</span>
+                      <span>{airBnBInfo.contactEmail}</span>
                       <span>|</span>
-                      <span>1682 Blue Spruce Way, Milpitas, CA 95035</span>
+                      <span>{airBnBInfo.airbnbAddress.replace("\n", ", ")}</span>
                     </div>
                   </div>
                 </footer>}
@@ -194,6 +207,7 @@ function App() {
         </AddPaneContext.Provider>
       </isSyncModalOpenContext.Provider>
       </FooterContext.Provider>
+      </GuestModeContext.Provider>
     )
   );
 }
