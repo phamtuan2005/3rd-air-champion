@@ -379,6 +379,40 @@ const dayResolver = {
         },
       ]);
     },
+    guestBookingCount: async (_: unknown, { calendarId }: any) => {
+      return await Day.aggregate([
+        {
+          $match: {
+            calendar: mongoose.Types.ObjectId.createFromHexString(calendarId),
+          },
+        },
+        { $unwind: "$bookings" },
+        { $match: { "bookings.description": { $not: { $regex: "airbnb" } } } },
+        {
+          $group: {
+            _id: {
+              guest: "$bookings.guest",
+              startDate: "$bookings.startDate",
+            },
+          },
+        },
+        {
+          $group: {
+            _id: "$_id.guest",
+            DistinctStartDateCount: { $sum: 1 },
+            FirstStayDate: { $min: "$_id.startDate" },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            GuestId: { $toString: "$_id" },
+            DistinctStartDateCount: 1,
+            FirstStayDate: { $dateToString: { format: "%Y-%m-%d", date: "$FirstStayDate" } },
+          },
+        },
+      ]);
+    },
     availableRooms: async (
       _: unknown,
       { calendar, date, duration }: any

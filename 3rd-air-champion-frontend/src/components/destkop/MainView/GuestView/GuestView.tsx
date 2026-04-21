@@ -18,6 +18,11 @@ interface GuestViewProps {
     Room: string;
     DistinctStartDateCount: number;
   }[];
+  guestBookingCount: {
+    GuestId: string;
+    DistinctStartDateCount: number;
+    FirstStayDate: string;
+  }[];
   calendarId: string;
   token: string;
   children: React.ReactNode;
@@ -50,6 +55,7 @@ const GuestView = ({
   rooms,
   selectedDate,
   airBnBBookingCount,
+  guestBookingCount,
   handleBookingConfirmation,
   handleSendCalEvents,
   onDaysUpdate,
@@ -152,12 +158,21 @@ const GuestView = ({
                   · {booking.duration} {booking.duration > 1 ? "nights" : "night"}
                 </span>
               </p>
-              {booking.guest.name === "AirBnB" && (
+              {booking.guest.name === "AirBnB" ? (
                 <RebookCount
                   booking={booking}
                   airBnBBookingCount={airBnBBookingCount}
                 />
-              )}
+              ) : (() => {
+                const entry = guestBookingCount.find(g => g.GuestId === booking.guest.id);
+                const count = entry?.DistinctStartDateCount ?? 0;
+                const since = entry?.FirstStayDate ? format(parseISO(entry.FirstStayDate), "MMM yyyy") : null;
+                return (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-600 border border-amber-200">
+                    ↩ {count} {count === 1 ? "stay" : "stays"}{since ? ` since ${since}` : ""}
+                  </span>
+                );
+              })()}
             </div>
 
             {/* Row 2, Col 2: Action — aligns with edit button above */}
