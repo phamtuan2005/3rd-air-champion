@@ -598,7 +598,7 @@ const CustomCalendar = ({
               <Calendar
                 activeStartDate={month}
                 showNavigation={false}
-                showNeighboringMonth={false}
+                showNeighboringMonth={true}
                 value={currentMonth}
                 onClickDay={getDayContent}
                 tileClassName={customTile}

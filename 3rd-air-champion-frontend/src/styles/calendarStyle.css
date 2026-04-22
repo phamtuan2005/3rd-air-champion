@@ -60,6 +60,10 @@
   @apply hover:bg-slate-500 border-gray-300 grid grid-rows-4 mb-1 max-h-[120px] max-w-full overflow-hidden;
 } */
 
+.react-calendar__month-view__days__day--neighboringMonth > abbr {
+  visibility: hidden;
+}
+
 .react-calendar__custom_tile {
   --max-rows: 4;
   --tw-border-opacity: 1;
@@ -72,7 +76,7 @@
     minmax(0, 1fr)
   ); /* corresponds to grid-rows-4 */
   margin-bottom: 0.25rem; /* corresponds to mb-1 */
-  max-height: 120px; /* corresponds to max-h-[120px] */
+  max-height: 120px;
   max-width: 100%; /* corresponds to max-w-full */
   overflow: visible !important;
   position: relative; /* needed for absolutely-positioned overlays (e.g. paid background) */
