@@ -1,0 +1,1 @@
+{"root":["./playwright.config.ts","./tests/e2e/auth.setup.ts","./tests/e2e/authenticated.spec.ts","./tests/e2e/constants.ts","./tests/e2e/smoke.spec.ts"],"version":"5.8.3"}
