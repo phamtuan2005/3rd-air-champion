@@ -225,6 +225,33 @@ router.post("/get/airbnb/count", async (req: Request, res: any) => {
     });
 });
 
+router.post("/get/guest/count", async (req: Request, res: any) => {
+  if (!("user" in req))
+    return res.status(401).json({ error: "Invalid or expired token" });
+
+  const { calendarId } = req.body;
+
+  const query = `
+        query GuestBookingCount($calendarId: String!) {
+          guestBookingCount(calendarId: $calendarId) {
+            GuestId
+            DistinctStartDateCount
+            FirstStayDate
+          }
+        }`;
+
+  sendGraphQLRequest(query, { calendarId })
+    .then((result: any) => {
+      if (result.errors) {
+        return res.status(400).json({ errors: result.errors[0].message });
+      }
+      res.status(200).json(result.data.guestBookingCount);
+    })
+    .catch((error: any) => {
+      res.status(500).json({ error: error.message });
+    });
+});
+
 router.post(["/block", "/block/one"], async (req: Request, res: any) => {
   if (!("user" in req))
     return res.status(401).json({ error: "Invalid or expired token" });

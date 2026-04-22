@@ -5,6 +5,7 @@ import CustomCalendar from "./CalendarView/CustomCalendarDesktop";
 import { dayType } from "../../../util/types/dayType";
 import {
   fetchAirBnBBookingCount,
+  fetchGuestBookingCount,
   fetchDays,
 } from "../../../util/dayOperations";
 import BookingModal from "../BookingModal/BookingModal";
@@ -123,6 +124,9 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
   const [airBnBBookingCount, setAirBnBBookingCount] = useState<
     { Alias: string; Room: string; DistinctStartDateCount: number }[]
   >([]);
+  const [guestBookingCount, setGuestBookingCount] = useState<
+    { GuestId: string; DistinctStartDateCount: number; FirstStayDate: string }[]
+  >([]);
 
   const [isCalendarLoading, setIsCalendarLoading] = useState(true); // Track loading state
   const [calendarErrorMessage, setCalendarErrorMessage] = useState<string>(""); // Track errors
@@ -236,6 +240,13 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
         })
         .catch((err) => {
           console.error("Error fetching airbnb booking count:", err);
+        });
+      fetchGuestBookingCount(calendarId, token as string)
+        .then((result) => {
+          setGuestBookingCount(result);
+        })
+        .catch((err) => {
+          console.error("Error fetching guest booking count:", err);
         });
     }
   }, [guests]);
@@ -1095,7 +1106,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
 
   return (
     <>
-      <div className="col-span-5 bg-gray-100 overflow-hidden sm:col-span-4">
+      <div className="col-span-5 bg-gray-100 overflow-hidden sm:col-span-4 flex flex-col">
         {isCalendarLoading ? (
           <div className="flex items-center justify-center h-full">
             Loading...
@@ -1211,6 +1222,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
         ) : (
           <GuestView
             airBnBBookingCount={airBnBBookingCount}
+            guestBookingCount={guestBookingCount}
             calendarId={calendarId}
             token={token as string}
             currentBookings={currentBookings || []}
@@ -1271,6 +1283,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
 
         <GuestView
             airBnBBookingCount={airBnBBookingCount}
+            guestBookingCount={guestBookingCount}
             calendarId={calendarId}
             token={token as string}
             currentBookings={currentBookings || []}
