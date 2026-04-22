@@ -17,6 +17,7 @@ import {
   format,
 } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
+import { buildDateRange, parseLocalDate } from "../util/dateRange";
 
 const generalResolvers = {
   Query: {
@@ -419,11 +420,7 @@ const dayResolver = {
     ) => {
       const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const localDate = toZonedTime(date.split("T")[0], timeZone);
-
-      const dates: Date[] = [];
-      for (let i = 0; i < duration; i++) {
-        dates.push(addDays(localDate, i));
-      }
+      const dates = buildDateRange(localDate, duration);
 
       // Collect all booked and blocked room IDs across the date range
       const occupiedDays = await Day.find({
@@ -526,10 +523,7 @@ const dayResolver = {
         throw new Error("Cannot block past days");
       }
 
-      const dates: Date[] = [];
-      for (let i = 0; i < duration; i++) {
-        dates.push(addDays(localDate, i));
-      }
+      const dates = buildDateRange(localDate, duration);
 
       const bulkOps = dates.map((date: Date) => ({
         updateOne: {
@@ -618,10 +612,7 @@ const dayResolver = {
         throw new Error("Cannot block past days");
       }
 
-      const dates: Date[] = [];
-      for (let i = 0; i < duration; i++) {
-        dates.push(addDays(localDate, i));
-      }
+      const dates = buildDateRange(localDate, duration);
 
       const conflictingDays = await Day.find({
         calendar,
@@ -669,10 +660,7 @@ const dayResolver = {
       const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const localDate = toZonedTime(date.split("T")[0], timeZone);
 
-      const dates: Date[] = [];
-      for (let i = 0; i < duration; i++) {
-        dates.push(addDays(localDate, i));
-      }
+      const dates = buildDateRange(localDate, duration);
 
       const bulkOperation = dates.map((bookingDate) => ({
         updateOne: {
@@ -697,10 +685,7 @@ const dayResolver = {
       const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const localDate = toZonedTime(date.split("T")[0], timeZone);
 
-      const dates: Date[] = [];
-      for (let i = 0; i < duration; i++) {
-        dates.push(addDays(localDate, i));
-      }
+      const dates = buildDateRange(localDate, duration);
 
       const conflictingDays = await Day.find({
         calendar,
