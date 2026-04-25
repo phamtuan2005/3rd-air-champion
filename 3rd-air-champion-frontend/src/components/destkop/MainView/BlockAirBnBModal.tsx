@@ -96,7 +96,12 @@ const BlockAirBnBModal = ({ monthMap, rooms, blockedAirBnBDates, token, onDaysUp
   const markBookingBlocked = (bookingId: string, rangeKey: string) => {
     setLocalDone((prev) => new Set(prev).add(rangeKey));
     markAirBnBBlocked({ id: bookingId, blocked: true }, token)
-      .then((updatedDays: dayType[]) => onDaysUpdate(updatedDays))
+      .then((updatedDays: dayType[]) => {
+        onDaysUpdate(updatedDays);
+        // Remove from localDone now that airbnbBlocked=true will handle filtering.
+        // Keeping it would silently hide future bookings sharing the same range key.
+        setLocalDone((prev) => { const next = new Set(prev); next.delete(rangeKey); return next; });
+      })
       .catch((err) => {
         setLocalDone((prev) => { const next = new Set(prev); next.delete(rangeKey); return next; });
         console.error("Failed to mark as blocked on AirBnB:", err);

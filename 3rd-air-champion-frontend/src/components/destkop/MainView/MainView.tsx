@@ -1,4 +1,4 @@
-import { useContext, useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import CalendarNavigator from "./CalendarView/CalendarNavigatorDesktop";
 import CustomCalendar from "./CalendarView/CustomCalendarDesktop";
@@ -13,9 +13,12 @@ import { bookingType } from "../../../util/types/bookingType";
 import {
   addDays,
   compareAsc,
+  eachDayOfInterval,
+  endOfMonth,
   format,
   getDaysInMonth,
   isAfter,
+  isBefore,
   isSameDay,
   isSameMonth,
   isWithinInterval,
@@ -70,9 +73,11 @@ interface MainViewProps {
   setIsBlockAirBnBModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isBlockRoomsModalOpen: boolean;
   setIsBlockRoomsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setAirbnbPendingCount: React.Dispatch<React.SetStateAction<number>>;
+  setAvailableNightsCount: React.Dispatch<React.SetStateAction<number>>;
 }
 
-const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnbAddress, isTodoModalOpen, setIsTodoModalOpen, isModalOpen, setIsModalOpen, isAvailabilitiesModalOpen, setIsAvailabilitiesModalOpen, isBlockAirBnBModalOpen, setIsBlockAirBnBModalOpen, isBlockRoomsModalOpen, setIsBlockRoomsModalOpen }: MainViewProps) => {
+const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnbAddress, isTodoModalOpen, setIsTodoModalOpen, isModalOpen, setIsModalOpen, isAvailabilitiesModalOpen, setIsAvailabilitiesModalOpen, isBlockAirBnBModalOpen, setIsBlockAirBnBModalOpen, isBlockRoomsModalOpen, setIsBlockRoomsModalOpen, setAirbnbPendingCount, setAvailableNightsCount }: MainViewProps) => {
   const token = localStorage.getItem("token");
   const airbnbsyncRef = useRef(airbnbsync);
   // Set by the isCalendarLoading effect after fetching; cleared by useEffect([days])
@@ -140,6 +145,96 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
   const [blockedAirBnBDates, setIsBlockedAirBnBDates] = useState<{
     room: { duration: number; start: string }[];
   }>();
+
+  const airbnbPendingCount = useMemo(() => {
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const today = startOfToday();
+    const blockedTyped = blockedAirBnBDates as Record<string, { start: string; duration: number }[]> | undefined;
+
+    const uniqueById = new Map<string, bookingType>();
+    for (const day of monthMap.values()) {
+      for (const booking of day.bookings) {
+        if (booking.guest.name !== "AirBnB" && !uniqueById.has(booking.id))
+          uniqueById.set(booking.id, booking);
+      }
+    }
+    const seenRanges = new Map<string, bookingType>();
+    for (const booking of uniqueById.values()) {
+      const key = `${booking.room.id}|${booking.startDate}|${booking.endDate}`;
+      if (!seenRanges.has(key)) seenRanges.set(key, booking);
+    }
+    const actionableBookings = [...seenRanges.values()].filter((b) => {
+      const end = toZonedTime(b.endDate, timeZone);
+      if (!(isAfter(end, today) || end.toDateString() === today.toDateString())) return false;
+      if (b.airbnbBlocked) return false;
+      const blocked = blockedTyped?.[b.room.id];
+      if (!blocked?.length) return true;
+      const bStart = toZonedTime(b.startDate, timeZone);
+      const bEnd = toZonedTime(b.endDate, timeZone);
+      return !blocked.some(({ start, duration }) => {
+        const blockStart = toZonedTime(start, timeZone);
+        const blockEnd = addDays(blockStart, duration);
+        return isBefore(bStart, blockEnd) && isAfter(bEnd, blockStart);
+      });
+    });
+
+    const roomDateMap = new Map<string, string[]>();
+    for (const [dateStr, day] of monthMap.entries()) {
+      const localDate = toZonedTime(dateStr, timeZone);
+      if (isBefore(localDate, today) && localDate.toDateString() !== today.toDateString()) continue;
+      for (const room of day.blockedRooms) {
+        if (!roomDateMap.has(room.id)) roomDateMap.set(room.id, []);
+        roomDateMap.get(room.id)!.push(dateStr);
+      }
+    }
+    let blockRangeCount = 0;
+    for (const [, dates] of roomDateMap.entries()) {
+      const sorted = [...dates].sort();
+      let i = 0;
+      while (i < sorted.length) {
+        let j = i;
+        while (
+          j + 1 < sorted.length &&
+          format(addDays(toZonedTime(sorted[j], timeZone), 1), "yyyy-MM-dd") === sorted[j + 1]
+        ) j++;
+        blockRangeCount++;
+        i = j + 1;
+      }
+    }
+
+    return actionableBookings.length + blockRangeCount;
+  }, [monthMap, blockedAirBnBDates]);
+
+  useEffect(() => {
+    setAirbnbPendingCount(airbnbPendingCount);
+  }, [airbnbPendingCount, setAirbnbPendingCount]);
+
+  const availableNightsCount = useMemo(() => {
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const today = startOfToday();
+    const eligibleDateKeys = eachDayOfInterval({
+      start: startOfMonth(currentMonth),
+      end: endOfMonth(currentMonth),
+    })
+      .map((d) => format(d, "yyyy-MM-dd"))
+      .filter((dateKey) => {
+        const date = toZonedTime(dateKey, timeZone);
+        return isAfter(date, today) || date.toDateString() === today.toDateString();
+      });
+    return rooms.filter((r) => r.active).reduce((total, room) => {
+      for (const dateKey of eligibleDateKeys) {
+        const day = monthMap.get(dateKey);
+        const isBooked = day ? day.bookings.some((b) => b.room.id === room.id) : false;
+        const isBlocked = day ? (day.isBlocked || day.blockedRooms.some((r) => r.id === room.id)) : false;
+        if (!isBooked && !isBlocked) total++;
+      }
+      return total;
+    }, 0);
+  }, [monthMap, rooms, currentMonth]);
+
+  useEffect(() => {
+    setAvailableNightsCount(availableNightsCount);
+  }, [availableNightsCount, setAvailableNightsCount]);
 
   const [selectedDate, setSelectedDate] = useState<Date>(startOfToday());
   const [selectedRoom, setSelectedRoom] = useState<roomType>();

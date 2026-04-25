@@ -31,6 +31,8 @@ interface NavBarDesktopProps {
   setIsBlockAirBnBModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isBlockRoomsModalOpen: boolean;
   setIsBlockRoomsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  airbnbPendingCount: number;
+  availableNightsCount: number;
 }
 
 const NavBarDesktop = ({
@@ -51,6 +53,8 @@ const NavBarDesktop = ({
   setIsBlockAirBnBModalOpen,
   isBlockRoomsModalOpen,
   setIsBlockRoomsModalOpen,
+  airbnbPendingCount,
+  availableNightsCount,
 }: NavBarDesktopProps) => {
   const { currentGuest, currentAirBnBGuest } = useContext(GuestModeContext)!;
   const isGuestMode = !!(currentGuest || currentAirBnBGuest);
@@ -103,7 +107,7 @@ const NavBarDesktop = ({
           </button>
           <button
             type="button"
-            className={`flex-1 text-white bg-emerald-600 px-1 py-1 text-xs sm:flex-none sm:px-2 rounded-md ${
+            className={`relative flex-1 text-white bg-emerald-600 px-1 py-1 text-xs sm:flex-none sm:px-2 rounded-md ${
               isAvailabilitiesModalOpen ? "drop-shadow-[0_4px_6px_rgba(59,130,246,0.5)]" : ""
             }`}
             onClick={() => {
@@ -112,15 +116,25 @@ const NavBarDesktop = ({
             }}
           >
             Availabilities
+            {availableNightsCount > 0 && (
+              <span className="absolute -top-2 -right-2 min-w-[20px] h-5 px-1 rounded-full bg-yellow-400 text-black text-[10px] font-bold flex items-center justify-center leading-none">
+                {availableNightsCount}
+              </span>
+            )}
           </button>
           <button
             type="button"
-            className={`flex-1 text-white bg-rose-500 px-1 py-1 text-xs sm:flex-none sm:px-2 rounded-md whitespace-nowrap ${
+            className={`relative flex-1 text-white bg-rose-500 px-1 py-1 text-xs sm:flex-none sm:px-2 rounded-md whitespace-nowrap ${
               isBlockActive ? "drop-shadow-[0_4px_6px_rgba(244,63,94,0.5)]" : ""
             }`}
             onClick={() => setIsBlockChooserOpen(true)}
           >
             Block
+            {airbnbPendingCount > 0 && (
+              <span className="absolute -top-2 -right-2 min-w-[20px] h-5 px-1 rounded-full bg-yellow-400 text-black text-[10px] font-bold flex items-center justify-center leading-none">
+                {airbnbPendingCount}
+              </span>
+            )}
           </button>
         </div>}
       </div>
@@ -177,6 +191,11 @@ const NavBarDesktop = ({
                   <span className="font-bold text-sm text-gray-800 group-hover:text-rose-600">
                     Block AirBnB
                   </span>
+                  {airbnbPendingCount > 0 && (
+                    <span className="ml-auto min-w-[20px] h-5 px-1 rounded-full bg-yellow-400 text-black text-[10px] font-bold flex items-center justify-center leading-none">
+                      {airbnbPendingCount}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-gray-500 leading-relaxed pl-8">
                   Mark non-AirBnB bookings as blocked on your AirBnB calendar so guests cannot double-book those dates online.
