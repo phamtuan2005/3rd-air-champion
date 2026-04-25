@@ -182,11 +182,24 @@ const CustomCalendar = ({
     return () => obs.disconnect();
   }, []);
 
-  // Re-anchor scroll to the current page after any container resize (e.g. footer toggle)
+  // Re-anchor scroll to the current page after any container resize (e.g. footer toggle).
+  // Double-RAF ensures child h-full elements have reflowed before we set scrollTop,
+  // otherwise CSS snap-mandatory snaps to the wrong page on mobile.
   useEffect(() => {
-    if (scrollContainerRef.current && containerHeight > 0) {
-      scrollContainerRef.current.scrollTop = visibleIndexRef.current * containerHeight;
-    }
+    if (!scrollContainerRef.current || containerHeight <= 0) return;
+    let raf2: number;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        if (scrollContainerRef.current) {
+          const h = scrollContainerRef.current.offsetHeight;
+          scrollContainerRef.current.scrollTop = visibleIndexRef.current * h;
+        }
+      });
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
   }, [containerHeight]);
 
   // Build page layouts: each page = numRows rows, overflow propagates to next page
