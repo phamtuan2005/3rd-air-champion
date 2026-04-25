@@ -224,6 +224,20 @@ router.post("/sync", async (req: Request, res: any) => {
         )
       );
 
+      // Map each (date, room) key → the new iCal booking's startDate and duration,
+      // so we can detect stale entries whose metadata changed (e.g. guest shortened stay).
+      const newReservationMetaMap = new Map<string, { startDate: string; duration: number }>(
+        finalResult.flatMap(({ room, reserved }) =>
+          reserved.flatMap((booking) =>
+            Array.from({ length: booking.duration }, (_, i) => {
+              const date = addDays(toZonedTime(booking.start, timeZone), i);
+              const dateString = date.toISOString().split("T")[0];
+              return [`${dateString}_${room}`, { startDate: booking.start, duration: booking.duration }] as [string, { startDate: string; duration: number }];
+            })
+          )
+        )
+      );
+
       console.log("reservedDatesSet:", reservedDatesSet);
 
       // Find today's booking from fetchedDatesMap
@@ -255,14 +269,29 @@ router.post("/sync", async (req: Request, res: any) => {
 
       //Determine dates to unbook
       const toUnbook = Array.from(fetchedDatesMap)
-        .filter(([key]) => {
+        .filter(([key, value]) => {
           const [date] = (key as string).split("_"); // Extract the date part from the key
 
-          return (
-            !reservedDatesSet.has(key as string) && // Not in reserved dates
-            !isBefore(toZonedTime(date, timeZone), startOfToday()) && // In the future
-            !todayBookingMap.has(key as string) // Not part of today's booking duration
-          );
+          if (isBefore(toZonedTime(date, timeZone), startOfToday())) return false;
+          if (todayBookingMap.has(key as string)) return false;
+
+          // Date no longer appears in the new iCal at all → unbook
+          if (!reservedDatesSet.has(key as string)) return true;
+
+          // Date still appears in the new iCal, but check whether the booking
+          // metadata (startDate / duration) changed. If so, the stored entry is
+          // stale and must be removed so bookAirBnB can re-add it correctly.
+          const newMeta = newReservationMetaMap.get(key as string);
+          if (newMeta) {
+            const { startDate: storedStart, duration: storedDuration } = value as any;
+            const storedStartStr = storedStart
+              ? toZonedTime(storedStart, timeZone).toISOString().split("T")[0]
+              : null;
+            const newStartStr = toZonedTime(newMeta.startDate, timeZone).toISOString().split("T")[0];
+            if (storedStartStr !== newStartStr || storedDuration !== newMeta.duration) return true;
+          }
+
+          return false;
         })
         .map(([key, value]) => {
           // Extract only room and date fields for the toUnbook array
