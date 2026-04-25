@@ -39,11 +39,35 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName }: Avai
         const isBlocked = day ? (day.isBlocked || day.blockedRooms.some((r) => r.id === room.id)) : false;
         if (!isBooked && !isBlocked) unbookedDates.push(dateKey);
       }
+
+      let bookedNights = 0;
+      const bookedProfit = allMonthDateKeys.reduce((total, dateKey) => {
+        const day = monthMap.get(dateKey);
+        if (!day) return total;
+        const roomBookings = day.bookings.filter((b) => b.room.id === room.id);
+        if (roomBookings.length > 0) bookedNights++;
+        return total + roomBookings.reduce((sum, booking) => {
+            if (booking.guest.name !== "AirBnB") {
+              const guestPricing = booking.guest.pricing.find((p) => p.room === booking.room.id);
+              return sum + (guestPricing ? guestPricing.price : 0);
+            } else {
+              if (booking.airbnbPrice && booking.duration) {
+                return sum + booking.airbnbPrice / booking.duration;
+              }
+              return sum;
+            }
+          }, 0);
+      }, 0);
+
+      const avgNightlyRate = bookedNights > 0 ? bookedProfit / bookedNights : room.price;
+      const potentialProfit = unbookedDates.length * avgNightlyRate;
       return {
         room,
         unbookedDates,
         unbookedNights: unbookedDates.length,
-        potentialProfit: unbookedDates.length * room.price,
+        potentialProfit,
+        bookedProfit,
+        estimatedProfit: bookedProfit + potentialProfit,
       };
     });
 
@@ -54,31 +78,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName }: Avai
   const roomBoxWidth = `${maxNameLen * 6.5 + 16}px`;
 
   const totalNights = stats.reduce((sum, s) => sum + s.unbookedNights, 0);
-  const totalProfit = stats.reduce((sum, s) => sum + s.potentialProfit, 0);
-
-  // Actual profit: same logic as the main page profit indicator (per-day accumulation)
-  const actualProfit = allMonthDateKeys.reduce((total, dateKey) => {
-    const day = monthMap.get(dateKey);
-    if (!day) return total;
-    return (
-      total +
-      day.bookings.reduce((sum, booking) => {
-        if (booking.guest.name !== "AirBnB") {
-          const guestPricing = booking.guest.pricing.find(
-            (p) => p.room === booking.room.id,
-          );
-          return sum + (guestPricing ? guestPricing.price : 0);
-        } else {
-          if (booking.airbnbPrice && booking.duration) {
-            return sum + booking.airbnbPrice / booking.duration;
-          }
-          return sum;
-        }
-      }, 0)
-    );
-  }, 0);
-
-  const totalMonthProfit = actualProfit + totalProfit;
+  const totalMonthProfit = stats.reduce((sum, s) => sum + s.estimatedProfit, 0);
 
   const monthLabel = currentMonth.toLocaleString("default", {
     month: "long",
@@ -108,7 +108,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName }: Avai
             </tr>
           </thead>
           <tbody>
-            {stats.map(({ room, unbookedNights, unbookedDates, potentialProfit }) => {
+            {stats.map(({ room, unbookedNights, unbookedDates, estimatedProfit }) => {
               const days = unbookedDates.map((dateKey) =>
                 format(toZonedTime(dateKey, timeZone), "d"),
               );
@@ -138,7 +138,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName }: Avai
                     )}
                   </td>
                   <td className="py-1.5 text-right font-medium text-emerald-600">
-                    ${potentialProfit.toFixed(2)}
+                    ${estimatedProfit.toFixed(2)}
                   </td>
                 </tr>
               );
@@ -148,25 +148,18 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName }: Avai
             <tr className="font-bold text-gray-800">
               <td className="pt-2">Total</td>
               <td className="pt-2">{totalNights}</td>
-              <td className="pt-2 text-right text-emerald-700">
-                ${totalProfit.toFixed(2)}
+              <td className="pt-2 text-right">
+                <span className="inline-block bg-emerald-600 text-white text-xs font-bold px-2 py-0.5 rounded">
+                  ${totalMonthProfit.toFixed(2)}
+                </span>
               </td>
             </tr>
           </tfoot>
         </table>
       )}
 
-      {stats.length > 0 && (
-        <div className="mt-auto flex flex-col gap-1 rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-700">Estimated total month profit</span>
-            <span className="text-sm font-bold text-emerald-700">${totalMonthProfit.toFixed(2)}</span>
-          </div>
-        </div>
-      )}
-
-      <p className="text-[10px] text-gray-400">
-        Based on room default nightly rate · from today to end of month
+<p className="text-[10px] text-gray-400">
+        Booked nights use actual pricing · unbooked nights use avg rate (or default if no bookings yet)
       </p>
     </div>
   );

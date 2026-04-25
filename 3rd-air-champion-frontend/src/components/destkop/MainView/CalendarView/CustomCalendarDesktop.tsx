@@ -77,6 +77,7 @@ const CustomCalendar = ({
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const calendarWrapperRef = useRef<HTMLDivElement>(null);
+  const visibleIndexRef = useRef<number>(24);
 
   const minRowHeight = (maxRooms + 1) * SUBROW_HEIGHT;
   const numRows =
@@ -103,6 +104,7 @@ const CustomCalendar = ({
       const targetIndex = 24 + monthDiff;
       const h = scrollContainerRef.current.offsetHeight;
       scrollContainerRef.current.scrollTop = targetIndex * h;
+      visibleIndexRef.current = targetIndex;
     }
   }, [months]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -111,6 +113,7 @@ const CustomCalendar = ({
     if (scrollToTodayTrigger > 0 && scrollContainerRef.current && months.length > 0) {
       const h = scrollContainerRef.current.offsetHeight;
       scrollContainerRef.current.scrollTop = 24 * h;
+      visibleIndexRef.current = 24;
     }
   }, [scrollToTodayTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -179,6 +182,13 @@ const CustomCalendar = ({
     return () => obs.disconnect();
   }, []);
 
+  // Re-anchor scroll to the current page after any container resize (e.g. footer toggle)
+  useEffect(() => {
+    if (scrollContainerRef.current && containerHeight > 0) {
+      scrollContainerRef.current.scrollTop = visibleIndexRef.current * containerHeight;
+    }
+  }, [containerHeight]);
+
   // Build page layouts: each page = numRows rows, overflow propagates to next page
   useEffect(() => {
     if (months.length === 0 || numRows <= 0) return;
@@ -227,6 +237,7 @@ const CustomCalendar = ({
     if (snappedMonth) {
       setCurrentMonth(snappedMonth);
       setVisibleIndex(snappedIndex);
+      visibleIndexRef.current = snappedIndex;
     }
   };
 
