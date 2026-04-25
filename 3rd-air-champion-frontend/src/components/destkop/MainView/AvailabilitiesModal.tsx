@@ -59,7 +59,10 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName }: Avai
           }, 0);
       }, 0);
 
-      const avgNightlyRate = bookedNights > 0 ? bookedProfit / bookedNights : room.price;
+      // Shrinkage estimator: blend sample avg toward room.price prior when sample is small
+      const k = 5;
+      const weight = bookedNights / (bookedNights + k);
+      const avgNightlyRate = weight * (bookedNights > 0 ? bookedProfit / bookedNights : 0) + (1 - weight) * room.price;
       const potentialProfit = unbookedDates.length * avgNightlyRate;
       return {
         room,
@@ -159,7 +162,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName }: Avai
       )}
 
 <p className="text-[10px] text-gray-400">
-        Booked nights use actual pricing · unbooked nights use avg rate (or default if no bookings yet)
+        Booked nights use actual pricing · unbooked nights use shrinkage-adjusted avg (blended toward default rate when sample is small)
       </p>
     </div>
   );
