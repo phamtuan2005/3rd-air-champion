@@ -229,9 +229,18 @@ const CustomCalendar = ({
   }, [months, numRows]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement, UIEvent>) => {
-    const scrollTop = (e.target as HTMLElement).scrollTop;
-    const calendarHeight = (e.target as HTMLElement).offsetHeight;
-    const snappedIndex = Math.round(scrollTop / calendarHeight);
+    const el = e.target as HTMLElement;
+    const calendarHeight = el.offsetHeight;
+    const snappedIndex = Math.round(el.scrollTop / calendarHeight);
+
+    // snap-mandatory can only move the user ±1 page per swipe.
+    // A resize-induced re-snap jumps 2+ pages (proportional to ΔH/H).
+    // Detect and self-correct without any timing dependency.
+    if (Math.abs(snappedIndex - visibleIndexRef.current) > 1) {
+      el.scrollTop = visibleIndexRef.current * calendarHeight;
+      return;
+    }
+
     const snappedMonth = months[snappedIndex];
     if (snappedMonth) {
       setCurrentMonth(snappedMonth);
@@ -399,12 +408,28 @@ const CustomCalendar = ({
                 </div>
               );
             }
+            const prevDayNoPm = prevDay
+              ? !prevDay.bookings.some((b) => b.room?.name === room.name)
+              : false;
             return (
               <div key={room.name} className="row-span-1 min-h-[16px] relative">
                 {isFutureOrToday && !currentGuest && !currentAirBnBGuest && (
                   <div
                     className="react-calendar__opportunity_row absolute rounded-lg"
                     style={{ top: "1px", bottom: "1px", left: "20%", right: "-20%" }}
+                  />
+                )}
+                {isFutureOrToday && !currentGuest && !currentAirBnBGuest && prevDayNoPm && getDay(date) === 0 && (
+                  <div
+                    className="react-calendar__opportunity_pm absolute"
+                    style={{
+                      top: "1px",
+                      bottom: "1px",
+                      left: "-1px",
+                      right: "80%",
+                      borderTopRightRadius: "0.5rem",
+                      borderBottomRightRadius: "0.5rem",
+                    }}
                   />
                 )}
               </div>
@@ -450,6 +475,10 @@ const CustomCalendar = ({
 
           const availableTileWidth = tileWidth ? tileWidth * maxDuration - tileWidth / 5 : 0;
 
+          const prevDayHadNoPmForRoom = prevDay
+            ? !prevDay.bookings.some((b) => b.room?.name === room.name)
+            : false;
+
           const pmNameContent = pmIsStart ? (
             <span
               className="absolute top-auto left-1 truncate z-10"
@@ -480,7 +509,7 @@ const CustomCalendar = ({
               )}
               {pmBooking ? (
                 <div
-                  className={`${pmColor} ${pmIsStart ? "rounded-l-lg" : ""} ${pmTextColor} flex items-center`}
+                  className={`${pmColor} ${pmTextColor} flex items-center`}
                   style={{
                     position: "absolute",
                     top: "-1px",
@@ -488,6 +517,8 @@ const CustomCalendar = ({
                     left: pmIsStart ? "20%" : "-1px",
                     right: "-1px",
                     fontSize: `${textSize}rem`,
+                    borderTopLeftRadius: (pmIsStart && !amBooking) ? "0.5rem" : undefined,
+                    borderBottomLeftRadius: (pmIsStart && !amBooking) ? "0.5rem" : undefined,
                   }}
                 >
                   {pmNameContent}
@@ -512,9 +543,26 @@ const CustomCalendar = ({
                     bottom: "1px",
                     left: "20%",
                     right: "-20%",
+                    borderTopLeftRadius: "0.5rem",
+                    borderBottomLeftRadius: "0.5rem",
                   }}
                 />
               ) : null}
+              {!amBooking && prevDayHadNoPmForRoom && getDay(date) === 0 && !isBefore(date, startOfToday()) && !currentGuest && !currentAirBnBGuest && (
+                <div
+                  className="react-calendar__opportunity_pm absolute"
+                  style={{
+                    top: "1px",
+                    bottom: "1px",
+                    left: "-1px",
+                    right: "80%",
+                    borderTopLeftRadius: 0,
+                    borderBottomLeftRadius: 0,
+                    borderTopRightRadius: "0.5rem",
+                    borderBottomRightRadius: "0.5rem",
+                  }}
+                />
+              )}
             </div>
           );
         })}
