@@ -229,9 +229,18 @@ const CustomCalendar = ({
   }, [months, numRows]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement, UIEvent>) => {
-    const scrollTop = (e.target as HTMLElement).scrollTop;
-    const calendarHeight = (e.target as HTMLElement).offsetHeight;
-    const snappedIndex = Math.round(scrollTop / calendarHeight);
+    const el = e.target as HTMLElement;
+    const calendarHeight = el.offsetHeight;
+    const snappedIndex = Math.round(el.scrollTop / calendarHeight);
+
+    // snap-mandatory can only move the user ±1 page per swipe.
+    // A resize-induced re-snap jumps 2+ pages (proportional to ΔH/H).
+    // Detect and self-correct without any timing dependency.
+    if (Math.abs(snappedIndex - visibleIndexRef.current) > 1) {
+      el.scrollTop = visibleIndexRef.current * calendarHeight;
+      return;
+    }
+
     const snappedMonth = months[snappedIndex];
     if (snappedMonth) {
       setCurrentMonth(snappedMonth);
