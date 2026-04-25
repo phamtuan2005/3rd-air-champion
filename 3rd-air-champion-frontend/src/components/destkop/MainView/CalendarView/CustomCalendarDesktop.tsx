@@ -253,7 +253,7 @@ const CustomCalendar = ({
     }
   };
 
-  const customTile = ({ date, isOutside = false }: { date: Date; isOutside?: boolean }) => {
+  const customTile = ({ date }: { date: Date; isOutside?: boolean }) => {
     const className = ["react-calendar__custom_tile"];
 
     if (isSameDay(date, startOfToday()))
@@ -275,7 +275,6 @@ const CustomCalendar = ({
     const isFutureOrToday = !isBefore(date, startOfToday());
     const visibleRooms = usedRooms.filter((r) => !selectedRoomName || r.name === selectedRoomName);
     if (
-      !isOutside &&
       isFutureOrToday &&
       !day?.isBlocked &&
       (!day || day.bookings.length === 0) &&
@@ -294,7 +293,7 @@ const CustomCalendar = ({
     return className;
   };
 
-  const customTileContent = ({ date, view, isOutside = false }: { date: Date; view: string; isOutside?: boolean }) => {
+  const customTileContent = ({ date, view }: { date: Date; view: string; isOutside?: boolean }) => {
     if (view !== "month") return null;
 
     const day = useMonthMap.get(date.toISOString().split("T")[0]);
@@ -394,7 +393,7 @@ const CustomCalendar = ({
               <div
                 key={room.name}
                 className={`row-span-1 min-h-[16px]${
-                  !isOutside && isFutureOrToday && !currentGuest && !currentAirBnBGuest
+                  isFutureOrToday && !currentGuest && !currentAirBnBGuest
                     ? " react-calendar__opportunity_row"
                     : ""
                 }`}
@@ -494,7 +493,7 @@ const CustomCalendar = ({
                     right: "0",
                   }}
                 />
-              ) : !isOutside && !isBefore(date, startOfToday()) && !currentGuest && !currentAirBnBGuest ? (
+              ) : !isBefore(date, startOfToday()) && !currentGuest && !currentAirBnBGuest ? (
                 <div
                   className="react-calendar__opportunity_pm"
                   style={{
