@@ -33,6 +33,7 @@ interface NavBarDesktopProps {
   setIsBlockRoomsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   airbnbPendingCount: number;
   availableNightsCount: number;
+  todoCleanCount: number;
 }
 
 const NavBarDesktop = ({
@@ -55,6 +56,7 @@ const NavBarDesktop = ({
   setIsBlockRoomsModalOpen,
   airbnbPendingCount,
   availableNightsCount,
+  todoCleanCount,
 }: NavBarDesktopProps) => {
   const { currentGuest, currentAirBnBGuest } = useContext(GuestModeContext)!;
   const isGuestMode = !!(currentGuest || currentAirBnBGuest);
@@ -79,14 +81,14 @@ const NavBarDesktop = ({
       </div>
 
       {/* Centered Navigation Buttons */}
-      <div className="flex flex-col items-center gap-1">
+      <div className="flex flex-col items-center gap-3">
         <h1 className="p-1 sm:p-2 text-base sm:text-xl font-bold tracking-wide text-gray-800">
           TT House Booking Manager
         </h1>
         {!isGuestMode && <div className="flex gap-1 sm:gap-2">
           <button
             type="button"
-            className={`flex-1 text-white bg-black px-1 py-1 text-xs sm:flex-none sm:px-2 rounded-md whitespace-nowrap ${
+            className={`relative flex-1 text-white bg-black px-1 py-1 text-xs sm:flex-none sm:px-2 rounded-md whitespace-nowrap ${
               isTodoModalOpen ? "drop-shadow-[0_4px_6px_rgba(59,130,246,0.5)]" : ""
             }`}
             onClick={() => {
@@ -95,6 +97,11 @@ const NavBarDesktop = ({
             }}
           >
             To Do
+            {todoCleanCount > 0 && (
+              <span className="absolute -top-4 left-1/2 -translate-x-1/2 min-w-[20px] h-5 px-1 rounded-full bg-yellow-400 text-black text-[10px] font-bold flex items-center justify-center leading-none">
+                {todoCleanCount}
+              </span>
+            )}
           </button>
           <button
             type="button"
@@ -117,7 +124,7 @@ const NavBarDesktop = ({
           >
             Availabilities
             {availableNightsCount > 0 && (
-              <span className="absolute -top-2 -right-2 min-w-[20px] h-5 px-1 rounded-full bg-yellow-400 text-black text-[10px] font-bold flex items-center justify-center leading-none">
+              <span className="absolute -top-4 left-1/2 -translate-x-1/2 min-w-[20px] h-5 px-1 rounded-full bg-yellow-400 text-black text-[10px] font-bold flex items-center justify-center leading-none">
                 {availableNightsCount}
               </span>
             )}
@@ -131,7 +138,7 @@ const NavBarDesktop = ({
           >
             Block
             {airbnbPendingCount > 0 && (
-              <span className="absolute -top-2 -right-2 min-w-[20px] h-5 px-1 rounded-full bg-yellow-400 text-black text-[10px] font-bold flex items-center justify-center leading-none">
+              <span className="absolute -top-4 left-1/2 -translate-x-1/2 min-w-[20px] h-5 px-1 rounded-full bg-yellow-400 text-black text-[10px] font-bold flex items-center justify-center leading-none">
                 {airbnbPendingCount}
               </span>
             )}

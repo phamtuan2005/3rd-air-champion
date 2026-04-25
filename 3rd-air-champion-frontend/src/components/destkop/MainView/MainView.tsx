@@ -75,9 +75,10 @@ interface MainViewProps {
   setIsBlockRoomsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setAirbnbPendingCount: React.Dispatch<React.SetStateAction<number>>;
   setAvailableNightsCount: React.Dispatch<React.SetStateAction<number>>;
+  setTodoCleanCount: React.Dispatch<React.SetStateAction<number>>;
 }
 
-const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnbAddress, isTodoModalOpen, setIsTodoModalOpen, isModalOpen, setIsModalOpen, isAvailabilitiesModalOpen, setIsAvailabilitiesModalOpen, isBlockAirBnBModalOpen, setIsBlockAirBnBModalOpen, isBlockRoomsModalOpen, setIsBlockRoomsModalOpen, setAirbnbPendingCount, setAvailableNightsCount }: MainViewProps) => {
+const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnbAddress, isTodoModalOpen, setIsTodoModalOpen, isModalOpen, setIsModalOpen, isAvailabilitiesModalOpen, setIsAvailabilitiesModalOpen, isBlockAirBnBModalOpen, setIsBlockAirBnBModalOpen, isBlockRoomsModalOpen, setIsBlockRoomsModalOpen, setAirbnbPendingCount, setAvailableNightsCount, setTodoCleanCount }: MainViewProps) => {
   const token = localStorage.getItem("token");
   const airbnbsyncRef = useRef(airbnbsync);
   // Set by the isCalendarLoading effect after fetching; cleared by useEffect([days])
@@ -235,6 +236,16 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
   useEffect(() => {
     setAvailableNightsCount(availableNightsCount);
   }, [availableNightsCount, setAvailableNightsCount]);
+
+  const todoCleanCount = useMemo(() => {
+    const yesterdayKey = addDays(startOfToday(), -1).toISOString().split("T")[0];
+    const yesterdayDay = monthMap.get(yesterdayKey);
+    return yesterdayDay?.bookings.filter((b) => b.endDate.split("T")[0] === yesterdayKey).length ?? 0;
+  }, [monthMap]);
+
+  useEffect(() => {
+    setTodoCleanCount(todoCleanCount);
+  }, [todoCleanCount, setTodoCleanCount]);
 
   const [selectedDate, setSelectedDate] = useState<Date>(startOfToday());
   const [selectedRoom, setSelectedRoom] = useState<roomType>();
