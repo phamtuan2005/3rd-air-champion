@@ -146,7 +146,7 @@
 
 /* Base styling for tiles without bookings */
 .react-calendar__custom_tile_no_booking {
-  @apply border;
+  @apply border-y;
 }
 
 /* Future empty dates — booking opportunity highlight */
@@ -158,9 +158,10 @@
 /* Empty room row on a future partially-booked date */
 .react-calendar__opportunity_row {
   background-color: #fffbeb; /* amber-50 */
-  border: 1px dashed #f59e0b; /* amber-400 */
-  border-radius: 2px;
-  margin: 1px 0;
+  border-top: 1px dashed #f59e0b; /* amber-400 */
+  border-bottom: 1px dashed #f59e0b;
+  border-left: 1px dashed #f59e0b;
+  /* no right border — the box extends into the next day; a right border would create a double-line artifact where adjacent days' caps meet */
 }
 
 /* PM half of a checkout day with no incoming guest */
@@ -168,8 +169,7 @@
   background-color: #fffbeb; /* amber-50 */
   border-top: 1px dashed #f59e0b;
   border-bottom: 1px dashed #f59e0b;
-  border-right: 1px dashed #f59e0b;
-  border-radius: 0 2px 2px 0;
+  /* no left border — adjacent to the AM checkout bar; no right border — same reason as opportunity_row */
 }
 
 /* Base styles for tiles with bookings */

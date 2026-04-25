@@ -170,37 +170,23 @@ const CustomCalendar = ({
     }
   }, [currentGuest, currentAirBnBGuest, monthMap]);
 
-// Track container height via ResizeObserver
+  // Track container height via ResizeObserver.
+  // Re-anchor scrollTop in the same callback: ResizeObserver fires after layout is fully
+  // settled (including h-full children), so this is always correct with no timing dependency.
   useEffect(() => {
     const el = scrollContainerRef.current;
     if (!el) return;
     const obs = new ResizeObserver(([entry]) => {
-      setContainerHeight(entry.contentRect.height);
+      const h = entry.contentRect.height;
+      setContainerHeight(h);
+      if (h > 0) {
+        el.scrollTop = visibleIndexRef.current * h;
+      }
     });
     obs.observe(el);
     setContainerHeight(el.clientHeight);
     return () => obs.disconnect();
   }, []);
-
-  // Re-anchor scroll to the current page after any container resize (e.g. footer toggle).
-  // Double-RAF ensures child h-full elements have reflowed before we set scrollTop,
-  // otherwise CSS snap-mandatory snaps to the wrong page on mobile.
-  useEffect(() => {
-    if (!scrollContainerRef.current || containerHeight <= 0) return;
-    let raf2: number;
-    const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => {
-        if (scrollContainerRef.current) {
-          const h = scrollContainerRef.current.offsetHeight;
-          scrollContainerRef.current.scrollTop = visibleIndexRef.current * h;
-        }
-      });
-    });
-    return () => {
-      cancelAnimationFrame(raf1);
-      cancelAnimationFrame(raf2);
-    };
-  }, [containerHeight]);
 
   // Build page layouts: each page = numRows rows, overflow propagates to next page
   useEffect(() => {
@@ -407,21 +393,21 @@ const CustomCalendar = ({
               return (
                 <div key={room.name} className="row-span-1 min-h-[16px] relative">
                   <div
-                    className="react-calendar__room_blocked_bar absolute inset-0"
-                    style={{ left: "-1px", right: "-1px" }}
+                    className="react-calendar__room_blocked_bar absolute"
+                    style={{ top: "-1px", bottom: "-1px", left: "-1px", right: "-1px" }}
                   />
                 </div>
               );
             }
             return (
-              <div
-                key={room.name}
-                className={`row-span-1 min-h-[16px]${
-                  isFutureOrToday && !currentGuest && !currentAirBnBGuest
-                    ? " react-calendar__opportunity_row"
-                    : ""
-                }`}
-              />
+              <div key={room.name} className="row-span-1 min-h-[16px] relative">
+                {isFutureOrToday && !currentGuest && !currentAirBnBGuest && (
+                  <div
+                    className="react-calendar__opportunity_row absolute rounded-lg"
+                    style={{ top: "1px", bottom: "1px", left: "20%", right: "-20%" }}
+                  />
+                )}
+              </div>
             );
           }
 
@@ -485,8 +471,8 @@ const CustomCalendar = ({
                   className={`${amColor} ${amIsEnd ? "rounded-r-lg" : ""}`}
                   style={{
                     position: "absolute",
-                    top: 0,
-                    bottom: 0,
+                    top: "-1px",
+                    bottom: "-1px",
                     left: "-1px",
                     right: amIsEnd ? "80%" : "-1px",
                   }}
@@ -497,8 +483,8 @@ const CustomCalendar = ({
                   className={`${pmColor} ${pmIsStart ? "rounded-l-lg" : ""} ${pmTextColor} flex items-center`}
                   style={{
                     position: "absolute",
-                    top: 0,
-                    bottom: 0,
+                    top: "-1px",
+                    bottom: "-1px",
                     left: pmIsStart ? "20%" : "-1px",
                     right: "-1px",
                     fontSize: `${textSize}rem`,
@@ -511,21 +497,21 @@ const CustomCalendar = ({
                   className="react-calendar__room_blocked_bar"
                   style={{
                     position: "absolute",
-                    top: 0,
-                    bottom: 0,
+                    top: "-1px",
+                    bottom: "-1px",
                     left: "20%",
                     right: "0",
                   }}
                 />
               ) : !isBefore(date, startOfToday()) && !currentGuest && !currentAirBnBGuest ? (
                 <div
-                  className="react-calendar__opportunity_pm"
+                  className="react-calendar__opportunity_pm rounded-r-lg"
                   style={{
                     position: "absolute",
-                    top: 0,
-                    bottom: 0,
+                    top: "1px",
+                    bottom: "1px",
                     left: "20%",
-                    right: "0",
+                    right: "-20%",
                   }}
                 />
               ) : null}
