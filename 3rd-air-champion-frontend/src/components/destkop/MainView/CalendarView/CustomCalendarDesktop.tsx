@@ -82,7 +82,7 @@ const CustomCalendar = ({
   const minRowHeight = (maxRooms + 1) * SUBROW_HEIGHT;
   const numRows =
     containerHeight > 0 ? Math.max(Math.floor(containerHeight / minRowHeight), 1) : 5;
-  const rowHeight = containerHeight > 0 ? containerHeight / numRows : minRowHeight;
+  const rowHeight = containerHeight > 0 ? Math.floor(containerHeight / numRows) : minRowHeight;
 
   // Build months array: 2 years back, 3 years ahead
   useEffect(() => {
@@ -517,8 +517,8 @@ const CustomCalendar = ({
                     left: pmIsStart ? "20%" : "-1px",
                     right: "-1px",
                     fontSize: `${textSize}rem`,
-                    borderTopLeftRadius: (pmIsStart && !amBooking) ? "0.5rem" : undefined,
-                    borderBottomLeftRadius: (pmIsStart && !amBooking) ? "0.5rem" : undefined,
+                    borderTopLeftRadius: pmIsStart ? "0.5rem" : undefined,
+                    borderBottomLeftRadius: pmIsStart ? "0.5rem" : undefined,
                   }}
                 >
                   {pmNameContent}
