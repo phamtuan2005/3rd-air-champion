@@ -762,6 +762,8 @@ const MainView = ({
           booking={selectedBooking}
           rooms={rooms}
           startWithPricingEdit={pricingEditOnOpen}
+          airBnBBookingCount={airBnBBookingCount}
+          guestBookingCount={guestBookingCount}
           onClose={() => { setSelectedBooking(null); setPricingEditOnOpen(false); }}
           onUpdateGuests={onUpdateGuest}
           onAirbnbPriceUpdate={onAirbnbPriceUpdate}

@@ -4,6 +4,7 @@ import {
   useFieldArray,
   SubmitHandler,
 } from "react-hook-form";
+import { useMemo } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { bookingType } from "../../../../util/types/bookingType";
 import { roomType } from "../../../../util/types/roomType";
@@ -12,6 +13,7 @@ import {
   pricingZodSchema,
 } from "./zodPricing";
 import PricingDropdown from "./PricingDropdown";
+import { getRoomColor } from "../../../../util/getRoomColor";
 
 interface PricingProps {
   booking: bookingType;
@@ -34,7 +36,6 @@ const Pricing = ({
   onPricingUpdate,
   setIsEditing,
 }: PricingProps) => {
-  // Initialize React Hook Form
   const { control, handleSubmit, reset } = useForm<pricingZodSchema>({
     resolver: zodResolver(pricingZodObject),
     defaultValues: {
@@ -55,6 +56,11 @@ const Pricing = ({
     name: "pricing",
   });
 
+  const roomBoxWidth = useMemo(() => {
+    const maxLen = rooms.reduce((max, r) => Math.max(max, r.name.length), 0);
+    return `${maxLen * 6.5 + 16}px`;
+  }, [rooms]);
+
   const onSubmit: SubmitHandler<pricingZodSchema> = (data) => {
     const updatedPricing = data.pricing.map((pricing) => ({
       ...pricing,
@@ -68,14 +74,34 @@ const Pricing = ({
 
   return (
     <div>
-      {isEditing ? (
+      <div className="flex items-center gap-2">
+        <label className="font-semibold">Pricing ($USD):</label>
+        {!isEditing && (
+          <>
+            <PricingDropdown fields={fields} rooms={rooms} roomBoxWidth={roomBoxWidth} />
+            <button
+              className="bg-blue-500 text-white px-2 py-1 rounded-md text-sm"
+              onClick={() => setIsEditing(true)}
+            >
+              Edit
+            </button>
+          </>
+        )}
+      </div>
+
+      {isEditing && (
         <form
           onSubmit={handleSubmit(onSubmit)}
           className="flex flex-col space-y-1 py-1"
         >
           {fields.map((field, index) => (
             <div key={field.id} className="flex items-center space-x-4">
-              <span className="basis-1/3">{rooms[index].name}:</span>
+              <span
+                className={`${getRoomColor(rooms[index].name, rooms[index].color)} text-white text-xs font-medium py-0.5 rounded inline-block text-center whitespace-nowrap`}
+                style={{ width: roomBoxWidth }}
+              >
+                {rooms[index].name}
+              </span>
               <Controller
                 name={`pricing.${index}.price`}
                 control={control}
@@ -120,16 +146,6 @@ const Pricing = ({
             </button>
           </div>
         </form>
-      ) : (
-        <div className="flex w-full justify-between items-center space-x-2 py-1">
-          <button
-            className="bg-blue-500 text-white px-2 py-1 rounded-md"
-            onClick={() => setIsEditing(true)}
-          >
-            Edit Pricing
-          </button>
-          <PricingDropdown fields={fields} rooms={rooms} />
-        </div>
       )}
     </div>
   );
