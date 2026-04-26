@@ -45,6 +45,8 @@ function App() {
   const [airbnbPendingCount, setAirbnbPendingCount] = useState(0);
   const [availableNightsCount, setAvailableNightsCount] = useState(0);
   const [todoCleanCount, setTodoCleanCount] = useState(0);
+  const [isRequestManagerOpen, setIsRequestManagerOpen] = useState(false);
+  const [bookingRequestPendingCount, setBookingRequestPendingCount] = useState(0);
 
   const [airBnBInfo, setAirBnBInfo] = useState({
     doorCode: "",
@@ -163,6 +165,9 @@ function App() {
                 airbnbPendingCount={airbnbPendingCount}
                 availableNightsCount={availableNightsCount}
                 todoCleanCount={todoCleanCount}
+                isRequestManagerOpen={isRequestManagerOpen}
+                setIsRequestManagerOpen={setIsRequestManagerOpen}
+                bookingRequestPendingCount={bookingRequestPendingCount}
               />
 
               {/* About Modal */}
@@ -194,6 +199,9 @@ function App() {
                     setAirbnbPendingCount={setAirbnbPendingCount}
                     setAvailableNightsCount={setAvailableNightsCount}
                     setTodoCleanCount={setTodoCleanCount}
+                    isRequestManagerOpen={isRequestManagerOpen}
+                    setIsRequestManagerOpen={setIsRequestManagerOpen}
+                    setBookingRequestPendingCount={setBookingRequestPendingCount}
                   ></MainView>
                 </div>
 

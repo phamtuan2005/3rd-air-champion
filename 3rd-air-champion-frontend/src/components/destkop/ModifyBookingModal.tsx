@@ -78,8 +78,6 @@ const ModifyBookingModal = ({
   }, [watchedStartDate, watchedDuration, monthMap, selectedModifyBooking]);
 
   const onSubmit: SubmitHandler<modifyBookingSchema> = (data) => {
-    console.log(data);
-
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     const bookingIds = new Set<string>();

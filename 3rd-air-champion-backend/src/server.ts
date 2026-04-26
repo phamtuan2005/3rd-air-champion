@@ -13,6 +13,7 @@ import roomRoute from "./route/roomRoute";
 import dayRoute from "./route/dayRoute";
 import hostRoute from "./route/hostRoute";
 import syncRoute from "./route/syncRoute";
+import bookingRequestRoute from "./route/bookingRequestRoute";
 import { authenticateToken } from "./middleware/authenticateJWT";
 import cors from "cors";
 
@@ -79,8 +80,9 @@ const startServer = async () => {
       res.status(200).json({ message: "Hello World!" });
     });
 
-    // Authorization route
+    // Public routes
     app.use("/auth", authorizationRoute);
+    app.use("/booking-request", bookingRequestRoute);
 
     // Authenticate all paths from now on
     app.use(authenticateToken as any);

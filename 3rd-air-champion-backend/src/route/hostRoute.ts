@@ -3,6 +3,30 @@ import { sendGraphQLRequest } from "./util/sendToGraphQL";
 
 const router = express.Router();
 
+router.post("/get", async (req: Request, res: any) => {
+    const query = `
+              query Hosts {
+                hosts {
+                  id
+                  name
+                  }
+              }
+      `;
+  
+    sendGraphQLRequest(query)
+      .then((result: any) => {
+        if (result.errors) {
+          return res.status(400).json({ errors: result.errors[0].message });
+        }
+        // Send the successful login response
+        res.status(200).json(result.data.hosts);
+      })
+      .catch((error: any) => {
+        // Handle errors from the helper function
+        res.status(500).json({ error: error.message });
+      });
+});
+
 router.post("/get/one", async (req: Request, res: any) => {
   const { id } = req.body;
 

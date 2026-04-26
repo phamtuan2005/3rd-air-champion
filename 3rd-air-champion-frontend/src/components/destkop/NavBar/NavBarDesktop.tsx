@@ -34,6 +34,9 @@ interface NavBarDesktopProps {
   airbnbPendingCount: number;
   availableNightsCount: number;
   todoCleanCount: number;
+  isRequestManagerOpen: boolean;
+  setIsRequestManagerOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  bookingRequestPendingCount: number;
 }
 
 const NavBarDesktop = ({
@@ -57,6 +60,9 @@ const NavBarDesktop = ({
   airbnbPendingCount,
   availableNightsCount,
   todoCleanCount,
+  isRequestManagerOpen,
+  setIsRequestManagerOpen,
+  bookingRequestPendingCount,
 }: NavBarDesktopProps) => {
   const { currentGuest, currentAirBnBGuest } = useContext(GuestModeContext)!;
   const isGuestMode = !!(currentGuest || currentAirBnBGuest);
@@ -69,6 +75,7 @@ const NavBarDesktop = ({
     setIsAvailabilitiesModalOpen(false);
     setIsBlockAirBnBModalOpen(false);
     setIsBlockRoomsModalOpen(false);
+    setIsRequestManagerOpen(false);
   };
 
   return (
@@ -100,6 +107,23 @@ const NavBarDesktop = ({
             {todoCleanCount > 0 && (
               <span className="absolute -top-4 left-1/2 -translate-x-1/2 min-w-[20px] h-5 px-1 rounded-full bg-yellow-400 text-black text-[10px] font-bold flex items-center justify-center leading-none">
                 {todoCleanCount}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            className={`relative flex-1 text-white bg-amber-500 px-1 py-1 text-xs sm:flex-none sm:px-2 rounded-md whitespace-nowrap ${
+              isRequestManagerOpen ? "drop-shadow-[0_4px_6px_rgba(245,158,11,0.5)]" : ""
+            }`}
+            onClick={() => {
+              closeAllPanels();
+              setIsRequestManagerOpen(!isRequestManagerOpen);
+            }}
+          >
+            Requests
+            {bookingRequestPendingCount > 0 && (
+              <span className="absolute -top-4 left-1/2 -translate-x-1/2 min-w-[20px] h-5 px-1 rounded-full bg-yellow-400 text-black text-[10px] font-bold flex items-center justify-center leading-none">
+                {bookingRequestPendingCount}
               </span>
             )}
           </button>

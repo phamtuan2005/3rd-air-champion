@@ -4,6 +4,7 @@ import Calendar from "../model/calendarSchema";
 import Guest from "../model/guestSchema";
 import Room from "../model/roomSchema";
 import Day from "../model/daySchema";
+import BookingRequest from "../model/bookingRequestSchema";
 import { GraphQLDate } from "graphql-scalars";
 import mongoose from "mongoose";
 import {
@@ -31,7 +32,7 @@ const generalResolvers = {
 const hostResolvers = {
   Query: {
     hosts: async () => {
-      return await Host.find();
+      return await Host.find({ email: { $not: /tibook@mock.com/ } }).sort({ name: 1 });
     },
     host: async (_: unknown, { _id }: any) => {
       // Redirect airbnbsync to the correct host
@@ -1149,6 +1150,13 @@ const authenticationResolver = {
       };
       if (cohost) account.cohostId = cohost._id;
 
+      /**
+       * This is a temporary fix to prototype TiBook
+       * Update this once once the concept of TiBook is fully established
+       */
+
+      if (host?.email === "tibook@mock.com") account.role = "TiBook";
+
       return account;
     },
   },
@@ -1198,6 +1206,31 @@ const authenticationResolver = {
   },
 };
 
+const bookingRequestResolver = {
+  Query: {
+    bookingRequests: async () => {
+      return await BookingRequest.find();
+    },
+    bookingRequest: async (_: unknown, { _id }: any) => {
+      return await BookingRequest.findById(_id);
+    },
+    bookingRequestsByHost: async (_: unknown, { hostId }: any) => {
+      return await BookingRequest.find({ host: hostId });
+    },
+  },
+  Mutation: {
+    createBookingRequest: async (_: unknown, { host, guestName, guestPhone, date, room, duration, numberOfGuests }: any) => {
+      return await new BookingRequest({ host, guestName, guestPhone, date, room, duration, numberOfGuests, status: "pending" }).save();
+    },
+    updateBookingRequest: async (_: unknown, { _id, status }: any) => {
+      return await BookingRequest.findByIdAndUpdate(_id, { status }, { runValidators: true, new: true });
+    },
+    deleteBookingRequest: async (_: unknown, { _id }: any) => {
+      return await BookingRequest.findByIdAndDelete(_id);
+    },
+  },
+};
+
 export const resolvers = [
   generalResolvers,
   hostResolvers,
@@ -1207,4 +1240,5 @@ export const resolvers = [
   roomResolver,
   dayResolver,
   authenticationResolver,
+  bookingRequestResolver,
 ];

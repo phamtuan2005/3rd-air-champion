@@ -13,6 +13,14 @@ import { dayType } from "../../../util/types/dayType";
 import { format, addDays } from "date-fns";
 import { ANY_ROOM_SENTINEL } from "../../../util/zodBookDays";
 
+interface BookingPrefill {
+  guestId: string | null;
+  roomId: string;
+  date: Date;
+  duration: number;
+  numberOfGuests: number;
+}
+
 interface BookingModalProps {
   calendarId: string;
   guests: guestType[];
@@ -20,6 +28,7 @@ interface BookingModalProps {
   selectedDate: Date;
   selectedRoom: roomType | undefined;
   showAddPane: "guest" | "room" | null;
+  prefill?: BookingPrefill | null;
   onBooking: (bookedDays: dayType[]) => void;
   setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setShowAddPane: React.Dispatch<React.SetStateAction<"guest" | "room" | null>>;
@@ -63,6 +72,7 @@ const BookingModal = ({
   selectedDate,
   selectedRoom,
   showAddPane,
+  prefill,
   onBooking,
   setIsModalOpen,
   setShowAddPane,
@@ -71,6 +81,11 @@ const BookingModal = ({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bookingResults, setBookingResults] = useState<BookingResult[]>([]);
+
+  const defaultGuestId = prefill?.guestId ?? "";
+  const defaultGuest = prefill?.guestId
+    ? guests.find((g) => g.id === prefill.guestId) ?? null
+    : null;
 
   const {
     handleSubmit,
@@ -82,13 +97,13 @@ const BookingModal = ({
   } = useForm<bookDaySchema>({
     resolver: zodResolver(bookDaysZodObject),
     defaultValues: {
-      guest: "",
-      numberOfGuests: 1,
+      guest: defaultGuestId,
+      numberOfGuests: prefill?.numberOfGuests ?? 1,
       bookings: [
         {
-          rooms: [selectedRoom?.id ?? ANY_ROOM_SENTINEL],
-          date: selectedDate,
-          duration: 1,
+          rooms: [prefill?.roomId ?? selectedRoom?.id ?? ANY_ROOM_SENTINEL],
+          date: prefill?.date ?? selectedDate,
+          duration: prefill?.duration ?? 1,
         },
       ],
     },
@@ -262,6 +277,7 @@ const BookingModal = ({
                   showAddPane={showAddPane}
                   setShowAddPane={setShowAddPane}
                   setValue={setValue}
+                  defaultGuest={defaultGuest}
                 />
                 {errors.guest && (
                   <span className="text-red-500 text-sm">
