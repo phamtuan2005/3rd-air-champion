@@ -5,6 +5,7 @@ import App from "./App.tsx";
 import { BrowserRouter, Route, Routes } from "react-router";
 import Private from "./routes/Private.tsx";
 import Authorization from "./components/destkop/Authorization.tsx";
+import TiBook from "./routes/TiBook.tsx";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -19,7 +20,8 @@ createRoot(document.getElementById("root")!).render(
           }
         />
         <Route path="/login" element={<Authorization />} />
+        <Route path="/book" element={<TiBook />} />
       </Routes>
     </BrowserRouter>
-  </StrictMode>
+  </StrictMode>,
 );

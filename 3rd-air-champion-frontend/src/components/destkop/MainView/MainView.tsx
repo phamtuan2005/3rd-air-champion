@@ -27,7 +27,11 @@ import {
 } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { roomType } from "../../../util/types/roomType";
-import { createRoom, deleteRoom, fetchRooms } from "../../../util/roomOperations";
+import {
+  createRoom,
+  deleteRoom,
+  fetchRooms,
+} from "../../../util/roomOperations";
 import { guestType } from "../../../util/types/guestType";
 import {
   createGuest,
@@ -37,7 +41,11 @@ import {
 import { syncCalendars } from "../../../util/syncOperations";
 import GuestView from "./GuestView/GuestView";
 import BookButton from "../BookButton";
-import { AddPaneContext, GuestModeContext, isSyncModalOpenContext } from "../../../context";
+import {
+  AddPaneContext,
+  GuestModeContext,
+  isSyncModalOpenContext,
+} from "../../../context";
 import DetailsModal from "./GuestView/DetailsModal";
 import {
   updateBookingAirbnbPrice,
@@ -50,11 +58,13 @@ import AvailabilitiesModal from "./AvailabilitiesModal";
 import BlockAirBnBModal from "./BlockAirBnBModal";
 import BlockRoomsModal from "./BlockRoomsModal";
 import ModifyBookingModal from "../ModifyBookingModal";
+import BookingRequestManagerModal from "../BookingRequestManagerModal";
 import GuestAddPane from "../BookingModal/GuestAddPane";
 import EditRoomModal from "../NavBar/DropDown/EditRoomModal";
 import ManageGuestModal from "../NavBar/DropDown/ManageGuestModal";
 import { updateRoom } from "../../../util/roomOperations";
 import { updateGuest, deleteGuest } from "../../../util/guestOperations";
+import { fetchBookingRequestsByHost } from "../../../util/bookingRequestOperations";
 
 interface MainViewProps {
   calendarId: string;
@@ -76,9 +86,35 @@ interface MainViewProps {
   setAirbnbPendingCount: React.Dispatch<React.SetStateAction<number>>;
   setAvailableNightsCount: React.Dispatch<React.SetStateAction<number>>;
   setTodoCleanCount: React.Dispatch<React.SetStateAction<number>>;
+  isRequestManagerOpen: boolean;
+  setIsRequestManagerOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setBookingRequestPendingCount: React.Dispatch<React.SetStateAction<number>>;
 }
 
-const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnbAddress, isTodoModalOpen, setIsTodoModalOpen, isModalOpen, setIsModalOpen, isAvailabilitiesModalOpen, setIsAvailabilitiesModalOpen, isBlockAirBnBModalOpen, setIsBlockAirBnBModalOpen, isBlockRoomsModalOpen, setIsBlockRoomsModalOpen, setAirbnbPendingCount, setAvailableNightsCount, setTodoCleanCount }: MainViewProps) => {
+const MainView = ({
+  calendarId,
+  hostId,
+  airbnbsync,
+  doorCode,
+  airbnbName,
+  airbnbAddress,
+  isTodoModalOpen,
+  setIsTodoModalOpen,
+  isModalOpen,
+  setIsModalOpen,
+  isAvailabilitiesModalOpen,
+  setIsAvailabilitiesModalOpen,
+  isBlockAirBnBModalOpen,
+  setIsBlockAirBnBModalOpen,
+  isBlockRoomsModalOpen,
+  setIsBlockRoomsModalOpen,
+  setAirbnbPendingCount,
+  setAvailableNightsCount,
+  setTodoCleanCount,
+  isRequestManagerOpen,
+  setIsRequestManagerOpen,
+  setBookingRequestPendingCount,
+}: MainViewProps) => {
   const token = localStorage.getItem("token");
   const airbnbsyncRef = useRef(airbnbsync);
   // Set by the isCalendarLoading effect after fetching; cleared by useEffect([days])
@@ -140,7 +176,16 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
   const [monthMap, setMonthMap] = useState<Map<string, dayType>>(new Map());
 
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
-  const [icsModal, setIcsModal] = useState<{ icsContent: string; phone: string; email?: string; guestName: string; guestDisplayName: string; checkinDate: string; checkoutDate: string; fileName: string } | null>(null);
+  const [icsModal, setIcsModal] = useState<{
+    icsContent: string;
+    phone: string;
+    email?: string;
+    guestName: string;
+    guestDisplayName: string;
+    checkinDate: string;
+    checkoutDate: string;
+    fileName: string;
+  } | null>(null);
   const [scrollToTodayTrigger, setScrollToTodayTrigger] = useState(0);
 
   const [blockedAirBnBDates, setIsBlockedAirBnBDates] = useState<{
@@ -150,7 +195,9 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
   const airbnbPendingCount = useMemo(() => {
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const today = startOfToday();
-    const blockedTyped = blockedAirBnBDates as Record<string, { start: string; duration: number }[]> | undefined;
+    const blockedTyped = blockedAirBnBDates as
+      | Record<string, { start: string; duration: number }[]>
+      | undefined;
 
     const uniqueById = new Map<string, bookingType>();
     for (const day of monthMap.values()) {
@@ -166,7 +213,8 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
     }
     const actionableBookings = [...seenRanges.values()].filter((b) => {
       const end = toZonedTime(b.endDate, timeZone);
-      if (!(isAfter(end, today) || end.toDateString() === today.toDateString())) return false;
+      if (!(isAfter(end, today) || end.toDateString() === today.toDateString()))
+        return false;
       if (b.airbnbBlocked) return false;
       const blocked = blockedTyped?.[b.room.id];
       if (!blocked?.length) return true;
@@ -182,7 +230,11 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
     const roomDateMap = new Map<string, string[]>();
     for (const [dateStr, day] of monthMap.entries()) {
       const localDate = toZonedTime(dateStr, timeZone);
-      if (isBefore(localDate, today) && localDate.toDateString() !== today.toDateString()) continue;
+      if (
+        isBefore(localDate, today) &&
+        localDate.toDateString() !== today.toDateString()
+      )
+        continue;
       for (const room of day.blockedRooms) {
         if (!roomDateMap.has(room.id)) roomDateMap.set(room.id, []);
         roomDateMap.get(room.id)!.push(dateStr);
@@ -196,8 +248,10 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
         let j = i;
         while (
           j + 1 < sorted.length &&
-          format(addDays(toZonedTime(sorted[j], timeZone), 1), "yyyy-MM-dd") === sorted[j + 1]
-        ) j++;
+          format(addDays(toZonedTime(sorted[j], timeZone), 1), "yyyy-MM-dd") ===
+            sorted[j + 1]
+        )
+          j++;
         blockRangeCount++;
         i = j + 1;
       }
@@ -220,17 +274,25 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
       .map((d) => format(d, "yyyy-MM-dd"))
       .filter((dateKey) => {
         const date = toZonedTime(dateKey, timeZone);
-        return isAfter(date, today) || date.toDateString() === today.toDateString();
+        return (
+          isAfter(date, today) || date.toDateString() === today.toDateString()
+        );
       });
-    return rooms.filter((r) => r.active).reduce((total, room) => {
-      for (const dateKey of eligibleDateKeys) {
-        const day = monthMap.get(dateKey);
-        const isBooked = day ? day.bookings.some((b) => b.room.id === room.id) : false;
-        const isBlocked = day ? (day.isBlocked || day.blockedRooms.some((r) => r.id === room.id)) : false;
-        if (!isBooked && !isBlocked) total++;
-      }
-      return total;
-    }, 0);
+    return rooms
+      .filter((r) => r.active)
+      .reduce((total, room) => {
+        for (const dateKey of eligibleDateKeys) {
+          const day = monthMap.get(dateKey);
+          const isBooked = day
+            ? day.bookings.some((b) => b.room.id === room.id)
+            : false;
+          const isBlocked = day
+            ? day.isBlocked || day.blockedRooms.some((r) => r.id === room.id)
+            : false;
+          if (!isBooked && !isBlocked) total++;
+        }
+        return total;
+      }, 0);
   }, [monthMap, rooms, currentMonth]);
 
   useEffect(() => {
@@ -238,14 +300,41 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
   }, [availableNightsCount, setAvailableNightsCount]);
 
   const todoCleanCount = useMemo(() => {
-    const yesterdayKey = addDays(startOfToday(), -1).toISOString().split("T")[0];
+    const yesterdayKey = addDays(startOfToday(), -1)
+      .toISOString()
+      .split("T")[0];
     const yesterdayDay = monthMap.get(yesterdayKey);
-    return yesterdayDay?.bookings.filter((b) => b.endDate.split("T")[0] === yesterdayKey).length ?? 0;
+    return (
+      yesterdayDay?.bookings.filter(
+        (b) => b.endDate.split("T")[0] === yesterdayKey,
+      ).length ?? 0
+    );
   }, [monthMap]);
 
   useEffect(() => {
     setTodoCleanCount(todoCleanCount);
   }, [todoCleanCount, setTodoCleanCount]);
+
+  const [pendingAcceptRequestId, setPendingAcceptRequestId] = useState<string | null>(null);
+  const [completedRequestId, setCompletedRequestId] = useState<string | null>(null);
+  const [bookingPrefill, setBookingPrefill] = useState<{
+    guestId: string | null;
+    roomId: string;
+    date: Date;
+    duration: number;
+    numberOfGuests: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    fetchBookingRequestsByHost(hostId, token)
+      .then((reqs: { status: string }[]) => {
+        setBookingRequestPendingCount(
+          (reqs ?? []).filter((r) => r.status === "pending").length,
+        );
+      })
+      .catch(() => setBookingRequestPendingCount(0));
+  }, [hostId, token, isRequestManagerOpen, completedRequestId, setBookingRequestPendingCount]);
 
   const [selectedDate, setSelectedDate] = useState<Date>(startOfToday());
   const [selectedRoom, setSelectedRoom] = useState<roomType>();
@@ -268,7 +357,12 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
     airbnb: 0,
   });
 
-  const { currentGuest, setCurrentGuest, currentAirBnBGuest, setCurrentAirBnBGuest } = useContext(GuestModeContext)!;
+  const {
+    currentGuest,
+    setCurrentGuest,
+    currentAirBnBGuest,
+    setCurrentAirBnBGuest,
+  } = useContext(GuestModeContext)!;
   const [paidDates, setPaidDates] = useState<Date[]>([]);
 
   const onSync = () => {
@@ -429,7 +523,12 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
   };
 
   const onAddRoomFromModal = (
-    roomObject: { name: string; price: number; roomCode?: string; color?: string },
+    roomObject: {
+      name: string;
+      price: number;
+      roomCode?: string;
+      color?: string;
+    },
     onError: (msg: string) => void,
   ) => {
     createRoom(roomObject, token as string)
@@ -438,7 +537,11 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
         setIsEditRoomOpen(false);
       })
       .catch((err) => {
-        onError(typeof err === "string" ? err : "Failed to create room. Please try again.");
+        onError(
+          typeof err === "string"
+            ? err
+            : "Failed to create room. Please try again.",
+        );
       });
   };
 
@@ -450,10 +553,16 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
         setIsEditRoomOpen(false);
         fetchRooms(hostId, token as string)
           .then(setRooms)
-          .catch((err) => console.error("Error refreshing rooms after save:", err));
+          .catch((err) =>
+            console.error("Error refreshing rooms after save:", err),
+          );
       })
       .catch((err) => {
-        onError(typeof err === "string" ? err : "Failed to update room. Please try again.");
+        onError(
+          typeof err === "string"
+            ? err
+            : "Failed to update room. Please try again.",
+        );
       });
   };
 
@@ -464,12 +573,22 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
         setIsEditRoomOpen(false);
       })
       .catch((err) => {
-        onError(typeof err === "string" ? err : "Failed to delete room. Please try again.");
+        onError(
+          typeof err === "string"
+            ? err
+            : "Failed to delete room. Please try again.",
+        );
       });
   };
 
   const onAddGuestFromModal = (
-    guestObject: { name: string; phone: string; email?: string; notes?: string; returning: boolean },
+    guestObject: {
+      name: string;
+      phone: string;
+      email?: string;
+      notes?: string;
+      returning: boolean;
+    },
     onError: (msg: string) => void,
   ) => {
     createGuest(guestObject, token as string)
@@ -478,32 +597,59 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
         setIsManageGuestOpen(false);
       })
       .catch((err) => {
-        onError(typeof err === "string" ? err : "Failed to create guest. Please try again.");
+        onError(
+          typeof err === "string"
+            ? err
+            : "Failed to create guest. Please try again.",
+        );
       });
   };
 
-  const onUpdateGuestFromModal = (guest: guestType, onError: (msg: string) => void) => {
+  const onUpdateGuestFromModal = (
+    guest: guestType,
+    onError: (msg: string) => void,
+  ) => {
     updateGuest(
-      { id: guest.id, name: guest.name, phone: guest.phone, email: guest.email, notes: guest.notes, returning: guest.returning },
+      {
+        id: guest.id,
+        name: guest.name,
+        phone: guest.phone,
+        email: guest.email,
+        notes: guest.notes,
+        returning: guest.returning,
+      },
       token as string,
     )
       .then((result) => {
-        setGuests((prev) => prev.map((g) => (g.id === guest.id ? { ...g, ...result } : g)));
+        setGuests((prev) =>
+          prev.map((g) => (g.id === guest.id ? { ...g, ...result } : g)),
+        );
         setIsManageGuestOpen(false);
       })
       .catch((err) => {
-        onError(typeof err === "string" ? err : "Failed to update guest. Please try again.");
+        onError(
+          typeof err === "string"
+            ? err
+            : "Failed to update guest. Please try again.",
+        );
       });
   };
 
-  const onDeleteGuestFromModal = (guestId: string, onError: (msg: string) => void) => {
+  const onDeleteGuestFromModal = (
+    guestId: string,
+    onError: (msg: string) => void,
+  ) => {
     deleteGuest(guestId, token as string)
       .then(() => {
         setGuests((prev) => prev.filter((g) => g.id !== guestId));
         setIsManageGuestOpen(false);
       })
       .catch((err) => {
-        onError(typeof err === "string" ? err : "Failed to delete guest. Please try again.");
+        onError(
+          typeof err === "string"
+            ? err
+            : "Failed to delete guest. Please try again.",
+        );
       });
   };
 
@@ -685,8 +831,9 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
         );
 
         // Count blocked nights for this room
-        const blockedCount = occupiedDays.filter((day) =>
-          day.isBlocked || day.blockedRooms.some((r) => r.id === roomId),
+        const blockedCount = occupiedDays.filter(
+          (day) =>
+            day.isBlocked || day.blockedRooms.some((r) => r.id === roomId),
         ).length;
         blockedNightsMap.set(
           baseRoomName,
@@ -746,12 +893,14 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
       }
 
       // Calculate total occupancy percentage (excluding "Master")
-      const totalOccupancy = totalAvailableDays > 0
-        ? (totalOccupiedDays / totalAvailableDays) * 100
-        : 0;
-      const airbnbOccupancy = totalAirbnbAvailableDays > 0
-        ? (totalAirbnbGuests / totalAirbnbAvailableDays) * 100
-        : 0;
+      const totalOccupancy =
+        totalAvailableDays > 0
+          ? (totalOccupiedDays / totalAvailableDays) * 100
+          : 0;
+      const airbnbOccupancy =
+        totalAirbnbAvailableDays > 0
+          ? (totalAirbnbGuests / totalAirbnbAvailableDays) * 100
+          : 0;
 
       // Update state
       setOccupancy({
@@ -829,6 +978,11 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
   const onBookingComplete = (bookedDays: dayType[]) => {
     setDays((prev) => [...prev, ...bookedDays]);
     setIsCalendarLoading(true);
+    if (pendingAcceptRequestId) {
+      setCompletedRequestId(pendingAcceptRequestId);
+      setPendingAcceptRequestId(null);
+      setBookingPrefill(null);
+    }
   };
 
   const onBooking = (
@@ -1130,7 +1284,8 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
       numberOfNights === 1 ? "inquiry" : "inquiries"
     }!`;
 
-    const accomodationPreface = numberOfNights > 3 ? "I do my best to accomodate you." : "";
+    const accomodationPreface =
+      numberOfNights > 3 ? "I do my best to accomodate you." : "";
 
     const fullBody = `${
       guestName === "" ? "" : `Hi ${guestName},`
@@ -1152,8 +1307,8 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
   const handleSendCalEvents = (phone: string, email?: string) => {
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-    const sortedEntries = Array.from(monthMap.entries()).sort(
-      ([a], [b]) => compareAsc(toZonedTime(a, timeZone), toZonedTime(b, timeZone))
+    const sortedEntries = Array.from(monthMap.entries()).sort(([a], [b]) =>
+      compareAsc(toZonedTime(a, timeZone), toZonedTime(b, timeZone)),
     );
 
     const guestBookings: bookingType[] = [];
@@ -1165,9 +1320,9 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
           paidDates.some((paidDate) =>
             isSameDay(
               toZonedTime(paidDate, timeZone),
-              toZonedTime(dateStr, timeZone)
-            )
-          )
+              toZonedTime(dateStr, timeZone),
+            ),
+          ),
       );
       guestBookings.push(...matching);
     }
@@ -1178,7 +1333,10 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
       format(date, `yyyyMMdd'T'${String(hour).padStart(2, "0")}0000`);
 
     const icsEvents = guestBookings.map((booking) => {
-      const checkinDate = toZonedTime(booking.startDate.split("T")[0], timeZone);
+      const checkinDate = toZonedTime(
+        booking.startDate.split("T")[0],
+        timeZone,
+      );
       const checkoutDate = addDays(checkinDate, booking.duration);
       return [
         "BEGIN:VEVENT",
@@ -1186,7 +1344,9 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
         `DTEND;TZID=${timeZone}:${formatICSDateTime(checkoutDate, 11)}`,
         `SUMMARY:Stay at ${booking.room.name}${airbnbName ? ` @ ${airbnbName}` : ""}`,
         `DESCRIPTION:${booking.duration} night${booking.duration > 1 ? "s" : ""} at ${booking.room.name}`,
-        ...(airbnbAddress ? [`LOCATION:${airbnbAddress.split("\n").join(", ")}`] : []),
+        ...(airbnbAddress
+          ? [`LOCATION:${airbnbAddress.split("\n").join(", ")}`]
+          : []),
         "END:VEVENT",
       ].join("\r\n");
     });
@@ -1204,10 +1364,28 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
     const lastBooking = guestBookings[guestBookings.length - 1];
     const guestDisplayName = firstBooking.guest.name.trim();
     const guestName = guestDisplayName.replace(/\s+/g, "_");
-    const checkinDate = format(toZonedTime(firstBooking.startDate.split("T")[0], timeZone), "yyyy-MM-dd");
-    const lastCheckin = toZonedTime(lastBooking.startDate.split("T")[0], timeZone);
-    const checkoutDate = format(addDays(lastCheckin, lastBooking.duration), "yyyy-MM-dd");
-    setIcsModal({ icsContent, phone, email, guestName, guestDisplayName, checkinDate, checkoutDate, fileName: `booking_${guestName}_${checkinDate}.ics` });
+    const checkinDate = format(
+      toZonedTime(firstBooking.startDate.split("T")[0], timeZone),
+      "yyyy-MM-dd",
+    );
+    const lastCheckin = toZonedTime(
+      lastBooking.startDate.split("T")[0],
+      timeZone,
+    );
+    const checkoutDate = format(
+      addDays(lastCheckin, lastBooking.duration),
+      "yyyy-MM-dd",
+    );
+    setIcsModal({
+      icsContent,
+      phone,
+      email,
+      guestName,
+      guestDisplayName,
+      checkinDate,
+      checkoutDate,
+      fileName: `booking_${guestName}_${checkinDate}.ics`,
+    });
   };
 
   return (
@@ -1285,7 +1463,6 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
                     </div>
                   </div>
                 )}
-
               </>
             )}
 
@@ -1309,6 +1486,7 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
             selectedDate={selectedDate}
             selectedRoom={selectedRoom}
             showAddPane={showAddPane}
+            prefill={bookingPrefill}
             onBooking={onBookingComplete}
             setIsModalOpen={setIsModalOpen}
             setShowAddPane={setShowAddPane}
@@ -1318,13 +1496,71 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
 
       <div className="hidden bg-white border-l sm:block">
         {isBlockRoomsModalOpen ? (
-          <BlockRoomsModal calendarId={calendarId} monthMap={monthMap} rooms={rooms} token={token as string} onDaysUpdate={(updated) => setDays((prev) => { const ids = new Set(updated.map((d) => d.id)); return [...prev.filter((d) => !ids.has(d.id)), ...updated]; })} />
+          <BlockRoomsModal
+            calendarId={calendarId}
+            monthMap={monthMap}
+            rooms={rooms}
+            token={token as string}
+            onDaysUpdate={(updated) =>
+              setDays((prev) => {
+                const ids = new Set(updated.map((d) => d.id));
+                return [...prev.filter((d) => !ids.has(d.id)), ...updated];
+              })
+            }
+          />
         ) : isBlockAirBnBModalOpen ? (
-          <BlockAirBnBModal monthMap={monthMap} rooms={rooms} blockedAirBnBDates={blockedAirBnBDates as Record<string, { start: string; duration: number }[]> | undefined} token={token as string} onDaysUpdate={(updated) => setDays((prev) => { const ids = new Set(updated.map((d) => d.id)); return [...prev.filter((d) => !ids.has(d.id)), ...updated]; })} />
+          <BlockAirBnBModal
+            monthMap={monthMap}
+            rooms={rooms}
+            blockedAirBnBDates={
+              blockedAirBnBDates as
+                | Record<string, { start: string; duration: number }[]>
+                | undefined
+            }
+            token={token as string}
+            onDaysUpdate={(updated) =>
+              setDays((prev) => {
+                const ids = new Set(updated.map((d) => d.id));
+                return [...prev.filter((d) => !ids.has(d.id)), ...updated];
+              })
+            }
+          />
         ) : isAvailabilitiesModalOpen ? (
-          <AvailabilitiesModal monthMap={monthMap} rooms={rooms} currentMonth={currentMonth} airbnbName={airbnbName} />
+          <AvailabilitiesModal
+            monthMap={monthMap}
+            rooms={rooms}
+            currentMonth={currentMonth}
+            airbnbName={airbnbName}
+          />
         ) : isTodoModalOpen ? (
-          <ToDoList monthMap={monthMap} doorCode={doorCode} airbnbName={airbnbName} airbnbAddress={airbnbAddress} />
+          <ToDoList
+            monthMap={monthMap}
+            doorCode={doorCode}
+            airbnbName={airbnbName}
+            airbnbAddress={airbnbAddress}
+          />
+        ) : isRequestManagerOpen ? (
+          <BookingRequestManagerModal
+            hostId={hostId}
+            token={token as string}
+            rooms={rooms}
+            guests={guests}
+            completedRequestId={completedRequestId}
+            onClose={() => setIsRequestManagerOpen(false)}
+            onAccept={(requestId, prefill) => {
+              setPendingAcceptRequestId(requestId);
+              setBookingPrefill(prefill);
+              setSelectedDate(prefill.date);
+              const room = rooms.find((r) => r.id === prefill.roomId);
+              if (room) setSelectedRoom(room);
+              setIsModalOpen(true);
+            }}
+            onAddGuest={(guest) =>
+              createGuest(guest, token as string)
+                .then((result) => setGuests((prev) => [...prev, result]))
+                .catch((err) => console.error("Error adding guest:", err))
+            }
+          />
         ) : (
           <GuestView
             airBnBBookingCount={airBnBBookingCount}
@@ -1340,7 +1576,12 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
             handleBookingConfirmation={handleBookingConfirmation}
             handleSendCalEvents={handleSendCalEvents}
             onAirbnbPriceUpdate={onAirbnbPriceUpdate}
-            onDaysUpdate={(updated) => setDays((prev) => { const ids = new Set(updated.map((d) => d.id)); return [...prev.filter((d) => !ids.has(d.id)), ...updated]; })}
+            onDaysUpdate={(updated) =>
+              setDays((prev) => {
+                const ids = new Set(updated.map((d) => d.id));
+                return [...prev.filter((d) => !ids.has(d.id)), ...updated];
+              })
+            }
             setCurrentGuest={setCurrentGuest}
             setCurrentAirBnBGuest={setCurrentAirBnBGuest}
             setSelectedBooking={
@@ -1388,45 +1629,50 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
         </div>
 
         <GuestView
-            airBnBBookingCount={airBnBBookingCount}
-            guestBookingCount={guestBookingCount}
-            calendarId={calendarId}
-            token={token as string}
-            currentBookings={currentBookings || []}
-            currentAirBnBGuest={currentAirBnBGuest}
-            currentGuest={currentGuest}
-            monthMap={monthMap}
-            rooms={rooms}
-            selectedDate={selectedDate}
-            handleBookingConfirmation={handleBookingConfirmation}
-            handleSendCalEvents={handleSendCalEvents}
-            onAirbnbPriceUpdate={onAirbnbPriceUpdate}
-            onDaysUpdate={(updated) => setDays((prev) => { const ids = new Set(updated.map((d) => d.id)); return [...prev.filter((d) => !ids.has(d.id)), ...updated]; })}
-            setCurrentAirBnBGuest={setCurrentAirBnBGuest}
-            setCurrentGuest={setCurrentGuest}
+          airBnBBookingCount={airBnBBookingCount}
+          guestBookingCount={guestBookingCount}
+          calendarId={calendarId}
+          token={token as string}
+          currentBookings={currentBookings || []}
+          currentAirBnBGuest={currentAirBnBGuest}
+          currentGuest={currentGuest}
+          monthMap={monthMap}
+          rooms={rooms}
+          selectedDate={selectedDate}
+          handleBookingConfirmation={handleBookingConfirmation}
+          handleSendCalEvents={handleSendCalEvents}
+          onAirbnbPriceUpdate={onAirbnbPriceUpdate}
+          onDaysUpdate={(updated) =>
+            setDays((prev) => {
+              const ids = new Set(updated.map((d) => d.id));
+              return [...prev.filter((d) => !ids.has(d.id)), ...updated];
+            })
+          }
+          setCurrentAirBnBGuest={setCurrentAirBnBGuest}
+          setCurrentGuest={setCurrentGuest}
+          setIsMobileModalOpen={setIsMobileModalOpen}
+          setSelectedBooking={
+            setSelectedBooking as React.Dispatch<
+              React.SetStateAction<bookingType>
+            >
+          }
+          setSelectedModifyBooking={
+            setSelectedModifyBooking as React.Dispatch<
+              React.SetStateAction<bookingType>
+            >
+          }
+          setSelectedUnbooking={
+            setSelectedUnbooking as React.Dispatch<
+              React.SetStateAction<bookingType>
+            >
+          }
+        >
+          <BookButton
+            setIsModalOpen={setIsModalOpen}
             setIsMobileModalOpen={setIsMobileModalOpen}
-            setSelectedBooking={
-              setSelectedBooking as React.Dispatch<
-                React.SetStateAction<bookingType>
-              >
-            }
-            setSelectedModifyBooking={
-              setSelectedModifyBooking as React.Dispatch<
-                React.SetStateAction<bookingType>
-              >
-            }
-            setSelectedUnbooking={
-              setSelectedUnbooking as React.Dispatch<
-                React.SetStateAction<bookingType>
-              >
-            }
-          >
-            <BookButton
-              setIsModalOpen={setIsModalOpen}
-              setIsMobileModalOpen={setIsMobileModalOpen}
-              setSelectedRoom={setSelectedRoom}
-            />
-          </GuestView>
+            setSelectedRoom={setSelectedRoom}
+          />
+        </GuestView>
       </div>
 
       <div
@@ -1444,7 +1690,12 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
           </button>
         </div>
 
-        <ToDoList monthMap={monthMap} doorCode={doorCode} airbnbName={airbnbName} airbnbAddress={airbnbAddress} />
+        <ToDoList
+          monthMap={monthMap}
+          doorCode={doorCode}
+          airbnbName={airbnbName}
+          airbnbAddress={airbnbAddress}
+        />
       </div>
 
       <div
@@ -1462,7 +1713,12 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
           </button>
         </div>
 
-        <AvailabilitiesModal monthMap={monthMap} rooms={rooms} currentMonth={currentMonth} airbnbName={airbnbName} />
+        <AvailabilitiesModal
+          monthMap={monthMap}
+          rooms={rooms}
+          currentMonth={currentMonth}
+          airbnbName={airbnbName}
+        />
       </div>
 
       <div
@@ -1480,7 +1736,22 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
           </button>
         </div>
 
-        <BlockAirBnBModal monthMap={monthMap} rooms={rooms} blockedAirBnBDates={blockedAirBnBDates as Record<string, { start: string; duration: number }[]> | undefined} token={token as string} onDaysUpdate={(updated) => setDays((prev) => { const ids = new Set(updated.map((d) => d.id)); return [...prev.filter((d) => !ids.has(d.id)), ...updated]; })} />
+        <BlockAirBnBModal
+          monthMap={monthMap}
+          rooms={rooms}
+          blockedAirBnBDates={
+            blockedAirBnBDates as
+              | Record<string, { start: string; duration: number }[]>
+              | undefined
+          }
+          token={token as string}
+          onDaysUpdate={(updated) =>
+            setDays((prev) => {
+              const ids = new Set(updated.map((d) => d.id));
+              return [...prev.filter((d) => !ids.has(d.id)), ...updated];
+            })
+          }
+        />
       </div>
 
       <div
@@ -1497,7 +1768,18 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
           </button>
         </div>
 
-        <BlockRoomsModal calendarId={calendarId} monthMap={monthMap} rooms={rooms} token={token as string} onDaysUpdate={(updated) => setDays((prev) => { const ids = new Set(updated.map((d) => d.id)); return [...prev.filter((d) => !ids.has(d.id)), ...updated]; })} />
+        <BlockRoomsModal
+          calendarId={calendarId}
+          monthMap={monthMap}
+          rooms={rooms}
+          token={token as string}
+          onDaysUpdate={(updated) =>
+            setDays((prev) => {
+              const ids = new Set(updated.map((d) => d.id));
+              return [...prev.filter((d) => !ids.has(d.id)), ...updated];
+            })
+          }
+        />
       </div>
 
       {selectedBooking && (
@@ -1540,97 +1822,157 @@ const MainView = ({ calendarId, hostId, airbnbsync, doorCode, airbnbName, airbnb
           onDelete={onDeleteGuestFromModal}
         />
       )}
-      {icsModal && createPortal(
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"
-          onClick={() => setIcsModal(null)}
-        >
-          <div
-            className="bg-white rounded-lg p-4 w-full max-w-lg shadow-lg flex flex-col gap-3"
-            onClick={(e) => e.stopPropagation()}
+      <div
+        className={`fixed bottom-0 left-0 w-full h-auto bg-white p-1 border-t border-gray-300 z-50 overflow-y-scroll sm:hidden transition-transform duration-300 ${
+          isRequestManagerOpen ? "translate-y-0" : "translate-y-full"
+        }`}
+      >
+        <div className="flex justify-center">
+          <button
+            className="text-gray-500 font-bold text-[1.5rem] leading-none px-6 py-0.5 rounded hover:bg-gray-100"
+            onClick={() => setIsRequestManagerOpen(false)}
           >
-            <div className="flex flex-col items-center gap-1">
-              <button
-                onClick={() => setIcsModal(null)}
-                className="text-gray-500 font-bold text-[1.5rem] leading-none px-6 py-0.5 rounded hover:bg-gray-100"
-              >
-                &times;
-              </button>
-              <h2 className="font-bold text-lg">Calendar Events</h2>
-            </div>
-            <textarea
-              readOnly
-              className="border rounded px-2 py-1 text-sm w-full resize-none font-mono"
-              rows={14}
-              value={icsModal.icsContent}
-            />
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600 whitespace-nowrap">File name</label>
-              <input
-                type="text"
-                className="border rounded px-2 py-1 text-sm flex-1"
-                value={icsModal.fileName}
-                onChange={(e) => setIcsModal({ ...icsModal, fileName: e.target.value })}
+            &times;
+          </button>
+        </div>
+
+        {isRequestManagerOpen && token && (
+          <BookingRequestManagerModal
+            hostId={hostId}
+            token={token}
+            rooms={rooms}
+            guests={guests}
+            completedRequestId={completedRequestId}
+            onClose={() => setIsRequestManagerOpen(false)}
+            onAccept={(requestId, prefill) => {
+              setPendingAcceptRequestId(requestId);
+              setBookingPrefill(prefill);
+              setSelectedDate(prefill.date);
+              const room = rooms.find((r) => r.id === prefill.roomId);
+              if (room) setSelectedRoom(room);
+              setIsModalOpen(true);
+            }}
+            onAddGuest={(guest) =>
+              createGuest(guest, token as string)
+                .then((result) => setGuests((prev) => [...prev, result]))
+                .catch((err) => console.error("Error adding guest:", err))
+            }
+          />
+        )}
+      </div>
+      {icsModal &&
+        createPortal(
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"
+            onClick={() => setIcsModal(null)}
+          >
+            <div
+              className="bg-white rounded-lg p-4 w-full max-w-lg shadow-lg flex flex-col gap-3"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex flex-col items-center gap-1">
+                <button
+                  onClick={() => setIcsModal(null)}
+                  className="text-gray-500 font-bold text-[1.5rem] leading-none px-6 py-0.5 rounded hover:bg-gray-100"
+                >
+                  &times;
+                </button>
+                <h2 className="font-bold text-lg">Calendar Events</h2>
+              </div>
+              <textarea
+                readOnly
+                className="border rounded px-2 py-1 text-sm w-full resize-none font-mono"
+                rows={14}
+                value={icsModal.icsContent}
               />
-            </div>
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => setIcsModal(null)}
-                className="px-3 py-1 bg-gray-400 text-white text-sm rounded"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  const fileName = icsModal.fileName.endsWith(".ics") ? icsModal.fileName : `${icsModal.fileName}.ics`;
-                  const blob = new Blob([icsModal.icsContent], { type: "text/calendar;charset=utf-8" });
-                  const file = new File([blob], fileName, { type: "text/calendar" });
-                  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                    try {
-                      await navigator.share({ files: [file], title: "Calendar Events" });
-                    } catch {
-                      // user cancelled share sheet
-                    }
-                  } else {
-                    // desktop fallback: download the .ics file
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = fileName;
-                    a.click();
-                    URL.revokeObjectURL(url);
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-gray-600 whitespace-nowrap">
+                  File name
+                </label>
+                <input
+                  type="text"
+                  className="border rounded px-2 py-1 text-sm flex-1"
+                  value={icsModal.fileName}
+                  onChange={(e) =>
+                    setIcsModal({ ...icsModal, fileName: e.target.value })
                   }
-                }}
-                className="px-3 py-1 bg-blue-600 text-white text-sm rounded"
-              >
-                Save
-              </button>
-              <button
-                onClick={() => {
-                  const checkin = new Date(icsModal.checkinDate);
-                  const checkout = new Date(icsModal.checkoutDate);
-                  const checkinMonth = checkin.toLocaleString("en-US", { month: "long" });
-                  const checkinYear = checkin.getFullYear();
-                  const checkoutMonth = checkout.toLocaleString("en-US", { month: "long" });
-                  const checkoutYear = checkout.getFullYear();
-                  const periodStr =
-                    checkinYear === checkoutYear && checkinMonth === checkoutMonth
-                      ? `${checkinMonth} ${checkinYear}`
-                      : checkinYear === checkoutYear
-                      ? `${checkinMonth} to ${checkoutMonth} ${checkinYear}`
-                      : `${checkinMonth} ${checkinYear} to ${checkoutMonth} ${checkoutYear}`;
-                  const body = `Hello ${icsModal.guestDisplayName}, please find attached your calendar events of your booking from ${periodStr}. Please download the file and save to your phone calendar for better reminding of your upcoming stays at ${airbnbName}. Thanks!`;
-                  window.location.href = `sms:${icsModal.phone}?&body=${encodeURIComponent(body)}`;
-                }}
-                className="px-3 py-1 bg-green-600 text-white text-sm rounded"
-              >
-                Send Message
-              </button>
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => setIcsModal(null)}
+                  className="px-3 py-1 bg-gray-400 text-white text-sm rounded"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    const fileName = icsModal.fileName.endsWith(".ics")
+                      ? icsModal.fileName
+                      : `${icsModal.fileName}.ics`;
+                    const blob = new Blob([icsModal.icsContent], {
+                      type: "text/calendar;charset=utf-8",
+                    });
+                    const file = new File([blob], fileName, {
+                      type: "text/calendar",
+                    });
+                    if (
+                      navigator.canShare &&
+                      navigator.canShare({ files: [file] })
+                    ) {
+                      try {
+                        await navigator.share({
+                          files: [file],
+                          title: "Calendar Events",
+                        });
+                      } catch {
+                        // user cancelled share sheet
+                      }
+                    } else {
+                      // desktop fallback: download the .ics file
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = fileName;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }
+                  }}
+                  className="px-3 py-1 bg-blue-600 text-white text-sm rounded"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => {
+                    const checkin = new Date(icsModal.checkinDate);
+                    const checkout = new Date(icsModal.checkoutDate);
+                    const checkinMonth = checkin.toLocaleString("en-US", {
+                      month: "long",
+                    });
+                    const checkinYear = checkin.getFullYear();
+                    const checkoutMonth = checkout.toLocaleString("en-US", {
+                      month: "long",
+                    });
+                    const checkoutYear = checkout.getFullYear();
+                    const periodStr =
+                      checkinYear === checkoutYear &&
+                      checkinMonth === checkoutMonth
+                        ? `${checkinMonth} ${checkinYear}`
+                        : checkinYear === checkoutYear
+                          ? `${checkinMonth} to ${checkoutMonth} ${checkinYear}`
+                          : `${checkinMonth} ${checkinYear} to ${checkoutMonth} ${checkoutYear}`;
+                    const body = `Hello ${icsModal.guestDisplayName}, please find attached your calendar events of your booking from ${periodStr}. Please download the file and save to your phone calendar for better reminding of your upcoming stays at ${airbnbName}. Thanks!`;
+                    window.location.href = `sms:${icsModal.phone}?&body=${encodeURIComponent(body)}`;
+                  }}
+                  className="px-3 py-1 bg-green-600 text-white text-sm rounded"
+                >
+                  Send Message
+                </button>
+              </div>
             </div>
-          </div>
-        </div>,
-        document.body
-      )}
+          </div>,
+          document.body,
+        )}
     </>
   );
 };

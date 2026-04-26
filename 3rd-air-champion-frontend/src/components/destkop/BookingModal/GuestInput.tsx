@@ -8,6 +8,7 @@ interface GuestInputProps {
   showAddPane: "guest" | "room" | null;
   setShowAddPane: React.Dispatch<React.SetStateAction<"guest" | "room" | null>>;
   setValue: UseFormSetValue<bookDaySchema>;
+  defaultGuest?: guestType | null;
 }
 
 const GuestInput = ({
@@ -15,10 +16,13 @@ const GuestInput = ({
   showAddPane,
   setShowAddPane,
   setValue,
+  defaultGuest,
 }: GuestInputProps) => {
   const [filteredGuests, setFilteredGuests] = useState<guestType[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isGuestFound, setIsGuestFound] = useState(false);
+  const [searchQuery, setSearchQuery] = useState(
+    defaultGuest ? `${defaultGuest.name} (${defaultGuest.phone})` : "",
+  );
+  const [isGuestFound, setIsGuestFound] = useState(!!defaultGuest);
 
   // Filter guests based on search query
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {

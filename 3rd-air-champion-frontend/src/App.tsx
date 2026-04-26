@@ -5,7 +5,12 @@ import { useNavigate } from "react-router";
 import NavBarDesktop from "./components/destkop/NavBar/NavBarDesktop";
 import MainView from "./components/destkop/MainView/MainView";
 import About from "./components/About";
-import { isSyncModalOpenContext, AddPaneContext, FooterContext, GuestModeContext } from "./context";
+import {
+  isSyncModalOpenContext,
+  AddPaneContext,
+  FooterContext,
+  GuestModeContext,
+} from "./context";
 
 const formatPhone = (raw: string) => {
   const digits = raw.replace(/\D/g, "");
@@ -34,17 +39,23 @@ function App() {
   const [isManageGuestOpen, setIsManageGuestOpen] = useState(false);
 
   const [currentGuest, setCurrentGuest] = useState<string | null>(null);
-  const [currentAirBnBGuest, setCurrentAirBnBGuest] = useState<string | null>(null);
+  const [currentAirBnBGuest, setCurrentAirBnBGuest] = useState<string | null>(
+    null,
+  );
 
   const [isFooterVisible, setIsFooterVisible] = useState(false);
   const [isTodoModalOpen, setIsTodoModalOpen] = useState(true);
   const [isBookModalOpen, setIsBookModalOpen] = useState(false);
-  const [isAvailabilitiesModalOpen, setIsAvailabilitiesModalOpen] = useState(false);
+  const [isAvailabilitiesModalOpen, setIsAvailabilitiesModalOpen] =
+    useState(false);
   const [isBlockAirBnBModalOpen, setIsBlockAirBnBModalOpen] = useState(false);
   const [isBlockRoomsModalOpen, setIsBlockRoomsModalOpen] = useState(false);
   const [airbnbPendingCount, setAirbnbPendingCount] = useState(0);
   const [availableNightsCount, setAvailableNightsCount] = useState(0);
   const [todoCleanCount, setTodoCleanCount] = useState(0);
+  const [isRequestManagerOpen, setIsRequestManagerOpen] = useState(false);
+  const [bookingRequestPendingCount, setBookingRequestPendingCount] =
+    useState(0);
 
   const [airBnBInfo, setAirBnBInfo] = useState({
     doorCode: "",
@@ -116,97 +127,147 @@ function App() {
   // Render the host data once it's fetched
   return (
     host && (
-      <GuestModeContext.Provider value={{ currentGuest, setCurrentGuest, currentAirBnBGuest, setCurrentAirBnBGuest }}>
-      <FooterContext.Provider value={{ isFooterVisible, setIsFooterVisible, phone: airBnBInfo.phone, contactEmail: airBnBInfo.contactEmail, licenseNumber: airBnBInfo.licenseNumber, airbnbAddress: airBnBInfo.airbnbAddress }}>
-      <isSyncModalOpenContext.Provider
+      <GuestModeContext.Provider
         value={{
-          isSyncModalOpen,
-          setIsSyncModalOpen,
-          shouldCallOnSync,
-          setShouldCallOnSync,
+          currentGuest,
+          setCurrentGuest,
+          currentAirBnBGuest,
+          setCurrentAirBnBGuest,
         }}
       >
-        <AddPaneContext.Provider
+        <FooterContext.Provider
           value={{
-            showAddPane,
-            setShowAddPane,
-            guestErrorMessage,
-            setGuestErrorMessage,
-            roomErrorMessage,
-            setRoomErrorMessage,
-            isEditRoomOpen,
-            setIsEditRoomOpen,
-            isManageGuestOpen,
-            setIsManageGuestOpen,
+            isFooterVisible,
+            setIsFooterVisible,
+            phone: airBnBInfo.phone,
+            contactEmail: airBnBInfo.contactEmail,
+            licenseNumber: airBnBInfo.licenseNumber,
+            airbnbAddress: airBnBInfo.airbnbAddress,
           }}
         >
-            <div className="grid grid-rows-[80px_1fr] h-screen lg:grid-rows-[120px_1fr]">
-              {/* Navbar */}
-              <NavBarDesktop
-                handleLogout={handleLogout}
-                name={host?.name}
-                setIsAboutModalOpen={setIsAboutModalOpen}
-                airBnBInfo={airBnBInfo}
-                onAirBnBInfoSaved={setAirBnBInfo}
-                isFooterVisible={isFooterVisible}
-                onToggleFooter={() => setIsFooterVisible(v => !v)}
-                isTodoModalOpen={isTodoModalOpen}
-                setIsTodoModalOpen={setIsTodoModalOpen}
-                isBookModalOpen={isBookModalOpen}
-                setIsBookModalOpen={setIsBookModalOpen}
-                isAvailabilitiesModalOpen={isAvailabilitiesModalOpen}
-                setIsAvailabilitiesModalOpen={setIsAvailabilitiesModalOpen}
-                isBlockAirBnBModalOpen={isBlockAirBnBModalOpen}
-                setIsBlockAirBnBModalOpen={setIsBlockAirBnBModalOpen}
-                isBlockRoomsModalOpen={isBlockRoomsModalOpen}
-                setIsBlockRoomsModalOpen={setIsBlockRoomsModalOpen}
-                airbnbPendingCount={airbnbPendingCount}
-                availableNightsCount={availableNightsCount}
-                todoCleanCount={todoCleanCount}
-              />
-
-              {/* About Modal */}
-              {isAboutModalOpen && (
-                <About setIsAboutModalOpen={setIsAboutModalOpen} />
-              )}
-
-              {/* Content */}
-              <div className="overflow-hidden grid grid-cols-5 min-h-0">
-                <MainView
-                  calendarId={host.calendar}
-                  hostId={host.id}
-                  airbnbsync={host.airbnbsync}
-                  doorCode={airBnBInfo.doorCode}
-                  airbnbName={airBnBInfo.airbnbName}
-                  airbnbAddress={airBnBInfo.airbnbAddress}
+          <isSyncModalOpenContext.Provider
+            value={{
+              isSyncModalOpen,
+              setIsSyncModalOpen,
+              shouldCallOnSync,
+              setShouldCallOnSync,
+            }}
+          >
+            <AddPaneContext.Provider
+              value={{
+                showAddPane,
+                setShowAddPane,
+                guestErrorMessage,
+                setGuestErrorMessage,
+                roomErrorMessage,
+                setRoomErrorMessage,
+                isEditRoomOpen,
+                setIsEditRoomOpen,
+                isManageGuestOpen,
+                setIsManageGuestOpen,
+              }}
+            >
+              <div className="grid grid-rows-[80px_1fr] h-screen lg:grid-rows-[120px_1fr]">
+                {/* Navbar */}
+                <NavBarDesktop
+                  handleLogout={handleLogout}
+                  name={host?.name}
+                  setIsAboutModalOpen={setIsAboutModalOpen}
+                  airBnBInfo={airBnBInfo}
+                  onAirBnBInfoSaved={setAirBnBInfo}
+                  isFooterVisible={isFooterVisible}
+                  onToggleFooter={() => setIsFooterVisible((v) => !v)}
                   isTodoModalOpen={isTodoModalOpen}
                   setIsTodoModalOpen={setIsTodoModalOpen}
-                  isModalOpen={isBookModalOpen}
-                  setIsModalOpen={setIsBookModalOpen}
+                  isBookModalOpen={isBookModalOpen}
+                  setIsBookModalOpen={setIsBookModalOpen}
                   isAvailabilitiesModalOpen={isAvailabilitiesModalOpen}
                   setIsAvailabilitiesModalOpen={setIsAvailabilitiesModalOpen}
                   isBlockAirBnBModalOpen={isBlockAirBnBModalOpen}
                   setIsBlockAirBnBModalOpen={setIsBlockAirBnBModalOpen}
                   isBlockRoomsModalOpen={isBlockRoomsModalOpen}
                   setIsBlockRoomsModalOpen={setIsBlockRoomsModalOpen}
-                  setAirbnbPendingCount={setAirbnbPendingCount}
-                  setAvailableNightsCount={setAvailableNightsCount}
-                  setTodoCleanCount={setTodoCleanCount}
-                ></MainView>
-              </div>
+                  airbnbPendingCount={airbnbPendingCount}
+                  availableNightsCount={availableNightsCount}
+                  todoCleanCount={todoCleanCount}
+                  isRequestManagerOpen={isRequestManagerOpen}
+                  setIsRequestManagerOpen={setIsRequestManagerOpen}
+                  bookingRequestPendingCount={bookingRequestPendingCount}
+                />
 
-              <footer className={`fixed bottom-0 left-0 right-0 z-40 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] p-2 transition-transform duration-300 ${isFooterVisible ? "translate-y-0" : "translate-y-full"}`}>
-                <p className="text-xs text-center leading-relaxed">
-                  {airBnBInfo.licenseNumber && <>{airBnBInfo.airbnbName} is permitted for STR. License# {airBnBInfo.licenseNumber}{(airBnBInfo.phone || airBnBInfo.contactEmail || airBnBInfo.airbnbAddress) ? "  |  " : ""}</>}
-                  {airBnBInfo.phone && <>{formatPhone(airBnBInfo.phone)}{(airBnBInfo.contactEmail || airBnBInfo.airbnbAddress) ? "  |  " : ""}</>}
-                  {airBnBInfo.contactEmail && <>{airBnBInfo.contactEmail}{airBnBInfo.airbnbAddress ? "  |  " : ""}</>}
-                  {airBnBInfo.airbnbAddress && <>{airBnBInfo.airbnbAddress.replace("\n", ", ")}</>}
-                </p>
-              </footer>
-            </div>
-        </AddPaneContext.Provider>
-      </isSyncModalOpenContext.Provider>
-      </FooterContext.Provider>
+                {/* About Modal */}
+                {isAboutModalOpen && (
+                  <About setIsAboutModalOpen={setIsAboutModalOpen} />
+                )}
+
+                {/* Content */}
+                <div className="overflow-hidden grid grid-cols-5 min-h-0">
+                  <MainView
+                    calendarId={host.calendar}
+                    hostId={host.id}
+                    airbnbsync={host.airbnbsync}
+                    doorCode={airBnBInfo.doorCode}
+                    airbnbName={airBnBInfo.airbnbName}
+                    airbnbAddress={airBnBInfo.airbnbAddress}
+                    isTodoModalOpen={isTodoModalOpen}
+                    setIsTodoModalOpen={setIsTodoModalOpen}
+                    isModalOpen={isBookModalOpen}
+                    setIsModalOpen={setIsBookModalOpen}
+                    isAvailabilitiesModalOpen={isAvailabilitiesModalOpen}
+                    setIsAvailabilitiesModalOpen={setIsAvailabilitiesModalOpen}
+                    isBlockAirBnBModalOpen={isBlockAirBnBModalOpen}
+                    setIsBlockAirBnBModalOpen={setIsBlockAirBnBModalOpen}
+                    isBlockRoomsModalOpen={isBlockRoomsModalOpen}
+                    setIsBlockRoomsModalOpen={setIsBlockRoomsModalOpen}
+                    setAirbnbPendingCount={setAirbnbPendingCount}
+                    setAvailableNightsCount={setAvailableNightsCount}
+                    setTodoCleanCount={setTodoCleanCount}
+                    isRequestManagerOpen={isRequestManagerOpen}
+                    setIsRequestManagerOpen={setIsRequestManagerOpen}
+                    setBookingRequestPendingCount={
+                      setBookingRequestPendingCount
+                    }
+                  ></MainView>
+                </div>
+
+                <footer
+                  className={`fixed bottom-0 left-0 right-0 z-40 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] p-2 transition-transform duration-300 ${isFooterVisible ? "translate-y-0" : "translate-y-full"}`}
+                >
+                  <p className="text-xs text-center leading-relaxed">
+                    {airBnBInfo.licenseNumber && (
+                      <>
+                        {airBnBInfo.airbnbName} is permitted for STR. License#{" "}
+                        {airBnBInfo.licenseNumber}
+                        {airBnBInfo.phone ||
+                        airBnBInfo.contactEmail ||
+                        airBnBInfo.airbnbAddress
+                          ? "  |  "
+                          : ""}
+                      </>
+                    )}
+                    {airBnBInfo.phone && (
+                      <>
+                        {formatPhone(airBnBInfo.phone)}
+                        {airBnBInfo.contactEmail || airBnBInfo.airbnbAddress
+                          ? "  |  "
+                          : ""}
+                      </>
+                    )}
+                    {airBnBInfo.contactEmail && (
+                      <>
+                        {airBnBInfo.contactEmail}
+                        {airBnBInfo.airbnbAddress ? "  |  " : ""}
+                      </>
+                    )}
+                    {airBnBInfo.airbnbAddress && (
+                      <>{airBnBInfo.airbnbAddress.replace("\n", ", ")}</>
+                    )}
+                  </p>
+                </footer>
+              </div>
+            </AddPaneContext.Provider>
+          </isSyncModalOpenContext.Provider>
+        </FooterContext.Provider>
       </GuestModeContext.Provider>
     )
   );
