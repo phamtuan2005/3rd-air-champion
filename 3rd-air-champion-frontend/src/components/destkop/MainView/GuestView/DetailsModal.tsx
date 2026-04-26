@@ -13,6 +13,7 @@ import Pricing from "./Pricing";
 interface DetailsModalProps {
   booking: bookingType;
   rooms: roomType[];
+  startWithPricingEdit?: boolean;
   onClose: () => void;
   onUpdateGuests: (data: {
     id: string;
@@ -29,6 +30,7 @@ interface DetailsModalProps {
 const DetailsModal = ({
   booking,
   rooms,
+  startWithPricingEdit,
   onClose,
   onUpdateGuests,
   onAirbnbPriceUpdate,
@@ -36,7 +38,7 @@ const DetailsModal = ({
 }: DetailsModalProps) => {
   const isAirBnB = booking.guest.name === "AirBnB";
   const [isWriting, setIsWriting] = useState(false);
-  const [isPricingEditing, setIsPricingEditing] = useState(false);
+  const [isPricingEditing, setIsPricingEditing] = useState(startWithPricingEdit ?? false);
   const [profitInput, setProfitInput] = useState(String(booking.airbnbPrice || 0));
   const {
     control,

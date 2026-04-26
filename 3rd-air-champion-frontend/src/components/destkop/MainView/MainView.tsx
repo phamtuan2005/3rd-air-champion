@@ -193,6 +193,13 @@ const MainView = ({
     airbnbAddress,
   });
 
+  const [pricingEditOnOpen, setPricingEditOnOpen] = useState(false);
+
+  const onPricingEdit = (booking: bookingType) => {
+    setPricingEditOnOpen(true);
+    setSelectedBooking(booking);
+  };
+
   const shiftDate = (delta: number) => {
     const newDate = addDays(selectedDate, delta);
     setSelectedDate(newDate);
@@ -603,6 +610,7 @@ const MainView = ({
               setSelectedBooking={setSelectedBooking as React.Dispatch<React.SetStateAction<bookingType>>}
               setSelectedModifyBooking={setSelectedModifyBooking as React.Dispatch<React.SetStateAction<bookingType>>}
               setSelectedUnbooking={setSelectedUnbooking as React.Dispatch<React.SetStateAction<bookingType>>}
+              onPricingEdit={onPricingEdit}
             >
               <BookButton setIsModalOpen={setIsModalOpen} setSelectedRoom={setSelectedRoom} />
             </GuestView>
@@ -658,6 +666,7 @@ const MainView = ({
           setSelectedBooking={setSelectedBooking as React.Dispatch<React.SetStateAction<bookingType>>}
           setSelectedModifyBooking={setSelectedModifyBooking as React.Dispatch<React.SetStateAction<bookingType>>}
           setSelectedUnbooking={setSelectedUnbooking as React.Dispatch<React.SetStateAction<bookingType>>}
+          onPricingEdit={onPricingEdit}
         >
           <BookButton
             setIsModalOpen={setIsModalOpen}
@@ -752,7 +761,8 @@ const MainView = ({
         <DetailsModal
           booking={selectedBooking}
           rooms={rooms}
-          onClose={() => setSelectedBooking(null)}
+          startWithPricingEdit={pricingEditOnOpen}
+          onClose={() => { setSelectedBooking(null); setPricingEditOnOpen(false); }}
           onUpdateGuests={onUpdateGuest}
           onAirbnbPriceUpdate={onAirbnbPriceUpdate}
           onPricingUpdate={onPricingUpdate}

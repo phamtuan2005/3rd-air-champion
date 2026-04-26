@@ -36,6 +36,7 @@ interface GuestViewProps {
   setSelectedBooking: React.Dispatch<React.SetStateAction<bookingType>>;
   setSelectedModifyBooking: React.Dispatch<React.SetStateAction<bookingType>>;
   setSelectedUnbooking: React.Dispatch<React.SetStateAction<bookingType>>;
+  onPricingEdit: (booking: bookingType) => void;
 }
 
 const GuestView = ({
@@ -59,6 +60,7 @@ const GuestView = ({
   setSelectedBooking,
   setSelectedModifyBooking,
   setSelectedUnbooking,
+  onPricingEdit,
 }: GuestViewProps) => {
   const getBookingLabel = (booking: bookingType) => {
     const guestPart = `${booking.numberOfGuests > 1 ? `(${booking.numberOfGuests}) ` : ""}${booking.guest.alias || booking.alias || booking.guest.name} (${booking.room.name})`;
@@ -100,6 +102,7 @@ const GuestView = ({
           setSelectedModifyBooking={setSelectedModifyBooking}
           setSelectedUnbooking={setSelectedUnbooking}
           setIsMobileModalOpen={setIsMobileModalOpen}
+          onPricingEdit={onPricingEdit}
         />
       ))}
 

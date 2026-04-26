@@ -22,6 +22,7 @@ interface BookingCardProps {
   setSelectedModifyBooking: React.Dispatch<React.SetStateAction<bookingType>>;
   setSelectedUnbooking: React.Dispatch<React.SetStateAction<bookingType>>;
   setIsMobileModalOpen?: React.Dispatch<React.SetStateAction<boolean>>;
+  onPricingEdit: (booking: bookingType) => void;
 }
 
 const BookingCard = ({
@@ -39,6 +40,7 @@ const BookingCard = ({
   setSelectedModifyBooking,
   setSelectedUnbooking,
   setIsMobileModalOpen,
+  onPricingEdit,
 }: BookingCardProps) => {
   const { setIsFooterVisible } = useContext(FooterContext)!;
 
@@ -60,7 +62,14 @@ const BookingCard = ({
           ? booking.airbnbPrice ? `, $${booking.airbnbPrice.toFixed(2)}` : ""
           : (() => {
               const guestRate = booking.guest.pricing?.find(p => p.room === booking.room.id)?.price ?? booking.price;
-              return guestRate ? `, $${(guestRate * booking.duration).toFixed(2)}` : "";
+              return guestRate ? (
+                <span
+                  onClick={(e) => { e.stopPropagation(); onPricingEdit(booking); }}
+                  className="underline decoration-dotted"
+                >
+                  {`, $${(guestRate * booking.duration).toFixed(2)}`}
+                </span>
+              ) : "";
             })()}
       </button>
 
