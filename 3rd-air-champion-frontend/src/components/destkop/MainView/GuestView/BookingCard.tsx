@@ -1,6 +1,6 @@
 import { getRoomColor } from "../../../../util/getRoomColor";
 import { bookingType } from "../../../../util/types/bookingType";
-import { FaMinus, FaRegEdit } from "react-icons/fa";
+import { FaMinus } from "react-icons/fa";
 import { CiCalendar } from "react-icons/ci";
 import { useContext } from "react";
 import { format, parseISO } from "date-fns";
@@ -47,9 +47,11 @@ const BookingCard = ({
       className="border-b border-solid w-full py-1"
       style={{ display: "grid", gridTemplateColumns: `min(${maxLabelLen}ch, 50vw) 1fr`, gap: "0 0.75rem" }}
     >
-      {/* Row 1, Col 1: Color box */}
-      <div
-        className={`${getRoomColor(booking.room.name, booking.room.color)} ${booking.guest.name === "AirBnB" ? "text-white" : "text-black"} px-2 py-1 rounded-md font-bold text-lg mb-1`}
+      {/* Row 1, Col 1: Color box (tappable) */}
+      <button
+        type="button"
+        onClick={() => setSelectedBooking(booking)}
+        className={`${getRoomColor(booking.room.name, booking.room.color)} ${booking.guest.name === "AirBnB" ? "text-white" : "text-black"} px-2 py-1 rounded-md font-bold text-lg mb-1 text-left`}
       >
         {booking.numberOfGuests > 1 && `(${booking.numberOfGuests}) `}
         {booking.guest.alias || booking.alias || booking.guest.name}{" "}
@@ -60,17 +62,10 @@ const BookingCard = ({
               const guestRate = booking.guest.pricing?.find(p => p.room === booking.room.id)?.price ?? booking.price;
               return guestRate ? `, $${(guestRate * booking.duration).toFixed(2)}` : "";
             })()}
-      </div>
+      </button>
 
       {/* Row 1, Col 2: Quick change buttons */}
       <div className="flex items-center gap-4 mb-1">
-        <button
-          type="button"
-          onClick={() => setSelectedBooking(booking)}
-          className="flex justify-center w-[24px] h-[24px] items-center rounded-full shadow-md bg-orange-400 hover:bg-orange-500 text-white font-semibold"
-        >
-          <FaRegEdit size={14} />
-        </button>
         {booking.guest.name !== "AirBnB" && (
           <button
             type="button"
