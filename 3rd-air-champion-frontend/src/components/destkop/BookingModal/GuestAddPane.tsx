@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { SubmitHandler, useForm } from "react-hook-form";
-import { guestAddSchema, guestAddZodObject } from "../../../util/zodAddGuest";
+import { guestAddSchema, guestAddZodObject } from "./zodAddGuest";
 
 interface GuestAddPaneProps {
   guestErrorMessage: string;

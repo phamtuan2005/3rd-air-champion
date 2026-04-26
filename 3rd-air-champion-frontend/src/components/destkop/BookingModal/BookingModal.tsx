@@ -6,12 +6,12 @@ import GuestInput from "./GuestInput";
 import RoomMultiSelect from "./RoomMultiSelect";
 import DatePickerModal from "./DatePickerModal";
 import { SubmitHandler, useForm, useFieldArray, Controller, useWatch } from "react-hook-form";
-import { bookDaySchema, bookDaysZodObject } from "../../../util/zodBookDays";
+import { bookDaySchema, bookDaysZodObject } from "./zodBookDays";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { getAvailableRooms, postBooking } from "../../../util/bookingOperations";
 import { dayType } from "../../../util/types/dayType";
 import { format, addDays } from "date-fns";
-import { ANY_ROOM_SENTINEL } from "../../../util/zodBookDays";
+import { ANY_ROOM_SENTINEL } from "./zodBookDays";
 
 interface BookingPrefill {
   guestId: string | null;

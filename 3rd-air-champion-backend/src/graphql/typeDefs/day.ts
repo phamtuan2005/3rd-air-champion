@@ -1,0 +1,138 @@
+import gql from "graphql-tag";
+
+export const dayDefs = gql`
+  scalar Date
+
+  type Bookings {
+    id: ID
+    alias: String
+    price: Float
+    airbnbPrice: Float
+    guest: Guest
+    notes: String
+    earlyCheckin: Boolean
+    lateCheckout: Boolean
+    room: Room
+    description: String
+    duration: Int
+    numberOfGuests: Int
+    startDate: Date
+    endDate: Date
+    airbnbBlocked: Boolean
+  }
+
+  type Day {
+    id: ID!
+    calendar: ID!
+    date: Date!
+    isAirBnB: Boolean
+    isBlocked: Boolean
+    bookings: [Bookings]
+    numberOfGuests: Int
+    blockedRooms: [Room]
+    createdAt: String
+    updatedAt: String
+  }
+
+  type AirBnBBookingCount {
+    Alias: String
+    RoomObjectId: String
+    DistinctStartDateCount: Int
+  }
+
+  type GuestBookingCount {
+    GuestId: String
+    DistinctStartDateCount: Int
+    FirstStayDate: String
+  }
+
+  input UnbookBookingInput {
+    room: String!
+    date: String!
+  }
+
+  type Query {
+    days: [Day]
+    day(_id: String!): Day!
+    hostDays(calendarId: String!): [Day]
+    airBnBDays(calendar: String!, guest: String!): [Day]
+    airBnBBookingCount(guest: String!): [AirBnBBookingCount]
+    guestBookingCount(calendarId: String!): [GuestBookingCount]
+    availableRooms(calendar: String!, date: String!, duration: Int!): [Room]
+  }
+
+  type Mutation {
+    blockDay(calendar: String!, date: String!): Day!
+    blockManyDays(calendar: String!, dates: [String!]!): [Day!]!
+    blockRange(calendar: String!, date: String!, duration: Int!): [Day!]!
+
+    blockRoom(
+      calendar: String!
+      room: String!
+      date: String!
+      duration: Int!
+    ): [Day]
+
+    unblockRoom(
+      calendar: String!
+      room: String!
+      date: String!
+      duration: Int!
+    ): [Day]
+
+    unblockDay(calendar: String!, date: String!): Day
+    unblockManyDays(calendar: String!, dates: [String!]!): [Day]
+    unblockRange(calendar: String!, startDate: String!, endDate: String!): [Day]
+
+    bookDays(
+      calendar: String!
+      date: String!
+      guest: String!
+      isAirBnB: Boolean!
+      numberOfGuests: Int!
+      room: String!
+      duration: Int!
+    ): [Day]
+
+    bookAirBnB(
+      calendar: String!
+      date: String!
+      guest: String!
+      description: String!
+      room: String!
+      duration: Int!
+    ): [Day]
+
+    unbookAirBnB(
+      calendar: String!
+      guest: String!
+      bookings: [UnbookBookingInput!]!
+    ): Boolean!
+
+    updateBookingGuest(
+      _id: String!
+      alias: String
+      notes: String
+      earlyCheckin: Boolean
+      lateCheckout: Boolean
+      numberOfGuests: Int
+    ): [Day]
+
+    updateBookingAirbnbPrice(
+      _id: String!
+      airbnbPrice: Float!
+    ): [Day]
+
+    markAirBnBBlocked(_id: String!, blocked: Boolean!): [Day]
+
+    unbookGuest(_id: String!): [Day]
+
+    updateDay(
+      _id: String!
+      isAirBnB: Boolean
+      isBlocked: Boolean
+      room: String
+      guest: String
+    ): Day!
+  }
+`;

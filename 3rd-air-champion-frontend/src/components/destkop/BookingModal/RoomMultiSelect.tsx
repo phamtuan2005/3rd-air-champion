@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { roomType } from "../../../util/types/roomType";
-import { ANY_ROOM_SENTINEL } from "../../../util/zodBookDays";
+import { ANY_ROOM_SENTINEL } from "./zodBookDays";
 import { getRoomColor } from "../../../util/getRoomColor";
 
 interface RoomMultiSelectProps {

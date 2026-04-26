@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { guestType } from "../../../util/types/guestType";
 import { UseFormSetValue } from "react-hook-form";
-import { bookDaySchema } from "../../../util/zodBookDays";
+import { bookDaySchema } from "./zodBookDays";
 
 interface GuestInputProps {
   guests: guestType[];

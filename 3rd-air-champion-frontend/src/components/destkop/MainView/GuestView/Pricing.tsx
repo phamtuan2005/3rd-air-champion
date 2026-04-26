@@ -10,7 +10,7 @@ import { roomType } from "../../../../util/types/roomType";
 import {
   pricingZodObject,
   pricingZodSchema,
-} from "../../../../util/zodPricing";
+} from "./zodPricing";
 import PricingDropdown from "./PricingDropdown";
 
 interface PricingProps {

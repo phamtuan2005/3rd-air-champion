@@ -4,7 +4,7 @@ import Calendar from "react-calendar";
 import { format, isBefore, startOfToday } from "date-fns";
 import "../../../styles/calendarStyle.css";
 import { roomType } from "../../../util/types/roomType";
-import { ANY_ROOM_SENTINEL } from "../../../util/zodBookDays";
+import { ANY_ROOM_SENTINEL } from "./zodBookDays";
 import { getAvailableRooms } from "../../../util/bookingOperations";
 
 interface DatePickerModalProps {

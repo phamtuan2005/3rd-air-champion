@@ -1,5 +1,5 @@
 import { SubmitHandler, useForm } from "react-hook-form";
-import { roomAddSchema, roomAddZodObject } from "../../../util/zodAddRoom";
+import { roomAddSchema, roomAddZodObject } from "./zodAddRoom";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 interface RoomAddPaneProps {

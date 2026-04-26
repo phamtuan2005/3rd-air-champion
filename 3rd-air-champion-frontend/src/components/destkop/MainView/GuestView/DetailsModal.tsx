@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   guestUpdateSchema,
   guestUpdateZodObject,
-} from "../../../../util/zodUpdateGuest";
+} from "./zodUpdateGuest";
 import Pricing from "./Pricing";
 
 interface DetailsModalProps {

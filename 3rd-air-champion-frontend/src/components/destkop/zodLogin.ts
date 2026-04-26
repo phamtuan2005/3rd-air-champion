@@ -1,16 +1,10 @@
 import { z } from "zod";
 
-export const registerZodObject = z.object({
+export const loginZodObject = z.object({
   email: z
     .string()
     .email({ message: "Invalid email address" })
     .nonempty({ message: "Email required" }),
-  name: z
-    .string()
-    .min(3, "Must be at least 3 characters long")
-    .regex(/^[^!@#$%^&*()_+=[\]{};:"\\|,<>/?~]+$/, {
-      message: "Name cannot contain a special character",
-    }),
   password: z
     .string()
     .min(8, { message: "Password must be at least 8 characters long" })
@@ -28,4 +22,4 @@ export const registerZodObject = z.object({
     .regex(/^\S*$/, { message: "Password must not contain spaces" }),
 });
 
-export type registerZodSchema = z.infer<typeof registerZodObject>;
+export type loginSchema = z.infer<typeof loginZodObject>;
