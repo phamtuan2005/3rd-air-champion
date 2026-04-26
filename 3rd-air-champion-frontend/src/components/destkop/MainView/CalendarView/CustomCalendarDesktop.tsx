@@ -64,13 +64,29 @@ const CustomCalendar = ({
   const [visibleIndex, setVisibleIndex] = useState<number>(24);
   const [tileWidth, setTileWidth] = useState<number | null>(null);
   const [useMonthMap, setUseMonthMap] = useState<Map<string, dayType>>(monthMap);
-  const usedRooms = useMemo(
-    () =>
-      rooms
-        .filter((r) => r.active && (!selectedRoomName || r.name === selectedRoomName))
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    [selectedRoomName, rooms],
-  );
+  const usedRooms = useMemo(() => {
+    if (currentGuest || currentAirBnBGuest) {
+      const roomMap = new Map<string, roomType>();
+      const monthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+      const monthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+      monthMap.forEach((dayEntry, dateStr) => {
+        const date = toZonedTime(dateStr, timeZone);
+        if (date < monthStart || date > monthEnd) return;
+        dayEntry.bookings.forEach((booking) => {
+          const matchesGuest = currentGuest
+            ? booking.guest?.id == currentGuest
+            : booking.alias === currentAirBnBGuest;
+          if (matchesGuest && booking.room && (!selectedRoomName || booking.room.name === selectedRoomName)) {
+            roomMap.set(booking.room.name, booking.room);
+          }
+        });
+      });
+      return [...roomMap.values()].sort((a, b) => a.name.localeCompare(b.name));
+    }
+    return rooms
+      .filter((r) => r.active && (!selectedRoomName || r.name === selectedRoomName))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [selectedRoomName, rooms, currentGuest, currentAirBnBGuest, monthMap, currentMonth]);
   const maxRooms = usedRooms.length;
   const [containerHeight, setContainerHeight] = useState(0);
   const [pageLayouts, setPageLayouts] = useState<PageLayout[]>([]);
@@ -400,10 +416,10 @@ const CustomCalendar = ({
             const isFutureOrToday = !isBefore(date, startOfToday());
             if (isRoomBlocked) {
               return (
-                <div key={room.name} className="row-span-1 min-h-[16px] relative">
+                <div key={room.name} className="row-span-1 h-full relative">
                   <div
                     className="react-calendar__room_blocked_bar absolute"
-                    style={{ top: "-1px", bottom: "-1px", left: "-1px", right: "-1px" }}
+                    style={{ top: "1px", bottom: "1px", left: "-1px", right: "-1px" }}
                   />
                 </div>
               );
@@ -412,7 +428,7 @@ const CustomCalendar = ({
               ? !prevDay.bookings.some((b) => b.room?.name === room.name)
               : false;
             return (
-              <div key={room.name} className="row-span-1 min-h-[16px] relative">
+              <div key={room.name} className="row-span-1 h-full relative">
                 {isFutureOrToday && !currentGuest && !currentAirBnBGuest && (
                   <div
                     className="react-calendar__opportunity_row absolute rounded-lg"
@@ -492,7 +508,7 @@ const CustomCalendar = ({
           return (
             <div
               key={room.name}
-              className="row-span-1 min-h-[16px]"
+              className="row-span-1 h-full"
               style={{ position: "relative" }}
             >
               {amBooking && (
@@ -500,8 +516,8 @@ const CustomCalendar = ({
                   className={`${amColor} ${amIsEnd ? "rounded-r-lg" : ""}`}
                   style={{
                     position: "absolute",
-                    top: "-1px",
-                    bottom: "-1px",
+                    top: "1px",
+                    bottom: "1px",
                     left: "-1px",
                     right: amIsEnd ? "80%" : "-1px",
                   }}
@@ -512,8 +528,8 @@ const CustomCalendar = ({
                   className={`${pmColor} ${pmTextColor} flex items-center`}
                   style={{
                     position: "absolute",
-                    top: "-1px",
-                    bottom: "-1px",
+                    top: "1px",
+                    bottom: "1px",
                     left: pmIsStart ? "20%" : "-1px",
                     right: "-1px",
                     fontSize: `${textSize}rem`,
@@ -528,8 +544,8 @@ const CustomCalendar = ({
                   className="react-calendar__room_blocked_bar"
                   style={{
                     position: "absolute",
-                    top: "-1px",
-                    bottom: "-1px",
+                    top: "1px",
+                    bottom: "1px",
                     left: "20%",
                     right: "0",
                   }}
@@ -599,6 +615,8 @@ const CustomCalendar = ({
                   gridTemplateRows: `repeat(${numRows}, ${rowHeight}px)`,
                   height: "100%",
                   width: "100%",
+                  borderTop: "1px solid #d1d5db",
+                  borderLeft: "1px solid #d1d5db",
                 }}
               >
                 {layout.cells.map((date, cellIdx) => {
