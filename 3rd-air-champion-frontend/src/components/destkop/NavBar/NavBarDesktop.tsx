@@ -1,7 +1,7 @@
 import { useContext, useState } from "react";
 import { createPortal } from "react-dom";
 import ProfileDesktop from "./ProfileDesktop";
-import { GuestModeContext } from "../../../context";
+import { FooterContext, GuestModeContext } from "../../../context";
 
 interface AirBnBInfo {
   doorCode: string;
@@ -65,6 +65,7 @@ const NavBarDesktop = ({
   bookingRequestPendingCount,
 }: NavBarDesktopProps) => {
   const { currentGuest, currentAirBnBGuest, setCurrentGuest, setCurrentAirBnBGuest } = useContext(GuestModeContext)!;
+  const { setIsFooterVisible } = useContext(FooterContext)!;
   const isGuestMode = !!(currentGuest || currentAirBnBGuest);
   const [isBlockChooserOpen, setIsBlockChooserOpen] = useState(false);
 
@@ -98,6 +99,7 @@ const NavBarDesktop = ({
             title="Back to full calendar"
             className="flex items-center gap-1.5 text-white bg-gray-700 hover:bg-gray-900 px-3 py-1.5 text-xs rounded-md transition-colors"
             onClick={() => {
+              setIsFooterVisible(false);
               setCurrentGuest(null);
               setCurrentAirBnBGuest(null);
             }}
