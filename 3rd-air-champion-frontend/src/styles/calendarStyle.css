@@ -70,12 +70,13 @@
   border-color: rgb(
     209 213 219 / var(--tw-border-opacity, 1)
   ); /* #d1d5db, corresponds to border-gray-300 */
+  border-right-width: 1px;
+  border-bottom-width: 1px;
   display: grid; /* corresponds to grid */
   grid-template-rows: repeat(
     var(--max-rows),
     minmax(0, 1fr)
   ); /* corresponds to grid-rows-4 */
-  margin-bottom: 0.25rem; /* corresponds to mb-1 */
   height: 100%; /* fills the CSS-grid cell controlled by the outer grid */
   width: 100%;
   max-width: 100%; /* corresponds to max-w-full */
@@ -146,7 +147,6 @@
 
 /* Base styling for tiles without bookings */
 .react-calendar__custom_tile_no_booking {
-  @apply border-y;
 }
 
 /* Future empty dates — booking opportunity highlight */
@@ -174,7 +174,6 @@
 
 /* Base styles for tiles with bookings */
 .react-calendar__custom_tile_booking {
-  @apply border-y;
 }
 
 /* Start date styles */
