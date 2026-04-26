@@ -170,42 +170,39 @@ function App() {
                 <About setIsAboutModalOpen={setIsAboutModalOpen} />
               )}
 
-              {/* Content + Footer */}
-              <div className="flex flex-col overflow-hidden">
-                {/* Main Content Area */}
-                <div className="grid grid-cols-5 flex-1 min-h-0 overflow-hidden">
-                  <MainView
-                    calendarId={host.calendar}
-                    hostId={host.id}
-                    airbnbsync={host.airbnbsync}
-                    doorCode={airBnBInfo.doorCode}
-                    airbnbName={airBnBInfo.airbnbName}
-                    airbnbAddress={airBnBInfo.airbnbAddress}
-                    isTodoModalOpen={isTodoModalOpen}
-                    setIsTodoModalOpen={setIsTodoModalOpen}
-                    isModalOpen={isBookModalOpen}
-                    setIsModalOpen={setIsBookModalOpen}
-                    isAvailabilitiesModalOpen={isAvailabilitiesModalOpen}
-                    setIsAvailabilitiesModalOpen={setIsAvailabilitiesModalOpen}
-                    isBlockAirBnBModalOpen={isBlockAirBnBModalOpen}
-                    setIsBlockAirBnBModalOpen={setIsBlockAirBnBModalOpen}
-                    isBlockRoomsModalOpen={isBlockRoomsModalOpen}
-                    setIsBlockRoomsModalOpen={setIsBlockRoomsModalOpen}
-                    setAirbnbPendingCount={setAirbnbPendingCount}
-                    setAvailableNightsCount={setAvailableNightsCount}
-                    setTodoCleanCount={setTodoCleanCount}
-                  ></MainView>
-                </div>
-
-                {isFooterVisible && <footer className="bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] p-2 shrink-0">
-                  <p className="text-xs text-center leading-relaxed">
-                    {airBnBInfo.licenseNumber && <>{airBnBInfo.airbnbName} is permitted for STR. License# {airBnBInfo.licenseNumber}{(airBnBInfo.phone || airBnBInfo.contactEmail || airBnBInfo.airbnbAddress) ? "  |  " : ""}</>}
-                    {airBnBInfo.phone && <>{formatPhone(airBnBInfo.phone)}{(airBnBInfo.contactEmail || airBnBInfo.airbnbAddress) ? "  |  " : ""}</>}
-                    {airBnBInfo.contactEmail && <>{airBnBInfo.contactEmail}{airBnBInfo.airbnbAddress ? "  |  " : ""}</>}
-                    {airBnBInfo.airbnbAddress && <>{airBnBInfo.airbnbAddress.replace("\n", ", ")}</>}
-                  </p>
-                </footer>}
+              {/* Content */}
+              <div className="overflow-hidden grid grid-cols-5 min-h-0">
+                <MainView
+                  calendarId={host.calendar}
+                  hostId={host.id}
+                  airbnbsync={host.airbnbsync}
+                  doorCode={airBnBInfo.doorCode}
+                  airbnbName={airBnBInfo.airbnbName}
+                  airbnbAddress={airBnBInfo.airbnbAddress}
+                  isTodoModalOpen={isTodoModalOpen}
+                  setIsTodoModalOpen={setIsTodoModalOpen}
+                  isModalOpen={isBookModalOpen}
+                  setIsModalOpen={setIsBookModalOpen}
+                  isAvailabilitiesModalOpen={isAvailabilitiesModalOpen}
+                  setIsAvailabilitiesModalOpen={setIsAvailabilitiesModalOpen}
+                  isBlockAirBnBModalOpen={isBlockAirBnBModalOpen}
+                  setIsBlockAirBnBModalOpen={setIsBlockAirBnBModalOpen}
+                  isBlockRoomsModalOpen={isBlockRoomsModalOpen}
+                  setIsBlockRoomsModalOpen={setIsBlockRoomsModalOpen}
+                  setAirbnbPendingCount={setAirbnbPendingCount}
+                  setAvailableNightsCount={setAvailableNightsCount}
+                  setTodoCleanCount={setTodoCleanCount}
+                ></MainView>
               </div>
+
+              <footer className={`fixed bottom-0 left-0 right-0 z-40 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] p-2 transition-transform duration-300 ${isFooterVisible ? "translate-y-0" : "translate-y-full"}`}>
+                <p className="text-xs text-center leading-relaxed">
+                  {airBnBInfo.licenseNumber && <>{airBnBInfo.airbnbName} is permitted for STR. License# {airBnBInfo.licenseNumber}{(airBnBInfo.phone || airBnBInfo.contactEmail || airBnBInfo.airbnbAddress) ? "  |  " : ""}</>}
+                  {airBnBInfo.phone && <>{formatPhone(airBnBInfo.phone)}{(airBnBInfo.contactEmail || airBnBInfo.airbnbAddress) ? "  |  " : ""}</>}
+                  {airBnBInfo.contactEmail && <>{airBnBInfo.contactEmail}{airBnBInfo.airbnbAddress ? "  |  " : ""}</>}
+                  {airBnBInfo.airbnbAddress && <>{airBnBInfo.airbnbAddress.replace("\n", ", ")}</>}
+                </p>
+              </footer>
             </div>
         </AddPaneContext.Provider>
       </isSyncModalOpenContext.Provider>
