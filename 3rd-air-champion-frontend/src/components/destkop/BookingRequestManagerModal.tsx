@@ -54,6 +54,10 @@ const BookingRequestManagerModal = ({
   const [requests, setRequests] = useState<BookingRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [clearedIds, setClearedIds] = useState<Set<string>>(
+    () => new Set(JSON.parse(sessionStorage.getItem("clearedRequestIds") || "[]")),
+  );
+  const [showCleared, setShowCleared] = useState(false);
 
   useEffect(() => {
     fetchBookingRequestsByHost(hostId, token)
@@ -128,7 +132,11 @@ const BookingRequestManagerModal = ({
   };
 
   const pending = requests.filter((r) => r.status === "pending");
-  const resolved = requests.filter((r) => r.status !== "pending");
+  const allResolved = requests.filter((r) => r.status !== "pending");
+  const resolved = showCleared
+    ? allResolved
+    : allResolved.filter((r) => !clearedIds.has(r.id));
+  const hiddenCount = allResolved.length - resolved.length;
 
   const statusLabel = (status: string) => {
     if (status === "confirmed") return "Accepted";
@@ -268,11 +276,47 @@ const BookingRequestManagerModal = ({
                 {pending.map((r) => renderCard(r, true))}
               </div>
             )}
-            {resolved.length > 0 && (
+            {(resolved.length > 0 || hiddenCount > 0) && (
               <div className="flex flex-col gap-2">
-                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  History
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                    History {resolved.length > 0 && `(${resolved.length})`}
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    {clearedIds.size > 0 && (
+                      <button
+                        type="button"
+                        className="text-[10px] text-blue-400 hover:text-blue-600 transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowCleared((v) => !v);
+                        }}
+                      >
+                        {showCleared ? "Hide cleared" : `Show cleared (${hiddenCount})`}
+                      </button>
+                    )}
+                    {resolved.length > 0 && !showCleared && (
+                      <button
+                        type="button"
+                        className="text-[10px] text-gray-400 hover:text-red-400 transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const newIds = new Set([
+                            ...clearedIds,
+                            ...resolved.map((r) => r.id),
+                          ]);
+                          sessionStorage.setItem(
+                            "clearedRequestIds",
+                            JSON.stringify([...newIds]),
+                          );
+                          setClearedIds(newIds);
+                        }}
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                </div>
                 {resolved.map((r) => renderCard(r, false))}
               </div>
             )}

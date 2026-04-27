@@ -30,7 +30,7 @@ export const hostResolvers = {
     },
     updateHost: async (
       _: unknown,
-      { _id, email, name, password, airbnbsync, doorCode, airbnbName, airbnbAddress, houseRules, phone, contactEmail, licenseNumber }: any
+      { _id, email, name, password, airbnbsync, doorCode, airbnbName, airbnbAddress, airbnbRating, airbnbReviewCount, airbnbSuperhost, highlights, houseRules, phone, contactEmail, licenseNumber }: any
     ) => {
       const updateData: {
         email?: string;
@@ -40,6 +40,10 @@ export const hostResolvers = {
         doorCode?: string;
         airbnbName?: string;
         airbnbAddress?: string;
+        airbnbRating?: number;
+        airbnbReviewCount?: number;
+        airbnbSuperhost?: boolean;
+        highlights?: string[];
         houseRules?: string;
         phone?: string;
         contactEmail?: string;
@@ -52,6 +56,10 @@ export const hostResolvers = {
       if (doorCode !== undefined) updateData.doorCode = doorCode;
       if (airbnbName !== undefined) updateData.airbnbName = airbnbName;
       if (airbnbAddress !== undefined) updateData.airbnbAddress = airbnbAddress;
+      if (airbnbRating !== undefined) updateData.airbnbRating = airbnbRating;
+      if (airbnbReviewCount !== undefined) updateData.airbnbReviewCount = airbnbReviewCount;
+      if (airbnbSuperhost !== undefined) updateData.airbnbSuperhost = airbnbSuperhost;
+      if (highlights !== undefined) updateData.highlights = highlights;
       if (houseRules !== undefined) updateData.houseRules = houseRules;
       if (phone !== undefined) updateData.phone = phone;
       if (contactEmail !== undefined) updateData.contactEmail = contactEmail;

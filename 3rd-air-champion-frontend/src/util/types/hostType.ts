@@ -10,5 +10,9 @@ export interface hostType {
   doorCode?: string;
   airbnbName?: string;
   airbnbAddress?: string;
+  airbnbRating?: number;
+  airbnbReviewCount?: number;
+  airbnbSuperhost?: boolean;
+  highlights?: string[];
   houseRules?: string;
 }

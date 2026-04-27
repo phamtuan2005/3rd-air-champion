@@ -19,6 +19,10 @@ export const hostDefs = gql`
     doorCode: String
     airbnbName: String
     airbnbAddress: String
+    airbnbRating: Float
+    airbnbReviewCount: Int
+    airbnbSuperhost: Boolean
+    highlights: [String]
     houseRules: String
     phone: String
     contactEmail: String
@@ -43,6 +47,10 @@ export const hostDefs = gql`
       doorCode: String
       airbnbName: String
       airbnbAddress: String
+      airbnbRating: Float
+      airbnbReviewCount: Int
+      airbnbSuperhost: Boolean
+      highlights: [String]
       houseRules: String
       phone: String
       contactEmail: String

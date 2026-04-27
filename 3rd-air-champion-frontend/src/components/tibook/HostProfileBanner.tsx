@@ -41,21 +41,35 @@ const HostProfileBanner = ({ host }: HostProfileBannerProps) => {
         <span className="font-bold text-gray-900 text-sm sm:text-base leading-tight truncate">
           {displayName}
         </span>
-        {host.airbnbAddress && (
-          <span className="text-gray-400 text-xs truncate flex items-center gap-1 mt-0.5">
-            <svg
-              className="w-3 h-3 flex-shrink-0"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
-                clipRule="evenodd"
-              />
-            </svg>
-            {host.airbnbAddress}
-          </span>
+        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+          {host.airbnbRating != null && (
+            <span className="flex items-center gap-0.5 text-xs text-gray-600">
+              <svg className="w-3 h-3 text-yellow-400 fill-yellow-400" viewBox="0 0 20 20">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.957a1 1 0 00.95.69h4.162c.969 0 1.371 1.24.588 1.81l-3.37 2.448a1 1 0 00-.364 1.118l1.287 3.957c.3.921-.755 1.688-1.54 1.118l-3.37-2.448a1 1 0 00-1.175 0l-3.37 2.448c-.784.57-1.838-.197-1.539-1.118l1.287-3.957a1 1 0 00-.364-1.118L2.063 9.384c-.783-.57-.38-1.81.588-1.81h4.162a1 1 0 00.95-.69L9.049 2.927z" />
+              </svg>
+              <span className="font-semibold">{host.airbnbRating.toFixed(2)}</span>
+              {host.airbnbReviewCount != null && (
+                <span className="text-gray-400">({host.airbnbReviewCount} reviews)</span>
+              )}
+            </span>
+          )}
+          {host.airbnbSuperhost && (
+            <span className="text-[10px] font-semibold text-rose-600 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-full">
+              Superhost
+            </span>
+          )}
+        </div>
+        {host.highlights && host.highlights.length > 0 && (
+          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+            {host.highlights.map((h) => (
+              <span
+                key={h}
+                className="text-[10px] text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded-full font-medium"
+              >
+                {h}
+              </span>
+            ))}
+          </div>
         )}
       </div>
 
