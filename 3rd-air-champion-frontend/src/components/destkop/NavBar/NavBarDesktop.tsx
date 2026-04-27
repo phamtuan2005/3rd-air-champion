@@ -1,7 +1,7 @@
 import { useContext, useState } from "react";
 import { createPortal } from "react-dom";
 import ProfileDesktop from "./ProfileDesktop";
-import { GuestModeContext } from "../../../context";
+import { FooterContext, GuestModeContext } from "../../../context";
 
 interface AirBnBInfo {
   doorCode: string;
@@ -64,7 +64,8 @@ const NavBarDesktop = ({
   setIsRequestManagerOpen,
   bookingRequestPendingCount,
 }: NavBarDesktopProps) => {
-  const { currentGuest, currentAirBnBGuest } = useContext(GuestModeContext)!;
+  const { currentGuest, currentAirBnBGuest, setCurrentGuest, setCurrentAirBnBGuest } = useContext(GuestModeContext)!;
+  const { setIsFooterVisible } = useContext(FooterContext)!;
   const isGuestMode = !!(currentGuest || currentAirBnBGuest);
   const [isBlockChooserOpen, setIsBlockChooserOpen] = useState(false);
 
@@ -92,7 +93,25 @@ const NavBarDesktop = ({
         <h1 className="p-1 sm:p-2 text-base sm:text-xl font-bold tracking-wide text-gray-800">
           TT House Booking Manager
         </h1>
-        {!isGuestMode && <div className="flex gap-1 sm:gap-2">
+        {isGuestMode ? (
+          <button
+            type="button"
+            title="Back to full calendar"
+            className="flex items-center gap-1.5 text-white bg-gray-700 hover:bg-gray-900 px-3 py-1.5 text-xs rounded-md transition-colors"
+            onClick={() => {
+              setIsFooterVisible(false);
+              setCurrentGuest(null);
+              setCurrentAirBnBGuest(null);
+            }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+          </button>
+        ) : <div className="flex gap-1 sm:gap-2">
           <button
             type="button"
             className={`relative flex-1 text-white bg-black px-1 py-1 text-xs sm:flex-none sm:px-2 rounded-md whitespace-nowrap ${

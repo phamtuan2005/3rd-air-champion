@@ -1,6 +1,6 @@
 import React from "react";
 import { useForm, SubmitHandler } from "react-hook-form";
-import { loginSchema, loginZodObject } from "../../util/zodLogin";
+import { loginSchema, loginZodObject } from "./zodLogin";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { authorizeUser } from "../../util/authorizeUser";
 import { useState } from "react";

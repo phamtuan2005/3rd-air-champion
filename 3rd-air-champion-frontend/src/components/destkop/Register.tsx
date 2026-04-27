@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { registerZodObject, registerZodSchema } from "../../util/zodRegister";
+import { registerZodObject, registerZodSchema } from "./zodRegister";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { SubmitHandler, useForm } from "react-hook-form";

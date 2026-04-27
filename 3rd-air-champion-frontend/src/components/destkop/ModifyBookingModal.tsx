@@ -3,7 +3,7 @@ import { bookingType } from "../../util/types/bookingType";
 import {
   modifyBookingObject,
   modifyBookingSchema,
-} from "../../util/zodModifyBooking";
+} from "./zodModifyBooking";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { addDays, differenceInDays, format, isAfter } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
