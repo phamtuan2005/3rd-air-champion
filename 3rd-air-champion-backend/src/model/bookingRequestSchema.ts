@@ -10,6 +10,7 @@ const bookingRequestSchema = new mongoose.Schema(
     duration: { type: Number, required: true },
     numberOfGuests: { type: Number, required: true },
     status: { type: String, required: true, enum: ["pending", "confirmed", "cancelled", "expired"] },
+    notes: { type: String, default: "" },
   },
   { timestamps: true }
 );

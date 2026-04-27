@@ -9,6 +9,7 @@ export const roomDefs = gql`
     roomCode: String
     color: String
     active: Boolean
+    photos: [String]
     createdAt: String
     updatedAt: String
   }
@@ -21,6 +22,6 @@ export const roomDefs = gql`
 
   type Mutation {
     createRoom(host: String!, name: String!, price: Float!, roomCode: String, color: String): Room!
-    updateRoom(_id: String!, name: String, price: Float, roomCode: String, color: String, active: Boolean): Room!
+    updateRoom(_id: String!, name: String, price: Float, roomCode: String, color: String, active: Boolean, photos: [String]): Room!
   }
 `;

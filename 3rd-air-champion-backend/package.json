@@ -29,7 +29,8 @@
     "jsonwebtoken": "^9.0.2",
     "libphonenumber-js": "^1.11.17",
     "luxon": "^3.5.0",
-    "mongoose": "^8.8.3"
+    "mongoose": "^8.8.3",
+    "multer": "^2.1.1"
   },
   "devDependencies": {
     "@faker-js/faker": "^9.3.0",
@@ -43,6 +44,7 @@
     "@types/jsonwebtoken": "^9.0.7",
     "@types/luxon": "^3.4.2",
     "@types/mongoose": "^5.11.96",
+    "@types/multer": "^2.1.0",
     "@types/node": "^22.10.1",
     "@types/supertest": "^6.0.2",
     "jest": "^29.7.0",

@@ -298,4 +298,39 @@ router.post("/get/host", async (req: Request, res: any) => {
     });
 });
 
+
+router.post("/get/by-phone", async (req: Request, res: any) => {
+  if (!("user" in req))
+    return res.status(401).json({ error: "Invalid or expired token" });
+
+  const { host, phone } = req.body;
+
+  const query = `
+    query GuestsHost($host: String!) {
+      guestsHost(host: $host) {
+        id
+        name
+        phone
+        pricing {
+          id
+          price
+          room
+        }
+      }
+    }`;
+
+  sendGraphQLRequest(query, { host })
+    .then((result: any) => {
+      if (result.errors) {
+        return res.status(400).json({ errors: result.errors[0].message });
+      }
+      const guests = result.data.guestsHost;
+      const match = guests.find((g: any) => g.phone === phone) ?? null;
+      res.status(200).json(match);
+    })
+    .catch((error: any) => {
+      res.status(500).json({ error: error.message });
+    });
+});
+
 export default router;

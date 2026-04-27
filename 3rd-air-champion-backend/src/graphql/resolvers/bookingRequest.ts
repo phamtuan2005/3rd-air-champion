@@ -15,7 +15,7 @@ export const bookingRequestResolvers = {
   Mutation: {
     createBookingRequest: async (
       _: unknown,
-      { host, guestName, guestPhone, date, room, duration, numberOfGuests }: any
+      { host, guestName, guestPhone, date, room, duration, numberOfGuests, notes }: any
     ) => {
       return await new BookingRequest({
         host,
@@ -26,6 +26,7 @@ export const bookingRequestResolvers = {
         duration,
         numberOfGuests,
         status: "pending",
+        notes: notes ?? "",
       }).save();
     },
     updateBookingRequest: async (_: unknown, { _id, status }: any) => {

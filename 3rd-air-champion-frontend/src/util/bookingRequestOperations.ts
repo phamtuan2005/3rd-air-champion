@@ -9,6 +9,7 @@ export const createBookingRequest = async (request: {
   room: string;
   duration: number;
   numberOfGuests: number;
+  notes?: string;
 }) => {
   const response = await axios.post(
     `${BACKEND_ENDPOINT}/booking-request/create`,

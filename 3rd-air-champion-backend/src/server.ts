@@ -5,6 +5,7 @@ import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from "@apollo/server/express4";
 import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer";
 import http from "http";
+import path from "path";
 import { resolvers } from "./graphql/resolvers";
 import { typeDefs } from "./graphql/typeDefs";
 import authorizationRoute from "./route/authenticationRoute";
@@ -68,6 +69,7 @@ const startServer = async () => {
 
     app.use(express.json()); // Middleware for parsing JSON requests
     app.use(cors(corsOptions));
+    app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
     // Use Apollo Server Middleware
     app.use(
       "/graphql",

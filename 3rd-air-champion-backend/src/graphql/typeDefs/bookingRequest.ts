@@ -11,6 +11,7 @@ export const bookingRequestDefs = gql`
     duration: Int!
     numberOfGuests: Int!
     status: String!
+    notes: String
     createdAt: String!
     updatedAt: String!
   }
@@ -22,7 +23,7 @@ export const bookingRequestDefs = gql`
   }
 
   type Mutation {
-    createBookingRequest(host: String!, guestName: String!, guestPhone: String!, date: Date!, room: String!, duration: Int!, numberOfGuests: Int!): BookingRequest!
+    createBookingRequest(host: String!, guestName: String!, guestPhone: String!, date: Date!, room: String!, duration: Int!, numberOfGuests: Int!, notes: String): BookingRequest!
     updateBookingRequest(_id: String!, status: String!): BookingRequest!
     deleteBookingRequest(_id: String!): Boolean!
   }

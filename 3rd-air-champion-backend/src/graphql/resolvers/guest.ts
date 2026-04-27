@@ -9,6 +9,9 @@ export const guestResolvers = {
     guestsHost: async (_: unknown, { host }: any) => {
       return await Guest.find({ host: redirectHost(host) });
     },
+    guestByPhone: async (_: unknown, { host, phone }: any) => {
+      return await Guest.findOne({ host: redirectHost(host), phone });
+    },
     guest: async (_: unknown, { _id }: any) => {
       return await Guest.findById(_id);
     },

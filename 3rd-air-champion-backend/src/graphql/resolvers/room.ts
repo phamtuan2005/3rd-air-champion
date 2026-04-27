@@ -24,19 +24,21 @@ export const roomResolvers = {
       if (color !== undefined) roomData.color = color;
       return await new Room(roomData).save();
     },
-    updateRoom: async (_: unknown, { _id, name, price, roomCode, color, active }: any) => {
+    updateRoom: async (_: unknown, { _id, name, price, roomCode, color, active, photos }: any) => {
       const updatedData: {
         name?: string;
         price?: number;
         roomCode?: string;
         color?: string;
         active?: boolean;
+        photos?: string[];
       } = {};
       if (name !== undefined) updatedData.name = name;
       if (price !== undefined) updatedData.price = price;
       if (roomCode !== undefined) updatedData.roomCode = roomCode;
       if (color !== undefined) updatedData.color = color;
       if (active !== undefined) updatedData.active = active;
+      if (photos !== undefined) updatedData.photos = photos;
 
       return await Room.findByIdAndUpdate(_id, { $set: updatedData }, {
         runValidators: true,

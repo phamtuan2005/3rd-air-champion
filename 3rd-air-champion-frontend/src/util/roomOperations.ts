@@ -23,11 +23,11 @@ export const fetchRooms = async (host: string, token: string) => {
 };
 
 export const updateRoom = async (
-  roomObject: { id: string; name: string; price: number; roomCode: string; color?: string; active: boolean },
+  roomObject: { id: string; name: string; price: number; roomCode: string; color?: string; active: boolean; photos?: string[] },
   token: string
 ) => {
-  const { color, ...rest } = roomObject;
-  const body = color !== undefined ? { ...rest, color } : rest;
+  const { color, photos, ...rest } = roomObject;
+  const body = { ...rest, ...(color !== undefined && { color }), ...(photos !== undefined && { photos }) };
   return axios
     .put(
       `${BACKEND_ENDPOINT}/room/update`,
@@ -64,6 +64,23 @@ export const deleteRoom = async (roomId: string, token: string) => {
         throw err.response.data.errors;
       }
       throw "An unexpected error occurred. Please try again.";
+    });
+};
+
+export const uploadRoomPhoto = async (file: File, roomName: string, token: string): Promise<string> => {
+  const formData = new FormData();
+  formData.append("photo", file);
+  formData.append("roomName", roomName);
+  return axios
+    .post(`${BACKEND_ENDPOINT}/room/photos/upload`, formData, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    .then((result) => result.data.url)
+    .catch((err) => {
+      if (err.response && err.response.data && err.response.data.error) {
+        throw err.response.data.error;
+      }
+      throw "Failed to upload photo. Please try again.";
     });
 };
 

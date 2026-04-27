@@ -5,4 +5,5 @@ export interface roomType {
   roomCode: string;
   color?: string;
   active: boolean;
+  photos?: string[];
 }

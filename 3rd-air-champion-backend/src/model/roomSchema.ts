@@ -11,6 +11,7 @@ const roomSchema = new mongoose.Schema(
     roomCode: { type: String, default: "" },
     color: { type: String, default: "" },
     active: { type: Boolean, default: true },
+    photos: { type: [String], default: [] },
   },
   { timestamps: true }
 );

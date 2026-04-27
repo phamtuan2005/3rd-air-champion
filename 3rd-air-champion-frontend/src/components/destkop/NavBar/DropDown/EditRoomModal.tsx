@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { roomType } from "../../../../util/types/roomType";
 import { updateSync } from "../../../../util/hostOperations";
+import RoomPhotosEditor from "./RoomPhotosEditor";
 
 const COLOR_OPTIONS = [
   "bg-red-500",
@@ -63,6 +64,10 @@ const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave, onAdd, onDelete,
   });
   const [newLink, setNewLink] = useState("");
 
+  const [roomPhotos, setRoomPhotos] = useState<string[]>(
+    rooms.find((r) => r.id === initialId)?.photos ?? []
+  );
+
   const saveLinks = (updated: { room: string; link: string }[]) => {
     setLinkData(updated);
     localStorage.setItem("syncData", JSON.stringify(updated));
@@ -94,6 +99,7 @@ const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave, onAdd, onDelete,
     const room = rooms.find((r) => r.id === id);
     if (room) {
       setSelectedColor(room.color ?? "");
+      setRoomPhotos(room.photos ?? []);
       reset({
         name: room.name,
         price: room.price,
@@ -111,7 +117,7 @@ const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave, onAdd, onDelete,
       setPendingConfirm(data);
       return;
     }
-    onSave({ ...selectedRoom, ...data, color: selectedColor }, (msg) => setErrorMessage(msg));
+    onSave({ ...selectedRoom, ...data, color: selectedColor, photos: roomPhotos }, (msg) => setErrorMessage(msg));
   };
 
   return createPortal(
@@ -120,7 +126,7 @@ const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave, onAdd, onDelete,
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-lg p-4 w-full max-w-sm shadow-lg flex flex-col gap-3"
+        className="bg-white rounded-lg p-4 w-full max-w-sm shadow-lg flex flex-col gap-3 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex flex-col items-center gap-1">
@@ -275,6 +281,21 @@ const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave, onAdd, onDelete,
           </div>
         )}
 
+        {/* Room Photos */}
+        <div className="border-t border-gray-200 pt-3">
+          <RoomPhotosEditor
+            photos={roomPhotos}
+            roomName={selectedRoom?.name ?? "misc"}
+            token={token}
+            onChange={(updated) => {
+              setRoomPhotos(updated);
+              if (selectedRoom) {
+                onSave({ ...selectedRoom, photos: updated, color: selectedColor }, (msg) => setErrorMessage(msg));
+              }
+            }}
+          />
+        </div>
+
         {/* Link AirBnB */}
         <div className="flex flex-col gap-2 border-t border-gray-200 pt-3">
           <p className="text-sm font-semibold text-gray-700">Link AirBnB Calendar</p>
@@ -342,7 +363,7 @@ const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave, onAdd, onDelete,
                 className="flex-1 px-2 py-1 bg-green-500 text-white text-sm rounded"
                 onClick={() => {
                   if (!selectedRoom) return;
-                  onSave({ ...selectedRoom, ...pendingConfirm, color: selectedColor }, (msg) => {
+                  onSave({ ...selectedRoom, ...pendingConfirm, color: selectedColor, photos: roomPhotos }, (msg) => {
                     setErrorMessage(msg);
                     setPendingConfirm(null);
                   });

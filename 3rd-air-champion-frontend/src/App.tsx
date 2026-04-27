@@ -22,6 +22,8 @@ const formatPhone = (raw: string) => {
 };
 
 function App() {
+  useEffect(() => { document.title = "TiMag"; }, []);
+
   const [host, setHost] = useState<hostType | null>(null); // Track host data
   const [token, setToken] = useState(localStorage.getItem("token"));
   const [isLoading, setIsLoading] = useState(true); // Track loading state

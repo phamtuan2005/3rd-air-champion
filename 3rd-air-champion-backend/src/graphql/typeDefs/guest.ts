@@ -26,6 +26,7 @@ export const guestDefs = gql`
     guests: [Guest]
     guestsHost(host: String!): [Guest]
     guest(_id: String!): Guest!
+    guestByPhone(host: String!, phone: String!): Guest
   }
 
   type Mutation {

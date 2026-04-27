@@ -1,10 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { roomType } from "../../util/types/roomType";
 import { createBookingRequest } from "../../util/bookingRequestOperations";
 import { getAvailableRooms } from "../../util/bookingOperations";
-import { format, addDays } from "date-fns";
+import { fetchGuestByPhone } from "../../util/guestOperations";
+import { format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
+import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
+import { getRoomColor } from "../../util/getRoomColor";
 
 const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -14,7 +17,10 @@ interface BookingRequestModalProps {
   token: string;
   rooms: roomType[];
   selectedDate: Date | null;
+  selectedRoomIds: Set<string> | null;
+  cartDates: Map<string, string | null>;
   onClose: () => void;
+  onSuccess: () => void;
 }
 
 interface FormData {
@@ -26,19 +32,79 @@ interface FormData {
   numberOfGuests: number;
 }
 
+type GuestPricing = { id?: string; room: string; price: number }[];
+
+type CartGroup = {
+  key: string;
+  roomId: string | null;
+  room: roomType | undefined;
+  ranges: { start: string; end: string; nights: number }[];
+  totalNights: number;
+};
+
+const groupConsecutiveDates = (dates: Set<string>): { start: string; end: string; nights: number }[] => {
+  const sorted = Array.from(dates).sort();
+  if (sorted.length === 0) return [];
+  const ranges: { start: string; end: string; nights: number }[] = [];
+  let start = sorted[0];
+  let end = sorted[0];
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = new Date(end);
+    prev.setDate(prev.getDate() + 1);
+    if (prev.toISOString().split("T")[0] === sorted[i]) {
+      end = sorted[i];
+    } else {
+      const nights = Math.round((new Date(end).getTime() - new Date(start).getTime()) / 86400000) + 1;
+      ranges.push({ start, end, nights });
+      start = sorted[i];
+      end = sorted[i];
+    }
+  }
+  const nights = Math.round((new Date(end).getTime() - new Date(start).getTime()) / 86400000) + 1;
+  ranges.push({ start, end, nights });
+  return ranges;
+};
+
+const buildCartGroups = (cartDates: Map<string, string | null>, rooms: roomType[]): CartGroup[] => {
+  const byKey = new Map<string, Set<string>>();
+  cartDates.forEach((roomId, dateKey) => {
+    const key = roomId ?? "any";
+    if (!byKey.has(key)) byKey.set(key, new Set());
+    byKey.get(key)!.add(dateKey);
+  });
+  return Array.from(byKey.entries()).map(([key, dates]) => {
+    const roomId = key === "any" ? null : key;
+    const room = rooms.find((r) => r.id === roomId);
+    const ranges = groupConsecutiveDates(dates);
+    return { key, roomId, room, ranges, totalNights: ranges.reduce((sum, r) => sum + r.nights, 0) };
+  });
+};
+
+const formatRangeLabel = (r: { start: string; end: string; nights: number }) => {
+  const s = new Date(r.start);
+  const e = new Date(r.end);
+  const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return r.start === r.end
+    ? `${fmt(s)} · 1 night`
+    : `${fmt(s)} – ${fmt(e)} · ${r.nights} nights`;
+};
+
 const BookingRequestModal = ({
   hostId,
   calendarId,
   token,
   rooms,
   selectedDate,
+  selectedRoomIds,
+  cartDates,
   onClose,
+  onSuccess,
 }: BookingRequestModalProps) => {
+  const { theme } = useTiBookTheme();
+  const [step, setStep] = useState<1 | 2>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitResult, setSubmitResult] = useState<{
-    status: "success" | "error";
-    message: string;
-  } | null>(null);
+  const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState(false);
 
   const [availableRooms, setAvailableRooms] = useState<
     { id: string; name: string; price: number; roomCode: string }[]
@@ -46,9 +112,24 @@ const BookingRequestModal = ({
   const [isLoadingRooms, setIsLoadingRooms] = useState(false);
   const [hasFetchedRooms, setHasFetchedRooms] = useState(false);
 
+  const [guestPricing, setGuestPricing] = useState<GuestPricing | null>(null);
+  const [isLookingUp, setIsLookingUp] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [datesError, setDatesError] = useState("");
+  const [roomDropdownOpen, setRoomDropdownOpen] = useState(false);
+
+  const cartGroups = useMemo(() => buildCartGroups(cartDates, rooms), [cartDates, rooms]);
+  const totalCartNights = cartGroups.reduce((sum, g) => sum + g.totalNights, 0);
+  const hasAnyRoomGroup = cartGroups.some((g) => g.roomId === null);
+
   const activeRooms = rooms
     .filter((r) => r.active)
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => {
+      const aSelected = selectedRoomIds?.has(a.id) ?? false;
+      const bSelected = selectedRoomIds?.has(b.id) ?? false;
+      if (aSelected !== bSelected) return aSelected ? -1 : 1;
+      return b.price - a.price;
+    });
 
   const defaultDate = selectedDate
     ? format(selectedDate, "yyyy-MM-dd")
@@ -65,8 +146,8 @@ const BookingRequestModal = ({
       guestName: "",
       guestPhone: "",
       date: defaultDate,
-      room: activeRooms[0]?.id ?? "",
-      duration: 1,
+      room: activeRooms.find((r) => selectedRoomIds?.has(r.id))?.id ?? activeRooms[0]?.id ?? "",
+      duration: 0,
       numberOfGuests: 1,
     },
   });
@@ -74,256 +155,492 @@ const BookingRequestModal = ({
   const watchedDate = watch("date");
   const watchedDuration = watch("duration");
   const watchedRoom = watch("room");
+  const watchedPhone = watch("guestPhone");
 
+  // Phone lookup with debounce
   useEffect(() => {
+    const phone = watchedPhone?.trim();
+    if (!phone || phone.length < 7) { setGuestPricing(null); return; }
+    setIsLookingUp(true);
+    const timer = setTimeout(() => {
+      fetchGuestByPhone(phone, hostId)
+        .then((guest) => setGuestPricing(guest ? guest.pricing : null))
+        .finally(() => setIsLookingUp(false));
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [watchedPhone]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Available rooms — only for Way 2 (no cart dates)
+  useEffect(() => {
+    if (cartDates.size > 0) return;
     if (!watchedDate || !watchedDuration) return;
-
-    const dateStr = toZonedTime(new Date(watchedDate), timeZone)
-      .toISOString()
-      .split("T")[0];
-
+    const dateStr = toZonedTime(new Date(watchedDate), timeZone).toISOString().split("T")[0];
     setIsLoadingRooms(true);
-    getAvailableRooms(
-      { calendar: calendarId, date: dateStr, duration: watchedDuration },
-      token,
-    )
+    getAvailableRooms({ calendar: calendarId, date: dateStr, duration: watchedDuration }, token)
       .then((result) => {
         setAvailableRooms(result);
         setHasFetchedRooms(true);
         if (result.length > 0) {
-          const currentStillAvailable = result.find(
-            (r) => r.id === watchedRoom,
-          );
-          if (!currentStillAvailable) {
-            setValue("room", result[0].id);
-          }
+          const currentStillAvailable = result.find((r) => r.id === watchedRoom);
+          if (!currentStillAvailable) setValue("room", result[0].id);
         } else {
           setValue("room", "");
         }
       })
-      .catch(() => {
-        setAvailableRooms([]);
-        setHasFetchedRooms(true);
-      })
+      .catch(() => { setAvailableRooms([]); setHasFetchedRooms(true); })
       .finally(() => setIsLoadingRooms(false));
   }, [watchedDate, watchedDuration]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const displayRooms = hasFetchedRooms ? availableRooms : activeRooms;
+  const displayRooms = cartDates.size > 0
+    ? activeRooms
+    : (hasFetchedRooms ? availableRooms : activeRooms);
 
-  const checkoutDate =
-    watchedDate && watchedDuration
-      ? format(addDays(new Date(watchedDate), watchedDuration), "MMM d, yyyy")
-      : null;
+  const getRoomPrice = (roomId: string): number | null => {
+    if (!guestPricing) return null;
+    return guestPricing.find((p) => p.room === roomId)?.price ?? null;
+  };
+
+  const handleNextStep = () => {
+    if (cartDates.size === 0 && !notes.trim()) {
+      setDatesError("Please pick dates on the calendar or write your dates below.");
+      return;
+    }
+    setDatesError("");
+    setStep(2);
+  };
 
   const onSubmit: SubmitHandler<FormData> = async (data) => {
     setIsSubmitting(true);
-    setSubmitResult(null);
+    setSubmitError(false);
+
     try {
-      await createBookingRequest({
-        host: hostId,
-        guestName: data.guestName,
-        guestPhone: data.guestPhone,
-        date: data.date.split("T")[0],
-        room: data.room,
-        duration: data.duration,
-        numberOfGuests: data.numberOfGuests,
-      });
-      setSubmitResult({
-        status: "success",
-        message: "Booking request submitted!",
-      });
+      if (cartDates.size > 0) {
+        await Promise.all(
+          cartGroups.map((group) => {
+            const roomId = group.roomId ?? data.room;
+            const notesText = [
+              "Dates from calendar: " + group.ranges.map(formatRangeLabel).join(", "),
+              notes.trim(),
+            ].filter(Boolean).join("\n");
+            return createBookingRequest({
+              host: hostId,
+              guestName: data.guestName,
+              guestPhone: data.guestPhone,
+              date: group.ranges[0].start,
+              room: roomId,
+              duration: group.totalNights,
+              numberOfGuests: data.numberOfGuests,
+              notes: notesText,
+            });
+          })
+        );
+      } else {
+        await createBookingRequest({
+          host: hostId,
+          guestName: data.guestName,
+          guestPhone: data.guestPhone,
+          date: data.date.split("T")[0],
+          room: data.room,
+          duration: data.duration,
+          numberOfGuests: data.numberOfGuests,
+          notes: notes.trim(),
+        });
+      }
+      setSubmitted(true);
     } catch {
-      setSubmitResult({
-        status: "error",
-        message: "Failed to submit request. Please try again.",
-      });
+      setSubmitError(true);
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const stepLabel = step === 1 ? "Your Dates" : "About You";
+  const stepHint = step === 1
+    ? "Pick dates from the calendar or write them below"
+    : "Just a few details and you're done";
+
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-lg shadow-lg w-full max-w-md max-h-[90vh] flex flex-col"
+        className="bg-white w-full rounded-t-2xl sm:rounded-lg shadow-lg sm:max-w-md max-h-[92vh] sm:max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-gray-100">
-          <h2 className="text-lg font-bold">Request a Booking</h2>
-          <button
-            type="button"
-            className="text-gray-400 hover:text-gray-600 text-xl leading-none px-2"
-            onClick={onClose}
-          >
-            &times;
-          </button>
-        </div>
-
-        {submitResult?.status === "success" ? (
-          <div className="flex flex-col items-center gap-4 p-6">
-            <span className="text-green-500 text-4xl">&#10003;</span>
-            <p className="text-center font-medium">{submitResult.message}</p>
+          <div>
+            <div className="flex items-center gap-2">
+              {step === 2 && !submitted && (
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="text-gray-400 hover:text-gray-600 text-sm leading-none"
+                >
+                  ←
+                </button>
+              )}
+              <h2 className="text-lg font-bold leading-tight">{submitted ? "All done!" : stepLabel}</h2>
+            </div>
+            {!submitted && <p className="text-xs text-gray-400">{stepHint}</p>}
+          </div>
+          <div className="flex items-center gap-3">
+            {!submitted && (
+              <div className="flex gap-1">
+                <span className={`w-2 h-2 rounded-full ${step === 1 ? theme.btn : "bg-gray-200"}`} />
+                <span className={`w-2 h-2 rounded-full ${step === 2 ? theme.btn : "bg-gray-200"}`} />
+              </div>
+            )}
             <button
               type="button"
-              className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+              className="text-gray-400 hover:text-gray-600 text-xl leading-none px-1"
               onClick={onClose}
+            >
+              &times;
+            </button>
+          </div>
+        </div>
+
+        {/* Success screen */}
+        {submitted ? (
+          <div className="flex flex-col items-center gap-3 p-8">
+            <div className={`w-14 h-14 rounded-full ${theme.successBg} flex items-center justify-center`}>
+              <svg className={`w-7 h-7 ${theme.textPrimary}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <p className="text-center font-semibold text-gray-800 text-lg">Request sent!</p>
+            <p className="text-center text-sm text-gray-500 leading-relaxed">
+              We'll be in touch shortly to confirm your stay. Can't wait to host you!
+            </p>
+            <button
+              type="button"
+              className="mt-2 text-sm text-gray-400 underline"
+              onClick={() => { onSuccess(); onClose(); }}
             >
               Close
             </button>
           </div>
-        ) : (
-          <form
-            className="flex flex-col flex-1 min-h-0"
-            onSubmit={handleSubmit(onSubmit)}
-          >
-            <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-3">
-              {/* Guest Name */}
+        ) : step === 1 ? (
+          /* ── Step 1: Your Dates ── */
+          <div className="flex flex-col flex-1 min-h-0">
+            <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
+
+              {/* Cart groups */}
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Guest Name
-                </label>
+                <p className="text-sm font-medium mb-2">Dates picked from calendar</p>
+                {cartGroups.length > 0 ? (
+                  <div className="flex flex-col gap-3">
+                    {cartGroups.map((group) => (
+                      <div key={group.key}>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${theme.tagBg} ${theme.tagText}`}>
+                            {group.room?.name ?? "Any room"}
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            {group.totalNights} night{group.totalNights > 1 ? "s" : ""}
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-1 pl-1">
+                          {group.ranges.map((r) => (
+                            <p key={r.start} className="text-sm text-gray-600">{formatRangeLabel(r)}</p>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className={`mt-1 flex items-center gap-1.5 text-xs ${theme.textPrimary} font-medium`}
+                    >
+                      <span className={`w-5 h-5 rounded-full border-2 ${theme.selectedBorder} flex items-center justify-center text-[10px]`}>+</span>
+                      Calendar — tap to pick more dates
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="w-full border border-dashed border-gray-200 rounded-xl px-4 py-5 text-center bg-gray-50 active:bg-gray-100 transition-colors"
+                  >
+                    <p className={`text-sm font-medium ${theme.textPrimary}`}>
+                      Tap here to browse the calendar
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Pick your dates and come back to complete your request
+                    </p>
+                  </button>
+                )}
+              </div>
+
+              {/* Divider */}
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-px bg-gray-100" />
+                <span className="text-xs text-gray-400">and / or</span>
+                <div className="flex-1 h-px bg-gray-100" />
+              </div>
+
+              {/* Free text */}
+              <div>
+                <p className="text-sm font-medium mb-2">Write your dates</p>
+                <textarea
+                  className={`border border-gray-300 rounded-xl px-3 py-2 w-full text-sm resize-none focus:outline-none focus:ring-2 ${theme.focusRing}`}
+                  rows={3}
+                  placeholder={"e.g. May 1, 3–5, 20–21\nor anything else you'd like us to know"}
+                  value={notes}
+                  onChange={(e) => { setNotes(e.target.value); if (datesError) setDatesError(""); }}
+                />
+                {datesError && <p className="text-red-500 text-xs mt-1">{datesError}</p>}
+              </div>
+
+            </div>
+            <div className="flex-shrink-0 border-t border-gray-100 px-4 py-3">
+              <button
+                type="button"
+                className={`w-full ${theme.btn} ${theme.btnHover} ${theme.btnActive} text-white py-3 rounded-xl font-semibold transition-colors`}
+                onClick={handleNextStep}
+              >
+                Next — Tell us about you →
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* ── Step 2: About You ── */
+          <form className="flex flex-col flex-1 min-h-0" onSubmit={handleSubmit(onSubmit)}>
+            <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
+
+              {/* Name */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Your name</label>
                 <input
                   type="text"
-                  className="border border-gray-300 rounded px-2 py-1.5 w-full text-sm"
-                  placeholder="Full name"
-                  {...register("guestName", { required: "Name is required" })}
+                  className={`border border-gray-300 rounded-xl px-3 py-2 w-full text-sm focus:outline-none focus:ring-2 ${theme.focusRing}`}
+                  placeholder="e.g. John Smith"
+                  {...register("guestName", { required: "Please enter your name" })}
                 />
-                {errors.guestName && (
-                  <span className="text-red-500 text-xs">
-                    {errors.guestName.message}
-                  </span>
+                {errors.guestName && <span className="text-red-500 text-xs">{errors.guestName.message}</span>}
+              </div>
+
+              {/* Phone */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Your phone number</label>
+                <div className="relative">
+                  <input
+                    type="tel"
+                    className={`border border-gray-300 rounded-xl px-3 py-2 w-full text-sm focus:outline-none focus:ring-2 ${theme.focusRing}`}
+                    placeholder="So we can reach you"
+                    {...register("guestPhone", { required: "Please enter your phone number" })}
+                  />
+                  {isLookingUp && (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                      looking up...
+                    </span>
+                  )}
+                </div>
+                {errors.guestPhone && <span className="text-red-500 text-xs">{errors.guestPhone.message}</span>}
+                {!isLookingUp && watchedPhone?.trim().length >= 7 && (
+                  guestPricing !== null ? (
+                    <p className={`text-xs ${theme.textPrimary} mt-0.5`}>Welcome back! Your personal rate has been applied.</p>
+                  ) : (
+                    <p className="text-xs text-gray-400 mt-0.5">We'll sort out pricing together after your request.</p>
+                  )
                 )}
               </div>
 
-              {/* Guest Phone */}
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Phone Number
-                </label>
-                <input
-                  type="tel"
-                  className="border border-gray-300 rounded px-2 py-1.5 w-full text-sm"
-                  placeholder="Phone number"
-                  {...register("guestPhone", {
-                    required: "Phone is required",
-                  })}
-                />
-                {errors.guestPhone && (
-                  <span className="text-red-500 text-xs">
-                    {errors.guestPhone.message}
-                  </span>
-                )}
-              </div>
-
-              {/* Room */}
-              <div>
-                <label className="block text-sm font-medium mb-1">Room</label>
-                {isLoadingRooms ? (
-                  <p className="text-sm text-gray-400">
-                    Checking availability...
-                  </p>
-                ) : displayRooms.length === 0 ? (
-                  <p className="text-sm text-red-500">
-                    No rooms available for these dates
-                  </p>
-                ) : (
-                  <select
-                    className="border border-gray-300 rounded px-2 py-1.5 w-full text-sm"
-                    {...register("room", { required: "Room is required" })}
-                  >
-                    {displayRooms.map((room) => (
-                      <option key={room.id} value={room.id}>
-                        {room.name} — ${room.price}/night
-                      </option>
+              {/* Room section */}
+              {cartDates.size > 0 ? (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Room summary</label>
+                  <div className="flex flex-col gap-2">
+                    {cartGroups.filter((g) => g.roomId !== null).map((group) => (
+                      <div key={group.key} className={`${theme.tagBg} border ${theme.tagBorder} rounded-xl px-3 py-2.5`}>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <p className={`text-sm font-semibold ${theme.tagText}`}>
+                            {group.room?.name ?? "—"}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            {group.totalNights}n
+                          </p>
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          {group.ranges.map(formatRangeLabel).join(" · ")}
+                        </p>
+                        {group.room && getRoomPrice(group.room.id) !== null && (
+                          <p className={`text-xs font-semibold ${theme.textPrimary} mt-1`}>
+                            ~${getRoomPrice(group.room.id)! * group.totalNights} estimated
+                          </p>
+                        )}
+                      </div>
                     ))}
-                  </select>
-                )}
-                {errors.room && (
-                  <span className="text-red-500 text-xs">
-                    {errors.room.message}
-                  </span>
-                )}
-              </div>
+                    {hasAnyRoomGroup && (() => {
+                      const anyGroup = cartGroups.find((g) => g.roomId === null)!;
+                      const selectedRoom = activeRooms.find((r) => r.id === watchedRoom);
+                      const anyGroupPrice = selectedRoom ? getRoomPrice(selectedRoom.id) : null;
+                      return (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-2">
+                            Which room for{" "}
+                            {anyGroup.ranges.map(formatRangeLabel).join(", ")}?
+                          </p>
+                          <input type="hidden" {...register("room", { required: hasAnyRoomGroup })} />
+                          <button
+                            type="button"
+                            onClick={() => setRoomDropdownOpen((o) => !o)}
+                            className="border border-gray-300 rounded-xl px-3 py-2 w-full text-sm flex items-center justify-between gap-2"
+                          >
+                            {selectedRoom ? (
+                              <span className={`${getRoomColor(selectedRoom.name, selectedRoom.color)} text-white text-xs font-semibold px-2.5 py-0.5 rounded`}>
+                                {selectedRoom.name}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">Select a room</span>
+                            )}
+                            <span className="text-gray-400 text-xs">▾</span>
+                          </button>
+                          {roomDropdownOpen && (
+                            <ul className="border border-gray-200 rounded-xl mt-1 overflow-hidden shadow-sm bg-white">
+                              {activeRooms.map((room) => {
+                                const price = getRoomPrice(room.id);
+                                return (
+                                  <li
+                                    key={room.id}
+                                    className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-pointer"
+                                    onClick={() => { setValue("room", room.id, { shouldValidate: true }); setRoomDropdownOpen(false); }}
+                                  >
+                                    <input type="radio" readOnly checked={watchedRoom === room.id} className="pointer-events-none w-4 h-4" />
+                                    <span className={`${getRoomColor(room.name, room.color)} text-white text-xs font-semibold px-2.5 py-0.5 rounded`}>
+                                      {room.name}
+                                    </span>
+                                    {price !== null && (
+                                      <span className="text-xs text-gray-400 ml-auto">${price}/night</span>
+                                    )}
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          )}
+                          {anyGroupPrice !== null && (
+                            <p className={`text-xs font-semibold ${theme.textPrimary} mt-1.5`}>
+                              ~${anyGroupPrice * anyGroup.totalNights} estimated ({anyGroup.totalNights}n × ${anyGroupPrice}/night)
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
 
-              {/* Date + Duration */}
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <label className="block text-sm font-medium mb-1">
-                    Check-in Date
-                  </label>
-                  <input
-                    type="date"
-                    className="border border-gray-300 rounded px-2 py-1.5 w-full text-sm"
-                    {...register("date", { required: "Date is required" })}
-                  />
-                  {errors.date && (
-                    <span className="text-red-500 text-xs">
-                      {errors.date.message}
-                    </span>
+                    {/* Grand total across all groups */}
+                    {(() => {
+                      let total = 0;
+                      let hasSomePricing = false;
+                      for (const group of cartGroups) {
+                        const roomId = group.roomId ?? watchedRoom ?? null;
+                        if (!roomId) continue;
+                        const price = getRoomPrice(roomId);
+                        if (price === null) continue;
+                        hasSomePricing = true;
+                        total += price * group.totalNights;
+                      }
+                      if (!hasSomePricing) return null;
+                      return (
+                        <div className={`flex justify-between items-center px-3 py-2 ${theme.tagBg} border ${theme.tagBorder} rounded-xl mt-1`}>
+                          <span className="text-sm font-semibold text-gray-700">Total estimate</span>
+                          <span className={`text-sm font-bold ${theme.textPrimary}`}>~${total}</span>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Which room?</label>
+                  {isLoadingRooms ? (
+                    <p className="text-sm text-gray-400">Checking availability...</p>
+                  ) : displayRooms.length === 0 ? (
+                    <p className="text-sm text-red-400">No rooms available — try different dates.</p>
+                  ) : (() => {
+                    const selectedRoom = activeRooms.find((r) => r.id === watchedRoom);
+                    return (
+                      <>
+                        <input type="hidden" {...register("room", { required: "Please choose a room" })} />
+                        <button
+                          type="button"
+                          onClick={() => setRoomDropdownOpen((o) => !o)}
+                          className="border border-gray-300 rounded-xl px-3 py-2 w-full text-sm flex items-center justify-between gap-2"
+                        >
+                          {selectedRoom ? (
+                            <span className={`${getRoomColor(selectedRoom.name, selectedRoom.color)} text-white text-xs font-semibold px-2.5 py-0.5 rounded`}>
+                              {selectedRoom.name}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">Select a room</span>
+                          )}
+                          <span className="text-gray-400 text-xs">▾</span>
+                        </button>
+                        {roomDropdownOpen && (
+                          <ul className="border border-gray-200 rounded-xl mt-1 overflow-hidden shadow-sm bg-white">
+                            {displayRooms.map((room) => {
+                              const price = getRoomPrice(room.id);
+                              const color = activeRooms.find((r) => r.id === room.id)?.color;
+                              return (
+                                <li
+                                  key={room.id}
+                                  className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-pointer"
+                                  onClick={() => { setValue("room", room.id, { shouldValidate: true }); setRoomDropdownOpen(false); }}
+                                >
+                                  <input type="radio" readOnly checked={watchedRoom === room.id} className="pointer-events-none w-4 h-4" />
+                                  <span className={`${getRoomColor(room.name, color)} text-white text-xs font-semibold px-2.5 py-0.5 rounded`}>
+                                    {room.name}
+                                  </span>
+                                  {price !== null && (
+                                    <span className="text-xs text-gray-400 ml-auto">${price}/night</span>
+                                  )}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                      </>
+                    );
+                  })()}
+                  {errors.room && <span className="text-red-500 text-xs">{errors.room.message}</span>}
+                  {watchedRoom && watchedDuration > 0 && getRoomPrice(watchedRoom) !== null && (
+                    <div className={`flex justify-between items-center px-3 py-2 ${theme.tagBg} border ${theme.tagBorder} rounded-xl mt-2`}>
+                      <span className="text-sm font-semibold text-gray-700">Total estimate</span>
+                      <span className={`text-sm font-bold ${theme.textPrimary}`}>
+                        ~${getRoomPrice(watchedRoom)! * watchedDuration}
+                        <span className="font-normal text-gray-400 ml-1">({watchedDuration}n × ${getRoomPrice(watchedRoom)}/night)</span>
+                      </span>
+                    </div>
                   )}
                 </div>
-                <div className="w-28">
-                  <label className="block text-sm font-medium mb-1">
-                    Duration
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    step={1}
-                    className="border border-gray-300 rounded px-2 py-1.5 w-full text-sm"
-                    {...register("duration", {
-                      valueAsNumber: true,
-                      required: "Required",
-                      min: { value: 1, message: "Min 1" },
-                    })}
-                  />
-                  {checkoutDate && (
-                    <span className="text-gray-400 text-xs block mt-0.5">
-                      checkout {checkoutDate}
-                    </span>
-                  )}
-                  {errors.duration && (
-                    <span className="text-red-500 text-xs">
-                      {errors.duration.message}
-                    </span>
-                  )}
-                </div>
-              </div>
+              )}
 
-              {/* Number of Guests */}
-              <div className="w-36">
-                <label className="block text-sm font-medium mb-1">
-                  # of Guests
-                </label>
+              {/* Number of guests */}
+              <div className="w-44">
+                <label className="block text-sm font-medium mb-1">How many people?</label>
                 <select
-                  className="border border-gray-300 rounded px-2 py-1.5 w-full text-sm"
+                  className={`border border-gray-300 rounded-xl px-3 py-2 w-full text-sm focus:outline-none focus:ring-2 ${theme.focusRing}`}
                   {...register("numberOfGuests", { valueAsNumber: true })}
                 >
                   {[1, 2, 3, 4].map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
+                    <option key={n} value={n}>{n} {n === 1 ? "person" : "people"}</option>
                   ))}
                 </select>
               </div>
 
-              {submitResult?.status === "error" && (
-                <p className="text-red-500 text-sm">{submitResult.message}</p>
+              {submitError && (
+                <p className="text-red-500 text-sm">Something went wrong — please try again.</p>
               )}
             </div>
 
-            {/* Footer */}
-            <div className="flex-shrink-0 border-t border-gray-100 px-4 py-3 flex justify-end">
+            <div className="flex-shrink-0 border-t border-gray-100 px-4 py-3">
               <button
                 type="submit"
-                disabled={isSubmitting || displayRooms.length === 0}
-                className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 disabled:opacity-50"
+                disabled={isSubmitting || (cartDates.size === 0 && displayRooms.length === 0)}
+                className={`w-full ${theme.btn} ${theme.btnHover} ${theme.btnActive} text-white py-3 rounded-xl font-semibold disabled:opacity-50 transition-colors`}
               >
-                {isSubmitting ? "Submitting..." : "Submit Request"}
+                {isSubmitting ? "Sending..." : "Send My Request"}
               </button>
             </div>
           </form>
