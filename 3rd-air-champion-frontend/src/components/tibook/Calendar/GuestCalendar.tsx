@@ -155,8 +155,7 @@ const GuestCalendar = ({
     const numberClass = [
       "text-sm sm:text-xl leading-none select-none",
       inCart ? "font-bold text-white" :
-      status === "available" ? `font-bold ${theme.textPrimary}` :
-      status === "partial"   ? "font-bold text-amber-500" :
+      (status === "available" || status === "partial") ? `font-bold ${theme.textPrimary}` :
       status === "past"      ? "text-gray-300" :
                                "text-gray-300 line-through",
     ].join(" ");
@@ -182,15 +181,12 @@ const GuestCalendar = ({
         )}
         <span className={`${numberClass} relative z-10`}>{date.getDate()}</span>
         {!inCart && status === "partial" && (
-          <span className="text-[9px] font-semibold text-amber-400 leading-none">
+          <span className="text-[9px] font-semibold text-black leading-none">
             {roomsLeft} left
           </span>
         )}
-        {!inCart && status === "full" && (
+        {!inCart && (status === "full" || status === "blocked") && (
           <span className="text-[9px] text-gray-300 leading-none">full</span>
-        )}
-        {!inCart && status === "blocked" && (
-          <span className="text-[9px] text-gray-300 leading-none">blocked</span>
         )}
         {inCart && (
           <span className="text-[9px] text-white/70 leading-none relative z-10">✓</span>

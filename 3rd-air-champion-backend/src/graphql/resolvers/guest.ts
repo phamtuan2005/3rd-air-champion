@@ -10,7 +10,9 @@ export const guestResolvers = {
       return await Guest.find({ host: redirectHost(host) });
     },
     guestByPhone: async (_: unknown, { host, phone }: any) => {
-      return await Guest.findOne({ host: redirectHost(host), phone });
+      const digits = phone.replace(/\D/g, "");
+      const phoneRegex = new RegExp(digits.split("").join("\\D*"));
+      return await Guest.findOne({ host: redirectHost(host), phone: { $regex: phoneRegex } });
     },
     guest: async (_: unknown, { _id }: any) => {
       return await Guest.findById(_id);
