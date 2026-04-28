@@ -69,13 +69,30 @@ const HostProfileBanner = ({ host }: HostProfileBannerProps) => {
             </span>
           )}
           {host.airbnbRating != null && (
-            <span className="flex items-center gap-0.5 text-xs text-gray-500">
-              <svg className="w-3 h-3 text-yellow-400 fill-yellow-400" viewBox="0 0 20 20">
-                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.957a1 1 0 00.95.69h4.162c.969 0 1.371 1.24.588 1.81l-3.37 2.448a1 1 0 00-.364 1.118l1.287 3.957c.3.921-.755 1.688-1.54 1.118l-3.37-2.448a1 1 0 00-1.175 0l-3.37 2.448c-.784.57-1.838-.197-1.539-1.118l1.287-3.957a1 1 0 00-.364-1.118L2.063 9.384c-.783-.57-.38-1.81.588-1.81h4.162a1 1 0 00.95-.69L9.049 2.927z" />
-              </svg>
-              <span className="font-semibold text-gray-700">{host.airbnbRating.toFixed(2)}</span>
+            <span className="flex items-center gap-1 text-xs text-gray-500">
+              <span className="flex items-center gap-0.5">
+                {[1, 2, 3, 4, 5].map((star) => {
+                  const fill = Math.min(1, Math.max(0, host.airbnbRating! - (star - 1)));
+                  const pct = Math.round(fill * 100);
+                  const gradId = `sg-${star}`;
+                  return (
+                    <svg key={star} className="w-3.5 h-3.5" viewBox="0 0 20 20">
+                      <defs>
+                        <linearGradient id={gradId}>
+                          <stop offset={`${pct}%`} stopColor="#FBBF24" />
+                          <stop offset={`${pct}%`} stopColor="#D1D5DB" />
+                        </linearGradient>
+                      </defs>
+                      <path
+                        fill={`url(#${gradId})`}
+                        d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.957a1 1 0 00.95.69h4.162c.969 0 1.371 1.24.588 1.81l-3.37 2.448a1 1 0 00-.364 1.118l1.287 3.957c.3.921-.755 1.688-1.54 1.118l-3.37-2.448a1 1 0 00-1.175 0l-3.37 2.448c-.784.57-1.838-.197-1.539-1.118l1.287-3.957a1 1 0 00-.364-1.118L2.063 9.384c-.783-.57-.38-1.81.588-1.81h4.162a1 1 0 00.95-.69L9.049 2.927z"
+                      />
+                    </svg>
+                  );
+                })}
+              </span>
               {host.airbnbReviewCount != null && (
-                <span className="text-gray-500">· {host.airbnbReviewCount} reviews</span>
+                <span className="text-gray-500">{host.airbnbReviewCount} reviews</span>
               )}
             </span>
           )}

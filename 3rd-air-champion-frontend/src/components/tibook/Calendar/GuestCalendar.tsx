@@ -186,7 +186,7 @@ const GuestCalendar = ({
           </span>
         )}
         {!inCart && (status === "full" || status === "blocked") && (
-          <span className="text-[9px] text-gray-300 leading-none">full</span>
+          <span className="text-[9px] text-gray-300 leading-none">sold out</span>
         )}
         {inCart && (
           <span className="text-[9px] text-white/70 leading-none relative z-10">✓</span>
