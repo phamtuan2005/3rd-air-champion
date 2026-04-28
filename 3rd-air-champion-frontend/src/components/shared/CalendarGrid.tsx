@@ -142,13 +142,13 @@ const CalendarGrid = ({
     for (const month of months) {
       const monthEnd = new Date(month.getFullYear(), month.getMonth() + 1, 0);
       const hadOverflow = overflowDate !== null;
-      const pageStart = overflowDate ?? new Date(month.getFullYear(), month.getMonth(), 1);
+      const pageStart: Date = overflowDate ?? new Date(month.getFullYear(), month.getMonth(), 1);
       const startCol = getDay(pageStart);
       const totalCells = numRows * 7;
       const cells: (Date | null)[] = Array(totalCells).fill(null);
 
       let cellIdx = startCol;
-      let cur = pageStart;
+      let cur: Date = pageStart;
       while (cellIdx < totalCells && !isAfter(cur, monthEnd)) {
         cells[cellIdx] = cur;
         cur = addDays(cur, 1);

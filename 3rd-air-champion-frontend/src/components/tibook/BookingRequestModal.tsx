@@ -119,7 +119,6 @@ const BookingRequestModal = ({
   const [roomDropdownOpen, setRoomDropdownOpen] = useState(false);
 
   const cartGroups = useMemo(() => buildCartGroups(cartDates, rooms), [cartDates, rooms]);
-  const totalCartNights = cartGroups.reduce((sum, g) => sum + g.totalNights, 0);
   const hasAnyRoomGroup = cartGroups.some((g) => g.roomId === null);
 
   const activeRooms = rooms
