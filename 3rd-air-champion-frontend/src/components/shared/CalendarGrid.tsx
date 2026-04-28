@@ -240,7 +240,7 @@ const CalendarGrid = ({
     sortedUsedRooms.sort((a, b) => a.name.localeCompare(b.name));
 
     if (!filteredDay && checkoutBookings.length === 0 && blockedRoomIds.size === 0) {
-      if (sortedUsedRooms.length === 0) return null;
+      if (sortedUsedRooms.length === 0 || overrideRooms) return null;
     }
 
     const gridContent: Record<string, { am: bookingType | null; pm: bookingType | null }> = {};
@@ -285,6 +285,7 @@ const CalendarGrid = ({
           const isRoomBlocked = blockedRoomIds.has(room.id);
 
           if (!amBooking && !pmBooking) {
+            if (overrideRooms && !isRoomBlocked) return <div key={room.name} className="row-span-1 h-full" />;
             const isFutureOrToday = !isBefore(date, startOfToday());
             if (isRoomBlocked) {
               return (
@@ -422,7 +423,7 @@ const CalendarGrid = ({
                     right: "0",
                   }}
                 />
-              ) : !isBefore(date, startOfToday()) ? (
+              ) : !isBefore(date, startOfToday()) && !overrideRooms ? (
                 <div
                   className="react-calendar__opportunity_pm rounded-r-lg"
                   style={{
