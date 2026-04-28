@@ -60,6 +60,7 @@ export const useCalendarStats = ({
     const uniqueById = new Map<string, bookingType>();
     for (const day of monthMap.values()) {
       for (const booking of day.bookings) {
+        if (!booking.room) continue;
         if (booking.guest.name !== "AirBnB" && !uniqueById.has(booking.id))
           uniqueById.set(booking.id, booking);
       }
@@ -133,7 +134,7 @@ export const useCalendarStats = ({
       .reduce((total, room) => {
         for (const dateKey of eligibleDateKeys) {
           const day = monthMap.get(dateKey);
-          const isBooked = day ? day.bookings.some((b) => b.room.id === room.id) : false;
+          const isBooked = day ? day.bookings.some((b) => b.room?.id === room.id) : false;
           const isBlocked = day
             ? day.isBlocked || day.blockedRooms.some((r) => r.id === room.id)
             : false;
@@ -181,11 +182,11 @@ export const useCalendarStats = ({
       const roomId = room.id;
 
       const roomSpecificSet = new Set(
-        occupiedDays.filter((day) => day.bookings.some((booking) => booking.room.id === roomId)),
+        occupiedDays.filter((day) => day.bookings.some((booking) => booking.room?.id === roomId)),
       );
 
       const blockedCount = occupiedDays.filter(
-        (day) => day.isBlocked || day.blockedRooms.some((r) => r.id === roomId),
+        (day) => day.isBlocked || day.blockedRooms.some((r) => r?.id === roomId),
       ).length;
       blockedNightsMap.set(baseRoomName, (blockedNightsMap.get(baseRoomName) ?? 0) + blockedCount);
 
@@ -214,6 +215,7 @@ export const useCalendarStats = ({
       roomSet.forEach((day: dayType) => {
         day.bookings.forEach((booking) => {
           if (
+            booking.room &&
             getBaseRoomName(booking.room.name) === roomName &&
             booking.guest.name.toLowerCase() === "airbnb"
           ) {
@@ -257,10 +259,11 @@ export const useCalendarStats = ({
         if (!isSameMonth(currentLocalDate, currentMonth)) break;
 
         for (const booking of day.bookings) {
+          if (!booking.room) continue;
           if (selectedRoomName && booking.room.name !== selectedRoomName) continue;
 
           if (booking.guest.name !== "AirBnB") {
-            const guestPricing = booking.guest.pricing.find((p) => p.room === booking.room.id);
+            const guestPricing = booking.guest.pricing?.find((p) => p.room === booking.room.id);
             if (guestPricing) guestProfit += guestPricing.price;
           } else {
             if (booking.airbnbPrice && booking.duration) {

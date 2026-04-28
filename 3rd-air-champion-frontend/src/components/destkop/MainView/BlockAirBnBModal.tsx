@@ -22,7 +22,7 @@ type ChecklistItem =
   | { kind: "block"; key: string; label: string };
 
 function toRangeKey(booking: bookingType): string {
-  return `${booking.room.id}|${booking.startDate}|${booking.endDate}`;
+  return `${booking.room?.id ?? ""}|${booking.startDate}|${booking.endDate}`;
 }
 
 function isAlreadyBlockedOnAirBnB(
@@ -30,6 +30,7 @@ function isAlreadyBlockedOnAirBnB(
   blockedAirBnBDates: BlockedAirBnBDates,
   timeZone: string,
 ): boolean {
+  if (!booking.room) return false;
   const blocked = blockedAirBnBDates[booking.room.id];
   if (!blocked || blocked.length === 0) return false;
   const bookingStart = toZonedTime(booking.startDate, timeZone);
@@ -114,6 +115,7 @@ const BlockAirBnBModal = ({ monthMap, rooms, blockedAirBnBDates, token, onDaysUp
   const uniqueById = new Map<string, bookingType>();
   for (const day of monthMap.values()) {
     for (const booking of day.bookings) {
+      if (!booking.room) continue;
       if (booking.guest.name !== "AirBnB" && !uniqueById.has(booking.id))
         uniqueById.set(booking.id, booking);
     }
@@ -140,7 +142,7 @@ const BlockAirBnBModal = ({ monthMap, rooms, blockedAirBnBDates, token, onDaysUp
     .filter((r) => r.active)
     .map((room) => {
       const bookingItems: ChecklistItem[] = actionableBookings
-        .filter((b) => b.room.id === room.id)
+        .filter((b) => b.room?.id === room.id)
         .map((b) => ({
           kind: "booking" as const,
           key: toRangeKey(b),

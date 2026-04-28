@@ -23,6 +23,7 @@ router.post("/login", async (req: Request, res: Response) => {
         query Login($email: String!, $password: String!) {
             login(email: $email, password: $password) {
                 cohostId
+                cohostName
                 hostId
                 role
             }

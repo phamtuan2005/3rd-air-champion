@@ -118,3 +118,10 @@ export const getHost = () => {
   if ("hostId" in payload) return payload.hostId;
   else throw new Error("Invalid account");
 };
+
+export const getCohostName = (): string | null => {
+  const token = localStorage.getItem("token");
+  if (!token) return null;
+  const payload = jwtDecode<JwtPayload & { cohostName?: string }>(token);
+  return payload.cohostName ?? null;
+};

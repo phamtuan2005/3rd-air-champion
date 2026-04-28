@@ -4,6 +4,7 @@ export const authenticationDefs = gql`
   type Account {
     hostId: ID!
     cohostId: ID
+    cohostName: String
     role: String!
   }
 

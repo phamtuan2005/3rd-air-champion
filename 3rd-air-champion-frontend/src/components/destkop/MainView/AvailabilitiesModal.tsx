@@ -35,8 +35,8 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName }: Avai
       const unbookedDates: string[] = [];
       for (const dateKey of eligibleDateKeys) {
         const day = monthMap.get(dateKey);
-        const isBooked = day ? day.bookings.some((b) => b.room.id === room.id) : false;
-        const isBlocked = day ? (day.isBlocked || day.blockedRooms.some((r) => r.id === room.id)) : false;
+        const isBooked = day ? day.bookings.some((b) => b.room?.id === room.id) : false;
+        const isBlocked = day ? (day.isBlocked || day.blockedRooms.some((r) => r?.id === room.id)) : false;
         if (!isBooked && !isBlocked) unbookedDates.push(dateKey);
       }
 
@@ -44,11 +44,11 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName }: Avai
       const bookedProfit = allMonthDateKeys.reduce((total, dateKey) => {
         const day = monthMap.get(dateKey);
         if (!day) return total;
-        const roomBookings = day.bookings.filter((b) => b.room.id === room.id);
+        const roomBookings = day.bookings.filter((b) => b.room?.id === room.id);
         if (roomBookings.length > 0) bookedNights++;
         return total + roomBookings.reduce((sum, booking) => {
             if (booking.guest.name !== "AirBnB") {
-              const guestPricing = booking.guest.pricing.find((p) => p.room === booking.room.id);
+              const guestPricing = booking.guest.pricing?.find((p) => p.room === booking.room?.id);
               return sum + (guestPricing ? guestPricing.price : 0);
             } else {
               if (booking.airbnbPrice && booking.duration) {

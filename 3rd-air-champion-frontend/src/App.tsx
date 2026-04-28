@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchHost, getHost } from "./util/hostOperations";
+import { fetchHost, getHost, getCohostName } from "./util/hostOperations";
 import { hostType } from "./util/types/hostType";
 import { useNavigate } from "react-router";
 import NavBarDesktop from "./components/destkop/NavBar/NavBarDesktop";
@@ -181,7 +181,7 @@ function App() {
                 {/* Navbar */}
                 <NavBarDesktop
                   handleLogout={handleLogout}
-                  name={host?.name}
+                  name={getCohostName() ?? host?.name}
                   setIsAboutModalOpen={setIsAboutModalOpen}
                   airBnBInfo={airBnBInfo}
                   onAirBnBInfoSaved={setAirBnBInfo}

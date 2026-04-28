@@ -85,7 +85,7 @@ const BlockRoomsModal = ({
     const s = new Set<string>();
     if (!hasSelection) return s;
     for (const [dateStr, day] of monthMap.entries()) {
-      const anyBooked = selectedRooms.some((id) => day.bookings.some((b) => b.room.id === id));
+      const anyBooked = selectedRooms.some((id) => day.bookings.some((b) => b.room?.id === id));
       const anyBlocked = selectedRooms.some((id) => day.blockedRooms.some((r) => r.id === id));
       if (day.isBlocked || anyBooked || anyBlocked) s.add(dateStr);
     }

@@ -77,6 +77,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress }: ToDoListPro
 
       {upcomingDays.flatMap((day, dayIndex) =>
         day.bookings.map((booking, index) => {
+          if (!booking.room) return null;
           const taskId = generateTaskId(
             booking.startDate,
             booking.endDate,
@@ -184,7 +185,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress }: ToDoListPro
                     const found = day.bookings.find(
                       (b) =>
                         b.startDate.split("T")[0] === dateKey &&
-                        b.room.id === booking.room.id,
+                        b.room?.id === booking.room?.id,
                     );
                     if (found) {
                       nextCheckIn = found;
@@ -214,7 +215,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress }: ToDoListPro
             return items.map(({ booking, nextCheckIn, nextCheckInDate }, index) => {
               const cleaningTaskId = generateCleaningTaskId(
                 booking.endDate,
-                booking.room.id,
+                booking.room?.id ?? "",
               );
               const task = completedTasks[cleaningTaskId] || {
                 completed: false,

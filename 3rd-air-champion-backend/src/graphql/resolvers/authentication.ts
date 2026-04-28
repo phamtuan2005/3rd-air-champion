@@ -21,12 +21,16 @@ export const authenticationResolvers = {
       const account: {
         hostId: mongoose.Types.ObjectId;
         cohostId?: mongoose.Types.ObjectId;
+        cohostName?: string;
         role: string;
       } = {
         hostId: (host ? host._id : cohost?.host) as mongoose.Types.ObjectId,
         role: host ? "Host" : "Cohost",
       };
-      if (cohost) account.cohostId = cohost._id;
+      if (cohost) {
+        account.cohostId = cohost._id;
+        account.cohostName = cohost.name;
+      }
 
       /**
        * Temporary fix to prototype TiBook — update once TiBook concept is fully established
