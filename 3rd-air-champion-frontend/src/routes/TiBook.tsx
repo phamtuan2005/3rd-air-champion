@@ -33,6 +33,7 @@ const TiBookInner = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedRoomIds, setSelectedRoomIds] = useState<Set<string> | null>(null);
   const [cartDates, setCartDates] = useState<Map<string, string | null>>(new Map());
+  const cohostNames = (import.meta.env.VITE_TI_BOOK_COHOST_NAMES as string | undefined)?.split(',').map((s) => s.trim()).filter(Boolean) ?? [];
 
   const handleToggleRoom = (id: string) => {
     setSelectedRoomIds((prev) => {
@@ -138,7 +139,7 @@ const TiBookInner = () => {
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       <NavBarDesktop />
-      {currentHost && <HostProfileBanner host={currentHost} />}
+      {currentHost && <HostProfileBanner host={currentHost} cohostNames={cohostNames} />}
       {rooms.length > 0 && (
         <RoomCards
           rooms={rooms}

@@ -3,18 +3,43 @@ import { hostType } from "../../util/types/hostType";
 
 interface HostProfileBannerProps {
   host: hostType;
+  cohostNames?: string[];
 }
 
-const HostProfileBanner = ({ host }: HostProfileBannerProps) => {
+const HostAvatar = ({ name, label }: { name: string; label?: string }) => {
   const [photoError, setPhotoError] = useState(false);
-
-  const displayName = host.airbnbName || host.name;
-  const initials = host.name
+  const initials = name
     .split(" ")
     .map((w) => w[0])
     .join("")
     .toUpperCase()
     .slice(0, 2);
+
+  return (
+    <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
+      <div className="relative">
+        <div className="h-9 w-9 rounded-full border-2 border-green-500 overflow-hidden bg-green-100 flex items-center justify-center">
+          {!photoError ? (
+            <img
+              src={`/${name}.jpg`}
+              alt={name}
+              className="h-full w-full object-cover"
+              onError={() => setPhotoError(true)}
+            />
+          ) : (
+            <span className="text-green-700 font-bold text-xs">{initials}</span>
+          )}
+        </div>
+        <div className="absolute bottom-0 right-0 h-2.5 w-2.5 bg-green-500 rounded-full border-2 border-white" />
+      </div>
+      <span className="text-[10px] font-semibold text-gray-800">{name}</span>
+      {label && <span className="text-[9px] text-gray-400 -mt-0.5">{label}</span>}
+    </div>
+  );
+};
+
+const HostProfileBanner = ({ host, cohostNames = [] }: HostProfileBannerProps) => {
+  const displayName = host.airbnbName || host.name;
 
   return (
     <div className="bg-white border-b border-gray-100 px-4 py-2 flex flex-col gap-1.5">
@@ -24,11 +49,11 @@ const HostProfileBanner = ({ host }: HostProfileBannerProps) => {
           <span className="font-bold text-gray-900 text-sm leading-tight">{displayName}</span>
         )}
         {host.highlights && host.highlights.length > 0 && (
-          <div className="flex gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
+          <div className="flex flex-wrap gap-1.5">
             {host.highlights.map((h) => (
               <span
                 key={h}
-                className="flex-shrink-0 text-[10px] text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full font-medium"
+                className="text-[10px] text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full font-medium"
               >
                 {h}
               </span>
@@ -38,26 +63,16 @@ const HostProfileBanner = ({ host }: HostProfileBannerProps) => {
       </div>
 
       {/* Host info row */}
-      <div className="flex items-center gap-3 border-t border-gray-100 pt-1.5">
-        <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
-          <div className="relative">
-            <div className="h-9 w-9 rounded-full border-2 border-green-500 overflow-hidden bg-green-100 flex items-center justify-center">
-              {!photoError ? (
-                <img
-                  src={`/${host.name}.jpg`}
-                  alt={host.name}
-                  className="h-full w-full object-cover"
-                  onError={() => setPhotoError(true)}
-                />
-              ) : (
-                <span className="text-green-700 font-bold text-xs">{initials}</span>
-              )}
-            </div>
-            <div className="absolute bottom-0 right-0 h-2.5 w-2.5 bg-green-500 rounded-full border-2 border-white" />
-          </div>
-          <span className="text-[10px] font-semibold text-gray-800">{host.name}</span>
+      <div className="flex items-start gap-3 border-t border-gray-100 pt-1.5">
+        {/* Avatars */}
+        <div className="flex items-end gap-2">
+          <HostAvatar name={host.name} label={cohostNames.length > 0 ? "Host" : undefined} />
+          {cohostNames.map((name) => (
+            <HostAvatar key={name} name={name} label="Co-host" />
+          ))}
         </div>
 
+        {/* Badges + rating */}
         <div className="flex flex-col gap-0.5 flex-1 min-w-0">
           {host.airbnbSuperhost ? (
             <span className="w-fit text-[10px] font-semibold text-rose-600 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-full">

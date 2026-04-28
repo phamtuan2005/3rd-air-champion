@@ -55,6 +55,25 @@ const MyAirBnBModal = ({ current, onClose, onSaved }: MyAirBnBModalProps) => {
   const [tab, setTab] = useState<Tab>("public");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [highlightTags, setHighlightTags] = useState<string[]>(
+    current.highlights ? current.highlights.split(",").map((s) => s.trim()).filter(Boolean) : [],
+  );
+  const [newHighlight, setNewHighlight] = useState("");
+
+  const addHighlight = () => {
+    const tag = newHighlight.trim();
+    if (!tag || highlightTags.includes(tag)) return;
+    const next = [...highlightTags, tag];
+    setHighlightTags(next);
+    setDraft((d) => ({ ...d, highlights: next.join(",") }));
+    setNewHighlight("");
+  };
+
+  const removeHighlight = (tag: string) => {
+    const next = highlightTags.filter((t) => t !== tag);
+    setHighlightTags(next);
+    setDraft((d) => ({ ...d, highlights: next.join(",") }));
+  };
 
   const set = <K extends keyof MyAirBnBInfo>(key: K, value: MyAirBnBInfo[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
@@ -190,14 +209,40 @@ const MyAirBnBModal = ({ current, onClose, onSaved }: MyAirBnBModalProps) => {
                 </button>
               </div>
 
-              <Field label="Highlights" hint="Comma-separated · shown as chips on TiBook">
-                <input
-                  type="text"
-                  className={inputCls}
-                  placeholder="City View, Boutique Design, Old Quarter"
-                  value={draft.highlights}
-                  onChange={(e) => set("highlights", e.target.value)}
-                />
+              <Field label="Highlights">
+                {highlightTags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 p-2 border border-gray-200 rounded-md bg-gray-50">
+                    {highlightTags.map((tag) => (
+                      <span key={tag} className="flex items-center gap-1 text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full font-medium">
+                        {tag}
+                        <button
+                          type="button"
+                          onClick={() => removeHighlight(tag)}
+                          className="text-indigo-300 hover:text-indigo-700 leading-none text-sm"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    className={inputCls}
+                    placeholder="e.g. City View"
+                    value={newHighlight}
+                    onChange={(e) => setNewHighlight(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addHighlight(); } }}
+                  />
+                  <button
+                    type="button"
+                    onClick={addHighlight}
+                    className="px-3 py-2 text-sm font-semibold bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition flex-shrink-0"
+                  >
+                    Add
+                  </button>
+                </div>
               </Field>
             </>
           )}
