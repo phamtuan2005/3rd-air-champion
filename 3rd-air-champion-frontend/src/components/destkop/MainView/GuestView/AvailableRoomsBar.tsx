@@ -35,7 +35,7 @@ const AvailableRoomsBar = ({
   const blockedRoomIds = new Set((dayEntry?.blockedRooms ?? []).map((r) => r.id));
 
   const unbookedRooms = rooms.filter(
-    (room) => room.active && currentBookings.every((booking) => room.name !== booking.room.name),
+    (room) => room.active && currentBookings.every((booking) => !booking.room || room.name !== booking.room.name),
   );
 
   if (unbookedRooms.length === 0) return null;

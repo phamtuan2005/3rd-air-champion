@@ -21,7 +21,7 @@ const RoomsToClean = ({ selectedDate, monthMap }: RoomsToCleanProps) => {
     const yesterdayDay = monthMap.get(yesterdayKey);
     setCheckoutBookings(
       yesterdayDay?.bookings.filter(
-        (booking) => booking.endDate.split("T")[0] === yesterdayKey,
+        (booking) => booking.room != null && booking.endDate.split("T")[0] === yesterdayKey,
       ) ?? [],
     );
   }, [monthMap, selectedDate]);
@@ -57,7 +57,7 @@ const RoomsToClean = ({ selectedDate, monthMap }: RoomsToCleanProps) => {
           const found = day.bookings.find(
             (b) =>
               b.startDate.split("T")[0] === dateKey &&
-              b.room.id === booking.room.id,
+              b.room?.id === booking.room.id,
           );
           if (found) {
             nextCheckIn = found;
@@ -79,7 +79,7 @@ const RoomsToClean = ({ selectedDate, monthMap }: RoomsToCleanProps) => {
 
   const maxLabelLen = Math.max(
     ...items.map(({ booking: b, nextCheckIn: n }) => {
-      const label = `${b.room.name}${n ? `, ${n.numberOfGuests} ${n.numberOfGuests === 1 ? "person" : "persons"}` : ""}`;
+      const label = `${b.room?.name ?? ""}${n ? `, ${n.numberOfGuests} ${n.numberOfGuests === 1 ? "person" : "persons"}` : ""}`;
       return label.length;
     }),
   );
@@ -92,7 +92,7 @@ const RoomsToClean = ({ selectedDate, monthMap }: RoomsToCleanProps) => {
       {items.map(({ booking, nextCheckIn, nextCheckInDate }, index) => {
         const cleaningTaskId = generateCleaningTaskId(
           booking.endDate,
-          booking.room.id,
+          booking.room?.id ?? "",
         );
         const task = completedTasks[cleaningTaskId] || {
           completed: false,
@@ -123,7 +123,7 @@ const RoomsToClean = ({ selectedDate, monthMap }: RoomsToCleanProps) => {
                   className={`${getRoomColor(booking.room.name, booking.room.color)} ${nextCheckIn?.guest.name === "AirBnB" ? "text-white" : "text-black"} p-1 rounded-md`}
                   style={{ width: `${maxLabelLen}ch`, maxWidth: '50vw' }}
                 >
-                  {booking.room.name}
+                  {booking.room?.name}
                   {nextCheckIn && `, ${nextCheckIn.numberOfGuests} ${nextCheckIn.numberOfGuests === 1 ? "person" : "persons"}`}
                 </div>
                 {nextCheckIn && nextCheckInDate ? (

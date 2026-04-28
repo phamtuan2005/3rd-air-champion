@@ -14,7 +14,7 @@ const AirBnBPricing = ({
   onAirbnbPriceUpdate,
   setEditingKey,
 }: AirBnBPricingProps) => {
-  const key = `${booking.room.name}_${booking.startDate}_${booking.endDate}`;
+  const key = `${booking.room?.name}_${booking.startDate}_${booking.endDate}`;
   const storedPrice = booking.airbnbPrice || 0;
 
   const [price, setPrice] = useState<number | string>(storedPrice);

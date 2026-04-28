@@ -62,6 +62,9 @@ const GuestView = ({
   setSelectedUnbooking,
   onPricingEdit,
 }: GuestViewProps) => {
+  // Filter out orphaned bookings with null room to prevent crashes
+  currentBookings = currentBookings.filter((b) => b.room != null);
+
   const getBookingLabel = (booking: bookingType) => {
     const guestPart = `${booking.numberOfGuests > 1 ? `(${booking.numberOfGuests}) ` : ""}${booking.guest.alias || booking.alias || booking.guest.name} (${booking.room.name})`;
     const pricePart =
