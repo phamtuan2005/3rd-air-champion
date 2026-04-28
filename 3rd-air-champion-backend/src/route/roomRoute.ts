@@ -6,7 +6,7 @@ import fs from "fs";
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const roomName = (req.body.roomName || "misc").replace(/[^a-zA-Z0-9-_]/g, "_");
+    const roomName = ((req.query.roomName as string) || req.body.roomName || "misc").replace(/[^a-zA-Z0-9-_]/g, "_");
     const dir = path.join(__dirname, "../../uploads/rooms", roomName);
     fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
@@ -37,7 +37,7 @@ router.post("/photos/upload", upload.single("photo"), async (req: Request, res: 
   if (!req.file)
     return res.status(400).json({ error: "No file uploaded" });
 
-  const roomName = (req.body.roomName || "misc").replace(/[^a-zA-Z0-9-_]/g, "_");
+  const roomName = ((req.query.roomName as string) || req.body.roomName || "misc").replace(/[^a-zA-Z0-9-_]/g, "_");
   const url = `/uploads/rooms/${roomName}/${req.file.filename}`;
   res.status(200).json({ url });
 });

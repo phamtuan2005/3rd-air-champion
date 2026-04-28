@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --host",
     "build": "tsc -b && vite build",
+    "deploy": "npm run build && node deploy.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "test:e2e": "playwright test",
@@ -21,6 +22,7 @@
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
     "jwt-decode": "^4.0.0",
+    "mime-types": "^3.0.2",
     "mongoose": "^8.17.0",
     "react": "^19.1.1",
     "react-calendar": "^6.0.0",
@@ -32,6 +34,7 @@
     "zod": "^4.0.14"
   },
   "devDependencies": {
+    "@aws-sdk/client-s3": "^3.1038.0",
     "@eslint/js": "^9.32.0",
     "@playwright/test": "^1.59.1",
     "@types/node": "^24.1.0",

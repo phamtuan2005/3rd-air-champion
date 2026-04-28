@@ -70,9 +70,8 @@ export const deleteRoom = async (roomId: string, token: string) => {
 export const uploadRoomPhoto = async (file: File, roomName: string, token: string): Promise<string> => {
   const formData = new FormData();
   formData.append("photo", file);
-  formData.append("roomName", roomName);
   return axios
-    .post(`${BACKEND_ENDPOINT}/room/photos/upload`, formData, {
+    .post(`${BACKEND_ENDPOINT}/room/photos/upload?roomName=${encodeURIComponent(roomName)}`, formData, {
       headers: { Authorization: `Bearer ${token}` },
     })
     .then((result) => result.data.url)
