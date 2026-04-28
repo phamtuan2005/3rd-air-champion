@@ -55,7 +55,7 @@ const BookingRequestManagerModal = ({
   const [loading, setLoading] = useState(true);
   const [updatingPhone, setUpdatingPhone] = useState<string | null>(null);
   const [clearedIds, setClearedIds] = useState<Set<string>>(
-    () => new Set(JSON.parse(sessionStorage.getItem("clearedRequestIds") || "[]")),
+    () => new Set(JSON.parse(sessionStorage.getItem(`clearedRequestIds_${hostId}`) || "[]")),
   );
   const [showCleared, setShowCleared] = useState(false);
 
@@ -290,12 +290,12 @@ const BookingRequestManagerModal = ({
   };
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="flex flex-col overflow-hidden">
       <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-gray-100 flex-shrink-0">
         <h2 className="text-base font-bold text-gray-800">Booking Requests</h2>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-3">
+      <div className="overflow-y-auto max-h-[72vh] px-4 py-3">
         {loading ? (
           <p className="text-sm text-gray-500 text-center py-8">Loading...</p>
         ) : requests.length === 0 ? (
@@ -342,7 +342,7 @@ const BookingRequestManagerModal = ({
                             ...resolved.map((r) => r.id),
                           ]);
                           sessionStorage.setItem(
-                            "clearedRequestIds",
+                            `clearedRequestIds_${hostId}`,
                             JSON.stringify([...newIds]),
                           );
                           setClearedIds(newIds);
