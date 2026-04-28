@@ -25,7 +25,7 @@ import BookingRequestManagerModal from "../BookingRequestManagerModal";
 import GuestAddPane from "../BookingModal/GuestAddPane";
 import EditRoomModal from "../NavBar/DropDown/EditRoomModal";
 import ManageGuestModal from "../NavBar/DropDown/ManageGuestModal";
-import { fetchBookingRequestsByHost } from "../../../util/bookingRequestOperations";
+import { fetchBookingRequestsByHost, updateBookingRequestStatus } from "../../../util/bookingRequestOperations";
 import { useCalendarData } from "./hooks/useCalendarData";
 import { useCalendarStats } from "./hooks/useCalendarStats";
 import { useMessaging } from "./hooks/useMessaging";
@@ -123,15 +123,15 @@ const MainView = ({
   const [editingRoomId, setEditingRoomId] = useState<string>("");
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
   const [scrollToTodayTrigger, setScrollToTodayTrigger] = useState(0);
-  const [pendingAcceptRequestId, setPendingAcceptRequestId] = useState<string | null>(null);
-  const [completedRequestId, setCompletedRequestId] = useState<string | null>(null);
-  const [bookingPrefill, setBookingPrefill] = useState<{
+  const [pendingAcceptRequestIds, setPendingAcceptRequestIds] = useState<string[]>([]);
+  const [acceptCompletedTick, setAcceptCompletedTick] = useState(0);
+  const [bookingPrefills, setBookingPrefills] = useState<Array<{
     guestId: string | null;
     roomId: string;
     date: Date;
     duration: number;
     numberOfGuests: number;
-  } | null>(null);
+  }> | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(startOfToday());
   const [selectedRoom, setSelectedRoom] = useState<roomType>();
   const [selectedBooking, setSelectedBooking] = useState<bookingType | null>(null);
@@ -214,7 +214,7 @@ const MainView = ({
         setBookingRequestPendingCount((reqs ?? []).filter((r) => r.status === "pending").length);
       })
       .catch(() => setBookingRequestPendingCount(0));
-  }, [hostId, token, isRequestManagerOpen, completedRequestId, setBookingRequestPendingCount]);
+  }, [hostId, token, isRequestManagerOpen, acceptCompletedTick, setBookingRequestPendingCount]);
 
   useEffect(() => {
     if (isTodoModalOpen) {
@@ -318,10 +318,13 @@ const MainView = ({
   const onBookingComplete = (bookedDays: dayType[]) => {
     setDays((prev) => [...prev, ...bookedDays]);
     setIsCalendarLoading(true);
-    if (pendingAcceptRequestId) {
-      setCompletedRequestId(pendingAcceptRequestId);
-      setPendingAcceptRequestId(null);
-      setBookingPrefill(null);
+    if (pendingAcceptRequestIds.length > 0) {
+      pendingAcceptRequestIds.forEach((id) =>
+        updateBookingRequestStatus(id, "confirmed", token as string).catch(() => {}),
+      );
+      setPendingAcceptRequestIds([]);
+      setBookingPrefills(null);
+      setAcceptCompletedTick((n) => n + 1);
     }
   };
 
@@ -511,7 +514,7 @@ const MainView = ({
             selectedDate={selectedDate}
             selectedRoom={selectedRoom}
             showAddPane={showAddPane}
-            prefill={bookingPrefill}
+            prefills={bookingPrefills ?? undefined}
             onBooking={onBookingComplete}
             setIsModalOpen={setIsModalOpen}
             setShowAddPane={setShowAddPane}
@@ -561,14 +564,15 @@ const MainView = ({
             token={token as string}
             rooms={rooms}
             guests={guests}
-            completedRequestId={completedRequestId}
             onClose={() => setIsRequestManagerOpen(false)}
-            onAccept={(requestId, prefill) => {
-              setPendingAcceptRequestId(requestId);
-              setBookingPrefill(prefill);
-              setSelectedDate(prefill.date);
-              const room = rooms.find((r) => r.id === prefill.roomId);
+            onAccept={(items) => {
+              setPendingAcceptRequestIds(items.map((i) => i.requestId));
+              setBookingPrefills(items.map((i) => i.prefill));
+              const first = items[0];
+              setSelectedDate(first.prefill.date);
+              const room = rooms.find((r) => r.id === first.prefill.roomId);
               if (room) setSelectedRoom(room);
+              setIsRequestManagerOpen(false);
               setIsModalOpen(true);
             }}
             onAddGuest={(guest) =>
@@ -737,14 +741,15 @@ const MainView = ({
             token={token}
             rooms={rooms}
             guests={guests}
-            completedRequestId={completedRequestId}
             onClose={() => setIsRequestManagerOpen(false)}
-            onAccept={(requestId, prefill) => {
-              setPendingAcceptRequestId(requestId);
-              setBookingPrefill(prefill);
-              setSelectedDate(prefill.date);
-              const room = rooms.find((r) => r.id === prefill.roomId);
+            onAccept={(items) => {
+              setPendingAcceptRequestIds(items.map((i) => i.requestId));
+              setBookingPrefills(items.map((i) => i.prefill));
+              const first = items[0];
+              setSelectedDate(first.prefill.date);
+              const room = rooms.find((r) => r.id === first.prefill.roomId);
               if (room) setSelectedRoom(room);
+              setIsRequestManagerOpen(false);
               setIsModalOpen(true);
             }}
             onAddGuest={(guest) =>

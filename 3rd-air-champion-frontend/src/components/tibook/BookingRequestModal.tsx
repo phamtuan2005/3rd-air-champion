@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { roomType } from "../../util/types/roomType";
+import { dayType } from "../../util/types/dayType";
 import { createBookingRequest } from "../../util/bookingRequestOperations";
 import { getAvailableRooms } from "../../util/bookingOperations";
 import { fetchGuestByPhone } from "../../util/guestOperations";
@@ -16,6 +17,7 @@ interface BookingRequestModalProps {
   calendarId: string;
   token: string;
   rooms: roomType[];
+  monthMap: Map<string, dayType>;
   selectedDate: Date | null;
   selectedRoomIds: Set<string> | null;
   cartDates: Map<string, string | null>;
@@ -80,9 +82,11 @@ const buildCartGroups = (cartDates: Map<string, string | null>, rooms: roomType[
   });
 };
 
+const parseLocalDate = (s: string) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+
 const formatRangeLabel = (r: { start: string; end: string; nights: number }) => {
-  const s = new Date(r.start);
-  const e = new Date(r.end);
+  const s = parseLocalDate(r.start);
+  const e = parseLocalDate(r.end);
   const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   return r.start === r.end
     ? `${fmt(s)} · 1 night`
@@ -94,6 +98,7 @@ const BookingRequestModal = ({
   calendarId,
   token,
   rooms,
+  monthMap,
   selectedDate,
   selectedRoomIds,
   cartDates,
@@ -113,6 +118,7 @@ const BookingRequestModal = ({
   const [hasFetchedRooms, setHasFetchedRooms] = useState(false);
 
   const [guestPricing, setGuestPricing] = useState<GuestPricing | null>(null);
+  const [foundGuestName, setFoundGuestName] = useState<string | null>(null);
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [notes, setNotes] = useState("");
   const [datesError, setDatesError] = useState("");
@@ -129,6 +135,22 @@ const BookingRequestModal = ({
       if (aSelected !== bSelected) return aSelected ? -1 : 1;
       return b.price - a.price;
     });
+
+  const availableRoomsForAnyGroup = useMemo(() => {
+    const anyGroup = cartGroups.find((g) => g.roomId === null);
+    if (!anyGroup) return activeRooms;
+    const allDates = anyGroup.ranges.flatMap(({ start, end }) => {
+      const dates: string[] = [];
+      const cur = new Date(start);
+      const last = new Date(end);
+      while (cur <= last) { dates.push(cur.toISOString().split("T")[0]); cur.setDate(cur.getDate() + 1); }
+      return dates;
+    });
+    const bookedIds = new Set(
+      allDates.flatMap((d) => monthMap.get(d)?.bookings.map((b) => b.room?.id).filter(Boolean) ?? [])
+    );
+    return activeRooms.filter((r) => !bookedIds.has(r.id));
+  }, [cartGroups, monthMap, activeRooms]);
 
   const defaultDate = selectedDate
     ? format(selectedDate, "yyyy-MM-dd")
@@ -163,7 +185,11 @@ const BookingRequestModal = ({
     setIsLookingUp(true);
     const timer = setTimeout(() => {
       fetchGuestByPhone(phone, hostId)
-        .then((guest) => setGuestPricing(guest ? guest.pricing : null))
+        .then((guest) => {
+          setGuestPricing(guest ? guest.pricing : null);
+          if (guest?.name) { setValue("guestName", guest.name); setFoundGuestName(guest.name); }
+          else setFoundGuestName(null);
+        })
         .finally(() => setIsLookingUp(false));
     }, 600);
     return () => clearTimeout(timer);
@@ -215,21 +241,23 @@ const BookingRequestModal = ({
     try {
       if (cartDates.size > 0) {
         await Promise.all(
-          cartGroups.map((group) => {
+          cartGroups.flatMap((group) => {
             const roomId = group.roomId ?? data.room;
-            const notesText = [
-              "Dates from calendar: " + group.ranges.map(formatRangeLabel).join(", "),
-              notes.trim(),
-            ].filter(Boolean).join("\n");
-            return createBookingRequest({
-              host: hostId,
-              guestName: data.guestName,
-              guestPhone: data.guestPhone,
-              date: group.ranges[0].start,
-              room: roomId,
-              duration: group.totalNights,
-              numberOfGuests: data.numberOfGuests,
-              notes: notesText,
+            return group.ranges.map((range) => {
+              const notesText = [
+                "Dates from calendar: " + formatRangeLabel(range),
+                notes.trim(),
+              ].filter(Boolean).join("\n");
+              return createBookingRequest({
+                host: hostId,
+                guestName: data.guestName,
+                guestPhone: data.guestPhone,
+                date: range.start,
+                room: roomId,
+                duration: range.nights,
+                numberOfGuests: data.numberOfGuests,
+                notes: notesText,
+              });
             });
           })
         );
@@ -333,10 +361,18 @@ const BookingRequestModal = ({
                   <div className="flex flex-col gap-3">
                     {cartGroups.map((group) => (
                       <div key={group.key}>
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${theme.tagBg} ${theme.tagText}`}>
-                            {group.room?.name ?? "Any room"}
-                          </span>
+                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                          {group.room ? (
+                            <span className={`${getRoomColor(group.room.name, group.room.color)} text-white text-xs font-semibold px-2.5 py-0.5 rounded`}>
+                              {group.room.name}
+                            </span>
+                          ) : (
+                            availableRoomsForAnyGroup.map((r) => (
+                              <span key={r.id} className={`${getRoomColor(r.name, r.color)} text-white text-xs font-semibold px-2.5 py-0.5 rounded`}>
+                                {r.name}
+                              </span>
+                            ))
+                          )}
                           <span className="text-xs text-gray-400">
                             {group.totalNights} night{group.totalNights > 1 ? "s" : ""}
                           </span>
@@ -409,18 +445,6 @@ const BookingRequestModal = ({
           <form className="flex flex-col flex-1 min-h-0" onSubmit={handleSubmit(onSubmit)}>
             <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
 
-              {/* Name */}
-              <div>
-                <label className="block text-sm font-medium mb-1">Your name</label>
-                <input
-                  type="text"
-                  className={`border border-gray-300 rounded-xl px-3 py-2 w-full text-sm focus:outline-none focus:ring-2 ${theme.focusRing}`}
-                  placeholder="e.g. John Smith"
-                  {...register("guestName", { required: "Please enter your name" })}
-                />
-                {errors.guestName && <span className="text-red-500 text-xs">{errors.guestName.message}</span>}
-              </div>
-
               {/* Phone */}
               <div>
                 <label className="block text-sm font-medium mb-1">Your phone number</label>
@@ -440,11 +464,23 @@ const BookingRequestModal = ({
                 {errors.guestPhone && <span className="text-red-500 text-xs">{errors.guestPhone.message}</span>}
                 {!isLookingUp && watchedPhone?.trim().length >= 7 && (
                   guestPricing !== null ? (
-                    <p className={`text-xs ${theme.textPrimary} mt-0.5`}>Welcome back! Your personal rate has been applied.</p>
+                    <p className={`text-xs ${theme.textPrimary} mt-0.5`}>Welcome back{foundGuestName ? `, ${foundGuestName}` : ""}! Your personal rate has been applied.</p>
                   ) : (
                     <p className="text-xs text-gray-400 mt-0.5">We'll sort out pricing together after your request.</p>
                   )
                 )}
+              </div>
+
+              {/* Name */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Your name</label>
+                <input
+                  type="text"
+                  className={`border border-gray-300 rounded-xl px-3 py-2 w-full text-sm focus:outline-none focus:ring-2 ${theme.focusRing}`}
+                  placeholder="e.g. John Smith"
+                  {...register("guestName", { required: "Please enter your name" })}
+                />
+                {errors.guestName && <span className="text-red-500 text-xs">{errors.guestName.message}</span>}
               </div>
 
               {/* Room section */}
@@ -499,7 +535,7 @@ const BookingRequestModal = ({
                           </button>
                           {roomDropdownOpen && (
                             <ul className="border border-gray-200 rounded-xl mt-1 overflow-hidden shadow-sm bg-white">
-                              {activeRooms.map((room) => {
+                              {availableRoomsForAnyGroup.map((room) => {
                                 const price = getRoomPrice(room.id);
                                 return (
                                   <li

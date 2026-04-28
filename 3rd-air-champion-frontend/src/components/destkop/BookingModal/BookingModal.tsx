@@ -29,6 +29,7 @@ interface BookingModalProps {
   selectedRoom: roomType | undefined;
   showAddPane: "guest" | "room" | null;
   prefill?: BookingPrefill | null;
+  prefills?: BookingPrefill[];
   onBooking: (bookedDays: dayType[]) => void;
   setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setShowAddPane: React.Dispatch<React.SetStateAction<"guest" | "room" | null>>;
@@ -73,6 +74,7 @@ const BookingModal = ({
   selectedRoom,
   showAddPane,
   prefill,
+  prefills,
   onBooking,
   setIsModalOpen,
   setShowAddPane,
@@ -82,9 +84,10 @@ const BookingModal = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bookingResults, setBookingResults] = useState<BookingResult[]>([]);
 
-  const defaultGuestId = prefill?.guestId ?? "";
-  const defaultGuest = prefill?.guestId
-    ? guests.find((g) => g.id === prefill.guestId) ?? null
+  const activePrefill = prefills && prefills.length > 0 ? prefills[0] : prefill;
+  const defaultGuestId = activePrefill?.guestId ?? "";
+  const defaultGuest = activePrefill?.guestId
+    ? guests.find((g) => g.id === activePrefill.guestId) ?? null
     : null;
 
   const {
@@ -98,14 +101,16 @@ const BookingModal = ({
     resolver: zodResolver(bookDaysZodObject),
     defaultValues: {
       guest: defaultGuestId,
-      numberOfGuests: prefill?.numberOfGuests ?? 1,
-      bookings: [
-        {
-          rooms: [prefill?.roomId ?? selectedRoom?.id ?? ANY_ROOM_SENTINEL],
-          date: prefill?.date ?? selectedDate,
-          duration: prefill?.duration ?? 1,
-        },
-      ],
+      numberOfGuests: activePrefill?.numberOfGuests ?? 1,
+      bookings: prefills && prefills.length > 0
+        ? prefills.map((p) => ({ rooms: [p.roomId], date: p.date, duration: p.duration }))
+        : [
+            {
+              rooms: [prefill?.roomId ?? selectedRoom?.id ?? ANY_ROOM_SENTINEL],
+              date: prefill?.date ?? selectedDate,
+              duration: prefill?.duration ?? 1,
+            },
+          ],
     },
   });
 

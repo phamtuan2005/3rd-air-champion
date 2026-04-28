@@ -133,7 +133,7 @@ const GuestCalendar = ({
   const getStatus = (date: Date): { status: TileStatus; roomsLeft: number } => {
     if (isBefore(date, startOfToday())) return { status: "past", roomsLeft: 0 };
     const total = scopedRooms.length;
-    const day = monthMap.get(date.toISOString().split("T")[0]);
+    const day = monthMap.get(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`);
     if (!day) return { status: "available", roomsLeft: total };
     if (day.isBlocked) return { status: "blocked", roomsLeft: 0 };
     const bookedIds = new Set(day.bookings.map((b) => b.room?.id).filter(Boolean));
@@ -149,7 +149,7 @@ const GuestCalendar = ({
     const isToday = isSameDay(date, startOfToday());
     const { status, roomsLeft } = getStatus(date);
     const canBook = !isOutside && (status === "available" || status === "partial");
-    const dateKey = date.toISOString().split("T")[0];
+    const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
     const inCart = cartDates.has(dateKey);
 
     const numberClass = [
@@ -180,7 +180,7 @@ const GuestCalendar = ({
           <div className={`absolute inset-1 rounded-lg ${theme.btn} pointer-events-none`} />
         )}
         <span className={`${numberClass} relative z-10`}>{date.getDate()}</span>
-        {!inCart && status === "partial" && (
+        {!inCart && (status === "available" || status === "partial") && roomsLeft > 0 && (
           <span className="text-[9px] font-semibold text-black leading-none">
             {roomsLeft} left
           </span>

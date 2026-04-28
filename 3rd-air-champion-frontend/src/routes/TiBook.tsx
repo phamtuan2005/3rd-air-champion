@@ -95,8 +95,19 @@ const TiBookInner = () => {
   }, [token]);
 
   const toggleCartDate = (date: Date) => {
-    const key = date.toISOString().split("T")[0];
-    const roomId = selectedRoomIds?.size === 1 ? Array.from(selectedRoomIds)[0] : null;
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    let roomId: string | null = selectedRoomIds?.size === 1 ? Array.from(selectedRoomIds)[0] : null;
+
+    if (roomId === null) {
+      const scopedRooms = rooms.filter((r) => r.active && (selectedRoomIds === null || selectedRoomIds.has(r.id)));
+      const day = monthMap.get(key);
+      if (day) {
+        const bookedIds = new Set(day.bookings.map((b) => b.room?.id).filter(Boolean));
+        const available = scopedRooms.filter((r) => !bookedIds.has(r.id));
+        if (available.length === 1) roomId = available[0].id;
+      }
+    }
+
     setCartDates((prev) => {
       const next = new Map(prev);
       if (next.has(key)) next.delete(key);
@@ -184,6 +195,7 @@ const TiBookInner = () => {
           calendarId={currentHost.calendar}
           token={token as string}
           rooms={rooms}
+          monthMap={monthMap}
           selectedDate={selectedDate}
           selectedRoomIds={selectedRoomIds}
           cartDates={cartDates}
