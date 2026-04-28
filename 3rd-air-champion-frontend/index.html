@@ -3,7 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/TiMagLogo.svg" />
+    <link rel="manifest" id="pwa-manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" id="apple-touch-icon" href="/timag-icon-192.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" id="app-title" content="TiMag" />
+    <meta name="theme-color" id="theme-color" content="#4f46e5" />
+    <script>
+      (function () {
+        if (!window.location.pathname.startsWith('/book')) return;
+        document.getElementById('pwa-manifest').href = '/tibookmanifest.webmanifest';
+        document.getElementById('apple-touch-icon').href = '/tibook-icon-192.png';
+        document.getElementById('app-title').content = 'TiBook';
+        document.getElementById('theme-color').content = '#0d9488';
+      })();
+    </script>
     <title>TiMag</title>
   </head>
   <body>

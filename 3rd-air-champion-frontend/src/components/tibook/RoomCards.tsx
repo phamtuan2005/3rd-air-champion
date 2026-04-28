@@ -2,6 +2,7 @@ import { useState } from "react";
 import { roomType } from "../../util/types/roomType";
 import RoomGalleryModal from "./RoomGalleryModal";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
+import { getRoomColor } from "../../util/getRoomColor";
 
 const BACKEND = import.meta.env.VITE_BACKEND_ENDPOINT || "";
 const resolveUrl = (url: string) => url.startsWith("/") ? `${BACKEND}${url}` : url;
@@ -72,13 +73,13 @@ const RoomCard = ({
 
       {/* Name area — tap to select/filter */}
       <div
-        className="px-2 py-1.5 cursor-pointer active:bg-gray-50"
+        className="px-2 py-1.5 cursor-pointer active:bg-gray-50 flex flex-col gap-1"
         onClick={onSelect}
       >
-        <p className={`text-xs font-semibold truncate ${selected ? theme.tagText : "text-gray-800"}`}>
+        <span className={`${getRoomColor(room.name, room.color)} text-white text-xs font-semibold px-2 py-0.5 rounded self-start truncate max-w-full`}>
           {room.name}
-        </p>
-        <p className="text-[10px] text-gray-400 leading-none mt-0.5">
+        </span>
+        <p className="text-[10px] text-gray-400 leading-none">
           {selected ? "✓ selected" : "tap to select"}
         </p>
       </div>

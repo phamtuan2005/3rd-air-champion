@@ -1,0 +1,13 @@
+{
+  "name": "TiMag – TT House",
+  "short_name": "TiMag",
+  "description": "Manage your TT House property",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4f46e5",
+  "icons": [
+    { "src": "timag-icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "timag-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
