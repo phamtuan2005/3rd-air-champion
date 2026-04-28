@@ -211,7 +211,7 @@ function App() {
                 )}
 
                 {/* Content */}
-                <div className="overflow-hidden grid grid-cols-5 min-h-0">
+                <div className="overflow-hidden grid grid-cols-5 grid-rows-1 min-h-0">
                   <MainView
                     calendarId={host.calendar}
                     hostId={host.id}

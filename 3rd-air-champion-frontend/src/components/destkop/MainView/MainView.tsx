@@ -523,7 +523,7 @@ const MainView = ({
       </div>
 
       {/* Desktop side panel */}
-      <div className="hidden bg-white border-l sm:flex sm:flex-col">
+      <div className="hidden bg-white border-l sm:flex sm:flex-col min-h-0">
         {isBlockRoomsModalOpen ? (
           <BlockRoomsModal
             calendarId={calendarId}

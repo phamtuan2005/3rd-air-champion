@@ -58,6 +58,7 @@ const BookingRequestManagerModal = ({
     () => new Set(JSON.parse(sessionStorage.getItem(`clearedRequestIds_${hostId}`) || "[]")),
   );
   const [showCleared, setShowCleared] = useState(false);
+  const [historySort, setHistorySort] = useState<{ key: "guest" | "date" | "room" | "when"; dir: "asc" | "desc" }>({ key: "when", dir: "desc" });
 
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -128,12 +129,36 @@ const BookingRequestManagerModal = ({
     return format(d, "MMM d, h:mm a");
   };
 
+  const roomBoxWidth = rooms.length > 0
+    ? `${rooms.reduce((max, r) => Math.max(max, r.name.length), 0) * 4.5 + 8}px`
+    : undefined;
+
   const pending = requests.filter((r) => r.status === "pending");
   const allResolved = requests.filter((r) => r.status !== "pending");
   const resolved = showCleared
     ? allResolved
     : allResolved.filter((r) => !clearedIds.has(r.id));
   const hiddenCount = allResolved.length - resolved.length;
+  const sortedResolved = [...resolved].sort((a, b) => {
+    const dir = historySort.dir === "asc" ? 1 : -1;
+    switch (historySort.key) {
+      case "guest": {
+        const aName = (matchGuest(a.guestPhone)?.name ?? a.guestName).toLowerCase();
+        const bName = (matchGuest(b.guestPhone)?.name ?? b.guestName).toLowerCase();
+        return dir * aName.localeCompare(bName);
+      }
+      case "date":
+        return dir * (new Date(a.date).getTime() - new Date(b.date).getTime());
+      case "room": {
+        const aRoom = getRoom(a.room)?.name ?? "";
+        const bRoom = getRoom(b.room)?.name ?? "";
+        return dir * aRoom.localeCompare(bRoom);
+      }
+      case "when":
+      default:
+        return dir * (Number(a.updatedAt) - Number(b.updatedAt));
+    }
+  });
 
   // Group pending requests by normalized phone
   const pendingGroups: BookingRequest[][] = [];
@@ -206,7 +231,10 @@ const BookingRequestManagerModal = ({
             return (
               <div key={req.id} className="flex items-center gap-2 text-xs text-gray-600">
                 {room && (
-                  <span className={`${roomColorClass} text-white font-medium px-1.5 py-0.5 rounded text-[10px] shrink-0`}>
+                  <span
+                    className={`${roomColorClass} text-white font-medium py-0.5 rounded text-[10px] shrink-0 inline-block text-center whitespace-nowrap`}
+                    style={{ width: roomBoxWidth }}
+                  >
                     {room.name}
                   </span>
                 )}
@@ -255,47 +283,33 @@ const BookingRequestManagerModal = ({
           : roomColorClass.replace("bg-", "border-");
 
     return (
-      <div
-        key={req.id}
-        className={`rounded-lg border-l-4 ${resolvedBorder} bg-gray-50 opacity-70 shadow-sm p-3 flex flex-col gap-2`}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-sm text-gray-500">{displayName}</span>
-            {matched && (
-              <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
-                returning
-              </span>
-            )}
-          </div>
+      <tr key={req.id} className={`border-l-4 ${resolvedBorder} bg-gray-50 opacity-70 text-[11px] hover:opacity-100`}>
+        <td className="py-1 pl-2 pr-3 font-medium text-gray-600 max-w-[80px] truncate">{displayName}</td>
+        <td className="py-1 pr-3 text-gray-500 whitespace-nowrap">{formatDate(req.date)}</td>
+        <td className="py-1 pr-3 whitespace-nowrap">
           {room && (
-            <span className={`${roomColorClass} text-white text-xs font-medium px-2 py-0.5 rounded`}>
+            <span
+              className={`${roomColorClass} text-white font-medium py-0.5 rounded text-[10px] inline-block text-center whitespace-nowrap`}
+              style={{ width: roomBoxWidth }}
+            >
               {room.name}
             </span>
           )}
-        </div>
-        <div className="text-xs text-gray-600 flex flex-wrap gap-x-4 gap-y-1">
-          <span>{formatDate(req.date)}</span>
-          <span>{req.duration} night{req.duration > 1 ? "s" : ""}</span>
-          <span>{req.numberOfGuests} guest{req.numberOfGuests > 1 ? "s" : ""}</span>
-        </div>
-        <div className="flex items-center justify-between text-xs mt-1">
-          <span className={`font-medium ${statusColor(req.status)}`}>
-            {statusLabel(req.status)}
-          </span>
-          <span className="text-gray-400">{formatTimestamp(req.updatedAt)}</span>
-        </div>
-      </div>
+        </td>
+        <td className="py-1 pr-3 text-gray-400 whitespace-nowrap">{formatTimestamp(req.updatedAt)}</td>
+        <td className="py-1 pr-3 text-gray-400 whitespace-nowrap">{req.duration}n · {req.numberOfGuests}g</td>
+        <td className={`py-1 pr-3 font-medium whitespace-nowrap ${statusColor(req.status)}`}>{statusLabel(req.status)}</td>
+      </tr>
     );
   };
 
   return (
-    <div className="flex flex-col overflow-hidden">
+    <div className="h-full flex flex-col overflow-hidden">
       <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-gray-100 flex-shrink-0">
         <h2 className="text-base font-bold text-gray-800">Booking Requests</h2>
       </div>
 
-      <div className="overflow-y-auto max-h-[72vh] px-4 py-3">
+      <div className="flex-1 overflow-y-auto px-4 py-3">
         {loading ? (
           <p className="text-sm text-gray-500 text-center py-8">Loading...</p>
         ) : requests.length === 0 ? (
@@ -353,7 +367,30 @@ const BookingRequestManagerModal = ({
                     )}
                   </div>
                 </div>
-                {resolved.map((r) => renderResolvedCard(r))}
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="text-[10px] text-gray-400 uppercase tracking-wider border-b border-gray-200">
+                      {(["guest", "date", "room", "when"] as const).map((col) => {
+                        const labels: Record<string, string> = { guest: "Guest", date: "Date", room: "Room", when: "When" };
+                        const active = historySort.key === col;
+                        return (
+                          <th
+                            key={col}
+                            className={`pb-1 ${col === "guest" ? "pl-2" : ""} ${col === "when" ? "text-right" : "text-left"} font-medium cursor-pointer select-none hover:text-gray-600 whitespace-nowrap ${active ? "text-gray-600" : ""}`}
+                            onClick={() => setHistorySort((s) => s.key === col ? { key: col, dir: s.dir === "asc" ? "desc" : "asc" } : { key: col, dir: "asc" })}
+                          >
+                            {labels[col]}{active ? (historySort.dir === "desc" ? " ↓" : " ↑") : ""}
+                          </th>
+                        );
+                      })}
+                      <th className="pb-1 text-left font-medium">Stay</th>
+                      <th className="pb-1 text-left font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedResolved.map((r) => renderResolvedCard(r))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
