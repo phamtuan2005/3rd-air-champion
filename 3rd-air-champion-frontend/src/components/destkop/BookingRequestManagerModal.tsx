@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { roomType } from "../../util/types/roomType";
 import { guestType } from "../../util/types/guestType";
+import WishListPanel from "./WishListPanel";
 import {
   fetchBookingRequestsByHost,
   updateBookingRequestStatus,
@@ -116,9 +117,15 @@ const SwipeableHistoryRow = ({
     setOffset(Math.min(0, Math.max(offsetAtStart.current + dx, -SNAP_WIDTH)));
   };
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (e: React.TouchEvent) => {
     if (!didMove.current) {
-      setExpanded((v) => !v);
+      if (offset === -SNAP_WIDTH) {
+        e.preventDefault();
+        onDelete(req.id);
+        setOffset(0);
+      } else {
+        setExpanded((v) => !v);
+      }
       return;
     }
     setOffset(offset < -SWIPE_THRESHOLD ? -SNAP_WIDTH : 0);
@@ -127,7 +134,12 @@ const SwipeableHistoryRow = ({
   const snapping = offset === 0 || offset === -SNAP_WIDTH;
 
   return (
-    <div className={`relative overflow-hidden border-l-4 ${borderClass}`}>
+    <div
+      className={`relative overflow-hidden border-l-4 ${borderClass}`}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Delete button revealed behind */}
       <div className="absolute right-0 top-0 bottom-0 w-[72px] bg-red-500 flex items-center justify-center">
         <button
@@ -141,16 +153,12 @@ const SwipeableHistoryRow = ({
 
       {/* Swipeable row content */}
       <div
-        className="relative grid bg-gray-50 text-[11px] py-1 items-center"
+        className="relative grid bg-gray-50 text-[11px] py-2.5 items-center"
         style={{
           gridTemplateColumns,
           transform: `translateX(${offset}px)`,
           transition: snapping ? "transform 0.18s ease" : "none",
-          pointerEvents: offset === -SNAP_WIDTH ? "none" : "auto",
         }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
       >
         <div className="pl-2 pr-2 font-medium text-gray-600 truncate min-w-0">{displayName}</div>
         <div className="pr-2 text-gray-500 whitespace-nowrap">{fmtDate(req.date)}</div>
@@ -164,7 +172,7 @@ const SwipeableHistoryRow = ({
             </span>
           )}
         </div>
-        <div className="pr-2 text-gray-400 whitespace-nowrap">{fmtTimestamp(req.updatedAt)}</div>
+        <div className="pl-2 pr-2 text-gray-400 whitespace-nowrap">{fmtTimestamp(req.updatedAt)}</div>
       </div>
 
       {/* Expanded detail panel */}
@@ -176,6 +184,7 @@ const SwipeableHistoryRow = ({
             transition: snapping ? "transform 0.18s ease" : "none",
           }}
         >
+          <span className="font-semibold text-gray-700">{displayName}</span>
           <span className={`font-semibold ${statusColor(req.status)}`}>{statusLabel(req.status)}</span>
           <span className="text-gray-500">{req.duration} night{req.duration > 1 ? "s" : ""} · {req.numberOfGuests} guest{req.numberOfGuests > 1 ? "s" : ""}</span>
           <span className="text-gray-400">{req.guestPhone}</span>
@@ -197,11 +206,9 @@ const BookingRequestManagerModal = ({
   const [requests, setRequests] = useState<BookingRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingPhone, setUpdatingPhone] = useState<string | null>(null);
-  const [clearedIds, setClearedIds] = useState<Set<string>>(
-    () => new Set(JSON.parse(sessionStorage.getItem(`clearedRequestIds_${hostId}`) || "[]")),
-  );
-  const [showCleared, setShowCleared] = useState(false);
+  const [showHistory, setShowHistory] = useState(true);
   const [historySort, setHistorySort] = useState<{ key: "guest" | "date" | "room" | "when"; dir: "asc" | "desc" }>({ key: "when", dir: "desc" });
+  const [activeTab, setActiveTab] = useState<"requests" | "wishlist">("requests");
 
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -274,15 +281,11 @@ const BookingRequestManagerModal = ({
     ? `${rooms.reduce((max, r) => Math.max(max, r.name.length), 0) * 4.5 + 8}px`
     : undefined;
 
-  const gridTemplateColumns = `minmax(0,1fr) auto ${roomBoxWidth ?? "auto"} auto`;
+  const gridTemplateColumns = `minmax(0,1fr) 96px ${roomBoxWidth ?? "auto"} 115px`;
 
   const pending = requests.filter((r) => r.status === "pending");
   const allResolved = requests.filter((r) => r.status !== "pending");
-  const resolved = showCleared
-    ? allResolved
-    : allResolved.filter((r) => !clearedIds.has(r.id));
-  const hiddenCount = allResolved.length - resolved.length;
-  const sortedResolved = [...resolved].sort((a, b) => {
+  const sortedResolved = [...allResolved].sort((a, b) => {
     const dir = historySort.dir === "asc" ? 1 : -1;
     switch (historySort.key) {
       case "guest": {
@@ -399,12 +402,27 @@ const BookingRequestManagerModal = ({
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-gray-100 flex-shrink-0">
-        <h2 className="text-base font-bold text-gray-800">Booking Requests</h2>
+      <div className="flex items-center gap-3 px-4 pt-3 pb-2 border-b border-gray-100 flex-shrink-0">
+        <button
+          type="button"
+          className={`text-sm font-bold pb-0.5 border-b-2 transition-colors ${activeTab === "requests" ? "border-gray-800 text-gray-800" : "border-transparent text-gray-400 hover:text-gray-600"}`}
+          onClick={() => setActiveTab("requests")}
+        >
+          Requests
+        </button>
+        <button
+          type="button"
+          className={`text-sm font-bold pb-0.5 border-b-2 transition-colors ${activeTab === "wishlist" ? "border-amber-500 text-amber-600" : "border-transparent text-gray-400 hover:text-gray-600"}`}
+          onClick={() => setActiveTab("wishlist")}
+        >
+          Wish List
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-3">
-        {loading ? (
+        {activeTab === "wishlist" ? (
+          <WishListPanel hostId={hostId} token={token} />
+        ) : loading ? (
           <p className="text-sm text-gray-500 text-center py-8">Loading...</p>
         ) : requests.length === 0 ? (
           <p className="text-sm text-gray-500 text-center py-8">
@@ -420,83 +438,55 @@ const BookingRequestManagerModal = ({
                 {pendingGroups.map((group) => renderPendingGroup(group))}
               </div>
             )}
-            {(resolved.length > 0 || hiddenCount > 0) && (
+            {allResolved.length > 0 && (
               <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                    History {resolved.length > 0 && `(${resolved.length})`}
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    {clearedIds.size > 0 && (
-                      <button
-                        type="button"
-                        className="text-[10px] text-blue-400 hover:text-blue-600 transition-colors"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowCleared((v) => !v);
-                        }}
-                      >
-                        {showCleared ? "Hide cleared" : `Show cleared (${hiddenCount})`}
-                      </button>
-                    )}
-                    {resolved.length > 0 && !showCleared && (
-                      <button
-                        type="button"
-                        className="text-[10px] text-gray-400 hover:text-red-400 transition-colors"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const newIds = new Set([
-                            ...clearedIds,
-                            ...resolved.map((r) => r.id),
-                          ]);
-                          sessionStorage.setItem(
-                            `clearedRequestIds_${hostId}`,
-                            JSON.stringify([...newIds]),
-                          );
-                          setClearedIds(newIds);
-                        }}
-                      >
-                        Clear
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Column headers */}
-                <div
-                  className="grid text-[10px] text-gray-400 uppercase tracking-wider border-b border-gray-200 pb-1 items-end"
-                  style={{ gridTemplateColumns }}
+                <button
+                  type="button"
+                  className="flex items-center gap-1 text-xs font-bold text-gray-400 uppercase tracking-wider hover:text-gray-600 transition-colors select-none w-fit"
+                  onClick={() => setShowHistory((v) => !v)}
                 >
-                  {(["guest", "date", "room", "when"] as const).map((col) => {
-                    const labels: Record<string, string> = { guest: "Guest", date: "Date", room: "Room", when: "When" };
-                    const active = historySort.key === col;
-                    return (
-                      <div
-                        key={col}
-                        className={`${col === "guest" ? "pl-2" : ""} pr-2 font-medium cursor-pointer select-none hover:text-gray-600 whitespace-nowrap ${active ? "text-gray-600" : ""}`}
-                        onClick={() => setHistorySort((s) => s.key === col ? { key: col, dir: s.dir === "asc" ? "desc" : "asc" } : { key: col, dir: "asc" })}
-                      >
-                        {labels[col]}{active ? (historySort.dir === "desc" ? " ↓" : " ↑") : ""}
-                      </div>
-                    );
-                  })}
-                </div>
+                  History ({allResolved.length})
+                </button>
 
-                {/* Swipeable rows */}
-                <div className="flex flex-col">
-                  {sortedResolved.map((req) => (
-                    <SwipeableHistoryRow
-                      key={req.id}
-                      req={req}
-                      rooms={rooms}
-                      guests={guests}
-                      roomBoxWidth={roomBoxWidth}
-                      timeZone={timeZone}
-                      gridTemplateColumns={gridTemplateColumns}
-                      onDelete={handleDelete}
-                    />
-                  ))}
-                </div>
+                {showHistory && (
+                  <>
+                    {/* Column headers */}
+                    <div
+                      className="grid text-[10px] text-gray-400 uppercase tracking-wider border-b border-gray-200 border-l-4 border-l-transparent pb-1 items-end"
+                      style={{ gridTemplateColumns }}
+                    >
+                      {(["guest", "date", "room", "when"] as const).map((col) => {
+                        const labels: Record<string, string> = { guest: "Guest", date: "Date", room: "Room", when: "When" };
+                        const active = historySort.key === col;
+                        return (
+                          <div
+                            key={col}
+                            className={`${col === "guest" || col === "when" ? "pl-2" : ""} pr-2 font-medium cursor-pointer select-none hover:text-gray-600 whitespace-nowrap ${active ? "text-gray-600" : ""}`}
+                            onClick={() => setHistorySort((s) => s.key === col ? { key: col, dir: s.dir === "asc" ? "desc" : "asc" } : { key: col, dir: "asc" })}
+                          >
+                            {labels[col]}{active ? (historySort.dir === "desc" ? " ↓" : " ↑") : ""}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Swipeable rows */}
+                    <div className="flex flex-col">
+                      {sortedResolved.map((req) => (
+                        <SwipeableHistoryRow
+                          key={req.id}
+                          req={req}
+                          rooms={rooms}
+                          guests={guests}
+                          roomBoxWidth={roomBoxWidth}
+                          timeZone={timeZone}
+                          gridTemplateColumns={gridTemplateColumns}
+                          onDelete={handleDelete}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>

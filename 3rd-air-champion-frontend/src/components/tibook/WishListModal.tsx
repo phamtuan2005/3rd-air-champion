@@ -1,0 +1,118 @@
+import { useState } from "react";
+import { format, parseISO } from "date-fns";
+import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
+import { toggleWishListDate } from "../../util/wishListOperations";
+
+interface WishListModalProps {
+  hostId: string;
+  date: string; // YYYY-MM-DD
+  isWishlisted: boolean;
+  savedPhone: string;
+  savedName: string;
+  onClose: () => void;
+  onSuccess: (phone: string, name: string, newDates: string[]) => void;
+}
+
+const WishListModal = ({
+  hostId,
+  date,
+  isWishlisted,
+  savedPhone,
+  savedName,
+  onClose,
+  onSuccess,
+}: WishListModalProps) => {
+  const { theme } = useTiBookTheme();
+  const [phone, setPhone] = useState(savedPhone);
+  const [name, setName] = useState(savedName);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const needsIdentity = !savedPhone;
+  const formattedDate = format(parseISO(date), "EEE, MMM d yyyy");
+
+  const handleSubmit = async () => {
+    if (!phone.trim() || !name.trim()) {
+      setError("Please enter your name and phone number.");
+      return;
+    }
+    setError("");
+    setLoading(true);
+    try {
+      const result = await toggleWishListDate({
+        host: hostId,
+        guestPhone: phone.trim(),
+        guestName: name.trim(),
+        date,
+      });
+      onSuccess(phone.trim(), name.trim(), result.dates);
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm p-5 flex flex-col gap-4 shadow-xl">
+        <div className="flex items-center justify-between">
+          <h2 className={`font-bold text-base ${theme.textPrimaryDark}`}>
+            {isWishlisted ? "Remove from Wish List" : "Add to Wish List"}
+          </h2>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">
+            ×
+          </button>
+        </div>
+
+        <div className={`${theme.tagBg} ${theme.tagBorder} border rounded-xl px-4 py-2.5`}>
+          <p className="text-sm font-semibold text-gray-700">{formattedDate}</p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {isWishlisted
+              ? "This date is on your wish list. Tap below to remove it."
+              : "Sold out for now — we'll keep this date saved for you."}
+          </p>
+        </div>
+
+        {needsIdentity && (
+          <div className="flex flex-col gap-2">
+            <input
+              type="text"
+              placeholder="Your name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className={`border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 ${theme.focusRing}`}
+            />
+            <input
+              type="tel"
+              placeholder="Your phone number"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className={`border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 ${theme.focusRing}`}
+            />
+          </div>
+        )}
+
+        {error && <p className="text-xs text-red-500">{error}</p>}
+
+        <button
+          type="button"
+          disabled={loading}
+          onClick={handleSubmit}
+          className={`w-full py-3 rounded-xl text-white text-sm font-semibold ${
+            isWishlisted ? "bg-red-400 hover:bg-red-500" : `${theme.btn} ${theme.btnHover}`
+          } disabled:opacity-50 transition-colors`}
+        >
+          {loading
+            ? "..."
+            : isWishlisted
+            ? "Remove from Wish List"
+            : "Save to Wish List"}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default WishListModal;

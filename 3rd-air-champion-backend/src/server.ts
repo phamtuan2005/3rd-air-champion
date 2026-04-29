@@ -15,6 +15,7 @@ import dayRoute from "./route/dayRoute";
 import hostRoute from "./route/hostRoute";
 import syncRoute from "./route/syncRoute";
 import bookingRequestRoute from "./route/bookingRequestRoute";
+import wishListRoute from "./route/wishListRoute";
 import { authenticateToken } from "./middleware/authenticateJWT";
 import cors from "cors";
 
@@ -85,6 +86,7 @@ const startServer = async () => {
     // Public routes
     app.use("/auth", authorizationRoute);
     app.use("/booking-request", bookingRequestRoute);
+    app.use("/wish-list", wishListRoute);
 
     // Authenticate all paths from now on
     app.use(authenticateToken as any);

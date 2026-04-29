@@ -11,9 +11,11 @@ interface GuestCalendarProps {
   rooms: roomType[];
   selectedRoomIds: Set<string> | null;
   cartDates: Map<string, string | null>;
+  wishListDates?: Set<string>;
   scrollToTodayTrigger?: number;
   onMonthChange?: (month: Date) => void;
   onDateClick?: (date: Date) => void;
+  onWishListClick?: (date: Date) => void;
 }
 
 const NUM_ROWS = 6;
@@ -46,9 +48,11 @@ const GuestCalendar = ({
   rooms,
   selectedRoomIds,
   cartDates,
+  wishListDates,
   scrollToTodayTrigger = 0,
   onMonthChange,
   onDateClick,
+  onWishListClick,
 }: GuestCalendarProps) => {
   const { theme } = useTiBookTheme();
   const [months, setMonths] = useState<Date[]>([]);
@@ -186,7 +190,19 @@ const GuestCalendar = ({
           </span>
         )}
         {!inCart && (status === "full" || status === "blocked") && (
-          <span className="text-[9px] text-gray-300 leading-none">sold out</span>
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="text-[9px] text-gray-300 leading-none">sold out</span>
+            {onWishListClick && (
+              <button
+                type="button"
+                className="text-[11px] leading-none z-10 relative"
+                title={wishListDates?.has(dateKey) ? "Remove from wish list" : "Add to wish list"}
+                onClick={(e) => { e.stopPropagation(); onWishListClick(date); }}
+              >
+                {wishListDates?.has(dateKey) ? "★" : "☆"}
+              </button>
+            )}
+          </div>
         )}
         {inCart && (
           <span className="text-[9px] text-white/70 leading-none relative z-10">✓</span>

@@ -15,6 +15,8 @@ import { toZonedTime } from "date-fns-tz";
 import { fetchRooms } from "../util/roomOperations";
 import BookingRequestModal from "../components/tibook/BookingRequestModal";
 import RoomCards from "../components/tibook/RoomCards";
+import WishListModal from "../components/tibook/WishListModal";
+import { getGuestWishList } from "../util/wishListOperations";
 
 const TiBookInner = () => {
   const { theme } = useTiBookTheme();
@@ -33,6 +35,10 @@ const TiBookInner = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedRoomIds, setSelectedRoomIds] = useState<Set<string> | null>(null);
   const [cartDates, setCartDates] = useState<Map<string, string | null>>(new Map());
+  const [wishListDates, setWishListDates] = useState<Set<string>>(new Set());
+  const [wishListDate, setWishListDate] = useState<string | null>(null);
+  const [guestPhone, setGuestPhone] = useState(() => localStorage.getItem("tiBookGuestPhone") ?? "");
+  const [guestName, setGuestName] = useState(() => localStorage.getItem("tiBookGuestName") ?? "");
   const cohostNames = (import.meta.env.VITE_TI_BOOK_COHOST_NAMES as string | undefined)?.split(',').map((s) => s.trim()).filter(Boolean) ?? [];
 
   const handleToggleRoom = (id: string) => {
@@ -117,6 +123,28 @@ const TiBookInner = () => {
     });
   };
 
+  // Load wish list when guest phone is already known and host is ready
+  useEffect(() => {
+    if (!guestPhone || !currentHost) return;
+    getGuestWishList(currentHost.id, guestPhone)
+      .then((result) => setWishListDates(new Set(result.dates)))
+      .catch(() => {});
+  }, [guestPhone, currentHost]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleWishListClick = (date: Date) => {
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    setWishListDate(key);
+  };
+
+  const handleWishListSuccess = (phone: string, name: string, newDates: string[]) => {
+    localStorage.setItem("tiBookGuestPhone", phone);
+    localStorage.setItem("tiBookGuestName", name);
+    setGuestPhone(phone);
+    setGuestName(name);
+    setWishListDates(new Set(newDates));
+    setWishListDate(null);
+  };
+
   const findFirstAvailableDate = (month: Date): Date => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -164,9 +192,11 @@ const TiBookInner = () => {
           rooms={rooms}
           selectedRoomIds={selectedRoomIds}
           cartDates={cartDates}
+          wishListDates={wishListDates}
           scrollToTodayTrigger={scrollToTodayTrigger}
           onMonthChange={setCurrentMonth}
           onDateClick={toggleCartDate}
+          onWishListClick={handleWishListClick}
         />
       ) : (
         <div className="flex flex-col items-center justify-center flex-1">
@@ -188,6 +218,18 @@ const TiBookInner = () => {
             Review Request →
           </button>
         </div>
+      )}
+
+      {wishListDate && currentHost && (
+        <WishListModal
+          hostId={currentHost.id}
+          date={wishListDate}
+          isWishlisted={wishListDates.has(wishListDate)}
+          savedPhone={guestPhone}
+          savedName={guestName}
+          onClose={() => setWishListDate(null)}
+          onSuccess={handleWishListSuccess}
+        />
       )}
 
       {isBookingModalOpen && currentHost && (
