@@ -242,6 +242,7 @@ const BookingRequestManagerModal = ({
   }, [hostId, token]);
 
   const availableBadge = countAvailableWishListEntries(wishListEntries, monthMap, rooms);
+  const totalWishListBadge = wishListEntries.filter((e) => e.dates.length > 0).length;
 
   const fmtAddDate = (d: string) => {
     const date = new Date(`${d}T12:00:00`);
@@ -519,9 +520,9 @@ const BookingRequestManagerModal = ({
           onClick={() => setActiveTab("wishlist")}
         >
           Wish List
-          {availableBadge > 0 && (
-            <span className="bg-green-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
-              {availableBadge}
+          {totalWishListBadge > 0 && (
+            <span className={`text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${availableBadge > 0 ? "bg-green-500" : "bg-amber-400"}`}>
+              {totalWishListBadge}
             </span>
           )}
         </button>
