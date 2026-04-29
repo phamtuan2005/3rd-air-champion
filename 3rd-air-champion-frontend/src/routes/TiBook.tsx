@@ -15,7 +15,6 @@ import { toZonedTime } from "date-fns-tz";
 import { fetchRooms } from "../util/roomOperations";
 import BookingRequestModal from "../components/tibook/BookingRequestModal";
 import RoomCards from "../components/tibook/RoomCards";
-import WishListModal from "../components/tibook/WishListModal";
 import WishListSummarySheet from "../components/tibook/WishListSummarySheet";
 import { getGuestWishList } from "../util/wishListOperations";
 
@@ -37,7 +36,6 @@ const TiBookInner = () => {
   const [selectedRoomIds, setSelectedRoomIds] = useState<Set<string> | null>(null);
   const [cartDates, setCartDates] = useState<Map<string, string | null>>(new Map());
   const [wishListDates, setWishListDates] = useState<Set<string>>(new Set());
-  const [wishListDate, setWishListDate] = useState<string | null>(null);
   const [wishListSummaryOpen, setWishListSummaryOpen] = useState(false);
   const [guestPhone, setGuestPhone] = useState(() => localStorage.getItem("tiBookGuestPhone") ?? "");
   const [guestName, setGuestName] = useState(() => localStorage.getItem("tiBookGuestName") ?? "");
@@ -135,16 +133,21 @@ const TiBookInner = () => {
 
   const handleWishListClick = (date: Date) => {
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-    setWishListDate(key);
+    setWishListDates((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   };
 
-  const handleWishListSuccess = (phone: string, name: string, newDates: string[]) => {
+  const handleSendSuccess = (phone: string, name: string, newDates: string[]) => {
     localStorage.setItem("tiBookGuestPhone", phone);
     localStorage.setItem("tiBookGuestName", name);
     setGuestPhone(phone);
     setGuestName(name);
     setWishListDates(new Set(newDates));
-    setWishListDate(null);
+    setWishListSummaryOpen(false);
   };
 
   const findFirstAvailableDate = (month: Date): Date => {
@@ -237,25 +240,15 @@ const TiBookInner = () => {
         </div>
       )}
 
-      {wishListSummaryOpen && (
+      {wishListSummaryOpen && currentHost && (
         <WishListSummarySheet
+          hostId={currentHost.id}
           wishListDates={wishListDates}
           guestPhone={guestPhone}
           guestName={guestName}
           onClose={() => setWishListSummaryOpen(false)}
-          onDateClick={(date) => { setWishListDate(date); }}
-        />
-      )}
-
-      {wishListDate && currentHost && (
-        <WishListModal
-          hostId={currentHost.id}
-          date={wishListDate}
-          isWishlisted={wishListDates.has(wishListDate)}
-          savedPhone={guestPhone}
-          savedName={guestName}
-          onClose={() => setWishListDate(null)}
-          onSuccess={handleWishListSuccess}
+          onToggleDate={(date) => setWishListDates((prev) => { const next = new Set(prev); if (next.has(date)) next.delete(date); else next.add(date); return next; })}
+          onSendSuccess={handleSendSuccess}
         />
       )}
 

@@ -3,6 +3,35 @@ import WishList from "../model/wishListSchema";
 
 const router = express.Router();
 
+// Public — set (replace) all wish list dates for a guest at once
+router.post("/set", async (req: Request, res: any) => {
+  const { host, guestPhone, guestName, dates } = req.body;
+  if (!host || !guestPhone || !guestName || !Array.isArray(dates)) {
+    return res.status(400).json({ error: "host, guestPhone, guestName, and dates[] are required" });
+  }
+
+  const targetDates = dates.map((d: string) => {
+    const date = new Date(`${d}T12:00:00Z`);
+    date.setUTCHours(0, 0, 0, 0);
+    return date;
+  });
+
+  try {
+    let entry = await WishList.findOne({ host, guestPhone });
+    if (!entry) {
+      entry = await WishList.create({ host, guestPhone, guestName, dates: targetDates });
+    } else {
+      entry.dates = targetDates as any;
+      if (entry.guestName !== guestName) entry.guestName = guestName;
+      await entry.save();
+    }
+    const dateStrings = entry.dates.map((d) => new Date(d).toISOString().split("T")[0]);
+    res.status(200).json({ dates: dateStrings });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Public — toggle a single date in/out of a guest's wish list
 router.post("/toggle", async (req: Request, res: any) => {
   const { host, guestPhone, guestName, date } = req.body;

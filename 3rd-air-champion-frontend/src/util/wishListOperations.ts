@@ -58,6 +58,16 @@ export const updateWishListStatus = async (
   );
 };
 
+export const setGuestWishList = async (data: {
+  host: string;
+  guestPhone: string;
+  guestName: string;
+  dates: string[];
+}): Promise<{ dates: string[] }> => {
+  const response = await axios.post(`${BACKEND_ENDPOINT}/wish-list/set`, data);
+  return response.data;
+};
+
 export const deleteWishListEntry = async (id: string, token: string): Promise<void> => {
   await axios.delete(`${BACKEND_ENDPOINT}/wish-list/${id}`, {
     headers: { Authorization: `Bearer ${token}` },
