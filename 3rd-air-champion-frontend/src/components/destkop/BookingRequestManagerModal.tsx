@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { roomType } from "../../util/types/roomType";
 import { guestType } from "../../util/types/guestType";
 import WishListPanel, { countAvailableWishListEntries } from "./WishListPanel";
-import { WishListEntry, WishListStatus, getHostWishLists } from "../../util/wishListOperations";
+import { WishListEntry, WishListStatus, getHostWishLists, setGuestWishList } from "../../util/wishListOperations";
 import { dayType } from "../../util/types/dayType";
 import {
   fetchBookingRequestsByHost,
@@ -217,6 +217,13 @@ const BookingRequestManagerModal = ({
   const [activeTab, setActiveTab] = useState<"requests" | "wishlist">("requests");
   const [wishListEntries, setWishListEntries] = useState<WishListEntry[]>([]);
   const [wishListLoading, setWishListLoading] = useState(true);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addPhone, setAddPhone] = useState("");
+  const [addName, setAddName] = useState("");
+  const [addDates, setAddDates] = useState<string[]>([]);
+  const [addSaving, setAddSaving] = useState(false);
+  const [addError, setAddError] = useState("");
+  const [nameSuggestions, setNameSuggestions] = useState<guestType[]>([]);
 
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -235,6 +242,77 @@ const BookingRequestManagerModal = ({
   }, [hostId, token]);
 
   const availableBadge = countAvailableWishListEntries(wishListEntries, monthMap, rooms);
+
+  const fmtAddDate = (d: string) => {
+    const date = new Date(`${d}T12:00:00`);
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+
+  const handleAddPhoneChange = (phone: string) => {
+    setAddPhone(phone);
+    const normalized = phone.replace(/\D/g, "");
+    if (normalized.length >= 10) {
+      const found = guests.find((g) => g.phone.replace(/\D/g, "") === normalized);
+      if (found) { setAddName(found.name); setNameSuggestions([]); }
+    }
+  };
+
+  const handleAddNameChange = (name: string) => {
+    setAddName(name);
+    if (!name.trim()) { setNameSuggestions([]); return; }
+    const q = name.toLowerCase();
+    setNameSuggestions(
+      guests.filter(
+        (g) => g.name.toLowerCase().includes(q) || (g.alias && g.alias.toLowerCase().includes(q)),
+      ).slice(0, 6),
+    );
+  };
+
+  const handleSelectGuest = (g: guestType) => {
+    setAddName(g.name);
+    setAddPhone(g.phone);
+    setNameSuggestions([]);
+  };
+
+  const handleAddDate = (dateStr: string) => {
+    if (!dateStr || addDates.includes(dateStr)) return;
+    setAddDates((prev) => [...prev, dateStr].sort());
+  };
+
+  const handleAddWishList = async () => {
+    if (!addPhone.trim() || !addName.trim() || addDates.length === 0) {
+      setAddError("Please enter phone, name, and at least one date.");
+      return;
+    }
+    setAddSaving(true);
+    setAddError("");
+    try {
+      const normalizedPhone = addPhone.replace(/\D/g, "");
+      const existing = wishListEntries.find(
+        (e) => e.guestPhone.replace(/\D/g, "") === normalizedPhone,
+      );
+      const mergedDates = existing
+        ? [...new Set([...existing.dates, ...addDates])].sort()
+        : [...addDates];
+      await setGuestWishList({
+        host: hostId,
+        guestPhone: normalizedPhone,
+        guestName: addName.trim(),
+        dates: mergedDates,
+      });
+      const updated = await getHostWishLists(hostId, token);
+      setWishListEntries(updated);
+      setShowAddForm(false);
+      setAddPhone("");
+      setAddName("");
+      setAddDates([]);
+      setNameSuggestions([]);
+    } catch {
+      setAddError("Failed to save. Please try again.");
+    } finally {
+      setAddSaving(false);
+    }
+  };
 
   const handleWishListStatusChange = (id: string, status: WishListStatus) => {
     setWishListEntries((prev) => prev.map((e) => (e.id === id ? { ...e, status } : e)));
@@ -451,15 +529,96 @@ const BookingRequestManagerModal = ({
 
       <div className="flex-1 overflow-y-auto px-4 py-3">
         {activeTab === "wishlist" ? (
-          <WishListPanel
-            token={token}
-            entries={wishListEntries}
-            loading={wishListLoading}
-            monthMap={monthMap}
-            rooms={rooms}
-            onStatusChange={handleWishListStatusChange}
-            onDelete={handleWishListDelete}
-          />
+          <>
+            <div className="flex justify-end mb-3">
+              <button
+                type="button"
+                onClick={() => { setShowAddForm((v) => !v); setAddError(""); setNameSuggestions([]); }}
+                className="text-xs font-semibold text-amber-600 hover:text-amber-800"
+              >
+                {showAddForm ? "Cancel" : "+ Add"}
+              </button>
+            </div>
+
+            {showAddForm && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3 flex flex-col gap-2">
+                <input
+                  type="tel"
+                  placeholder="Guest phone"
+                  value={addPhone}
+                  onChange={(e) => handleAddPhoneChange(e.target.value)}
+                  className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:border-amber-400"
+                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Guest name"
+                    value={addName}
+                    onChange={(e) => handleAddNameChange(e.target.value)}
+                    className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:border-amber-400"
+                  />
+                  {nameSuggestions.length > 0 && (
+                    <div className="absolute z-10 top-full left-0 right-0 bg-white border border-gray-200 rounded shadow-md mt-0.5 overflow-hidden">
+                      {nameSuggestions.map((g) => (
+                        <button
+                          key={g.id}
+                          type="button"
+                          onMouseDown={() => handleSelectGuest(g)}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-amber-50 flex items-center justify-between gap-2"
+                        >
+                          <span className="font-medium text-gray-800">{g.name}</span>
+                          <span className="text-[11px] text-gray-400 shrink-0">{g.phone}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <input
+                  type="date"
+                  onChange={(e) => { handleAddDate(e.target.value); e.currentTarget.value = ""; }}
+                  className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:border-amber-400"
+                />
+                {addDates.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {addDates.map((d) => (
+                      <span
+                        key={d}
+                        className="bg-amber-100 border border-amber-300 text-amber-800 text-[11px] font-medium px-2 py-0.5 rounded-full flex items-center gap-1"
+                      >
+                        {fmtAddDate(d)}
+                        <button
+                          type="button"
+                          onClick={() => setAddDates((prev) => prev.filter((x) => x !== d))}
+                          className="text-amber-500 hover:text-amber-800 leading-none"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {addError && <p className="text-xs text-red-500">{addError}</p>}
+                <button
+                  type="button"
+                  disabled={addSaving}
+                  onClick={handleAddWishList}
+                  className="bg-amber-500 text-white text-xs font-semibold py-1.5 rounded hover:bg-amber-600 disabled:opacity-50"
+                >
+                  {addSaving ? "Saving…" : "Save"}
+                </button>
+              </div>
+            )}
+
+            <WishListPanel
+              token={token}
+              entries={wishListEntries}
+              loading={wishListLoading}
+              monthMap={monthMap}
+              rooms={rooms}
+              onStatusChange={handleWishListStatusChange}
+              onDelete={handleWishListDelete}
+            />
+          </>
         ) : loading ? (
           <p className="text-sm text-gray-500 text-center py-8">Loading...</p>
         ) : requests.length === 0 ? (
