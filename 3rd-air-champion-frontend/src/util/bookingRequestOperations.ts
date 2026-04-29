@@ -30,6 +30,15 @@ export const fetchBookingRequestsByHost = async (
   return response.data;
 };
 
+export const deleteBookingRequest = async (id: string, token: string) => {
+  const response = await axios.post(
+    `${BACKEND_ENDPOINT}/booking-request/delete`,
+    { id },
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return response.data;
+};
+
 export const updateBookingRequestStatus = async (
   id: string,
   status: string,

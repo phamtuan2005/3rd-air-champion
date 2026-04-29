@@ -37,7 +37,8 @@ export const bookingRequestResolvers = {
       );
     },
     deleteBookingRequest: async (_: unknown, { _id }: any) => {
-      return await BookingRequest.findByIdAndDelete(_id);
+      const deleted = await BookingRequest.findByIdAndDelete(_id);
+      return deleted !== null;
     },
   },
 };

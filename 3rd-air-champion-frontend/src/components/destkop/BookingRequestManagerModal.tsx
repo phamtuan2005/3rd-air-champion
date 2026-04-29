@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { roomType } from "../../util/types/roomType";
 import { guestType } from "../../util/types/guestType";
 import {
   fetchBookingRequestsByHost,
   updateBookingRequestStatus,
+  deleteBookingRequest,
 } from "../../util/bookingRequestOperations";
 import { getRoomColor } from "../../util/getRoomColor";
 import { format } from "date-fns";
@@ -18,6 +19,7 @@ export interface BookingRequest {
   duration: number;
   numberOfGuests: number;
   status: "pending" | "confirmed" | "cancelled" | "expired";
+  notes?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -42,6 +44,147 @@ interface BookingRequestManagerModalProps {
   ) => void;
   onAddGuest: (guest: { name: string; phone: string }) => void;
 }
+
+const SNAP_WIDTH = 72;
+const SWIPE_THRESHOLD = 32;
+
+const statusLabel = (status: string) => {
+  if (status === "confirmed") return "Accepted";
+  if (status === "cancelled") return "Declined";
+  return status.charAt(0).toUpperCase() + status.slice(1);
+};
+
+const statusColor = (status: string) => {
+  if (status === "confirmed") return "text-green-600";
+  if (status === "cancelled") return "text-red-500";
+  return "text-gray-500";
+};
+
+interface SwipeableHistoryRowProps {
+  req: BookingRequest;
+  rooms: roomType[];
+  guests: guestType[];
+  roomBoxWidth: string | undefined;
+  timeZone: string;
+  gridTemplateColumns: string;
+  onDelete: (id: string) => void;
+}
+
+const SwipeableHistoryRow = ({
+  req,
+  rooms,
+  guests,
+  roomBoxWidth,
+  timeZone,
+  gridTemplateColumns,
+  onDelete,
+}: SwipeableHistoryRowProps) => {
+  const [offset, setOffset] = useState(0);
+  const [expanded, setExpanded] = useState(false);
+  const touchStartX = useRef(0);
+  const offsetAtStart = useRef(0);
+  const didMove = useRef(false);
+
+  const room = rooms.find((r) => r.id === req.room);
+  const matched = guests.find(
+    (g) => g.phone.replace(/\D/g, "") === req.guestPhone.replace(/\D/g, ""),
+  );
+  const displayName = matched?.name ?? req.guestName;
+  const roomColorClass = room ? getRoomColor(room.name, room.color) : "bg-gray-400";
+  const borderClass =
+    req.status === "confirmed"
+      ? "border-green-500"
+      : req.status === "cancelled"
+        ? "border-red-400"
+        : roomColorClass.replace("bg-", "border-");
+
+  const fmtDate = (dateStr: string) =>
+    format(toZonedTime(dateStr, timeZone), "EEE, MMM d yyyy");
+
+  const fmtTimestamp = (dateStr: string) =>
+    format(toZonedTime(new Date(Number(dateStr)), timeZone), "MMM d, h:mm a");
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    offsetAtStart.current = offset;
+    didMove.current = false;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const dx = e.touches[0].clientX - touchStartX.current;
+    if (Math.abs(dx) > 5) didMove.current = true;
+    setOffset(Math.min(0, Math.max(offsetAtStart.current + dx, -SNAP_WIDTH)));
+  };
+
+  const handleTouchEnd = () => {
+    if (!didMove.current) {
+      setExpanded((v) => !v);
+      return;
+    }
+    setOffset(offset < -SWIPE_THRESHOLD ? -SNAP_WIDTH : 0);
+  };
+
+  const snapping = offset === 0 || offset === -SNAP_WIDTH;
+
+  return (
+    <div className={`relative overflow-hidden border-l-4 ${borderClass}`}>
+      {/* Delete button revealed behind */}
+      <div className="absolute right-0 top-0 bottom-0 w-[72px] bg-red-500 flex items-center justify-center">
+        <button
+          type="button"
+          className="text-white text-xs font-semibold w-full h-full"
+          onClick={() => onDelete(req.id)}
+        >
+          Delete
+        </button>
+      </div>
+
+      {/* Swipeable row content */}
+      <div
+        className="relative grid bg-gray-50 text-[11px] py-1 items-center"
+        style={{
+          gridTemplateColumns,
+          transform: `translateX(${offset}px)`,
+          transition: snapping ? "transform 0.18s ease" : "none",
+          pointerEvents: offset === -SNAP_WIDTH ? "none" : "auto",
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div className="pl-2 pr-2 font-medium text-gray-600 truncate min-w-0">{displayName}</div>
+        <div className="pr-2 text-gray-500 whitespace-nowrap">{fmtDate(req.date)}</div>
+        <div className="pr-2 whitespace-nowrap">
+          {room && (
+            <span
+              className={`${roomColorClass} text-white font-medium py-0.5 rounded text-[10px] inline-block text-center whitespace-nowrap`}
+              style={{ width: roomBoxWidth }}
+            >
+              {room.name}
+            </span>
+          )}
+        </div>
+        <div className="pr-2 text-gray-400 whitespace-nowrap">{fmtTimestamp(req.updatedAt)}</div>
+      </div>
+
+      {/* Expanded detail panel */}
+      {expanded && (
+        <div
+          className="bg-white border-t border-gray-100 px-3 py-2 text-[11px] flex flex-wrap gap-x-4 gap-y-0.5"
+          style={{
+            transform: `translateX(${offset}px)`,
+            transition: snapping ? "transform 0.18s ease" : "none",
+          }}
+        >
+          <span className={`font-semibold ${statusColor(req.status)}`}>{statusLabel(req.status)}</span>
+          <span className="text-gray-500">{req.duration} night{req.duration > 1 ? "s" : ""} · {req.numberOfGuests} guest{req.numberOfGuests > 1 ? "s" : ""}</span>
+          <span className="text-gray-400">{req.guestPhone}</span>
+          {req.notes && <span className="text-gray-400 w-full">{req.notes}</span>}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const BookingRequestManagerModal = ({
   hostId,
@@ -95,6 +238,11 @@ const BookingRequestManagerModal = ({
     );
   };
 
+  const handleDelete = (id: string) => {
+    setRequests((prev) => prev.filter((r) => r.id !== id));
+    deleteBookingRequest(id, token).catch(() => {});
+  };
+
   const handleDeclineGroup = async (group: BookingRequest[]) => {
     const phone = normalizePhone(group[0].guestPhone);
     setUpdatingPhone(phone);
@@ -119,19 +267,14 @@ const BookingRequestManagerModal = ({
     }
   };
 
-  const formatDate = (dateStr: string) => {
-    const d = toZonedTime(dateStr, timeZone);
-    return format(d, "EEE, MMM d yyyy");
-  };
-
-  const formatTimestamp = (dateStr: string) => {
-    const d = toZonedTime(new Date(Number(dateStr)), timeZone);
-    return format(d, "MMM d, h:mm a");
-  };
+  const formatDate = (dateStr: string) =>
+    format(toZonedTime(dateStr, timeZone), "EEE, MMM d yyyy");
 
   const roomBoxWidth = rooms.length > 0
     ? `${rooms.reduce((max, r) => Math.max(max, r.name.length), 0) * 4.5 + 8}px`
     : undefined;
+
+  const gridTemplateColumns = `minmax(0,1fr) auto ${roomBoxWidth ?? "auto"} auto`;
 
   const pending = requests.filter((r) => r.status === "pending");
   const allResolved = requests.filter((r) => r.status !== "pending");
@@ -171,18 +314,6 @@ const BookingRequestManagerModal = ({
     }
   }
 
-  const statusLabel = (status: string) => {
-    if (status === "confirmed") return "Accepted";
-    if (status === "cancelled") return "Declined";
-    return status.charAt(0).toUpperCase() + status.slice(1);
-  };
-
-  const statusColor = (status: string) => {
-    if (status === "confirmed") return "text-green-600";
-    if (status === "cancelled") return "text-red-500";
-    return "text-gray-500";
-  };
-
   const renderPendingGroup = (group: BookingRequest[]) => {
     const first = group[0];
     const matched = matchGuest(first.guestPhone);
@@ -190,7 +321,6 @@ const BookingRequestManagerModal = ({
     const phone = normalizePhone(first.guestPhone);
     const isUpdating = updatingPhone === phone;
 
-    // Use the first request's room color for the left border
     const firstRoom = getRoom(first.room);
     const borderClass = firstRoom
       ? getRoomColor(firstRoom.name, firstRoom.color).replace("bg-", "border-")
@@ -201,7 +331,6 @@ const BookingRequestManagerModal = ({
         key={phone}
         className={`rounded-lg border-l-4 ${borderClass} bg-white shadow-sm p-3 flex flex-col gap-2`}
       >
-        {/* Guest header */}
         <div className="flex items-center gap-2">
           <span className="font-semibold text-sm">{displayName}</span>
           {matched ? (
@@ -223,7 +352,6 @@ const BookingRequestManagerModal = ({
           <span className="text-[10px] text-gray-400 ml-auto">{first.guestPhone}</span>
         </div>
 
-        {/* Date rows */}
         <div className="flex flex-col gap-1">
           {group.map((req) => {
             const room = getRoom(req.room);
@@ -247,7 +375,6 @@ const BookingRequestManagerModal = ({
           })}
         </div>
 
-        {/* Accept / Decline */}
         <div className="flex gap-2 mt-1">
           <button
             type="button"
@@ -267,39 +394,6 @@ const BookingRequestManagerModal = ({
           </button>
         </div>
       </div>
-    );
-  };
-
-  const renderResolvedCard = (req: BookingRequest) => {
-    const room = getRoom(req.room);
-    const matched = matchGuest(req.guestPhone);
-    const displayName = matched?.name ?? req.guestName;
-    const roomColorClass = room ? getRoomColor(room.name, room.color) : "bg-gray-400";
-    const resolvedBorder =
-      req.status === "confirmed"
-        ? "border-green-500"
-        : req.status === "cancelled"
-          ? "border-red-400"
-          : roomColorClass.replace("bg-", "border-");
-
-    return (
-      <tr key={req.id} className={`border-l-4 ${resolvedBorder} bg-gray-50 opacity-70 text-[11px] hover:opacity-100`}>
-        <td className="py-1 pl-2 pr-3 font-medium text-gray-600 max-w-[80px] truncate">{displayName}</td>
-        <td className="py-1 pr-3 text-gray-500 whitespace-nowrap">{formatDate(req.date)}</td>
-        <td className="py-1 pr-3 whitespace-nowrap">
-          {room && (
-            <span
-              className={`${roomColorClass} text-white font-medium py-0.5 rounded text-[10px] inline-block text-center whitespace-nowrap`}
-              style={{ width: roomBoxWidth }}
-            >
-              {room.name}
-            </span>
-          )}
-        </td>
-        <td className="py-1 pr-3 text-gray-400 whitespace-nowrap">{formatTimestamp(req.updatedAt)}</td>
-        <td className="py-1 pr-3 text-gray-400 whitespace-nowrap">{req.duration}n · {req.numberOfGuests}g</td>
-        <td className={`py-1 pr-3 font-medium whitespace-nowrap ${statusColor(req.status)}`}>{statusLabel(req.status)}</td>
-      </tr>
     );
   };
 
@@ -367,30 +461,42 @@ const BookingRequestManagerModal = ({
                     )}
                   </div>
                 </div>
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="text-[10px] text-gray-400 uppercase tracking-wider border-b border-gray-200">
-                      {(["guest", "date", "room", "when"] as const).map((col) => {
-                        const labels: Record<string, string> = { guest: "Guest", date: "Date", room: "Room", when: "When" };
-                        const active = historySort.key === col;
-                        return (
-                          <th
-                            key={col}
-                            className={`pb-1 ${col === "guest" ? "pl-2" : ""} ${col === "when" ? "text-right" : "text-left"} font-medium cursor-pointer select-none hover:text-gray-600 whitespace-nowrap ${active ? "text-gray-600" : ""}`}
-                            onClick={() => setHistorySort((s) => s.key === col ? { key: col, dir: s.dir === "asc" ? "desc" : "asc" } : { key: col, dir: "asc" })}
-                          >
-                            {labels[col]}{active ? (historySort.dir === "desc" ? " ↓" : " ↑") : ""}
-                          </th>
-                        );
-                      })}
-                      <th className="pb-1 text-left font-medium">Stay</th>
-                      <th className="pb-1 text-left font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedResolved.map((r) => renderResolvedCard(r))}
-                  </tbody>
-                </table>
+
+                {/* Column headers */}
+                <div
+                  className="grid text-[10px] text-gray-400 uppercase tracking-wider border-b border-gray-200 pb-1 items-end"
+                  style={{ gridTemplateColumns }}
+                >
+                  {(["guest", "date", "room", "when"] as const).map((col) => {
+                    const labels: Record<string, string> = { guest: "Guest", date: "Date", room: "Room", when: "When" };
+                    const active = historySort.key === col;
+                    return (
+                      <div
+                        key={col}
+                        className={`${col === "guest" ? "pl-2" : ""} pr-2 font-medium cursor-pointer select-none hover:text-gray-600 whitespace-nowrap ${active ? "text-gray-600" : ""}`}
+                        onClick={() => setHistorySort((s) => s.key === col ? { key: col, dir: s.dir === "asc" ? "desc" : "asc" } : { key: col, dir: "asc" })}
+                      >
+                        {labels[col]}{active ? (historySort.dir === "desc" ? " ↓" : " ↑") : ""}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Swipeable rows */}
+                <div className="flex flex-col">
+                  {sortedResolved.map((req) => (
+                    <SwipeableHistoryRow
+                      key={req.id}
+                      req={req}
+                      rooms={rooms}
+                      guests={guests}
+                      roomBoxWidth={roomBoxWidth}
+                      timeZone={timeZone}
+                      gridTemplateColumns={gridTemplateColumns}
+                      onDelete={handleDelete}
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </div>

@@ -1,20 +1,17 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import Login from "./LoginDesktop";
 import Register from "./Register";
 
-const listings = [
-  { url: "https://www.airbnb.com/rooms/1177648203505001777", label: "Cozy" },
-  { url: "https://www.airbnb.com/rooms/1144526275550691711", label: "Cute" },
-  { url: "https://www.airbnb.com/rooms/1400962263132112124", label: "Chill" },
-];
 
 const Authorization = () => {
   const [isLogin, setIsLogin] = useState(true);
+  const [showModal, setShowModal] = useState(false);
 
   return (
     <div className="w-full h-screen overflow-y-auto bg-gray-50">
 
-      {/* Property photo — natural aspect ratio, nothing on top */}
+      {/* Property photo */}
       <div className="w-full">
         <img
           src="./FullDemo.jpg"
@@ -68,15 +65,46 @@ const Authorization = () => {
             className="w-full rounded-xl border border-gray-100 shadow-sm object-contain max-h-16"
           />
 
-          {/* Form */}
           {isLogin ? (
-            <Login listings={listings} setIsLogin={setIsLogin} />
+            <button
+              type="button"
+              className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg py-2 text-sm transition-colors"
+              onClick={() => setShowModal(true)}
+            >
+              Sign in
+            </button>
           ) : (
             <Register setIsLogin={setIsLogin} />
           )}
 
         </div>
       </div>
+
+      {/* Login modal */}
+      {showModal && createPortal(
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center pt-10 px-4"
+          onClick={() => setShowModal(false)}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-2xl shadow-xl px-8 py-6 flex flex-col gap-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-gray-800">Sign in</h2>
+              <button
+                type="button"
+                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+                onClick={() => setShowModal(false)}
+              >
+                &times;
+              </button>
+            </div>
+            <Login setIsLogin={setIsLogin} />
+          </div>
+        </div>,
+        document.body
+      )}
 
     </div>
   );
