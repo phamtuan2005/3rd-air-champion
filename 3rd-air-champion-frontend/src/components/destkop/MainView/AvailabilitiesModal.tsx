@@ -1,5 +1,5 @@
-import { isAfter, startOfToday, format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
-import { toZonedTime } from "date-fns-tz";
+import { isAfter, startOfToday, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
+import { format } from "date-fns-tz";
 import { dayType } from "../../../util/types/dayType";
 import { roomType } from "../../../util/types/roomType";
 import { getRoomColor } from "../../../util/getRoomColor";
@@ -19,12 +19,12 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName }: Avai
   const allMonthDateKeys = eachDayOfInterval({
     start: startOfMonth(currentMonth),
     end: endOfMonth(currentMonth),
-  }).map((date) => format(date, "yyyy-MM-dd"));
+  }).map((date) => format(date, "yyyy-MM-dd", { timeZone }));
 
   // Collect date keys that are in the current month and >= today, sorted chronologically
   const eligibleDateKeys = allMonthDateKeys
     .filter((dateKey) => {
-      const date = toZonedTime(dateKey, timeZone);
+      const date = new Date(`${dateKey}T12:00:00`);
       return isAfter(date, today) || date.toDateString() === today.toDateString();
     })
     .sort();
@@ -95,7 +95,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName }: Avai
           {airbnbName ? `${airbnbName}: Availabilities` : "Availabilities"} — {monthLabel}
         </h2>
         <span className="text-xs text-gray-500">
-          Today: <span className="font-semibold text-gray-700">{format(today, "MMM d, yyyy")}</span>
+          Today: <span className="font-semibold text-gray-700">{format(today, "MMM d, yyyy", { timeZone })}</span>
         </span>
       </div>
 
@@ -113,11 +113,11 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName }: Avai
           <tbody>
             {stats.map(({ room, unbookedNights, unbookedDates, estimatedProfit }) => {
               const days = unbookedDates.map((dateKey) =>
-                format(toZonedTime(dateKey, timeZone), "d"),
+                format(new Date(`${dateKey}T12:00:00`), "d", { timeZone }),
               );
               const monthName =
                 unbookedDates.length > 0
-                  ? format(toZonedTime(unbookedDates[0], timeZone), "MMMM")
+                  ? format(new Date(`${unbookedDates[0]}T12:00:00`), "MMMM", { timeZone })
                   : "";
               const dateList =
                 unbookedDates.length > 0

@@ -153,8 +153,10 @@ const GuestCalendar = ({
     const isToday = isSameDay(date, startOfToday());
     const { status, roomsLeft } = getStatus(date);
     const canBook = !isOutside && (status === "available" || status === "partial");
+    const canWishList = !isOutside && !!onWishListClick && (status === "full" || status === "blocked");
     const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
     const inCart = cartDates.has(dateKey);
+    const isWishlisted = wishListDates?.has(dateKey) ?? false;
 
     const numberClass = [
       "text-sm sm:text-xl leading-none select-none",
@@ -169,7 +171,8 @@ const GuestCalendar = ({
       isToday ? "react-calendar__custom_tile_today" : "",
       isOutside ? "opacity-20 pointer-events-none" : "",
       inCart ? "cursor-pointer" :
-      canBook ? `cursor-pointer ${theme.tileHover} ${theme.tileActive} transition-colors` : "cursor-default",
+      canBook ? `cursor-pointer ${theme.tileHover} ${theme.tileActive} transition-colors` :
+      canWishList ? "cursor-pointer hover:bg-amber-50 transition-colors" : "cursor-default",
     ].join(" ");
 
     return (
@@ -177,8 +180,12 @@ const GuestCalendar = ({
         key={date.toISOString()}
         type="button"
         className={tileClass}
-        disabled={!canBook && !inCart}
-        onClick={canBook || inCart ? () => onDateClick?.(date) : undefined}
+        disabled={!canBook && !inCart && !canWishList}
+        onClick={
+          canBook || inCart ? () => onDateClick?.(date) :
+          canWishList ? () => onWishListClick!(date) :
+          undefined
+        }
       >
         {inCart && (
           <div className={`absolute inset-1 rounded-lg ${theme.btn} pointer-events-none`} />
@@ -192,15 +199,13 @@ const GuestCalendar = ({
         {!inCart && (status === "full" || status === "blocked") && (
           <div className="flex flex-col items-center gap-0.5">
             <span className="text-[9px] text-gray-300 leading-none">sold out</span>
-            {onWishListClick && (
-              <button
-                type="button"
+            {canWishList && (
+              <span
                 className="text-[11px] leading-none z-10 relative"
-                title={wishListDates?.has(dateKey) ? "Remove from wish list" : "Add to wish list"}
-                onClick={(e) => { e.stopPropagation(); onWishListClick(date); }}
+                title={isWishlisted ? "Remove from wish list" : "Add to wish list"}
               >
-                {wishListDates?.has(dateKey) ? "★" : "☆"}
-              </button>
+                {isWishlisted ? "★" : "☆"}
+              </span>
             )}
           </div>
         )}

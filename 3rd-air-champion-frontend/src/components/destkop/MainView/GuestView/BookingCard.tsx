@@ -3,7 +3,7 @@ import { bookingType } from "../../../../util/types/bookingType";
 import { FaMinus } from "react-icons/fa";
 import { CiCalendar } from "react-icons/ci";
 import { useContext } from "react";
-import { format, parseISO } from "date-fns";
+import { format } from "date-fns-tz";
 import RebookCount from "./RebookCount";
 import { FooterContext } from "../../../../context";
 
@@ -43,6 +43,7 @@ const BookingCard = ({
   onPricingEdit,
 }: BookingCardProps) => {
   const { setIsFooterVisible } = useContext(FooterContext)!;
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   return (
     <div
@@ -110,8 +111,8 @@ const BookingCard = ({
       <div className="flex flex-col mb-2">
         <p className="text-sm text-gray-700">
           {booking.duration === 1
-            ? format(parseISO(booking.startDate), "MMM d")
-            : `${format(parseISO(booking.startDate), "MMM d")} – ${format(parseISO(booking.endDate), "MMM d")}`}
+            ? format(new Date(booking.startDate), "MMM d", { timeZone })
+            : `${format(new Date(booking.startDate), "MMM d", { timeZone })} – ${format(new Date(booking.endDate), "MMM d", { timeZone })}`}
           <span className="ml-2 text-xs text-gray-400 font-medium">
             · {booking.duration} {booking.duration > 1 ? "nights" : "night"}
           </span>
@@ -121,7 +122,7 @@ const BookingCard = ({
         ) : (() => {
           const entry = guestBookingCount.find(g => g.GuestId === booking.guest.id);
           const count = entry?.DistinctStartDateCount ?? 0;
-          const since = entry?.FirstStayDate ? format(parseISO(entry.FirstStayDate), "MMM yyyy") : null;
+          const since = entry?.FirstStayDate ? format(new Date(entry.FirstStayDate), "MMM yyyy", { timeZone }) : null;
           return (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-600 border border-amber-200">
               ↩ {count} {count === 1 ? "stay" : "stays"}{since ? ` since ${since}` : ""}

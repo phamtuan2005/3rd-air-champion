@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import { toggleWishListDate } from "../../util/wishListOperations";
+import { fetchGuestByPhone } from "../../util/guestOperations";
 
 interface WishListModalProps {
   hostId: string;
@@ -25,15 +26,41 @@ const WishListModal = ({
   const { theme } = useTiBookTheme();
   const [phone, setPhone] = useState(savedPhone);
   const [name, setName] = useState(savedName);
+  const [lookingUp, setLookingUp] = useState(false);
+  const [foundGuest, setFoundGuest] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const needsIdentity = !savedPhone;
   const formattedDate = format(parseISO(date), "EEE, MMM d yyyy");
 
+  useEffect(() => {
+    if (!needsIdentity) return;
+    setFoundGuest(false);
+
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length < 10) return;
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      setLookingUp(true);
+      const guest = await fetchGuestByPhone(phone.trim(), hostId);
+      setLookingUp(false);
+      if (guest) {
+        setName(guest.name);
+        setFoundGuest(true);
+      }
+    }, 500);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [phone]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleSubmit = async () => {
     if (!phone.trim() || !name.trim()) {
-      setError("Please enter your name and phone number.");
+      setError("Please enter your phone number and name.");
       return;
     }
     setError("");
@@ -77,20 +104,46 @@ const WishListModal = ({
 
         {needsIdentity && (
           <div className="flex flex-col gap-2">
-            <input
-              type="text"
-              placeholder="Your name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className={`border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 ${theme.focusRing}`}
-            />
-            <input
-              type="tel"
-              placeholder="Your phone number"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className={`border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 ${theme.focusRing}`}
-            />
+            <div className="relative">
+              <input
+                type="tel"
+                placeholder="Your phone number"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className={`w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 ${theme.focusRing}`}
+                autoFocus
+              />
+              {lookingUp && (
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                  looking up...
+                </span>
+              )}
+              {foundGuest && !lookingUp && (
+                <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs ${theme.textPrimary}`}>
+                  ✓ found
+                </span>
+              )}
+            </div>
+            {foundGuest ? (
+              <div className={`${theme.tagBg} ${theme.tagBorder} border rounded-xl px-3 py-2.5 flex items-center justify-between`}>
+                <span className={`text-sm font-semibold ${theme.textPrimaryDark}`}>{name}</span>
+                <button
+                  type="button"
+                  className="text-xs text-gray-400 hover:text-gray-600"
+                  onClick={() => { setFoundGuest(false); setName(""); }}
+                >
+                  edit
+                </button>
+              </div>
+            ) : (
+              <input
+                type="text"
+                placeholder="Your name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className={`border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 ${theme.focusRing}`}
+              />
+            )}
           </div>
         )}
 

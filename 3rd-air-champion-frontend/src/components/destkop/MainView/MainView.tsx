@@ -564,6 +564,7 @@ const MainView = ({
             token={token as string}
             rooms={rooms}
             guests={guests}
+            monthMap={monthMap}
             onClose={() => setIsRequestManagerOpen(false)}
             onAccept={(items) => {
               setPendingAcceptRequestIds(items.map((i) => i.requestId));
@@ -741,6 +742,7 @@ const MainView = ({
             token={token}
             rooms={rooms}
             guests={guests}
+            monthMap={monthMap}
             onClose={() => setIsRequestManagerOpen(false)}
             onAccept={(items) => {
               setPendingAcceptRequestIds(items.map((i) => i.requestId));

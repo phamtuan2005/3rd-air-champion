@@ -2,11 +2,14 @@ import axios from "axios";
 
 const BACKEND_ENDPOINT = import.meta.env.VITE_BACKEND_ENDPOINT || "";
 
+export type WishListStatus = "waiting" | "notified" | "booked";
+
 export interface WishListEntry {
   id: string;
   guestPhone: string;
   guestName: string;
   dates: string[];
+  status: WishListStatus;
   createdAt: string;
   updatedAt: string;
 }
@@ -41,4 +44,22 @@ export const getHostWishLists = async (
     headers: { Authorization: `Bearer ${token}` },
   });
   return response.data;
+};
+
+export const updateWishListStatus = async (
+  id: string,
+  status: WishListStatus,
+  token: string,
+): Promise<void> => {
+  await axios.patch(
+    `${BACKEND_ENDPOINT}/wish-list/status`,
+    { id, status },
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+};
+
+export const deleteWishListEntry = async (id: string, token: string): Promise<void> => {
+  await axios.delete(`${BACKEND_ENDPOINT}/wish-list/${id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 };

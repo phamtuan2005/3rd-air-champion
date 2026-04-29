@@ -226,6 +226,8 @@ const CalendarGrid = ({
 
     const blockedRoomIds = new Set((day?.blockedRooms ?? []).map((r) => r.id));
 
+    const usedRoomIdSet = new Set(usedRooms.map((r) => r.id));
+
     const sortedUsedRooms = [...usedRooms]
       .filter((r) => !selectedRoomName || r.name === selectedRoomName)
       .sort((a, b) => a.name.localeCompare(b.name));
@@ -233,7 +235,7 @@ const CalendarGrid = ({
     for (const blockedRoom of day?.blockedRooms ?? []) {
       if (!selectedRoomName || blockedRoom.name === selectedRoomName) {
         if (!sortedUsedRooms.find((r) => r.id === blockedRoom.id)) {
-          sortedUsedRooms.push(blockedRoom);
+          if (usedRoomIdSet.has(blockedRoom.id)) sortedUsedRooms.push(blockedRoom);
         }
       }
     }
@@ -249,7 +251,7 @@ const CalendarGrid = ({
     });
 
     const ensureGridRow = (room: roomType) => {
-      if (!gridContent[room.name]) {
+      if (!gridContent[room.name] && usedRoomIdSet.has(room.id)) {
         gridContent[room.name] = { am: null, pm: null };
         sortedUsedRooms.push(room);
       }
@@ -257,6 +259,7 @@ const CalendarGrid = ({
 
     checkoutBookings.forEach((booking) => {
       ensureGridRow(booking.room);
+      if (!gridContent[booking.room.name]) return;
       gridContent[booking.room.name].am = booking;
     });
 
@@ -269,6 +272,7 @@ const CalendarGrid = ({
         const isBetween =
           !isStart && isWithinInterval(date, { start: startDate, end: dbEndDate });
         ensureGridRow(booking.room);
+        if (!gridContent[booking.room.name]) return;
         if (isBetween) gridContent[booking.room.name].am = booking;
         if (isStart || isBetween) gridContent[booking.room.name].pm = booking;
       });

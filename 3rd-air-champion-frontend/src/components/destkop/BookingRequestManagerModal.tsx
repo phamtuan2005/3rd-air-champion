@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { roomType } from "../../util/types/roomType";
 import { guestType } from "../../util/types/guestType";
-import WishListPanel from "./WishListPanel";
+import WishListPanel, { countAvailableWishListEntries } from "./WishListPanel";
+import { WishListEntry, WishListStatus, getHostWishLists } from "../../util/wishListOperations";
+import { dayType } from "../../util/types/dayType";
 import {
   fetchBookingRequestsByHost,
   updateBookingRequestStatus,
   deleteBookingRequest,
 } from "../../util/bookingRequestOperations";
 import { getRoomColor } from "../../util/getRoomColor";
-import { format } from "date-fns";
-import { toZonedTime } from "date-fns-tz";
+import { format, toZonedTime } from "date-fns-tz";
 
 export interface BookingRequest {
   id: string;
@@ -30,6 +31,7 @@ interface BookingRequestManagerModalProps {
   token: string;
   rooms: roomType[];
   guests: guestType[];
+  monthMap: Map<string, dayType>;
   onClose: () => void;
   onAccept: (
     items: Array<{
@@ -100,10 +102,13 @@ const SwipeableHistoryRow = ({
         : roomColorClass.replace("bg-", "border-");
 
   const fmtDate = (dateStr: string) =>
-    format(toZonedTime(dateStr, timeZone), "EEE, MMM d yyyy");
+    format(new Date(dateStr), "EEE, MMM d yyyy", { timeZone });
 
-  const fmtTimestamp = (dateStr: string) =>
-    format(toZonedTime(new Date(Number(dateStr)), timeZone), "MMM d, h:mm a");
+  const fmtTimestamp = (dateStr: string) => {
+    const ms = Number(dateStr);
+    const date = isNaN(ms) ? new Date(dateStr) : new Date(ms);
+    return format(date, "MMM d, h:mm a", { timeZone });
+  };
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -200,6 +205,7 @@ const BookingRequestManagerModal = ({
   token,
   rooms,
   guests,
+  monthMap,
   onAccept,
   onAddGuest,
 }: BookingRequestManagerModalProps) => {
@@ -209,6 +215,8 @@ const BookingRequestManagerModal = ({
   const [showHistory, setShowHistory] = useState(true);
   const [historySort, setHistorySort] = useState<{ key: "guest" | "date" | "room" | "when"; dir: "asc" | "desc" }>({ key: "when", dir: "desc" });
   const [activeTab, setActiveTab] = useState<"requests" | "wishlist">("requests");
+  const [wishListEntries, setWishListEntries] = useState<WishListEntry[]>([]);
+  const [wishListLoading, setWishListLoading] = useState(true);
 
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -218,6 +226,23 @@ const BookingRequestManagerModal = ({
       .catch(() => setRequests([]))
       .finally(() => setLoading(false));
   }, [hostId, token]);
+
+  useEffect(() => {
+    getHostWishLists(hostId, token)
+      .then(setWishListEntries)
+      .catch(() => setWishListEntries([]))
+      .finally(() => setWishListLoading(false));
+  }, [hostId, token]);
+
+  const availableBadge = countAvailableWishListEntries(wishListEntries, monthMap, rooms);
+
+  const handleWishListStatusChange = (id: string, status: WishListStatus) => {
+    setWishListEntries((prev) => prev.map((e) => (e.id === id ? { ...e, status } : e)));
+  };
+
+  const handleWishListDelete = (id: string) => {
+    setWishListEntries((prev) => prev.filter((e) => e.id !== id));
+  };
 
   const normalizePhone = (phone: string) => phone.replace(/\D/g, "");
 
@@ -275,7 +300,7 @@ const BookingRequestManagerModal = ({
   };
 
   const formatDate = (dateStr: string) =>
-    format(toZonedTime(dateStr, timeZone), "EEE, MMM d yyyy");
+    format(new Date(dateStr), "EEE, MMM d yyyy", { timeZone });
 
   const roomBoxWidth = rooms.length > 0
     ? `${rooms.reduce((max, r) => Math.max(max, r.name.length), 0) * 4.5 + 8}px`
@@ -412,16 +437,29 @@ const BookingRequestManagerModal = ({
         </button>
         <button
           type="button"
-          className={`text-sm font-bold pb-0.5 border-b-2 transition-colors ${activeTab === "wishlist" ? "border-amber-500 text-amber-600" : "border-transparent text-gray-400 hover:text-gray-600"}`}
+          className={`text-sm font-bold pb-0.5 border-b-2 transition-colors flex items-center gap-1.5 ${activeTab === "wishlist" ? "border-amber-500 text-amber-600" : "border-transparent text-gray-400 hover:text-gray-600"}`}
           onClick={() => setActiveTab("wishlist")}
         >
           Wish List
+          {availableBadge > 0 && (
+            <span className="bg-green-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+              {availableBadge}
+            </span>
+          )}
         </button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-3">
         {activeTab === "wishlist" ? (
-          <WishListPanel hostId={hostId} token={token} />
+          <WishListPanel
+            token={token}
+            entries={wishListEntries}
+            loading={wishListLoading}
+            monthMap={monthMap}
+            rooms={rooms}
+            onStatusChange={handleWishListStatusChange}
+            onDelete={handleWishListDelete}
+          />
         ) : loading ? (
           <p className="text-sm text-gray-500 text-center py-8">Loading...</p>
         ) : requests.length === 0 ? (
