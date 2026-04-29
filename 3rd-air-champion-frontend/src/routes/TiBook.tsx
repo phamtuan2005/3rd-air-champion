@@ -16,6 +16,7 @@ import { fetchRooms } from "../util/roomOperations";
 import BookingRequestModal from "../components/tibook/BookingRequestModal";
 import RoomCards from "../components/tibook/RoomCards";
 import WishListModal from "../components/tibook/WishListModal";
+import WishListSummarySheet from "../components/tibook/WishListSummarySheet";
 import { getGuestWishList } from "../util/wishListOperations";
 
 const TiBookInner = () => {
@@ -37,6 +38,7 @@ const TiBookInner = () => {
   const [cartDates, setCartDates] = useState<Map<string, string | null>>(new Map());
   const [wishListDates, setWishListDates] = useState<Set<string>>(new Set());
   const [wishListDate, setWishListDate] = useState<string | null>(null);
+  const [wishListSummaryOpen, setWishListSummaryOpen] = useState(false);
   const [guestPhone, setGuestPhone] = useState(() => localStorage.getItem("tiBookGuestPhone") ?? "");
   const [guestName, setGuestName] = useState(() => localStorage.getItem("tiBookGuestName") ?? "");
   const cohostNames = (import.meta.env.VITE_TI_BOOK_COHOST_NAMES as string | undefined)?.split(',').map((s) => s.trim()).filter(Boolean) ?? [];
@@ -204,6 +206,21 @@ const TiBookInner = () => {
         </div>
       )}
 
+      {/* Floating wish list summary bar */}
+      {wishListDates.size > 0 && !wishListSummaryOpen && (
+        <div className="fixed bottom-0 inset-x-0 z-30 flex justify-center pointer-events-none" style={{ bottom: cartDates.size > 0 ? "56px" : "0" }}>
+          <button
+            type="button"
+            onClick={() => setWishListSummaryOpen(true)}
+            className="pointer-events-auto mb-3 bg-white border border-amber-300 shadow-md text-amber-700 text-sm font-semibold px-4 py-2 rounded-full flex items-center gap-2"
+          >
+            <span>★</span>
+            <span>{wishListDates.size} date{wishListDates.size !== 1 ? "s" : ""} saved</span>
+            <span className="text-amber-400">→ View</span>
+          </button>
+        </div>
+      )}
+
       {/* Floating cart bar */}
       {cartDates.size > 0 && (
         <div className={`fixed bottom-0 inset-x-0 ${theme.btn} px-4 py-3 flex items-center justify-between z-40 shadow-lg`}>
@@ -218,6 +235,16 @@ const TiBookInner = () => {
             Review Request →
           </button>
         </div>
+      )}
+
+      {wishListSummaryOpen && (
+        <WishListSummarySheet
+          wishListDates={wishListDates}
+          guestPhone={guestPhone}
+          guestName={guestName}
+          onClose={() => setWishListSummaryOpen(false)}
+          onDateClick={(date) => { setWishListDate(date); }}
+        />
       )}
 
       {wishListDate && currentHost && (

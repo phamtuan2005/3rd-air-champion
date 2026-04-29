@@ -201,8 +201,9 @@ const GuestCalendar = ({
             <span className="text-[9px] text-gray-300 leading-none">sold out</span>
             {canWishList && (
               <span
-                className="text-[11px] leading-none z-10 relative"
+                className="text-[11px] leading-none z-10 relative cursor-pointer"
                 title={isWishlisted ? "Remove from wish list" : "Add to wish list"}
+                onClick={(e) => { e.stopPropagation(); onWishListClick!(date); }}
               >
                 {isWishlisted ? "★" : "☆"}
               </span>
