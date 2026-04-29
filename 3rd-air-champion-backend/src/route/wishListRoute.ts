@@ -1,4 +1,4 @@
-import express, { Request, Response } from "express";
+import express, { Request } from "express";
 import WishList from "../model/wishListSchema";
 
 const router = express.Router();
@@ -70,10 +70,37 @@ router.get("/get/host", async (req: Request, res: any) => {
       guestPhone: e.guestPhone,
       guestName: e.guestName,
       dates: e.dates.map((d) => new Date(d).toISOString().split("T")[0]),
+      status: (e as any).status ?? "waiting",
       createdAt: e.createdAt,
       updatedAt: e.updatedAt,
     }));
     res.status(200).json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update status of a wish list entry
+router.patch("/status", async (req: Request, res: any) => {
+  const { id, status } = req.body;
+  if (!id || !status) return res.status(400).json({ error: "id and status are required" });
+  if (!["waiting", "notified", "booked"].includes(status))
+    return res.status(400).json({ error: "status must be waiting, notified, or booked" });
+  try {
+    const entry = await WishList.findByIdAndUpdate(id, { status }, { new: true });
+    if (!entry) return res.status(404).json({ error: "Entry not found" });
+    res.status(200).json({ status: (entry as any).status });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete a wish list entry
+router.delete("/:id", async (req: Request, res: any) => {
+  const { id } = req.params;
+  try {
+    await WishList.findByIdAndDelete(id);
+    res.status(200).json({ ok: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

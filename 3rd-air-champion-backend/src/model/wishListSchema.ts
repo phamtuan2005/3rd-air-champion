@@ -6,6 +6,7 @@ const wishListSchema = new mongoose.Schema(
     guestPhone: { type: String, required: true },
     guestName: { type: String, required: true },
     dates: [{ type: Date }],
+    status: { type: String, enum: ["waiting", "notified", "booked"], default: "waiting" },
   },
   { timestamps: true }
 );
