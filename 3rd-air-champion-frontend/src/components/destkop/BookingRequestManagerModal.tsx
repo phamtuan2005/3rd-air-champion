@@ -165,13 +165,13 @@ const SwipeableHistoryRow = ({
 
   return (
     <div
-      className={`relative overflow-hidden border-l-4 rounded-lg ${borderClass}`}
+      className={`relative overflow-hidden border-l-4 ${borderClass}`}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
       {/* Delete button revealed behind */}
-      <div className="absolute right-0 top-0 bottom-0 w-[72px] bg-red-500 flex items-center justify-center rounded-r-lg">
+      <div className="absolute right-1 top-1 bottom-1 w-[68px] bg-red-500 flex items-center justify-center rounded-lg">
         <button
           type="button"
           className="text-white text-xs font-semibold w-full h-full"
