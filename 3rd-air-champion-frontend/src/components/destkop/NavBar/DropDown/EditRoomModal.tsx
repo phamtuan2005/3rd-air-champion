@@ -54,6 +54,9 @@ const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave, onAdd, onDelete,
   const [selectedColor, setSelectedColor] = useState<string>(
     rooms.find((r) => r.id === initialId)?.color ?? ""
   );
+  const [roomAirbnbUrl, setRoomAirbnbUrl] = useState<string>(
+    rooms.find((r) => r.id === initialId)?.airbnbUrl ?? ""
+  );
   const [errorMessage, setErrorMessage] = useState("");
   const [pendingConfirm, setPendingConfirm] = useState<EditRoomFormData | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -100,6 +103,7 @@ const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave, onAdd, onDelete,
     if (room) {
       setSelectedColor(room.color ?? "");
       setRoomPhotos(room.photos ?? []);
+      setRoomAirbnbUrl(room.airbnbUrl ?? "");
       reset({
         name: room.name,
         price: room.price,
@@ -117,7 +121,7 @@ const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave, onAdd, onDelete,
       setPendingConfirm(data);
       return;
     }
-    onSave({ ...selectedRoom, ...data, color: selectedColor, photos: roomPhotos }, (msg) => setErrorMessage(msg));
+    onSave({ ...selectedRoom, ...data, color: selectedColor, photos: roomPhotos, airbnbUrl: roomAirbnbUrl }, (msg) => setErrorMessage(msg));
   };
 
   return createPortal(
@@ -304,14 +308,8 @@ const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave, onAdd, onDelete,
             type="url"
             placeholder="https://www.airbnb.com/rooms/..."
             className="border border-gray-300 rounded px-2 py-1 text-xs w-full"
-            defaultValue={selectedRoom?.airbnbUrl ?? ""}
-            onBlur={(e) => {
-              if (!selectedRoom) return;
-              const val = e.target.value.trim();
-              if (val !== (selectedRoom.airbnbUrl ?? "")) {
-                onSave({ ...selectedRoom, airbnbUrl: val, color: selectedColor, photos: roomPhotos }, (msg) => setErrorMessage(msg));
-              }
-            }}
+            value={roomAirbnbUrl}
+            onChange={(e) => setRoomAirbnbUrl(e.target.value)}
           />
         </div>
 
@@ -382,7 +380,7 @@ const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave, onAdd, onDelete,
                 className="flex-1 px-2 py-1 bg-green-500 text-white text-sm rounded"
                 onClick={() => {
                   if (!selectedRoom) return;
-                  onSave({ ...selectedRoom, ...pendingConfirm, color: selectedColor, photos: roomPhotos }, (msg) => {
+                  onSave({ ...selectedRoom, ...pendingConfirm, color: selectedColor, photos: roomPhotos, airbnbUrl: roomAirbnbUrl }, (msg) => {
                     setErrorMessage(msg);
                     setPendingConfirm(null);
                   });
