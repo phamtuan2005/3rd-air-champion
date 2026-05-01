@@ -8,6 +8,7 @@ interface MyAirBnBInfo {
   airbnbAddress: string;
   airbnbRating: number | "";
   airbnbReviewCount: number | "";
+  airbnbReviewsUrl: string;
   airbnbSuperhost: boolean;
   highlights: string;
   houseRules: string;
@@ -188,6 +189,16 @@ const MyAirBnBModal = ({ current, onClose, onSaved }: MyAirBnBModalProps) => {
                   />
                 </Field>
               </div>
+
+              <Field label="Reviews Page URL" hint="Link shown on TiBook reviews count">
+                <input
+                  type="url"
+                  className={inputCls}
+                  placeholder="https://www.airbnb.com/rooms/..."
+                  value={draft.airbnbReviewsUrl}
+                  onChange={(e) => set("airbnbReviewsUrl", e.target.value)}
+                />
+              </Field>
 
               <div className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg border border-gray-200">
                 <div>

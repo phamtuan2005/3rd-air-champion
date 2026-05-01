@@ -12,6 +12,7 @@ export interface hostType {
   airbnbAddress?: string;
   airbnbRating?: number;
   airbnbReviewCount?: number;
+  airbnbReviewsUrl?: string;
   airbnbSuperhost?: boolean;
   highlights?: string[];
   houseRules?: string;

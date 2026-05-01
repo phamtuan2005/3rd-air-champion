@@ -32,6 +32,7 @@ const hostSchema = new mongoose.Schema(
     airbnbAddress: { type: String, default: "" },
     airbnbRating: { type: Number },
     airbnbReviewCount: { type: Number },
+    airbnbReviewsUrl: { type: String, default: "" },
     airbnbSuperhost: { type: Boolean, default: false },
     highlights: [{ type: String }],
     houseRules: { type: String, default: "" },

@@ -83,6 +83,17 @@ const HostProfileBanner = ({ host, cohostNames = [] }: HostProfileBannerProps) =
               Verified
             </span>
           )}
+          <div className="flex flex-col gap-0 mt-0.5 pl-0.5 border-l-2 border-indigo-300">
+            <span className="text-[10px] text-indigo-600 font-semibold italic leading-tight tracking-wide">
+              Your Comfort. Our Mission.
+            </span>
+            <span className="text-[9px] text-gray-400 leading-tight">
+              Sự Thoải Mái Của Bạn. Sứ Mệnh Của Chúng Tôi.
+            </span>
+            <span className="text-[9px] text-gray-400 leading-tight">
+              您的舒适，我们的使命。
+            </span>
+          </div>
           {host.airbnbRating != null && (
             <span className="flex items-center gap-1 text-xs text-gray-500">
               <span className="flex items-center gap-0.5">
@@ -107,7 +118,18 @@ const HostProfileBanner = ({ host, cohostNames = [] }: HostProfileBannerProps) =
                 })}
               </span>
               {host.airbnbReviewCount != null && (
-                <span className="text-gray-500">{host.airbnbReviewCount} reviews</span>
+                host.airbnbReviewsUrl ? (
+                  <a
+                    href={host.airbnbReviewsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-gray-500 underline underline-offset-2 hover:text-gray-700 transition-colors"
+                  >
+                    {host.airbnbReviewCount} reviews
+                  </a>
+                ) : (
+                  <span className="text-gray-500">{host.airbnbReviewCount} reviews</span>
+                )
               )}
             </span>
           )}
