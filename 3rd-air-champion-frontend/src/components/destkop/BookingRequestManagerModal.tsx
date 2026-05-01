@@ -11,6 +11,12 @@ import {
 } from "../../util/bookingRequestOperations";
 import { getRoomColor } from "../../util/getRoomColor";
 import { format, toZonedTime } from "date-fns-tz";
+import { format as formatLocal } from "date-fns";
+
+const parseBookingDate = (dateStr: string) => {
+  const [y, m, d] = dateStr.substring(0, 10).split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
 
 export interface BookingRequest {
   id: string;
@@ -102,7 +108,7 @@ const SwipeableHistoryRow = ({
         : roomColorClass.replace("bg-", "border-");
 
   const fmtDate = (dateStr: string) =>
-    format(new Date(dateStr), "EEE, MMM d yyyy", { timeZone });
+    formatLocal(parseBookingDate(dateStr), "EEE, MMM d yyyy");
 
   const fmtTimestamp = (dateStr: string) => {
     const ms = Number(dateStr);
@@ -379,7 +385,7 @@ const BookingRequestManagerModal = ({
   };
 
   const formatDate = (dateStr: string) =>
-    format(new Date(dateStr), "EEE, MMM d yyyy", { timeZone });
+    formatLocal(parseBookingDate(dateStr), "EEE, MMM d yyyy");
 
   const roomBoxWidth = rooms.length > 0
     ? `${rooms.reduce((max, r) => Math.max(max, r.name.length), 0) * 4.5 + 8}px`
