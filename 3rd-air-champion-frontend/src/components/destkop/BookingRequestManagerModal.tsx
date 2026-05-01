@@ -480,6 +480,9 @@ const BookingRequestManagerModal = ({
               </div>
             );
           })}
+          {group[0].notes && (
+            <p className="text-[11px] text-gray-400 mt-0.5">{group[0].notes}</p>
+          )}
         </div>
 
         <div className="flex gap-2 mt-1">

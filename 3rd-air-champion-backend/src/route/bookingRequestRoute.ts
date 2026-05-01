@@ -51,6 +51,7 @@ router.post("/get/host", async (req: Request, res: any) => {
         duration
         numberOfGuests
         status
+        notes
         createdAt
         updatedAt
       }
@@ -83,6 +84,7 @@ router.put("/update/status", async (req: Request, res: any) => {
         duration
         numberOfGuests
         status
+        notes
         createdAt
         updatedAt
       }
