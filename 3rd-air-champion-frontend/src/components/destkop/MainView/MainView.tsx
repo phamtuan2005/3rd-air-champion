@@ -26,6 +26,7 @@ import GuestAddPane from "../BookingModal/GuestAddPane";
 import EditRoomModal from "../NavBar/DropDown/EditRoomModal";
 import ManageGuestModal from "../NavBar/DropDown/ManageGuestModal";
 import { fetchBookingRequestsByHost, updateBookingRequestStatus } from "../../../util/bookingRequestOperations";
+import { getHostWishLists } from "../../../util/wishListOperations";
 import { useCalendarData } from "./hooks/useCalendarData";
 import { useCalendarStats } from "./hooks/useCalendarStats";
 import { useMessaging } from "./hooks/useMessaging";
@@ -56,6 +57,7 @@ interface MainViewProps {
   isRequestManagerOpen: boolean;
   setIsRequestManagerOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setBookingRequestPendingCount: React.Dispatch<React.SetStateAction<number>>;
+  setWishListAvailableCount: React.Dispatch<React.SetStateAction<number>>;
 }
 
 const MainView = ({
@@ -81,6 +83,7 @@ const MainView = ({
   isRequestManagerOpen,
   setIsRequestManagerOpen,
   setBookingRequestPendingCount,
+  setWishListAvailableCount,
 }: MainViewProps) => {
   const token = localStorage.getItem("token");
 
@@ -215,6 +218,13 @@ const MainView = ({
       })
       .catch(() => setBookingRequestPendingCount(0));
   }, [hostId, token, isRequestManagerOpen, acceptCompletedTick, setBookingRequestPendingCount]);
+
+  useEffect(() => {
+    if (!token) return;
+    getHostWishLists(hostId, token)
+      .then((entries) => setWishListAvailableCount(entries.filter((e) => e.dates.length > 0).length))
+      .catch(() => setWishListAvailableCount(0));
+  }, [hostId, token, setWishListAvailableCount]);
 
   useEffect(() => {
     if (isTodoModalOpen) {

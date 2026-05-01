@@ -58,6 +58,7 @@ function App() {
   const [isRequestManagerOpen, setIsRequestManagerOpen] = useState(false);
   const [bookingRequestPendingCount, setBookingRequestPendingCount] =
     useState(0);
+  const [wishListAvailableCount, setWishListAvailableCount] = useState(0);
 
   const [airBnBInfo, setAirBnBInfo] = useState({
     doorCode: "",
@@ -205,6 +206,7 @@ function App() {
                   isRequestManagerOpen={isRequestManagerOpen}
                   setIsRequestManagerOpen={setIsRequestManagerOpen}
                   bookingRequestPendingCount={bookingRequestPendingCount}
+                  wishListAvailableCount={wishListAvailableCount}
                 />
 
                 {/* About Modal */}
@@ -239,6 +241,7 @@ function App() {
                     setBookingRequestPendingCount={
                       setBookingRequestPendingCount
                     }
+                    setWishListAvailableCount={setWishListAvailableCount}
                   ></MainView>
                 </div>
 

@@ -94,15 +94,30 @@ router.get("/get/host", async (req: Request, res: any) => {
 
   try {
     const entries = await WishList.find({ host: hostId }).sort({ updatedAt: -1 });
-    const result = entries.map((e) => ({
-      id: e._id,
-      guestPhone: e.guestPhone,
-      guestName: e.guestName,
-      dates: e.dates.map((d) => new Date(d).toISOString().split("T")[0]),
-      status: (e as any).status ?? "waiting",
-      createdAt: e.createdAt,
-      updatedAt: e.updatedAt,
-    }));
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+
+    const result = [];
+    for (const e of entries) {
+      const futureDates = e.dates.filter((d) => new Date(d) >= today);
+      if (futureDates.length === 0) {
+        await WishList.findByIdAndDelete(e._id);
+        continue;
+      }
+      if (futureDates.length !== e.dates.length) {
+        e.dates = futureDates as any;
+        await e.save();
+      }
+      result.push({
+        id: e._id,
+        guestPhone: e.guestPhone,
+        guestName: e.guestName,
+        dates: futureDates.map((d) => new Date(d).toISOString().split("T")[0]),
+        status: (e as any).status ?? "waiting",
+        createdAt: e.createdAt,
+        updatedAt: e.updatedAt,
+      });
+    }
     res.status(200).json(result);
   } catch (error: any) {
     res.status(500).json({ error: error.message });

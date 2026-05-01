@@ -42,6 +42,7 @@ interface NavBarDesktopProps {
   isRequestManagerOpen: boolean;
   setIsRequestManagerOpen: React.Dispatch<React.SetStateAction<boolean>>;
   bookingRequestPendingCount: number;
+  wishListAvailableCount: number;
 }
 
 const NavBarDesktop = ({
@@ -68,6 +69,7 @@ const NavBarDesktop = ({
   isRequestManagerOpen,
   setIsRequestManagerOpen,
   bookingRequestPendingCount,
+  wishListAvailableCount,
 }: NavBarDesktopProps) => {
   const { currentGuest, currentAirBnBGuest, setCurrentGuest, setCurrentAirBnBGuest } = useContext(GuestModeContext)!;
   const { setIsFooterVisible } = useContext(FooterContext)!;
@@ -148,6 +150,11 @@ const NavBarDesktop = ({
             {bookingRequestPendingCount > 0 && (
               <span className="absolute -top-4 left-1/2 -translate-x-1/2 min-w-[20px] h-5 px-1 rounded-full bg-yellow-400 text-black text-[10px] font-bold flex items-center justify-center leading-none">
                 {bookingRequestPendingCount}
+              </span>
+            )}
+            {wishListAvailableCount > 0 && (
+              <span className="absolute -top-4 right-0 min-w-[18px] h-[18px] px-1 rounded-full bg-green-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
+                {wishListAvailableCount}
               </span>
             )}
           </button>
