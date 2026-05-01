@@ -24,7 +24,7 @@ export const roomResolvers = {
       if (color !== undefined) roomData.color = color;
       return await new Room(roomData).save();
     },
-    updateRoom: async (_: unknown, { _id, name, price, roomCode, color, active, photos }: any) => {
+    updateRoom: async (_: unknown, { _id, name, price, roomCode, color, active, photos, airbnbUrl }: any) => {
       const updatedData: {
         name?: string;
         price?: number;
@@ -32,6 +32,7 @@ export const roomResolvers = {
         color?: string;
         active?: boolean;
         photos?: string[];
+        airbnbUrl?: string;
       } = {};
       if (name !== undefined) updatedData.name = name;
       if (price !== undefined) updatedData.price = price;
@@ -39,6 +40,7 @@ export const roomResolvers = {
       if (color !== undefined) updatedData.color = color;
       if (active !== undefined) updatedData.active = active;
       if (photos !== undefined) updatedData.photos = photos;
+      if (airbnbUrl !== undefined) updatedData.airbnbUrl = airbnbUrl;
 
       return await Room.findByIdAndUpdate(_id, { $set: updatedData }, {
         runValidators: true,

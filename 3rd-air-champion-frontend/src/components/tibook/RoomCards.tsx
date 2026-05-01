@@ -82,6 +82,17 @@ const RoomCard = ({
         <p className="text-[10px] text-gray-400 leading-none">
           {selected ? "✓ selected" : "tap to select"}
         </p>
+        {room.airbnbUrl && (
+          <a
+            href={room.airbnbUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="text-[10px] text-rose-400 hover:text-rose-600 leading-none underline underline-offset-2 transition-colors"
+          >
+            View on AirBnB
+          </a>
+        )}
       </div>
     </div>
   );

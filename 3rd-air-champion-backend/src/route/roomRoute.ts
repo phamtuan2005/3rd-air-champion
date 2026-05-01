@@ -121,6 +121,7 @@ router.post("/get/host", async (req: Request, res: any) => {
             color
             active
             photos
+            airbnbUrl
           }
         }`;
 
@@ -171,7 +172,7 @@ router.put("/update", async (req: Request, res: any) => {
   if (!("user" in req))
     return res.status(401).json({ error: "Invalid or expired token" });
 
-  const { id, name, price, roomCode, color, active, photos } = req.body;
+  const { id, name, price, roomCode, color, active, photos, airbnbUrl } = req.body;
 
   const variables: {
     id: string;
@@ -181,6 +182,7 @@ router.put("/update", async (req: Request, res: any) => {
     color?: string;
     active?: boolean;
     photos?: string[];
+    airbnbUrl?: string;
   } = { id };
   if (name !== undefined) variables.name = name;
   if (price !== undefined) variables.price = price;
@@ -188,10 +190,11 @@ router.put("/update", async (req: Request, res: any) => {
   if (color !== undefined) variables.color = color;
   if (active !== undefined) variables.active = active;
   if (photos !== undefined) variables.photos = photos;
+  if (airbnbUrl !== undefined) variables.airbnbUrl = airbnbUrl;
 
   const query = `
-          mutation UpdateRoom($id: String!, $name: String, $price: Float, $roomCode: String, $color: String, $active: Boolean, $photos: [String]) {
-                updateRoom(_id: $id, name: $name, price: $price, roomCode: $roomCode, color: $color, active: $active, photos: $photos) {
+          mutation UpdateRoom($id: String!, $name: String, $price: Float, $roomCode: String, $color: String, $active: Boolean, $photos: [String], $airbnbUrl: String) {
+                updateRoom(_id: $id, name: $name, price: $price, roomCode: $roomCode, color: $color, active: $active, photos: $photos, airbnbUrl: $airbnbUrl) {
                     id
                     name
                     price
@@ -199,6 +202,7 @@ router.put("/update", async (req: Request, res: any) => {
                     color
                     active
                     photos
+                    airbnbUrl
                 }
             }`;
 

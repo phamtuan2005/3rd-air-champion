@@ -296,6 +296,25 @@ const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave, onAdd, onDelete,
           />
         </div>
 
+        {/* AirBnB Listing URL */}
+        <div className="flex flex-col gap-2 border-t border-gray-200 pt-3">
+          <p className="text-sm font-semibold text-gray-700">AirBnB Listing URL</p>
+          <p className="text-xs text-gray-400">Shown as a link on TiBook so guests can view the room on AirBnB.</p>
+          <input
+            type="url"
+            placeholder="https://www.airbnb.com/rooms/..."
+            className="border border-gray-300 rounded px-2 py-1 text-xs w-full"
+            defaultValue={selectedRoom?.airbnbUrl ?? ""}
+            onBlur={(e) => {
+              if (!selectedRoom) return;
+              const val = e.target.value.trim();
+              if (val !== (selectedRoom.airbnbUrl ?? "")) {
+                onSave({ ...selectedRoom, airbnbUrl: val, color: selectedColor, photos: roomPhotos }, (msg) => setErrorMessage(msg));
+              }
+            }}
+          />
+        </div>
+
         {/* Link AirBnB */}
         <div className="flex flex-col gap-2 border-t border-gray-200 pt-3">
           <p className="text-sm font-semibold text-gray-700">Link AirBnB Calendar</p>

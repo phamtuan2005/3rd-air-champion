@@ -6,4 +6,5 @@ export interface roomType {
   color?: string;
   active: boolean;
   photos?: string[];
+  airbnbUrl?: string;
 }
