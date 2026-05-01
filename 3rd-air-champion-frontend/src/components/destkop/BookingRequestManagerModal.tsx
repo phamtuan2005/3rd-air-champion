@@ -13,6 +13,14 @@ import { getRoomColor } from "../../util/getRoomColor";
 import { format, toZonedTime } from "date-fns-tz";
 import { format as formatLocal } from "date-fns";
 
+const formatPhone = (raw: string): string => {
+  const digits = raw.replace(/\D/g, "");
+  const local = digits.startsWith("84") ? "0" + digits.slice(2) : digits;
+  if (local.length === 10) return `${local.slice(0, 3)} ${local.slice(3, 6)} ${local.slice(6)}`;
+  if (local.length === 11) return `${local.slice(0, 4)} ${local.slice(4, 7)} ${local.slice(7)}`;
+  return raw;
+};
+
 const parseBookingDate = (dateStr: string) => {
   const [y, m, d] = dateStr.substring(0, 10).split("-").map(Number);
   return new Date(y, m - 1, d);
@@ -77,6 +85,7 @@ interface SwipeableHistoryRowProps {
   timeZone: string;
   gridTemplateColumns: string;
   onDelete: (id: string) => void;
+  onSelect: (req: BookingRequest) => void;
 }
 
 const SwipeableHistoryRow = ({
@@ -87,9 +96,9 @@ const SwipeableHistoryRow = ({
   timeZone,
   gridTemplateColumns,
   onDelete,
+  onSelect,
 }: SwipeableHistoryRowProps) => {
   const [offset, setOffset] = useState(0);
-  const [expanded, setExpanded] = useState(false);
   const touchStartX = useRef(0);
   const offsetAtStart = useRef(0);
   const didMove = useRef(false);
@@ -135,7 +144,7 @@ const SwipeableHistoryRow = ({
         onDelete(req.id);
         setOffset(0);
       } else {
-        setExpanded((v) => !v);
+        onSelect(req);
       }
       return;
     }
@@ -186,22 +195,6 @@ const SwipeableHistoryRow = ({
         <div className="pl-2 pr-2 text-gray-400 whitespace-nowrap">{fmtTimestamp(req.updatedAt)}</div>
       </div>
 
-      {/* Expanded detail panel */}
-      {expanded && (
-        <div
-          className="bg-white border-t border-gray-100 px-3 py-2 text-[11px] flex flex-wrap gap-x-4 gap-y-0.5"
-          style={{
-            transform: `translateX(${offset}px)`,
-            transition: snapping ? "transform 0.18s ease" : "none",
-          }}
-        >
-          <span className="font-semibold text-gray-700">{displayName}</span>
-          <span className={`font-semibold ${statusColor(req.status)}`}>{statusLabel(req.status)}</span>
-          <span className="text-gray-500">{req.duration} night{req.duration > 1 ? "s" : ""} · {req.numberOfGuests} guest{req.numberOfGuests > 1 ? "s" : ""}</span>
-          <span className="text-gray-400">{req.guestPhone}</span>
-          {req.notes && <span className="text-gray-400 w-full">{req.notes}</span>}
-        </div>
-      )}
     </div>
   );
 };
@@ -221,6 +214,7 @@ const BookingRequestManagerModal = ({
   const [showHistory, setShowHistory] = useState(true);
   const [historySort, setHistorySort] = useState<{ key: "guest" | "date" | "room" | "when"; dir: "asc" | "desc" }>({ key: "when", dir: "desc" });
   const [activeTab, setActiveTab] = useState<"requests" | "wishlist">("requests");
+  const [selectedHistoryReq, setSelectedHistoryReq] = useState<BookingRequest | null>(null);
   const [wishListEntries, setWishListEntries] = useState<WishListEntry[]>([]);
   const [wishListLoading, setWishListLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -462,7 +456,7 @@ const BookingRequestManagerModal = ({
               </button>
             </span>
           )}
-          <span className="text-[10px] text-gray-400 ml-auto">{first.guestPhone}</span>
+          <span className="text-[10px] text-gray-400 ml-auto">{formatPhone(first.guestPhone)}</span>
         </div>
 
         <div className="flex flex-col gap-1">
@@ -689,6 +683,7 @@ const BookingRequestManagerModal = ({
                           timeZone={timeZone}
                           gridTemplateColumns={gridTemplateColumns}
                           onDelete={handleDelete}
+                          onSelect={setSelectedHistoryReq}
                         />
                       ))}
                     </div>
@@ -699,6 +694,53 @@ const BookingRequestManagerModal = ({
           </div>
         )}
       </div>
+
+      {/* History detail overlay */}
+      {selectedHistoryReq && (() => {
+        const req = selectedHistoryReq;
+        const matched = matchGuest(req.guestPhone);
+        const displayName = matched?.name ?? req.guestName;
+        const room = getRoom(req.room);
+        const roomColorClass = room ? getRoomColor(room.name, room.color) : "bg-gray-400";
+        return (
+          <div
+            className="absolute inset-0 bg-black/40 flex items-center justify-center z-20 px-4"
+            onClick={() => setSelectedHistoryReq(null)}
+          >
+            <div
+              className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 flex flex-col gap-3"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-base font-bold text-gray-800">{displayName}</p>
+                  <p className="text-sm text-gray-400">{formatPhone(req.guestPhone)}</p>
+                </div>
+                <span className={`text-sm font-semibold ${statusColor(req.status)}`}>{statusLabel(req.status)}</span>
+              </div>
+              <div className="border-t border-gray-100 pt-3 flex flex-col gap-2 text-sm text-gray-700">
+                <div className="flex items-center gap-2">
+                  {room && (
+                    <span className={`${roomColorClass} text-white text-xs font-medium px-2 py-0.5 rounded`}>
+                      {room.name}
+                    </span>
+                  )}
+                  <span>{formatDate(req.date)}</span>
+                </div>
+                <p className="text-gray-500">{req.duration} night{req.duration > 1 ? "s" : ""} · {req.numberOfGuests} guest{req.numberOfGuests > 1 ? "s" : ""}</p>
+                {req.notes && <p className="text-gray-500 italic">{req.notes}</p>}
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedHistoryReq(null)}
+                className="mt-1 w-full text-sm text-gray-400 hover:text-gray-600 text-center"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

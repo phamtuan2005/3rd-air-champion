@@ -9,6 +9,14 @@ import { dayType } from "../../util/types/dayType";
 import { roomType } from "../../util/types/roomType";
 import { startOfToday } from "date-fns";
 
+const formatPhone = (raw: string): string => {
+  const digits = raw.replace(/\D/g, "");
+  const local = digits.startsWith("84") ? "0" + digits.slice(2) : digits;
+  if (local.length === 10) return `${local.slice(0, 3)} ${local.slice(3, 6)} ${local.slice(6)}`;
+  if (local.length === 11) return `${local.slice(0, 4)} ${local.slice(4, 7)} ${local.slice(7)}`;
+  return raw;
+};
+
 interface WishListPanelProps {
   token: string;
   entries: WishListEntry[];
@@ -136,7 +144,10 @@ const EntryRow = ({ entry, availableDates, hasAvailable, token, onStatusChange, 
       >
         {/* Header row */}
         <div className="flex items-center justify-between gap-2">
-          <span className="font-semibold text-sm text-gray-800">{entry.guestName}</span>
+          <div className="flex flex-col">
+            <span className="font-semibold text-sm text-gray-800">{entry.guestName}</span>
+            <span className="text-[11px] text-gray-400">{formatPhone(entry.guestPhone)}</span>
+          </div>
           <div className="flex items-center gap-2">
             {hasAvailable && (
               <span className="text-[10px] font-semibold bg-green-500 text-white px-2 py-0.5 rounded-full">
