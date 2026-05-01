@@ -30,7 +30,15 @@ const upload = multer({
 const router = express.Router();
 
 
-router.post("/photos/upload", upload.single("photo"), async (req: Request, res: any) => {
+router.post("/photos/upload", (req: Request, res: any, next: any) => {
+  upload.single("photo")(req, res, (err: any) => {
+    if (err) {
+      const message = err.code === "LIMIT_FILE_SIZE" ? "File too large (max 10 MB)" : err.message;
+      return res.status(400).json({ error: message });
+    }
+    next();
+  });
+}, async (req: Request, res: any) => {
   if (!("user" in req))
     return res.status(401).json({ error: "Invalid or expired token" });
 
