@@ -99,9 +99,12 @@ const SwipeableHistoryRow = ({
   onSelect,
 }: SwipeableHistoryRowProps) => {
   const [offset, setOffset] = useState(0);
+  const [confirming, setConfirming] = useState(false);
   const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
   const offsetAtStart = useRef(0);
   const didMove = useRef(false);
+  const direction = useRef<"horizontal" | "vertical" | null>(null);
 
   const room = rooms.find((r) => r.id === req.room);
   const matched = guests.find(
@@ -127,22 +130,29 @@ const SwipeableHistoryRow = ({
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
     offsetAtStart.current = offset;
     didMove.current = false;
+    direction.current = null;
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     const dx = e.touches[0].clientX - touchStartX.current;
-    if (Math.abs(dx) > 5) didMove.current = true;
+    const dy = e.touches[0].clientY - touchStartY.current;
+    if (direction.current === null && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) {
+      direction.current = Math.abs(dx) > Math.abs(dy) ? "horizontal" : "vertical";
+    }
+    if (direction.current !== "horizontal") return;
+    didMove.current = true;
     setOffset(Math.min(0, Math.max(offsetAtStart.current + dx, -SNAP_WIDTH)));
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (!didMove.current) {
+      if (direction.current === "vertical") return;
       if (offset === -SNAP_WIDTH) {
         e.preventDefault();
-        onDelete(req.id);
-        setOffset(0);
+        setConfirming(true);
       } else {
         onSelect(req);
       }
@@ -155,17 +165,17 @@ const SwipeableHistoryRow = ({
 
   return (
     <div
-      className={`relative overflow-hidden border-l-4 ${borderClass}`}
+      className={`relative overflow-hidden border-l-4 rounded-lg ${borderClass}`}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
       {/* Delete button revealed behind */}
-      <div className="absolute right-0 top-0 bottom-0 w-[72px] bg-red-500 flex items-center justify-center">
+      <div className="absolute right-0 top-0 bottom-0 w-[72px] bg-red-500 flex items-center justify-center rounded-r-lg">
         <button
           type="button"
           className="text-white text-xs font-semibold w-full h-full"
-          onClick={() => onDelete(req.id)}
+          onClick={() => setConfirming(true)}
         >
           Delete
         </button>
@@ -195,6 +205,42 @@ const SwipeableHistoryRow = ({
         <div className="pl-2 pr-2 text-gray-400 whitespace-nowrap">{fmtTimestamp(req.updatedAt)}</div>
       </div>
 
+      {/* Delete confirmation overlay */}
+      {confirming && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-30 px-6"
+          onClick={() => { setConfirming(false); setOffset(0); }}
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 flex flex-col gap-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-col gap-1 text-center">
+              <p className="text-base font-bold text-gray-800">Remove this record?</p>
+              <p className="text-sm text-gray-400">This request from <span className="font-medium text-gray-600">{displayName}</span> will be permanently deleted.</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                className="flex-1 py-3 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200 active:bg-gray-300"
+                onClick={() => { setConfirming(false); setOffset(0); }}
+              >
+                Keep it
+              </button>
+              <button
+                type="button"
+                className="flex-1 py-3 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 active:bg-red-700"
+                onClick={() => { onDelete(req.id); setOffset(0); setConfirming(false); }}
+              >
+                Yes, delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

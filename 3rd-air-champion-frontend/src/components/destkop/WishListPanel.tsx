@@ -76,8 +76,10 @@ interface EntryRowProps {
 const EntryRow = ({ entry, availableDates, hasAvailable, token, onStatusChange, onDelete }: EntryRowProps) => {
   const [offset, setOffset] = useState(0);
   const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
   const offsetAtStart = useRef(0);
   const didMove = useRef(false);
+  const direction = useRef<"horizontal" | "vertical" | null>(null);
 
   const sortedDates = [...entry.dates].sort();
   const availableSet = new Set(availableDates);
@@ -129,12 +131,19 @@ const EntryRow = ({ entry, availableDates, hasAvailable, token, onStatusChange, 
         }}
         onTouchStart={(e) => {
           touchStartX.current = e.touches[0].clientX;
+          touchStartY.current = e.touches[0].clientY;
           offsetAtStart.current = offset;
           didMove.current = false;
+          direction.current = null;
         }}
         onTouchMove={(e) => {
           const dx = e.touches[0].clientX - touchStartX.current;
-          if (Math.abs(dx) > 5) didMove.current = true;
+          const dy = e.touches[0].clientY - touchStartY.current;
+          if (direction.current === null && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) {
+            direction.current = Math.abs(dx) > Math.abs(dy) ? "horizontal" : "vertical";
+          }
+          if (direction.current !== "horizontal") return;
+          didMove.current = true;
           setOffset(Math.min(0, Math.max(offsetAtStart.current + dx, -SNAP_WIDTH)));
         }}
         onTouchEnd={() => {
