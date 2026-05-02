@@ -209,23 +209,32 @@ const MainView = ({
     setCurrentBookings(monthMap.get(newDate.toISOString().split("T")[0])?.bookings ?? null);
   };
 
-  // ── Booking request count + browser notifications ────────────────────────
+  // ── Booking request count + alert sound ────────────────────────────────
   const prevPendingCountRef = useRef<number | null>(null);
+  const playAlert = () => {
+    try {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.3);
+      gain.gain.setValueAtTime(0.4, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.4);
+    } catch { /* AudioContext not available */ }
+  };
   useEffect(() => {
     if (!token) return;
     const fetchCount = () =>
       fetchBookingRequestsByHost(hostId, token)
         .then((reqs: { status: string }[]) => {
           const count = (reqs ?? []).filter((r) => r.status === "pending").length;
-          if (
-            prevPendingCountRef.current !== null &&
-            count > prevPendingCountRef.current &&
-            Notification.permission === "granted"
-          ) {
-            new Notification("TiMag – New Booking Request", {
-              body: `You have ${count} pending request${count > 1 ? "s" : ""}.`,
-              icon: "/favicon.ico",
-            });
+          if (prevPendingCountRef.current !== null && count > prevPendingCountRef.current) {
+            playAlert();
           }
           prevPendingCountRef.current = count;
           setBookingRequestPendingCount(count);
