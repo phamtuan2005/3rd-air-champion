@@ -212,11 +212,15 @@ const MainView = ({
   // ── Booking request count ─────────────────────────────────────────────────
   useEffect(() => {
     if (!token) return;
-    fetchBookingRequestsByHost(hostId, token)
-      .then((reqs: { status: string }[]) => {
-        setBookingRequestPendingCount((reqs ?? []).filter((r) => r.status === "pending").length);
-      })
-      .catch(() => setBookingRequestPendingCount(0));
+    const fetchCount = () =>
+      fetchBookingRequestsByHost(hostId, token)
+        .then((reqs: { status: string }[]) => {
+          setBookingRequestPendingCount((reqs ?? []).filter((r) => r.status === "pending").length);
+        })
+        .catch(() => setBookingRequestPendingCount(0));
+    fetchCount();
+    const interval = setInterval(fetchCount, 30_000);
+    return () => clearInterval(interval);
   }, [hostId, token, isRequestManagerOpen, acceptCompletedTick, setBookingRequestPendingCount]);
 
   useEffect(() => {
