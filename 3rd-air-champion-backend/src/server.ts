@@ -70,7 +70,6 @@ const startServer = async () => {
 
     app.use(express.json()); // Middleware for parsing JSON requests
     app.use(cors(corsOptions));
-    app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
     // Use Apollo Server Middleware
     app.use(
       "/graphql",
@@ -83,20 +82,27 @@ const startServer = async () => {
       res.status(200).json({ message: "Hello World!" });
     });
 
+    const apiRouter = express.Router();
+
+    // Static uploads
+    apiRouter.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+
     // Public routes
-    app.use("/auth", authorizationRoute);
-    app.use("/booking-request", bookingRequestRoute);
-    app.use("/wish-list", wishListRoute);
+    apiRouter.use("/auth", authorizationRoute);
+    apiRouter.use("/booking-request", bookingRequestRoute);
+    apiRouter.use("/wish-list", wishListRoute);
 
     // Authenticate all paths from now on
-    app.use(authenticateToken as any);
+    apiRouter.use(authenticateToken as any);
 
     // Protected Routes
-    app.use("/host", hostRoute);
-    app.use("/guest", guestRoute);
-    app.use("/room", roomRoute);
-    app.use("/day", dayRoute);
-    app.use("/airbnb", syncRoute);
+    apiRouter.use("/host", hostRoute);
+    apiRouter.use("/guest", guestRoute);
+    apiRouter.use("/room", roomRoute);
+    apiRouter.use("/day", dayRoute);
+    apiRouter.use("/airbnb", syncRoute);
+
+    app.use("/api", apiRouter);
 
     console.log(`Express server ready at http://localhost:${PORT}/`);
 

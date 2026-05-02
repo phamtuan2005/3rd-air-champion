@@ -50,7 +50,6 @@ export default defineConfig({
       "/api": {
         target: "http://13.59.73.109:8080",
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ""),
         headers: { origin: "http://localhost:5173" },
       },
     },
