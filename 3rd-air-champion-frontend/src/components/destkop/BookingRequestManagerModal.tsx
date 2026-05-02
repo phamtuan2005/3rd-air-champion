@@ -65,6 +65,22 @@ interface BookingRequestManagerModalProps {
 const SNAP_WIDTH = 72;
 const SWIPE_THRESHOLD = 32;
 
+const calcGroupStats = (
+  group: BookingRequest[],
+  getRoom: (id: string) => roomType | undefined,
+  getGuest: (phone: string) => guestType | undefined,
+) => {
+  const nights = group.reduce((s, r) => s + r.duration, 0);
+  const revenue = group.reduce((s, r) => {
+    const guestPrice = getGuest(r.guestPhone)?.pricing.find((p) => p.room === r.room)?.price;
+    const nightlyRate = guestPrice ?? getRoom(r.room)?.price ?? 0;
+    return s + r.duration * nightlyRate;
+  }, 0);
+  return { nights, revenue };
+};
+
+const fmtRevenue = (n: number) => `$${n.toLocaleString()}`;
+
 const statusLabel = (status: string) => {
   if (status === "confirmed") return "Accepted";
   if (status === "cancelled") return "Declined";
@@ -75,6 +91,193 @@ const statusColor = (status: string) => {
   if (status === "confirmed") return "text-green-600";
   if (status === "cancelled") return "text-red-500";
   return "text-gray-500";
+};
+
+interface HistoryDetailSheetProps {
+  group: BookingRequest[];
+  rooms: roomType[];
+  guests: guestType[];
+  timeZone: string;
+  formatDate: (d: string) => string;
+  getRoom: (id: string) => roomType | undefined;
+  matchGuest: (phone: string) => guestType | undefined;
+  onClose: () => void;
+}
+
+const DISMISS_HEIGHT = 100; // px — close when dragged below this
+
+const HistoryDetailSheet = ({
+  group,
+  formatDate,
+  getRoom,
+  matchGuest,
+  onClose,
+}: HistoryDetailSheetProps) => {
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const [heightPx, setHeightPx] = useState<number | null>(null); // null = use CSS default
+  const [animating, setAnimating] = useState(false);
+  const [dismissing, setDismissing] = useState(false);
+  const startYRef = useRef<number | null>(null);
+  const startHeightRef = useRef<number>(0);
+
+  const getContainerHeight = () => backdropRef.current?.clientHeight ?? 400;
+
+  const resolvedHeight = (): number =>
+    heightPx ?? getContainerHeight() * 0.6;
+
+  // Slide sheet to 0 first, then call onClose after animation so the touch
+  // gesture finishes before the element unmounts (prevents rerouting to MobilePanel).
+  const dismiss = () => {
+    setDismissing(true);
+    setHeightPx(0);
+    setTimeout(onClose, 280);
+  };
+
+  const commitDrag = (finalY: number) => {
+    if (startYRef.current === null) return;
+    const delta = startYRef.current - finalY; // positive = dragging up = taller
+    const newH = Math.min(
+      getContainerHeight() * 0.94,
+      Math.max(0, startHeightRef.current + delta),
+    );
+    startYRef.current = null;
+    if (newH < DISMISS_HEIGHT) {
+      dismiss();
+    } else {
+      setAnimating(true);
+      setHeightPx(newH);
+      setTimeout(() => setAnimating(false), 250);
+    }
+  };
+
+  const moveDrag = (clientY: number) => {
+    if (startYRef.current === null) return;
+    const delta = startYRef.current - clientY;
+    const newH = Math.min(
+      getContainerHeight() * 0.94,
+      Math.max(0, startHeightRef.current + delta),
+    );
+    setHeightPx(newH);
+  };
+
+  const startDrag = (clientY: number) => {
+    startYRef.current = clientY;
+    startHeightRef.current = resolvedHeight();
+    setAnimating(false);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => startDrag(e.touches[0].clientY);
+  const handleTouchMove = (e: React.TouchEvent) => moveDrag(e.touches[0].clientY);
+  const handleTouchEnd = (e: React.TouchEvent) => commitDrag(e.changedTouches[0].clientY);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    startDrag(e.clientY);
+    const onMove = (ev: MouseEvent) => moveDrag(ev.clientY);
+    const onUp = (ev: MouseEvent) => {
+      commitDrag(ev.clientY);
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  };
+
+  const first = group[0];
+  const matched = matchGuest(first.guestPhone);
+  const displayName = matched?.name ?? first.guestName;
+  const allConfirmed = group.every((r) => r.status === "confirmed");
+  const allCancelled = group.every((r) => r.status === "cancelled");
+  const overallStatus = allConfirmed ? "confirmed" : allCancelled ? "cancelled" : "mixed";
+
+  return (
+    <div
+      ref={backdropRef}
+      className="absolute inset-0 bg-black/40 z-20"
+      onClick={(e) => { e.stopPropagation(); dismiss(); }}
+    >
+      <div
+        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-xl flex flex-col overflow-hidden"
+        style={{
+          height: heightPx !== null ? `${heightPx}px` : "60%",
+          transition: (animating || dismissing) ? "height 0.28s ease" : "none",
+        }}
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        {/* Drag zone: handle bar + header — the whole top area is draggable */}
+        <div
+          className="flex-shrink-0 cursor-ns-resize select-none"
+          onMouseDown={handleMouseDown}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          <div className="flex justify-center pt-3 pb-2">
+            <div className="w-10 h-1 bg-gray-300 rounded-full" />
+          </div>
+          <div className="flex items-start justify-between gap-2 px-5 pb-3">
+            <div>
+              <p className="text-base font-bold text-gray-800">{displayName}</p>
+              <p className="text-sm text-gray-400">{formatPhone(first.guestPhone)}</p>
+            </div>
+            <span className={`text-sm font-semibold ${statusColor(overallStatus)}`}>
+              {statusLabel(overallStatus)}
+            </span>
+          </div>
+
+          {/* Nights + revenue strip */}
+          {(() => {
+            const { nights, revenue } = calcGroupStats(group, getRoom, matchGuest);
+            return revenue > 0 ? (
+              <div className="flex items-center gap-4 bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 mt-1">
+                <div className="flex flex-col items-center gap-0.5">
+                  <span className="text-[10px] text-green-500 font-medium uppercase tracking-wide">Nights</span>
+                  <span className="text-base font-bold text-green-700">{nights}</span>
+                </div>
+                <div className="w-px h-8 bg-green-200" />
+                <div className="flex flex-col items-center gap-0.5 flex-1">
+                  <span className="text-[10px] text-green-500 font-medium uppercase tracking-wide">Revenue</span>
+                  <span className="text-base font-bold text-green-700">{fmtRevenue(revenue)}</span>
+                </div>
+              </div>
+            ) : null;
+          })()}
+        </div>
+
+        {/* Scrollable content */}
+        <div className="overflow-y-auto overscroll-y-contain flex-1 px-5 pb-6 border-t border-gray-100">
+          <div className="flex flex-col gap-3 pt-3">
+            {group.map((req) => {
+              const room = getRoom(req.room);
+              const roomColorClass = room ? getRoomColor(room.name, room.color) : "bg-gray-400";
+              return (
+                <div key={req.id} className="flex flex-col gap-1 text-sm text-gray-700">
+                  <div className="flex items-center gap-2">
+                    {room && (
+                      <span className={`${roomColorClass} text-white text-xs font-medium px-2 py-0.5 rounded`}>
+                        {room.name}
+                      </span>
+                    )}
+                    <span>{formatDate(req.date)}</span>
+                    {group.length > 1 && (
+                      <span className={`ml-auto text-xs font-medium ${statusColor(req.status)}`}>
+                        {statusLabel(req.status)}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-gray-500 text-xs">
+                    {req.duration} night{req.duration > 1 ? "s" : ""} · {req.numberOfGuests} guest{req.numberOfGuests > 1 ? "s" : ""}
+                  </p>
+                  {req.notes && <p className="text-gray-500 text-xs italic">{req.notes}</p>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 interface SwipeableHistoryGroupRowProps {
@@ -182,11 +385,24 @@ const SwipeableHistoryGroupRow = ({
         }}
       >
         {/* Header row */}
-        <div className="flex items-center gap-2">
-          <span className="font-medium text-[12px] text-gray-700 truncate min-w-0">{displayName}</span>
-          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${statusBadgeClass}`}>{statusText}</span>
-          <span className="text-[10px] text-gray-400 ml-auto shrink-0">{fmtTimestamp(latestUpdatedAt)}</span>
-        </div>
+        {(() => {
+          const getR = (id: string) => rooms.find((r) => r.id === id);
+          const getG = (phone: string) => guests.find((g) => g.phone.replace(/\D/g, "") === phone.replace(/\D/g, ""));
+          const { nights, revenue } = calcGroupStats(group, getR, getG);
+          return (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-medium text-[12px] text-gray-700 truncate min-w-0">{displayName}</span>
+              {revenue > 0 && (
+                <>
+                  <span className="text-[10px] text-gray-400 shrink-0">{nights}n</span>
+                  <span className="text-[11px] font-bold text-green-700 shrink-0">{fmtRevenue(revenue)}</span>
+                </>
+              )}
+              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${statusBadgeClass}`}>{statusText}</span>
+              <span className="text-[10px] text-gray-400 ml-auto shrink-0">{fmtTimestamp(latestUpdatedAt)}</span>
+            </div>
+          );
+        })()}
 
         {/* Request rows */}
         {group.map((req) => {
@@ -558,6 +774,19 @@ const BookingRequestManagerModal = ({
           )}
         </div>
 
+        {/* Revenue highlight */}
+        {(() => {
+          const { nights, revenue } = calcGroupStats(group, getRoom, matchGuest);
+          return revenue > 0 ? (
+            <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-green-600 font-medium">{nights} night{nights !== 1 ? "s" : ""}</span>
+              </div>
+              <span className="text-sm font-bold text-green-700">{fmtRevenue(revenue)}</span>
+            </div>
+          ) : null;
+        })()}
+
         <div className="flex gap-2 mt-1">
           <button
             type="button"
@@ -581,7 +810,7 @@ const BookingRequestManagerModal = ({
   };
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="h-full flex flex-col overflow-hidden relative">
       <div className="flex items-center gap-3 px-4 pt-3 pb-2 border-b border-gray-100 flex-shrink-0">
         <button
           type="button"
@@ -765,64 +994,19 @@ const BookingRequestManagerModal = ({
         )}
       </div>
 
-      {/* History detail overlay */}
-      {selectedHistoryGroup && (() => {
-        const first = selectedHistoryGroup[0];
-        const matched = matchGuest(first.guestPhone);
-        const displayName = matched?.name ?? first.guestName;
-        const allConfirmed = selectedHistoryGroup.every((r) => r.status === "confirmed");
-        const allCancelled = selectedHistoryGroup.every((r) => r.status === "cancelled");
-        const overallStatus = allConfirmed ? "confirmed" : allCancelled ? "cancelled" : "mixed";
-        return (
-          <div
-            className="absolute inset-0 bg-black/40 flex items-center justify-center z-20 px-4"
-            onClick={() => setSelectedHistoryGroup(null)}
-          >
-            <div
-              className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 flex flex-col gap-3"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-base font-bold text-gray-800">{displayName}</p>
-                  <p className="text-sm text-gray-400">{formatPhone(first.guestPhone)}</p>
-                </div>
-                <span className={`text-sm font-semibold ${statusColor(overallStatus)}`}>{statusLabel(overallStatus)}</span>
-              </div>
-              <div className="border-t border-gray-100 pt-3 flex flex-col gap-3">
-                {selectedHistoryGroup.map((req) => {
-                  const room = getRoom(req.room);
-                  const roomColorClass = room ? getRoomColor(room.name, room.color) : "bg-gray-400";
-                  return (
-                    <div key={req.id} className="flex flex-col gap-1 text-sm text-gray-700">
-                      <div className="flex items-center gap-2">
-                        {room && (
-                          <span className={`${roomColorClass} text-white text-xs font-medium px-2 py-0.5 rounded`}>
-                            {room.name}
-                          </span>
-                        )}
-                        <span>{formatDate(req.date)}</span>
-                        {selectedHistoryGroup.length > 1 && (
-                          <span className={`ml-auto text-xs font-medium ${statusColor(req.status)}`}>{statusLabel(req.status)}</span>
-                        )}
-                      </div>
-                      <p className="text-gray-500 text-xs">{req.duration} night{req.duration > 1 ? "s" : ""} · {req.numberOfGuests} guest{req.numberOfGuests > 1 ? "s" : ""}</p>
-                      {req.notes && <p className="text-gray-500 text-xs italic">{req.notes}</p>}
-                    </div>
-                  );
-                })}
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedHistoryGroup(null)}
-                className="mt-1 w-full text-sm text-gray-400 hover:text-gray-600 text-center"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        );
-      })()}
+      {/* History detail bottom sheet */}
+      {selectedHistoryGroup && (
+        <HistoryDetailSheet
+          group={selectedHistoryGroup}
+          rooms={rooms}
+          guests={guests}
+          timeZone={timeZone}
+          formatDate={formatDate}
+          getRoom={getRoom}
+          matchGuest={matchGuest}
+          onClose={() => setSelectedHistoryGroup(null)}
+        />
+      )}
     </div>
   );
 };
