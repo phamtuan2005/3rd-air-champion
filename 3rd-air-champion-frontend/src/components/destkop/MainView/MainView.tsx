@@ -212,9 +212,6 @@ const MainView = ({
   // ── Booking request count + browser notifications ────────────────────────
   const prevPendingCountRef = useRef<number | null>(null);
   useEffect(() => {
-    if (Notification.permission === "default") Notification.requestPermission();
-  }, []);
-  useEffect(() => {
     if (!token) return;
     const fetchCount = () =>
       fetchBookingRequestsByHost(hostId, token)

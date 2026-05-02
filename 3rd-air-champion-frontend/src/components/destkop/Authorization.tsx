@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { createPortal } from "react-dom";
 import Login from "./LoginDesktop";
 import Register from "./Register";
@@ -69,7 +69,7 @@ const Authorization = () => {
             <button
               type="button"
               className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg py-2 text-sm transition-colors"
-              onClick={() => setShowModal(true)}
+              onClick={() => { setShowModal(true); if (Notification.permission === "default") Notification.requestPermission(); }}
             >
               Sign in
             </button>
