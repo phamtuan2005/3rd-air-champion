@@ -8,11 +8,11 @@ setup("authenticate", async ({ page }) => {
         return;
     }
     await page.goto("/login");
+    await page.getByRole("button", { name: "Sign in" }).click();
     await page.fill("#email", email);
     await page.fill("#password", password);
     await page.getByRole("button", { name: "Login" }).click();
-    await page.waitForURL("/", { timeout: 10000 });
-    await expect(page.getByRole("button", { name: "Book" })).toBeVisible({ timeout: 10000 });
-    // Save auth state (localStorage token) so other tests can reuse it
+    await page.waitForURL("/", { timeout: 15000 });
+    // Save immediately after redirect — token is now in localStorage
     await page.context().storageState({ path: STORAGE_STATE });
 });

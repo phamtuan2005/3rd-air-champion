@@ -5,13 +5,15 @@ test.describe("Login page", () => {
         await page.goto("/login");
     });
     test("shows login form", async ({ page }) => {
+        await page.getByRole("button", { name: "Sign in" }).click();
         await expect(page.locator("#email")).toBeVisible();
         await expect(page.locator("#password")).toBeVisible();
         await expect(page.getByRole("button", { name: "Login" })).toBeVisible();
     });
     test("shows error on invalid credentials", async ({ page }) => {
+        await page.getByRole("button", { name: "Sign in" }).click();
         await page.fill("#email", "wrong@example.com");
-        await page.fill("#password", "wrongpassword");
+        await page.fill("#password", "Wrong1password!");
         await page.getByRole("button", { name: "Login" }).click();
         await expect(page.locator("p.text-red-500")).toBeVisible({ timeout: 8000 });
     });
@@ -19,6 +21,7 @@ test.describe("Login page", () => {
         const email = process.env.TEST_EMAIL;
         const password = process.env.TEST_PASSWORD;
         test.skip(!email || !password, "TEST_EMAIL / TEST_PASSWORD not set");
+        await page.getByRole("button", { name: "Sign in" }).click();
         await page.fill("#email", email);
         await page.fill("#password", password);
         await page.getByRole("button", { name: "Login" }).click();
