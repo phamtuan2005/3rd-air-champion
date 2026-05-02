@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from "react";
+﻿import { useContext, useEffect, useRef, useState } from "react";
 import CalendarNavigator from "./CalendarView/CalendarNavigatorDesktop";
 import CustomCalendar from "./CalendarView/CustomCalendarDesktop";
 import { dayType } from "../../../util/types/dayType";
@@ -209,13 +209,29 @@ const MainView = ({
     setCurrentBookings(monthMap.get(newDate.toISOString().split("T")[0])?.bookings ?? null);
   };
 
-  // ── Booking request count ─────────────────────────────────────────────────
+  // ── Booking request count + browser notifications ────────────────────────
+  const prevPendingCountRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (Notification.permission === "default") Notification.requestPermission();
+  }, []);
   useEffect(() => {
     if (!token) return;
     const fetchCount = () =>
       fetchBookingRequestsByHost(hostId, token)
         .then((reqs: { status: string }[]) => {
-          setBookingRequestPendingCount((reqs ?? []).filter((r) => r.status === "pending").length);
+          const count = (reqs ?? []).filter((r) => r.status === "pending").length;
+          if (
+            prevPendingCountRef.current !== null &&
+            count > prevPendingCountRef.current &&
+            Notification.permission === "granted"
+          ) {
+            new Notification("TiMag – New Booking Request", {
+              body: `You have ${count} pending request${count > 1 ? "s" : ""}.`,
+              icon: "/favicon.ico",
+            });
+          }
+          prevPendingCountRef.current = count;
+          setBookingRequestPendingCount(count);
         })
         .catch(() => setBookingRequestPendingCount(0));
     fetchCount();
