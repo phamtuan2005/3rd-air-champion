@@ -6,7 +6,7 @@ interface HostProfileBannerProps {
   cohostNames?: string[];
 }
 
-const HostAvatar = ({ name }: { name: string }) => {
+const HostAvatar = ({ name, profileUrl }: { name: string; profileUrl?: string }) => {
   const [photoError, setPhotoError] = useState(false);
   const initials = name
     .split(" ")
@@ -15,8 +15,8 @@ const HostAvatar = ({ name }: { name: string }) => {
     .toUpperCase()
     .slice(0, 2);
 
-  return (
-    <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
+  const inner = (
+    <div className={`flex flex-col items-center gap-0.5 flex-shrink-0 ${profileUrl ? "cursor-pointer" : ""}`}>
       <div className="relative">
         <div className="h-9 w-9 rounded-full border-2 border-green-500 overflow-hidden bg-green-100 flex items-center justify-center">
           {!photoError ? (
@@ -36,6 +36,12 @@ const HostAvatar = ({ name }: { name: string }) => {
       <span className="text-[9px] font-semibold text-green-600 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full -mt-0.5">Verified</span>
     </div>
   );
+
+  return profileUrl ? (
+    <a href={profileUrl} target="_blank" rel="noopener noreferrer">
+      {inner}
+    </a>
+  ) : inner;
 };
 
 const HostProfileBanner = ({ host, cohostNames = [] }: HostProfileBannerProps) => {
@@ -66,9 +72,9 @@ const HostProfileBanner = ({ host, cohostNames = [] }: HostProfileBannerProps) =
       <div className="flex items-start gap-3 border-t border-gray-100 pt-1.5">
         {/* Avatars */}
         <div className="flex items-end gap-2">
-          <HostAvatar name={host.name} />
-          {cohostNames.map((name) => (
-            <HostAvatar key={name} name={name} />
+          <HostAvatar name={host.name} profileUrl={host.airbnbProfileUrl} />
+          {cohostNames.map((name, i) => (
+            <HostAvatar key={name} name={name} profileUrl={host.cohostProfileUrls?.[i]} />
           ))}
         </div>
 
