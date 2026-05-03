@@ -125,8 +125,8 @@ const CalendarNavigator = ({
                 }}
               />
             </div>
-            <div className="basis-1/2 flex justify-center items-center w-full gap-2">
-              <span className="font-bold text-xl text-gray-800">
+            <div className="basis-1/2 flex justify-center items-center w-full gap-1 sm:gap-2">
+              <span className="font-bold text-base sm:text-xl text-gray-800">
                 {formattedDate}
               </span>
               {todayButton}
@@ -143,8 +143,8 @@ const CalendarNavigator = ({
               </button>
             </div>
             {/* PROFIT */}
-            <div className="basis-1/4 flex justify-end w-full text-2xl font-bold text-emerald-600">
-              ${profit.total.toFixed(2)}
+            <div className="basis-1/4 flex justify-end w-full text-2xl font-bold text-emerald-600 text-right leading-tight">
+              ${Math.round(profit.total).toLocaleString()}
             </div>
           </div>
         </>
@@ -283,7 +283,7 @@ const CalendarNavigator = ({
         {/* PROFIT */}
         {!currentGuest && !currentAirBnBGuest && (
           <div className="basis-1/3 flex justify-end w-full font-bold text-nowrap">
-            (A) ${profit.airbnb.toFixed(2)}
+            (A) ${Math.round(profit.airbnb).toLocaleString()}
           </div>
         )}
       </div>

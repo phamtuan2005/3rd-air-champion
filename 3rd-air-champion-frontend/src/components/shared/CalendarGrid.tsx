@@ -205,11 +205,6 @@ const CalendarGrid = ({
     if (paidDates.some((pd) => isSameDay(pd, date)))
       className.push("react-calendar__custom_tile_paid");
     if (!isSameMonth(date, pageMonth)) className.push("react-calendar__custom_tile_outside");
-    if (gapsMode && isSameMonth(date, pageMonth)) {
-      const isEmpty = !day || day.bookings.length === 0;
-      const isFuture = !isBefore(date, startOfToday());
-      if (isEmpty && isFuture) className.push("react-calendar__gaps_empty");
-    }
     return className;
   };
 
@@ -286,6 +281,65 @@ const CalendarGrid = ({
     }
 
     sortedUsedRooms.sort((a, b) => a.name.localeCompare(b.name));
+
+    // Gaps mode: replace all bars with green availability bars
+    if (gapsMode) {
+      const isFutureOrToday = !isBefore(date, startOfToday());
+      const isSunday = getDay(date) === 0;
+      return (
+        <>
+          {sortedUsedRooms.map((room) => {
+            if (!isFutureOrToday) return <div key={room.name} className="row-span-1 h-full" />;
+
+            const { pm: pmBooking } = gridContent[room.name] ?? { am: null, pm: null };
+            const roomColor = getRoomColor(room.name, room.color);
+
+            if (pmBooking !== null) {
+              return <div key={room.name} className="row-span-1 h-full" />;
+            }
+
+            // Room is free tonight — identical geometry to opportunity_row, room color instead of amber dashed
+            const prevDayNoPm = prevDay
+              ? !prevDay.bookings.some((b) => b.room?.name === room.name)
+              : true;
+            return (
+              <div key={room.name} className="row-span-1 h-full relative">
+                {/* Sunday AM cap — same condition as opportunity_row */}
+                {isSunday && prevDayNoPm && (
+                  <div
+                    className={roomColor}
+                    style={{
+                      position: "absolute",
+                      top: "1px",
+                      bottom: "1px",
+                      left: "-1px",
+                      right: "80%",
+                      borderTopRightRadius: "0.5rem",
+                      borderBottomRightRadius: "0.5rem",
+                    }}
+                  />
+                )}
+                <div
+                  className={`${roomColor} flex items-center overflow-hidden rounded-lg`}
+                  style={{
+                    position: "absolute",
+                    top: "1px",
+                    bottom: "1px",
+                    left: "20%",
+                    right: "-20%",
+                    fontSize: "0.65rem",
+                    fontWeight: 700,
+                    paddingLeft: "4px",
+                  }}
+                >
+                  {room.name}
+                </div>
+              </div>
+            );
+          })}
+        </>
+      );
+    }
 
     const textSize = 0.65;
 
@@ -515,32 +569,15 @@ const CalendarGrid = ({
                   if (!date) return <div key={cellIdx} />;
                   const classes = getTileClasses(date, layout.month);
                   const content = getTileContent(date);
-                  const isGapsEmpty =
-                    gapsMode &&
-                    isSameMonth(date, layout.month) &&
-                    (!monthMap.get(date.toISOString().split("T")[0]) ||
-                      monthMap.get(date.toISOString().split("T")[0])!.bookings.length === 0) &&
-                    !isBefore(date, startOfToday());
                   return (
                     <button
                       key={cellIdx}
                       type="button"
                       className={classes.join(" ")}
                       onClick={() => handleTileClick(date)}
-                      style={{
-                        "--max-rows": (maxRooms + 1).toString(),
-                        ...(isGapsEmpty
-                          ? {
-                              backgroundColor: "rgba(34, 197, 94, 0.22)",
-                              boxShadow: "inset 0 0 0 2px rgba(34, 197, 94, 0.7)",
-                            }
-                          : {}),
-                      } as React.CSSProperties}
+                      style={{ "--max-rows": (maxRooms + 1).toString() } as React.CSSProperties}
                     >
-                      <abbr
-                        aria-label={date.toLocaleDateString()}
-                        style={isGapsEmpty ? { color: "#15803d", fontWeight: 800 } : undefined}
-                      >{date.getDate()}</abbr>
+                      <abbr aria-label={date.toLocaleDateString()}>{date.getDate()}</abbr>
                       {content}
                     </button>
                   );
