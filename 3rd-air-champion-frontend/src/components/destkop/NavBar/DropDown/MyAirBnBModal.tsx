@@ -9,6 +9,8 @@ interface MyAirBnBInfo {
   airbnbRating: number | "";
   airbnbReviewCount: number | "";
   airbnbReviewsUrl: string;
+  airbnbProfileUrl: string;
+  cohostProfileUrl: string;
   airbnbSuperhost: boolean;
   highlights: string;
   houseRules: string;
@@ -95,6 +97,7 @@ const MyAirBnBModal = ({ current, onClose, onSaved }: MyAirBnBModalProps) => {
           highlights: draft.highlights
             ? draft.highlights.split(",").map((s) => s.trim()).filter(Boolean)
             : undefined,
+          cohostProfileUrls: draft.cohostProfileUrl ? [draft.cohostProfileUrl] : [],
         },
         token
       );
@@ -197,6 +200,26 @@ const MyAirBnBModal = ({ current, onClose, onSaved }: MyAirBnBModalProps) => {
                   placeholder="https://www.airbnb.com/rooms/..."
                   value={draft.airbnbReviewsUrl}
                   onChange={(e) => set("airbnbReviewsUrl", e.target.value)}
+                />
+              </Field>
+
+              <Field label="Your Airbnb Profile URL" hint="Guests tap your avatar to visit your profile">
+                <input
+                  type="url"
+                  className={inputCls}
+                  placeholder="https://www.airbnb.com/users/show/..."
+                  value={draft.airbnbProfileUrl}
+                  onChange={(e) => set("airbnbProfileUrl", e.target.value)}
+                />
+              </Field>
+
+              <Field label="Co-host Airbnb Profile URL" hint="Guests tap co-host avatar to visit their profile">
+                <input
+                  type="url"
+                  className={inputCls}
+                  placeholder="https://www.airbnb.com/users/show/..."
+                  value={draft.cohostProfileUrl}
+                  onChange={(e) => set("cohostProfileUrl", e.target.value)}
                 />
               </Field>
 

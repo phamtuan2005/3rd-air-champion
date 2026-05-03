@@ -158,17 +158,19 @@ router.put("/update/doorcode", async (req: Request, res: any) => {
 
 
 router.put('/update/airbnbinfo', async (req: Request, res: any) => {
-  const { id, doorCode, airbnbName, airbnbAddress, airbnbRating, airbnbReviewCount, airbnbReviewsUrl, airbnbSuperhost, highlights, houseRules, phone, contactEmail, licenseNumber } = req.body;
+  const { id, doorCode, airbnbName, airbnbAddress, airbnbRating, airbnbReviewCount, airbnbReviewsUrl, airbnbProfileUrl, cohostProfileUrls, airbnbSuperhost, highlights, houseRules, phone, contactEmail, licenseNumber } = req.body;
 
   const query = `
-    mutation UpdateHost($id: String!, $doorCode: String, $airbnbName: String, $airbnbAddress: String, $airbnbRating: Float, $airbnbReviewCount: Int, $airbnbReviewsUrl: String, $airbnbSuperhost: Boolean, $highlights: [String], $houseRules: String, $phone: String, $contactEmail: String, $licenseNumber: String) {
-      updateHost(_id: $id, doorCode: $doorCode, airbnbName: $airbnbName, airbnbAddress: $airbnbAddress, airbnbRating: $airbnbRating, airbnbReviewCount: $airbnbReviewCount, airbnbReviewsUrl: $airbnbReviewsUrl, airbnbSuperhost: $airbnbSuperhost, highlights: $highlights, houseRules: $houseRules, phone: $phone, contactEmail: $contactEmail, licenseNumber: $licenseNumber) {
+    mutation UpdateHost($id: String!, $doorCode: String, $airbnbName: String, $airbnbAddress: String, $airbnbRating: Float, $airbnbReviewCount: Int, $airbnbReviewsUrl: String, $airbnbProfileUrl: String, $cohostProfileUrls: [String], $airbnbSuperhost: Boolean, $highlights: [String], $houseRules: String, $phone: String, $contactEmail: String, $licenseNumber: String) {
+      updateHost(_id: $id, doorCode: $doorCode, airbnbName: $airbnbName, airbnbAddress: $airbnbAddress, airbnbRating: $airbnbRating, airbnbReviewCount: $airbnbReviewCount, airbnbReviewsUrl: $airbnbReviewsUrl, airbnbProfileUrl: $airbnbProfileUrl, cohostProfileUrls: $cohostProfileUrls, airbnbSuperhost: $airbnbSuperhost, highlights: $highlights, houseRules: $houseRules, phone: $phone, contactEmail: $contactEmail, licenseNumber: $licenseNumber) {
         doorCode
         airbnbName
         airbnbAddress
         airbnbRating
         airbnbReviewCount
         airbnbReviewsUrl
+        airbnbProfileUrl
+        cohostProfileUrls
         airbnbSuperhost
         highlights
         houseRules
@@ -178,7 +180,7 @@ router.put('/update/airbnbinfo', async (req: Request, res: any) => {
       }
     }`;
 
-  sendGraphQLRequest(query, { id, doorCode, airbnbName, airbnbAddress, airbnbRating, airbnbReviewCount, airbnbReviewsUrl, airbnbSuperhost, highlights, houseRules, phone, contactEmail, licenseNumber })
+  sendGraphQLRequest(query, { id, doorCode, airbnbName, airbnbAddress, airbnbRating, airbnbReviewCount, airbnbReviewsUrl, airbnbProfileUrl, cohostProfileUrls, airbnbSuperhost, highlights, houseRules, phone, contactEmail, licenseNumber })
     .then((result: any) => {
       if (result.errors) {
         return res.status(400).json({ errors: result.errors[0].message });

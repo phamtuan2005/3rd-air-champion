@@ -22,6 +22,8 @@ export const hostDefs = gql`
     airbnbRating: Float
     airbnbReviewCount: Int
     airbnbReviewsUrl: String
+    airbnbProfileUrl: String
+    cohostProfileUrls: [String]
     airbnbSuperhost: Boolean
     highlights: [String]
     houseRules: String
@@ -51,6 +53,8 @@ export const hostDefs = gql`
       airbnbRating: Float
       airbnbReviewCount: Int
       airbnbReviewsUrl: String
+      airbnbProfileUrl: String
+      cohostProfileUrls: [String]
       airbnbSuperhost: Boolean
       highlights: [String]
       houseRules: String
