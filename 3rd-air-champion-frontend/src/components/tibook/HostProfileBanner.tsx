@@ -6,7 +6,7 @@ interface HostProfileBannerProps {
   cohostNames?: string[];
 }
 
-const HostAvatar = ({ name, label }: { name: string; label?: string }) => {
+const HostAvatar = ({ name }: { name: string }) => {
   const [photoError, setPhotoError] = useState(false);
   const initials = name
     .split(" ")
@@ -33,7 +33,7 @@ const HostAvatar = ({ name, label }: { name: string; label?: string }) => {
         <div className="absolute bottom-0 right-0 h-2.5 w-2.5 bg-green-500 rounded-full border-2 border-white" />
       </div>
       <span className="text-[10px] font-semibold text-gray-800">{name}</span>
-      {label && <span className="text-[9px] text-gray-400 -mt-0.5">{label}</span>}
+      <span className="text-[9px] font-semibold text-green-600 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full -mt-0.5">Verified</span>
     </div>
   );
 };
@@ -66,9 +66,9 @@ const HostProfileBanner = ({ host, cohostNames = [] }: HostProfileBannerProps) =
       <div className="flex items-start gap-3 border-t border-gray-100 pt-1.5">
         {/* Avatars */}
         <div className="flex items-end gap-2">
-          <HostAvatar name={host.name} label={cohostNames.length > 0 ? "Host" : undefined} />
+          <HostAvatar name={host.name} />
           {cohostNames.map((name) => (
-            <HostAvatar key={name} name={name} label="Co-host" />
+            <HostAvatar key={name} name={name} />
           ))}
         </div>
 
