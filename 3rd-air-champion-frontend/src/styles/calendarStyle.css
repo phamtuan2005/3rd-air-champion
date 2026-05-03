@@ -190,3 +190,13 @@
 .react-calendar__custom_tile_booking_between {
   @apply border-x-0;
 }
+
+/* Gaps mode */
+.react-calendar__gaps_empty {
+  background-color: rgba(34, 197, 94, 0.25) !important;
+  box-shadow: inset 0 0 0 1.5px rgba(34, 197, 94, 0.6);
+}
+.react-calendar__gaps_empty abbr {
+  color: #15803d !important;
+  font-weight: 800 !important;
+}

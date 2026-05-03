@@ -36,6 +36,7 @@ interface CalendarGridProps {
   onDoubleClick?: (date: Date) => void;
   // TiMag: guest name; TiBook: room name
   resolveBarLabel?: (booking: bookingType) => string;
+  gapsMode?: boolean;
 }
 
 const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -59,6 +60,7 @@ const CalendarGrid = ({
   onDateClick,
   onDoubleClick,
   resolveBarLabel,
+  gapsMode = false,
 }: CalendarGridProps) => {
   const [months, setMonths] = useState<Date[]>([]);
   const [visibleIndex, setVisibleIndex] = useState<number>(monthsBack);
@@ -203,6 +205,11 @@ const CalendarGrid = ({
     if (paidDates.some((pd) => isSameDay(pd, date)))
       className.push("react-calendar__custom_tile_paid");
     if (!isSameMonth(date, pageMonth)) className.push("react-calendar__custom_tile_outside");
+    if (gapsMode && isSameMonth(date, pageMonth)) {
+      const isEmpty = !day || day.bookings.length === 0;
+      const isFuture = !isBefore(date, startOfToday());
+      if (isEmpty && isFuture) className.push("react-calendar__gaps_empty");
+    }
     return className;
   };
 
@@ -508,17 +515,32 @@ const CalendarGrid = ({
                   if (!date) return <div key={cellIdx} />;
                   const classes = getTileClasses(date, layout.month);
                   const content = getTileContent(date);
+                  const isGapsEmpty =
+                    gapsMode &&
+                    isSameMonth(date, layout.month) &&
+                    (!monthMap.get(date.toISOString().split("T")[0]) ||
+                      monthMap.get(date.toISOString().split("T")[0])!.bookings.length === 0) &&
+                    !isBefore(date, startOfToday());
                   return (
                     <button
                       key={cellIdx}
                       type="button"
                       className={classes.join(" ")}
                       onClick={() => handleTileClick(date)}
-                      style={
-                        { "--max-rows": (maxRooms + 1).toString() } as React.CSSProperties
-                      }
+                      style={{
+                        "--max-rows": (maxRooms + 1).toString(),
+                        ...(isGapsEmpty
+                          ? {
+                              backgroundColor: "rgba(34, 197, 94, 0.22)",
+                              boxShadow: "inset 0 0 0 2px rgba(34, 197, 94, 0.7)",
+                            }
+                          : {}),
+                      } as React.CSSProperties}
                     >
-                      <abbr aria-label={date.toLocaleDateString()}>{date.getDate()}</abbr>
+                      <abbr
+                        aria-label={date.toLocaleDateString()}
+                        style={isGapsEmpty ? { color: "#15803d", fontWeight: 800 } : undefined}
+                      >{date.getDate()}</abbr>
                       {content}
                     </button>
                   );

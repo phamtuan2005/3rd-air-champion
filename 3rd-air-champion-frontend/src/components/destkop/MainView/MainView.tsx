@@ -123,6 +123,7 @@ const MainView = ({
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [currentBookings, setCurrentBookings] = useState<bookingType[] | null>();
   const [selectedRoomName, setSelectedRoomName] = useState<string | null>(null);
+  const [gapsMode, setGapsMode] = useState(false);
   const [editingRoomId, setEditingRoomId] = useState<string>("");
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
   const [scrollToTodayTrigger, setScrollToTodayTrigger] = useState(0);
@@ -495,6 +496,8 @@ const MainView = ({
               }}
               setPaidDates={setPaidDates}
               setSelectedRoomName={setSelectedRoomName}
+              gapsMode={gapsMode}
+              setGapsMode={setGapsMode}
             />
             <CustomCalendar
               currentGuest={currentGuest}
@@ -510,6 +513,7 @@ const MainView = ({
               setPaidDates={setPaidDates}
               setSelectedDate={setSelectedDate}
               scrollToTodayTrigger={scrollToTodayTrigger}
+              gapsMode={gapsMode}
             />
             {showAddPane === "guest" && (
               <div

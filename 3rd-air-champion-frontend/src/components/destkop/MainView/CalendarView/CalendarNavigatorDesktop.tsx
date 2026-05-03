@@ -30,6 +30,8 @@ interface CalendarNavigatorProps {
   onGoToToday: () => void;
   setPaidDates: React.Dispatch<React.SetStateAction<Date[]>>;
   setSelectedRoomName: React.Dispatch<React.SetStateAction<string | null>>;
+  gapsMode: boolean;
+  setGapsMode: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const CalendarNavigator = ({
@@ -46,6 +48,8 @@ const CalendarNavigator = ({
   onGoToToday,
   setPaidDates,
   setSelectedRoomName,
+  gapsMode,
+  setGapsMode,
 }: CalendarNavigatorProps) => {
   const { setIsFooterVisible } = useContext(FooterContext)!;
   const [showDetails, setShowDetails] = useState(false);
@@ -126,6 +130,17 @@ const CalendarNavigator = ({
                 {formattedDate}
               </span>
               {todayButton}
+              <button
+                type="button"
+                onClick={() => setGapsMode((v) => !v)}
+                className={`text-xs px-2 py-0.5 rounded border transition-colors ${
+                  gapsMode
+                    ? "bg-green-500 border-green-500 text-white"
+                    : "border-gray-300 text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                Gaps
+              </button>
             </div>
             {/* PROFIT */}
             <div className="basis-1/4 flex justify-end w-full text-2xl font-bold text-emerald-600">

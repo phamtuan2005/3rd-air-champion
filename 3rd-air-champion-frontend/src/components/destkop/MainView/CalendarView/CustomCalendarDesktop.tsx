@@ -22,6 +22,7 @@ interface CustomCalendarProps {
   setIsMobileModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setPaidDates: React.Dispatch<React.SetStateAction<Date[]>>;
   setSelectedDate: React.Dispatch<React.SetStateAction<Date>>;
+  gapsMode?: boolean;
 }
 
 const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -40,6 +41,7 @@ const CustomCalendar = ({
   setIsMobileModalOpen,
   setPaidDates,
   setSelectedDate,
+  gapsMode = false,
 }: CustomCalendarProps) => {
   const [useMonthMap, setUseMonthMap] = useState<Map<string, dayType>>(monthMap);
 
@@ -152,6 +154,7 @@ const CustomCalendar = ({
       onDateClick={handleDateClick}
       onDoubleClick={handleDoubleClick}
       resolveBarLabel={resolveBarLabel}
+      gapsMode={gapsMode}
     />
   );
 };
