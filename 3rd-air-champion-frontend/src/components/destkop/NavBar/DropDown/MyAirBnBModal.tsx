@@ -151,7 +151,7 @@ const MyAirBnBModal = ({ current, onClose, onSaved }: MyAirBnBModalProps) => {
         </div>
 
         {/* Tab content */}
-        <div className="px-6 py-5 flex flex-col gap-4 min-h-[240px]">
+        <div className="px-6 py-5 flex flex-col gap-4 overflow-y-auto max-h-[60vh]">
           {tab === "public" && (
             <>
               <Field label="Listing Name">
