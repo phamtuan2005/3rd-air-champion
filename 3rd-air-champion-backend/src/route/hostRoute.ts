@@ -49,6 +49,8 @@ router.post("/get/one", async (req: Request, res: any) => {
                     airbnbRating
                     airbnbReviewCount
                     airbnbReviewsUrl
+                    airbnbProfileUrl
+                    cohostProfileUrls
                     airbnbSuperhost
                     highlights
                     houseRules
