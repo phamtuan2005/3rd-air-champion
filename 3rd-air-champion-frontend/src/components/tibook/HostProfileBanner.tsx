@@ -76,7 +76,7 @@ const HostProfileBanner = ({ host, cohostNames = [] }: HostProfileBannerProps) =
         <div className="flex flex-col gap-0.5 flex-1 min-w-0">
           {host.airbnbSuperhost ? (
             <span className="w-fit text-[10px] font-semibold text-rose-600 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-full">
-              Superhost
+              {cohostNames.length > 0 ? "Superhosts" : "Superhost"}
             </span>
           ) : (
             <span className="w-fit text-[10px] font-semibold text-green-600 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">
