@@ -21,9 +21,20 @@ interface SortablePhotoProps {
   index: number;
   backendEndpoint: string;
   onRemove: () => void;
+  selectMode: boolean;
+  isSelected: boolean;
+  onToggleSelect: () => void;
 }
 
-const SortablePhoto = ({ url, index, backendEndpoint, onRemove }: SortablePhotoProps) => {
+const SortablePhoto = ({
+  url,
+  index,
+  backendEndpoint,
+  onRemove,
+  selectMode,
+  isSelected,
+  onToggleSelect,
+}: SortablePhotoProps) => {
   const [imgError, setImgError] = useState(false);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: url });
@@ -40,13 +51,22 @@ const SortablePhoto = ({ url, index, backendEndpoint, onRemove }: SortablePhotoP
     <div
       ref={setNodeRef}
       style={style}
-      className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 bg-gray-100 group"
+      onClick={selectMode ? onToggleSelect : undefined}
+      className={`relative aspect-square rounded-lg overflow-hidden border bg-gray-100 group transition-all ${
+        selectMode
+          ? isSelected
+            ? "border-blue-500 border-2 cursor-pointer"
+            : "border-gray-200 border-2 cursor-pointer"
+          : "border-gray-200"
+      }`}
     >
-      <div
-        {...attributes}
-        {...listeners}
-        className="absolute inset-0 cursor-grab active:cursor-grabbing z-10"
-      />
+      {!selectMode && (
+        <div
+          {...attributes}
+          {...listeners}
+          className="absolute inset-0 cursor-grab active:cursor-grabbing z-10"
+        />
+      )}
 
       {imgError ? (
         <div className="w-full h-full flex items-center justify-center text-xs text-gray-400 px-1 text-center break-all">
@@ -62,19 +82,37 @@ const SortablePhoto = ({ url, index, backendEndpoint, onRemove }: SortablePhotoP
         />
       )}
 
-      {index === 0 && (
+      {index === 0 && !selectMode && (
         <span className="absolute top-1 left-1 bg-black bg-opacity-60 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded pointer-events-none z-20">
           Cover
         </span>
       )}
 
-      <button
-        type="button"
-        onClick={onRemove}
-        className="absolute top-1 right-1 bg-black bg-opacity-50 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-opacity-80 z-20 opacity-0 group-hover:opacity-100 transition-opacity"
-      >
-        ×
-      </button>
+      {selectMode ? (
+        <div
+          className={`absolute top-1 right-1 w-5 h-5 rounded-full border-2 flex items-center justify-center z-20 pointer-events-none ${
+            isSelected ? "bg-blue-500 border-blue-500" : "bg-white bg-opacity-80 border-gray-400"
+          }`}
+        >
+          {isSelected && (
+            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          )}
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={onRemove}
+          className="absolute top-1 right-1 bg-black bg-opacity-50 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-opacity-80 z-20 opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          ×
+        </button>
+      )}
+
+      {selectMode && isSelected && (
+        <div className="absolute inset-0 bg-blue-500 bg-opacity-15 pointer-events-none z-10" />
+      )}
     </div>
   );
 };
@@ -89,6 +127,8 @@ interface RoomPhotosEditorProps {
 const RoomPhotosEditor = ({ photos, roomName, token, onChange }: RoomPhotosEditorProps) => {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedUrls, setSelectedUrls] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const backendEndpoint = import.meta.env.VITE_BACKEND_ENDPOINT || "";
@@ -123,14 +163,68 @@ const RoomPhotosEditor = ({ photos, roomName, token, onChange }: RoomPhotosEdito
     }
   };
 
+  const toggleSelect = (url: string) => {
+    setSelectedUrls((prev) => {
+      const next = new Set(prev);
+      next.has(url) ? next.delete(url) : next.add(url);
+      return next;
+    });
+  };
+
+  const enterSelectMode = () => {
+    setSelectMode(true);
+    setSelectedUrls(new Set());
+  };
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelectedUrls(new Set());
+  };
+
+  const deleteSelected = () => {
+    onChange(photos.filter((url) => !selectedUrls.has(url)));
+    exitSelectMode();
+  };
+
+  const selectAll = () => {
+    setSelectedUrls(new Set(photos));
+  };
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold text-gray-700">Room Photos</p>
-        {photos.length > 0 && (
-          <span className="text-xs text-gray-400">
-            {photos.length} photo{photos.length > 1 ? "s" : ""} · drag to reorder
-          </span>
+        {photos.length > 0 && !selectMode && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400">
+              {photos.length} photo{photos.length > 1 ? "s" : ""} · drag to reorder
+            </span>
+            <button
+              type="button"
+              onClick={enterSelectMode}
+              className="text-xs text-blue-500 hover:text-blue-700 font-medium"
+            >
+              Select
+            </button>
+          </div>
+        )}
+        {selectMode && (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={selectedUrls.size === photos.length ? exitSelectMode : selectAll}
+              className="text-xs text-gray-500 hover:text-gray-700"
+            >
+              {selectedUrls.size === photos.length ? "Deselect all" : "Select all"}
+            </button>
+            <button
+              type="button"
+              onClick={exitSelectMode}
+              className="text-xs text-gray-500 hover:text-gray-700"
+            >
+              Cancel
+            </button>
+          </div>
         )}
       </div>
 
@@ -145,6 +239,9 @@ const RoomPhotosEditor = ({ photos, roomName, token, onChange }: RoomPhotosEdito
                   index={i}
                   backendEndpoint={backendEndpoint}
                   onRemove={() => onChange(photos.filter((_, idx) => idx !== i))}
+                  selectMode={selectMode}
+                  isSelected={selectedUrls.has(url)}
+                  onToggleSelect={() => toggleSelect(url)}
                 />
               ))}
             </div>
@@ -152,6 +249,19 @@ const RoomPhotosEditor = ({ photos, roomName, token, onChange }: RoomPhotosEdito
         </DndContext>
       ) : (
         <p className="text-xs text-gray-400">No photos added yet.</p>
+      )}
+
+      {selectMode && (
+        <button
+          type="button"
+          onClick={deleteSelected}
+          disabled={selectedUrls.size === 0}
+          className="w-full py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-red-500 text-white hover:bg-red-600 disabled:bg-red-300"
+        >
+          {selectedUrls.size === 0
+            ? "Tap photos to select"
+            : `Delete ${selectedUrls.size} photo${selectedUrls.size > 1 ? "s" : ""}`}
+        </button>
       )}
 
       <input
@@ -163,14 +273,16 @@ const RoomPhotosEditor = ({ photos, roomName, token, onChange }: RoomPhotosEdito
         onChange={(e) => handleFiles(e.target.files)}
       />
 
-      <button
-        type="button"
-        onClick={() => fileInputRef.current?.click()}
-        disabled={uploading}
-        className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-blue-400 hover:text-blue-500 transition-colors disabled:opacity-50"
-      >
-        {uploading ? "Uploading..." : "+ Add Photos"}
-      </button>
+      {!selectMode && (
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-blue-400 hover:text-blue-500 transition-colors disabled:opacity-50"
+        >
+          {uploading ? "Uploading..." : "+ Add Photos"}
+        </button>
+      )}
 
       {uploadError && <p className="text-red-500 text-xs">{uploadError}</p>}
     </div>
