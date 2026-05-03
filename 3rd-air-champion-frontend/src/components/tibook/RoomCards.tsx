@@ -50,8 +50,9 @@ const RoomCard = ({
               draggable={false}
             />
             {photos.length > 1 && (
-              <span className="absolute bottom-1 right-1 bg-black bg-opacity-50 text-white text-[10px] px-1.5 py-0.5 rounded-full leading-none pointer-events-none">
-                1/{photos.length}
+              <span className="absolute bottom-1 right-1 bg-black bg-opacity-40 text-white text-[10px] px-1.5 py-0.5 rounded-full leading-none pointer-events-none flex items-center gap-0.5">
+                <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm0 2h12v7l-3-3-4 4-2-2-3 3V5z"/></svg>
+                {photos.length}
               </span>
             )}
           </>
