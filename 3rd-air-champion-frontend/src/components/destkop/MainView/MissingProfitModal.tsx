@@ -82,15 +82,15 @@ const Row = ({
       {/* Name field */}
       <div className="flex items-center gap-2">
         <label className="text-xs text-gray-500 w-14 shrink-0">Name</label>
-        {!alias && airbnbUrl ? (
-          <div className="flex items-center gap-2 flex-1">
-            <input
-              type="text"
-              value={alias}
-              onChange={(e) => setAlias(e.target.value)}
-              placeholder="Guest name"
-              className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm flex-1 focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-300"
-            />
+        <div className="flex items-center gap-2 flex-1">
+          <input
+            type="text"
+            value={alias}
+            onChange={(e) => setAlias(e.target.value)}
+            placeholder="Guest name"
+            className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm flex-1 focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-300"
+          />
+          {airbnbUrl && (
             <a
               href={airbnbUrl}
               target="_blank"
@@ -99,16 +99,8 @@ const Row = ({
             >
               AirBnB ↗
             </a>
-          </div>
-        ) : (
-          <input
-            type="text"
-            value={alias}
-            onChange={(e) => setAlias(e.target.value)}
-            placeholder="Guest name"
-            className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm flex-1 focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-300"
-          />
-        )}
+          )}
+        </div>
       </div>
 
       {/* Guests + Profit row */}
