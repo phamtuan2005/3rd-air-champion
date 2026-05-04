@@ -484,7 +484,7 @@ const MainView = ({
         }
       }
     }
-    return result;
+    return result.sort((a, b) => a.startDate.localeCompare(b.startDate));
   }, [monthMap, currentMonth]);
 
   const [isMissingProfitModalOpen, setIsMissingProfitModalOpen] = useState(false);
