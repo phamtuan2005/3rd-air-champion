@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/TT-House/projects/quantum-transport-paper/**)",
+      "Bash(pdflatex -interaction=nonstopmode main.tex)",
+      "Bash(python test_newton_pe_dg.py)",
+      "Bash(python validate_pourghaderi.py)",
+      "Bash(sed -i 's/phi_ms=0\\\\.0/WF=4.05/' /c/Users/TT-House/projects/quantum-transport-paper/code/test_density_gradient.py)",
+      "Bash(sed -i 's/phi_ms=0\\\\.0/WF=4.05/' /c/Users/TT-House/projects/quantum-transport-paper/code/plot_dg_results.py)",
+      "Bash(python test_vgs0.py)"
+    ]
+  }
+}

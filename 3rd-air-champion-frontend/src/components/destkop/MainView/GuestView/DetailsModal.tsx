@@ -42,7 +42,7 @@ const DetailsModal = ({
   onPricingUpdate,
 }: DetailsModalProps) => {
   const isAirBnB = booking.guest.name === "AirBnB";
-  const [isWriting, setIsWriting] = useState(false);
+  const [isWriting, setIsWriting] = useState(isAirBnB && !booking.airbnbPrice);
   const [isPricingEditing, setIsPricingEditing] = useState(startWithPricingEdit ?? false);
   const [profitInput, setProfitInput] = useState(String(booking.airbnbPrice || 0));
   const {
@@ -278,7 +278,14 @@ const DetailsModal = ({
           {/* AirBnB Profit */}
           {isAirBnB && (
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Profit</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1 flex items-center gap-1.5">
+                Profit
+                {!booking.airbnbPrice && (
+                  <span className="bg-orange-400 text-white rounded-full px-1.5 py-px text-[9px] font-bold leading-none">
+                    missing
+                  </span>
+                )}
+              </p>
               {isWriting ? (
                 <input
                   id="airbnbPrice"
@@ -289,8 +296,9 @@ const DetailsModal = ({
                     const val = e.target.value;
                     if (/^\d*\.?\d{0,2}$/.test(val)) setProfitInput(val);
                   }}
-                  className="border rounded px-2 py-1 w-full text-sm"
+                  className={`border rounded px-2 py-1 w-full text-sm ${!booking.airbnbPrice ? "border-orange-400 ring-1 ring-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-400" : ""}`}
                   placeholder="0.00"
+                  autoFocus={!booking.airbnbPrice}
                 />
               ) : (
                 <span className="text-sm font-semibold text-gray-800">${booking.airbnbPrice || 0}</span>

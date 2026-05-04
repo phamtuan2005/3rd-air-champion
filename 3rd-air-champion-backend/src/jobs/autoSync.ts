@@ -1,9 +1,9 @@
 import Host from "../model/hostSchema";
+import Room from "../model/roomSchema";
 import { runAirbnbSync } from "./airbnbSync";
 
 export const autoSyncAllHosts = async () => {
   const hosts = await Host.find({
-    "airbnbsync.0": { $exists: true },
     airbnbGuestId: { $exists: true, $ne: null },
   }).lean();
 
@@ -15,13 +15,24 @@ export const autoSyncAllHosts = async () => {
   for (const host of hosts) {
     const label = `[AutoSync] Host ${host._id}`;
     try {
-      console.log(`${label}: starting sync (${host.airbnbsync.length} room(s))`);
+      const rooms = await Room.find({
+        host: host._id,
+        active: true,
+        airbnbUrl: { $exists: true, $ne: "" },
+      }).lean();
+
+      if (rooms.length === 0) {
+        console.log(`${label}: no active rooms with AirBnB URL, skipping.`);
+        continue;
+      }
+
+      console.log(`${label}: starting sync (${rooms.length} room(s))`);
       await runAirbnbSync({
         calendar: (host.calendar as any).toString(),
         guest: (host.airbnbGuestId as any).toString(),
-        data: host.airbnbsync.map((entry: any) => ({
-          room: entry.room.toString(),
-          link: entry.link,
+        data: rooms.map((room: any) => ({
+          room: room._id.toString(),
+          link: room.airbnbUrl,
         })),
       });
       console.log(`${label}: sync complete`);

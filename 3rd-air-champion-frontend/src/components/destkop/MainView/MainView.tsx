@@ -1,4 +1,4 @@
-﻿import { useContext, useEffect, useRef, useState } from "react";
+﻿import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import CalendarNavigator from "./CalendarView/CalendarNavigatorDesktop";
 import CustomCalendar from "./CalendarView/CustomCalendarDesktop";
 import { dayType } from "../../../util/types/dayType";
@@ -14,7 +14,7 @@ import GuestView from "./GuestView/GuestView";
 import BookButton from "../BookButton";
 import { AddPaneContext, GuestModeContext, isSyncModalOpenContext } from "../../../context";
 import DetailsModal from "./GuestView/DetailsModal";
-import { updateBookingGuest, updateUnbookGuest } from "../../../util/bookingOperations";
+import { updateBookingGuest, updateBookingAirbnbPrice, updateUnbookGuest } from "../../../util/bookingOperations";
 import UnbookingConfirmation from "./GuestView/UnbookingConfirmation";
 import ToDoList from "./ToDoList";
 import AvailabilitiesModal from "./AvailabilitiesModal";
@@ -31,6 +31,7 @@ import { useCalendarData } from "./hooks/useCalendarData";
 import { useCalendarStats } from "./hooks/useCalendarStats";
 import { useMessaging } from "./hooks/useMessaging";
 import MobilePanel from "./MobilePanel";
+import MissingProfitModal from "./MissingProfitModal";
 import IcsModal from "./IcsModal";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 
@@ -463,6 +464,36 @@ const MainView = ({
       return [...prev.filter((d) => !ids.has(d.id)), ...updated];
     });
 
+  const missingProfitBookings = useMemo(() => {
+    const seen = new Set<string>();
+    const result: { id: string; alias: string; roomName: string; startDate: string; duration: number; description: string; numberOfGuests: number }[] = [];
+    for (const day of monthMap.values()) {
+      for (const booking of day.bookings) {
+        if (booking.guest?.name === "AirBnB" && !booking.airbnbPrice && !booking.airbnbBlocked && booking.startDate) {
+          const start = new Date(booking.startDate);
+          if (
+            start.getFullYear() === currentMonth.getFullYear() &&
+            start.getMonth() === currentMonth.getMonth()
+          ) {
+            const key = `${booking.startDate}_${booking.room?.id}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              result.push({ id: booking.id, alias: booking.alias, roomName: booking.room?.name ?? "", startDate: booking.startDate, duration: booking.duration, description: booking.description ?? "", numberOfGuests: booking.numberOfGuests ?? 1 });
+            }
+          }
+        }
+      }
+    }
+    return result;
+  }, [monthMap, currentMonth]);
+
+  const [isMissingProfitModalOpen, setIsMissingProfitModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (missingProfitBookings.length > 0) setIsMissingProfitModalOpen(true);
+    else setIsMissingProfitModalOpen(false);
+  }, [currentMonth, missingProfitBookings.length]);
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
@@ -849,6 +880,21 @@ const MainView = ({
       )}
 
       <IcsModal icsModal={icsModal} setIcsModal={setIcsModal} airbnbName={airbnbName} />
+
+      {isMissingProfitModalOpen && (
+        <MissingProfitModal
+          bookings={missingProfitBookings}
+          onClose={() => setIsMissingProfitModalOpen(false)}
+          onSave={({ bookingId, alias, numberOfGuests, profit }) => {
+            Promise.all([
+              updateBookingAirbnbPrice({ id: bookingId, airbnbPrice: profit }, token as string),
+              updateBookingGuest({ id: bookingId, alias, numberOfGuests }, token as string),
+            ])
+              .then(() => setIsCalendarLoading(true))
+              .catch((err) => console.error("Error saving missing profit booking:", err));
+          }}
+        />
+      )}
     </>
   );
 };

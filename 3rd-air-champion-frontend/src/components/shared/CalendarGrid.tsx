@@ -433,11 +433,19 @@ const CalendarGrid = ({
             ? !prevDay.bookings.some((b) => b.room?.name === room.name)
             : false;
 
+          const isMissingProfit =
+            pmBooking?.guest?.name === "AirBnB" && !pmBooking.airbnbPrice && !pmBooking.airbnbBlocked;
+
           const pmNameContent = pmIsStart ? (
             <span
-              className="absolute top-auto left-1 truncate z-10"
+              className="absolute top-auto left-1 truncate z-10 flex items-center gap-0.5"
               style={{ maxWidth: `${availableTileWidth - maxDuration * 3}px` }}
             >
+              {isMissingProfit && (
+                <span className="flex-shrink-0 bg-orange-400 text-white rounded-full text-[8px] font-bold px-1 leading-none py-px">
+                  $?
+                </span>
+              )}
               {pmBooking!.numberOfGuests > 1 ? `(${pmBooking!.numberOfGuests})` : ""}{" "}
               {pmName}
             </span>

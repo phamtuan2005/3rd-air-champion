@@ -282,7 +282,7 @@ const CalendarNavigator = ({
           ))}
         {/* PROFIT */}
         {!currentGuest && !currentAirBnBGuest && (
-          <div className="basis-1/3 flex justify-end w-full font-bold text-nowrap">
+          <div className="basis-1/3 flex justify-end items-center gap-1.5 w-full font-bold text-nowrap">
             (A) ${Math.round(profit.airbnb).toLocaleString()}
           </div>
         )}
