@@ -27,6 +27,7 @@ const hostSchema = new mongoose.Schema(
         link: { type: String, default: "" },
       },
     ],
+    airbnbGuestId: { type: mongoose.Schema.ObjectId, ref: "Guest" },
     doorCode: { type: String, default: "" },
     airbnbName: { type: String, default: "" },
     airbnbAddress: { type: String, default: "" },

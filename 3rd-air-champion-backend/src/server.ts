@@ -1,5 +1,7 @@
 import dotenv from "dotenv";
+import cron from "node-cron";
 import mongoose from "mongoose";
+import { autoSyncAllHosts } from "./jobs/autoSync";
 import express, { Request, Response } from "express";
 import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from "@apollo/server/express4";
@@ -103,6 +105,15 @@ const startServer = async () => {
     apiRouter.use("/airbnb", syncRoute);
 
     app.use("/api", apiRouter);
+
+    // Run AirBnB sync every 30 minutes
+    cron.schedule("*/30 * * * *", () => {
+      console.log("[AutoSync] Running scheduled AirBnB sync...");
+      autoSyncAllHosts().catch((err) =>
+        console.error("[AutoSync] Unhandled error:", err.message)
+      );
+    });
+    console.log("[AutoSync] AirBnB sync scheduled every 30 minutes.");
 
     console.log(`Express server ready at http://localhost:${PORT}/`);
 
