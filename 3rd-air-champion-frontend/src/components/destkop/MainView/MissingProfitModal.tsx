@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { format, parseISO } from "date-fns";
+import { getRoomColor } from "../../../util/getRoomColor";
 
 export interface MissingProfitBooking {
   id: string;
   alias: string;
   roomName: string;
+  roomColor?: string;
   startDate: string;
   duration: number;
   description: string;
@@ -59,7 +61,7 @@ const Row = ({
       <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 last:border-0 bg-green-50">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-bold px-1.5 py-px rounded bg-blue-100 text-blue-600 shrink-0">{booking.roomName}</span>
+            <span className={`${getRoomColor(booking.roomName, booking.roomColor)} text-white text-[10px] font-semibold px-1.5 py-px rounded shrink-0`}>{booking.roomName}</span>
             <p className="text-sm font-semibold text-green-700 truncate">{alias || "No name"}</p>
           </div>
           <p className="text-xs text-gray-400">{checkIn} · {booking.duration}n · {guests} guest{guests > 1 ? "s" : ""}</p>
@@ -73,7 +75,7 @@ const Row = ({
     <div className="px-4 py-3 border-b border-gray-100 last:border-0 bg-white space-y-2">
       {/* Room + date header */}
       <div className="flex items-center gap-1.5">
-        <span className="text-[10px] font-bold px-1.5 py-px rounded bg-blue-100 text-blue-600 shrink-0">{booking.roomName}</span>
+        <span className={`${getRoomColor(booking.roomName, booking.roomColor)} text-white text-[10px] font-semibold px-1.5 py-px rounded shrink-0`}>{booking.roomName}</span>
         <p className="text-xs text-gray-400">{checkIn} · {booking.duration}n</p>
       </div>
 

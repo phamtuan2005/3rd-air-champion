@@ -466,7 +466,7 @@ const MainView = ({
 
   const missingProfitBookings = useMemo(() => {
     const seen = new Set<string>();
-    const result: { id: string; alias: string; roomName: string; startDate: string; duration: number; description: string; numberOfGuests: number }[] = [];
+    const result: { id: string; alias: string; roomName: string; roomColor?: string; startDate: string; duration: number; description: string; numberOfGuests: number }[] = [];
     for (const day of monthMap.values()) {
       for (const booking of day.bookings) {
         if (booking.guest?.name === "AirBnB" && !booking.airbnbPrice && !booking.airbnbBlocked && booking.startDate) {
@@ -478,7 +478,7 @@ const MainView = ({
             const key = `${booking.startDate}_${booking.room?.id}`;
             if (!seen.has(key)) {
               seen.add(key);
-              result.push({ id: booking.id, alias: booking.alias, roomName: booking.room?.name ?? "", startDate: booking.startDate, duration: booking.duration, description: booking.description ?? "", numberOfGuests: booking.numberOfGuests ?? 1 });
+              result.push({ id: booking.id, alias: booking.alias, roomName: booking.room?.name ?? "", roomColor: booking.room?.color, startDate: booking.startDate, duration: booking.duration, description: booking.description ?? "", numberOfGuests: booking.numberOfGuests ?? 1 });
             }
           }
         }
