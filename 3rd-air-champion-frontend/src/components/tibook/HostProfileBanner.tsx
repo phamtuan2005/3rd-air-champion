@@ -57,28 +57,6 @@ const HostProfileBanner = ({ host, cohostNames = [] }: HostProfileBannerProps) =
         onClick={() => setExpanded((v) => !v)}
       >
         <div className="flex items-center gap-1.5 flex-1 min-w-0">
-          {!expanded && (
-            <div className="flex items-center flex-shrink-0">
-              <div className="h-6 w-6 rounded-full border border-green-500 overflow-hidden bg-green-100 flex items-center justify-center">
-                <img
-                  src={`/${host.name}.jpg`}
-                  alt={host.name}
-                  className="h-full w-full object-cover"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                />
-              </div>
-              {cohostNames.map((name) => (
-                <div key={name} className="h-6 w-6 rounded-full border border-green-500 overflow-hidden bg-green-100 flex items-center justify-center -ml-1.5">
-                  <img
-                    src={`/${name}.jpg`}
-                    alt={name}
-                    className="h-full w-full object-cover"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
           {displayName && (
             <span className="font-bold text-gray-900 text-sm leading-tight truncate">{displayName}</span>
           )}

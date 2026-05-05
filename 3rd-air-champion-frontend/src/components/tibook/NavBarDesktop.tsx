@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import type { ThemeName } from "../../contexts/TiBookThemeContext";
+import type { hostType } from "../../util/types/hostType";
 
 const SWATCHES: { name: ThemeName; bg: string }[] = [
   { name: "green",  bg: "bg-green-500"  },
@@ -11,9 +13,26 @@ const SWATCHES: { name: ThemeName; bg: string }[] = [
 
 interface NavBarDesktopProps {
   onBack?: () => void;
+  host?: hostType | null;
+  cohostNames?: string[];
+  isFullCalendar?: boolean;
 }
 
-const NavBarDesktop = ({ onBack }: NavBarDesktopProps) => {
+const MiniAvatar = ({ name }: { name: string }) => {
+  const [error, setError] = useState(false);
+  const initials = name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+  return (
+    <div className="h-7 w-7 rounded-full border-2 border-green-500 overflow-hidden bg-green-100 flex items-center justify-center flex-shrink-0">
+      {!error ? (
+        <img src={`/${name}.jpg`} alt={name} className="h-full w-full object-cover" onError={() => setError(true)} />
+      ) : (
+        <span className="text-green-700 font-bold text-[10px]">{initials}</span>
+      )}
+    </div>
+  );
+};
+
+const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false }: NavBarDesktopProps) => {
   const { theme, setTheme } = useTiBookTheme();
 
   return (
@@ -24,9 +43,20 @@ const NavBarDesktop = ({ onBack }: NavBarDesktopProps) => {
         title="TT House Logo"
         src="./TiMagLogo.svg"
       />
-      <h1 className="text-sm sm:text-base font-bold tracking-wide text-gray-800 flex-1">
-        TiBook · Book with TT House
-      </h1>
+      {isFullCalendar && host ? (
+        <div className="flex items-center flex-1">
+          <MiniAvatar name={host.name} />
+          {cohostNames.map((name) => (
+            <div key={name} className="-ml-2">
+              <MiniAvatar name={name} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <h1 className="text-sm sm:text-base font-bold tracking-wide text-gray-800 flex-1">
+          TiBook · Book with TT House
+        </h1>
+      )}
       {onBack ? (
         <button
           type="button"

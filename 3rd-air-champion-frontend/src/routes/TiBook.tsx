@@ -183,7 +183,12 @@ const TiBookInner = () => {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
-      <NavBarDesktop onBack={isSelecting ? () => setIsSelecting(false) : undefined} />
+      <NavBarDesktop
+        onBack={isSelecting ? () => setIsSelecting(false) : undefined}
+        host={currentHost}
+        cohostNames={cohostNames}
+        isFullCalendar={isSelecting}
+      />
       {currentHost && !isSelecting && <HostProfileBanner host={currentHost} cohostNames={cohostNames} />}
       {rooms.length > 0 && (
         <RoomCards
