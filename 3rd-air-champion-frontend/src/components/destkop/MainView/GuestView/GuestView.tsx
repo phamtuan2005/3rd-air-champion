@@ -1,10 +1,12 @@
 import { bookingType } from "../../../../util/types/bookingType";
 import { dayType } from "../../../../util/types/dayType";
+import { guestType } from "../../../../util/types/guestType";
 import { roomType } from "../../../../util/types/roomType";
 import React from "react";
 import RoomsToClean from "./RoomsToClean";
 import BookingCard from "./BookingCard";
 import AvailableRoomsBar from "./AvailableRoomsBar";
+import GuestSearch from "./GuestSearch";
 
 interface GuestViewProps {
   airBnBBookingCount: {
@@ -23,9 +25,11 @@ interface GuestViewProps {
   currentBookings: bookingType[];
   currentAirBnBGuest: string | null;
   currentGuest: string | null;
+  guests: guestType[];
   monthMap: Map<string, dayType>;
   rooms: roomType[];
   selectedDate: Date;
+  setCurrentMonth: React.Dispatch<React.SetStateAction<Date>>;
   handleBookingConfirmation: (phone: string) => void;
   handleSendCalEvents: (phone: string, email?: string) => void;
   onAirbnbPriceUpdate: (bookingId: string, airbnbPrice: number) => void;
@@ -46,6 +50,7 @@ const GuestView = ({
   currentBookings,
   currentAirBnBGuest,
   currentGuest,
+  guests,
   monthMap,
   rooms,
   selectedDate,
@@ -57,6 +62,7 @@ const GuestView = ({
   setIsMobileModalOpen,
   setCurrentAirBnBGuest,
   setCurrentGuest,
+  setCurrentMonth,
   setSelectedBooking,
   setSelectedModifyBooking,
   setSelectedUnbooking,
@@ -87,7 +93,20 @@ const GuestView = ({
   );
 
   return (
-    <div className="flex flex-col h-full px-2 overflow-y-scroll">
+    <div className="flex flex-col h-full overflow-y-scroll">
+      <GuestSearch
+        guests={guests}
+        monthMap={monthMap}
+        onSelectGuest={(id, month) => {
+          setCurrentGuest(id);
+          setCurrentMonth(month);
+        }}
+        onSelectAirBnBGuest={(alias, month) => {
+          setCurrentAirBnBGuest(alias);
+          setCurrentMonth(month);
+        }}
+      />
+      <div className="px-2">
       {sortedBookings.map((booking, index) => (
         <BookingCard
           key={index}
@@ -122,6 +141,7 @@ const GuestView = ({
       </AvailableRoomsBar>
 
       <RoomsToClean selectedDate={selectedDate} monthMap={monthMap} />
+      </div>
     </div>
   );
 };
