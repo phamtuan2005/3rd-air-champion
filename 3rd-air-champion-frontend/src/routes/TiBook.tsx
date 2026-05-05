@@ -177,7 +177,7 @@ const TiBookInner = () => {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
-      <NavBarDesktop />
+      <NavBarDesktop onBack={isSelecting ? () => { setIsSelecting(false); setCartDates(new Map()); } : undefined} />
       {currentHost && !isSelecting && <HostProfileBanner host={currentHost} cohostNames={cohostNames} />}
       {rooms.length > 0 && (
         <RoomCards
@@ -187,18 +187,6 @@ const TiBookInner = () => {
           onSelectAll={() => setSelectedRoomIds(null)}
           compact={isSelecting}
         />
-      )}
-      {isSelecting && (
-        <button
-          type="button"
-          onClick={() => { setIsSelecting(false); setCartDates(new Map()); }}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors shrink-0 w-full"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-          Back to host info
-        </button>
       )}
       <CalendarNavigator
         currentMonth={currentMonth}
