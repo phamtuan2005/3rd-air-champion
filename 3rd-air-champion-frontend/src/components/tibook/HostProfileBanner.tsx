@@ -75,7 +75,7 @@ const HostProfileBanner = ({ host, cohostNames = [] }: HostProfileBannerProps) =
             </span>
           )}
           {host.airbnbRating != null && (
-            <span className="text-[10px] text-gray-500 flex-shrink-0">★ {host.airbnbRating.toFixed(2)}</span>
+            <span className="text-[10px] text-gray-500 flex-shrink-0">★ {(Math.ceil(host.airbnbRating * 10) / 10).toFixed(1)}</span>
           )}
         </div>
         <svg
