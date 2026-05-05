@@ -44,13 +44,18 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false 
         src="./TiMagLogo.svg"
       />
       {isFullCalendar && host ? (
-        <div className="flex items-center flex-1">
-          <MiniAvatar name={host.name} />
-          {cohostNames.map((name) => (
-            <div key={name} className="-ml-2">
-              <MiniAvatar name={name} />
-            </div>
-          ))}
+        <div className="flex items-center gap-2 flex-1">
+          <div className="flex items-center">
+            <MiniAvatar name={host.name} />
+            {cohostNames.map((name) => (
+              <div key={name} className="-ml-2">
+                <MiniAvatar name={name} />
+              </div>
+            ))}
+          </div>
+          <span className="text-sm sm:text-base font-bold tracking-wide text-gray-800">
+            Book with TT House
+          </span>
         </div>
       ) : (
         <h1 className="text-sm sm:text-base font-bold tracking-wide text-gray-800 flex-1">
