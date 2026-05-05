@@ -37,7 +37,7 @@ const RoomCard = ({
     >
       {/* Image area — tap to view photos */}
       <div
-        className="relative w-full h-16 sm:h-20 bg-gray-100 cursor-pointer active:opacity-80"
+        className="relative w-full h-11 sm:h-20 bg-gray-100 cursor-pointer active:opacity-80"
         onClick={photos.length > 0 ? onViewPhotos : undefined}
       >
         {photos.length > 0 && !imgError ? (

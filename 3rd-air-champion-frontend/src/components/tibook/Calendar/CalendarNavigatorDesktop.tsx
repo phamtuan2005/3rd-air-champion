@@ -50,9 +50,6 @@ const CalendarNavigator = ({
       >
         Request a Booking
       </button>
-      <p className="text-center text-xs text-gray-400 mt-0.5">
-        or tap any available date below to pick your arrival
-      </p>
     </div>
   );
 };
