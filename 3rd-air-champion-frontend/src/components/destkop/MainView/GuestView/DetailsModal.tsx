@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { bookingType } from "../../../../util/types/bookingType";
 import { roomType } from "../../../../util/types/roomType";
 import { FaRegEdit } from "react-icons/fa";
@@ -177,6 +177,19 @@ const DetailsModal = ({
               </p>
             )}
           </div>
+
+          {/* Phone */}
+          {!isAirBnB && booking.guest.phone && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Phone</p>
+              <a
+                href={`tel:${booking.guest.phone}`}
+                className="text-sm text-blue-500 hover:text-blue-700"
+              >
+                {booking.guest.phone}
+              </a>
+            </div>
+          )}
 
           {/* Early Check-in + Late Checkout + Guests row */}
           <div className="flex items-center gap-6">
