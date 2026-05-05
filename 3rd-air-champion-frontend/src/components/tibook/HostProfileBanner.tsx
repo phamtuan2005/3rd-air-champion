@@ -46,7 +46,7 @@ const HostAvatar = ({ name, profileUrl }: { name: string; profileUrl?: string })
 };
 
 const HostProfileBanner = ({ host, cohostNames = [], forceCollapsed = false }: HostProfileBannerProps) => {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const displayName = host.airbnbName || host.name;
 
   useEffect(() => {
