@@ -193,6 +193,7 @@ const TiBookInner = () => {
         compact={isSelecting}
         onScrollToToday={() => setScrollToTodayTrigger((n) => n + 1)}
         onBookingRequest={() => openBookingModal(null)}
+        onBack={() => { setIsSelecting(false); setCartDates(new Map()); }}
       />
       {isLoading ? (
         <div className="flex flex-col items-center justify-center flex-1">
