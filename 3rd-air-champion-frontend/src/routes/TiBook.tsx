@@ -199,19 +199,21 @@ const TiBookInner = () => {
           <p className="text-gray-400 text-sm">Loading...</p>
         </div>
       ) : currentHost ? (
-        <GuestCalendar
-          currentMonth={currentMonth}
-          monthMap={monthMap}
-          rooms={rooms}
-          selectedRoomIds={selectedRoomIds}
-          cartDates={cartDates}
-          wishListDates={wishListDates}
-          scrollToTodayTrigger={scrollToTodayTrigger}
-          simplified={!isSelecting}
-          onMonthChange={setCurrentMonth}
-          onDateClick={toggleCartDate}
-          onWishListClick={handleWishListClick}
-        />
+        <div className="flex-1 min-h-0" onPointerDown={() => setIsSelecting(true)}>
+          <GuestCalendar
+            currentMonth={currentMonth}
+            monthMap={monthMap}
+            rooms={rooms}
+            selectedRoomIds={selectedRoomIds}
+            cartDates={cartDates}
+            wishListDates={wishListDates}
+            scrollToTodayTrigger={scrollToTodayTrigger}
+            simplified={!isSelecting}
+            onMonthChange={setCurrentMonth}
+            onDateClick={toggleCartDate}
+            onWishListClick={handleWishListClick}
+          />
+        </div>
       ) : (
         <div className="flex flex-col items-center justify-center flex-1">
           <p className="text-gray-400 text-sm">No host selected</p>
