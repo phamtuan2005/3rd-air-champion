@@ -8,7 +8,6 @@ interface CalendarNavigatorProps {
   compact?: boolean;
   onScrollToToday?: () => void;
   onBookingRequest?: () => void;
-  onBack?: () => void;
 }
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -18,7 +17,6 @@ const CalendarNavigator = ({
   compact = false,
   onScrollToToday,
   onBookingRequest,
-  onBack,
 }: CalendarNavigatorProps) => {
   const { theme } = useTiBookTheme();
   const formattedDate = formatDateToMonthYear(currentMonth.toISOString().split("T")[0]);
@@ -26,20 +24,8 @@ const CalendarNavigator = ({
 
   return (
     <div className="flex flex-col gap-0.5 bg-white drop-shadow-sm px-2 pt-1.5 pb-1 shrink-0">
-      {/* Month title + Today (+ back button in compact mode) */}
+      {/* Month title + Today */}
       <div className="flex items-center gap-2">
-        {compact && onBack && (
-          <button
-            type="button"
-            onClick={onBack}
-            className="flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-gray-800 transition-colors flex-shrink-0"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-            Back
-          </button>
-        )}
         <span className="font-bold text-base sm:text-xl text-gray-800 flex-1">{formattedDate}</span>
         <TodayButton isCurrentMonth={isCurrentMonth} onScrollToToday={onScrollToToday} />
       </div>
