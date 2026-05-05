@@ -127,9 +127,19 @@ const BookingCard = ({
           const count = entry?.DistinctStartDateCount ?? 0;
           const since = entry?.FirstStayDate ? formatLocal(parseLocalDate(entry.FirstStayDate), "MMM yyyy") : null;
           return (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-600 border border-amber-200">
-              ↩ {count} {count === 1 ? "stay" : "stays"}{since ? ` since ${since}` : ""}
-            </span>
+            <>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-600 border border-amber-200">
+                ↩ {count} {count === 1 ? "stay" : "stays"}{since ? ` since ${since}` : ""}
+              </span>
+              {booking.guest.phone && (
+                <a
+                  href={`tel:${booking.guest.phone}`}
+                  className="text-xs text-blue-500 hover:text-blue-700 mt-0.5"
+                >
+                  {booking.guest.phone}
+                </a>
+              )}
+            </>
           );
         })()}
       </div>
