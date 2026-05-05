@@ -77,6 +77,13 @@ const Authorization = () => {
             <Register setIsLogin={setIsLogin} />
           )}
 
+          <a
+            href="/book"
+            className="block w-full bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg py-2 text-sm text-center transition-colors"
+          >
+            Book
+          </a>
+
         </div>
       </div>
 
