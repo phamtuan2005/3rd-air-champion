@@ -21,6 +21,12 @@ import { getGuestWishList } from "../util/wishListOperations";
 const TiBookInner = () => {
   const { theme } = useTiBookTheme();
   useEffect(() => { document.title = "TiBook"; }, []);
+  useEffect(() => {
+    const link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
+    const prev = link?.getAttribute("href") ?? null;
+    link?.setAttribute("href", "/tibookmanifest.webmanifest");
+    return () => { if (link && prev) link.setAttribute("href", prev); };
+  }, []);
 
   const [token, setToken] = useState<string | null>(
     localStorage.getItem("tiBookToken") ?? null,
