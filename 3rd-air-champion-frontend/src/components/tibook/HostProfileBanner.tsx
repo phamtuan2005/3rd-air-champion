@@ -68,14 +68,6 @@ const HostProfileBanner = ({ host, cohostNames = [] }: HostProfileBannerProps) =
           {displayName && (
             <span className="font-bold text-gray-900 text-sm leading-tight truncate">{displayName}</span>
           )}
-          {host.airbnbSuperhost && (
-            <span className="text-[10px] font-semibold text-rose-600 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-full flex-shrink-0">
-              Superhost
-            </span>
-          )}
-          {host.airbnbRating != null && (
-            <span className="text-[10px] text-gray-500 flex-shrink-0">★ {(Math.ceil(host.airbnbRating * 10) / 10).toFixed(1)}</span>
-          )}
         </div>
         <svg
           className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`}
@@ -110,6 +102,11 @@ const HostProfileBanner = ({ host, cohostNames = [] }: HostProfileBannerProps) =
             </div>
 
             <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+              {host.airbnbSuperhost && (
+                <span className="w-fit text-[10px] font-semibold text-rose-600 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-full">
+                  {cohostNames.length > 0 ? "Superhosts" : "Superhost"}
+                </span>
+              )}
               <div className="flex flex-col gap-0 pl-0.5 border-l-2 border-indigo-300">
                 <span className="text-[10px] text-indigo-600 font-semibold italic leading-tight tracking-wide">
                   Your Comfort. Our Mission.
