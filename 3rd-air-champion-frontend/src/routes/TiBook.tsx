@@ -190,7 +190,6 @@ const TiBookInner = () => {
       )}
       <CalendarNavigator
         currentMonth={currentMonth}
-        compact={isSelecting}
         onScrollToToday={() => setScrollToTodayTrigger((n) => n + 1)}
         onBookingRequest={() => openBookingModal(null)}
       />

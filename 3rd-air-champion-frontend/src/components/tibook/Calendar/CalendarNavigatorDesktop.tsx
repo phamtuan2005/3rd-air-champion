@@ -5,7 +5,6 @@ import { useTiBookTheme } from "../../../contexts/TiBookThemeContext";
 
 interface CalendarNavigatorProps {
   currentMonth: Date;
-  compact?: boolean;
   onScrollToToday?: () => void;
   onBookingRequest?: () => void;
 }
@@ -14,7 +13,6 @@ const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", 
 
 const CalendarNavigator = ({
   currentMonth,
-  compact = false,
   onScrollToToday,
   onBookingRequest,
 }: CalendarNavigatorProps) => {
