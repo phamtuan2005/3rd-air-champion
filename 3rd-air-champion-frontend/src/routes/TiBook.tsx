@@ -178,7 +178,7 @@ const TiBookInner = () => {
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       <NavBarDesktop />
-      {currentHost && <HostProfileBanner host={currentHost} cohostNames={cohostNames} forceCollapsed={isSelecting} />}
+      {currentHost && !isSelecting && <HostProfileBanner host={currentHost} cohostNames={cohostNames} />}
       {rooms.length > 0 && (
         <RoomCards
           rooms={rooms}
@@ -190,6 +190,7 @@ const TiBookInner = () => {
       )}
       <CalendarNavigator
         currentMonth={currentMonth}
+        compact={isSelecting}
         onScrollToToday={() => setScrollToTodayTrigger((n) => n + 1)}
         onBookingRequest={() => openBookingModal(null)}
       />
