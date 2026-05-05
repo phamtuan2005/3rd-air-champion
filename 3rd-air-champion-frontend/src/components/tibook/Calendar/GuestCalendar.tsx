@@ -13,6 +13,7 @@ interface GuestCalendarProps {
   cartDates: Map<string, string | null>;
   wishListDates?: Set<string>;
   scrollToTodayTrigger?: number;
+  simplified?: boolean;
   onMonthChange?: (month: Date) => void;
   onDateClick?: (date: Date) => void;
   onWishListClick?: (date: Date) => void;
@@ -50,6 +51,7 @@ const GuestCalendar = ({
   cartDates,
   wishListDates,
   scrollToTodayTrigger = 0,
+  simplified = false,
   onMonthChange,
   onDateClick,
   onWishListClick,
@@ -191,12 +193,12 @@ const GuestCalendar = ({
           <div className={`absolute inset-1 rounded-lg ${theme.btn} pointer-events-none`} />
         )}
         <span className={`${numberClass} relative z-10`}>{date.getDate()}</span>
-        {!inCart && (status === "available" || status === "partial") && roomsLeft > 0 && (
+        {!simplified && !inCart && (status === "available" || status === "partial") && roomsLeft > 0 && (
           <span className="text-[9px] font-semibold text-black leading-none">
             {roomsLeft} left
           </span>
         )}
-        {!inCart && (status === "full" || status === "blocked") && (
+        {!simplified && !inCart && (status === "full" || status === "blocked") && (
           <div className="flex flex-col items-center gap-0.5">
             <span className="text-[9px] text-gray-300 leading-none">sold out</span>
             {canWishList && (

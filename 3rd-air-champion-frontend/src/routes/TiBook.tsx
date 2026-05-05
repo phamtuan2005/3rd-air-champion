@@ -35,6 +35,7 @@ const TiBookInner = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedRoomIds, setSelectedRoomIds] = useState<Set<string> | null>(null);
   const [cartDates, setCartDates] = useState<Map<string, string | null>>(new Map());
+  const [isSelecting, setIsSelecting] = useState(false);
   const [wishListDates, setWishListDates] = useState<Set<string>>(new Set());
   const [wishListSummaryOpen, setWishListSummaryOpen] = useState(false);
   const [guestPhone, setGuestPhone] = useState(() => localStorage.getItem("tiBookGuestPhone") ?? "");
@@ -101,7 +102,12 @@ const TiBookInner = () => {
       .finally(() => setIsLoading(false));
   }, [token]);
 
+  useEffect(() => {
+    if (cartDates.size === 0) setIsSelecting(false);
+  }, [cartDates.size]);
+
   const toggleCartDate = (date: Date) => {
+    setIsSelecting(true);
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
     let roomId: string | null = selectedRoomIds?.size === 1 ? Array.from(selectedRoomIds)[0] : null;
 
@@ -172,13 +178,14 @@ const TiBookInner = () => {
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       <NavBarDesktop />
-      {currentHost && <HostProfileBanner host={currentHost} cohostNames={cohostNames} />}
+      {currentHost && <HostProfileBanner host={currentHost} cohostNames={cohostNames} forceCollapsed={isSelecting} />}
       {rooms.length > 0 && (
         <RoomCards
           rooms={rooms}
           selectedRoomIds={selectedRoomIds}
           onToggleRoom={handleToggleRoom}
           onSelectAll={() => setSelectedRoomIds(null)}
+          compact={isSelecting}
         />
       )}
       <CalendarNavigator
@@ -199,6 +206,7 @@ const TiBookInner = () => {
           cartDates={cartDates}
           wishListDates={wishListDates}
           scrollToTodayTrigger={scrollToTodayTrigger}
+          simplified={!isSelecting}
           onMonthChange={setCurrentMonth}
           onDateClick={toggleCartDate}
           onWishListClick={handleWishListClick}

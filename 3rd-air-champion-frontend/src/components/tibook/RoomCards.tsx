@@ -12,6 +12,7 @@ interface RoomCardsProps {
   selectedRoomIds: Set<string> | null;
   onToggleRoom: (id: string) => void;
   onSelectAll: () => void;
+  compact?: boolean;
 }
 
 const RoomCard = ({
@@ -99,13 +100,44 @@ const RoomCard = ({
   );
 };
 
-const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll }: RoomCardsProps) => {
+const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact = false }: RoomCardsProps) => {
   const { theme } = useTiBookTheme();
   const [galleryRoom, setGalleryRoom] = useState<roomType | null>(null);
   const activeRooms = rooms.filter((r) => r.active).sort((a, b) => b.price - a.price);
   if (activeRooms.length === 0) return null;
 
   const isAll = selectedRoomIds === null;
+
+  if (compact) {
+    return (
+      <div className="px-3 py-1.5 border-b border-gray-100 bg-gray-50 flex gap-2 overflow-x-auto shrink-0">
+        <button
+          type="button"
+          onClick={onSelectAll}
+          className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+            isAll ? `${theme.btn} text-white shadow-sm` : "bg-white text-gray-500 border border-gray-200"
+          }`}
+        >
+          All
+        </button>
+        {activeRooms.map((room) => {
+          const selected = !isAll && (selectedRoomIds?.has(room.id) ?? false);
+          return (
+            <button
+              key={room.id}
+              type="button"
+              onClick={() => onToggleRoom(room.id)}
+              className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-semibold text-white transition-all ${getRoomColor(room.name, room.color)} ${
+                selected ? "ring-2 ring-offset-1 ring-gray-400 scale-105" : "opacity-75"
+              }`}
+            >
+              {room.name}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <>

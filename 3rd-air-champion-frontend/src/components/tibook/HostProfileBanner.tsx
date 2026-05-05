@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { hostType } from "../../util/types/hostType";
 
 interface HostProfileBannerProps {
   host: hostType;
   cohostNames?: string[];
+  forceCollapsed?: boolean;
 }
 
 const HostAvatar = ({ name, profileUrl }: { name: string; profileUrl?: string }) => {
@@ -44,9 +45,13 @@ const HostAvatar = ({ name, profileUrl }: { name: string; profileUrl?: string })
   ) : inner;
 };
 
-const HostProfileBanner = ({ host, cohostNames = [] }: HostProfileBannerProps) => {
+const HostProfileBanner = ({ host, cohostNames = [], forceCollapsed = false }: HostProfileBannerProps) => {
   const [expanded, setExpanded] = useState(false);
   const displayName = host.airbnbName || host.name;
+
+  useEffect(() => {
+    if (forceCollapsed) setExpanded(false);
+  }, [forceCollapsed]);
 
   return (
     <div className="bg-white border-b border-gray-100 shrink-0">
@@ -54,7 +59,7 @@ const HostProfileBanner = ({ host, cohostNames = [] }: HostProfileBannerProps) =
       <button
         type="button"
         className="w-full px-4 py-2 flex items-center gap-2 active:bg-gray-50 transition-colors"
-        onClick={() => setExpanded((v) => !v)}
+        onClick={() => !forceCollapsed && setExpanded((v) => !v)}
       >
         <div className="flex items-center gap-1.5 flex-1 min-w-0">
           {/* Tiny avatar */}
@@ -78,16 +83,18 @@ const HostProfileBanner = ({ host, cohostNames = [] }: HostProfileBannerProps) =
             <span className="text-[10px] text-gray-500 flex-shrink-0">★ {(Math.ceil(host.airbnbRating * 10) / 10).toFixed(1)}</span>
           )}
         </div>
-        <svg
-          className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`}
-          fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
+        {!forceCollapsed && (
+          <svg
+            className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`}
+            fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        )}
       </button>
 
       {/* Expanded detail panel */}
-      {expanded && (
+      {expanded && !forceCollapsed && (
         <div className="px-4 pb-2 flex flex-col gap-1.5 border-t border-gray-100">
           {host.highlights && host.highlights.length > 0 && (
             <div className="flex flex-wrap gap-1.5 pt-1.5">
