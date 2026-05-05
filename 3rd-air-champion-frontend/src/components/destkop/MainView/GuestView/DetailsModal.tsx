@@ -183,7 +183,7 @@ const DetailsModal = ({
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Phone</p>
               <a
-                href={`tel:${booking.guest.phone}`}
+                href={`sms:${booking.guest.phone}`}
                 className="text-sm text-blue-500 hover:text-blue-700"
               >
                 {booking.guest.phone}
