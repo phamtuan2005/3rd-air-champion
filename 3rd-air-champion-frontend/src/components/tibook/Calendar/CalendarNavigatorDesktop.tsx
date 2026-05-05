@@ -44,16 +44,13 @@ const CalendarNavigator = ({
         ))}
       </div>
 
-      {/* Book button — hidden in compact/selecting mode; floating cart bar takes over */}
-      {!compact && (
-        <button
-          type="button"
-          className={`w-full ${theme.btn} ${theme.btnHover} ${theme.btnActive} text-white py-2 rounded-xl text-sm font-semibold transition-colors mt-0.5`}
-          onClick={onBookingRequest}
-        >
-          Request a Booking
-        </button>
-      )}
+      <button
+        type="button"
+        className={`w-full ${theme.btn} ${theme.btnHover} ${theme.btnActive} text-white py-2 rounded-xl text-sm font-semibold transition-colors mt-0.5`}
+        onClick={onBookingRequest}
+      >
+        Request a Booking
+      </button>
     </div>
   );
 };
