@@ -248,7 +248,7 @@ const HistoryDetailSheet = ({
         {/* Scrollable content */}
         <div className="overflow-y-auto overscroll-y-contain flex-1 px-5 pb-6 border-t border-gray-100">
           <div className="flex flex-col gap-3 pt-3">
-            {group.map((req) => {
+            {[...group].sort((a, b) => a.date.localeCompare(b.date)).map((req) => {
               const room = getRoom(req.room);
               const roomColorClass = room ? getRoomColor(room.name, room.color) : "bg-gray-400";
               return (
@@ -405,7 +405,7 @@ const SwipeableHistoryGroupRow = ({
         })()}
 
         {/* Request rows */}
-        {group.map((req) => {
+        {[...group].sort((a, b) => a.date.localeCompare(b.date)).map((req) => {
           const room = rooms.find((r) => r.id === req.room);
           const roomColorClass = room ? getRoomColor(room.name, room.color) : "bg-gray-400";
           return (
