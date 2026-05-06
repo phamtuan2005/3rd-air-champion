@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { roomType } from "../../util/types/roomType";
 import { dayType } from "../../util/types/dayType";
@@ -108,6 +108,7 @@ const BookingRequestModal = ({
   const { theme } = useTiBookTheme();
   const [step, setStep] = useState<1 | 2>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState(false);
 
@@ -235,6 +236,8 @@ const BookingRequestModal = ({
   };
 
   const onSubmit: SubmitHandler<FormData> = async (data) => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setIsSubmitting(true);
     setSubmitError(false);
 
@@ -277,6 +280,7 @@ const BookingRequestModal = ({
     } catch {
       setSubmitError(true);
     } finally {
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
   };

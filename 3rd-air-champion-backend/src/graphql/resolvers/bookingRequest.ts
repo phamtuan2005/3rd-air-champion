@@ -17,6 +17,17 @@ export const bookingRequestResolvers = {
       _: unknown,
       { host, guestName, guestPhone, date, room, duration, numberOfGuests, notes }: any
     ) => {
+      const existing = await BookingRequest.findOne({
+        host,
+        guestPhone,
+        date: new Date(date),
+        room,
+        duration,
+        numberOfGuests,
+        status: "pending",
+      });
+      if (existing) return existing;
+
       return await new BookingRequest({
         host,
         guestName,
