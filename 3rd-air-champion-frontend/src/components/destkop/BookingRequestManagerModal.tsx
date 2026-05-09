@@ -11,7 +11,7 @@ import {
 } from "../../util/bookingRequestOperations";
 import { getRoomColor } from "../../util/getRoomColor";
 import { format, toZonedTime } from "date-fns-tz";
-import { format as formatLocal } from "date-fns";
+import { format as formatLocal, addDays } from "date-fns";
 
 const formatPhone = (raw: string): string => {
   const digits = raw.replace(/\D/g, "");
@@ -60,6 +60,7 @@ interface BookingRequestManagerModalProps {
     }>,
   ) => void;
   onAddGuest: (guest: { name: string; phone: string }) => void;
+  onUnbook?: (ids: string[]) => void;
 }
 
 const SNAP_WIDTH = 72;
@@ -101,6 +102,8 @@ interface HistoryDetailSheetProps {
   formatDate: (d: string) => string;
   getRoom: (id: string) => roomType | undefined;
   matchGuest: (phone: string) => guestType | undefined;
+  monthMap: Map<string, import("../../util/types/dayType").dayType>;
+  onUnbookGroup?: (bookingIds: string[], requestIds: string[]) => void;
   onClose: () => void;
 }
 
@@ -111,12 +114,16 @@ const HistoryDetailSheet = ({
   formatDate,
   getRoom,
   matchGuest,
+  monthMap,
+  onUnbookGroup,
   onClose,
 }: HistoryDetailSheetProps) => {
   const backdropRef = useRef<HTMLDivElement>(null);
   const [heightPx, setHeightPx] = useState<number | null>(null); // null = use CSS default
   const [animating, setAnimating] = useState(false);
   const [dismissing, setDismissing] = useState(false);
+  const [showUnbookConfirm, setShowUnbookConfirm] = useState(false);
+  const [unbooking, setUnbooking] = useState(false);
   const startYRef = useRef<number | null>(null);
   const startHeightRef = useRef<number>(0);
 
@@ -275,7 +282,85 @@ const HistoryDetailSheet = ({
             })}
           </div>
         </div>
+
+        {/* Unbook footer — only for confirmed groups */}
+        {onUnbookGroup && group.some((r) => r.status === "confirmed") && (
+          <div className="flex-shrink-0 px-5 py-3 border-t border-gray-100">
+            <button
+              type="button"
+              className="w-full py-2.5 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm font-semibold hover:bg-red-100 active:bg-red-200 transition-colors"
+              onClick={() => setShowUnbookConfirm(true)}
+            >
+              Unbook Guest
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Unbook confirmation overlay */}
+      {showUnbookConfirm && (
+        <div
+          className="absolute inset-0 bg-black/40 flex items-end z-30"
+          onClick={() => setShowUnbookConfirm(false)}
+        >
+          <div
+            className="bg-white rounded-t-2xl w-full p-6 flex flex-col gap-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-col gap-1 text-center">
+              <p className="text-base font-bold text-gray-800">Unbook {displayName}?</p>
+              <p className="text-sm text-gray-400">
+                This will remove{" "}
+                {group.filter((r) => r.status === "confirmed").length > 1
+                  ? `all ${group.filter((r) => r.status === "confirmed").length} confirmed bookings`
+                  : "the confirmed booking"}{" "}
+                from the calendar.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                className="flex-1 py-3 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200"
+                onClick={() => setShowUnbookConfirm(false)}
+              >
+                Keep it
+              </button>
+              <button
+                type="button"
+                disabled={unbooking}
+                className="flex-1 py-3 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 disabled:opacity-50"
+                onClick={async () => {
+                  setUnbooking(true);
+                  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                  const bookingIds: string[] = [];
+                  const requestIds: string[] = [];
+                  for (const req of group) {
+                    if (req.status !== "confirmed") continue;
+                    requestIds.push(req.id);
+                    const guest = matchGuest(req.guestPhone);
+                    if (!guest) continue;
+                    const startDate = toZonedTime(req.date, timeZone);
+                    for (let i = 0; i < req.duration; i++) {
+                      const dayKey = addDays(startDate, i).toISOString().split("T")[0];
+                      const day = monthMap.get(dayKey);
+                      if (!day) continue;
+                      day.bookings.forEach((b) => {
+                        if (b.guest.id === guest.id && b.room.id === req.room) bookingIds.push(b.id);
+                      });
+                    }
+                  }
+                  onUnbookGroup!(bookingIds, requestIds);
+                  setUnbooking(false);
+                  setShowUnbookConfirm(false);
+                  onClose();
+                }}
+              >
+                {unbooking ? "Unbooking…" : "Yes, unbook"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -478,6 +563,7 @@ const BookingRequestManagerModal = ({
   monthMap,
   onAccept,
   onAddGuest,
+  onUnbook,
 }: BookingRequestManagerModalProps) => {
   const [requests, setRequests] = useState<BookingRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -623,6 +709,21 @@ const BookingRequestManagerModal = ({
   const handleDeleteGroup = (ids: string[]) => {
     setRequests((prev) => prev.filter((r) => !ids.includes(r.id)));
     ids.forEach((id) => deleteBookingRequest(id, token).catch(() => {}));
+  };
+
+  const handleUnbookGroup = (bookingIds: string[], requestIds: string[]) => {
+    if (onUnbook) onUnbook(bookingIds);
+    setRequests((prev) =>
+      prev.map((r) =>
+        requestIds.includes(r.id)
+          ? { ...r, status: "pending", updatedAt: String(Date.now()) }
+          : r,
+      ),
+    );
+    requestIds.forEach((id) =>
+      updateBookingRequestStatus(id, "pending", token).catch(() => {}),
+    );
+    setSelectedHistoryGroup(null);
   };
 
   const handleDeclineGroup = async (group: BookingRequest[]) => {
@@ -1004,6 +1105,8 @@ const BookingRequestManagerModal = ({
           formatDate={formatDate}
           getRoom={getRoom}
           matchGuest={matchGuest}
+          monthMap={monthMap}
+          onUnbookGroup={handleUnbookGroup}
           onClose={() => setSelectedHistoryGroup(null)}
         />
       )}

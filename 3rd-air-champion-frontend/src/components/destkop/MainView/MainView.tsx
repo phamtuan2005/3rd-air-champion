@@ -652,6 +652,7 @@ const MainView = ({
                 .then((result) => setGuests((prev) => [...prev, result]))
                 .catch((err) => console.error("Error adding guest:", err))
             }
+            onUnbook={onUnbook}
           />
         ) : (
           <>
@@ -834,6 +835,7 @@ const MainView = ({
                 .then((result) => setGuests((prev) => [...prev, result]))
                 .catch((err) => console.error("Error adding guest:", err))
             }
+            onUnbook={onUnbook}
           />
         )}
       </MobilePanel>
