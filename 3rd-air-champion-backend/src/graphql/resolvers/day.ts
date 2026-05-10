@@ -487,8 +487,13 @@ export const dayResolvers = {
       const dayOfBooking = await Day.findOne({ "bookings._id": _id });
       const calendar = dayOfBooking?.calendar;
       const currentBooking = dayOfBooking?.bookings.find((booking) => booking.id === _id);
-      const startDate = currentBooking?.startDate;
-      const endDate = currentBooking?.endDate;
+
+      let startDate = currentBooking?.startDate;
+      let endDate = currentBooking?.endDate;
+      if (!startDate || !endDate) {
+        startDate = dayOfBooking!.date;
+        endDate = addDays(dayOfBooking!.date, (currentBooking?.duration ?? 1) - 1);
+      }
 
       const currentGuest = await Guest.findById(currentBooking?.guest);
 
@@ -541,8 +546,13 @@ export const dayResolvers = {
 
       const calendar = dayOfBooking.calendar;
       const currentBooking = dayOfBooking.bookings.find((booking: any) => booking.id === _id);
-      const startDate = currentBooking?.startDate;
-      const endDate = currentBooking?.endDate;
+
+      let startDate = currentBooking?.startDate;
+      let endDate = currentBooking?.endDate;
+      if (!startDate || !endDate) {
+        startDate = dayOfBooking.date;
+        endDate = addDays(dayOfBooking.date, (currentBooking?.duration ?? 1) - 1);
+      }
 
       await Day.updateMany(
         {
