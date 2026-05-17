@@ -27,6 +27,7 @@ const Login = ({ setIsLogin }: LoginProps) => {
     authorizeUser({ email: data.email, password: data.password })
       .then((result) => {
         localStorage.setItem("token", result.token);
+        localStorage.setItem("pendingSync", "true");
         setIsLoading(false);
         navigate("/");
       })

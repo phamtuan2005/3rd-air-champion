@@ -270,6 +270,14 @@ export const useCalendarData = ({
     }
   }, [shouldCallOnSync]);
 
+  useEffect(() => {
+    const pending = localStorage.getItem("pendingSync");
+    if (pending && localStorage.getItem("syncData")) {
+      localStorage.removeItem("pendingSync");
+      setShouldCallOnSync(true);
+    }
+  }, []);
+
   return {
     days,
     setDays,

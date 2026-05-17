@@ -6,14 +6,11 @@ export const modifyBookingObject = z.object({
     message: "Invalid room",
   }),
   startDate: z.date({
-    message: "Please select a date and time",
+    message: "Please select a date",
   }),
   endDate: z.date({
-    message: "Please select a date and time",
+    message: "Please select a date",
   }),
-  duration: z
-    .number("Must be a number")
-    .min(1, { message: "Must stay for at least 1 day" }),
 });
 
 export type modifyBookingSchema = z.infer<typeof modifyBookingObject>;
