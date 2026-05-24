@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { addDays } from "date-fns";
+import { addDays, parseISO } from "date-fns";
 import CalendarNavigator from "../components/tibook/Calendar/CalendarNavigatorDesktop";
 import NavBarDesktop from "../components/tibook/NavBarDesktop";
 import { TiBookThemeProvider, useTiBookTheme } from "../contexts/TiBookThemeContext";
@@ -126,7 +126,7 @@ const TiBookInner = () => {
   const myBookingDates = useMemo(() => {
     const dates = new Set<string>();
     guestBookings.forEach((b) => {
-      const checkIn = new Date(b.date);
+      const checkIn = parseISO(String(b.date).slice(0, 10));
       for (let i = 0; i < b.duration; i++) {
         const d = addDays(checkIn, i);
         dates.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);

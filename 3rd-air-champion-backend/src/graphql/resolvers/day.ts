@@ -119,7 +119,7 @@ export const dayResolvers = {
 
       const days = await Day.find({ calendar: calendarId, "bookings.guest": guest._id })
         .populate("bookings.room")
-        .sort({ date: 1 });
+        ;
 
       const seen = new Set<string>();
       const result: any[] = [];
@@ -136,7 +136,7 @@ export const dayResolvers = {
           result.push({
             id: booking._id.toString(),
             guestName: guest.name,
-            date: (day.date instanceof Date ? day.date : new Date(day.date)).toISOString(),
+            date: startDate.toISOString(),
             room: roomId,
             duration: booking.duration ?? 1,
             numberOfGuests: booking.numberOfGuests ?? 1,

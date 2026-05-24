@@ -101,7 +101,6 @@ const MyBookingsSheet = ({ hostId, calendarId, initialPhone, rooms, wishListDate
   const today = new Date().toISOString().slice(0, 10);
   const dateKey = (b: GuestBooking) => String(b.date).slice(0, 10);
   const upcoming = (bookings ?? []).filter((b) => dateKey(b) >= today).sort((a, b) => dateKey(a).localeCompare(dateKey(b)));
-  const past     = (bookings ?? []).filter((b) => dateKey(b) <  today).sort((a, b) => dateKey(b).localeCompare(dateKey(a)));
 
   const guestFirstName = bookings && bookings.length > 0
     ? bookings[0].guestName.split(" ")[0]
@@ -201,24 +200,18 @@ const MyBookingsSheet = ({ hostId, calendarId, initialPhone, rooms, wishListDate
             </div>
           )}
 
-          {bookings === null ? null : bookings.length === 0 ? (
+          {bookings === null ? null : upcoming.length === 0 && bookings.length > 0 ? (
+            <p className="text-sm text-gray-400 text-center py-6">
+              No upcoming bookings. We look forward to having you again!
+            </p>
+          ) : bookings.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-6">
               We couldn't find any bookings for this number. Please double-check the number you used when booking.
             </p>
           ) : (
             <>
-              {upcoming.length > 0 && (
-                <>
-                  <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide pt-2 pb-1">Upcoming</p>
-                  {upcoming.map(renderRow)}
-                </>
-              )}
-              {past.length > 0 && (
-                <>
-                  <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide pt-3 pb-1">Past</p>
-                  {past.map(renderRow)}
-                </>
-              )}
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide pt-2 pb-1">Upcoming</p>
+              {upcoming.map(renderRow)}
             </>
           )}
 
