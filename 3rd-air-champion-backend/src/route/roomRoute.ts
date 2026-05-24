@@ -130,6 +130,7 @@ router.post("/get/host", async (req: Request, res: any) => {
             active
             photos
             airbnbUrl
+            checkInInstructions
           }
         }`;
 
@@ -180,7 +181,7 @@ router.put("/update", async (req: Request, res: any) => {
   if (!("user" in req))
     return res.status(401).json({ error: "Invalid or expired token" });
 
-  const { id, name, price, roomCode, color, active, photos, airbnbUrl } = req.body;
+  const { id, name, price, roomCode, color, active, photos, airbnbUrl, checkInInstructions } = req.body;
 
   const variables: {
     id: string;
@@ -191,6 +192,7 @@ router.put("/update", async (req: Request, res: any) => {
     active?: boolean;
     photos?: string[];
     airbnbUrl?: string;
+    checkInInstructions?: string;
   } = { id };
   if (name !== undefined) variables.name = name;
   if (price !== undefined) variables.price = price;
@@ -199,10 +201,11 @@ router.put("/update", async (req: Request, res: any) => {
   if (active !== undefined) variables.active = active;
   if (photos !== undefined) variables.photos = photos;
   if (airbnbUrl !== undefined) variables.airbnbUrl = airbnbUrl;
+  if (checkInInstructions !== undefined) variables.checkInInstructions = checkInInstructions;
 
   const query = `
-          mutation UpdateRoom($id: String!, $name: String, $price: Float, $roomCode: String, $color: String, $active: Boolean, $photos: [String], $airbnbUrl: String) {
-                updateRoom(_id: $id, name: $name, price: $price, roomCode: $roomCode, color: $color, active: $active, photos: $photos, airbnbUrl: $airbnbUrl) {
+          mutation UpdateRoom($id: String!, $name: String, $price: Float, $roomCode: String, $color: String, $active: Boolean, $photos: [String], $airbnbUrl: String, $checkInInstructions: String) {
+                updateRoom(_id: $id, name: $name, price: $price, roomCode: $roomCode, color: $color, active: $active, photos: $photos, airbnbUrl: $airbnbUrl, checkInInstructions: $checkInInstructions) {
                     id
                     name
                     price
@@ -211,6 +214,7 @@ router.put("/update", async (req: Request, res: any) => {
                     active
                     photos
                     airbnbUrl
+                    checkInInstructions
                 }
             }`;
 

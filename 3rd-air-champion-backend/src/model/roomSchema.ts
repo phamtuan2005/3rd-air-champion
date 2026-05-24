@@ -13,6 +13,7 @@ const roomSchema = new mongoose.Schema(
     active: { type: Boolean, default: true },
     photos: { type: [String], default: [] },
     airbnbUrl: { type: String, default: "" },
+    checkInInstructions: { type: String, default: "" },
   },
   { timestamps: true }
 );
