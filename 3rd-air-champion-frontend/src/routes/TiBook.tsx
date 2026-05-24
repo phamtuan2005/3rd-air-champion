@@ -18,7 +18,7 @@ import RoomCards from "../components/tibook/RoomCards";
 import WishListSummarySheet from "../components/tibook/WishListSummarySheet";
 import MyBookingsSheet, { GuestBooking } from "../components/tibook/MyBookingsSheet";
 import { getGuestWishList } from "../util/wishListOperations";
-import { fetchBookingRequestsByGuest } from "../util/bookingRequestOperations";
+import { fetchBookingRequestsByGuest, fetchCalendarBookingsByGuest } from "../util/bookingRequestOperations";
 
 const TiBookInner = () => {
   const { theme } = useTiBookTheme();
@@ -113,8 +113,13 @@ const TiBookInner = () => {
   // Load guest bookings for calendar dots when phone + host are ready
   useEffect(() => {
     if (!guestPhone || !currentHost) return;
-    fetchBookingRequestsByGuest(currentHost.id, guestPhone)
-      .then((data) => setGuestBookings(data ?? []))
+    Promise.all([
+      fetchBookingRequestsByGuest(currentHost.id, guestPhone),
+      fetchCalendarBookingsByGuest(currentHost.calendar, guestPhone),
+    ])
+      .then(([requests, calendarBookings]) => {
+        setGuestBookings([...(calendarBookings ?? []), ...(requests ?? [])]);
+      })
       .catch(() => {});
   }, [guestPhone, currentHost]); // eslint-disable-line react-hooks/exhaustive-deps
 
