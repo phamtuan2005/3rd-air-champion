@@ -572,6 +572,7 @@ const BookingRequestManagerModal = ({
   const [historySort, setHistorySort] = useState<{ key: "guest" | "date" | "room" | "when"; dir: "asc" | "desc" }>({ key: "when", dir: "desc" });
   const [activeTab, setActiveTab] = useState<"requests" | "wishlist">("requests");
   const [selectedHistoryGroup, setSelectedHistoryGroup] = useState<BookingRequest[] | null>(null);
+  const [selectedPendingGroup, setSelectedPendingGroup] = useState<BookingRequest[] | null>(null);
   const [wishListEntries, setWishListEntries] = useState<WishListEntry[]>([]);
   const [wishListLoading, setWishListLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -828,67 +829,73 @@ const BookingRequestManagerModal = ({
         key={phone}
         className={`rounded-lg border-l-4 ${borderClass} bg-white shadow-sm p-3 flex flex-col gap-2`}
       >
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-sm">{displayName}</span>
-          {matched ? (
-            <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
-              returning
-            </span>
-          ) : (
-            <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full flex items-center gap-1">
-              NEW
-              <button
-                type="button"
-                className="underline font-medium hover:text-amber-900"
-                onClick={() => onAddGuest({ name: first.guestName, phone: first.guestPhone })}
-              >
-                + Add
-              </button>
-            </span>
-          )}
-          <span className="text-[10px] text-gray-400 ml-auto">{formatPhone(first.guestPhone)}</span>
-        </div>
+        {/* Tappable detail area — opens full detail sheet */}
+        <div
+          className="flex flex-col gap-2 cursor-pointer"
+          onClick={() => setSelectedPendingGroup(group)}
+        >
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-sm">{displayName}</span>
+            {matched ? (
+              <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
+                returning
+              </span>
+            ) : (
+              <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                NEW
+                <button
+                  type="button"
+                  className="underline font-medium hover:text-amber-900"
+                  onClick={(e) => { e.stopPropagation(); onAddGuest({ name: first.guestName, phone: first.guestPhone }); }}
+                >
+                  + Add
+                </button>
+              </span>
+            )}
+            <span className="text-[10px] text-gray-400 ml-auto">{formatPhone(first.guestPhone)}</span>
+          </div>
 
-        <div className="flex flex-col gap-1">
-          {group.map((req) => {
-            const room = getRoom(req.room);
-            const roomColorClass = room ? getRoomColor(room.name, room.color) : "bg-gray-400";
-            return (
-              <div key={req.id} className="flex items-center gap-2 text-xs text-gray-600">
-                {room && (
-                  <span
-                    className={`${roomColorClass} text-white font-medium py-0.5 rounded text-[10px] shrink-0 inline-block text-center whitespace-nowrap`}
-                    style={{ width: roomBoxWidth }}
-                  >
-                    {room.name}
+          <div className="flex flex-col gap-1">
+            {group.map((req) => {
+              const room = getRoom(req.room);
+              const roomColorClass = room ? getRoomColor(room.name, room.color) : "bg-gray-400";
+              return (
+                <div key={req.id} className="flex items-center gap-2 text-xs text-gray-600">
+                  {room && (
+                    <span
+                      className={`${roomColorClass} text-white font-medium py-0.5 rounded text-[10px] shrink-0 inline-block text-center whitespace-nowrap`}
+                      style={{ width: roomBoxWidth }}
+                    >
+                      {room.name}
+                    </span>
+                  )}
+                  <span>{formatDate(req.date)}</span>
+                  <span className="text-gray-400">
+                    {req.duration}n · {req.numberOfGuests} guest{req.numberOfGuests > 1 ? "s" : ""}
                   </span>
-                )}
-                <span>{formatDate(req.date)}</span>
-                <span className="text-gray-400">
-                  {req.duration}n · {req.numberOfGuests} guest{req.numberOfGuests > 1 ? "s" : ""}
-                </span>
+                </div>
+              );
+            })}
+            {group[0].notes && (
+              <p className="text-[11px] text-gray-400 mt-0.5">{group[0].notes}</p>
+            )}
+          </div>
+
+          {/* Revenue highlight */}
+          {(() => {
+            const { nights, revenue } = calcGroupStats(group, getRoom, matchGuest);
+            return revenue > 0 ? (
+              <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] text-green-600 font-medium">{nights} night{nights !== 1 ? "s" : ""}</span>
+                </div>
+                <span className="text-sm font-bold text-green-700">{fmtRevenue(revenue)}</span>
               </div>
-            );
-          })}
-          {group[0].notes && (
-            <p className="text-[11px] text-gray-400 mt-0.5">{group[0].notes}</p>
-          )}
+            ) : null;
+          })()}
         </div>
 
-        {/* Revenue highlight */}
-        {(() => {
-          const { nights, revenue } = calcGroupStats(group, getRoom, matchGuest);
-          return revenue > 0 ? (
-            <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-green-600 font-medium">{nights} night{nights !== 1 ? "s" : ""}</span>
-              </div>
-              <span className="text-sm font-bold text-green-700">{fmtRevenue(revenue)}</span>
-            </div>
-          ) : null;
-        })()}
-
-        <div className="flex gap-2 mt-1">
+        <div className="flex gap-2">
           <button
             type="button"
             disabled={isUpdating}
@@ -1108,6 +1115,21 @@ const BookingRequestManagerModal = ({
           monthMap={monthMap}
           onUnbookGroup={handleUnbookGroup}
           onClose={() => setSelectedHistoryGroup(null)}
+        />
+      )}
+
+      {/* Pending detail bottom sheet (read-only — no unbook) */}
+      {selectedPendingGroup && (
+        <HistoryDetailSheet
+          group={selectedPendingGroup}
+          rooms={rooms}
+          guests={guests}
+          timeZone={timeZone}
+          formatDate={formatDate}
+          getRoom={getRoom}
+          matchGuest={matchGuest}
+          monthMap={monthMap}
+          onClose={() => setSelectedPendingGroup(null)}
         />
       )}
     </div>

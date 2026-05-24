@@ -20,6 +20,7 @@ export const bookingRequestDefs = gql`
     bookingRequests: [BookingRequest]
     bookingRequest(_id: String!): BookingRequest!
     bookingRequestsByHost(hostId: String!): [BookingRequest]
+    bookingRequestsByGuest(hostId: String!, phone: String!): [BookingRequest]
   }
 
   type Mutation {

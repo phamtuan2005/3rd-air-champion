@@ -102,6 +102,37 @@ router.put("/update/status", async (req: Request, res: any) => {
     });
 });
 
+router.post("/get/guest", async (req: Request, res: any) => {
+  const { hostId, phone } = req.body;
+
+  const query = `
+    query BookingRequestsByGuest($hostId: String!, $phone: String!) {
+      bookingRequestsByGuest(hostId: $hostId, phone: $phone) {
+        id
+        guestName
+        guestPhone
+        date
+        room
+        duration
+        numberOfGuests
+        status
+        notes
+        createdAt
+      }
+    }`;
+
+  sendGraphQLRequest(query, { hostId, phone })
+    .then((result: any) => {
+      if (result.errors) {
+        return res.status(400).json({ errors: result.errors[0].message });
+      }
+      res.status(200).json(result.data.bookingRequestsByGuest);
+    })
+    .catch((error: any) => {
+      res.status(500).json({ error: error.message });
+    });
+});
+
 router.post("/guest-by-phone", async (req: Request, res: any) => {
   const { host, phone } = req.body;
 

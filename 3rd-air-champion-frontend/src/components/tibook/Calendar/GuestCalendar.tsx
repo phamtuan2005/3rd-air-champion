@@ -12,6 +12,7 @@ interface GuestCalendarProps {
   selectedRoomIds: Set<string> | null;
   cartDates: Map<string, string | null>;
   wishListDates?: Set<string>;
+  myBookingDates?: Set<string>;
   scrollToTodayTrigger?: number;
   simplified?: boolean;
   onMonthChange?: (month: Date) => void;
@@ -50,6 +51,7 @@ const GuestCalendar = ({
   selectedRoomIds,
   cartDates,
   wishListDates,
+  myBookingDates,
   scrollToTodayTrigger = 0,
   simplified = false,
   onMonthChange,
@@ -159,6 +161,7 @@ const GuestCalendar = ({
     const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
     const inCart = cartDates.has(dateKey);
     const isWishlisted = wishListDates?.has(dateKey) ?? false;
+    const isMyBooking = myBookingDates?.has(dateKey) ?? false;
 
     const numberClass = [
       "text-sm sm:text-xl leading-none select-none",
@@ -214,6 +217,9 @@ const GuestCalendar = ({
         )}
         {inCart && (
           <span className="text-[9px] text-white/70 leading-none relative z-10">✓</span>
+        )}
+        {isMyBooking && !inCart && (
+          <span className={`absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full ${theme.btn} opacity-80 pointer-events-none`} />
         )}
       </button>
     );

@@ -11,6 +11,15 @@ export const bookingRequestResolvers = {
     bookingRequestsByHost: async (_: unknown, { hostId }: any) => {
       return await BookingRequest.find({ host: hostId });
     },
+    bookingRequestsByGuest: async (_: unknown, { hostId, phone }: any) => {
+      const digits = phone.replace(/\D/g, "");
+      const phoneRegex = new RegExp(digits.split("").join("\\D*"));
+      return await BookingRequest.find({
+        host: hostId,
+        guestPhone: { $regex: phoneRegex },
+        status: { $in: ["pending", "confirmed"] },
+      }).sort({ date: 1 });
+    },
   },
   Mutation: {
     createBookingRequest: async (

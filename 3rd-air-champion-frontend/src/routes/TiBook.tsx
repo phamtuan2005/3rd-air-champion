@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { addDays } from "date-fns";
 import CalendarNavigator from "../components/tibook/Calendar/CalendarNavigatorDesktop";
 import NavBarDesktop from "../components/tibook/NavBarDesktop";
 import { TiBookThemeProvider, useTiBookTheme } from "../contexts/TiBookThemeContext";
@@ -16,7 +17,9 @@ import { fetchRooms } from "../util/roomOperations";
 import BookingRequestModal from "../components/tibook/BookingRequestModal";
 import RoomCards from "../components/tibook/RoomCards";
 import WishListSummarySheet from "../components/tibook/WishListSummarySheet";
+import MyBookingsSheet, { GuestBooking } from "../components/tibook/MyBookingsSheet";
 import { getGuestWishList } from "../util/wishListOperations";
+import { fetchBookingRequestsByGuest } from "../util/bookingRequestOperations";
 
 const TiBookInner = () => {
   const { theme } = useTiBookTheme();
@@ -46,6 +49,8 @@ const TiBookInner = () => {
   const [wishListSummaryOpen, setWishListSummaryOpen] = useState(false);
   const [guestPhone, setGuestPhone] = useState(() => localStorage.getItem("tiBookGuestPhone") ?? "");
   const [guestName, setGuestName] = useState(() => localStorage.getItem("tiBookGuestName") ?? "");
+  const [guestBookings, setGuestBookings] = useState<GuestBooking[]>([]);
+  const [myBookingsOpen, setMyBookingsOpen] = useState(false);
   const cohostNames = (import.meta.env.VITE_TI_BOOK_COHOST_NAMES as string | undefined)?.split(',').map((s) => s.trim()).filter(Boolean) ?? [];
 
   const handleToggleRoom = (id: string) => {
@@ -143,6 +148,26 @@ const TiBookInner = () => {
       .catch(() => {});
   }, [guestPhone, currentHost]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Load guest's own bookings when phone + host are ready
+  useEffect(() => {
+    if (!guestPhone || !currentHost) return;
+    fetchBookingRequestsByGuest(currentHost.id, guestPhone)
+      .then((data) => setGuestBookings(data ?? []))
+      .catch(() => {});
+  }, [guestPhone, currentHost]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const myBookingDates = useMemo(() => {
+    const dates = new Set<string>();
+    guestBookings.forEach((b) => {
+      const checkIn = new Date(b.date);
+      for (let i = 0; i < b.duration; i++) {
+        const d = addDays(checkIn, i);
+        dates.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+      }
+    });
+    return dates;
+  }, [guestBookings]);
+
   const handleWishListClick = (date: Date) => {
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
     setWishListDates((prev) => {
@@ -217,6 +242,7 @@ const TiBookInner = () => {
             selectedRoomIds={selectedRoomIds}
             cartDates={cartDates}
             wishListDates={wishListDates}
+            myBookingDates={myBookingDates}
             scrollToTodayTrigger={scrollToTodayTrigger}
             simplified={!isSelecting}
             onMonthChange={setCurrentMonth}
@@ -227,6 +253,21 @@ const TiBookInner = () => {
       ) : (
         <div className="flex flex-col items-center justify-center flex-1">
           <p className="text-gray-400 text-sm">No host selected</p>
+        </div>
+      )}
+
+      {/* Floating my-bookings chip */}
+      {guestBookings.length > 0 && !myBookingsOpen && (
+        <div className="fixed bottom-0 inset-x-0 z-30 flex justify-center pointer-events-none" style={{ bottom: cartDates.size > 0 ? "112px" : wishListDates.size > 0 ? "56px" : "0" }}>
+          <button
+            type="button"
+            onClick={() => setMyBookingsOpen(true)}
+            className="pointer-events-auto mb-3 bg-white border border-gray-300 shadow-md text-gray-700 text-sm font-semibold px-4 py-2 rounded-full flex items-center gap-2"
+          >
+            <span>🗓</span>
+            <span>My booking{guestBookings.length !== 1 ? "s" : ""} ({guestBookings.length})</span>
+            <span className="text-gray-400">→</span>
+          </button>
         </div>
       )}
 
@@ -259,6 +300,14 @@ const TiBookInner = () => {
             Review Request →
           </button>
         </div>
+      )}
+
+      {myBookingsOpen && (
+        <MyBookingsSheet
+          bookings={guestBookings}
+          rooms={rooms}
+          onClose={() => setMyBookingsOpen(false)}
+        />
       )}
 
       {wishListSummaryOpen && currentHost && (

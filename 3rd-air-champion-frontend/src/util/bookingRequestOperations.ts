@@ -39,6 +39,17 @@ export const deleteBookingRequest = async (id: string, token: string) => {
   return response.data;
 };
 
+export const fetchBookingRequestsByGuest = async (
+  hostId: string,
+  phone: string,
+) => {
+  const response = await axios.post(
+    `${BACKEND_ENDPOINT}/booking-request/get/guest`,
+    { hostId, phone },
+  );
+  return response.data;
+};
+
 export const updateBookingRequestStatus = async (
   id: string,
   status: string,
