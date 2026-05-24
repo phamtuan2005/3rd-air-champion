@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { guestType } from "../../../util/types/guestType";
 import { roomType } from "../../../util/types/roomType";
-import { getRoomColor } from "../../../util/getRoomColor";
+import RoomBadge from "../../shared/RoomBadge";
 import GuestInput from "./GuestInput";
 import RoomMultiSelect from "./RoomMultiSelect";
 import DatePickerModal from "./DatePickerModal";
@@ -456,12 +456,7 @@ const BookingModal = ({
                           <span className="flex items-center gap-1 flex-wrap">
                             {label} — Booked:
                             {succeeded.map((r) => (
-                              <span
-                                key={r.roomName}
-                                className={`${getRoomColor(r.roomName, r.roomColor)} text-white text-xs font-medium px-2 py-0.5 rounded whitespace-nowrap`}
-                              >
-                                {r.roomName}
-                              </span>
+                              <RoomBadge key={r.roomName} room={{ name: r.roomName, color: r.roomColor }} />
                             ))}
                           </span>
                         </li>
@@ -476,12 +471,7 @@ const BookingModal = ({
                           <span className="flex items-center gap-1 flex-wrap">
                             {label} — Not available for:
                             {failed.map((r) => (
-                              <span
-                                key={r.roomName}
-                                className={`${getRoomColor(r.roomName, r.roomColor)} text-white text-xs font-medium px-2 py-0.5 rounded whitespace-nowrap`}
-                              >
-                                {r.roomName}
-                              </span>
+                              <RoomBadge key={r.roomName} room={{ name: r.roomName, color: r.roomColor }} />
                             ))}
                             {msg && <span className="text-red-500 ml-1">({msg})</span>}
                           </span>

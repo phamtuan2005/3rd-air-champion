@@ -35,7 +35,7 @@ const MiniAvatar = ({ name }: { name: string }) => {
   );
 };
 
-const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false, onMyBookings }: NavBarDesktopProps) => {
+const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false, onMyBookings, onWishList, wishListCount = 0 }: NavBarDesktopProps) => {
   const { theme, setTheme } = useTiBookTheme();
 
   return (
@@ -78,6 +78,16 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
         </button>
       ) : (
         <div className="flex items-center gap-2">
+          {onWishList && wishListCount > 0 && (
+            <button
+              type="button"
+              onClick={onWishList}
+              className="text-xs font-semibold text-amber-600 hover:text-amber-800 px-2 py-1 rounded-full border border-amber-300 hover:bg-amber-50 transition-colors flex items-center gap-1"
+            >
+              <span>★</span>
+              <span>{wishListCount}</span>
+            </button>
+          )}
           {onMyBookings && (
             <button
               type="button"

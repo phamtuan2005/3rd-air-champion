@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import { roomType } from "../../util/types/roomType";
 import { guestType } from "../../util/types/guestType";
 import WishListPanel, { countAvailableWishListEntries } from "./WishListPanel";
@@ -10,6 +10,7 @@ import {
   deleteBookingRequest,
 } from "../../util/bookingRequestOperations";
 import { getRoomColor } from "../../util/getRoomColor";
+import RoomBadge from "../shared/RoomBadge";
 import { format, toZonedTime } from "date-fns-tz";
 import { format as formatLocal, addDays } from "date-fns";
 
@@ -111,6 +112,7 @@ const DISMISS_HEIGHT = 100; // px — close when dragged below this
 
 const HistoryDetailSheet = ({
   group,
+  rooms,
   formatDate,
   getRoom,
   matchGuest,
@@ -257,15 +259,10 @@ const HistoryDetailSheet = ({
           <div className="flex flex-col gap-3 pt-3">
             {[...group].sort((a, b) => a.date.localeCompare(b.date)).map((req) => {
               const room = getRoom(req.room);
-              const roomColorClass = room ? getRoomColor(room.name, room.color) : "bg-gray-400";
               return (
                 <div key={req.id} className="flex flex-col gap-1 text-sm text-gray-700">
                   <div className="flex items-center gap-2">
-                    {room && (
-                      <span className={`${roomColorClass} text-white text-xs font-medium px-2 py-0.5 rounded`}>
-                        {room.name}
-                      </span>
-                    )}
+                    {room && <RoomBadge room={room} rooms={rooms} />}
                     <span>{formatDate(req.date)}</span>
                     {group.length > 1 && (
                       <span className={`ml-auto text-xs font-medium ${statusColor(req.status)}`}>
@@ -369,7 +366,6 @@ interface SwipeableHistoryGroupRowProps {
   group: BookingRequest[];
   rooms: roomType[];
   guests: guestType[];
-  roomBoxWidth: string | undefined;
   timeZone: string;
   onDeleteGroup: (ids: string[]) => void;
   onSelect: (group: BookingRequest[]) => void;
@@ -379,7 +375,6 @@ const SwipeableHistoryGroupRow = ({
   group,
   rooms,
   guests,
-  roomBoxWidth,
   timeZone,
   onDeleteGroup,
   onSelect,
@@ -492,17 +487,9 @@ const SwipeableHistoryGroupRow = ({
         {/* Request rows */}
         {[...group].sort((a, b) => a.date.localeCompare(b.date)).map((req) => {
           const room = rooms.find((r) => r.id === req.room);
-          const roomColorClass = room ? getRoomColor(room.name, room.color) : "bg-gray-400";
           return (
             <div key={req.id} className="flex items-center gap-2 text-[11px] text-gray-600">
-              {room && (
-                <span
-                  className={`${roomColorClass} text-white font-medium py-0.5 rounded text-[10px] shrink-0 inline-block text-center whitespace-nowrap`}
-                  style={{ width: roomBoxWidth }}
-                >
-                  {room.name}
-                </span>
-              )}
+              {room && <RoomBadge room={room} rooms={rooms} />}
               <span className="whitespace-nowrap">{formatLocal(parseBookingDate(req.date), "EEE, MMM d yyyy")}</span>
               <span className="text-gray-400 whitespace-nowrap">
                 {req.duration}n · {req.numberOfGuests} guest{req.numberOfGuests > 1 ? "s" : ""}
@@ -754,10 +741,6 @@ const BookingRequestManagerModal = ({
   const formatDate = (dateStr: string) =>
     formatLocal(parseBookingDate(dateStr), "EEE, MMM d yyyy");
 
-  const roomBoxWidth = rooms.length > 0
-    ? `${rooms.reduce((max, r) => Math.max(max, r.name.length), 0) * 4.5 + 8}px`
-    : undefined;
-
   const pending = requests.filter((r) => r.status === "pending");
   const allResolved = requests.filter((r) => r.status !== "pending");
 
@@ -858,17 +841,9 @@ const BookingRequestManagerModal = ({
           <div className="flex flex-col gap-1">
             {group.map((req) => {
               const room = getRoom(req.room);
-              const roomColorClass = room ? getRoomColor(room.name, room.color) : "bg-gray-400";
               return (
                 <div key={req.id} className="flex items-center gap-2 text-xs text-gray-600">
-                  {room && (
-                    <span
-                      className={`${roomColorClass} text-white font-medium py-0.5 rounded text-[10px] shrink-0 inline-block text-center whitespace-nowrap`}
-                      style={{ width: roomBoxWidth }}
-                    >
-                      {room.name}
-                    </span>
-                  )}
+                  {room && <RoomBadge room={room} rooms={rooms} />}
                   <span>{formatDate(req.date)}</span>
                   <span className="text-gray-400">
                     {req.duration}n · {req.numberOfGuests} guest{req.numberOfGuests > 1 ? "s" : ""}
@@ -1087,7 +1062,6 @@ const BookingRequestManagerModal = ({
                           group={group}
                           rooms={rooms}
                           guests={guests}
-                          roomBoxWidth={roomBoxWidth}
                           timeZone={timeZone}
                           onDeleteGroup={handleDeleteGroup}
                           onSelect={setSelectedHistoryGroup}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { roomType } from "../../util/types/roomType";
 import { dayType } from "../../util/types/dayType";
@@ -8,7 +8,7 @@ import { fetchGuestByPhone } from "../../util/guestOperations";
 import { format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
-import { getRoomColor } from "../../util/getRoomColor";
+import RoomBadge from "../shared/RoomBadge";
 
 const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -367,14 +367,10 @@ const BookingRequestModal = ({
                       <div key={group.key}>
                         <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                           {group.room ? (
-                            <span className={`${getRoomColor(group.room.name, group.room.color)} text-white text-xs font-semibold px-2.5 py-0.5 rounded`}>
-                              {group.room.name}
-                            </span>
+                            <RoomBadge room={group.room} rooms={activeRooms} />
                           ) : (
                             availableRoomsForAnyGroup.map((r) => (
-                              <span key={r.id} className={`${getRoomColor(r.name, r.color)} text-white text-xs font-semibold px-2.5 py-0.5 rounded`}>
-                                {r.name}
-                              </span>
+                              <RoomBadge key={r.id} room={r} rooms={activeRooms} />
                             ))
                           )}
                           <span className="text-xs text-gray-400">
@@ -529,9 +525,7 @@ const BookingRequestModal = ({
                             className="border border-gray-300 rounded-xl px-3 py-2 w-full text-sm flex items-center justify-between gap-2"
                           >
                             {selectedRoom ? (
-                              <span className={`${getRoomColor(selectedRoom.name, selectedRoom.color)} text-white text-xs font-semibold px-2.5 py-0.5 rounded`}>
-                                {selectedRoom.name}
-                              </span>
+                              <RoomBadge room={selectedRoom} rooms={activeRooms} />
                             ) : (
                               <span className="text-gray-400">Select a room</span>
                             )}
@@ -548,9 +542,7 @@ const BookingRequestModal = ({
                                     onClick={() => { setValue("room", room.id, { shouldValidate: true }); setRoomDropdownOpen(false); }}
                                   >
                                     <input type="radio" readOnly checked={watchedRoom === room.id} className="pointer-events-none w-4 h-4" />
-                                    <span className={`${getRoomColor(room.name, room.color)} text-white text-xs font-semibold px-2.5 py-0.5 rounded`}>
-                                      {room.name}
-                                    </span>
+                                    <RoomBadge room={room} rooms={activeRooms} />
                                     {price !== null && (
                                       <span className="text-xs text-gray-400 ml-auto">${price}/night</span>
                                     )}
@@ -608,9 +600,7 @@ const BookingRequestModal = ({
                           className="border border-gray-300 rounded-xl px-3 py-2 w-full text-sm flex items-center justify-between gap-2"
                         >
                           {selectedRoom ? (
-                            <span className={`${getRoomColor(selectedRoom.name, selectedRoom.color)} text-white text-xs font-semibold px-2.5 py-0.5 rounded`}>
-                              {selectedRoom.name}
-                            </span>
+                            <RoomBadge room={selectedRoom} rooms={activeRooms} />
                           ) : (
                             <span className="text-gray-400">Select a room</span>
                           )}
@@ -620,7 +610,6 @@ const BookingRequestModal = ({
                           <ul className="border border-gray-200 rounded-xl mt-1 overflow-hidden shadow-sm bg-white">
                             {displayRooms.map((room) => {
                               const price = getRoomPrice(room.id);
-                              const color = activeRooms.find((r) => r.id === room.id)?.color;
                               return (
                                 <li
                                   key={room.id}
@@ -628,9 +617,7 @@ const BookingRequestModal = ({
                                   onClick={() => { setValue("room", room.id, { shouldValidate: true }); setRoomDropdownOpen(false); }}
                                 >
                                   <input type="radio" readOnly checked={watchedRoom === room.id} className="pointer-events-none w-4 h-4" />
-                                  <span className={`${getRoomColor(room.name, color)} text-white text-xs font-semibold px-2.5 py-0.5 rounded`}>
-                                    {room.name}
-                                  </span>
+                                  <RoomBadge room={room} rooms={activeRooms} />
                                   {price !== null && (
                                     <span className="text-xs text-gray-400 ml-auto">${price}/night</span>
                                   )}

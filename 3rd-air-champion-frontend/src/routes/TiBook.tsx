@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import { addDays } from "date-fns";
 import CalendarNavigator from "../components/tibook/Calendar/CalendarNavigatorDesktop";
 import NavBarDesktop from "../components/tibook/NavBarDesktop";
 import { TiBookThemeProvider, useTiBookTheme } from "../contexts/TiBookThemeContext";
-
 import { fetchHost } from "../util/hostOperations";
 import { authorizeUser } from "../util/authorizeUser";
 import { hostType } from "../util/types/hostType";
@@ -16,8 +16,9 @@ import { fetchRooms } from "../util/roomOperations";
 import BookingRequestModal from "../components/tibook/BookingRequestModal";
 import RoomCards from "../components/tibook/RoomCards";
 import WishListSummarySheet from "../components/tibook/WishListSummarySheet";
-import MyBookingsSheet from "../components/tibook/MyBookingsSheet";
+import MyBookingsSheet, { GuestBooking } from "../components/tibook/MyBookingsSheet";
 import { getGuestWishList } from "../util/wishListOperations";
+import { fetchBookingRequestsByGuest } from "../util/bookingRequestOperations";
 
 const TiBookInner = () => {
   const { theme } = useTiBookTheme();
@@ -29,9 +30,7 @@ const TiBookInner = () => {
     return () => { if (link && prev) link.setAttribute("href", prev); };
   }, []);
 
-  const [token, setToken] = useState<string | null>(
-    localStorage.getItem("tiBookToken") ?? null,
-  );
+  const [token, setToken] = useState<string | null>(localStorage.getItem("tiBookToken") ?? null);
   const [currentHost, setCurrentHost] = useState<hostType | null>(null);
   const [rooms, setRooms] = useState<roomType[]>([]);
   const [days, setDays] = useState<dayType[]>([]);
@@ -47,16 +46,15 @@ const TiBookInner = () => {
   const [wishListSummaryOpen, setWishListSummaryOpen] = useState(false);
   const [guestPhone, setGuestPhone] = useState(() => localStorage.getItem("tiBookGuestPhone") ?? "");
   const [guestName, setGuestName] = useState(() => localStorage.getItem("tiBookGuestName") ?? "");
+  const [guestBookings, setGuestBookings] = useState<GuestBooking[]>([]);
   const [myBookingsOpen, setMyBookingsOpen] = useState(false);
-  const cohostNames = (import.meta.env.VITE_TI_BOOK_COHOST_NAMES as string | undefined)?.split(',').map((s) => s.trim()).filter(Boolean) ?? [];
+  const cohostNames = (import.meta.env.VITE_TI_BOOK_COHOST_NAMES as string | undefined)
+    ?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
 
   const handleToggleRoom = (id: string) => {
     setSelectedRoomIds((prev) => {
       const next = new Set(prev ?? []);
-      if (next.has(id)) {
-        next.delete(id);
-        return next.size === 0 ? null : next;
-      }
+      if (next.has(id)) { next.delete(id); return next.size === 0 ? null : next; }
       next.add(id);
       return next;
     });
@@ -70,7 +68,7 @@ const TiBookInner = () => {
       map.set(key, day);
     });
     return map;
-  }, [days]);
+  }, [days]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const authorizeTiBook = async () => {
     const tiBookEmail = import.meta.env.VITE_TI_BOOK_EMAIL;
@@ -82,10 +80,7 @@ const TiBookInner = () => {
 
   useEffect(() => {
     authorizeTiBook().then((token) => {
-      if (token) {
-        setToken(token);
-        localStorage.setItem("tiBookToken", token);
-      }
+      if (token) { setToken(token); localStorage.setItem("tiBookToken", token); }
     });
   }, []);
 
@@ -93,20 +88,13 @@ const TiBookInner = () => {
     if (!token) return;
     const hostId = import.meta.env.VITE_TI_BOOK_HOST_ID;
     if (!hostId) return;
-
     setIsLoading(true);
     fetchHost(hostId, token)
       .then((host) => {
         if (host) setCurrentHost({ ...host, id: hostId });
-        return Promise.all([
-          fetchRooms(hostId, token),
-          fetchDays(host?.calendar as string, token),
-        ]);
+        return Promise.all([fetchRooms(hostId, token), fetchDays(host?.calendar as string, token)]);
       })
-      .then(([rooms, days]) => {
-        setRooms(rooms);
-        setDays(days);
-      })
+      .then(([rooms, days]) => { setRooms(rooms); setDays(days); })
       .finally(() => setIsLoading(false));
   }, [token]);
 
@@ -114,11 +102,38 @@ const TiBookInner = () => {
     if (cartDates.size === 0) setIsSelecting(false);
   }, [cartDates.size]);
 
+  // Load wish list when phone + host are ready
+  useEffect(() => {
+    if (!guestPhone || !currentHost) return;
+    getGuestWishList(currentHost.id, guestPhone)
+      .then((result) => setWishListDates(new Set(result.dates)))
+      .catch(() => {});
+  }, [guestPhone, currentHost]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load guest bookings for calendar dots when phone + host are ready
+  useEffect(() => {
+    if (!guestPhone || !currentHost) return;
+    fetchBookingRequestsByGuest(currentHost.id, guestPhone)
+      .then((data) => setGuestBookings(data ?? []))
+      .catch(() => {});
+  }, [guestPhone, currentHost]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const myBookingDates = useMemo(() => {
+    const dates = new Set<string>();
+    guestBookings.forEach((b) => {
+      const checkIn = new Date(b.date);
+      for (let i = 0; i < b.duration; i++) {
+        const d = addDays(checkIn, i);
+        dates.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+      }
+    });
+    return dates;
+  }, [guestBookings]);
+
   const toggleCartDate = (date: Date) => {
     setIsSelecting(true);
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
     let roomId: string | null = selectedRoomIds?.size === 1 ? Array.from(selectedRoomIds)[0] : null;
-
     if (roomId === null) {
       const scopedRooms = rooms.filter((r) => r.active && (selectedRoomIds === null || selectedRoomIds.has(r.id)));
       const day = monthMap.get(key);
@@ -128,30 +143,18 @@ const TiBookInner = () => {
         if (available.length === 1) roomId = available[0].id;
       }
     }
-
     setCartDates((prev) => {
       const next = new Map(prev);
-      if (next.has(key)) next.delete(key);
-      else next.set(key, roomId);
+      if (next.has(key)) next.delete(key); else next.set(key, roomId);
       return next;
     });
   };
-
-  useEffect(() => {
-    if (!guestPhone || !currentHost) return;
-    getGuestWishList(currentHost.id, guestPhone)
-      .then((result) => setWishListDates(new Set(result.dates)))
-      .catch(() => {});
-  }, [guestPhone, currentHost]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const myBookingDates = useMemo(() => new Set<string>(), []);
 
   const handleWishListClick = (date: Date) => {
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
     setWishListDates((prev) => {
       const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+      if (next.has(key)) next.delete(key); else next.add(key);
       return next;
     });
   };
@@ -163,6 +166,10 @@ const TiBookInner = () => {
     setGuestName(name);
     setWishListDates(new Set(newDates));
     setWishListSummaryOpen(false);
+  };
+
+  const handlePhoneConfirmed = (phone: string) => {
+    setGuestPhone(phone);
   };
 
   const findFirstAvailableDate = (month: Date): Date => {
@@ -192,6 +199,8 @@ const TiBookInner = () => {
         cohostNames={cohostNames}
         isFullCalendar={isSelecting}
         onMyBookings={() => setMyBookingsOpen((o) => !o)}
+        onWishList={() => setWishListSummaryOpen((o) => !o)}
+        wishListCount={wishListDates.size}
       />
       {currentHost && !isSelecting && <HostProfileBanner host={currentHost} cohostNames={cohostNames} />}
       {rooms.length > 0 && (
@@ -235,6 +244,7 @@ const TiBookInner = () => {
         </div>
       )}
 
+      {/* Floating cart bar */}
       {cartDates.size > 0 && (
         <div className={`fixed bottom-0 inset-x-0 ${theme.btn} px-4 py-3 flex items-center justify-between z-40 shadow-lg`}>
           <span className="text-white text-sm font-medium">
@@ -258,7 +268,7 @@ const TiBookInner = () => {
           wishListDates={wishListDates}
           onToggleWishDate={(date) => setWishListDates((prev) => { const next = new Set(prev); if (next.has(date)) next.delete(date); else next.add(date); return next; })}
           onClose={() => setMyBookingsOpen(false)}
-          onPhoneConfirmed={setGuestPhone}
+          onPhoneConfirmed={handlePhoneConfirmed}
         />
       )}
 

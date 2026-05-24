@@ -3,7 +3,7 @@ import { addDays, format, parseISO } from "date-fns";
 import { roomType } from "../../util/types/roomType";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import { fetchBookingRequestsByGuest } from "../../util/bookingRequestOperations";
-import { getRoomColor } from "../../util/getRoomColor";
+import RoomBadge from "../shared/RoomBadge";
 
 export interface GuestBooking {
   id: string;
@@ -34,7 +34,6 @@ const statusLabel: Record<string, { label: string; color: string }> = {
 const MyBookingsSheet = ({ hostId, initialPhone, rooms, wishListDates, onToggleWishDate, onClose, onPhoneConfirmed }: MyBookingsSheetProps) => {
   const { theme } = useTiBookTheme();
   const roomMap = new Map(rooms.map((r) => [r.id, r]));
-  const roomBoxWidth = `${rooms.reduce((max, r) => Math.max(max, r.name.length), 0) * 6.5 + 16}px`;
 
   const [phone, setPhone] = useState(initialPhone);
   const [loading, setLoading] = useState(false);
@@ -92,6 +91,10 @@ const MyBookingsSheet = ({ hostId, initialPhone, rooms, wishListDates, onToggleW
   const upcoming = (bookings ?? []).filter((b) => dateKey(b) >= today).sort((a, b) => dateKey(a).localeCompare(dateKey(b)));
   const past     = (bookings ?? []).filter((b) => dateKey(b) <  today).sort((a, b) => dateKey(b).localeCompare(dateKey(a)));
 
+  const guestFirstName = bookings && bookings.length > 0
+    ? bookings[0].guestName.split(" ")[0]
+    : null;
+
   const renderRow = (b: GuestBooking) => {
     const checkIn  = parseISO(dateKey(b));
     const checkOut = addDays(checkIn, Number(b.duration) || 1);
@@ -100,12 +103,7 @@ const MyBookingsSheet = ({ hostId, initialPhone, rooms, wishListDates, onToggleW
     return (
       <div key={b.id} className="flex items-start justify-between gap-3 py-3 border-b border-gray-100 last:border-0">
         <div className="flex flex-col gap-0.5">
-          <span
-                className={`text-xs font-medium text-white py-0.5 rounded inline-block text-center whitespace-nowrap ${room ? getRoomColor(room.name, room.color) : "bg-gray-400"}`}
-                style={{ width: roomBoxWidth }}
-              >
-                {room?.name ?? "Room"}
-              </span>
+          <RoomBadge room={room ?? { name: "Room" }} rooms={rooms} override={room ? undefined : "bg-gray-400"} />
           <span className="text-xs text-gray-500">
             {format(checkIn, "MMM d")} – {format(checkOut, "MMM d, yyyy")}
             <span className="ml-1 text-gray-400">· {b.duration} night{b.duration !== 1 ? "s" : ""}</span>
@@ -146,31 +144,48 @@ const MyBookingsSheet = ({ hostId, initialPhone, rooms, wishListDates, onToggleW
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
         </div>
 
-        {/* Phone search */}
-        <div className="flex gap-2 px-4 pt-3 pb-2">
-          <input
-            type="tel"
-            placeholder="Your phone number"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-gray-400"
-          />
-          <button
-            type="button"
-            disabled={loading || !phone.trim()}
-            onClick={handleSearch}
-            className={`px-4 py-2.5 rounded-xl text-white text-sm font-semibold ${theme.btn} disabled:opacity-50 whitespace-nowrap`}
-          >
-            {loading ? "…" : "Search"}
-          </button>
+        {/* Phone search — wrapped with error so grid always has exactly 4 rows */}
+        <div>
+          <div className="flex gap-2 px-4 pt-3 pb-2">
+            <input
+              type="tel"
+              placeholder="Your phone number"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-gray-400"
+            />
+            <button
+              type="button"
+              disabled={loading || !phone.trim()}
+              onClick={handleSearch}
+              className={`px-4 py-2.5 rounded-xl text-white text-sm font-semibold ${theme.btn} disabled:opacity-50 whitespace-nowrap`}
+            >
+              {loading ? "…" : "Search"}
+            </button>
+          </div>
+          {error && <p className="px-4 pb-2 text-xs text-red-500">{error}</p>}
         </div>
-        {error && <p className="px-4 pb-2 text-xs text-red-500 flex-shrink-0">{error}</p>}
 
         {/* Results — grid row "1fr" fills remaining height */}
         <div className="overflow-y-auto px-4 pb-4">
+
+          {/* Welcome banner */}
+          {guestFirstName && (
+            <div className={`mt-3 mb-2 px-4 py-3 rounded-2xl ${theme.tagBg} border ${theme.tagBorder}`}>
+              <p className={`text-sm font-bold ${theme.textPrimaryDark}`}>
+                Hi {guestFirstName}! Welcome back
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+                Thank you for choosing TT House. We're always happy to have you with us and we truly appreciate your stays.
+              </p>
+            </div>
+          )}
+
           {bookings === null ? null : bookings.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-6">No bookings found for this number.</p>
+            <p className="text-sm text-gray-400 text-center py-6">
+              We couldn't find any bookings for this number. Please double-check the number you used when booking.
+            </p>
           ) : (
             <>
               {upcoming.length > 0 && (
