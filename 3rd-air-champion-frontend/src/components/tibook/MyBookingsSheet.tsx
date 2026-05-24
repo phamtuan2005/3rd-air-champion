@@ -36,11 +36,10 @@ const MyBookingsSheet = ({ bookings, rooms, wishListDates, onToggleWishDate, onC
   const [wishListOpen, setWishListOpen] = useState(false);
   const sortedWishDates = wishListDates ? [...wishListDates].sort() : [];
 
-  const initialHeight = Math.round(window.innerHeight * 0.62);
-  const [sheetHeight, setSheetHeight] = useState(initialHeight);
+  const [sheetHeight, setSheetHeight] = useState(() => Math.round(window.innerHeight * 0.62));
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<{ startY: number; startHeight: number } | null>(null);
-  const liveHeightRef = useRef(initialHeight);
+  const liveHeightRef = useRef(sheetHeight);
 
   const handleDragStart = (e: React.PointerEvent) => {
     e.preventDefault();
@@ -93,10 +92,10 @@ const MyBookingsSheet = ({ bookings, rooms, wishListDates, onToggleWishDate, onC
   };
 
   return (
-    <div className={`fixed inset-0 z-50 flex flex-col justify-end ${isDragging ? "select-none" : ""}`}>
+    <div className={`fixed inset-0 z-50 ${isDragging ? "select-none" : ""}`}>
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
       <div
-        className="relative bg-white rounded-t-2xl shadow-xl flex flex-col overflow-hidden"
+        className="absolute inset-x-0 bottom-0 bg-white rounded-t-2xl shadow-xl flex flex-col overflow-hidden"
         style={{
           height: sheetHeight,
           transition: isDragging ? "none" : "height 0.2s ease",
