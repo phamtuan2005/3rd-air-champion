@@ -51,6 +51,9 @@ const TiBookInner = () => {
   const [guestName, setGuestName] = useState(() => localStorage.getItem("tiBookGuestName") ?? "");
   const [guestBookings, setGuestBookings] = useState<GuestBooking[]>([]);
   const [myBookingsOpen, setMyBookingsOpen] = useState(false);
+  const [phoneLookupOpen, setPhoneLookupOpen] = useState(false);
+  const [phoneLookupInput, setPhoneLookupInput] = useState("");
+  const [phoneLookupLoading, setPhoneLookupLoading] = useState(false);
   const cohostNames = (import.meta.env.VITE_TI_BOOK_COHOST_NAMES as string | undefined)?.split(',').map((s) => s.trim()).filter(Boolean) ?? [];
 
   const handleToggleRoom = (id: string) => {
@@ -178,6 +181,33 @@ const TiBookInner = () => {
     });
   };
 
+  const handleMyBookings = () => {
+    if (guestPhone) {
+      setMyBookingsOpen(true);
+    } else {
+      setPhoneLookupInput("");
+      setPhoneLookupOpen(true);
+    }
+  };
+
+  const handlePhoneLookupSubmit = async () => {
+    if (!phoneLookupInput.trim() || !currentHost) return;
+    setPhoneLookupLoading(true);
+    try {
+      const data = await fetchBookingRequestsByGuest(currentHost.id, phoneLookupInput.trim());
+      const phone = phoneLookupInput.trim();
+      localStorage.setItem("tiBookGuestPhone", phone);
+      setGuestPhone(phone);
+      setGuestBookings(data ?? []);
+      setPhoneLookupOpen(false);
+      setMyBookingsOpen(true);
+    } catch {
+      // keep sheet open so guest can retry
+    } finally {
+      setPhoneLookupLoading(false);
+    }
+  };
+
   const handleSendSuccess = (phone: string, name: string, newDates: string[]) => {
     localStorage.setItem("tiBookGuestPhone", phone);
     localStorage.setItem("tiBookGuestName", name);
@@ -213,6 +243,7 @@ const TiBookInner = () => {
         host={currentHost}
         cohostNames={cohostNames}
         isFullCalendar={isSelecting}
+        onMyBookings={handleMyBookings}
       />
       {currentHost && !isSelecting && <HostProfileBanner host={currentHost} cohostNames={cohostNames} />}
       {rooms.length > 0 && (
@@ -299,6 +330,35 @@ const TiBookInner = () => {
           >
             Review Request →
           </button>
+        </div>
+      )}
+
+      {phoneLookupOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setPhoneLookupOpen(false)} />
+          <div className="relative bg-white rounded-t-2xl shadow-xl px-4 pt-4 pb-8 flex flex-col gap-3">
+            <div className="flex items-center justify-between mb-1">
+              <span className={`text-sm font-bold ${theme.textPrimary}`}>Check your bookings</span>
+              <button type="button" onClick={() => setPhoneLookupOpen(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+            </div>
+            <input
+              type="tel"
+              autoFocus
+              placeholder="Your phone number"
+              value={phoneLookupInput}
+              onChange={(e) => setPhoneLookupInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handlePhoneLookupSubmit()}
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400"
+            />
+            <button
+              type="button"
+              disabled={phoneLookupLoading || !phoneLookupInput.trim()}
+              onClick={handlePhoneLookupSubmit}
+              className={`w-full py-3 rounded-xl text-white text-sm font-semibold ${theme.btn} disabled:opacity-50`}
+            >
+              {phoneLookupLoading ? "Looking up…" : "View my bookings"}
+            </button>
+          </div>
         </div>
       )}
 

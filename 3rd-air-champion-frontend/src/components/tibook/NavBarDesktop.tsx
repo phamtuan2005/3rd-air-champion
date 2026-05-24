@@ -16,6 +16,7 @@ interface NavBarDesktopProps {
   host?: hostType | null;
   cohostNames?: string[];
   isFullCalendar?: boolean;
+  onMyBookings?: () => void;
 }
 
 const MiniAvatar = ({ name }: { name: string }) => {
@@ -32,7 +33,7 @@ const MiniAvatar = ({ name }: { name: string }) => {
   );
 };
 
-const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false }: NavBarDesktopProps) => {
+const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false, onMyBookings }: NavBarDesktopProps) => {
   const { theme, setTheme } = useTiBookTheme();
 
   return (
@@ -74,18 +75,29 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false 
           Home
         </button>
       ) : (
-        <div className="flex items-center gap-1.5">
-          {SWATCHES.map((s) => (
+        <div className="flex items-center gap-2">
+          {onMyBookings && (
             <button
-              key={s.name}
               type="button"
-              title={s.name}
-              onClick={() => setTheme(s.name)}
-              className={`w-5 h-5 rounded-full ${s.bg} transition-transform ${
-                theme.name === s.name ? "ring-2 ring-offset-1 ring-gray-400 scale-110" : "opacity-60 hover:opacity-100"
-              }`}
-            />
-          ))}
+              onClick={onMyBookings}
+              className="text-xs font-semibold text-gray-500 hover:text-gray-800 px-2 py-1 rounded-full border border-gray-200 hover:bg-gray-50 transition-colors whitespace-nowrap"
+            >
+              My bookings
+            </button>
+          )}
+          <div className="flex items-center gap-1.5">
+            {SWATCHES.map((s) => (
+              <button
+                key={s.name}
+                type="button"
+                title={s.name}
+                onClick={() => setTheme(s.name)}
+                className={`w-5 h-5 rounded-full ${s.bg} transition-transform ${
+                  theme.name === s.name ? "ring-2 ring-offset-1 ring-gray-400 scale-110" : "opacity-60 hover:opacity-100"
+                }`}
+              />
+            ))}
+          </div>
         </div>
       )}
     </nav>
