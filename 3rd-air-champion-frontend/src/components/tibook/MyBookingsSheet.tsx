@@ -34,6 +34,7 @@ const statusLabel: Record<string, { label: string; color: string }> = {
 const MyBookingsSheet = ({ hostId, initialPhone, rooms, wishListDates, onToggleWishDate, onClose, onPhoneConfirmed }: MyBookingsSheetProps) => {
   const { theme } = useTiBookTheme();
   const roomMap = new Map(rooms.map((r) => [r.id, r]));
+  const roomBoxWidth = `${rooms.reduce((max, r) => Math.max(max, r.name.length), 0) * 6.5 + 16}px`;
 
   const [phone, setPhone] = useState(initialPhone);
   const [loading, setLoading] = useState(false);
@@ -99,7 +100,10 @@ const MyBookingsSheet = ({ hostId, initialPhone, rooms, wishListDates, onToggleW
     return (
       <div key={b.id} className="flex items-start justify-between gap-3 py-3 border-b border-gray-100 last:border-0">
         <div className="flex flex-col gap-0.5">
-          <span className={`text-xs font-semibold text-white px-3 py-1 rounded-full self-start ${room ? getRoomColor(room.name, room.color) : "bg-gray-400"}`}>
+          <span
+                className={`text-xs font-medium text-white py-0.5 rounded inline-block text-center whitespace-nowrap ${room ? getRoomColor(room.name, room.color) : "bg-gray-400"}`}
+                style={{ width: roomBoxWidth }}
+              >
                 {room?.name ?? "Room"}
               </span>
           <span className="text-xs text-gray-500">
