@@ -77,7 +77,9 @@ router.post("/get/guest", async (req: Request, res: any) => {
   }
 
   try {
-    const entry = await WishList.findOne({ host, guestPhone });
+    const digits = guestPhone.replace(/\D/g, "");
+    const phoneRegex = new RegExp(digits.split("").join("\\D*"));
+    const entry = await WishList.findOne({ host, guestPhone: { $regex: phoneRegex } });
     const dates = entry ? entry.dates.map((d) => new Date(d).toISOString().split("T")[0]) : [];
     res.status(200).json({ dates });
   } catch (error: any) {

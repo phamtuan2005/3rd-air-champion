@@ -175,6 +175,11 @@ const TiBookInner = () => {
 
   const handlePhoneConfirmed = (phone: string) => {
     setGuestPhone(phone);
+    if (currentHost) {
+      getGuestWishList(currentHost.id, phone)
+        .then((result) => setWishListDates(new Set(result.dates)))
+        .catch(() => {});
+    }
   };
 
   const findFirstAvailableDate = (month: Date): Date => {
@@ -267,6 +272,7 @@ const TiBookInner = () => {
         <MyBookingsSheet
           hostId={currentHost.id}
           calendarId={currentHost.calendar}
+          doorCode={currentHost.doorCode}
           initialPhone={guestPhone}
           rooms={rooms}
           wishListDates={wishListDates}
