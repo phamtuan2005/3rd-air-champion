@@ -106,6 +106,20 @@ const MyBookingsSheet = ({ hostId, calendarId, initialPhone, rooms, wishListDate
     ? bookings[0].guestName.split(" ")[0]
     : null;
 
+  const pastBookings = (bookings ?? []).filter((b) => dateKey(b) < today);
+  const totalStays = pastBookings.length;
+  const totalNights = pastBookings.reduce((sum, b) => sum + (Number(b.duration) || 1), 0);
+  const memberSince = pastBookings.length > 0
+    ? format(parseISO(pastBookings.reduce((min, b) => dateKey(b) < min ? dateKey(b) : min, dateKey(pastBookings[0]))), "MMM yyyy")
+    : null;
+
+  const loyaltyTier =
+    totalStays >= 50 ? { label: "Cherished Guest", color: "text-amber-700 bg-amber-50 border-amber-200", message: "You are one of our most loyal and treasured guests. Every stay you've had with us is something we hold close — your trust in TT House means everything to us." } :
+    totalStays >= 20 ? { label: "Valued Guest",    color: "text-purple-700 bg-purple-50 border-purple-200", message: "Your loyalty over the years has meant so much to us. We are genuinely grateful you keep choosing TT House as your home away from home." } :
+    totalStays >= 5  ? { label: "Loyal Guest",     color: "text-blue-700 bg-blue-50 border-blue-200", message: "We love having you back! Your continued trust in TT House warms our hearts every time." } :
+    totalStays >= 1  ? { label: "Returning Guest", color: "text-green-700 bg-green-50 border-green-200", message: "It's wonderful to see you again! We hope every stay with us feels like coming home." } :
+    null;
+
   const renderRow = (b: GuestBooking) => {
     const checkIn  = parseISO(dateKey(b));
     const checkOut = addDays(checkIn, Number(b.duration) || 1);
@@ -191,11 +205,37 @@ const MyBookingsSheet = ({ hostId, calendarId, initialPhone, rooms, wishListDate
           {/* Welcome banner */}
           {guestFirstName && (
             <div className={`mt-3 mb-2 px-4 py-3 rounded-2xl ${theme.tagBg} border ${theme.tagBorder}`}>
-              <p className={`text-sm font-bold ${theme.textPrimaryDark}`}>
-                Hi {guestFirstName}! Welcome back
-              </p>
-              <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
-                Thank you for choosing TT House. We're always happy to have you with us and we truly appreciate your stays.
+              <div className="flex items-start justify-between gap-2">
+                <p className={`text-sm font-bold ${theme.textPrimaryDark}`}>
+                  Hi {guestFirstName}! Welcome back
+                </p>
+                {loyaltyTier && (
+                  <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${loyaltyTier.color}`}>
+                    {loyaltyTier.label}
+                  </span>
+                )}
+              </div>
+
+              {totalStays > 0 && memberSince && (
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <span className={`text-[11px] font-bold ${theme.textPrimary}`}>
+                    {totalStays} {totalStays === 1 ? "stay" : "stays"}
+                  </span>
+                  <span className="text-gray-300 text-[10px]">·</span>
+                  <span className={`text-[11px] font-bold ${theme.textPrimary}`}>
+                    {totalNights} {totalNights === 1 ? "night" : "nights"}
+                  </span>
+                  <span className="text-gray-300 text-[10px]">·</span>
+                  <span className="text-[11px] text-gray-400">
+                    with us since {memberSince}
+                  </span>
+                </div>
+              )}
+
+              <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
+                {loyaltyTier
+                  ? loyaltyTier.message
+                  : "Thank you for choosing TT House. We're always happy to have you with us."}
               </p>
             </div>
           )}
