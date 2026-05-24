@@ -283,24 +283,9 @@ const TiBookInner = () => {
         </div>
       )}
 
-      {/* Floating my-bookings chip */}
-      {guestBookings.length > 0 && !myBookingsOpen && (
-        <div className="fixed bottom-0 inset-x-0 z-30 flex justify-center pointer-events-none" style={{ bottom: cartDates.size > 0 ? "112px" : wishListDates.size > 0 ? "56px" : "0" }}>
-          <button
-            type="button"
-            onClick={() => setMyBookingsOpen(true)}
-            className="pointer-events-auto mb-3 bg-white border border-gray-300 shadow-md text-gray-700 text-sm font-semibold px-4 py-2 rounded-full flex items-center gap-2"
-          >
-            <span>🗓</span>
-            <span>My booking{guestBookings.length !== 1 ? "s" : ""} ({guestBookings.length})</span>
-            <span className="text-gray-400">→</span>
-          </button>
-        </div>
-      )}
-
       {/* Floating wish list summary bar */}
       {wishListDates.size > 0 && !wishListSummaryOpen && (
-        <div className="fixed bottom-0 inset-x-0 z-30 flex justify-center pointer-events-none" style={{ bottom: cartDates.size > 0 ? "56px" : "0" }}>
+        <div className="fixed bottom-0 inset-x-0 z-30 flex justify-center pointer-events-none" style={{ bottom: cartDates.size > 0 ? "56px" : "0px" }}>
           <button
             type="button"
             onClick={() => setWishListSummaryOpen(true)}
