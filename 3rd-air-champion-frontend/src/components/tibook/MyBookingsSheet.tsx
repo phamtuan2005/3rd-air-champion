@@ -33,6 +33,7 @@ const statusLabel: Record<string, { label: string; color: string }> = {
 
 const MyBookingsSheet = ({ hostId, initialPhone, rooms, wishListDates, onToggleWishDate, onClose, onPhoneConfirmed }: MyBookingsSheetProps) => {
   const { theme } = useTiBookTheme();
+  const activeRooms = rooms.filter((r) => r.active);
   const roomMap = new Map(rooms.map((r) => [r.id, r]));
 
   const [phone, setPhone] = useState(initialPhone);
@@ -103,7 +104,7 @@ const MyBookingsSheet = ({ hostId, initialPhone, rooms, wishListDates, onToggleW
     return (
       <div key={b.id} className="flex items-start justify-between gap-3 py-3 border-b border-gray-100 last:border-0">
         <div className="flex flex-col gap-0.5">
-          <RoomBadge room={room ?? { name: "Room" }} rooms={rooms} override={room ? undefined : "bg-gray-400"} />
+          <RoomBadge room={room ?? { name: "Room" }} rooms={activeRooms} override={room ? undefined : "bg-gray-400"} />
           <span className="text-xs text-gray-500">
             {format(checkIn, "MMM d")} – {format(checkOut, "MMM d, yyyy")}
             <span className="ml-1 text-gray-400">· {b.duration} night{b.duration !== 1 ? "s" : ""}</span>

@@ -199,8 +199,6 @@ const TiBookInner = () => {
         cohostNames={cohostNames}
         isFullCalendar={isSelecting}
         onMyBookings={() => setMyBookingsOpen((o) => !o)}
-        onWishList={() => setWishListSummaryOpen((o) => !o)}
-        wishListCount={wishListDates.size}
       />
       {currentHost && !isSelecting && <HostProfileBanner host={currentHost} cohostNames={cohostNames} />}
       {rooms.length > 0 && (

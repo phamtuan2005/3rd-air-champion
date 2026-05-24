@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { roomType } from "../../util/types/roomType";
 import RoomGalleryModal from "./RoomGalleryModal";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
@@ -18,11 +18,13 @@ interface RoomCardsProps {
 
 const RoomCard = ({
   room,
+  allRooms,
   selected,
   onSelect,
   onViewPhotos,
 }: {
   room: roomType;
+  allRooms: roomType[];
   selected: boolean;
   onSelect: () => void;
   onViewPhotos: () => void;
@@ -37,7 +39,6 @@ const RoomCard = ({
         selected ? `${theme.selectedBorder} ${theme.selectedShadow}` : "border-gray-100"
       }`}
     >
-      {/* Image area — tap to view photos */}
       <div
         className="relative w-full h-11 sm:h-20 bg-gray-100 cursor-pointer active:opacity-80"
         onClick={photos.length > 0 ? onViewPhotos : undefined}
@@ -59,9 +60,7 @@ const RoomCard = ({
             )}
           </>
         ) : (
-          <div
-            className={`w-full h-full flex items-center justify-center text-white text-2xl font-bold ${room.color ?? "bg-gray-400"}`}
-          >
+          <div className={`w-full h-full flex items-center justify-center text-white text-2xl font-bold ${room.color ?? "bg-gray-400"}`}>
             {room.name.charAt(0).toUpperCase()}
           </div>
         )}
@@ -74,12 +73,11 @@ const RoomCard = ({
         )}
       </div>
 
-      {/* Name area — tap to select/filter */}
       <div
         className="px-2 py-1.5 cursor-pointer active:bg-gray-50 flex flex-col gap-1"
         onClick={onSelect}
       >
-        <RoomBadge room={room} className="self-start truncate max-w-full" />
+        <RoomBadge room={room} rooms={allRooms} className="self-start" />
         <p className="text-[10px] text-gray-400 leading-none">
           {selected ? "✓ selected" : "tap to select"}
         </p>
@@ -143,7 +141,6 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
       <div className="px-3 py-1.5 border-b border-gray-100 bg-gray-50">
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Our Rooms</p>
         <div className="flex gap-2 overflow-x-auto pb-1 items-center">
-          {/* All chip */}
           <button
             type="button"
             onClick={onSelectAll}
@@ -160,6 +157,7 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
             <RoomCard
               key={room.id}
               room={room}
+              allRooms={activeRooms}
               selected={!isAll && (selectedRoomIds?.has(room.id) ?? false)}
               onSelect={() => onToggleRoom(room.id)}
               onViewPhotos={() => setGalleryRoom(room)}
