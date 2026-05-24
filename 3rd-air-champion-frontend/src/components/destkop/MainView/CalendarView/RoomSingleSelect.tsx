@@ -1,7 +1,7 @@
-import { useState, useMemo } from "react";
+﻿import { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { roomType } from "../../../../util/types/roomType";
-import { getRoomColor } from "../../../../util/getRoomColor";
+import RoomBadge from "../../../shared/RoomBadge";
 
 interface RoomSingleSelectProps {
   rooms: roomType[];
@@ -12,20 +12,11 @@ interface RoomSingleSelectProps {
 const RoomSingleSelect = ({ rooms, value, onChange }: RoomSingleSelectProps) => {
   const [open, setOpen] = useState(false);
   const activeRooms = useMemo(() => rooms.filter((r) => r.active), [rooms]);
-  const roomBoxWidth = useMemo(() => {
-    const maxLen = activeRooms.reduce((max, r) => Math.max(max, r.name.length), 0);
-    return `${maxLen * 6.5 + 16}px`;
-  }, [activeRooms]);
 
   const selectedRoom = activeRooms.find((r) => r.name === value) ?? null;
 
   const triggerContent = selectedRoom ? (
-    <span
-      className={`${getRoomColor(selectedRoom.name, selectedRoom.color)} text-white text-xs font-medium py-0.5 rounded inline-block text-center whitespace-nowrap`}
-      style={{ width: roomBoxWidth }}
-    >
-      {selectedRoom.name}
-    </span>
+    <RoomBadge room={selectedRoom} rooms={activeRooms} />
   ) : (
     <span className="italic text-gray-500 text-xs">All rooms</span>
   );
@@ -87,12 +78,7 @@ const RoomSingleSelect = ({ rooms, value, onChange }: RoomSingleSelectProps) => 
                     checked={value === room.name}
                     className="pointer-events-none w-4 h-4"
                   />
-                  <span
-                    className={`${getRoomColor(room.name, room.color)} text-white text-xs font-medium py-0.5 rounded inline-block text-center whitespace-nowrap`}
-                    style={{ width: roomBoxWidth }}
-                  >
-                    {room.name}
-                  </span>
+                  <RoomBadge room={room} rooms={activeRooms} />
                 </li>
               ))}
             </ul>

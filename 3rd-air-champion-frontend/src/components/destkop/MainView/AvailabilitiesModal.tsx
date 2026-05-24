@@ -1,8 +1,8 @@
-import { isAfter, startOfToday, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
+﻿import { isAfter, startOfToday, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 import { format } from "date-fns-tz";
 import { dayType } from "../../../util/types/dayType";
 import { roomType } from "../../../util/types/roomType";
-import { getRoomColor } from "../../../util/getRoomColor";
+import RoomBadge from "../../shared/RoomBadge";
 
 interface AvailabilitiesModalProps {
   monthMap: Map<string, dayType>;
@@ -77,8 +77,6 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName }: Avai
   stats.sort((a, b) => a.unbookedNights - b.unbookedNights);
 
   // Width enough to cover the longest room name (6.5px per char at text-[10px] + 16px padding)
-  const maxNameLen = Math.max(...stats.map((s) => s.room.name.length), 0);
-  const roomBoxWidth = `${maxNameLen * 6.5 + 16}px`;
 
   const totalNights = stats.reduce((sum, s) => sum + s.unbookedNights, 0);
   const totalMonthProfit = stats.reduce((sum, s) => sum + s.estimatedProfit, 0);
@@ -126,12 +124,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName }: Avai
               return (
                 <tr key={room.id} className="border-b border-gray-100">
                   <td className="py-1.5">
-                    <span
-                      className={`${getRoomColor(room.name, room.color)} text-white text-[10px] font-medium py-0.5 rounded inline-block text-center whitespace-nowrap`}
-                      style={{ width: roomBoxWidth }}
-                    >
-                      {room.name}
-                    </span>
+                    <RoomBadge room={room} rooms={rooms} />
                   </td>
                   <td className="py-1.5 text-gray-600">
                     {unbookedNights > 0 ? (

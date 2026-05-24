@@ -1,8 +1,8 @@
-import { useState, useMemo } from "react";
+﻿import { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { roomType } from "../../../util/types/roomType";
 import { ANY_ROOM_SENTINEL } from "./zodBookDays";
-import { getRoomColor } from "../../../util/getRoomColor";
+import RoomBadge from "../../shared/RoomBadge";
 
 interface RoomMultiSelectProps {
   rooms: roomType[];
@@ -15,10 +15,6 @@ interface RoomMultiSelectProps {
 const RoomMultiSelect = ({ rooms, value, onChange, showAny = true, showAll = false }: RoomMultiSelectProps) => {
   const [open, setOpen] = useState(false);
   const activeRooms = useMemo(() => rooms.filter((r) => r.active), [rooms]);
-  const roomBoxWidth = useMemo(() => {
-    const maxLen = activeRooms.reduce((max, r) => Math.max(max, r.name.length), 0);
-    return `${maxLen * 6.5 + 16}px`;
-  }, [activeRooms]);
 
   const isAny = value.includes(ANY_ROOM_SENTINEL);
   const isAll = showAll && activeRooms.length > 0 && activeRooms.every((r) => value.includes(r.id));
@@ -41,17 +37,11 @@ const RoomMultiSelect = ({ rooms, value, onChange, showAny = true, showAll = fal
     return (
       <span className="flex items-center gap-1 flex-wrap">
         {selected.map((room) => (
-          <span
-            key={room.id}
-            className={`${getRoomColor(room.name, room.color)} text-white text-xs font-medium py-0.5 rounded inline-block text-center whitespace-nowrap`}
-            style={{ width: roomBoxWidth }}
-          >
-            {room.name}
-          </span>
+          <RoomBadge key={room.id} room={room} rooms={activeRooms} />
         ))}
       </span>
     );
-  }, [isAny, value, activeRooms, roomBoxWidth]);
+  }, [isAny, value, activeRooms]);
 
   const handleToggleAny = () => {
     if (isAny) {
@@ -135,12 +125,7 @@ const RoomMultiSelect = ({ rooms, value, onChange, showAny = true, showAll = fal
                       checked={checked}
                       className="pointer-events-none w-4 h-4"
                     />
-                    <span
-                      className={`${getRoomColor(room.name, room.color)} text-white text-xs font-medium py-0.5 rounded inline-block text-center whitespace-nowrap`}
-                      style={{ width: roomBoxWidth }}
-                    >
-                      {room.name}
-                    </span>
+                    <RoomBadge room={room} rooms={activeRooms} />
                   </li>
                 );
               })}

@@ -1,15 +1,14 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { roomType } from "../../../../util/types/roomType";
 import { pricingType } from "../../../../util/types/pricingType";
-import { getRoomColor } from "../../../../util/getRoomColor";
+import RoomBadge from "../../../shared/RoomBadge";
 
 interface PricingDropdownProps {
   fields: pricingType[];
   rooms: roomType[];
-  roomBoxWidth: string;
 }
 
-const PricingDropdown = ({ fields, rooms, roomBoxWidth }: PricingDropdownProps) => {
+const PricingDropdown = ({ fields, rooms }: PricingDropdownProps) => {
   const [open, setOpen] = useState(false);
 
   return (
@@ -27,12 +26,7 @@ const PricingDropdown = ({ fields, rooms, roomBoxWidth }: PricingDropdownProps) 
         <div className="absolute right-0 mt-1 bg-white border border-gray-200 rounded shadow-lg z-10 py-1 min-w-max">
           {rooms.map((room) => (
             <div key={room.id} className="flex items-center gap-2 px-3 py-1.5">
-              <span
-                className={`${getRoomColor(room.name, room.color)} text-white text-xs font-medium py-0.5 rounded inline-block text-center whitespace-nowrap`}
-                style={{ width: roomBoxWidth }}
-              >
-                {room.name}
-              </span>
+              <RoomBadge room={room} rooms={rooms} />
               <span className="text-sm">
                 ${fields.find((field) => field.room === room.id)?.price || 0}
               </span>

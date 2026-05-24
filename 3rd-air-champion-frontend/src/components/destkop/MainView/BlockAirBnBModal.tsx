@@ -1,10 +1,10 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { isAfter, startOfToday, format, parseISO, addDays, isBefore } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { dayType } from "../../../util/types/dayType";
 import { roomType } from "../../../util/types/roomType";
 import { bookingType } from "../../../util/types/bookingType";
-import { getRoomColor } from "../../../util/getRoomColor";
+import RoomBadge from "../../shared/RoomBadge";
 import { markAirBnBBlocked } from "../../../util/bookingOperations";
 
 type BlockedAirBnBDates = Record<string, { start: string; duration: number }[]>;
@@ -167,8 +167,6 @@ const BlockAirBnBModal = ({ monthMap, rooms, blockedAirBnBDates, token, onDaysUp
     .filter((s) => s.items.length > 0);
 
   const totalPending = roomStats.reduce((sum, s) => sum + s.items.length, 0);
-  const maxNameLen = Math.max(...roomStats.map((s) => s.room.name.length), 0);
-  const roomBoxWidth = `${maxNameLen * 6.5 + 16}px`;
 
   return (
     <div className="p-3 flex flex-col gap-3 h-full overflow-y-auto">
@@ -202,12 +200,7 @@ const BlockAirBnBModal = ({ monthMap, rooms, blockedAirBnBDates, token, onDaysUp
               return (
                 <tr key={room.id} className="border-b border-gray-100">
                   <td className="py-2 pr-1 align-middle">
-                    <span
-                      className={`${getRoomColor(room.name, room.color)} text-white text-[10px] font-medium py-0.5 rounded inline-block text-center whitespace-nowrap`}
-                      style={{ width: roomBoxWidth }}
-                    >
-                      {room.name}
-                    </span>
+                    <RoomBadge room={room} rooms={roomStats.map(s => s.room)} />
                   </td>
                   <td className="py-2 pr-1 align-middle">
                     <select

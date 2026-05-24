@@ -1,7 +1,7 @@
-import { useState, useMemo } from "react";
+﻿import { useState } from "react";
 import { createPortal } from "react-dom";
 import { roomType } from "../../../../util/types/roomType";
-import { getRoomColor } from "../../../../util/getRoomColor";
+import RoomBadge from "../../../shared/RoomBadge";
 
 interface RoomPickerDropdownProps {
   rooms: roomType[];
@@ -13,10 +13,6 @@ interface RoomPickerDropdownProps {
 const RoomPickerDropdown = ({ rooms, blockedRoomIds, value, onChange }: RoomPickerDropdownProps) => {
   const [open, setOpen] = useState(false);
 
-  const roomBoxWidth = useMemo(() => {
-    const maxLen = rooms.reduce((max, r) => Math.max(max, r.name.length), 0);
-    return `${maxLen * 6.5 + 16}px`;
-  }, [rooms]);
 
   const selectedRoom = rooms.find((r) => r.id === value) ?? null;
 
@@ -26,12 +22,7 @@ const RoomPickerDropdown = ({ rooms, blockedRoomIds, value, onChange }: RoomPick
   };
 
   const triggerContent = selectedRoom ? (
-    <span
-      className={`${getRoomColor(selectedRoom.name, selectedRoom.color)} text-white text-xs font-medium py-0.5 rounded inline-block text-center whitespace-nowrap`}
-      style={{ width: roomBoxWidth }}
-    >
-      {selectedRoom.name}
-    </span>
+    <RoomBadge room={selectedRoom} rooms={rooms} />
   ) : (
     <span className="text-gray-400 text-xs">Select room…</span>
   );
@@ -73,12 +64,7 @@ const RoomPickerDropdown = ({ rooms, blockedRoomIds, value, onChange }: RoomPick
                       checked={isSelected}
                       className="pointer-events-none w-4 h-4"
                     />
-                    <span
-                      className={`${isBlocked ? "bg-gray-300 opacity-50" : getRoomColor(room.name, room.color)} text-white text-xs font-medium py-0.5 rounded inline-block text-center whitespace-nowrap`}
-                      style={{ width: roomBoxWidth }}
-                    >
-                      {room.name}
-                    </span>
+                    <RoomBadge room={room} rooms={rooms} override={isBlocked ? "bg-gray-300 opacity-50" : undefined} />
                     {isBlocked && <span className="text-xs text-gray-400 italic">(blocked)</span>}
                   </li>
                 );

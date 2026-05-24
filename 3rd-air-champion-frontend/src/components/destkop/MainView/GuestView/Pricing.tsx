@@ -1,10 +1,10 @@
-import {
+﻿import {
   useForm,
   Controller,
   useFieldArray,
   SubmitHandler,
 } from "react-hook-form";
-import { useMemo } from "react";
+
 import { zodResolver } from "@hookform/resolvers/zod";
 import { bookingType } from "../../../../util/types/bookingType";
 import { roomType } from "../../../../util/types/roomType";
@@ -13,7 +13,7 @@ import {
   pricingZodSchema,
 } from "./zodPricing";
 import PricingDropdown from "./PricingDropdown";
-import { getRoomColor } from "../../../../util/getRoomColor";
+import RoomBadge from "../../../shared/RoomBadge";
 
 interface PricingProps {
   booking: bookingType;
@@ -56,10 +56,6 @@ const Pricing = ({
     name: "pricing",
   });
 
-  const roomBoxWidth = useMemo(() => {
-    const maxLen = rooms.reduce((max, r) => Math.max(max, r.name.length), 0);
-    return `${maxLen * 6.5 + 16}px`;
-  }, [rooms]);
 
   const onSubmit: SubmitHandler<pricingZodSchema> = (data) => {
     const updatedPricing = data.pricing.map((pricing) => ({
@@ -78,7 +74,7 @@ const Pricing = ({
         <label className="font-semibold">Pricing ($USD):</label>
         {!isEditing && (
           <>
-            <PricingDropdown fields={fields} rooms={rooms} roomBoxWidth={roomBoxWidth} />
+            <PricingDropdown fields={fields} rooms={rooms} />
             <button
               className="bg-blue-500 text-white px-2 py-1 rounded-md text-sm"
               onClick={() => setIsEditing(true)}
@@ -96,12 +92,7 @@ const Pricing = ({
         >
           {fields.map((field, index) => (
             <div key={field.id} className="flex items-center space-x-4">
-              <span
-                className={`${getRoomColor(rooms[index].name, rooms[index].color)} text-white text-xs font-medium py-0.5 rounded inline-block text-center whitespace-nowrap`}
-                style={{ width: roomBoxWidth }}
-              >
-                {rooms[index].name}
-              </span>
+              <RoomBadge room={rooms[index]} rooms={rooms} />
               <Controller
                 name={`pricing.${index}.price`}
                 control={control}
