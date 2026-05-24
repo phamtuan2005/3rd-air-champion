@@ -121,6 +121,7 @@ const HistoryDetailSheet = ({
   onClose,
 }: HistoryDetailSheetProps) => {
   const backdropRef = useRef<HTMLDivElement>(null);
+  const mountedAtRef = useRef(Date.now());
   const [heightPx, setHeightPx] = useState<number | null>(null); // null = use CSS default
   const [animating, setAnimating] = useState(false);
   const [dismissing, setDismissing] = useState(false);
@@ -203,7 +204,7 @@ const HistoryDetailSheet = ({
     <div
       ref={backdropRef}
       className="absolute inset-0 bg-black/40 z-20"
-      onClick={(e) => { e.stopPropagation(); dismiss(); }}
+      onClick={(e) => { if (Date.now() - mountedAtRef.current < 500) return; e.stopPropagation(); dismiss(); }}
     >
       <div
         className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-xl flex flex-col overflow-hidden"
