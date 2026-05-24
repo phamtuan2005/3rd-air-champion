@@ -3,6 +3,7 @@ import { addDays, format, parseISO } from "date-fns";
 import { roomType } from "../../util/types/roomType";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import { fetchBookingRequestsByGuest } from "../../util/bookingRequestOperations";
+import { fetchGuestByPhone } from "../../util/guestOperations";
 import RoomBadge from "../shared/RoomBadge";
 
 export interface GuestBooking {
@@ -39,6 +40,7 @@ const MyBookingsSheet = ({ hostId, initialPhone, rooms, wishListDates, onToggleW
   const [phone, setPhone] = useState(initialPhone);
   const [loading, setLoading] = useState(false);
   const [bookings, setBookings] = useState<GuestBooking[] | null>(null);
+  const [guestPricing, setGuestPricing] = useState<Map<string, number>>(new Map());
   const [error, setError] = useState("");
   const [wishListOpen, setWishListOpen] = useState(false);
   const sortedWishDates = wishListDates ? [...wishListDates].sort() : [];
@@ -76,8 +78,12 @@ const MyBookingsSheet = ({ hostId, initialPhone, rooms, wishListDates, onToggleW
     setLoading(true);
     setError("");
     try {
-      const data = await fetchBookingRequestsByGuest(hostId, p);
+      const [data, guest] = await Promise.all([
+        fetchBookingRequestsByGuest(hostId, p),
+        fetchGuestByPhone(p, hostId),
+      ]);
       setBookings(data ?? []);
+      setGuestPricing(new Map((guest?.pricing ?? []).map((pr) => [pr.room, pr.price])));
       localStorage.setItem("tiBookGuestPhone", p);
       onPhoneConfirmed(p);
     } catch {
@@ -100,7 +106,9 @@ const MyBookingsSheet = ({ hostId, initialPhone, rooms, wishListDates, onToggleW
     const checkIn  = parseISO(dateKey(b));
     const checkOut = addDays(checkIn, Number(b.duration) || 1);
     const room     = roomMap.get(b.room);
-    const st       = statusLabel[b.status] ?? { label: b.status, color: "text-gray-500 bg-gray-50 border-gray-200" };
+    const st        = statusLabel[b.status] ?? { label: b.status, color: "text-gray-500 bg-gray-50 border-gray-200" };
+    const nightRate = guestPricing.get(b.room);
+    const total     = nightRate !== undefined ? nightRate * (Number(b.duration) || 1) : undefined;
     return (
       <div key={b.id} className="flex items-start justify-between gap-3 py-3 border-b border-gray-100 last:border-0">
         <div className="flex flex-col gap-0.5">
@@ -109,6 +117,11 @@ const MyBookingsSheet = ({ hostId, initialPhone, rooms, wishListDates, onToggleW
             {format(checkIn, "MMM d")} – {format(checkOut, "MMM d, yyyy")}
             <span className="ml-1 text-gray-400">· {b.duration} night{b.duration !== 1 ? "s" : ""}</span>
           </span>
+          {total !== undefined && (
+            <span className={`text-xs font-semibold ${theme.textPrimary}`}>
+              ${total} <span className="font-normal text-gray-400">(${nightRate}/night)</span>
+            </span>
+          )}
         </div>
         <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${st.color} shrink-0`}>
           {st.label}
