@@ -182,12 +182,8 @@ const TiBookInner = () => {
   };
 
   const handleMyBookings = () => {
-    if (guestPhone) {
-      setMyBookingsOpen(true);
-    } else {
-      setPhoneLookupInput("");
-      setPhoneLookupOpen(true);
-    }
+    setPhoneLookupInput(guestPhone);
+    setPhoneLookupOpen(true);
   };
 
   const handlePhoneLookupSubmit = async () => {
@@ -336,7 +332,7 @@ const TiBookInner = () => {
       {phoneLookupOpen && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/30" onClick={() => setPhoneLookupOpen(false)} />
-          <div className="relative bg-white rounded-t-2xl shadow-xl px-4 pt-4 pb-8 flex flex-col gap-3" onClick={(e) => e.stopPropagation()}>
+          <div className="relative bg-white rounded-t-2xl shadow-xl px-4 pt-4 pb-8 flex flex-col gap-3" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-1">
               <span className={`text-sm font-bold ${theme.textPrimary}`}>Check your bookings</span>
               <button type="button" onClick={() => setPhoneLookupOpen(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>

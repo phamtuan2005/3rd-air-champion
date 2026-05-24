@@ -63,7 +63,7 @@ const MyBookingsSheet = ({ bookings, rooms, onClose }: MyBookingsSheetProps) => 
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative bg-white rounded-t-2xl shadow-xl max-h-[70vh] flex flex-col">
+      <div className="relative bg-white rounded-t-2xl shadow-xl max-h-[70vh] flex flex-col" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
         <div className={`flex items-center justify-between px-4 py-3 border-b border-gray-100`}>
           <span className={`text-sm font-bold ${theme.textPrimary}`}>Your Bookings</span>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
