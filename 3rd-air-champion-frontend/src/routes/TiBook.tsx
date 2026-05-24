@@ -47,6 +47,7 @@ const TiBookInner = () => {
   const [isSelecting, setIsSelecting] = useState(false);
   const [wishListDates, setWishListDates] = useState<Set<string>>(new Set());
   const [wishListSummaryOpen, setWishListSummaryOpen] = useState(false);
+  const [wishListChipDismissed, setWishListChipDismissed] = useState(false);
   const [guestPhone, setGuestPhone] = useState(() => localStorage.getItem("tiBookGuestPhone") ?? "");
   const [guestName, setGuestName] = useState(() => localStorage.getItem("tiBookGuestName") ?? "");
   const [guestBookings, setGuestBookings] = useState<GuestBooking[]>([]);
@@ -176,7 +177,7 @@ const TiBookInner = () => {
     setWishListDates((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
-      else next.add(key);
+      else { next.add(key); setWishListChipDismissed(false); }
       return next;
     });
   };
@@ -286,17 +287,26 @@ const TiBookInner = () => {
       )}
 
       {/* Floating wish list summary bar */}
-      {wishListDates.size > 0 && !wishListSummaryOpen && (
+      {wishListDates.size > 0 && !wishListSummaryOpen && !wishListChipDismissed && (
         <div className="fixed bottom-0 inset-x-0 z-30 flex justify-center pointer-events-none" style={{ bottom: cartDates.size > 0 ? "56px" : "0px" }}>
-          <button
-            type="button"
-            onClick={() => setWishListSummaryOpen(true)}
-            className="pointer-events-auto mb-3 bg-white border border-amber-300 shadow-md text-amber-700 text-sm font-semibold px-4 py-2 rounded-full flex items-center gap-2"
-          >
-            <span>★</span>
-            <span>{wishListDates.size} date{wishListDates.size !== 1 ? "s" : ""} saved</span>
-            <span className="text-amber-400">→ View</span>
-          </button>
+          <div className="pointer-events-auto mb-3 bg-white border border-amber-300 shadow-md rounded-full flex items-center">
+            <button
+              type="button"
+              onClick={() => setWishListSummaryOpen(true)}
+              className="text-amber-700 text-sm font-semibold px-4 py-2 flex items-center gap-2"
+            >
+              <span>★</span>
+              <span>{wishListDates.size} date{wishListDates.size !== 1 ? "s" : ""} saved</span>
+              <span className="text-amber-400">→ View</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setWishListChipDismissed(true)}
+              className="pr-3 text-amber-300 hover:text-amber-500 text-base leading-none"
+            >
+              ×
+            </button>
+          </div>
         </div>
       )}
 
