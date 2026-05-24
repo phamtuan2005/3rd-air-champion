@@ -126,7 +126,6 @@ export const dayResolvers = {
       for (const day of days) {
         for (const booking of day.bookings as any[]) {
           if (booking.guest?.toString() !== guest._id.toString()) continue;
-          if (booking.airbnbBlocked) continue;
           const rawStart = booking.startDate ?? day.date;
           const startDate: Date = rawStart instanceof Date ? rawStart : new Date(rawStart);
           const roomId = booking.room?._id?.toString() ?? booking.room?.toString();
