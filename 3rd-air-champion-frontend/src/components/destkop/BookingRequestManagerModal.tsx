@@ -424,7 +424,8 @@ const SwipeableHistoryGroupRow = ({
 
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (!didMove.current) {
-      if (direction.current === "vertical") return;
+      const netDy = Math.abs(e.changedTouches[0].clientY - touchStartY.current);
+      if (netDy > 10) return; // real scroll, not a tap
       if (offset === -SNAP_WIDTH) {
         e.preventDefault();
         setConfirming(true);
