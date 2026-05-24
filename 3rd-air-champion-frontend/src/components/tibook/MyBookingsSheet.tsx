@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { addDays, format, parseISO } from "date-fns";
 import { roomType } from "../../util/types/roomType";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
@@ -40,6 +40,33 @@ const MyBookingsSheet = ({ hostId, initialPhone, rooms, wishListDates, onToggleW
   const [error, setError] = useState("");
   const [wishListOpen, setWishListOpen] = useState(false);
   const sortedWishDates = wishListDates ? [...wishListDates].sort() : [];
+
+  const [sheetHeight, setSheetHeight] = useState(() => Math.round(window.innerHeight * 0.62));
+  const [isDragging, setIsDragging] = useState(false);
+  const dragRef = useRef<{ startY: number; startH: number } | null>(null);
+  const heightRef = useRef(sheetHeight);
+
+  const onDragStart = (e: React.PointerEvent) => {
+    e.preventDefault();
+    dragRef.current = { startY: e.clientY, startH: heightRef.current };
+    setIsDragging(true);
+    const maxH = Math.round(window.innerHeight * 0.88);
+    const onMove = (ev: PointerEvent) => {
+      if (!dragRef.current) return;
+      const next = Math.max(40, Math.min(dragRef.current.startH - (ev.clientY - dragRef.current.startY), maxH));
+      heightRef.current = next;
+      setSheetHeight(next);
+    };
+    const onUp = () => {
+      setIsDragging(false);
+      dragRef.current = null;
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      if (heightRef.current < 120) onClose();
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
 
   const handleSearch = async () => {
     const p = phone.trim();
@@ -85,21 +112,35 @@ const MyBookingsSheet = ({ hostId, initialPhone, rooms, wishListDates, onToggleW
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end">
+    <div className={`fixed inset-0 z-50 ${isDragging ? "select-none" : ""}`}>
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
       <div
-        className="relative bg-white rounded-t-2xl shadow-xl flex flex-col max-h-[85vh]"
+        className="absolute inset-x-0 bottom-0 bg-white rounded-t-2xl shadow-xl overflow-hidden"
+        style={{
+          height: sheetHeight,
+          transition: isDragging ? "none" : "height 0.2s ease",
+          display: "grid",
+          gridTemplateRows: "auto auto auto 1fr",
+        }}
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
       >
+        {/* Drag handle */}
+        <div
+          className="flex justify-center pt-2.5 pb-1 cursor-row-resize touch-none"
+          onPointerDown={onDragStart}
+        >
+          <div className="w-10 h-1 rounded-full bg-gray-300" />
+        </div>
+
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 flex-shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
           <span className={`text-sm font-bold ${theme.textPrimary}`}>Your Bookings</span>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
         </div>
 
         {/* Phone search */}
-        <div className="flex gap-2 px-4 pt-3 pb-2 flex-shrink-0">
+        <div className="flex gap-2 px-4 pt-3 pb-2">
           <input
             type="tel"
             placeholder="Your phone number"
@@ -119,8 +160,8 @@ const MyBookingsSheet = ({ hostId, initialPhone, rooms, wishListDates, onToggleW
         </div>
         {error && <p className="px-4 pb-2 text-xs text-red-500 flex-shrink-0">{error}</p>}
 
-        {/* Results */}
-        <div className="overflow-y-auto px-4 pb-4 flex-1 min-h-0">
+        {/* Results — grid row "1fr" fills remaining height */}
+        <div className="overflow-y-auto px-4 pb-4">
           {bookings === null ? null : bookings.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-6">No bookings found for this number.</p>
           ) : (
