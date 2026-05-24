@@ -182,6 +182,8 @@ const TiBookInner = () => {
   };
 
   const handleMyBookings = () => {
+    if (myBookingsOpen) { setMyBookingsOpen(false); return; }
+    if (phoneLookupOpen) { setPhoneLookupOpen(false); return; }
     setPhoneLookupInput(guestPhone);
     setPhoneLookupOpen(true);
   };
