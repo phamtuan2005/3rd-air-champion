@@ -95,11 +95,14 @@ const MyBookingsSheet = ({ bookings, rooms, wishListDates, onToggleWishDate, onC
     <div className={`fixed inset-0 z-50 ${isDragging ? "select-none" : ""}`}>
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
       <div
-        className="absolute inset-x-0 bottom-0 bg-white rounded-t-2xl shadow-xl flex flex-col overflow-hidden"
+        className="absolute inset-x-0 bottom-0 rounded-t-2xl shadow-xl overflow-hidden"
         style={{
           height: sheetHeight,
           transition: isDragging ? "none" : "height 0.2s ease",
         }}
+      >
+      <div
+        className="h-full bg-white flex flex-col"
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
       >
@@ -181,6 +184,7 @@ const MyBookingsSheet = ({ bookings, rooms, wishListDates, onToggleWishDate, onC
             </div>
           )}
         </div>
+      </div>
       </div>
     </div>
   );
