@@ -109,9 +109,12 @@ export const dayResolvers = {
       ]);
     },
     calendarBookingsByGuest: async (_: unknown, { calendarId, phone }: any) => {
+      const cal = await Calendar.findById(calendarId);
+      if (!cal) return [];
+
       const digits = phone.replace(/\D/g, "");
       const phoneRegex = new RegExp(digits.split("").join("\\D*"));
-      const guest = await Guest.findOne({ phone: { $regex: phoneRegex } });
+      const guest = await Guest.findOne({ host: cal.host, phone: { $regex: phoneRegex } });
       if (!guest) return [];
 
       const days = await Day.find({ calendar: calendarId, "bookings.guest": guest._id })
@@ -124,7 +127,8 @@ export const dayResolvers = {
         for (const booking of day.bookings as any[]) {
           if (booking.guest?.toString() !== guest._id.toString()) continue;
           if (booking.airbnbBlocked) continue;
-          const startDate: Date = booking.startDate ?? day.date;
+          const rawStart = booking.startDate ?? day.date;
+          const startDate: Date = rawStart instanceof Date ? rawStart : new Date(rawStart);
           const roomId = booking.room?._id?.toString() ?? booking.room?.toString();
           const key = `${roomId}:${startDate.toISOString().slice(0, 10)}`;
           if (seen.has(key)) continue;
