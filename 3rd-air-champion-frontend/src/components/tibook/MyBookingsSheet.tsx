@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { addDays, format, parseISO } from "date-fns";
 import { roomType } from "../../util/types/roomType";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
-import { fetchBookingRequestsByGuest } from "../../util/bookingRequestOperations";
+import { fetchBookingRequestsByGuest, fetchCalendarBookingsByGuest } from "../../util/bookingRequestOperations";
 import { fetchGuestByPhone } from "../../util/guestOperations";
 import RoomBadge from "../shared/RoomBadge";
 
@@ -19,6 +19,7 @@ export interface GuestBooking {
 
 interface MyBookingsSheetProps {
   hostId: string;
+  calendarId: string;
   initialPhone: string;
   rooms: roomType[];
   wishListDates?: Set<string>;
@@ -32,7 +33,7 @@ const statusLabel: Record<string, { label: string; color: string }> = {
   confirmed: { label: "Confirmed", color: "text-green-700 bg-green-50 border-green-200" },
 };
 
-const MyBookingsSheet = ({ hostId, initialPhone, rooms, wishListDates, onToggleWishDate, onClose, onPhoneConfirmed }: MyBookingsSheetProps) => {
+const MyBookingsSheet = ({ hostId, calendarId, initialPhone, rooms, wishListDates, onToggleWishDate, onClose, onPhoneConfirmed }: MyBookingsSheetProps) => {
   const { theme } = useTiBookTheme();
   const activeRooms = rooms.filter((r) => r.active);
   const roomMap = new Map(rooms.map((r) => [r.id, r]));
@@ -78,12 +79,16 @@ const MyBookingsSheet = ({ hostId, initialPhone, rooms, wishListDates, onToggleW
     setLoading(true);
     setError("");
     try {
-      const [data, guest] = await Promise.all([
+      const [calendarBookings, tiBookRequests, guest] = await Promise.all([
+        fetchCalendarBookingsByGuest(calendarId, p),
         fetchBookingRequestsByGuest(hostId, p),
         fetchGuestByPhone(p, hostId),
       ]);
-      setBookings(data ?? []);
-      setGuestPricing(new Map((guest?.pricing ?? []).map((pr) => [pr.room, pr.price])));
+      // Calendar bookings are source of truth; add TiBook requests only if not already on calendar
+      const calendarKeys = new Set((calendarBookings ?? []).map((b: GuestBooking) => `${b.room}:${String(b.date).slice(0, 10)}`));
+      const extraRequests = (tiBookRequests ?? []).filter((b: GuestBooking) => !calendarKeys.has(`${b.room}:${String(b.date).slice(0, 10)}`));
+      setBookings([...(calendarBookings ?? []), ...extraRequests]);
+      setGuestPricing(new Map((guest?.pricing ?? []).map((pr: { room: string; price: number }) => [pr.room, pr.price])));
       localStorage.setItem("tiBookGuestPhone", p);
       onPhoneConfirmed(p);
     } catch {

@@ -46,6 +46,17 @@ export const dayDefs = gql`
     FirstStayDate: String
   }
 
+  type GuestCalendarBooking {
+    id: ID!
+    guestName: String!
+    date: String!
+    room: String!
+    duration: Int!
+    numberOfGuests: Int!
+    status: String!
+    createdAt: String!
+  }
+
   input UnbookBookingInput {
     room: String!
     date: String!
@@ -59,6 +70,7 @@ export const dayDefs = gql`
     airBnBBookingCount(guest: String!): [AirBnBBookingCount]
     guestBookingCount(calendarId: String!): [GuestBookingCount]
     availableRooms(calendar: String!, date: String!, duration: Int!): [Room]
+    calendarBookingsByGuest(calendarId: String!, phone: String!): [GuestCalendarBooking]
   }
 
   type Mutation {

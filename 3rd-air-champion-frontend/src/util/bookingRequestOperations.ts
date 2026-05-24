@@ -50,6 +50,17 @@ export const fetchBookingRequestsByGuest = async (
   return response.data;
 };
 
+export const fetchCalendarBookingsByGuest = async (
+  calendarId: string,
+  phone: string,
+) => {
+  const response = await axios.post(
+    `${BACKEND_ENDPOINT}/booking-request/get/guest/calendar`,
+    { calendarId, phone },
+  );
+  return response.data;
+};
+
 export const updateBookingRequestStatus = async (
   id: string,
   status: string,

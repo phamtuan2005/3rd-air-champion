@@ -261,6 +261,7 @@ const TiBookInner = () => {
       {myBookingsOpen && currentHost && (
         <MyBookingsSheet
           hostId={currentHost.id}
+          calendarId={currentHost.calendar}
           initialPhone={guestPhone}
           rooms={rooms}
           wishListDates={wishListDates}

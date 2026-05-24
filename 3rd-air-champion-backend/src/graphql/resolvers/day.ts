@@ -108,6 +108,42 @@ export const dayResolvers = {
         },
       ]);
     },
+    calendarBookingsByGuest: async (_: unknown, { calendarId, phone }: any) => {
+      const digits = phone.replace(/\D/g, "");
+      const phoneRegex = new RegExp(digits.split("").join("\\D*"));
+      const guest = await Guest.findOne({ phone: { $regex: phoneRegex } });
+      if (!guest) return [];
+
+      const days = await Day.find({ calendar: calendarId, "bookings.guest": guest._id })
+        .populate("bookings.room");
+
+      const seen = new Set<string>();
+      const result: any[] = [];
+
+      for (const day of days) {
+        for (const booking of day.bookings as any[]) {
+          if (booking.guest?.toString() !== guest._id.toString()) continue;
+          if (booking.airbnbBlocked) continue;
+          const startDate: Date = booking.startDate ?? day.date;
+          const roomId = booking.room?._id?.toString() ?? booking.room?.toString();
+          const key = `${roomId}:${startDate.toISOString().slice(0, 10)}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          result.push({
+            id: booking._id.toString(),
+            guestName: guest.name,
+            date: startDate.toISOString(),
+            room: roomId,
+            duration: booking.duration ?? 1,
+            numberOfGuests: booking.numberOfGuests ?? 1,
+            status: "confirmed",
+            createdAt: (day as any).createdAt?.toISOString() ?? startDate.toISOString(),
+          });
+        }
+      }
+
+      return result;
+    },
     availableRooms: async (_: unknown, { calendar, date, duration }: any) => {
       const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const localDate = toZonedTime(date.split("T")[0], timeZone);

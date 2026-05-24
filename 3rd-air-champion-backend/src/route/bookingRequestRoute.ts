@@ -162,6 +162,35 @@ router.post("/guest-by-phone", async (req: Request, res: any) => {
     });
 });
 
+router.post("/get/guest/calendar", async (req: Request, res: any) => {
+  const { calendarId, phone } = req.body;
+
+  const query = `
+    query CalendarBookingsByGuest($calendarId: String!, $phone: String!) {
+      calendarBookingsByGuest(calendarId: $calendarId, phone: $phone) {
+        id
+        guestName
+        date
+        room
+        duration
+        numberOfGuests
+        status
+        createdAt
+      }
+    }`;
+
+  sendGraphQLRequest(query, { calendarId, phone })
+    .then((result: any) => {
+      if (result.errors) {
+        return res.status(400).json({ errors: result.errors[0].message });
+      }
+      res.status(200).json(result.data.calendarBookingsByGuest);
+    })
+    .catch((error: any) => {
+      res.status(500).json({ error: error.message });
+    });
+});
+
 router.post("/delete", async (req: Request, res: any) => {
   const { id } = req.body;
 
