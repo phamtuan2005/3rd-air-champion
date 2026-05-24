@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { addDays } from "date-fns";
 import CalendarNavigator from "../components/tibook/Calendar/CalendarNavigatorDesktop";
 import NavBarDesktop from "../components/tibook/NavBarDesktop";
 import { TiBookThemeProvider, useTiBookTheme } from "../contexts/TiBookThemeContext";
@@ -17,9 +16,8 @@ import { fetchRooms } from "../util/roomOperations";
 import BookingRequestModal from "../components/tibook/BookingRequestModal";
 import RoomCards from "../components/tibook/RoomCards";
 import WishListSummarySheet from "../components/tibook/WishListSummarySheet";
-import MyBookingsSheet, { GuestBooking } from "../components/tibook/MyBookingsSheet";
+import MyBookingsSheet from "../components/tibook/MyBookingsSheet";
 import { getGuestWishList } from "../util/wishListOperations";
-import { fetchBookingRequestsByGuest } from "../util/bookingRequestOperations";
 
 const TiBookInner = () => {
   const { theme } = useTiBookTheme();
@@ -47,14 +45,9 @@ const TiBookInner = () => {
   const [isSelecting, setIsSelecting] = useState(false);
   const [wishListDates, setWishListDates] = useState<Set<string>>(new Set());
   const [wishListSummaryOpen, setWishListSummaryOpen] = useState(false);
-
   const [guestPhone, setGuestPhone] = useState(() => localStorage.getItem("tiBookGuestPhone") ?? "");
   const [guestName, setGuestName] = useState(() => localStorage.getItem("tiBookGuestName") ?? "");
-  const [guestBookings, setGuestBookings] = useState<GuestBooking[]>([]);
   const [myBookingsOpen, setMyBookingsOpen] = useState(false);
-  const [phoneLookupOpen, setPhoneLookupOpen] = useState(false);
-  const [phoneLookupInput, setPhoneLookupInput] = useState("");
-  const [phoneLookupLoading, setPhoneLookupLoading] = useState(false);
   const cohostNames = (import.meta.env.VITE_TI_BOOK_COHOST_NAMES as string | undefined)?.split(',').map((s) => s.trim()).filter(Boolean) ?? [];
 
   const handleToggleRoom = (id: string) => {
@@ -144,7 +137,6 @@ const TiBookInner = () => {
     });
   };
 
-  // Load wish list when guest phone is already known and host is ready
   useEffect(() => {
     if (!guestPhone || !currentHost) return;
     getGuestWishList(currentHost.id, guestPhone)
@@ -152,25 +144,7 @@ const TiBookInner = () => {
       .catch(() => {});
   }, [guestPhone, currentHost]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load guest's own bookings when phone + host are ready
-  useEffect(() => {
-    if (!guestPhone || !currentHost) return;
-    fetchBookingRequestsByGuest(currentHost.id, guestPhone)
-      .then((data) => setGuestBookings(data ?? []))
-      .catch(() => {});
-  }, [guestPhone, currentHost]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const myBookingDates = useMemo(() => {
-    const dates = new Set<string>();
-    guestBookings.forEach((b) => {
-      const checkIn = new Date(b.date);
-      for (let i = 0; i < b.duration; i++) {
-        const d = addDays(checkIn, i);
-        dates.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
-      }
-    });
-    return dates;
-  }, [guestBookings]);
+  const myBookingDates = useMemo(() => new Set<string>(), []);
 
   const handleWishListClick = (date: Date) => {
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -180,31 +154,6 @@ const TiBookInner = () => {
       else next.add(key);
       return next;
     });
-  };
-
-  const handleMyBookings = () => {
-    if (myBookingsOpen) { setMyBookingsOpen(false); return; }
-    if (phoneLookupOpen) { setPhoneLookupOpen(false); return; }
-    setPhoneLookupInput(guestPhone);
-    setPhoneLookupOpen(true);
-  };
-
-  const handlePhoneLookupSubmit = async () => {
-    if (!phoneLookupInput.trim() || !currentHost) return;
-    setPhoneLookupLoading(true);
-    try {
-      const data = await fetchBookingRequestsByGuest(currentHost.id, phoneLookupInput.trim());
-      const phone = phoneLookupInput.trim();
-      localStorage.setItem("tiBookGuestPhone", phone);
-      setGuestPhone(phone);
-      setGuestBookings(data ?? []);
-      setPhoneLookupOpen(false);
-      setMyBookingsOpen(true);
-    } catch {
-      // keep sheet open so guest can retry
-    } finally {
-      setPhoneLookupLoading(false);
-    }
   };
 
   const handleSendSuccess = (phone: string, name: string, newDates: string[]) => {
@@ -242,7 +191,7 @@ const TiBookInner = () => {
         host={currentHost}
         cohostNames={cohostNames}
         isFullCalendar={isSelecting}
-        onMyBookings={handleMyBookings}
+        onMyBookings={() => setMyBookingsOpen((o) => !o)}
       />
       {currentHost && !isSelecting && <HostProfileBanner host={currentHost} cohostNames={cohostNames} />}
       {rooms.length > 0 && (
@@ -286,7 +235,6 @@ const TiBookInner = () => {
         </div>
       )}
 
-      {/* Floating cart bar */}
       {cartDates.size > 0 && (
         <div className={`fixed bottom-0 inset-x-0 ${theme.btn} px-4 py-3 flex items-center justify-between z-40 shadow-lg`}>
           <span className="text-white text-sm font-medium">
@@ -302,42 +250,15 @@ const TiBookInner = () => {
         </div>
       )}
 
-      {phoneLookupOpen && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end">
-          <div className="absolute inset-0 bg-black/30" onClick={() => setPhoneLookupOpen(false)} />
-          <div className="relative bg-white rounded-t-2xl shadow-xl px-4 pt-4 pb-8 flex flex-col gap-3" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-1">
-              <span className={`text-sm font-bold ${theme.textPrimary}`}>Check your bookings</span>
-              <button type="button" onClick={() => setPhoneLookupOpen(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
-            </div>
-            <input
-              type="tel"
-              autoFocus
-              placeholder="Your phone number"
-              value={phoneLookupInput}
-              onChange={(e) => setPhoneLookupInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handlePhoneLookupSubmit()}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400"
-            />
-            <button
-              type="button"
-              disabled={phoneLookupLoading || !phoneLookupInput.trim()}
-              onClick={handlePhoneLookupSubmit}
-              className={`w-full py-3 rounded-xl text-white text-sm font-semibold ${theme.btn} disabled:opacity-50`}
-            >
-              {phoneLookupLoading ? "Looking up…" : "View my bookings"}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {myBookingsOpen && (
+      {myBookingsOpen && currentHost && (
         <MyBookingsSheet
-          bookings={guestBookings}
+          hostId={currentHost.id}
+          initialPhone={guestPhone}
           rooms={rooms}
           wishListDates={wishListDates}
           onToggleWishDate={(date) => setWishListDates((prev) => { const next = new Set(prev); if (next.has(date)) next.delete(date); else next.add(date); return next; })}
           onClose={() => setMyBookingsOpen(false)}
+          onPhoneConfirmed={setGuestPhone}
         />
       )}
 

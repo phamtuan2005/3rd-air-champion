@@ -1,7 +1,8 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { addDays, format, parseISO } from "date-fns";
 import { roomType } from "../../util/types/roomType";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
+import { fetchBookingRequestsByGuest } from "../../util/bookingRequestOperations";
 
 export interface GuestBooking {
   id: string;
@@ -15,11 +16,13 @@ export interface GuestBooking {
 }
 
 interface MyBookingsSheetProps {
-  bookings: GuestBooking[];
+  hostId: string;
+  initialPhone: string;
   rooms: roomType[];
   wishListDates?: Set<string>;
   onToggleWishDate?: (date: string) => void;
   onClose: () => void;
+  onPhoneConfirmed: (phone: string) => void;
 }
 
 const statusLabel: Record<string, { label: string; color: string }> = {
@@ -27,56 +30,38 @@ const statusLabel: Record<string, { label: string; color: string }> = {
   confirmed: { label: "Confirmed", color: "text-green-700 bg-green-50 border-green-200" },
 };
 
-const CLOSE_THRESHOLD = 120;
-const MAX_HEIGHT_RATIO = 0.88;
-
-const todayStr = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
-
-const MyBookingsSheet = ({ bookings, rooms, wishListDates, onToggleWishDate, onClose }: MyBookingsSheetProps) => {
+const MyBookingsSheet = ({ hostId, initialPhone, rooms, wishListDates, onToggleWishDate, onClose, onPhoneConfirmed }: MyBookingsSheetProps) => {
   const { theme } = useTiBookTheme();
   const roomMap = new Map(rooms.map((r) => [r.id, r]));
+
+  const [phone, setPhone] = useState(initialPhone);
+  const [loading, setLoading] = useState(false);
+  const [bookings, setBookings] = useState<GuestBooking[] | null>(null);
+  const [error, setError] = useState("");
   const [wishListOpen, setWishListOpen] = useState(false);
   const sortedWishDates = wishListDates ? [...wishListDates].sort() : [];
 
-  const [sheetHeight, setSheetHeight] = useState(() => Math.round(window.innerHeight * 0.62));
-  const [isDragging, setIsDragging] = useState(false);
-  const dragRef = useRef<{ startY: number; startHeight: number } | null>(null);
-  const liveHeightRef = useRef(sheetHeight);
-
-  const handleDragStart = (e: React.PointerEvent) => {
-    e.preventDefault();
-    const maxH = Math.round(window.innerHeight * MAX_HEIGHT_RATIO);
-    dragRef.current = { startY: e.clientY, startHeight: liveHeightRef.current };
-    setIsDragging(true);
-
-    const onMove = (ev: PointerEvent) => {
-      if (!dragRef.current) return;
-      const delta = ev.clientY - dragRef.current.startY;
-      const next = Math.max(40, Math.min(dragRef.current.startHeight - delta, maxH));
-      liveHeightRef.current = next;
-      setSheetHeight(next);
-    };
-
-    const onUp = () => {
-      setIsDragging(false);
-      dragRef.current = null;
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      if (liveHeightRef.current < CLOSE_THRESHOLD) onClose();
-    };
-
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
+  const handleSearch = async () => {
+    const p = phone.trim();
+    if (!p) return;
+    setLoading(true);
+    setError("");
+    try {
+      const data = await fetchBookingRequestsByGuest(hostId, p);
+      setBookings(data ?? []);
+      localStorage.setItem("tiBookGuestPhone", p);
+      onPhoneConfirmed(p);
+    } catch {
+      setError("Could not load bookings. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const today = todayStr();
-  // Simple string prefix compare — works for "YYYY-MM-DD", ISO datetime, and timestamps
-  const dateKey = (b: GuestBooking) => (typeof b.date === "string" ? b.date : new Date(b.date).toISOString()).slice(0, 10);
-  const upcoming = bookings.filter((b) => dateKey(b) >= today).sort((a, b) => dateKey(a).localeCompare(dateKey(b)));
-  const past     = bookings.filter((b) => dateKey(b) <  today).sort((a, b) => dateKey(b).localeCompare(dateKey(a)));
+  const today = new Date().toISOString().slice(0, 10);
+  const dateKey = (b: GuestBooking) => String(b.date).slice(0, 10);
+  const upcoming = (bookings ?? []).filter((b) => dateKey(b) >= today).sort((a, b) => dateKey(a).localeCompare(dateKey(b)));
+  const past     = (bookings ?? []).filter((b) => dateKey(b) <  today).sort((a, b) => dateKey(b).localeCompare(dateKey(a)));
 
   const renderRow = (b: GuestBooking) => {
     const checkIn  = parseISO(dateKey(b));
@@ -100,37 +85,44 @@ const MyBookingsSheet = ({ bookings, rooms, wishListDates, onToggleWishDate, onC
   };
 
   return (
-    <div className={`fixed inset-0 z-50 ${isDragging ? "select-none" : ""}`}>
+    <div className="fixed inset-0 z-50 flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
       <div
-        className="absolute inset-x-0 bottom-0 rounded-t-2xl shadow-xl overflow-hidden bg-white"
-        style={{
-          height: sheetHeight,
-          transition: isDragging ? "none" : "height 0.2s ease",
-          display: "grid",
-          gridTemplateRows: "auto auto 1fr",
-        }}
+        className="relative bg-white rounded-t-2xl shadow-xl flex flex-col max-h-[85vh]"
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
       >
-        {/* Drag handle */}
-        <div
-          className="flex justify-center pt-2.5 pb-1 cursor-row-resize touch-none"
-          onPointerDown={handleDragStart}
-        >
-          <div className="w-10 h-1 rounded-full bg-gray-300" />
-        </div>
-
         {/* Header */}
-        <div className="flex items-center justify-between px-4 pb-2.5 pt-1 border-b border-gray-100">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 flex-shrink-0">
           <span className={`text-sm font-bold ${theme.textPrimary}`}>Your Bookings</span>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
         </div>
 
-        {/* Scrollable content — grid row "1fr" guarantees it fills remaining height */}
-        <div className="overflow-y-auto px-4 py-2">
-          {bookings.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-6">No bookings found for this phone number.</p>
+        {/* Phone search */}
+        <div className="flex gap-2 px-4 pt-3 pb-2 flex-shrink-0">
+          <input
+            type="tel"
+            placeholder="Your phone number"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+            className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-gray-400"
+          />
+          <button
+            type="button"
+            disabled={loading || !phone.trim()}
+            onClick={handleSearch}
+            className={`px-4 py-2.5 rounded-xl text-white text-sm font-semibold ${theme.btn} disabled:opacity-50 whitespace-nowrap`}
+          >
+            {loading ? "…" : "Search"}
+          </button>
+        </div>
+        {error && <p className="px-4 pb-2 text-xs text-red-500 flex-shrink-0">{error}</p>}
+
+        {/* Results */}
+        <div className="overflow-y-auto px-4 pb-4 flex-1 min-h-0">
+          {bookings === null ? null : bookings.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-6">No bookings found for this number.</p>
           ) : (
             <>
               {upcoming.length > 0 && (
