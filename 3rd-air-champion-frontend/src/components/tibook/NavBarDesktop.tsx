@@ -17,6 +17,8 @@ interface NavBarDesktopProps {
   cohostNames?: string[];
   isFullCalendar?: boolean;
   onMyBookings?: () => void;
+  onWishList?: () => void;
+  wishListCount?: number;
 }
 
 const MiniAvatar = ({ name }: { name: string }) => {

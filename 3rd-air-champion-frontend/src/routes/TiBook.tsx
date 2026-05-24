@@ -359,6 +359,8 @@ const TiBookInner = () => {
         <MyBookingsSheet
           bookings={guestBookings}
           rooms={rooms}
+          wishListDates={wishListDates}
+          onToggleWishDate={(date) => setWishListDates((prev) => { const next = new Set(prev); if (next.has(date)) next.delete(date); else next.add(date); return next; })}
           onClose={() => setMyBookingsOpen(false)}
         />
       )}
