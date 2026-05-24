@@ -3,6 +3,7 @@ import { addDays, format, parseISO } from "date-fns";
 import { roomType } from "../../util/types/roomType";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import { fetchBookingRequestsByGuest } from "../../util/bookingRequestOperations";
+import { getRoomColor } from "../../util/getRoomColor";
 
 export interface GuestBooking {
   id: string;
@@ -98,7 +99,9 @@ const MyBookingsSheet = ({ hostId, initialPhone, rooms, wishListDates, onToggleW
     return (
       <div key={b.id} className="flex items-start justify-between gap-3 py-3 border-b border-gray-100 last:border-0">
         <div className="flex flex-col gap-0.5">
-          <span className="text-sm font-semibold text-gray-800">{room?.name ?? "Room"}</span>
+          <span className={`text-xs font-semibold text-white px-2 py-0.5 rounded self-start ${room ? getRoomColor(room.name, room.color) : "bg-gray-400"}`}>
+                {room?.name ?? "Room"}
+              </span>
           <span className="text-xs text-gray-500">
             {format(checkIn, "MMM d")} – {format(checkOut, "MMM d, yyyy")}
             <span className="ml-1 text-gray-400">· {b.duration} night{b.duration !== 1 ? "s" : ""}</span>
