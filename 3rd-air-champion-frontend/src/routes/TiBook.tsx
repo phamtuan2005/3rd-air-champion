@@ -319,6 +319,7 @@ const TiBookInner = () => {
           savedName={guestName}
           onClose={() => setIsBookingModalOpen(false)}
           onSuccess={() => setCartDates(new Map())}
+          onRemoveCartRange={(keys) => setCartDates((prev) => { const next = new Map(prev); keys.forEach((k) => next.delete(k)); return next; })}
           onRemoveWishDate={(date) => setWishListDates((prev) => { const next = new Set(prev); next.delete(date); return next; })}
           onWishListSent={(phone, name, newDates) => {
             localStorage.setItem("tiBookGuestPhone", phone);

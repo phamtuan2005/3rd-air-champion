@@ -30,6 +30,7 @@ interface BookingRequestModalProps {
   onSuccess: () => void;
   onWishListSent?: (phone: string, name: string, newDates: string[]) => void;
   onRemoveWishDate?: (date: string) => void;
+  onRemoveCartRange?: (dateKeys: string[]) => void;
 }
 
 interface FormData {
@@ -116,6 +117,7 @@ const BookingRequestModal = ({
   onSuccess,
   onWishListSent,
   onRemoveWishDate,
+  onRemoveCartRange,
 }: BookingRequestModalProps) => {
   const { theme } = useTiBookTheme();
   const [step, setStep] = useState<1 | 2>(1);
@@ -141,6 +143,18 @@ const BookingRequestModal = ({
   const [roomDropdownOpen, setRoomDropdownOpen] = useState(false);
   const [localWishList, setLocalWishList] = useState<Set<string>>(wishListDates ?? new Set());
   const [pendingRemove, setPendingRemove] = useState<string | null>(null);
+  const [pendingRemoveCart, setPendingRemoveCart] = useState<string | null>(null);
+
+  const getRangeKeys = (start: string, end: string): string[] => {
+    const keys: string[] = [];
+    const cur = new Date(start + "T12:00:00");
+    const last = new Date(end + "T12:00:00");
+    while (cur <= last) {
+      keys.push(cur.toISOString().split("T")[0]);
+      cur.setDate(cur.getDate() + 1);
+    }
+    return keys;
+  };
 
   const cartGroups = useMemo(() => buildCartGroups(cartDates, rooms), [cartDates, rooms]);
   const hasAnyRoomGroup = cartGroups.some((g) => g.roomId === null);
@@ -439,9 +453,40 @@ const BookingRequestModal = ({
                           </span>
                         </div>
                         <div className="flex flex-col gap-1 pl-1">
-                          {group.ranges.map((r) => (
-                            <p key={r.start} className="text-sm text-gray-600">{formatRangeLabel(r)}</p>
-                          ))}
+                          {group.ranges.map((r) => {
+                            const rangeId = `${group.key}:${r.start}`;
+                            return pendingRemoveCart === rangeId ? (
+                              <div key={r.start} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-50 border border-red-200">
+                                <span className="flex-1 text-sm text-red-600 font-medium">Remove {formatRangeLabel(r).split(" ·")[0]}?</span>
+                                <button
+                                  type="button"
+                                  onClick={() => { onRemoveCartRange?.(getRangeKeys(r.start, r.end)); setPendingRemoveCart(null); }}
+                                  className="text-xs font-semibold text-red-500 hover:text-red-700 px-2 py-0.5 rounded-lg border border-red-300 hover:border-red-400 transition-colors"
+                                >
+                                  Yes, remove
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setPendingRemoveCart(null)}
+                                  className="text-xs font-semibold text-gray-400 hover:text-gray-600 px-2 py-0.5 rounded-lg border border-gray-200 transition-colors"
+                                >
+                                  Keep
+                                </button>
+                              </div>
+                            ) : (
+                              <div key={r.start} className="flex items-center gap-1">
+                                <p className="flex-1 text-sm text-gray-600">{formatRangeLabel(r)}</p>
+                                <button
+                                  type="button"
+                                  onClick={() => setPendingRemoveCart(rangeId)}
+                                  className="text-gray-400 hover:text-red-400 transition-colors text-base leading-none px-1"
+                                  aria-label="Remove"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     ))}
