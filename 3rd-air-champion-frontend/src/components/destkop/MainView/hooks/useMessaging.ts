@@ -68,7 +68,13 @@ export const useMessaging = ({
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     const uniqueMonths = new Set<string>(
-      paidDates.map((paidDate) => startOfMonth(paidDate).toISOString().split("T")[0]),
+      paidDates
+        .filter((paidDate) => {
+          const dateStr = paidDate.toISOString().split("T")[0];
+          const dayEntry = monthMap.get(dateStr);
+          return dayEntry?.bookings.some((b) => b.guest.phone === phone && !b.reserved) ?? false;
+        })
+        .map((paidDate) => startOfMonth(paidDate).toISOString().split("T")[0]),
     );
     const months = Array.from(uniqueMonths, (uniqueMonth) => toZonedTime(uniqueMonth, timeZone));
     const monthStrings = months.map((month) => format(month, "LLLL"));
