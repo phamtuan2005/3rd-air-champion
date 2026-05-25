@@ -149,8 +149,10 @@ export const useMessaging = ({
 
     let totalPaidAmount = 0;
     paidDates.forEach((paidDate) => {
-      const day = monthMap.get(paidDate.toISOString().split("T")[0]) as dayType;
-      const booking = day.bookings.find((booking) => booking.guest.id === currentGuest) as bookingType;
+      const day = monthMap.get(paidDate.toISOString().split("T")[0]);
+      if (!day) return;
+      const booking = day.bookings.find((b) => b.guest.id === currentGuest && !b.reserved);
+      if (!booking) return;
       totalPaidAmount +=
         booking.guest.pricing.find((p) => p.room === booking.room.id)?.price || booking.price;
     });

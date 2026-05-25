@@ -78,7 +78,7 @@ const CustomCalendar = ({
         if (guestBookings.length > 0) {
           filteredMap.set(date, { ...dayEntry, bookings: guestBookings });
         }
-        const booking = guestBookings.find((b) => b.guest.id === currentGuest);
+        const booking = guestBookings.find((b) => b.guest.id === currentGuest && !b.reserved);
         if (booking) {
           const localDate = toZonedTime(date, timeZone);
           const localStartDate = toZonedTime(booking.startDate, timeZone);
