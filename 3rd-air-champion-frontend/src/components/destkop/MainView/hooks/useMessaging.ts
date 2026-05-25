@@ -149,12 +149,17 @@ export const useMessaging = ({
 
     let totalPaidAmount = 0;
     paidDates.forEach((paidDate) => {
+      // paidDate is the check-in date; find the booking that starts on this date
       const day = monthMap.get(paidDate.toISOString().split("T")[0]);
       if (!day) return;
-      const booking = day.bookings.find((b) => b.guest.id === currentGuest && !b.reserved);
+      const booking = day.bookings.find(
+        (b) => b.guest.id === currentGuest && !b.reserved &&
+          isSameDay(toZonedTime(b.startDate, timeZone), paidDate),
+      );
       if (!booking) return;
-      totalPaidAmount +=
+      const pricePerNight =
         booking.guest.pricing.find((p) => p.room === booking.room.id)?.price || booking.price;
+      totalPaidAmount += pricePerNight * booking.duration;
     });
 
     const unpaid = totalPriceOfMonth - totalPaidAmount;

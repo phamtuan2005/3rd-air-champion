@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { addDays, isSameDay, isSameMonth } from "date-fns";
+import { isSameDay, isSameMonth } from "date-fns";
 import { dayType } from "../../../../util/types/dayType";
 import { bookingType } from "../../../../util/types/bookingType";
 import { roomType } from "../../../../util/types/roomType";
@@ -82,10 +82,9 @@ const CustomCalendar = ({
         if (booking) {
           const localDate = toZonedTime(date, timeZone);
           const localStartDate = toZonedTime(booking.startDate, timeZone);
+          // Store only the check-in date once per booking (not every night)
           if (isSameDay(localDate, localStartDate) && isSameMonth(localDate, currentMonth)) {
-            for (let i = 0; i < booking.duration; i += 1) {
-              newPaidDates.push(toZonedTime(addDays(localStartDate, i), timeZone));
-            }
+            newPaidDates.push(localStartDate);
           }
         }
       });
@@ -133,7 +132,11 @@ const CustomCalendar = ({
   const handleDoubleClick = (date: Date) => {
     if (currentGuest) {
       const bookedDate = useMonthMap.get(date.toISOString().split("T")[0]);
-      if (bookedDate) handlePaidDates(date);
+      if (!bookedDate) return;
+      const booking = bookedDate.bookings.find((b) => !b.reserved);
+      if (!booking) return;
+      // Toggle the booking's check-in date, not the individual night clicked
+      handlePaidDates(toZonedTime(booking.startDate, timeZone));
     }
   };
 
