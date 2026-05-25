@@ -250,6 +250,13 @@ const BookingRequestModal = ({
     return () => clearTimeout(timer);
   }, [watchedPhone]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Correct default room for Way 1 (cart dates with unassigned room group)
+  useEffect(() => {
+    if (!hasAnyRoomGroup || availableRoomsForAnyGroup.length === 0) return;
+    const isAvailable = availableRoomsForAnyGroup.some((r) => r.id === watchedRoom);
+    if (!isAvailable) setValue("room", availableRoomsForAnyGroup[0].id);
+  }, [availableRoomsForAnyGroup]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Available rooms — only for Way 2 (no cart dates)
   useEffect(() => {
     if (cartDates.size > 0) return;
