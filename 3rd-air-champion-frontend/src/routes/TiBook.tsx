@@ -267,6 +267,22 @@ const TiBookInner = () => {
         </div>
       )}
 
+      {/* Floating wish list bar */}
+      {wishListDates.size > 0 && cartDates.size === 0 && (
+        <div className="fixed bottom-0 inset-x-0 bg-amber-500 px-4 py-3 flex items-center justify-between z-40 shadow-lg">
+          <span className="text-white text-sm font-medium">
+            ★ {wishListDates.size} wish list date{wishListDates.size > 1 ? "s" : ""}
+          </span>
+          <button
+            type="button"
+            className="bg-white text-amber-600 text-sm font-semibold px-4 py-1.5 rounded-full active:bg-amber-50 transition-colors"
+            onClick={() => setWishListSummaryOpen(true)}
+          >
+            Send to host →
+          </button>
+        </div>
+      )}
+
       {/* Floating cart bar */}
       {cartDates.size > 0 && (
         <div className={`fixed bottom-0 inset-x-0 ${theme.btn} px-4 py-3 flex items-center justify-between z-40 shadow-lg`}>
@@ -322,8 +338,10 @@ const TiBookInner = () => {
             localStorage.setItem("tiBookGuestName", name);
             setGuestPhone(phone);
             setGuestName(name);
+            const wasWishlisted = wishListDates.has(wishListModalDate!);
             setWishListDates(new Set(newDates));
             setWishListModalDate(null);
+            if (!wasWishlisted) setWishListSummaryOpen(true);
           }}
         />
       )}
