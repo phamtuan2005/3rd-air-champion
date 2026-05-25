@@ -9,7 +9,7 @@ const bookingRequestSchema = new mongoose.Schema(
     room: { type: mongoose.Schema.ObjectId, ref: "Room", required: true },
     duration: { type: Number, required: true },
     numberOfGuests: { type: Number, required: true },
-    status: { type: String, required: true, enum: ["pending", "confirmed", "cancelled", "expired"] },
+    status: { type: String, required: true, enum: ["pending", "confirmed", "cancelled", "expired", "reserved"] },
     notes: { type: String, default: "" },
   },
   { timestamps: true }

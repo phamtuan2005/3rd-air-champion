@@ -17,7 +17,7 @@ export const bookingRequestResolvers = {
       return await BookingRequest.find({
         host: hostId,
         guestPhone: { $regex: phoneRegex },
-        status: { $in: ["pending", "confirmed"] },
+        status: { $in: ["pending", "confirmed", "reserved"] },
       }).sort({ date: 1 });
     },
   },
