@@ -2,7 +2,7 @@ import { SubmitHandler, useForm, Controller } from "react-hook-form";
 import { bookingType } from "../../util/types/bookingType";
 import { modifyBookingObject, modifyBookingSchema } from "./zodModifyBooking";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { addDays, differenceInDays, format } from "date-fns";
+import { addDays, format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { dayType } from "../../util/types/dayType";
 import { roomType } from "../../util/types/roomType";
@@ -44,34 +44,35 @@ const ModifyBookingModal = ({
     resolver: zodResolver(modifyBookingObject),
     defaultValues: {
       room: selectedModifyBooking.room.id,
+      duration: selectedModifyBooking.duration,
     },
   });
 
+  const wasReserved = selectedModifyBooking.reserved === true;
+  const [isReserved, setIsReserved] = useState(wasReserved);
   const [bookingErrorMessage, setBookingErrorMessage] = useState("");
   const token = localStorage.getItem("token");
 
   const watchedStartDate = watch("startDate");
-  const watchedEndDate = watch("endDate");
+  const watchedDuration = watch("duration");
 
   const getLocalDate = (date: string) => {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     return format(toZonedTime(date, tz), "yyyy-MM-dd");
   };
 
-  const computeDuration = (start: Date | undefined, end: Date | undefined) => {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const s = toZonedTime(start ?? selectedModifyBooking.startDate, tz);
-    const e = toZonedTime(end ?? selectedModifyBooking.endDate, tz);
-    return Math.max(1, differenceInDays(e, s));
-  };
+  const effectiveStart: Date = watchedStartDate
+    ? new Date(watchedStartDate.getTime() + watchedStartDate.getTimezoneOffset() * 60000)
+    : (() => { const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; return toZonedTime(selectedModifyBooking.startDate, tz); })();
+
+  const effectiveDuration = (watchedDuration && watchedDuration >= 1) ? watchedDuration : selectedModifyBooking.duration;
+
+  const checkoutDate = addDays(effectiveStart, effectiveDuration);
 
   const unavailableRoomIds = useMemo(() => {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const start = toZonedTime(watchedStartDate ?? selectedModifyBooking.startDate, tz);
-    const duration = computeDuration(watchedStartDate, watchedEndDate);
     const blocked = new Set<string>();
-    for (let i = 0; i < duration; i++) {
-      const dayKey = addDays(start, i).toISOString().split("T")[0];
+    for (let i = 0; i < effectiveDuration; i++) {
+      const dayKey = addDays(effectiveStart, i).toISOString().split("T")[0];
       const day = monthMap.get(dayKey);
       if (day) {
         day.bookings.forEach((b) => {
@@ -80,14 +81,14 @@ const ModifyBookingModal = ({
       }
     }
     return blocked;
-  }, [watchedStartDate, watchedEndDate, monthMap, selectedModifyBooking]);
+  }, [effectiveStart, effectiveDuration, monthMap, selectedModifyBooking]);
 
-  const onSubmit: SubmitHandler<modifyBookingSchema> = (data) => {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const duration = computeDuration(data.startDate, data.endDate);
+  const onSubmit: SubmitHandler<modifyBookingSchema> = async (data) => {
+    const duration = data.duration;
 
-    // Collect IDs of original bookings to unbook
+    // Collect IDs of all Day bookings for this guest+room to unbook
     const bookingIds = new Set<string>();
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const origStart = toZonedTime(selectedModifyBooking.startDate, tz);
     for (let i = 0; i < selectedModifyBooking.duration; i++) {
       const day = monthMap.get(addDays(origStart, i).toISOString().split("T")[0]);
@@ -99,7 +100,7 @@ const ModifyBookingModal = ({
       }
     }
 
-    // Conflict check against the target room
+    // Conflict check
     const searchMap = new Map<string, { guestId: string; bookingId: string }>();
     monthMap.forEach((day, date) => {
       day.bookings.forEach((b) => {
@@ -108,28 +109,15 @@ const ModifyBookingModal = ({
     });
 
     for (let i = 0; i < duration; i++) {
-      const dateKey = addDays(toZonedTime(data.startDate, tz), i).toISOString().split("T")[0];
+      const dateKey = addDays(effectiveStart, i).toISOString().split("T")[0];
       const entry = searchMap.get(dateKey);
-      if (entry) {
-        if (entry.guestId !== selectedModifyBooking.guest.id) {
-          setBookingErrorMessage(`Conflict on ${dateKey}.`);
-          return;
-        }
-        bookingIds.add(entry.bookingId);
+      if (entry && entry.guestId !== selectedModifyBooking.guest.id) {
+        setBookingErrorMessage(`Conflict on ${dateKey}.`);
+        return;
       }
     }
 
     setBookingErrorMessage("");
-
-    const request = {
-      date: data.startDate.toISOString(),
-      room: data.room,
-      guest: selectedModifyBooking.guest.id,
-      isAirBnB: false,
-      duration,
-      numberOfGuests: selectedModifyBooking.numberOfGuests,
-      calendar: calendarId,
-    };
 
     const unbookSequentially = (ids: Set<string>): Promise<void> =>
       [...ids].reduce(
@@ -137,13 +125,28 @@ const ModifyBookingModal = ({
         Promise.resolve() as Promise<void>,
       );
 
-    unbookSequentially(bookingIds)
-      .then(() => postBooking(request, token as string))
-      .then((result) => {
-        onBooking(data.room, data.startDate, duration, result);
-        setSelectedModifyBooking(null);
-      })
-      .catch((err) => setBookingErrorMessage(String(err)));
+    const reqStartIso = effectiveStart.toISOString();
+
+    try {
+      await unbookSequentially(bookingIds);
+      const result = await postBooking(
+        {
+          date: reqStartIso,
+          room: data.room,
+          guest: selectedModifyBooking.guest.id,
+          isAirBnB: false,
+          duration,
+          numberOfGuests: selectedModifyBooking.numberOfGuests,
+          calendar: calendarId,
+          ...(isReserved ? { reserved: true } : {}),
+        },
+        token as string,
+      );
+      onBooking(data.room, effectiveStart, duration, result);
+      setSelectedModifyBooking(null);
+    } catch (err) {
+      setBookingErrorMessage(String(err));
+    }
   };
 
   return (
@@ -173,7 +176,18 @@ const ModifyBookingModal = ({
         </div>
 
         <form className="flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)}>
-          {/* Dates */}
+          {/* Reserved toggle */}
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={isReserved}
+              onChange={(e) => setIsReserved(e.target.checked)}
+              className="w-4 h-4 accent-amber-500"
+            />
+            <span className="text-sm font-medium text-amber-700">Reserved (payment pending)</span>
+          </label>
+
+          {/* Dates + Duration */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Check-in</p>
@@ -188,15 +202,19 @@ const ModifyBookingModal = ({
               )}
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Check-out</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Duration (nights)</p>
               <input
-                type="date"
+                type="number"
+                min={1}
+                step={1}
                 className="border border-gray-200 rounded-lg px-2 py-1.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
-                defaultValue={getLocalDate(selectedModifyBooking.endDate)}
-                {...register("endDate", { valueAsDate: true })}
+                {...register("duration", { valueAsNumber: true })}
               />
-              {errors.endDate && (
-                <p className="text-red-500 text-xs mt-0.5">{errors.endDate.message}</p>
+              <span className="text-gray-400 text-xs block mt-0.5">
+                checkout {format(checkoutDate, "MMM d")}
+              </span>
+              {errors.duration && (
+                <p className="text-red-500 text-xs mt-0.5">{errors.duration.message}</p>
               )}
             </div>
           </div>

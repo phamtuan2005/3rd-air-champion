@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { addDays, isSameDay, isSameMonth, parseISO } from "date-fns";
+import { addDays, isSameDay, isSameMonth } from "date-fns";
 import { dayType } from "../../../../util/types/dayType";
 import { bookingType } from "../../../../util/types/bookingType";
 import { roomType } from "../../../../util/types/roomType";
@@ -23,7 +23,6 @@ interface CustomCalendarProps {
   setPaidDates: React.Dispatch<React.SetStateAction<Date[]>>;
   setSelectedDate: React.Dispatch<React.SetStateAction<Date>>;
   gapsMode?: boolean;
-  reservedRequests?: { date: string; room: string; duration: number; guestName: string }[];
 }
 
 const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -43,24 +42,8 @@ const CustomCalendar = ({
   setPaidDates,
   setSelectedDate,
   gapsMode = false,
-  reservedRequests = [],
 }: CustomCalendarProps) => {
   const [useMonthMap, setUseMonthMap] = useState<Map<string, dayType>>(monthMap);
-
-  const reservedMap = useMemo(() => {
-    const map = new Map<string, Map<string, { guestName: string; startDate: string; duration: number }>>();
-    reservedRequests.forEach((req) => {
-      const startDate = String(req.date).slice(0, 10);
-      const start = parseISO(startDate);
-      for (let i = 0; i < req.duration; i++) {
-        const d = addDays(start, i);
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-        if (!map.has(key)) map.set(key, new Map());
-        map.get(key)!.set(req.room, { guestName: req.guestName, startDate, duration: req.duration });
-      }
-    });
-    return map;
-  }, [reservedRequests]);
 
   // Rooms visible in guest mode: only rooms that had bookings for this guest
   const overrideRooms = useMemo(() => {
@@ -140,7 +123,8 @@ const CustomCalendar = ({
   const handleDateClick = (date: Date) => {
     setSelectedDate(date);
     setIsMobileModalOpen(true);
-    const day = useMonthMap.get(date.toISOString().split("T")[0]);
+    const dateKey = date.toISOString().split("T")[0];
+    const day = useMonthMap.get(dateKey);
     setCurrentBookings(day?.bookings ?? null);
   };
 
@@ -153,7 +137,8 @@ const CustomCalendar = ({
 
   const resolveBarLabel = (booking: bookingType) => {
     if (booking.guest?.name === "AirBnB" && booking.alias) return `${booking.alias} (A)`;
-    if (currentGuest) return booking.room?.name ?? "";
+    if (currentGuest) return booking.reserved ? `${booking.room?.name ?? ""} (R)` : (booking.room?.name ?? "");
+    if (booking.reserved) return `${booking.guest.name} (R)`;
     return booking.guest?.name ?? "";
   };
 
@@ -167,7 +152,6 @@ const CustomCalendar = ({
       monthsBack={24}
       paidDates={paidDates}
       overrideRooms={overrideRooms}
-      reservedMap={reservedMap}
       onMonthChange={setCurrentMonth}
       onDateClick={handleDateClick}
       onDoubleClick={handleDoubleClick}

@@ -8,8 +8,7 @@ import DatePickerModal from "./DatePickerModal";
 import { SubmitHandler, useForm, useFieldArray, Controller, useWatch } from "react-hook-form";
 import { bookDaySchema, bookDaysZodObject } from "./zodBookDays";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { getAvailableRooms, postBooking } from "../../../util/bookingOperations";
-import { createBookingRequest, updateBookingRequestStatus } from "../../../util/bookingRequestOperations";
+import { getAvailableRooms, postBooking } from "../../../util/bookingOperations";
 import { dayType } from "../../../util/types/dayType";
 import { format, addDays } from "date-fns";
 import { ANY_ROOM_SENTINEL } from "./zodBookDays";
@@ -30,10 +29,8 @@ interface BookingModalProps {
   selectedRoom: roomType | undefined;
   showAddPane: "guest" | "room" | null;
   prefill?: BookingPrefill | null;
-  prefills?: BookingPrefill[];
-  hostId: string;
-  onBooking: (bookedDays: dayType[]) => void;
-  onReserved?: () => void;
+  prefills?: BookingPrefill[];
+  onBooking: (bookedDays: dayType[]) => void;
   setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setShowAddPane: React.Dispatch<React.SetStateAction<"guest" | "room" | null>>;
 }
@@ -71,8 +68,7 @@ const humanizeError = (raw: string): string => {
 };
 
 const BookingModal = ({
-  calendarId,
-  hostId,
+  calendarId,
   guests,
   rooms,
   selectedDate,
@@ -80,8 +76,7 @@ const BookingModal = ({
   showAddPane,
   prefill,
   prefills,
-  onBooking,
-  onReserved,
+  onBooking,
   setIsModalOpen,
   setShowAddPane,
 }: BookingModalProps) => {
@@ -217,10 +212,9 @@ const BookingModal = ({
 
   const processReserved = async (
     flat: FlatBooking,
-    guestName: string,
-    guestPhone: string,
+    guestId: string,
     numberOfGuests: number,
-  ): Promise<BookingResult> => {
+  ): Promise<{ result: BookingResult; bookedDays: dayType[] }> => {
     const dateLabel = format(flat.date, "MMM d, yyyy");
     const durationLabel = `${flat.duration} day${flat.duration > 1 ? "s" : ""}`;
     let roomId = flat.room;
@@ -234,19 +228,17 @@ const BookingModal = ({
           token as string,
         );
         if (available.length === 0) {
-          return { label: `${dateLabel} · ${durationLabel}`, roomName: roomLabel, status: "error", message: "No rooms available", reserved: true };
+          return { result: { label: `${dateLabel} · ${durationLabel}`, roomName: roomLabel, status: "error", message: "No rooms available", reserved: true }, bookedDays: [] };
         }
         roomId = available[0].id; roomLabel = available[0].name; roomColor = available[0].color;
       }
-      const created = await createBookingRequest({
-        host: hostId, guestName, guestPhone,
-        date: format(flat.date, "yyyy-MM-dd"),
-        room: roomId, duration: flat.duration, numberOfGuests,
-      });
-      await updateBookingRequestStatus(created.id, "reserved", token as string);
-      return { label: `${dateLabel} · ${durationLabel}`, roomName: roomLabel, roomColor, status: "success", reserved: true };
+      const days = await postBooking(
+        { calendar: calendarId, date: format(flat.date, "yyyy-MM-dd'T'HH:mm:ss"), guest: guestId, isAirBnB: false, numberOfGuests, room: roomId, duration: flat.duration, reserved: true },
+        token as string,
+      );
+      return { result: { label: `${dateLabel} · ${durationLabel}`, roomName: roomLabel, roomColor, status: "success", reserved: true }, bookedDays: days };
     } catch (err) {
-      return { label: `${dateLabel} · ${durationLabel}`, roomName: roomLabel, roomColor, status: "error", message: humanizeError(extractErrorMessage(err)), reserved: true };
+      return { result: { label: `${dateLabel} · ${durationLabel}`, roomName: roomLabel, roomColor, status: "error", message: humanizeError(extractErrorMessage(err)), reserved: true }, bookedDays: [] };
     }
   };
 
@@ -260,11 +252,12 @@ const BookingModal = ({
       const isReserved = reservedRows.has(rowIndex);
       for (const room of booking.rooms) {
         if (isReserved && guest) {
-          const result = await processReserved(
+          const { result, bookedDays } = await processReserved(
             { room, date: booking.date, duration: booking.duration },
-            guest.name, guest.phone, data.numberOfGuests,
+            data.guest, data.numberOfGuests,
           );
           results.push(result);
+          allBookedDays.push(...bookedDays);
         } else {
           const { result, bookedDays } = await processBooking(
             { room, date: booking.date, duration: booking.duration },
@@ -279,8 +272,7 @@ const BookingModal = ({
 
     setIsSubmitting(false);
     setBookingResults(results);
-    if (allBookedDays.length > 0) onBooking(allBookedDays);
-    if (results.some((r) => r.reserved && r.status === "success")) onReserved?.();
+    if (allBookedDays.length > 0) onBooking(allBookedDays);
   };
 
   const handleRetry = async () => {

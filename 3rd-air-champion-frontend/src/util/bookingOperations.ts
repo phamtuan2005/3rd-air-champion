@@ -45,6 +45,7 @@ export const postBooking = async (
     numberOfGuests: number;
     room: string;
     duration: number;
+    reserved?: boolean;
   },
   token: string
 ) => {

@@ -559,8 +559,8 @@ router.post("/book/range", async (req: Request, res: any) => {
     req.body;
 
   const query = `
-        mutation BookDays($calendar: String!, $date: String!, $guest: String!, $isAirBnB: Boolean!, $numberOfGuests: Int!, $room: String!, $duration: Int!) {
-          bookDays(calendar: $calendar, date: $date, guest: $guest, isAirBnB: $isAirBnB, numberOfGuests: $numberOfGuests, room: $room, duration: $duration) {
+        mutation BookDays($calendar: String!, $date: String!, $guest: String!, $isAirBnB: Boolean!, $numberOfGuests: Int!, $room: String!, $duration: Int!, $reserved: Boolean) {
+          bookDays(calendar: $calendar, date: $date, guest: $guest, isAirBnB: $isAirBnB, numberOfGuests: $numberOfGuests, room: $room, duration: $duration, reserved: $reserved) {
             id
             calendar
             date

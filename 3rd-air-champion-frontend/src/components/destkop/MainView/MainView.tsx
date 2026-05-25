@@ -1,4 +1,4 @@
-﻿import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import CalendarNavigator from "./CalendarView/CalendarNavigatorDesktop";
 import CustomCalendar from "./CalendarView/CustomCalendarDesktop";
 import { dayType } from "../../../util/types/dayType";
@@ -129,7 +129,6 @@ const MainView = ({
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
   const [scrollToTodayTrigger, setScrollToTodayTrigger] = useState(0);
   const [pendingAcceptRequestIds, setPendingAcceptRequestIds] = useState<string[]>([]);
-  const [reservedRequests, setReservedRequests] = useState<{ date: string; room: string; duration: number; guestName: string }[]>([]);
   const [acceptCompletedTick, setAcceptCompletedTick] = useState(0);
   const [bookingPrefills, setBookingPrefills] = useState<Array<{
     guestId: string | null;
@@ -170,7 +169,6 @@ const MainView = ({
     setShouldCallOnSync,
   });
 
-  // ── Stats hook ────────────────────────────────────────────────────────────
   const { occupancy, profit } = useCalendarStats({
     monthMap,
     days,
@@ -236,8 +234,6 @@ const MainView = ({
       fetchBookingRequestsByHost(hostId, token)
         .then((reqs: { status: string }[]) => {
           const count = (reqs ?? []).filter((r) => r.status === "pending").length;
-          const reserved = (reqs ?? []).filter((r: any) => r.status === "reserved");
-          setReservedRequests(reserved.map((r: any) => ({ date: r.date, room: r.room, duration: r.duration, guestName: r.guestName })));
           if (prevPendingCountRef.current !== null && count > prevPendingCountRef.current) {
             playAlert();
           }
@@ -548,7 +544,6 @@ const MainView = ({
               setSelectedDate={setSelectedDate}
               scrollToTodayTrigger={scrollToTodayTrigger}
               gapsMode={gapsMode}
-              reservedRequests={reservedRequests}
             />
             {showAddPane === "guest" && (
               <div
@@ -584,7 +579,7 @@ const MainView = ({
         {isModalOpen && (
           <BookingModal
             calendarId={calendarId}
-            hostId={hostId}
+            
             guests={guests}
             rooms={rooms}
             selectedDate={selectedDate}
@@ -592,7 +587,6 @@ const MainView = ({
             showAddPane={showAddPane}
             prefills={bookingPrefills ?? undefined}
             onBooking={onBookingComplete}
-            onReserved={() => fetchBookingRequestsByHost(hostId, token as string).then((reqs) => { const res = (reqs ?? []).filter((r: any) => r.status === "reserved"); setReservedRequests(res.map((r: any) => ({ date: r.date, room: r.room, duration: r.duration, guestName: r.guestName }))); }).catch(() => {})}
             setIsModalOpen={setIsModalOpen}
             setShowAddPane={setShowAddPane}
           />

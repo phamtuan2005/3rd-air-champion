@@ -376,7 +376,7 @@ export const dayResolvers = {
     },
     bookDays: async (
       _: unknown,
-      { calendar, date, guest, isAirBnB, numberOfGuests, room, duration }: any
+      { calendar, date, guest, isAirBnB, numberOfGuests, room, duration, reserved }: any
     ) => {
       const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const localDate = toZonedTime(date.split("T")[0], timeZone);
@@ -397,19 +397,6 @@ export const dayResolvers = {
           format(toZonedTime(day.date, timeZone), "yyyy-MM-dd")
         );
         throw new Error(`The following dates are unavailable: ${conflictingDates.join(", ")}`);
-      }
-
-      // Reject if room is reserved for another guest on overlapping dates
-      const calCheck = await Calendar.findById(calendar);
-      if (calCheck) {
-        const reservedConflicts = await BookingRequest.find({ host: calCheck.host, room, status: "reserved" });
-        for (const req of reservedConflicts) {
-          const reqEnd = addDays(req.date, req.duration - 1);
-          if (req.date <= dates[dates.length - 1] && reqEnd >= dates[0]) {
-            const ds = format(toZonedTime(req.date, timeZone), "yyyy-MM-dd");
-            throw new Error(`Room is reserved for ${req.guestName} starting ${ds}. Release the reservation first.`);
-          }
-        }
       }
 
       const currentRoom = await Room.findById(room);
@@ -435,6 +422,7 @@ export const dayResolvers = {
                 numberOfGuests,
                 startDate: dates[0],
                 endDate: dates[dates.length - 1],
+                reserved: reserved ?? false,
               },
             },
           },

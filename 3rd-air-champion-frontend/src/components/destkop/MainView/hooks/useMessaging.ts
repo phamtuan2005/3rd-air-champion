@@ -97,7 +97,7 @@ export const useMessaging = ({
         isSameMonth(date, currentMonth)
       ) {
         const matchingBookings = dayEntry.bookings.filter(
-          (booking) => booking.guest.phone === phone && booking.startDate === dateStr,
+          (booking) => booking.guest.phone === phone && booking.startDate.split("T")[0] === dateStr && !booking.reserved,
         );
 
         if (matchingBookings.length > 0) {
@@ -122,6 +122,8 @@ export const useMessaging = ({
                 booking.guest.pricing.find((p) => p.room === booking.room.id)?.price ||
                 booking.price;
 
+              numberOfNights += duration;
+
               if (duration === 1) {
                 totalPriceOfMonth += pricePerNight;
                 return `* ${weekday} to ${endWeekday} morning, ${dateFormatted} - ${endDateFormatted} morning, 1 night, ${roomName}, $${pricePerNight} ${isPaid ? "(paid)" : ""}`;
@@ -130,8 +132,6 @@ export const useMessaging = ({
                 totalPriceOfMonth += totalPrice;
                 return `* ${weekday} to ${endWeekday} morning, ${dateFormatted} - ${endDateFormatted} morning, ${duration} nights, ${roomName}, $${pricePerNight} * ${duration} = $${totalPrice} ${isPaid ? "(paid)" : ""}`;
               }
-
-              numberOfNights += duration;
             })
             .join("\n");
           return acc + bookingText + "\n";

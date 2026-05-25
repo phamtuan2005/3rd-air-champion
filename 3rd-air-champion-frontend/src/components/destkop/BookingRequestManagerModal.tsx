@@ -35,7 +35,7 @@ export interface BookingRequest {
   room: string;
   duration: number;
   numberOfGuests: number;
-  status: "pending" | "confirmed" | "cancelled" | "expired" | "reserved";
+  status: "pending" | "confirmed" | "cancelled" | "expired";
   notes?: string;
   createdAt: string;
   updatedAt: string;
@@ -753,48 +753,6 @@ const BookingRequestManagerModal = ({
     setSelectedHistoryGroup(null);
   };
 
-  const handleRequestPayment = (group: BookingRequest[]) => {
-    const first = group[0];
-    const matched = matchGuest(first.guestPhone);
-    const displayName = matched?.name ?? first.guestName;
-    const { nights, revenue } = calcGroupStats(group, getRoom, matchGuest);
-
-    const lines = [...group]
-      .sort((a, b) => a.date.localeCompare(b.date))
-      .map((req) => {
-        const room = getRoom(req.room);
-        const date = formatLocal(parseBookingDate(req.date), "EEE, MMM d");
-        return `  - ${room?.name ?? "Room"}: ${date}, ${req.duration}n`;
-      })
-      .join("\n");
-
-    const body = `Hi ${displayName},\n\nYour reservation is confirmed:\n${lines}\n\nTotal: $${revenue} for ${nights} night${nights !== 1 ? "s" : ""}.\n\nPlease transfer payment to secure the booking. Thank you!`;
-    window.location.href = `sms:${first.guestPhone}?&body=${encodeURIComponent(body)}`;
-  };
-
-  const handleReserveGroup = async (group: BookingRequest[]) => {
-    const phone = normalizePhone(group[0].guestPhone);
-    setUpdatingPhone(phone);
-    try {
-      await Promise.all(
-        group.map((req) =>
-          updateBookingRequestStatus(req.id, "reserved", token).then(() =>
-            setRequests((prev) =>
-              prev.map((r) =>
-                r.id === req.id ? { ...r, status: "reserved", updatedAt: String(Date.now()) } : r,
-              ),
-            ),
-          ),
-        ),
-      );
-    } catch {
-      // keep as pending on failure
-    } finally {
-      setUpdatingPhone(null);
-      setSelectedPendingGroup(null);
-    }
-  };
-
   const handleDeclineGroup = async (group: BookingRequest[]) => {
     const phone = normalizePhone(group[0].guestPhone);
     setUpdatingPhone(phone);
@@ -823,8 +781,7 @@ const BookingRequestManagerModal = ({
     formatLocal(parseBookingDate(dateStr), "EEE, MMM d yyyy");
 
   const pending = requests.filter((r) => r.status === "pending");
-  const reserved = requests.filter((r) => r.status === "reserved");
-  const allResolved = requests.filter((r) => r.status !== "pending" && r.status !== "reserved");
+  const allResolved = requests.filter((r) => r.status !== "pending");
 
   // Group resolved requests by (phone, submission date)
   const getSubmissionDateKey = (ts: string) => {
@@ -969,14 +926,6 @@ const BookingRequestManagerModal = ({
           <button
             type="button"
             disabled={isUpdating}
-            className="flex-1 bg-amber-400 text-white text-xs font-medium py-1.5 rounded hover:bg-amber-500 disabled:opacity-50"
-            onClick={() => handleReserveGroup(group)}
-          >
-            {isUpdating ? "..." : "Reserve"}
-          </button>
-          <button
-            type="button"
-            disabled={isUpdating}
             className="flex-1 bg-red-500 text-white text-xs font-medium py-1.5 rounded hover:bg-red-600 disabled:opacity-50"
             onClick={() => handleDeclineGroup(group)}
           >
@@ -1105,7 +1054,7 @@ const BookingRequestManagerModal = ({
           </>
         ) : loading ? (
           <p className="text-sm text-gray-500 text-center py-8">Loading...</p>
-        ) : requests.length === 0 ? (
+        ) : pendingGroups.length === 0 && allResolved.length === 0 ? (
           <p className="text-sm text-gray-500 text-center py-8">
             No booking requests yet.
           </p>
@@ -1119,94 +1068,6 @@ const BookingRequestManagerModal = ({
                 {pendingGroups.map((group) => renderPendingGroup(group))}
               </div>
             )}
-            {reserved.length > 0 && (() => {
-              const reservedGroups: BookingRequest[][] = [];
-              const seen = new Set<string>();
-              for (const req of reserved) {
-                const phone = normalizePhone(req.guestPhone);
-                if (!seen.has(phone)) {
-                  seen.add(phone);
-                  reservedGroups.push(reserved.filter((r) => normalizePhone(r.guestPhone) === phone));
-                }
-              }
-              return (
-                <div className="flex flex-col gap-2">
-                  <h3 className="text-xs font-bold text-amber-500 uppercase tracking-wider">
-                    Reserved ({reserved.length})
-                  </h3>
-                  {reservedGroups.map((group) => {
-                    const first = group[0];
-                    const matched = matchGuest(first.guestPhone);
-                    const displayName = matched?.name ?? first.guestName;
-                    const phone = normalizePhone(first.guestPhone);
-                    const isUpdating = updatingPhone === phone;
-                    const firstRoom = getRoom(first.room);
-                    const borderClass = firstRoom
-                      ? getRoomColor(firstRoom.name, firstRoom.color).replace("bg-", "border-")
-                      : "border-amber-400";
-                    return (
-                      <div key={phone} className={`rounded-lg border-l-4 ${borderClass} bg-amber-50 shadow-sm p-3 flex flex-col gap-2`}>
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-sm">{displayName}</span>
-                          <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">Reserved</span>
-                          <span className="text-[10px] text-gray-400 ml-auto">{formatPhone(first.guestPhone)}</span>
-                        </div>
-                        {/* Payment reminder */}
-                        {(() => {
-                          const { nights, revenue } = calcGroupStats(group, getRoom, matchGuest);
-                          return revenue > 0 ? (
-                            <div className="flex items-center justify-between bg-amber-100 border border-amber-300 rounded-lg px-3 py-2">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-amber-700 text-xs">Collect payment</span>
-                                <span className="text-[11px] text-amber-600">{nights}n</span>
-                              </div>
-                              <span className="text-sm font-bold text-amber-800">{fmtRevenue(revenue)}</span>
-                            </div>
-                          ) : null;
-                        })()}
-                        <div className="flex flex-col gap-1">
-                          {group.map((req) => {
-                            const room = getRoom(req.room);
-                            return (
-                              <div key={req.id} className="flex items-center gap-2 text-xs text-gray-600">
-                                {room && <RoomBadge room={room} rooms={rooms} />}
-                                <span>{formatDate(req.date)}</span>
-                                <span className="text-gray-400">{req.duration}n · {req.numberOfGuests} guest{req.numberOfGuests > 1 ? "s" : ""}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            disabled={isUpdating}
-                            className="flex-1 bg-green-500 text-white text-xs font-medium py-1.5 rounded hover:bg-green-600 disabled:opacity-50"
-                            onClick={() => handleAcceptGroup(group)}
-                          >
-                            {isUpdating ? "..." : "Accept"}
-                          </button>
-                          <button
-                            type="button"
-                            className="flex-1 bg-amber-500 text-white text-xs font-medium py-1.5 rounded hover:bg-amber-600"
-                            onClick={() => handleRequestPayment(group)}
-                          >
-                            Request $
-                          </button>
-                          <button
-                            type="button"
-                            disabled={isUpdating}
-                            className="flex-1 bg-red-500 text-white text-xs font-medium py-1.5 rounded hover:bg-red-600 disabled:opacity-50"
-                            onClick={() => handleDeclineGroup(group)}
-                          >
-                            {isUpdating ? "..." : "Release"}
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
             {allResolved.length > 0 && (
               <div className="flex flex-col gap-2">
                 <button

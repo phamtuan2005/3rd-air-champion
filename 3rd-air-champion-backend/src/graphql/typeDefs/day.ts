@@ -19,6 +19,7 @@ export const dayDefs = gql`
     startDate: Date
     endDate: Date
     airbnbBlocked: Boolean
+    reserved: Boolean
   }
 
   type Day {
@@ -104,6 +105,7 @@ export const dayDefs = gql`
       numberOfGuests: Int!
       room: String!
       duration: Int!
+      reserved: Boolean
     ): [Day]
 
     bookAirBnB(

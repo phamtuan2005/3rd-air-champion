@@ -48,20 +48,23 @@ const BookingCard = ({
     return new Date(y, m - 1, d);
   };
 
+  const isReserved = booking.reserved === true;
+
   return (
     <div
-      className="border-b border-solid w-full py-1"
+      className={`border-b border-solid w-full py-1 ${isReserved ? "bg-amber-50" : ""}`}
       style={{ display: "grid", gridTemplateColumns: `min(${maxLabelLen}ch, 50vw) 1fr`, gap: "0 0.75rem" }}
     >
       {/* Row 1, Col 1: Color box (tappable) */}
       <button
         type="button"
-        onClick={() => setSelectedBooking(booking)}
-        className={`${getRoomColor(booking.room.name, booking.room.color)} ${booking.guest.name === "AirBnB" ? "text-white" : "text-black"} px-2 py-1 rounded-md font-bold text-lg mb-1 text-left`}
+        onClick={() => !isReserved && setSelectedBooking(booking)}
+        className={`${getRoomColor(booking.room.name, booking.room.color)} ${booking.guest.name === "AirBnB" ? "text-white" : "text-black"} px-2 py-1 rounded-md font-bold text-lg mb-1 text-left opacity-80`}
       >
         {booking.numberOfGuests > 1 && `(${booking.numberOfGuests}) `}
         {booking.guest.alias || booking.alias || booking.guest.name}{" "}
         ({booking.room.name})
+        {isReserved && ", reserved"}
         {booking.guest.name === "AirBnB"
           ? booking.airbnbPrice ? `, $${booking.airbnbPrice.toFixed(2)}` : ""
           : (() => {
@@ -136,7 +139,7 @@ const BookingCard = ({
 
       {/* Row 2, Col 2: Action buttons */}
       <div className="flex items-center gap-2 mb-2">
-        {booking.description === "" ? (
+        {booking.guest.name !== "AirBnB" ? (
           <>
             <input
               type="checkbox"
@@ -168,12 +171,14 @@ const BookingCard = ({
                 </button>
               </>
             )}
-            <button
-              className="rounded-full shadow-md bg-black text-white font-semibold h-[44px] w-[44px] text-[0.55rem]"
-              onClick={() => { window.location.href = `sms:${booking.guest.phone}`; }}
-            >
-              Message
-            </button>
+            {booking.guest.phone && (
+              <button
+                className="rounded-full shadow-md bg-black text-white font-semibold h-[44px] w-[44px] text-[0.55rem]"
+                onClick={() => { window.location.href = `sms:${booking.guest.phone}`; }}
+              >
+                Message
+              </button>
+            )}
           </>
         ) : (
           <>
