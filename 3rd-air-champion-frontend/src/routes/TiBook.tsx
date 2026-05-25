@@ -42,6 +42,7 @@ const TiBookInner = () => {
   const [cartDates, setCartDates] = useState<Map<string, string | null>>(new Map());
   const [isSelecting, setIsSelecting] = useState(false);
   const [wishListDates, setWishListDates] = useState<Set<string>>(new Set());
+  const [persistedWishListDates, setPersistedWishListDates] = useState<Set<string>>(new Set());
   const [guestPhone, setGuestPhone] = useState(() => localStorage.getItem("tiBookGuestPhone") ?? "");
   const [guestName, setGuestName] = useState(() => localStorage.getItem("tiBookGuestName") ?? "");
   const [guestBookings, setGuestBookings] = useState<GuestBooking[]>([]);
@@ -119,7 +120,11 @@ const TiBookInner = () => {
   useEffect(() => {
     if (!guestPhone || !currentHost) return;
     getGuestWishList(currentHost.id, guestPhone)
-      .then((result) => setWishListDates(new Set(result.dates)))
+      .then((result) => {
+        const dates = new Set<string>(result.dates);
+        setWishListDates(dates);
+        setPersistedWishListDates(new Set(dates));
+      })
       .catch(() => {});
   }, [guestPhone, currentHost]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -183,7 +188,11 @@ const TiBookInner = () => {
     setGuestPhone(phone);
     if (currentHost) {
       getGuestWishList(currentHost.id, phone)
-        .then((result) => setWishListDates(new Set(result.dates)))
+        .then((result) => {
+          const dates = new Set<string>(result.dates);
+          setWishListDates(dates);
+          setPersistedWishListDates(new Set(dates));
+        })
         .catch(() => {});
     }
   };
@@ -207,12 +216,13 @@ const TiBookInner = () => {
     setIsBookingModalOpen(true);
   };
 
-  const hasSelection = cartDates.size > 0 || wishListDates.size > 0;
-  const barLabel = cartDates.size > 0 && wishListDates.size > 0
-    ? `${cartDates.size} date${cartDates.size > 1 ? "s" : ""} · ★ ${wishListDates.size} wish list`
+  const newWishListDates = new Set([...wishListDates].filter((d) => !persistedWishListDates.has(d)));
+  const hasSelection = cartDates.size > 0 || newWishListDates.size > 0;
+  const barLabel = cartDates.size > 0 && newWishListDates.size > 0
+    ? `${cartDates.size} date${cartDates.size > 1 ? "s" : ""} · ★ ${newWishListDates.size} wish list`
     : cartDates.size > 0
     ? `${cartDates.size} date${cartDates.size > 1 ? "s" : ""} selected`
-    : `★ ${wishListDates.size} wish list date${wishListDates.size > 1 ? "s" : ""}`;
+    : `★ ${newWishListDates.size} wish list date${newWishListDates.size > 1 ? "s" : ""}`;
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
@@ -304,7 +314,7 @@ const TiBookInner = () => {
           selectedDate={selectedDate}
           selectedRoomIds={selectedRoomIds}
           cartDates={cartDates}
-          wishListDates={wishListDates}
+          wishListDates={newWishListDates}
           savedPhone={guestPhone}
           savedName={guestName}
           onClose={() => setIsBookingModalOpen(false)}
@@ -314,7 +324,9 @@ const TiBookInner = () => {
             localStorage.setItem("tiBookGuestName", name);
             setGuestPhone(phone);
             setGuestName(name);
-            setWishListDates(new Set(newDates));
+            const dates = new Set<string>(newDates);
+            setWishListDates(dates);
+            setPersistedWishListDates(new Set(dates));
           }}
         />
       )}
