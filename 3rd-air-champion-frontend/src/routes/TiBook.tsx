@@ -15,8 +15,6 @@ import { toZonedTime } from "date-fns-tz";
 import { fetchRooms } from "../util/roomOperations";
 import BookingRequestModal from "../components/tibook/BookingRequestModal";
 import RoomCards from "../components/tibook/RoomCards";
-import WishListSummarySheet from "../components/tibook/WishListSummarySheet";
-import WishListModal from "../components/tibook/WishListModal";
 import MyBookingsSheet, { GuestBooking } from "../components/tibook/MyBookingsSheet";
 import { getGuestWishList } from "../util/wishListOperations";
 import { fetchBookingRequestsByGuest, fetchBookingRequestsByHost, fetchCalendarBookingsByGuest } from "../util/bookingRequestOperations";
@@ -44,13 +42,11 @@ const TiBookInner = () => {
   const [cartDates, setCartDates] = useState<Map<string, string | null>>(new Map());
   const [isSelecting, setIsSelecting] = useState(false);
   const [wishListDates, setWishListDates] = useState<Set<string>>(new Set());
-  const [wishListSummaryOpen, setWishListSummaryOpen] = useState(false);
   const [guestPhone, setGuestPhone] = useState(() => localStorage.getItem("tiBookGuestPhone") ?? "");
   const [guestName, setGuestName] = useState(() => localStorage.getItem("tiBookGuestName") ?? "");
   const [guestBookings, setGuestBookings] = useState<GuestBooking[]>([]);
   const [reservedMap, setReservedMap] = useState<Map<string, Set<string>>>(new Map());
   const [myBookingsOpen, setMyBookingsOpen] = useState(false);
-  const [wishListModalDate, setWishListModalDate] = useState<string | null>(null);
   const cohostNames = (import.meta.env.VITE_TI_BOOK_COHOST_NAMES as string | undefined)
     ?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
 
@@ -116,8 +112,8 @@ const TiBookInner = () => {
   }, [token]);
 
   useEffect(() => {
-    if (cartDates.size === 0) setIsSelecting(false);
-  }, [cartDates.size]);
+    if (cartDates.size === 0 && wishListDates.size === 0) setIsSelecting(false);
+  }, [cartDates.size, wishListDates.size]);
 
   // Load wish list when phone + host are ready
   useEffect(() => {
@@ -174,17 +170,13 @@ const TiBookInner = () => {
   };
 
   const handleWishListClick = (date: Date) => {
+    setIsSelecting(true);
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-    setWishListModalDate(key);
-  };
-
-  const handleSendSuccess = (phone: string, name: string, newDates: string[]) => {
-    localStorage.setItem("tiBookGuestPhone", phone);
-    localStorage.setItem("tiBookGuestName", name);
-    setGuestPhone(phone);
-    setGuestName(name);
-    setWishListDates(new Set(newDates));
-    setWishListSummaryOpen(false);
+    setWishListDates((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
   };
 
   const handlePhoneConfirmed = (phone: string) => {
@@ -214,6 +206,13 @@ const TiBookInner = () => {
     setSelectedDate(date ?? findFirstAvailableDate(currentMonth));
     setIsBookingModalOpen(true);
   };
+
+  const hasSelection = cartDates.size > 0 || wishListDates.size > 0;
+  const barLabel = cartDates.size > 0 && wishListDates.size > 0
+    ? `${cartDates.size} date${cartDates.size > 1 ? "s" : ""} · ★ ${wishListDates.size} wish list`
+    : cartDates.size > 0
+    ? `${cartDates.size} date${cartDates.size > 1 ? "s" : ""} selected`
+    : `★ ${wishListDates.size} wish list date${wishListDates.size > 1 ? "s" : ""}`;
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
@@ -267,28 +266,10 @@ const TiBookInner = () => {
         </div>
       )}
 
-      {/* Floating wish list bar */}
-      {wishListDates.size > 0 && cartDates.size === 0 && (
-        <div className="fixed bottom-0 inset-x-0 bg-amber-500 px-4 py-3 flex items-center justify-between z-40 shadow-lg">
-          <span className="text-white text-sm font-medium">
-            ★ {wishListDates.size} wish list date{wishListDates.size > 1 ? "s" : ""}
-          </span>
-          <button
-            type="button"
-            className="bg-white text-amber-600 text-sm font-semibold px-4 py-1.5 rounded-full active:bg-amber-50 transition-colors"
-            onClick={() => setWishListSummaryOpen(true)}
-          >
-            Send to host →
-          </button>
-        </div>
-      )}
-
-      {/* Floating cart bar */}
-      {cartDates.size > 0 && (
+      {/* Floating bar — shown for cart dates, wish list dates, or both */}
+      {hasSelection && (
         <div className={`fixed bottom-0 inset-x-0 ${theme.btn} px-4 py-3 flex items-center justify-between z-40 shadow-lg`}>
-          <span className="text-white text-sm font-medium">
-            {cartDates.size} date{cartDates.size > 1 ? "s" : ""} selected
-          </span>
+          <span className="text-white text-sm font-medium">{barLabel}</span>
           <button
             type="button"
             className={`bg-white ${theme.reviewText} text-sm font-semibold px-4 py-1.5 rounded-full ${theme.tileActive}`}
@@ -310,37 +291,6 @@ const TiBookInner = () => {
           onToggleWishDate={(date) => setWishListDates((prev) => { const next = new Set(prev); if (next.has(date)) next.delete(date); else next.add(date); return next; })}
           onClose={() => setMyBookingsOpen(false)}
           onPhoneConfirmed={handlePhoneConfirmed}
-        />
-      )}
-
-      {wishListSummaryOpen && currentHost && (
-        <WishListSummarySheet
-          hostId={currentHost.id}
-          wishListDates={wishListDates}
-          guestPhone={guestPhone}
-          guestName={guestName}
-          onClose={() => setWishListSummaryOpen(false)}
-          onToggleDate={(date) => setWishListDates((prev) => { const next = new Set(prev); if (next.has(date)) next.delete(date); else next.add(date); return next; })}
-          onSendSuccess={handleSendSuccess}
-        />
-      )}
-
-      {wishListModalDate && currentHost && (
-        <WishListModal
-          hostId={currentHost.id}
-          date={wishListModalDate}
-          isWishlisted={wishListDates.has(wishListModalDate)}
-          savedPhone={guestPhone}
-          savedName={guestName}
-          onClose={() => setWishListModalDate(null)}
-          onSuccess={(phone, name, newDates) => {
-            localStorage.setItem("tiBookGuestPhone", phone);
-            localStorage.setItem("tiBookGuestName", name);
-            setGuestPhone(phone);
-            setGuestName(name);
-            setWishListDates(new Set(newDates));
-            setWishListModalDate(null);
-          }}
         />
       )}
 
