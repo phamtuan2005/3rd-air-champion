@@ -1,0 +1,1276 @@
+Loading: device_gummel_r4.5.inp
+  Input deck parameters:
+    L_tot = 30.0
+    N_D_SD = 5e20
+    N_D_ch = 1e17
+    Nx = 17
+    Ny_Si = 9
+    Ny_ox = 2
+    Nz_Si = 11
+    Nz_ox = 2
+    SGformulation = Boltzmann
+    T_SD = 22.5
+    T_ch = 5.0
+    VDS = 0.0
+    VDS_transport = 0.0
+    VGS = 0.0
+    WF = 4.05
+    W_SD = 10.0
+    W_ch = 10.0
+    anderson_beta = 0.3
+    anderson_depth = 3
+    beta_ct = 2.0
+    bte_bandwidth = 3
+    bte_lag_reset_tol = 0.0
+    bte_n_inner = 5
+    bte_solver = fefo2
+    bte_tau = 1.00e-14
+    cont_maxit = 10
+    cont_tol = 1e-6
+    cp_dphimax = 1.0
+    cp_maxit = 15
+    cp_tol = 1e-8
+    dH_meV = 2.5
+    diis_depth = 8
+    dop_offset = 3.0
+    dop_sigma = 2.0
+    gamma = 3.6
+    gummel_cq = on
+    gummel_jacobian = qc
+    gummel_maxit = 50
+    gummel_newton = on
+    gummel_phase1_n = 5
+    gummel_phase2_beta = 0.5
+    gummel_phase2_depth = 0
+    gummel_phase2_n = 5
+    gummel_tol = 1e-3
+    h_margin_bottom = 0.1
+    h_margin_top = 0.5
+    highfieldvsat = on
+    includeModeCoupling = on
+    mirror_x = on
+    mu_n = 200.0
+    n_sub = 40
+    pe_dphimax = 1.0
+    pe_maxit = 50
+    pe_tol = 1e-8
+    stop_after_stage = 99
+    t_ox = 1.0
+    v_sat = 2.0e7
+    vds_single = -1
+    verbose = true
+    vgs_start = 0.5
+    vgs_steps = 1
+    vgs_stop = 0.5
+    x_ch = 7.0
+    x_grid = refined
+    x_sd = 12.0
+    z_stretch = 0.0
+  BTE solver: fefo2 (2nd-order tridiagonal)  n_inner=5  tau=1.00e-14 s
+  x_grid: refined (Nx_eff=22, dx_coarse=1.875 nm, dx_fine=0.938 nm in taper [7.0,12.0] nm)
+
+Building mesh ...
+  mirror_x = on (symmetric |x|)
+  MSBTEMesh3D: 22x11x13 vertices  -> 2520 hexes
+  Vertices: 3146
+  Tets: 15120  (6-tet prismatic, all slabs)
+  Si: 10080   SiO2: 5040
+  Extracting faces ...
+  Computing geometry ...
+  Interior faces: 29076   Boundary faces: 2328
+  N_nodes=3146  N_tets=15120  N_si=2178  Ny_Si=9  Nz_Si=11
+  Mesh exported: mesh_nodes.csv (3146 nodes), mesh_tets.csv (15120 tets)
+  VTU written: ../../results/mesh_r4.5.vtu  (3146 vertices, 15120 tets)
+  Mesh VTU: ../../results/mesh_r4.5.vtu
+  BIM assembly (N_tets=15120) ... done  N=3146  nnz=42004  K_si nnz=28524
+  DensityGradientBIM: b_n=0.834344 nm²  N_si=2178 nodes  N_int=1386  N_iface=792
+
+
+══ VGS = 0.5000 V  (1/1) ══════════════════════════════════════
+
+----------------------------------------------------------------------
+  Stage 1: PE
+----------------------------------------------------------------------
+  [Newton PE-classical]  N=3146  tol=1e-08  dphi_max=1.00 V
+  Iter    rel||R_PE||     dphi/kT
+     0     1.0000e+00  1.4862e+01
+     1     1.5962e-01  5.0341e+00
+     2     1.8070e-02  1.9130e+00
+     3     2.4145e-03  7.5662e-01
+     4     2.3250e-04  1.2696e-01
+     5     3.8871e-06  2.7501e-03
+     6     1.3157e-09  1.1089e-06
+     7     1.7328e-16  1.6110e-13   converged
+
+----------------------------------------------------------------------
+  Stage 2: PE+DG
+----------------------------------------------------------------------
+
+  [Newton eSqrtDensity]  N_nodes=3146  N_int=1386  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT    dLam/Lam
+     0     1.0000e+00  3.8685e+01  4.3799e-01
+     1     5.9695e-01  3.8685e+01  2.4005e-01
+     2     1.7348e-01  1.3858e+01  1.1889e-01
+     3     2.4257e-03  4.2153e-02  1.1695e-03
+     4     5.8103e-07  9.9853e-06  5.2794e-07   converged
+  Stage 2 VTU: ../../results/pedg_stage2_r4.5.vtu
+  Stage 2 centerline CSV: ../../results/pedg_stage2_centerline_r4.5.csv
+
+----------------------------------------------------------------------
+  Stage 3: PE+DG+Continuity  VDS=0.0 mV
+----------------------------------------------------------------------
+
+  [Newton 3x3 full]  N_nodes=3146  N_int=1386  N_si=2178  N_tot=6710  tol=1e-08
+  Iter     ||R||/R0   ||RPE||/R0   ||RDG||/R0   ||RFn||/R0   dphi/kT  dLam/Lam   dpFn/kT   scale
+     0   1.0000e+00   1.2055e-15   1.0000e+00   0.0000e+00  3.7791e+00  1.3219e-01  3.4552e-15  1.0000
+     1   9.9799e-02   2.2248e-12   9.9799e-02   3.7360e-28  9.3103e-01  9.2704e-02  3.4546e-15  1.0000
+     2   1.6787e-03   6.3637e-13   1.6787e-03   2.2587e-30  2.6066e-02  1.9820e-03  3.8033e-17  1.0000
+     3   1.6723e-06   2.3352e-16   1.6723e-06   3.2547e-33  2.3490e-05  3.6403e-06  3.8519e-20  1.0000  CONV
+  DD current: ID = 1.5019e-26 A = 0.0000 µA
+  Stage 3 centerline CSV: ../../results/pedg_stage3_centerline_r4.5.csv
+
+  Extracting phi slices (interior Si nodes only) ...
+  E_F_source = 0.00000 eV  E_F_drain = 0.00000 eV
+
+  Running 2D Schrodinger across 22 slices ...
+  SE done. Channel (ix=11) first 40 subbands [eV]:
+    0.0501  0.0857  0.1639  0.2518  0.2621  0.2876  0.3643  0.3661  0.4577  0.4643  0.5303  0.5662  0.6031  0.6389  0.6592  0.7175  0.7318  0.8156  0.9175  1.0106  1.0489  1.0831  1.0848  1.1634  1.2615  1.3633  1.4564  1.5289  1.5441  1.5802  1.6585  1.7569  1.8585  1.9518  2.0240  2.0402  2.0761  2.1546  2.2528  2.3546
+  Source (ix=0):
+    -0.4906  -0.4906  -0.4887  -0.4887  -0.3260  -0.3260  -0.2668  -0.2615  -0.2505  -0.2457  -0.2267  -0.2225  -0.2079  -0.2074  -0.1779  -0.1703  -0.1603  -0.1539  -0.1445  -0.1382  -0.1292  -0.1200  -0.1149  -0.1118  -0.1018  -0.1018  -0.0970  -0.0621  -0.0373  -0.0360  -0.0190  -0.0114  0.0044  0.0066  0.0318  0.0320  0.0430  0.0684  0.0783  0.0928
+
+  Computing mode coupling C_nm ...
+  max|C_nm| = 8.384e-01 nm^-1
+
+  Preparing BTE geometry and injection ...
+  Mode 0 barrier: 0.0501 eV  (channel ε = 0.0501)
+  Mode 1 barrier: 0.0861 eV  (channel ε = 0.0857)
+  Mode 2 barrier: 0.1641 eV  (channel ε = 0.1639)
+  Mode 3 barrier: 0.2520 eV  (channel ε = 0.2518)
+  Mode 4 barrier: 0.2623 eV  (channel ε = 0.2621)
+  Mode 5 barrier: 0.2885 eV  (channel ε = 0.2876)
+  Mode 6 barrier: 0.3644 eV  (channel ε = 0.3643)
+  Mode 7 barrier: 0.3667 eV  (channel ε = 0.3661)
+  Mode 8 barrier: 0.4578 eV  (channel ε = 0.4577)
+  Mode 9 barrier: 0.4649 eV  (channel ε = 0.4643)
+  Mode 10 barrier: 0.5303 eV  (channel ε = 0.5303)
+  Mode 11 barrier: 0.5667 eV  (channel ε = 0.5662)
+  Mode 12 barrier: 0.6034 eV  (channel ε = 0.6031)
+  Mode 13 barrier: 0.6398 eV  (channel ε = 0.6389)
+  Mode 14 barrier: 0.6598 eV  (channel ε = 0.6592)
+  Mode 15 barrier: 0.7181 eV  (channel ε = 0.7175)
+  Mode 16 barrier: 0.7318 eV  (channel ε = 0.7318)
+  Mode 17 barrier: 0.8162 eV  (channel ε = 0.8156)
+  Mode 18 barrier: 0.9181 eV  (channel ε = 0.9175)
+  Mode 19 barrier: 1.0111 eV  (channel ε = 1.0106)
+  Mode 20 barrier: 1.0493 eV  (channel ε = 1.0489)
+  Mode 21 barrier: 1.0831 eV  (channel ε = 1.0831)
+  Mode 22 barrier: 1.0858 eV  (channel ε = 1.0848)
+  Mode 23 barrier: 1.1641 eV  (channel ε = 1.1634)
+  Mode 24 barrier: 1.2623 eV  (channel ε = 1.2615)
+  Mode 25 barrier: 1.3641 eV  (channel ε = 1.3633)
+  Mode 26 barrier: 1.4571 eV  (channel ε = 1.4564)
+  Mode 27 barrier: 1.5290 eV  (channel ε = 1.5289)
+  Mode 28 barrier: 1.5454 eV  (channel ε = 1.5441)
+  Mode 29 barrier: 1.5822 eV  (channel ε = 1.5802)
+  Mode 30 barrier: 1.6601 eV  (channel ε = 1.6585)
+  Mode 31 barrier: 1.7586 eV  (channel ε = 1.7569)
+  Mode 32 barrier: 1.8601 eV  (channel ε = 1.8585)
+  Mode 33 barrier: 1.9534 eV  (channel ε = 1.9518)
+  Mode 34 barrier: 2.0249 eV  (channel ε = 2.0240)
+  Mode 35 barrier: 2.0405 eV  (channel ε = 2.0402)
+  Mode 36 barrier: 2.0770 eV  (channel ε = 2.0761)
+  Mode 37 barrier: 2.1552 eV  (channel ε = 2.1546)
+  Mode 38 barrier: 2.2534 eV  (channel ε = 2.2528)
+  Mode 39 barrier: 2.3552 eV  (channel ε = 2.3546)
+  DD CBE range: -0.7778 -> -0.0092 eV
+  H_grid (fixed): -0.8778 -> 0.5022 eV  (NH=553, dH=2.5000 meV)
+  Running BTE no-C (fefo2) ...
+  J·A (no C): dev = 6.204e-16  (PASS)
+  Running BTE with-C (fefo2) ...
+
+════ SE-MSBTE-PE DIIS OUTER LOOP (qc Jacobian, Cq=on, depth=8) ══════
+
+  ── Gummel iter 1 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.192e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  2.6120e+01
+     1     1.8891e-15  1.0874e-13  converged
+  DIIS m=1  ||R_avg||=1.458e+00  c:[1.000, 1.000]
+  Gummel 1: max|Δφ|/kT = 1.8717e+01  best=1.8717e+01  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.1656 eV  ε_0(source) = -0.9745 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=-0.1654  ε_1=-0.1293  ε_2=-0.0514  ε_3=0.0366  ε_4=0.0469  ε_5=0.0731  ε_6=0.1490  ε_7=0.1513  ε_8=0.2424  ε_9=0.2495  ε_10=0.3146  ε_11=0.3513  ε_12=0.3880  ε_13=0.4244  ε_14=0.4443  ε_15=0.5027  ε_16=0.5162  ε_17=0.6008  ε_18=0.7027  ε_19=0.7957  ε_20=0.8339  ε_21=0.8676  ε_22=0.8704  ε_23=0.9487  ε_24=1.0469  ε_25=1.1487  ε_26=1.2417  ε_27=1.3135  ε_28=1.3300  ε_29=1.3668  ε_30=1.4447  ε_31=1.5432  ε_32=1.6447  ε_33=1.7380  ε_34=1.8095  ε_35=1.8251  ε_36=1.8615  ε_37=1.9398  ε_38=2.0380  ε_39=2.1398
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 3.989e-16
+  Step D: lag reset (max|Δφ|/kT=1.872e+01 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 1.804e-15  ID_wC = 4.0982e-19 A
+  Step D: BTE done.
+  ── Iter 1 summary: max|Δφ|/kT = 1.8717e+01  |ΔID|/ID = 1.0993e+01  ID = 1.7613e-20 A  (continuing)
+
+  ── Gummel iter 2 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.384e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  3.8685e+01
+     1     1.0665e-01  3.3559e+00
+     2     7.7042e-02  1.2093e-05
+     3     7.7042e-02  1.9725e-13  converged
+  DIIS m=2  ||R_avg||=2.193e+00  c:[0.393, 0.607]
+  Gummel 2: max|Δφ|/kT = 1.2109e+01  best=1.2109e+01  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = 0.1460 eV  ε_0(source) = -0.8279 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.1476  ε_1=0.1837  ε_2=0.2617  ε_3=0.3496  ε_4=0.3599  ε_5=0.3861  ε_6=0.4620  ε_7=0.4643  ε_8=0.5554  ε_9=0.5625  ε_10=0.6274  ε_11=0.6643  ε_12=0.7010  ε_13=0.7374  ε_14=0.7574  ε_15=0.8157  ε_16=0.8293  ε_17=0.9139  ε_18=1.0157  ε_19=1.1087  ε_20=1.1469  ε_21=1.1806  ε_22=1.1835  ε_23=1.2617  ε_24=1.3599  ε_25=1.4617  ε_26=1.5547  ε_27=1.6266  ε_28=1.6430  ε_29=1.6798  ε_30=1.7577  ε_31=1.8562  ε_32=1.9578  ε_33=2.0510  ε_34=2.1225  ε_35=2.1381  ε_36=2.1746  ε_37=2.2528  ε_38=2.3510  ε_39=2.4528
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 9.465e-16
+  Step D: lag reset (max|Δφ|/kT=1.211e+01 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 1.534e-15  ID_wC = 1.6781e-23 A
+  Step D: BTE done.
+  ── Iter 2 summary: max|Δφ|/kT = 1.2109e+01  |ΔID|/ID = 9.9933e-01  ID = 1.1755e-23 A  (continuing)
+
+  ── Gummel iter 3 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.234e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.8798e+01
+     1     4.0985e-02  9.6224e-14  converged
+  DIIS m=3  ||R_avg||=7.774e-01  c:[0.277, 0.389]
+  Gummel 3: max|Δφ|/kT = 4.9058e+00  best=4.9058e+00  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = 0.0191 eV  ε_0(source) = -0.7847 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0208  ε_1=0.0569  ε_2=0.1349  ε_3=0.2228  ε_4=0.2331  ε_5=0.2593  ε_6=0.3352  ε_7=0.3375  ε_8=0.4286  ε_9=0.4357  ε_10=0.5006  ε_11=0.5375  ε_12=0.5742  ε_13=0.6106  ε_14=0.6306  ε_15=0.6889  ε_16=0.7025  ε_17=0.7871  ε_18=0.8889  ε_19=0.9819  ε_20=1.0201  ε_21=1.0538  ε_22=1.0567  ε_23=1.1349  ε_24=1.2331  ε_25=1.3349  ε_26=1.4279  ε_27=1.4998  ε_28=1.5162  ε_29=1.5530  ε_30=1.6309  ε_31=1.7294  ε_32=1.8310  ε_33=1.9242  ε_34=1.9957  ε_35=2.0113  ε_36=2.0478  ε_37=2.1260  ε_38=2.2242  ε_39=2.3261
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 1.255e-15
+  Step D: lag reset (max|Δφ|/kT=4.906e+00 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 1.362e-15  ID_wC = -4.3549e-21 A
+  Step D: BTE done.
+  ── Iter 3 summary: max|Δφ|/kT = 4.9058e+00  |ΔID|/ID = 4.3214e+02  ID = 5.0917e-21 A  (continuing)
+
+  ── Gummel iter 4 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.197e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.3699e+01
+     1     3.6338e-02  8.3737e-14  converged
+  DIIS m=4  ||R_avg||=1.158e-01  c:[-0.001, 0.886]
+  Gummel 4: max|Δφ|/kT = 7.3371e-01  best=7.3371e-01  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = 0.0002 eV  ε_0(source) = -0.7869 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0025  ε_1=0.0387  ε_2=0.1166  ε_3=0.2046  ε_4=0.2149  ε_5=0.2411  ε_6=0.3170  ε_7=0.3193  ε_8=0.4104  ε_9=0.4174  ε_10=0.4824  ε_11=0.5193  ε_12=0.5559  ε_13=0.5924  ε_14=0.6123  ε_15=0.6707  ε_16=0.6842  ε_17=0.7688  ε_18=0.8707  ε_19=0.9637  ε_20=1.0019  ε_21=1.0356  ε_22=1.0384  ε_23=1.1167  ε_24=1.2148  ε_25=1.3167  ε_26=1.4096  ε_27=1.4815  ε_28=1.4980  ε_29=1.5348  ε_30=1.6127  ε_31=1.7111  ε_32=1.8127  ε_33=1.9060  ε_34=1.9775  ε_35=1.9930  ε_36=2.0295  ε_37=2.1078  ε_38=2.2060  ε_39=2.3078
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 7.457e-16
+  Step D: lag reset (max|Δφ|/kT=7.337e-01 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 2.156e-15  ID_wC = 2.5977e-20 A
+  Step D: BTE done.
+  ── Iter 4 summary: max|Δφ|/kT = 7.3371e-01  |ΔID|/ID = 9.8875e-01  ID = 1.0126e-20 A  (continuing)
+
+  ── Gummel iter 5 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.209e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4542e+01
+     1     3.8289e-02  8.5775e-14  converged
+  DIIS m=5  ||R_avg||=1.461e-02  c:[-0.016, 0.971]
+  Gummel 5: max|Δφ|/kT = 9.1879e-02  best=9.1879e-02  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = 0.0003 eV  ε_0(source) = -0.7880 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0049  ε_1=0.0410  ε_2=0.1190  ε_3=0.2070  ε_4=0.2172  ε_5=0.2434  ε_6=0.3194  ε_7=0.3216  ε_8=0.4128  ε_9=0.4198  ε_10=0.4848  ε_11=0.5217  ε_12=0.5583  ε_13=0.5948  ε_14=0.6147  ε_15=0.6730  ε_16=0.6866  ε_17=0.7712  ε_18=0.8731  ε_19=0.9660  ε_20=1.0043  ε_21=1.0380  ε_22=1.0408  ε_23=1.1190  ε_24=1.2172  ε_25=1.3191  ε_26=1.4120  ε_27=1.4839  ε_28=1.5004  ε_29=1.5371  ε_30=1.6151  ε_31=1.7135  ε_32=1.8151  ε_33=1.9083  ε_34=1.9798  ε_35=1.9954  ε_36=2.0319  ε_37=2.1102  ε_38=2.2083  ε_39=2.3102
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 5.550e-16
+  Step D: lag reset (max|Δφ|/kT=9.188e-02 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 1.453e-15  ID_wC = -1.0127e-20 A
+  Step D: BTE done.
+  ── Iter 5 summary: max|Δφ|/kT = 9.1879e-02  |ΔID|/ID = 8.8256e-01  ID = 1.1892e-21 A  (continuing)
+
+  ── Gummel iter 6 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4510e+01
+     1     3.8007e-02  8.6994e-14  converged
+  DIIS m=6  ||R_avg||=8.678e-03  c:[-0.005, 0.550]
+  Gummel 6: max|Δφ|/kT = 3.4158e-02  best=3.4158e-02  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0005 eV  ε_0(source) = -0.7874 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0048  ε_1=0.0409  ε_2=0.1189  ε_3=0.2068  ε_4=0.2171  ε_5=0.2433  ε_6=0.3192  ε_7=0.3215  ε_8=0.4126  ε_9=0.4197  ε_10=0.4846  ε_11=0.5215  ε_12=0.5582  ε_13=0.5946  ε_14=0.6146  ε_15=0.6729  ε_16=0.6865  ε_17=0.7711  ε_18=0.8729  ε_19=0.9659  ε_20=1.0041  ε_21=1.0378  ε_22=1.0407  ε_23=1.1189  ε_24=1.2171  ε_25=1.3189  ε_26=1.4119  ε_27=1.4838  ε_28=1.5002  ε_29=1.5370  ε_30=1.6149  ε_31=1.7134  ε_32=1.8150  ε_33=1.9082  ε_34=1.9797  ε_35=1.9953  ε_36=2.0318  ε_37=2.1100  ε_38=2.2082  ε_39=2.3101
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 1.127e-15
+  Step D: lag reset (max|Δφ|/kT=3.416e-02 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 1.331e-15  ID_wC = -1.6014e-20 A
+  Step D: BTE done.
+  ── Iter 6 summary: max|Δφ|/kT = 3.4158e-02  |ΔID|/ID = 6.8957e-01  ID = 3.6918e-22 A  (continuing)
+
+  ── Gummel iter 7 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4477e+01
+     1     3.8239e-02  1.3287e-13  converged
+  DIIS m=7  ||R_avg||=8.213e-03  c:[-0.624, 1.747]
+  Gummel 7: max|Δφ|/kT = 1.4193e-01  best=3.4158e-02  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0042 eV  ε_0(source) = -0.7879 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0021  ε_1=0.0382  ε_2=0.1162  ε_3=0.2042  ε_4=0.2144  ε_5=0.2406  ε_6=0.3166  ε_7=0.3188  ε_8=0.4100  ε_9=0.4170  ε_10=0.4820  ε_11=0.5189  ε_12=0.5555  ε_13=0.5920  ε_14=0.6119  ε_15=0.6702  ε_16=0.6838  ε_17=0.7684  ε_18=0.8703  ε_19=0.9632  ε_20=1.0015  ε_21=1.0352  ε_22=1.0380  ε_23=1.1162  ε_24=1.2144  ε_25=1.3163  ε_26=1.4092  ε_27=1.4811  ε_28=1.4976  ε_29=1.5343  ε_30=1.6123  ε_31=1.7107  ε_32=1.8123  ε_33=1.9055  ε_34=1.9770  ε_35=1.9926  ε_36=2.0291  ε_37=2.1074  ε_38=2.2055  ε_39=2.3074
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 4.626e-16
+  Step D: lag reset (max|Δφ|/kT=1.419e-01 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 8.824e-16  ID_wC = -1.2099e-20 A
+  Step D: BTE done.
+  ── Iter 7 summary: max|Δφ|/kT = 1.4193e-01  |ΔID|/ID = 4.2966e+00  ID = -1.2170e-21 A  (continuing)
+
+  ── Gummel iter 8 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4496e+01
+     1     3.8527e-02  1.0258e-13  converged
+  DIIS m=8  ||R_avg||=2.790e-02  c:[-0.995, 2.226]
+  Gummel 8: max|Δφ|/kT = 4.0173e-02  best=3.4158e-02  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0053 eV  ε_0(source) = -0.7878 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0026  ε_1=0.0387  ε_2=0.1167  ε_3=0.2046  ε_4=0.2149  ε_5=0.2411  ε_6=0.3170  ε_7=0.3193  ε_8=0.4104  ε_9=0.4175  ε_10=0.4824  ε_11=0.5193  ε_12=0.5560  ε_13=0.5924  ε_14=0.6124  ε_15=0.6707  ε_16=0.6842  ε_17=0.7688  ε_18=0.8707  ε_19=0.9637  ε_20=1.0019  ε_21=1.0356  ε_22=1.0384  ε_23=1.1167  ε_24=1.2149  ε_25=1.3167  ε_26=1.4097  ε_27=1.4816  ε_28=1.4980  ε_29=1.5348  ε_30=1.6127  ε_31=1.7112  ε_32=1.8127  ε_33=1.9060  ε_34=1.9775  ε_35=1.9931  ε_36=2.0295  ε_37=2.1078  ε_38=2.2060  ε_39=2.3078
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 8.631e-16
+  Step D: lag reset (max|Δφ|/kT=4.017e-02 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 8.850e-16  ID_wC = -3.8378e-21 A
+  Step D: BTE done.
+  ── Iter 8 summary: max|Δφ|/kT = 4.0173e-02  |ΔID|/ID = 1.2210e+00  ID = 2.6896e-22 A  (continuing)
+
+  ── Gummel iter 9 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4497e+01
+     1     3.8505e-02  1.2172e-13  converged
+  DIIS m=8  ||R_avg||=1.050e-02  c:[-0.419, 1.008]
+  Gummel 9: max|Δφ|/kT = 3.3297e-02  best=3.3297e-02  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0047 eV  ε_0(source) = -0.7875 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0034  ε_1=0.0396  ε_2=0.1175  ε_3=0.2055  ε_4=0.2157  ε_5=0.2419  ε_6=0.3179  ε_7=0.3201  ε_8=0.4113  ε_9=0.4183  ε_10=0.4833  ε_11=0.5202  ε_12=0.5568  ε_13=0.5933  ε_14=0.6132  ε_15=0.6715  ε_16=0.6851  ε_17=0.7697  ε_18=0.8716  ε_19=0.9645  ε_20=1.0028  ε_21=1.0365  ε_22=1.0393  ε_23=1.1175  ε_24=1.2157  ε_25=1.3176  ε_26=1.4105  ε_27=1.4824  ε_28=1.4989  ε_29=1.5356  ε_30=1.6136  ε_31=1.7120  ε_32=1.8136  ε_33=1.9068  ε_34=1.9783  ε_35=1.9939  ε_36=2.0304  ε_37=2.1087  ε_38=2.2068  ε_39=2.3087
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 7.312e-16
+  Step D: lag reset (max|Δφ|/kT=3.330e-02 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 1.614e-15  ID_wC = -7.0660e-21 A
+  Step D: BTE done.
+  ── Iter 9 summary: max|Δφ|/kT = 3.3297e-02  |ΔID|/ID = 2.0765e+01  ID = 5.8538e-21 A  (continuing)
+
+  ── Gummel iter 10 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4483e+01
+     1     3.8380e-02  6.5251e-14  converged
+  DIIS m=8  ||R_avg||=1.420e-02  c:[-0.446, 0.943]
+  Gummel 10: max|Δφ|/kT = 1.9816e-02  best=1.9816e-02  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0052 eV  ε_0(source) = -0.7875 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0033  ε_1=0.0394  ε_2=0.1174  ε_3=0.2053  ε_4=0.2156  ε_5=0.2418  ε_6=0.3178  ε_7=0.3200  ε_8=0.4111  ε_9=0.4182  ε_10=0.4831  ε_11=0.5201  ε_12=0.5567  ε_13=0.5932  ε_14=0.6131  ε_15=0.6714  ε_16=0.6850  ε_17=0.7696  ε_18=0.8714  ε_19=0.9644  ε_20=1.0027  ε_21=1.0363  ε_22=1.0392  ε_23=1.1174  ε_24=1.2156  ε_25=1.3174  ε_26=1.4104  ε_27=1.4823  ε_28=1.4987  ε_29=1.5355  ε_30=1.6134  ε_31=1.7119  ε_32=1.8135  ε_33=1.9067  ε_34=1.9782  ε_35=1.9938  ε_36=2.0303  ε_37=2.1086  ε_38=2.2067  ε_39=2.3086
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 1.676e-15
+  Step D: lag reset (max|Δφ|/kT=1.982e-02 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 6.412e-16  ID_wC = 1.7901e-21 A
+  Step D: BTE done.
+  ── Iter 10 summary: max|Δφ|/kT = 1.9816e-02  |ΔID|/ID = 1.1744e+00  ID = 1.2728e-20 A  (continuing)
+
+  ── Gummel iter 11 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4481e+01
+     1     3.8516e-02  6.7896e-14  converged
+  DIIS m=8  ||R_avg||=1.288e-02  c:[-0.503, 1.113]
+  Gummel 11: max|Δφ|/kT = 1.2867e-02  best=1.2867e-02  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0053 eV  ε_0(source) = -0.7874 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0036  ε_1=0.0398  ε_2=0.1177  ε_3=0.2057  ε_4=0.2159  ε_5=0.2421  ε_6=0.3181  ε_7=0.3203  ε_8=0.4115  ε_9=0.4185  ε_10=0.4835  ε_11=0.5204  ε_12=0.5570  ε_13=0.5935  ε_14=0.6134  ε_15=0.6717  ε_16=0.6853  ε_17=0.7699  ε_18=0.8718  ε_19=0.9647  ε_20=1.0030  ε_21=1.0367  ε_22=1.0395  ε_23=1.1177  ε_24=1.2159  ε_25=1.3178  ε_26=1.4107  ε_27=1.4826  ε_28=1.4991  ε_29=1.5358  ε_30=1.6138  ε_31=1.7122  ε_32=1.8138  ε_33=1.9070  ε_34=1.9785  ε_35=1.9941  ε_36=2.0306  ε_37=2.1089  ε_38=2.2070  ε_39=2.3089
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 1.378e-15
+  Step D: lag reset (max|Δφ|/kT=1.287e-02 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 2.557e-15  ID_wC = -6.3615e-21 A
+  Step D: BTE done.
+  ── Iter 11 summary: max|Δφ|/kT = 1.2867e-02  |ΔID|/ID = 1.3873e+00  ID = -4.9294e-21 A  (continuing)
+
+  ── Gummel iter 12 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4481e+01
+     1     3.8519e-02  8.7193e-14  converged
+  DIIS m=8  ||R_avg||=9.074e-03  c:[-0.564, 1.394]
+  Gummel 12: max|Δφ|/kT = 5.1513e-03  best=5.1513e-03  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0051 eV  ε_0(source) = -0.7875 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0036  ε_1=0.0398  ε_2=0.1177  ε_3=0.2057  ε_4=0.2159  ε_5=0.2421  ε_6=0.3181  ε_7=0.3203  ε_8=0.4115  ε_9=0.4185  ε_10=0.4835  ε_11=0.5204  ε_12=0.5570  ε_13=0.5935  ε_14=0.6134  ε_15=0.6717  ε_16=0.6853  ε_17=0.7699  ε_18=0.8718  ε_19=0.9647  ε_20=1.0030  ε_21=1.0367  ε_22=1.0395  ε_23=1.1177  ε_24=1.2159  ε_25=1.3178  ε_26=1.4107  ε_27=1.4826  ε_28=1.4991  ε_29=1.5358  ε_30=1.6138  ε_31=1.7122  ε_32=1.8138  ε_33=1.9070  ε_34=1.9785  ε_35=1.9941  ε_36=2.0306  ε_37=2.1089  ε_38=2.2070  ε_39=2.3089
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 7.696e-16
+  Step D: lag reset (max|Δφ|/kT=5.151e-03 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 7.241e-16  ID_wC = -4.2240e-22 A
+  Step D: BTE done.
+  ── Iter 12 summary: max|Δφ|/kT = 5.1513e-03  |ΔID|/ID = 2.1190e-01  ID = -5.9739e-21 A  (continuing)
+
+  ── Gummel iter 13 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4481e+01
+     1     3.8493e-02  1.0630e-13  converged
+  DIIS m=8  ||R_avg||=9.019e-03  c:[-1.373, 1.573]
+  Gummel 13: max|Δφ|/kT = 9.7180e-03  best=5.1513e-03  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0054 eV  ε_0(source) = -0.7875 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0037  ε_1=0.0398  ε_2=0.1178  ε_3=0.2057  ε_4=0.2160  ε_5=0.2422  ε_6=0.3182  ε_7=0.3204  ε_8=0.4115  ε_9=0.4186  ε_10=0.4836  ε_11=0.5205  ε_12=0.5571  ε_13=0.5936  ε_14=0.6135  ε_15=0.6718  ε_16=0.6854  ε_17=0.7700  ε_18=0.8718  ε_19=0.9648  ε_20=1.0031  ε_21=1.0367  ε_22=1.0396  ε_23=1.1178  ε_24=1.2160  ε_25=1.3178  ε_26=1.4108  ε_27=1.4827  ε_28=1.4991  ε_29=1.5359  ε_30=1.6138  ε_31=1.7123  ε_32=1.8139  ε_33=1.9071  ε_34=1.9786  ε_35=1.9942  ε_36=2.0307  ε_37=2.1090  ε_38=2.2071  ε_39=2.3090
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 7.160e-16
+  Step D: lag reset (max|Δφ|/kT=9.718e-03 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 1.750e-15  ID_wC = -2.5050e-20 A
+  Step D: BTE done.
+  ── Iter 13 summary: max|Δφ|/kT = 9.7180e-03  |ΔID|/ID = 2.8178e-01  ID = -7.6572e-21 A  (continuing)
+
+  ── Gummel iter 14 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4480e+01
+     1     3.8552e-02  8.2405e-14  converged
+  DIIS m=8  ||R_avg||=9.102e-03  c:[-1.241, 1.512]
+  Gummel 14: max|Δφ|/kT = 4.3949e-03  best=4.3949e-03  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0054 eV  ε_0(source) = -0.7875 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0038  ε_1=0.0399  ε_2=0.1179  ε_3=0.2058  ε_4=0.2161  ε_5=0.2423  ε_6=0.3183  ε_7=0.3205  ε_8=0.4116  ε_9=0.4187  ε_10=0.4837  ε_11=0.5206  ε_12=0.5572  ε_13=0.5937  ε_14=0.6136  ε_15=0.6719  ε_16=0.6855  ε_17=0.7701  ε_18=0.8720  ε_19=0.9649  ε_20=1.0032  ε_21=1.0369  ε_22=1.0397  ε_23=1.1179  ε_24=1.2161  ε_25=1.3179  ε_26=1.4109  ε_27=1.4828  ε_28=1.4992  ε_29=1.5360  ε_30=1.6139  ε_31=1.7124  ε_32=1.8140  ε_33=1.9072  ε_34=1.9787  ε_35=1.9943  ε_36=2.0308  ε_37=2.1091  ε_38=2.2072  ε_39=2.3091
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 9.522e-16
+  Step D: lag reset (max|Δφ|/kT=4.395e-03 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 1.604e-15  ID_wC = -9.7941e-21 A
+  Step D: BTE done.
+  ── Iter 14 summary: max|Δφ|/kT = 4.3949e-03  |ΔID|/ID = 1.8446e+00  ID = 6.4670e-21 A  (continuing)
+
+  ── Gummel iter 15 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4481e+01
+     1     3.8562e-02  8.1124e-14  converged
+  DIIS m=8  ||R_avg||=9.052e-03  c:[-3.702, 5.934]
+  Gummel 15: max|Δφ|/kT = 6.4490e-02  best=4.3949e-03  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0071 eV  ε_0(source) = -0.7874 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0054  ε_1=0.0415  ε_2=0.1195  ε_3=0.2074  ε_4=0.2177  ε_5=0.2439  ε_6=0.3199  ε_7=0.3221  ε_8=0.4132  ε_9=0.4203  ε_10=0.4853  ε_11=0.5222  ε_12=0.5588  ε_13=0.5953  ε_14=0.6152  ε_15=0.6735  ε_16=0.6871  ε_17=0.7717  ε_18=0.8735  ε_19=0.9665  ε_20=1.0048  ε_21=1.0385  ε_22=1.0413  ε_23=1.1195  ε_24=1.2177  ε_25=1.3195  ε_26=1.4125  ε_27=1.4844  ε_28=1.5008  ε_29=1.5376  ε_30=1.6155  ε_31=1.7140  ε_32=1.8156  ε_33=1.9088  ε_34=1.9803  ε_35=1.9959  ε_36=2.0324  ε_37=2.1107  ε_38=2.2088  ε_39=2.3107
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 6.970e-16
+  Step D: lag reset (max|Δφ|/kT=6.449e-02 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 1.231e-15  ID_wC = 4.8466e-21 A
+  Step D: BTE done.
+  ── Iter 15 summary: max|Δφ|/kT = 6.4490e-02  |ΔID|/ID = 1.9502e-01  ID = 7.7283e-21 A  (continuing)
+
+  ── Gummel iter 16 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4481e+01
+     1     3.8929e-02  8.3411e-14  converged
+  DIIS m=8  ||R_avg||=4.346e-03  c:[-3.351, 6.022]
+  Gummel 16: max|Δφ|/kT = 2.2523e-03  best=2.2523e-03  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0071 eV  ε_0(source) = -0.7874 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0054  ε_1=0.0415  ε_2=0.1194  ε_3=0.2074  ε_4=0.2177  ε_5=0.2439  ε_6=0.3198  ε_7=0.3221  ε_8=0.4132  ε_9=0.4202  ε_10=0.4852  ε_11=0.5221  ε_12=0.5587  ε_13=0.5952  ε_14=0.6151  ε_15=0.6735  ε_16=0.6870  ε_17=0.7716  ε_18=0.8735  ε_19=0.9665  ε_20=1.0047  ε_21=1.0384  ε_22=1.0412  ε_23=1.1195  ε_24=1.2176  ε_25=1.3195  ε_26=1.4125  ε_27=1.4843  ε_28=1.5008  ε_29=1.5376  ε_30=1.6155  ε_31=1.7139  ε_32=1.8155  ε_33=1.9088  ε_34=1.9803  ε_35=1.9958  ε_36=2.0323  ε_37=2.1106  ε_38=2.2088  ε_39=2.3106
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 8.315e-16
+  Step D: lag reset (max|Δφ|/kT=2.252e-03 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 1.067e-15  ID_wC = 1.1327e-20 A
+  Step D: BTE done.
+  ── Iter 16 summary: max|Δφ|/kT = 2.2523e-03  |ΔID|/ID = 1.0490e+00  ID = -3.7856e-22 A  (continuing)
+
+  ── Gummel iter 17 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4481e+01
+     1     3.8913e-02  8.0251e-14  converged
+  DIIS m=8  ||R_avg||=4.573e-03  c:[-3.254, 5.510]
+  Gummel 17: max|Δφ|/kT = 2.1751e-03  best=2.1751e-03  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0071 eV  ε_0(source) = -0.7875 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0054  ε_1=0.0415  ε_2=0.1195  ε_3=0.2074  ε_4=0.2177  ε_5=0.2439  ε_6=0.3199  ε_7=0.3221  ε_8=0.4132  ε_9=0.4203  ε_10=0.4852  ε_11=0.5222  ε_12=0.5588  ε_13=0.5953  ε_14=0.6152  ε_15=0.6735  ε_16=0.6871  ε_17=0.7717  ε_18=0.8735  ε_19=0.9665  ε_20=1.0048  ε_21=1.0384  ε_22=1.0413  ε_23=1.1195  ε_24=1.2177  ε_25=1.3195  ε_26=1.4125  ε_27=1.4844  ε_28=1.5008  ε_29=1.5376  ε_30=1.6155  ε_31=1.7140  ε_32=1.8156  ε_33=1.9088  ε_34=1.9803  ε_35=1.9959  ε_36=2.0324  ε_37=2.1107  ε_38=2.2088  ε_39=2.3107
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 9.154e-16
+  Step D: lag reset (max|Δφ|/kT=2.175e-03 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 2.602e-15  ID_wC = 1.6104e-20 A
+  Step D: BTE done.
+  ── Iter 17 summary: max|Δφ|/kT = 2.1751e-03  |ΔID|/ID = 1.0389e+01  ID = 3.5542e-21 A  (continuing)
+
+  ── Gummel iter 18 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4481e+01
+     1     3.8924e-02  9.7868e-14  converged
+  DIIS m=8  ||R_avg||=4.401e-03  c:[-12.530, 7.526]
+  Gummel 18: max|Δφ|/kT = 8.9183e-03  best=2.1751e-03  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0069 eV  ε_0(source) = -0.7874 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0054  ε_1=0.0415  ε_2=0.1195  ε_3=0.2074  ε_4=0.2177  ε_5=0.2439  ε_6=0.3198  ε_7=0.3221  ε_8=0.4132  ε_9=0.4203  ε_10=0.4852  ε_11=0.5221  ε_12=0.5588  ε_13=0.5952  ε_14=0.6152  ε_15=0.6735  ε_16=0.6871  ε_17=0.7716  ε_18=0.8735  ε_19=0.9665  ε_20=1.0047  ε_21=1.0384  ε_22=1.0413  ε_23=1.1195  ε_24=1.2177  ε_25=1.3195  ε_26=1.4125  ε_27=1.4844  ε_28=1.5008  ε_29=1.5376  ε_30=1.6155  ε_31=1.7140  ε_32=1.8155  ε_33=1.9088  ε_34=1.9803  ε_35=1.9959  ε_36=2.0324  ε_37=2.1106  ε_38=2.2088  ε_39=2.3106
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 1.306e-15
+  Step D: lag reset (max|Δφ|/kT=8.918e-03 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 3.353e-15  ID_wC = 3.6280e-20 A
+  Step D: BTE done.
+  ── Iter 18 summary: max|Δφ|/kT = 8.9183e-03  |ΔID|/ID = 1.9692e+00  ID = 1.0553e-20 A  (continuing)
+
+  ── Gummel iter 19 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4480e+01
+     1     3.8974e-02  1.1700e-13  converged
+  DIIS m=8  ||R_avg||=4.388e-03  c:[-9.682, 7.066]
+  Gummel 19: max|Δφ|/kT = 2.4188e-02  best=2.1751e-03  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0063 eV  ε_0(source) = -0.7875 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0050  ε_1=0.0411  ε_2=0.1190  ε_3=0.2070  ε_4=0.2173  ε_5=0.2435  ε_6=0.3194  ε_7=0.3217  ε_8=0.4128  ε_9=0.4198  ε_10=0.4848  ε_11=0.5217  ε_12=0.5583  ε_13=0.5948  ε_14=0.6147  ε_15=0.6731  ε_16=0.6866  ε_17=0.7712  ε_18=0.8731  ε_19=0.9661  ε_20=1.0043  ε_21=1.0380  ε_22=1.0408  ε_23=1.1191  ε_24=1.2172  ε_25=1.3191  ε_26=1.4121  ε_27=1.4839  ε_28=1.5004  ε_29=1.5372  ε_30=1.6151  ε_31=1.7136  ε_32=1.8151  ε_33=1.9084  ε_34=1.9799  ε_35=1.9954  ε_36=2.0319  ε_37=2.1102  ε_38=2.2084  ε_39=2.3102
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 6.779e-16
+  Step D: lag reset (max|Δφ|/kT=2.419e-02 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 1.187e-15  ID_wC = -1.4876e-20 A
+  Step D: BTE done.
+  ── Iter 19 summary: max|Δφ|/kT = 2.4188e-02  |ΔID|/ID = 1.7085e+00  ID = -7.4771e-21 A  (continuing)
+
+  ── Gummel iter 20 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4481e+01
+     1     3.8864e-02  1.1617e-13  converged
+  DIIS m=8  ||R_avg||=5.703e-03  c:[-3.240, 4.164]
+  Gummel 20: max|Δφ|/kT = 2.8512e-02  best=2.1751e-03  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0056 eV  ε_0(source) = -0.7875 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0044  ε_1=0.0405  ε_2=0.1185  ε_3=0.2064  ε_4=0.2167  ε_5=0.2429  ε_6=0.3189  ε_7=0.3211  ε_8=0.4122  ε_9=0.4193  ε_10=0.4842  ε_11=0.5212  ε_12=0.5578  ε_13=0.5942  ε_14=0.6142  ε_15=0.6725  ε_16=0.6861  ε_17=0.7707  ε_18=0.8725  ε_19=0.9655  ε_20=1.0037  ε_21=1.0374  ε_22=1.0403  ε_23=1.1185  ε_24=1.2167  ε_25=1.3185  ε_26=1.4115  ε_27=1.4834  ε_28=1.4998  ε_29=1.5366  ε_30=1.6145  ε_31=1.7130  ε_32=1.8146  ε_33=1.9078  ε_34=1.9793  ε_35=1.9949  ε_36=2.0314  ε_37=2.1097  ε_38=2.2078  ε_39=2.3097
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 7.113e-16
+  Step D: lag reset (max|Δφ|/kT=2.851e-02 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 1.297e-15  ID_wC = 1.1270e-20 A
+  Step D: BTE done.
+  ── Iter 20 summary: max|Δφ|/kT = 2.8512e-02  |ΔID|/ID = 4.5399e-01  ID = -4.0826e-21 A  (continuing)
+
+  ── Gummel iter 21 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4481e+01
+     1     3.8695e-02  6.5410e-14  converged
+  DIIS m=8  ||R_avg||=9.366e-03  c:[-4.994, 5.299]
+  Gummel 21: max|Δφ|/kT = 7.5665e-03  best=2.1751e-03  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0058 eV  ε_0(source) = -0.7875 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0043  ε_1=0.0404  ε_2=0.1183  ε_3=0.2063  ε_4=0.2166  ε_5=0.2428  ε_6=0.3187  ε_7=0.3210  ε_8=0.4121  ε_9=0.4191  ε_10=0.4841  ε_11=0.5210  ε_12=0.5576  ε_13=0.5941  ε_14=0.6140  ε_15=0.6724  ε_16=0.6859  ε_17=0.7705  ε_18=0.8724  ε_19=0.9654  ε_20=1.0036  ε_21=1.0373  ε_22=1.0401  ε_23=1.1184  ε_24=1.2166  ε_25=1.3184  ε_26=1.4114  ε_27=1.4832  ε_28=1.4997  ε_29=1.5365  ε_30=1.6144  ε_31=1.7129  ε_32=1.8144  ε_33=1.9077  ε_34=1.9792  ε_35=1.9947  ε_36=2.0312  ε_37=2.1095  ε_38=2.2077  ε_39=2.3095
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 7.838e-16
+  Step D: lag reset (max|Δφ|/kT=7.567e-03 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 1.057e-15  ID_wC = -4.0698e-22 A
+  Step D: BTE done.
+  ── Iter 21 summary: max|Δφ|/kT = 7.5665e-03  |ΔID|/ID = 1.7371e+00  ID = 3.0095e-21 A  (continuing)
+
+  ── Gummel iter 22 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4481e+01
+     1     3.8719e-02  9.3023e-14  converged
+  DIIS m=8  ||R_avg||=9.358e-03  c:[-5.171, 5.660]
+  Gummel 22: max|Δφ|/kT = 6.0716e-03  best=2.1751e-03  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0059 eV  ε_0(source) = -0.7874 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0041  ε_1=0.0402  ε_2=0.1182  ε_3=0.2061  ε_4=0.2164  ε_5=0.2426  ε_6=0.3186  ε_7=0.3208  ε_8=0.4119  ε_9=0.4190  ε_10=0.4839  ε_11=0.5209  ε_12=0.5575  ε_13=0.5940  ε_14=0.6139  ε_15=0.6722  ε_16=0.6858  ε_17=0.7704  ε_18=0.8722  ε_19=0.9652  ε_20=1.0035  ε_21=1.0371  ε_22=1.0400  ε_23=1.1182  ε_24=1.2164  ε_25=1.3182  ε_26=1.4112  ε_27=1.4831  ε_28=1.4995  ε_29=1.5363  ε_30=1.6142  ε_31=1.7127  ε_32=1.8143  ε_33=1.9075  ε_34=1.9790  ε_35=1.9946  ε_36=2.0311  ε_37=2.1094  ε_38=2.2075  ε_39=2.3094
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 7.905e-16
+  Step D: lag reset (max|Δφ|/kT=6.072e-03 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 1.828e-15  ID_wC = -1.7686e-20 A
+  Step D: BTE done.
+  ── Iter 22 summary: max|Δφ|/kT = 6.0716e-03  |ΔID|/ID = 2.9486e+00  ID = -5.8644e-21 A  (continuing)
+
+  ── Gummel iter 23 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4481e+01
+     1     3.8719e-02  7.5447e-14  converged
+  DIIS m=8  ||R_avg||=9.356e-03  c:[-4.997, 4.694]
+  Gummel 23: max|Δφ|/kT = 5.9270e-02  best=2.1751e-03  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0058 eV  ε_0(source) = -0.7875 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0026  ε_1=0.0387  ε_2=0.1167  ε_3=0.2046  ε_4=0.2149  ε_5=0.2411  ε_6=0.3170  ε_7=0.3193  ε_8=0.4104  ε_9=0.4175  ε_10=0.4824  ε_11=0.5193  ε_12=0.5560  ε_13=0.5924  ε_14=0.6123  ε_15=0.6707  ε_16=0.6842  ε_17=0.7688  ε_18=0.8707  ε_19=0.9637  ε_20=1.0019  ε_21=1.0356  ε_22=1.0384  ε_23=1.1167  ε_24=1.2149  ε_25=1.3167  ε_26=1.4097  ε_27=1.4816  ε_28=1.4980  ε_29=1.5348  ε_30=1.6127  ε_31=1.7112  ε_32=1.8127  ε_33=1.9060  ε_34=1.9775  ε_35=1.9931  ε_36=2.0295  ε_37=2.1078  ε_38=2.2060  ε_39=2.3078
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 9.210e-16
+  Step D: lag reset (max|Δφ|/kT=5.927e-02 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 1.313e-15  ID_wC = -1.5878e-20 A
+  Step D: BTE done.
+  ── Iter 23 summary: max|Δφ|/kT = 5.9270e-02  |ΔID|/ID = 2.0491e+00  ID = 6.1525e-21 A  (continuing)
+
+  ── Gummel iter 24 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4481e+01
+     1     3.8637e-02  8.2546e-14  converged
+  DIIS m=8  ||R_avg||=1.066e-02  c:[-2.326, 3.429]
+  Gummel 24: max|Δφ|/kT = 2.2347e-01  best=2.1751e-03  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0068 eV  ε_0(source) = -0.7875 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0083  ε_1=0.0445  ε_2=0.1224  ε_3=0.2104  ε_4=0.2207  ε_5=0.2469  ε_6=0.3228  ε_7=0.3251  ε_8=0.4162  ε_9=0.4232  ε_10=0.4882  ε_11=0.5251  ε_12=0.5617  ε_13=0.5982  ε_14=0.6181  ε_15=0.6765  ε_16=0.6900  ε_17=0.7746  ε_18=0.8765  ε_19=0.9695  ε_20=1.0077  ε_21=1.0414  ε_22=1.0442  ε_23=1.1225  ε_24=1.2206  ε_25=1.3225  ε_26=1.4154  ε_27=1.4873  ε_28=1.5038  ε_29=1.5406  ε_30=1.6185  ε_31=1.7169  ε_32=1.8185  ε_33=1.9117  ε_34=1.9832  ε_35=1.9988  ε_36=2.0353  ε_37=2.1136  ε_38=2.2118  ε_39=2.3136
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 9.773e-16
+  Step D: lag reset (max|Δφ|/kT=2.235e-01 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 1.131e-15  ID_wC = -1.3610e-20 A
+  Step D: BTE done.
+  ── Iter 24 summary: max|Δφ|/kT = 2.2347e-01  |ΔID|/ID = 2.8215e+00  ID = -1.1207e-20 A  (continuing)
+
+  ── Gummel iter 25 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4480e+01
+     1     3.9063e-02  1.0748e-13  converged
+  DIIS m=8  ||R_avg||=1.703e-02  c:[-1.985, 2.656]
+  Gummel 25: max|Δφ|/kT = 7.0903e-02  best=2.1751e-03  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0063 eV  ε_0(source) = -0.7875 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0065  ε_1=0.0426  ε_2=0.1206  ε_3=0.2085  ε_4=0.2188  ε_5=0.2450  ε_6=0.3210  ε_7=0.3232  ε_8=0.4143  ε_9=0.4214  ε_10=0.4864  ε_11=0.5233  ε_12=0.5599  ε_13=0.5964  ε_14=0.6163  ε_15=0.6746  ε_16=0.6882  ε_17=0.7728  ε_18=0.8746  ε_19=0.9676  ε_20=1.0059  ε_21=1.0396  ε_22=1.0424  ε_23=1.1206  ε_24=1.2188  ε_25=1.3206  ε_26=1.4136  ε_27=1.4855  ε_28=1.5019  ε_29=1.5387  ε_30=1.6166  ε_31=1.7151  ε_32=1.8167  ε_33=1.9099  ε_34=1.9814  ε_35=1.9970  ε_36=2.0335  ε_37=2.1118  ε_38=2.2099  ε_39=2.3118
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 6.341e-16
+  Step D: lag reset (max|Δφ|/kT=7.090e-02 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 8.378e-16  ID_wC = 4.3350e-21 A
+  Step D: BTE done.
+  ── Iter 25 summary: max|Δφ|/kT = 7.0903e-02  |ΔID|/ID = 7.1437e-01  ID = -3.2010e-21 A  (continuing)
+
+  ── Gummel iter 26 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4480e+01
+     1     3.8876e-02  1.0121e-13  converged
+  DIIS m=8  ||R_avg||=6.386e-03  c:[-0.252, 0.994]
+  Gummel 26: max|Δφ|/kT = 3.2573e-02  best=2.1751e-03  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0062 eV  ε_0(source) = -0.7875 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0057  ε_1=0.0418  ε_2=0.1198  ε_3=0.2077  ε_4=0.2180  ε_5=0.2442  ε_6=0.3201  ε_7=0.3224  ε_8=0.4135  ε_9=0.4206  ε_10=0.4855  ε_11=0.5224  ε_12=0.5591  ε_13=0.5955  ε_14=0.6155  ε_15=0.6738  ε_16=0.6873  ε_17=0.7719  ε_18=0.8738  ε_19=0.9668  ε_20=1.0050  ε_21=1.0387  ε_22=1.0415  ε_23=1.1198  ε_24=1.2180  ε_25=1.3198  ε_26=1.4128  ε_27=1.4847  ε_28=1.5011  ε_29=1.5379  ε_30=1.6158  ε_31=1.7143  ε_32=1.8158  ε_33=1.9091  ε_34=1.9806  ε_35=1.9962  ε_36=2.0326  ε_37=2.1109  ε_38=2.2091  ε_39=2.3109
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 7.463e-16
+  Step D: lag reset (max|Δφ|/kT=3.257e-02 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 1.064e-15  ID_wC = 2.4245e-21 A
+  Step D: BTE done.
+  ── Iter 26 summary: max|Δφ|/kT = 3.2573e-02  |ΔID|/ID = 3.3457e+00  ID = 7.5086e-21 A  (continuing)
+
+  ── Gummel iter 27 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4481e+01
+     1     3.8823e-02  8.8999e-14  converged
+  DIIS m=8  ||R_avg||=3.922e-03  c:[-0.249, 0.822]
+  Gummel 27: max|Δφ|/kT = 1.5470e-02  best=2.1751e-03  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0061 eV  ε_0(source) = -0.7875 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 0.914
+  Step D: barriers:  ε_0=0.0053  ε_1=0.0414  ε_2=0.1194  ε_3=0.2073  ε_4=0.2176  ε_5=0.2438  ε_6=0.3197  ε_7=0.3220  ε_8=0.4131  ε_9=0.4202  ε_10=0.4851  ε_11=0.5220  ε_12=0.5587  ε_13=0.5951  ε_14=0.6151  ε_15=0.6734  ε_16=0.6869  ε_17=0.7715  ε_18=0.8734  ε_19=0.9664  ε_20=1.0046  ε_21=1.0383  ε_22=1.0411  ε_23=1.1194  ε_24=1.2176  ε_25=1.3194  ε_26=1.4124  ε_27=1.4843  ε_28=1.5007  ε_29=1.5375  ε_30=1.6154  ε_31=1.7139  ε_32=1.8154  ε_33=1.9087  ε_34=1.9802  ε_35=1.9958  ε_36=2.0322  ε_37=2.1105  ε_38=2.2087  ε_39=2.3105
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 1.012e-15
+  Step D: lag reset (max|Δφ|/kT=1.547e-02 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 8.551e-16  ID_wC = 4.1553e-21 A
+  Step D: BTE done.
+  ── Iter 27 summary: max|Δφ|/kT = 1.5470e-02  |ΔID|/ID = 1.9035e+00  ID = -6.7842e-21 A  (continuing)
+
+  ── Gummel iter 28 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4481e+01
+     1     3.8773e-02  6.6644e-14  converged
+  DIIS m=8  ||R_avg||=5.243e-03  c:[-0.785, 1.280]
+  Gummel 28: max|Δφ|/kT = 7.3658e-03  best=2.1751e-03  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0062 eV  ε_0(source) = -0.7875 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0052  ε_1=0.0413  ε_2=0.1193  ε_3=0.2072  ε_4=0.2175  ε_5=0.2437  ε_6=0.3196  ε_7=0.3219  ε_8=0.4130  ε_9=0.4201  ε_10=0.4850  ε_11=0.5219  ε_12=0.5586  ε_13=0.5950  ε_14=0.6150  ε_15=0.6733  ε_16=0.6868  ε_17=0.7714  ε_18=0.8733  ε_19=0.9663  ε_20=1.0045  ε_21=1.0382  ε_22=1.0410  ε_23=1.1193  ε_24=1.2175  ε_25=1.3193  ε_26=1.4123  ε_27=1.4842  ε_28=1.5006  ε_29=1.5374  ε_30=1.6153  ε_31=1.7138  ε_32=1.8153  ε_33=1.9086  ε_34=1.9801  ε_35=1.9957  ε_36=2.0322  ε_37=2.1104  ε_38=2.2086  ε_39=2.3104
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 7.282e-16
+  Step D: lag reset (max|Δφ|/kT=7.366e-03 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 1.264e-15  ID_wC = 1.5474e-21 A
+  Step D: BTE done.
+  ── Iter 28 summary: max|Δφ|/kT = 7.3658e-03  |ΔID|/ID = 1.8352e+00  ID = 5.6665e-21 A  (continuing)
+
+  ── Gummel iter 29 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4481e+01
+     1     3.8807e-02  8.5937e-14  converged
+  DIIS m=8  ||R_avg||=5.372e-03  c:[-0.742, 1.139]
+  Gummel 29: max|Δφ|/kT = 9.3150e-03  best=2.1751e-03  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0060 eV  ε_0(source) = -0.7875 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0051  ε_1=0.0412  ε_2=0.1192  ε_3=0.2071  ε_4=0.2174  ε_5=0.2436  ε_6=0.3195  ε_7=0.3218  ε_8=0.4129  ε_9=0.4200  ε_10=0.4849  ε_11=0.5218  ε_12=0.5585  ε_13=0.5949  ε_14=0.6149  ε_15=0.6732  ε_16=0.6867  ε_17=0.7713  ε_18=0.8732  ε_19=0.9662  ε_20=1.0044  ε_21=1.0381  ε_22=1.0409  ε_23=1.1192  ε_24=1.2174  ε_25=1.3192  ε_26=1.4122  ε_27=1.4841  ε_28=1.5005  ε_29=1.5373  ε_30=1.6152  ε_31=1.7137  ε_32=1.8152  ε_33=1.9085  ε_34=1.9800  ε_35=1.9956  ε_36=2.0320  ε_37=2.1103  ε_38=2.2085  ε_39=2.3103
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 5.293e-16
+  Step D: lag reset (max|Δφ|/kT=9.315e-03 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 1.429e-15  ID_wC = -1.8377e-20 A
+  Step D: BTE done.
+  ── Iter 29 summary: max|Δφ|/kT = 9.3150e-03  |ΔID|/ID = 1.8329e+00  ID = -4.7194e-21 A  (continuing)
+
+  ── Gummel iter 30 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4481e+01
+     1     3.8757e-02  9.6841e-14  converged
+  DIIS m=8  ||R_avg||=5.771e-03  c:[-1.739, 1.110]
+  Gummel 30: max|Δφ|/kT = 1.2483e-02  best=2.1751e-03  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0057 eV  ε_0(source) = -0.7874 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0049  ε_1=0.0410  ε_2=0.1190  ε_3=0.2069  ε_4=0.2172  ε_5=0.2434  ε_6=0.3194  ε_7=0.3216  ε_8=0.4127  ε_9=0.4198  ε_10=0.4848  ε_11=0.5217  ε_12=0.5583  ε_13=0.5948  ε_14=0.6147  ε_15=0.6730  ε_16=0.6866  ε_17=0.7712  ε_18=0.8730  ε_19=0.9660  ε_20=1.0043  ε_21=1.0380  ε_22=1.0408  ε_23=1.1190  ε_24=1.2172  ε_25=1.3190  ε_26=1.4120  ε_27=1.4839  ε_28=1.5003  ε_29=1.5371  ε_30=1.6150  ε_31=1.7135  ε_32=1.8151  ε_33=1.9083  ε_34=1.9798  ε_35=1.9954  ε_36=2.0319  ε_37=2.1102  ε_38=2.2083  ε_39=2.3102
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 7.428e-16
+  Step D: lag reset (max|Δφ|/kT=1.248e-02 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 6.040e-16  ID_wC = 2.1199e-22 A
+  Step D: BTE done.
+  ── Iter 30 summary: max|Δφ|/kT = 1.2483e-02  |ΔID|/ID = 6.2842e-01  ID = -7.6852e-21 A  (continuing)
+
+  ── Gummel iter 31 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4480e+01
+     1     3.8691e-02  6.0904e-14  converged
+  DIIS m=8  ||R_avg||=6.294e-03  c:[-0.826, 0.691]
+  Gummel 31: max|Δφ|/kT = 5.8485e-03  best=2.1751e-03  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0057 eV  ε_0(source) = -0.7875 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0048  ε_1=0.0409  ε_2=0.1188  ε_3=0.2068  ε_4=0.2171  ε_5=0.2433  ε_6=0.3192  ε_7=0.3215  ε_8=0.4126  ε_9=0.4196  ε_10=0.4846  ε_11=0.5215  ε_12=0.5581  ε_13=0.5946  ε_14=0.6145  ε_15=0.6729  ε_16=0.6864  ε_17=0.7710  ε_18=0.8729  ε_19=0.9659  ε_20=1.0041  ε_21=1.0378  ε_22=1.0406  ε_23=1.1189  ε_24=1.2170  ε_25=1.3189  ε_26=1.4119  ε_27=1.4837  ε_28=1.5002  ε_29=1.5370  ε_30=1.6149  ε_31=1.7133  ε_32=1.8149  ε_33=1.9082  ε_34=1.9797  ε_35=1.9952  ε_36=2.0317  ε_37=2.1100  ε_38=2.2082  ε_39=2.3100
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 8.207e-16
+  Step D: lag reset (max|Δφ|/kT=5.848e-03 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 1.575e-15  ID_wC = -1.3875e-20 A
+  Step D: BTE done.
+  ── Iter 31 summary: max|Δφ|/kT = 5.8485e-03  |ΔID|/ID = 3.1190e-01  ID = -5.2882e-21 A  (continuing)
+
+  ── Gummel iter 32 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4481e+01
+     1     3.8689e-02  7.3681e-14  converged
+  DIIS m=8  ||R_avg||=7.506e-03  c:[-1.229, 1.094]
+  Gummel 32: max|Δφ|/kT = 2.9722e-02  best=2.1751e-03  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0064 eV  ε_0(source) = -0.7875 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0055  ε_1=0.0416  ε_2=0.1196  ε_3=0.2075  ε_4=0.2178  ε_5=0.2440  ε_6=0.3200  ε_7=0.3222  ε_8=0.4133  ε_9=0.4204  ε_10=0.4854  ε_11=0.5223  ε_12=0.5589  ε_13=0.5954  ε_14=0.6153  ε_15=0.6736  ε_16=0.6872  ε_17=0.7718  ε_18=0.8737  ε_19=0.9666  ε_20=1.0049  ε_21=1.0386  ε_22=1.0414  ε_23=1.1196  ε_24=1.2178  ε_25=1.3196  ε_26=1.4126  ε_27=1.4845  ε_28=1.5010  ε_29=1.5377  ε_30=1.6157  ε_31=1.7141  ε_32=1.8157  ε_33=1.9089  ε_34=1.9804  ε_35=1.9960  ε_36=2.0325  ε_37=2.1108  ε_38=2.2089  ε_39=2.3108
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 8.282e-16
+  Step D: lag reset (max|Δφ|/kT=2.972e-02 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 1.371e-15  ID_wC = -1.3189e-20 A
+  Step D: BTE done.
+  ── Iter 32 summary: max|Δφ|/kT = 2.9722e-02  |ΔID|/ID = 3.1223e-01  ID = -6.9393e-21 A  (continuing)
+
+  ── Gummel iter 33 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4481e+01
+     1     3.8839e-02  6.1566e-14  converged
+  DIIS m=8  ||R_avg||=4.212e-03  c:[-4.982, 4.334]
+  Gummel 33: max|Δφ|/kT = 3.2460e-03  best=2.1751e-03  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0065 eV  ε_0(source) = -0.7875 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0056  ε_1=0.0417  ε_2=0.1196  ε_3=0.2076  ε_4=0.2179  ε_5=0.2441  ε_6=0.3200  ε_7=0.3223  ε_8=0.4134  ε_9=0.4205  ε_10=0.4854  ε_11=0.5223  ε_12=0.5589  ε_13=0.5954  ε_14=0.6153  ε_15=0.6737  ε_16=0.6872  ε_17=0.7718  ε_18=0.8737  ε_19=0.9667  ε_20=1.0049  ε_21=1.0386  ε_22=1.0414  ε_23=1.1197  ε_24=1.2179  ε_25=1.3197  ε_26=1.4127  ε_27=1.4845  ε_28=1.5010  ε_29=1.5378  ε_30=1.6157  ε_31=1.7142  ε_32=1.8157  ε_33=1.9090  ε_34=1.9805  ε_35=1.9960  ε_36=2.0325  ε_37=2.1108  ε_38=2.2090  ε_39=2.3108
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 9.730e-16
+  Step D: lag reset (max|Δφ|/kT=3.246e-03 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 1.481e-15  ID_wC = -1.3798e-20 A
+  Step D: BTE done.
+  ── Iter 33 summary: max|Δφ|/kT = 3.2460e-03  |ΔID|/ID = 6.5570e-01  ID = -1.1489e-20 A  (continuing)
+
+  ── Gummel iter 34 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4481e+01
+     1     3.8862e-02  8.7957e-14  converged
+  DIIS m=8  ||R_avg||=3.999e-03  c:[-2.950, 2.902]
+  Gummel 34: max|Δφ|/kT = 2.9248e-02  best=2.1751e-03  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0070 eV  ε_0(source) = -0.7875 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0063  ε_1=0.0424  ε_2=0.1204  ε_3=0.2083  ε_4=0.2186  ε_5=0.2448  ε_6=0.3208  ε_7=0.3230  ε_8=0.4141  ε_9=0.4212  ε_10=0.4862  ε_11=0.5231  ε_12=0.5597  ε_13=0.5962  ε_14=0.6161  ε_15=0.6744  ε_16=0.6880  ε_17=0.7726  ε_18=0.8745  ε_19=0.9674  ε_20=1.0057  ε_21=1.0394  ε_22=1.0422  ε_23=1.1204  ε_24=1.2186  ε_25=1.3204  ε_26=1.4134  ε_27=1.4853  ε_28=1.5017  ε_29=1.5385  ε_30=1.6164  ε_31=1.7149  ε_32=1.8165  ε_33=1.9097  ε_34=1.9812  ε_35=1.9968  ε_36=2.0333  ε_37=2.1116  ε_38=2.2097  ε_39=2.3116
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 4.890e-16
+  Step D: lag reset (max|Δφ|/kT=2.925e-02 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 1.735e-15  ID_wC = -1.4993e-20 A
+  Step D: BTE done.
+  ── Iter 34 summary: max|Δφ|/kT = 2.9248e-02  |ΔID|/ID = 8.8598e-01  ID = -1.3100e-21 A  (continuing)
+
+  ── Gummel iter 35 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4481e+01
+     1     3.8994e-02  1.1413e-13  converged
+  DIIS m=8  ||R_avg||=5.798e-03  c:[-2.808, 2.644]
+  Gummel 35: max|Δφ|/kT = 1.4612e-02  best=2.1751e-03  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0067 eV  ε_0(source) = -0.7875 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0059  ε_1=0.0421  ε_2=0.1200  ε_3=0.2080  ε_4=0.2183  ε_5=0.2444  ε_6=0.3204  ε_7=0.3226  ε_8=0.4138  ε_9=0.4208  ε_10=0.4858  ε_11=0.5227  ε_12=0.5593  ε_13=0.5958  ε_14=0.6157  ε_15=0.6740  ε_16=0.6876  ε_17=0.7722  ε_18=0.8741  ε_19=0.9670  ε_20=1.0053  ε_21=1.0390  ε_22=1.0418  ε_23=1.1200  ε_24=1.2182  ε_25=1.3201  ε_26=1.4130  ε_27=1.4849  ε_28=1.5014  ε_29=1.5382  ε_30=1.6161  ε_31=1.7145  ε_32=1.8161  ε_33=1.9093  ε_34=1.9808  ε_35=1.9964  ε_36=2.0329  ε_37=2.1112  ε_38=2.2093  ε_39=2.3112
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 3.859e-16
+  Step D: lag reset (max|Δφ|/kT=1.461e-02 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 1.080e-15  ID_wC = -1.2511e-20 A
+  Step D: BTE done.
+  ── Iter 35 summary: max|Δφ|/kT = 1.4612e-02  |ΔID|/ID = 4.7812e-01  ID = -1.9363e-21 A  (continuing)
+
+  ── Gummel iter 36 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4481e+01
+     1     3.8921e-02  7.4695e-14  converged
+  DIIS m=8  ||R_avg||=1.133e-03  c:[-1.114, 1.648]
+  Gummel 36: max|Δφ|/kT = 4.5192e-02  best=2.1751e-03  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0058 eV  ε_0(source) = -0.7874 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0048  ε_1=0.0409  ε_2=0.1189  ε_3=0.2068  ε_4=0.2171  ε_5=0.2433  ε_6=0.3192  ε_7=0.3215  ε_8=0.4126  ε_9=0.4197  ε_10=0.4846  ε_11=0.5215  ε_12=0.5582  ε_13=0.5946  ε_14=0.6146  ε_15=0.6729  ε_16=0.6864  ε_17=0.7710  ε_18=0.8729  ε_19=0.9659  ε_20=1.0041  ε_21=1.0378  ε_22=1.0406  ε_23=1.1189  ε_24=1.2171  ε_25=1.3189  ε_26=1.4119  ε_27=1.4838  ε_28=1.5002  ε_29=1.5370  ε_30=1.6149  ε_31=1.7134  ε_32=1.8149  ε_33=1.9082  ε_34=1.9797  ε_35=1.9953  ε_36=2.0317  ε_37=2.1100  ε_38=2.2082  ε_39=2.3100
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 7.823e-16
+  Step D: lag reset (max|Δφ|/kT=4.519e-02 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 1.226e-15  ID_wC = -7.1068e-21 A
+  Step D: BTE done.
+  ── Iter 36 summary: max|Δφ|/kT = 4.5192e-02  |ΔID|/ID = 2.7095e+00  ID = -7.1828e-21 A  (continuing)
+
+  ── Gummel iter 37 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4480e+01
+     1     3.8705e-02  5.8771e-14  converged
+  DIIS m=8  ||R_avg||=7.361e-03  c:[-1.237, 1.343]
+  Gummel 37: max|Δφ|/kT = 7.2233e-03  best=2.1751e-03  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0056 eV  ε_0(source) = -0.7875 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0046  ε_1=0.0407  ε_2=0.1187  ε_3=0.2066  ε_4=0.2169  ε_5=0.2431  ε_6=0.3190  ε_7=0.3213  ε_8=0.4124  ε_9=0.4195  ε_10=0.4844  ε_11=0.5214  ε_12=0.5580  ε_13=0.5944  ε_14=0.6144  ε_15=0.6727  ε_16=0.6863  ε_17=0.7709  ε_18=0.8727  ε_19=0.9657  ε_20=1.0039  ε_21=1.0376  ε_22=1.0405  ε_23=1.1187  ε_24=1.2169  ε_25=1.3187  ε_26=1.4117  ε_27=1.4836  ε_28=1.5000  ε_29=1.5368  ε_30=1.6147  ε_31=1.7132  ε_32=1.8148  ε_33=1.9080  ε_34=1.9795  ε_35=1.9951  ε_36=2.0316  ε_37=2.1098  ε_38=2.2080  ε_39=2.3099
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 4.803e-16
+  Step D: lag reset (max|Δφ|/kT=7.223e-03 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 1.128e-15  ID_wC = -1.2593e-20 A
+  Step D: BTE done.
+  ── Iter 37 summary: max|Δφ|/kT = 7.2233e-03  |ΔID|/ID = 1.2306e+00  ID = 1.6564e-21 A  (continuing)
+
+  ── Gummel iter 38 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4481e+01
+     1     3.8665e-02  8.8180e-14  converged
+  DIIS m=8  ||R_avg||=9.318e-03  c:[-1.199, 1.379]
+  Gummel 38: max|Δφ|/kT = 1.2390e-02  best=2.1751e-03  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0059 eV  ε_0(source) = -0.7875 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0049  ε_1=0.0410  ε_2=0.1190  ε_3=0.2069  ε_4=0.2172  ε_5=0.2434  ε_6=0.3194  ε_7=0.3216  ε_8=0.4127  ε_9=0.4198  ε_10=0.4848  ε_11=0.5217  ε_12=0.5583  ε_13=0.5948  ε_14=0.6147  ε_15=0.6730  ε_16=0.6866  ε_17=0.7712  ε_18=0.8730  ε_19=0.9660  ε_20=1.0043  ε_21=1.0379  ε_22=1.0408  ε_23=1.1190  ε_24=1.2172  ε_25=1.3190  ε_26=1.4120  ε_27=1.4839  ε_28=1.5003  ε_29=1.5371  ε_30=1.6150  ε_31=1.7135  ε_32=1.8151  ε_33=1.9083  ε_34=1.9798  ε_35=1.9954  ε_36=2.0319  ε_37=2.1102  ε_38=2.2083  ε_39=2.3102
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 4.225e-16
+  Step D: lag reset (max|Δφ|/kT=1.239e-02 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 1.906e-15  ID_wC = -1.2105e-20 A
+  Step D: BTE done.
+  ── Iter 38 summary: max|Δφ|/kT = 1.2390e-02  |ΔID|/ID = 1.2103e+00  ID = -3.4835e-22 A  (continuing)
+
+  ── Gummel iter 39 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4481e+01
+     1     3.8728e-02  6.7678e-14  converged
+  DIIS m=8  ||R_avg||=6.184e-03  c:[-1.075, 1.555]
+  Gummel 39: max|Δφ|/kT = 3.4589e-03  best=2.1751e-03  (continuing)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0060 eV  ε_0(source) = -0.7875 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0050  ε_1=0.0411  ε_2=0.1191  ε_3=0.2070  ε_4=0.2173  ε_5=0.2435  ε_6=0.3195  ε_7=0.3217  ε_8=0.4128  ε_9=0.4199  ε_10=0.4848  ε_11=0.5218  ε_12=0.5584  ε_13=0.5948  ε_14=0.6148  ε_15=0.6731  ε_16=0.6867  ε_17=0.7713  ε_18=0.8731  ε_19=0.9661  ε_20=1.0043  ε_21=1.0380  ε_22=1.0409  ε_23=1.1191  ε_24=1.2173  ε_25=1.3191  ε_26=1.4121  ε_27=1.4840  ε_28=1.5004  ε_29=1.5372  ε_30=1.6151  ε_31=1.7136  ε_32=1.8152  ε_33=1.9084  ε_34=1.9799  ε_35=1.9955  ε_36=2.0320  ε_37=2.1103  ε_38=2.2084  ε_39=2.3103
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 1.006e-15
+  Step D: lag reset (max|Δφ|/kT=3.459e-03 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 2.533e-15  ID_wC = -1.8832e-20 A
+  Step D: BTE done.
+  ── Iter 39 summary: max|Δφ|/kT = 3.4589e-03  |ΔID|/ID = 2.9458e+01  ID = -1.0610e-20 A  (continuing)
+
+  ── Gummel iter 40 ──────────────────────────────────────────
+  Step A: computing n_inv from MSBTE fe (above+sub-barrier) ...
+  Cq_3D: channel max = 1.206e+00 nm-3/V
+  Step B: mapping n_inv -> n_msbte_3D via |psi_n|^2 ...
+  Step C: PE Newton with n_msbte frozen + Cq Jacobian ...
+
+  [Gummel PE QC]  N=3146  tol=1e-08
+  Iter   ||R||/||R0||     dphi/kT
+     0     1.0000e+00  1.4481e+01
+     1     3.8744e-02  7.0305e-14  converged
+  DIIS m=8  ||R_avg||=5.972e-03  c:[-1.078, 1.550]
+  Gummel 40: max|Δφ|/kT = 4.1399e-04  best=4.1399e-04  (CONV)
+  Step D: re-extracting phi slices ...
+  Step D: SE — solving 22 x-slices (n_sub=40) ...
+  Step D: SE done.  ε_0(channel) = -0.0059 eV  ε_0(source) = -0.7875 eV
+  Step D: mode coupling C_nm ...
+  Step D: max|C|*dx_avg = 1.234
+  Step D: barriers:  ε_0=0.0050  ε_1=0.0411  ε_2=0.1191  ε_3=0.2070  ε_4=0.2173  ε_5=0.2435  ε_6=0.3194  ε_7=0.3217  ε_8=0.4128  ε_9=0.4199  ε_10=0.4848  ε_11=0.5218  ε_12=0.5584  ε_13=0.5948  ε_14=0.6148  ε_15=0.6731  ε_16=0.6867  ε_17=0.7713  ε_18=0.8731  ε_19=0.9661  ε_20=1.0043  ε_21=1.0380  ε_22=1.0409  ε_23=1.1191  ε_24=1.2173  ε_25=1.3191  ε_26=1.4121  ε_27=1.4840  ε_28=1.5004  ε_29=1.5372  ε_30=1.6151  ε_31=1.7136  ε_32=1.8152  ε_33=1.9084  ε_34=1.9799  ε_35=1.9955  ε_36=2.0320  ε_37=2.1102  ε_38=2.2084  ε_39=2.3103
+  Step D: BTE no-C (fefo2) ...
+  Step D: BTE (no C) J*A dev = 5.664e-16
+  Step D: lag reset (max|Δφ|/kT=4.140e-04 > tol=0.000e+00)
+  Step D: BTE with-C (fefo2) ...
+  Step D: BTE (with C) J*A dev = 1.229e-15  ID_wC = -1.4457e-20 A
+  Step D: BTE done.
+  ── Iter 40 summary: max|Δφ|/kT = 4.1399e-04  |ΔID|/ID = 6.4720e-01  ID = -3.7433e-21 A  (CONV)
+  Gummel converged.
+
+════ END GUMMEL LOOP (final J·A no-C dev = 5.664e-16) ══════════
+  Convergence history saved → gummel_conv.csv
+  n_inv history saved → ninv_history.csv
+
+════ MSBTE DIAGNOSTICS ════════════════════════════════════════
+  Mode coupling max|C|*dx_avg = 1.234  (>1: 1st-order approx. invalid)
+  J*A (with C): dev = 1.229e-15  (PASS)
+  J*A (no C, primary): dev = 5.664e-16  (PASS)
+  T(H) avg over 199 above-barrier points: 1.0000
+
+  x[nm]    J*A(noC)  n_1D[nm-1]   v_d[m/s]    eps_0[eV]
+  --------------------------------------------------------------------
+  -15.00  2.274e-13   1.122e+02      0.0000    -0.7875
+  -12.00  -5.197e-13   9.462e+01     -0.0000    -0.6282
+  -10.00  -1.713e-13   4.809e+01     -0.0000    -0.4259
+   -8.00  -8.029e-13   4.998e+00     -0.0000    -0.1383
+   -5.00  1.363e-14   1.631e+00      0.0000    -0.0291
+   -1.00  8.931e-15   1.764e+00      0.0000     0.0050
+    3.00  -7.780e-14   1.477e+00     -0.0000    -0.0153
+    7.00  6.232e-13   2.537e+00      0.0000    -0.0771
+    9.00  4.557e-13   1.505e+01      0.0000    -0.2207
+   11.00  1.256e-12   8.205e+01      0.0000    -0.6297
+   13.50  -1.802e-13   1.056e+02     -0.0000    -0.6835
+
+  Profile CSV: msbte_profile_r4.5.csv
+  Subband CSV: msbte_subband_energies.csv
+  3D density CSV: msbte_density_3d_r4.5.csv  (2178 Si nodes)
+  Transmission CSV: msbte_transmission.csv
+  fe CSV: msbte_fe.csv  (mode 0, all x)
+  Z CSV: msbte_z.csv  (mode 0, all x)
+
+════ SUMMARY ══════════════════════════════════════════════════
+  DD  ID         = 1.5019e-26 A  = 0.0000 uA
+  J*A no-C dev   = 5.664e-16  (PASS)
+  J*A with-C dev = 1.229e-15  (PASS)
+  T_avg (no C)   = 1.0000  (over 199 above-barrier H)
+  max|C|*dx_avg  = 1.234  (1st-order BTE valid if <<1)
+════════════════════════════════════════════════════════════════
+  IdVg row: VGS=0.5000  ID_DD=1.5019e-26 A  ID_MSBTE(noC)=-3.7433e-21 A  ID_MSBTE(withC)=-1.4457e-20 A
+
+════ ID-VG SWEEP DONE → msbte_idvg.csv ════════════════════════

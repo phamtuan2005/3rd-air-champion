@@ -295,7 +295,7 @@ const CalendarGrid = ({
         const info = reservedMap.get(dateKey)?.get(room.id);
         const prevInfo = reservedMap.get(prevDayKey)?.get(room.id);
         const makeBooking = (src: { guestName: string; startDate: string; duration: number }): bookingType => {
-          const start = toZonedTime(src.startDate, timeZone);
+          const start = parseISO(src.startDate);
           const end = addDays(start, src.duration - 1);
           return {
             id: `reserved-${room.id}-${src.startDate}`,

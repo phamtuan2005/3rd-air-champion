@@ -17,7 +17,9 @@ router.post("/set", async (req: Request, res: any) => {
   });
 
   try {
-    let entry = await WishList.findOne({ host, guestPhone });
+    const setDigits = guestPhone.replace(/\D/g, "");
+    const setPhoneRegex = new RegExp(setDigits.split("").join("\\D*"));
+    let entry = await WishList.findOne({ host, guestPhone: { $regex: setPhoneRegex } });
     if (!entry) {
       entry = await WishList.create({ host, guestPhone, guestName, dates: targetDates });
     } else {

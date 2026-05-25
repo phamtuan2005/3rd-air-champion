@@ -14,6 +14,7 @@ import {
 } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { buildDateRange } from "../../util/dateRange";
+import BookingRequest from "../../model/bookingRequestSchema";
 
 export const dayResolvers = {
   Date: GraphQLDate,
@@ -174,6 +175,15 @@ export const dayResolvers = {
 
       const cal = await Calendar.findById(calendar);
       if (!cal) throw new Error("Calendar not found");
+
+      // Also block rooms that are reserved by another guest for overlapping dates
+      const reservedReqs = await BookingRequest.find({ host: cal.host, status: "reserved" });
+      for (const req of reservedReqs) {
+        const reqEnd = addDays(req.date, req.duration - 1);
+        if (req.date <= dates[dates.length - 1] && reqEnd >= dates[0]) {
+          unavailableRoomIds.add(req.room.toString());
+        }
+      }
 
       return await Room.find({
         host: cal.host,
@@ -387,6 +397,19 @@ export const dayResolvers = {
           format(toZonedTime(day.date, timeZone), "yyyy-MM-dd")
         );
         throw new Error(`The following dates are unavailable: ${conflictingDates.join(", ")}`);
+      }
+
+      // Reject if room is reserved for another guest on overlapping dates
+      const calCheck = await Calendar.findById(calendar);
+      if (calCheck) {
+        const reservedConflicts = await BookingRequest.find({ host: calCheck.host, room, status: "reserved" });
+        for (const req of reservedConflicts) {
+          const reqEnd = addDays(req.date, req.duration - 1);
+          if (req.date <= dates[dates.length - 1] && reqEnd >= dates[0]) {
+            const ds = format(toZonedTime(req.date, timeZone), "yyyy-MM-dd");
+            throw new Error(`Room is reserved for ${req.guestName} starting ${ds}. Release the reservation first.`);
+          }
+        }
       }
 
       const currentRoom = await Room.findById(room);

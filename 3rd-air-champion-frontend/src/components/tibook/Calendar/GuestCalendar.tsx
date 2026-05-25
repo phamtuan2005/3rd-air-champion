@@ -12,6 +12,7 @@ interface GuestCalendarProps {
   selectedRoomIds: Set<string> | null;
   cartDates: Map<string, string | null>;
   wishListDates?: Set<string>;
+  newWishListDates?: Set<string>;
   myBookingDates?: Set<string>;
   reservedMap?: Map<string, Set<string>>;
   scrollToTodayTrigger?: number;
@@ -52,6 +53,7 @@ const GuestCalendar = ({
   selectedRoomIds,
   cartDates,
   wishListDates,
+  newWishListDates,
   myBookingDates,
   reservedMap,
   scrollToTodayTrigger = 0,
@@ -164,11 +166,13 @@ const GuestCalendar = ({
     const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
     const inCart = cartDates.has(dateKey);
     const isWishlisted = wishListDates?.has(dateKey) ?? false;
+    const isNewWishList = newWishListDates?.has(dateKey) ?? false;
     const isMyBooking = myBookingDates?.has(dateKey) ?? false;
 
     const numberClass = [
       "text-sm sm:text-xl leading-none select-none",
       inCart ? "font-bold text-white" :
+      isWishlisted ? "text-gray-500 line-through" :
       (status === "available" || status === "partial") ? `font-bold ${theme.textPrimary}` :
       status === "past"      ? "text-gray-300" :
                                "text-gray-300 line-through",
@@ -180,7 +184,7 @@ const GuestCalendar = ({
       isOutside ? "opacity-20 pointer-events-none" : "",
       inCart ? "cursor-pointer" :
       canBook ? `cursor-pointer ${theme.tileHover} ${theme.tileActive} transition-colors` :
-      canWishList ? "cursor-pointer hover:bg-amber-50 transition-colors" : "cursor-default",
+      canWishList ? "cursor-pointer hover:bg-gray-100 transition-colors" : "cursor-default",
     ].join(" ");
 
     return (
@@ -197,6 +201,9 @@ const GuestCalendar = ({
       >
         {inCart && (
           <div className={`absolute inset-1 rounded-lg ${theme.btn} pointer-events-none`} />
+        )}
+        {isNewWishList && !inCart && (
+          <div className="absolute inset-1 rounded-lg bg-gray-200 pointer-events-none" />
         )}
         <span className={`${numberClass} relative z-10`}>{date.getDate()}</span>
         {!simplified && !inCart && (status === "available" || status === "partial") && roomsLeft > 0 && (

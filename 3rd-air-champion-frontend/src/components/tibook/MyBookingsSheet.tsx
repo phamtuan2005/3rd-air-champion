@@ -1,9 +1,10 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { roomType } from "../../util/types/roomType";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import { fetchBookingRequestsByGuest, fetchCalendarBookingsByGuest } from "../../util/bookingRequestOperations";
 import { fetchGuestByPhone } from "../../util/guestOperations";
+import { toggleWishListDate } from "../../util/wishListOperations";
 import RoomBadge from "../shared/RoomBadge";
 import GuestLoyaltyBanner from "./GuestLoyaltyBanner";
 
@@ -23,6 +24,7 @@ interface MyBookingsSheetProps {
   calendarId: string;
   doorCode?: string;
   initialPhone: string;
+  initialName?: string;
   rooms: roomType[];
   wishListDates?: Set<string>;
   onToggleWishDate?: (date: string) => void;
@@ -77,7 +79,7 @@ const statusLabel: Record<string, { label: string; color: string }> = {
   reserved:  { label: "Reserved",  color: "text-amber-700 bg-amber-100 border-amber-300" },
 };
 
-const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, rooms, wishListDates, onToggleWishDate, onClose, onPhoneConfirmed }: MyBookingsSheetProps) => {
+const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialName, rooms, wishListDates, onToggleWishDate, onClose, onPhoneConfirmed }: MyBookingsSheetProps) => {
   const { theme } = useTiBookTheme();
   const activeRooms = rooms.filter((r) => r.active);
   const roomMap = new Map(rooms.map((r) => [r.id, r]));
@@ -88,7 +90,21 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, rooms, wi
   const [guestPricing, setGuestPricing] = useState<Map<string, number>>(new Map());
   const [error, setError] = useState("");
   const [wishListOpen, setWishListOpen] = useState(false);
+  const [pendingRemove, setPendingRemove] = useState<string | null>(null);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState("");
+  const [resolvedName, setResolvedName] = useState(initialName ?? "");
   const sortedWishDates = wishListDates ? [...wishListDates].sort() : [];
+
+  useEffect(() => {
+    if (resolvedName || !phone || !hostId) return;
+    fetchGuestByPhone(phone.trim(), hostId).then((guest) => {
+      if (guest?.name) setResolvedName(guest.name);
+    }).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const guestNameForToggle =
+    (bookings && bookings.length > 0 ? bookings[0].guestName : null) ?? resolvedName;
 
   const [sheetHeight, setSheetHeight] = useState(() => Math.round(window.innerHeight * 0.62));
   const [isDragging, setIsDragging] = useState(false);
@@ -329,22 +345,67 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, rooms, wi
               </button>
               {wishListOpen && (
                 <div className="flex flex-col gap-1.5 pb-2 pt-1">
-                  {sortedWishDates.map((d) => (
-                    <div key={d} className={`flex items-center justify-between px-3 py-2 rounded-xl border ${theme.tagBg} ${theme.tagBorder}`}>
-                      <span className={`text-sm font-semibold ${theme.textPrimaryDark}`}>
-                        {format(parseISO(d), "EEE, MMM d yyyy")}
-                      </span>
-                      {onToggleWishDate && (
-                        <button
-                          type="button"
-                          onClick={() => onToggleWishDate(d)}
-                          className="text-xs text-gray-400 hover:text-red-500 transition-colors ml-2"
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                  {sortedWishDates.map((d) => {
+                    const isPending = pendingRemove === d;
+                    return isPending ? (
+                      <div key={d} className="flex flex-col gap-1 px-3 py-2 rounded-xl border bg-red-50 border-red-200">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-red-600 font-medium">
+                            Remove {format(parseISO(d), "MMM d")}?
+                          </span>
+                          <div className="flex items-center gap-2 ml-2">
+                            <button
+                              type="button"
+                              disabled={removing}
+                              onClick={async () => {
+                                if (!guestNameForToggle) {
+                                  setRemoveError("Please search your bookings first so we can verify your identity.");
+                                  return;
+                                }
+                                setRemoveError("");
+                                setRemoving(true);
+                                try {
+                                  await toggleWishListDate({ host: hostId, guestPhone: phone.trim(), guestName: guestNameForToggle, date: d });
+                                  onToggleWishDate?.(d);
+                                  setPendingRemove(null);
+                                } catch {
+                                  setRemoveError("Something went wrong. Please try again.");
+                                } finally {
+                                  setRemoving(false);
+                                }
+                              }}
+                              className="text-xs font-semibold text-red-600 hover:text-red-800 disabled:opacity-50"
+                            >
+                              {removing ? "…" : "Yes, remove"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setPendingRemove(null); setRemoveError(""); }}
+                              className="text-xs text-gray-400 hover:text-gray-600"
+                            >
+                              Keep
+                            </button>
+                          </div>
+                        </div>
+                        {removeError && <p className="text-[11px] text-red-500">{removeError}</p>}
+                      </div>
+                    ) : (
+                      <div key={d} className={`flex items-center justify-between px-3 py-2 rounded-xl border ${theme.tagBg} ${theme.tagBorder}`}>
+                        <span className={`text-sm font-semibold ${theme.textPrimaryDark}`}>
+                          {format(parseISO(d), "EEE, MMM d yyyy")}
+                        </span>
+                        {onToggleWishDate && (
+                          <button
+                            type="button"
+                            onClick={() => setPendingRemove(d)}
+                            className="text-xs text-gray-400 hover:text-red-500 transition-colors ml-2"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

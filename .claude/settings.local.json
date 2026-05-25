@@ -7,7 +7,12 @@
       "Bash(python validate_pourghaderi.py)",
       "Bash(sed -i 's/phi_ms=0\\\\.0/WF=4.05/' /c/Users/TT-House/projects/quantum-transport-paper/code/test_density_gradient.py)",
       "Bash(sed -i 's/phi_ms=0\\\\.0/WF=4.05/' /c/Users/TT-House/projects/quantum-transport-paper/code/plot_dg_results.py)",
-      "Bash(python test_vgs0.py)"
+      "Bash(python test_vgs0.py)",
+      "Bash(export PATH=\"/c/msys64/mingw64/bin:$PATH\")",
+      "Bash(echo 'int main\\(\\){return 0;}')",
+      "Bash(g++ -c /tmp/t.cpp -o /tmp/t.o)",
+      "Bash(g++ -I/c/Users/TT-House/projects/quantum-transport-paper/cpp/include -isystem /c/Users/TT-House/projects/quantum-transport-paper/cpp/eigen-3.4.0 -std=c++17 -O2 -c /c/Users/TT-House/projects/quantum-transport-paper/cpp/src/density_gradient_bim.cpp -o /tmp/dg.o)",
+      "Bash(echo \"Exit: $?\")"
     ]
   }
 }

@@ -24,6 +24,7 @@ interface BookingRequestModalProps {
   selectedRoomIds: Set<string> | null;
   cartDates: Map<string, string | null>;
   wishListDates?: Set<string>;
+  allWishListDates?: Set<string>;
   savedPhone?: string;
   savedName?: string;
   onClose: () => void;
@@ -111,6 +112,7 @@ const BookingRequestModal = ({
   selectedRoomIds,
   cartDates,
   wishListDates,
+  allWishListDates,
   savedPhone = "",
   savedName = "",
   onClose,
@@ -342,12 +344,15 @@ const BookingRequestModal = ({
       }
 
       if (hasWishList) {
+        // Merge persisted wish list dates with the new ones from this session so
+        // submitting new dates never erases previously saved dates.
+        const submissionDates = [...new Set([...(allWishListDates ?? []), ...localWishList])].sort();
         requests.push(
           setGuestWishList({
             host: hostId,
             guestPhone: data.guestPhone,
             guestName: data.guestName,
-            dates: sortedWishListDates,
+            dates: submissionDates,
           }).then((result) => {
             onWishListSent?.(data.guestPhone, data.guestName, result.dates);
           })

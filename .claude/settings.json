@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(\"C:/msys64/usr/bin/bash.exe\" \"/c/Users/TT-House/projects/quantum-transport-paper/results/make_package.sh\")",
+      "Bash(C:/msys64/usr/bin/bash.exe -lc 'find /tmp -name '\\\\''src_enc*'\\\\'' 2>/dev/null; find /c/msys64/tmp -name '\\\\''src_enc*'\\\\'' 2>/dev/null; echo TMPDIR=__TRACKED_VAR__; readlink -f /tmp')",
+      "Bash(pdflatex -interaction=nonstopmode fefo2_motivation_derivation.tex)",
+      "Bash(python -c ' *)",
+      "PowerShell(\\(Get-Content \"c:\\\\Users\\\\TT-House\\\\projects\\\\3rd-air-champion\\\\3rd-air-champion-frontend\\\\src\\\\components\\\\tibook\\\\NavBarDesktop.tsx\"\\)[37] | Format-Hex | Select-Object -First 3)"
+    ]
+  }
+}

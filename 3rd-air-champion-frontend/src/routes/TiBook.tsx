@@ -261,6 +261,7 @@ const TiBookInner = () => {
             selectedRoomIds={selectedRoomIds}
             cartDates={cartDates}
             wishListDates={wishListDates}
+            newWishListDates={newWishListDates}
             myBookingDates={myBookingDates}
             reservedMap={reservedMap}
             scrollToTodayTrigger={scrollToTodayTrigger}
@@ -296,6 +297,7 @@ const TiBookInner = () => {
           calendarId={currentHost.calendar}
           doorCode={currentHost.doorCode}
           initialPhone={guestPhone}
+          initialName={guestName}
           rooms={rooms}
           wishListDates={wishListDates}
           onToggleWishDate={(date) => setWishListDates((prev) => { const next = new Set(prev); if (next.has(date)) next.delete(date); else next.add(date); return next; })}
@@ -315,6 +317,7 @@ const TiBookInner = () => {
           selectedRoomIds={selectedRoomIds}
           cartDates={cartDates}
           wishListDates={newWishListDates}
+          allWishListDates={wishListDates}
           savedPhone={guestPhone}
           savedName={guestName}
           onClose={() => setIsBookingModalOpen(false)}
