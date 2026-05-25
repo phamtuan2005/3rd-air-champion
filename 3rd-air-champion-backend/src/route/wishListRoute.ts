@@ -43,7 +43,9 @@ router.post("/toggle", async (req: Request, res: any) => {
   targetDate.setUTCHours(0, 0, 0, 0);
 
   try {
-    let entry = await WishList.findOne({ host, guestPhone });
+    const digits = guestPhone.replace(/\D/g, "");
+    const phoneRegex = new RegExp(digits.split("").join("\\D*"));
+    let entry = await WishList.findOne({ host, guestPhone: { $regex: phoneRegex } });
 
     if (!entry) {
       entry = await WishList.create({ host, guestPhone, guestName, dates: [targetDate] });
