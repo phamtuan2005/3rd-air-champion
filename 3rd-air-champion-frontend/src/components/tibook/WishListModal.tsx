@@ -32,7 +32,7 @@ const WishListModal = ({
   const [error, setError] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const needsIdentity = !savedPhone;
+  const needsIdentity = !savedPhone || !savedName;
   const formattedDate = format(parseISO(date), "EEE, MMM d yyyy");
 
   useEffect(() => {

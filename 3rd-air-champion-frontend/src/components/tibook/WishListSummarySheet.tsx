@@ -37,7 +37,7 @@ const WishListSummarySheet = ({
   const [error, setError] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const needsIdentity = !guestPhone;
+  const needsIdentity = !guestPhone || !guestName;
 
   const handlePhoneChange = (val: string) => {
     setPhone(val);
