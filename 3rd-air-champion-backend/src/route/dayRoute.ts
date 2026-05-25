@@ -56,6 +56,7 @@ router.get("/get", async (req: Request, res: any) => {
               numberOfGuests
               startDate
               endDate
+              reserved
             }
           }
         }`;
@@ -177,6 +178,7 @@ router.post("/get/host", async (req: Request, res: any) => {
               numberOfGuests
               startDate
               endDate
+              reserved
               airbnbBlocked
             }
           }
@@ -436,6 +438,7 @@ router.post("/block/room", async (req: Request, res: any) => {
           numberOfGuests
           startDate
           endDate
+          reserved
         }
       }
     }`;
@@ -499,6 +502,7 @@ router.post("/unblock/room", async (req: Request, res: any) => {
           numberOfGuests
           startDate
           endDate
+          reserved
         }
       }
     }`;
@@ -607,6 +611,7 @@ router.post("/book/range", async (req: Request, res: any) => {
               numberOfGuests
               startDate
               endDate
+              reserved
             }
           }
         }`;
@@ -702,6 +707,7 @@ router.post("/update/booking/guest", async (req: Request, res: any) => {
               numberOfGuests
               startDate
               endDate
+              reserved
             }
           }
         }`;
@@ -775,6 +781,7 @@ router.post("/update/booking/airbnb-price", async (req: Request, res: any) => {
               numberOfGuests
               startDate
               endDate
+              reserved
             }
           }
         }`;
@@ -846,6 +853,7 @@ router.post("/update/unbook/guest", async (req: Request, res: any) => {
               numberOfGuests
               startDate
               endDate
+              reserved
             }
           }
         }`;
@@ -920,6 +928,7 @@ router.post("/update/booking/airbnb-blocked", async (req: Request, res: any) => 
               numberOfGuests
               startDate
               endDate
+              reserved
             }
           }
         }`;
