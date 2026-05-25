@@ -3,6 +3,7 @@ import { useForm, SubmitHandler } from "react-hook-form";
 import { roomType } from "../../util/types/roomType";
 import { dayType } from "../../util/types/dayType";
 import { createBookingRequest, fetchBookingRequestsByGuest, fetchCalendarBookingsByGuest } from "../../util/bookingRequestOperations";
+import { setGuestWishList } from "../../util/wishListOperations";
 import { getAvailableRooms } from "../../util/bookingOperations";
 import { fetchGuestByPhone } from "../../util/guestOperations";
 import { format, parseISO } from "date-fns";
@@ -22,8 +23,12 @@ interface BookingRequestModalProps {
   selectedDate: Date | null;
   selectedRoomIds: Set<string> | null;
   cartDates: Map<string, string | null>;
+  wishListDates?: Set<string>;
+  savedPhone?: string;
+  savedName?: string;
   onClose: () => void;
   onSuccess: () => void;
+  onWishListSent?: (phone: string, name: string, newDates: string[]) => void;
 }
 
 interface FormData {
@@ -103,8 +108,12 @@ const BookingRequestModal = ({
   selectedDate,
   selectedRoomIds,
   cartDates,
+  wishListDates,
+  savedPhone = "",
+  savedName = "",
   onClose,
   onSuccess,
+  onWishListSent,
 }: BookingRequestModalProps) => {
   const { theme } = useTiBookTheme();
   const [step, setStep] = useState<1 | 2>(1);
@@ -169,8 +178,8 @@ const BookingRequestModal = ({
     formState: { errors },
   } = useForm<FormData>({
     defaultValues: {
-      guestName: "",
-      guestPhone: "",
+      guestName: savedName,
+      guestPhone: savedPhone,
       date: defaultDate,
       room: activeRooms.find((r) => selectedRoomIds?.has(r.id))?.id ?? activeRooms[0]?.id ?? "",
       duration: 0,
@@ -253,8 +262,11 @@ const BookingRequestModal = ({
     return guestPricing.find((p) => p.room === roomId)?.price ?? null;
   };
 
+  const sortedWishListDates = wishListDates ? [...wishListDates].sort() : [];
+  const hasWishList = sortedWishListDates.length > 0;
+
   const handleNextStep = () => {
-    if (cartDates.size === 0 && !notes.trim()) {
+    if (cartDates.size === 0 && !notes.trim() && !hasWishList) {
       setDatesError("Please pick dates on the calendar or write your dates below.");
       return;
     }
@@ -269,30 +281,30 @@ const BookingRequestModal = ({
     setSubmitError(false);
 
     try {
+      const requests: Promise<unknown>[] = [];
+
       if (cartDates.size > 0) {
-        await Promise.all(
-          cartGroups.flatMap((group) => {
-            const roomId = group.roomId ?? data.room;
-            return group.ranges.map((range) => {
-              const notesText = [
-                "Dates from calendar: " + formatRangeLabel(range),
-                notes.trim(),
-              ].filter(Boolean).join("\n");
-              return createBookingRequest({
-                host: hostId,
-                guestName: data.guestName,
-                guestPhone: data.guestPhone,
-                date: range.start,
-                room: roomId,
-                duration: range.nights,
-                numberOfGuests: data.numberOfGuests,
-                notes: notesText,
-              });
-            });
-          })
-        );
-      } else {
-        await createBookingRequest({
+        cartGroups.forEach((group) => {
+          const roomId = group.roomId ?? data.room;
+          group.ranges.forEach((range) => {
+            const notesText = [
+              "Dates from calendar: " + formatRangeLabel(range),
+              notes.trim(),
+            ].filter(Boolean).join("\n");
+            requests.push(createBookingRequest({
+              host: hostId,
+              guestName: data.guestName,
+              guestPhone: data.guestPhone,
+              date: range.start,
+              room: roomId,
+              duration: range.nights,
+              numberOfGuests: data.numberOfGuests,
+              notes: notesText,
+            }));
+          });
+        });
+      } else if (notes.trim()) {
+        requests.push(createBookingRequest({
           host: hostId,
           guestName: data.guestName,
           guestPhone: data.guestPhone,
@@ -301,8 +313,23 @@ const BookingRequestModal = ({
           duration: data.duration,
           numberOfGuests: data.numberOfGuests,
           notes: notes.trim(),
-        });
+        }));
       }
+
+      if (hasWishList) {
+        requests.push(
+          setGuestWishList({
+            host: hostId,
+            guestPhone: data.guestPhone,
+            guestName: data.guestName,
+            dates: sortedWishListDates,
+          }).then((result) => {
+            onWishListSent?.(data.guestPhone, data.guestName, result.dates);
+          })
+        );
+      }
+
+      await Promise.all(requests);
       setSubmitted(true);
     } catch {
       setSubmitError(true);
@@ -370,7 +397,10 @@ const BookingRequestModal = ({
             </div>
             <p className="text-center font-semibold text-gray-800 text-lg">Request sent!</p>
             <p className="text-center text-sm text-gray-500 leading-relaxed">
-              We'll be in touch shortly to confirm your stay. Can't wait to host you!
+              {cartDates.size > 0
+                ? "We'll be in touch shortly to confirm your stay. Can't wait to host you!"
+                : "We'll let you know as soon as those dates open up!"}
+              {hasWishList && cartDates.size > 0 && " We'll also notify you if your wish list dates become available."}
             </p>
             <button
               type="button"
@@ -435,6 +465,24 @@ const BookingRequestModal = ({
                   </button>
                 )}
               </div>
+
+              {/* Wish list dates */}
+              {hasWishList && (
+                <div>
+                  <p className="text-sm font-medium mb-2">Sold-out dates (wish list)</p>
+                  <div className="flex flex-col gap-1.5">
+                    {sortedWishListDates.map((d) => (
+                      <div key={d} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200">
+                        <span className="text-amber-500 text-sm">★</span>
+                        <span className="text-sm text-gray-700 font-medium">
+                          {format(new Date(d + "T12:00:00"), "EEE, MMM d yyyy")}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1.5">We'll notify you if these open up.</p>
+                </div>
+              )}
 
               {/* Divider */}
               <div className="flex items-center gap-2">

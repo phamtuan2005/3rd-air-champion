@@ -338,10 +338,8 @@ const TiBookInner = () => {
             localStorage.setItem("tiBookGuestName", name);
             setGuestPhone(phone);
             setGuestName(name);
-            const wasWishlisted = wishListDates.has(wishListModalDate!);
             setWishListDates(new Set(newDates));
             setWishListModalDate(null);
-            if (!wasWishlisted) setWishListSummaryOpen(true);
           }}
         />
       )}
@@ -356,8 +354,18 @@ const TiBookInner = () => {
           selectedDate={selectedDate}
           selectedRoomIds={selectedRoomIds}
           cartDates={cartDates}
+          wishListDates={wishListDates}
+          savedPhone={guestPhone}
+          savedName={guestName}
           onClose={() => setIsBookingModalOpen(false)}
           onSuccess={() => setCartDates(new Map())}
+          onWishListSent={(phone, name, newDates) => {
+            localStorage.setItem("tiBookGuestPhone", phone);
+            localStorage.setItem("tiBookGuestName", name);
+            setGuestPhone(phone);
+            setGuestName(name);
+            setWishListDates(new Set(newDates));
+          }}
         />
       )}
     </div>
