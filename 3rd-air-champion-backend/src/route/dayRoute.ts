@@ -559,7 +559,7 @@ router.post("/book/range", async (req: Request, res: any) => {
   if (!("user" in req))
     return res.status(401).json({ error: "Invalid or expired token" });
 
-  const { calendar, date, guest, isAirBnB, numberOfGuests, room, duration } =
+  const { calendar, date, guest, isAirBnB, numberOfGuests, room, duration, reserved } =
     req.body;
 
   const query = `
@@ -624,6 +624,7 @@ router.post("/book/range", async (req: Request, res: any) => {
     numberOfGuests,
     room,
     duration,
+    reserved: reserved ?? false,
   })
     .then((result: any) => {
       if (result.errors) {
