@@ -141,7 +141,7 @@ export const dayResolvers = {
             room: roomId,
             duration: booking.duration ?? 1,
             numberOfGuests: booking.numberOfGuests ?? 1,
-            status: "confirmed",
+            status: booking.reserved ? "reserved" : "confirmed",
             createdAt: (day as any).createdAt?.toISOString() ?? startDate.toISOString(),
           });
         }
