@@ -137,6 +137,7 @@ const BookingRequestModal = ({
   const [notes, setNotes] = useState("");
   const [datesError, setDatesError] = useState("");
   const [roomDropdownOpen, setRoomDropdownOpen] = useState(false);
+  const [localWishList, setLocalWishList] = useState<Set<string>>(wishListDates ?? new Set());
 
   const cartGroups = useMemo(() => buildCartGroups(cartDates, rooms), [cartDates, rooms]);
   const hasAnyRoomGroup = cartGroups.some((g) => g.roomId === null);
@@ -262,7 +263,7 @@ const BookingRequestModal = ({
     return guestPricing.find((p) => p.room === roomId)?.price ?? null;
   };
 
-  const sortedWishListDates = wishListDates ? [...wishListDates].sort() : [];
+  const sortedWishListDates = [...localWishList].sort();
   const hasWishList = sortedWishListDates.length > 0;
 
   const handleNextStep = () => {
@@ -474,9 +475,17 @@ const BookingRequestModal = ({
                     {sortedWishListDates.map((d) => (
                       <div key={d} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200">
                         <span className="text-amber-500 text-sm">★</span>
-                        <span className="text-sm text-gray-700 font-medium">
+                        <span className="flex-1 text-sm text-gray-700 font-medium">
                           {format(new Date(d + "T12:00:00"), "EEE, MMM d yyyy")}
                         </span>
+                        <button
+                          type="button"
+                          onClick={() => setLocalWishList((prev) => { const next = new Set(prev); next.delete(d); return next; })}
+                          className="text-gray-400 hover:text-red-400 transition-colors text-base leading-none px-1"
+                          aria-label="Remove"
+                        >
+                          ×
+                        </button>
                       </div>
                     ))}
                   </div>
