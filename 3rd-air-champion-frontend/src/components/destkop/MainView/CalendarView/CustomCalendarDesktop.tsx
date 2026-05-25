@@ -70,6 +70,7 @@ const CustomCalendar = ({
   useEffect(() => {
     if (currentGuest && !currentAirBnBGuest && useMonthMap.size > 0) {
       const filteredMap = new Map<string, dayType>();
+      const newPaidDates: Date[] = [];
       monthMap.forEach((dayEntry, date) => {
         const guestBookings = dayEntry.bookings.filter(
           (booking) => booking.guest.id == currentGuest,
@@ -83,11 +84,12 @@ const CustomCalendar = ({
           const localStartDate = toZonedTime(booking.startDate, timeZone);
           if (isSameDay(localDate, localStartDate) && isSameMonth(localDate, currentMonth)) {
             for (let i = 0; i < booking.duration; i += 1) {
-              paidDates.push(toZonedTime(addDays(localStartDate, i), timeZone));
+              newPaidDates.push(toZonedTime(addDays(localStartDate, i), timeZone));
             }
           }
         }
       });
+      setPaidDates(newPaidDates);
       setUseMonthMap(filteredMap);
     } else if (currentAirBnBGuest && useMonthMap.size > 0) {
       const filteredMap = new Map<string, dayType>();
