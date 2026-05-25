@@ -9,6 +9,7 @@ import { SubmitHandler, useForm, useFieldArray, Controller, useWatch } from "rea
 import { bookDaySchema, bookDaysZodObject } from "./zodBookDays";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { getAvailableRooms, postBooking } from "../../../util/bookingOperations";
+import { createBookingRequest, updateBookingRequestStatus } from "../../../util/bookingRequestOperations";
 import { dayType } from "../../../util/types/dayType";
 import { format, addDays } from "date-fns";
 import { ANY_ROOM_SENTINEL } from "./zodBookDays";
@@ -30,7 +31,9 @@ interface BookingModalProps {
   showAddPane: "guest" | "room" | null;
   prefill?: BookingPrefill | null;
   prefills?: BookingPrefill[];
+  hostId: string;
   onBooking: (bookedDays: dayType[]) => void;
+  onReserved?: () => void;
   setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setShowAddPane: React.Dispatch<React.SetStateAction<"guest" | "room" | null>>;
 }
@@ -44,6 +47,7 @@ type BookingResult = {
   status: "success" | "error";
   message?: string;
   booking?: FlatBooking;
+  reserved?: boolean;
 };
 
 const extractErrorMessage = (err: unknown): string => {
@@ -68,6 +72,7 @@ const humanizeError = (raw: string): string => {
 
 const BookingModal = ({
   calendarId,
+  hostId,
   guests,
   rooms,
   selectedDate,
@@ -76,6 +81,7 @@ const BookingModal = ({
   prefill,
   prefills,
   onBooking,
+  onReserved,
   setIsModalOpen,
   setShowAddPane,
 }: BookingModalProps) => {
@@ -83,6 +89,14 @@ const BookingModal = ({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bookingResults, setBookingResults] = useState<BookingResult[]>([]);
+  const [reservedRows, setReservedRows] = useState<Set<number>>(new Set());
+
+  const toggleReservedRow = (index: number) =>
+    setReservedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index); else next.add(index);
+      return next;
+    });
 
   const activePrefill = prefills && prefills.length > 0 ? prefills[0] : prefill;
   const defaultGuestId = activePrefill?.guestId ?? "";
@@ -201,26 +215,72 @@ const BookingModal = ({
     }
   };
 
+  const processReserved = async (
+    flat: FlatBooking,
+    guestName: string,
+    guestPhone: string,
+    numberOfGuests: number,
+  ): Promise<BookingResult> => {
+    const dateLabel = format(flat.date, "MMM d, yyyy");
+    const durationLabel = `${flat.duration} day${flat.duration > 1 ? "s" : ""}`;
+    let roomId = flat.room;
+    const flatRoom = rooms.find((r) => r.id === flat.room);
+    let roomLabel = flatRoom?.name ?? "---";
+    let roomColor = flatRoom?.color;
+    try {
+      if (roomId === ANY_ROOM_SENTINEL) {
+        const available = await getAvailableRooms(
+          { calendar: calendarId, date: format(flat.date, "yyyy-MM-dd'T'HH:mm:ss"), duration: flat.duration },
+          token as string,
+        );
+        if (available.length === 0) {
+          return { label: `${dateLabel} · ${durationLabel}`, roomName: roomLabel, status: "error", message: "No rooms available", reserved: true };
+        }
+        roomId = available[0].id; roomLabel = available[0].name; roomColor = available[0].color;
+      }
+      const created = await createBookingRequest({
+        host: hostId, guestName, guestPhone,
+        date: format(flat.date, "yyyy-MM-dd"),
+        room: roomId, duration: flat.duration, numberOfGuests,
+      });
+      await updateBookingRequestStatus(created.id, "reserved", token as string);
+      return { label: `${dateLabel} · ${durationLabel}`, roomName: roomLabel, roomColor, status: "success", reserved: true };
+    } catch (err) {
+      return { label: `${dateLabel} · ${durationLabel}`, roomName: roomLabel, roomColor, status: "error", message: humanizeError(extractErrorMessage(err)), reserved: true };
+    }
+  };
+
   const onSubmit: SubmitHandler<bookDaySchema> = async (data) => {
     setIsSubmitting(true);
     const results: BookingResult[] = [];
     const allBookedDays: dayType[] = [];
+    const guest = guests.find((g) => g.id === data.guest);
 
-    for (const booking of data.bookings) {
+    for (const [rowIndex, booking] of data.bookings.entries()) {
+      const isReserved = reservedRows.has(rowIndex);
       for (const room of booking.rooms) {
-        const { result, bookedDays } = await processBooking(
-          { room, date: booking.date, duration: booking.duration },
-          data.guest,
-          data.numberOfGuests
-        );
-        results.push(result);
-        allBookedDays.push(...bookedDays);
+        if (isReserved && guest) {
+          const result = await processReserved(
+            { room, date: booking.date, duration: booking.duration },
+            guest.name, guest.phone, data.numberOfGuests,
+          );
+          results.push(result);
+        } else {
+          const { result, bookedDays } = await processBooking(
+            { room, date: booking.date, duration: booking.duration },
+            data.guest,
+            data.numberOfGuests,
+          );
+          results.push(result);
+          allBookedDays.push(...bookedDays);
+        }
       }
     }
 
     setIsSubmitting(false);
     setBookingResults(results);
     if (allBookedDays.length > 0) onBooking(allBookedDays);
+    if (results.some((r) => r.reserved && r.status === "success")) onReserved?.();
   };
 
   const handleRetry = async () => {
@@ -355,6 +415,17 @@ const BookingModal = ({
                       )}
                     </div>
 
+                    {/* Reserve checkbox */}
+                    <label className="flex items-center gap-2 cursor-pointer select-none w-fit">
+                      <input
+                        type="checkbox"
+                        checked={reservedRows.has(index)}
+                        onChange={() => toggleReservedRow(index)}
+                        className="w-3.5 h-3.5 accent-amber-500 cursor-pointer"
+                      />
+                      <span className="text-xs font-medium text-amber-600">Reserve (soft hold)</span>
+                    </label>
+
                     {/* Date + Duration + delete */}
                     <div className="flex gap-3 items-start">
                       <div className="flex-1">
@@ -450,11 +521,12 @@ const BookingModal = ({
                     const rows = [];
 
                     if (succeeded.length > 0) {
+                      const isRes = succeeded[0].reserved;
                       rows.push(
                         <li key={`${label}-ok`} className="flex items-start gap-2 text-sm">
-                          <span className="text-green-500 font-bold mt-0.5">&#10003;</span>
+                          <span className={`font-bold mt-0.5 ${isRes ? "text-amber-500" : "text-green-500"}`}>&#10003;</span>
                           <span className="flex items-center gap-1 flex-wrap">
-                            {label} — Booked:
+                            {label} — {isRes ? "Reserved:" : "Booked:"}
                             {succeeded.map((r) => (
                               <RoomBadge key={r.roomName} room={{ name: r.roomName, color: r.roomColor }} />
                             ))}

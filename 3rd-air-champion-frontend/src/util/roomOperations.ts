@@ -23,11 +23,11 @@ export const fetchRooms = async (host: string, token: string) => {
 };
 
 export const updateRoom = async (
-  roomObject: { id: string; name: string; price: number; roomCode: string; color?: string; active: boolean; photos?: string[]; airbnbUrl?: string },
+  roomObject: { id: string; name: string; price: number; roomCode: string; color?: string; active: boolean; photos?: string[]; airbnbUrl?: string; checkInInstructions?: string },
   token: string
 ) => {
-  const { color, photos, airbnbUrl, ...rest } = roomObject;
-  const body = { ...rest, ...(color !== undefined && { color }), ...(photos !== undefined && { photos }), ...(airbnbUrl !== undefined && { airbnbUrl }) };
+  const { color, photos, airbnbUrl, checkInInstructions, ...rest } = roomObject;
+  const body = { ...rest, ...(color !== undefined && { color }), ...(photos !== undefined && { photos }), ...(airbnbUrl !== undefined && { airbnbUrl }), ...(checkInInstructions !== undefined && { checkInInstructions }) };
   return axios
     .put(
       `${BACKEND_ENDPOINT}/room/update`,

@@ -35,7 +35,7 @@ export interface BookingRequest {
   room: string;
   duration: number;
   numberOfGuests: number;
-  status: "pending" | "confirmed" | "cancelled" | "expired";
+  status: "pending" | "confirmed" | "cancelled" | "expired" | "reserved";
   notes?: string;
   createdAt: string;
   updatedAt: string;
@@ -271,9 +271,13 @@ const HistoryDetailSheet = ({
                       </span>
                     )}
                   </div>
-                  <p className="text-gray-500 text-xs">
-                    {req.duration} night{req.duration > 1 ? "s" : ""} · {req.numberOfGuests} guest{req.numberOfGuests > 1 ? "s" : ""}
-                  </p>
+                  {req.duration === 0 ? (
+                    <p className="text-amber-500 text-xs font-medium">0 nights — will move to wish list</p>
+                  ) : (
+                    <p className="text-gray-500 text-xs">
+                      {req.duration} night{req.duration > 1 ? "s" : ""} · {req.numberOfGuests} guest{req.numberOfGuests > 1 ? "s" : ""}
+                    </p>
+                  )}
                   {req.notes && <p className="text-gray-500 text-xs italic">{req.notes}</p>}
                 </div>
               );
@@ -678,22 +682,55 @@ const BookingRequestManagerModal = ({
   const getRoom = (roomId: string): roomType | undefined =>
     rooms.find((r) => r.id === roomId);
 
-  const handleAcceptGroup = (group: BookingRequest[]) => {
-    onAccept(
-      group.map((req) => {
-        const matched = matchGuest(req.guestPhone);
-        return {
-          requestId: req.id,
-          prefill: {
-            guestId: matched?.id ?? null,
-            roomId: req.room,
-            date: toZonedTime(req.date, timeZone),
-            duration: req.duration,
-            numberOfGuests: req.numberOfGuests,
-          },
-        };
-      }),
-    );
+  const handleAcceptGroup = async (group: BookingRequest[]) => {
+    const valid = group.filter((req) => req.duration > 0);
+    const zeroDuration = group.filter((req) => req.duration === 0);
+
+    // Zero-duration requests can't be booked — add their dates to the wish list instead
+    if (zeroDuration.length > 0) {
+      const byPhone = new Map<string, BookingRequest[]>();
+      for (const req of zeroDuration) {
+        const phone = normalizePhone(req.guestPhone);
+        if (!byPhone.has(phone)) byPhone.set(phone, []);
+        byPhone.get(phone)!.push(req);
+      }
+
+      await Promise.all(
+        Array.from(byPhone.entries()).map(async ([phone, reqs]) => {
+          const existing = wishListEntries.find((e) => normalizePhone(e.guestPhone) === phone);
+          const newDates = reqs.map((r) => r.date.slice(0, 10));
+          const mergedDates = existing
+            ? [...new Set([...existing.dates, ...newDates])].sort()
+            : newDates;
+          await setGuestWishList({ host: hostId, guestPhone: phone, guestName: reqs[0].guestName, dates: mergedDates }).catch(() => {});
+          reqs.forEach((req) => {
+            updateBookingRequestStatus(req.id, "cancelled", token)
+              .then(() => setRequests((prev) => prev.map((r) => r.id === req.id ? { ...r, status: "cancelled", updatedAt: String(Date.now()) } : r)))
+              .catch(() => {});
+          });
+        }),
+      );
+
+      getHostWishLists(hostId, token).then(setWishListEntries).catch(() => {});
+    }
+
+    if (valid.length > 0) {
+      onAccept(
+        valid.map((req) => {
+          const matched = matchGuest(req.guestPhone);
+          return {
+            requestId: req.id,
+            prefill: {
+              guestId: matched?.id ?? null,
+              roomId: req.room,
+              date: toZonedTime(req.date, timeZone),
+              duration: req.duration,
+              numberOfGuests: req.numberOfGuests,
+            },
+          };
+        }),
+      );
+    }
   };
 
   const handleDeleteGroup = (ids: string[]) => {
@@ -714,6 +751,48 @@ const BookingRequestManagerModal = ({
       updateBookingRequestStatus(id, "pending", token).catch(() => {}),
     );
     setSelectedHistoryGroup(null);
+  };
+
+  const handleRequestPayment = (group: BookingRequest[]) => {
+    const first = group[0];
+    const matched = matchGuest(first.guestPhone);
+    const displayName = matched?.name ?? first.guestName;
+    const { nights, revenue } = calcGroupStats(group, getRoom, matchGuest);
+
+    const lines = [...group]
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((req) => {
+        const room = getRoom(req.room);
+        const date = formatLocal(parseBookingDate(req.date), "EEE, MMM d");
+        return `  - ${room?.name ?? "Room"}: ${date}, ${req.duration}n`;
+      })
+      .join("\n");
+
+    const body = `Hi ${displayName},\n\nYour reservation is confirmed:\n${lines}\n\nTotal: $${revenue} for ${nights} night${nights !== 1 ? "s" : ""}.\n\nPlease transfer payment to secure the booking. Thank you!`;
+    window.location.href = `sms:${first.guestPhone}?&body=${encodeURIComponent(body)}`;
+  };
+
+  const handleReserveGroup = async (group: BookingRequest[]) => {
+    const phone = normalizePhone(group[0].guestPhone);
+    setUpdatingPhone(phone);
+    try {
+      await Promise.all(
+        group.map((req) =>
+          updateBookingRequestStatus(req.id, "reserved", token).then(() =>
+            setRequests((prev) =>
+              prev.map((r) =>
+                r.id === req.id ? { ...r, status: "reserved", updatedAt: String(Date.now()) } : r,
+              ),
+            ),
+          ),
+        ),
+      );
+    } catch {
+      // keep as pending on failure
+    } finally {
+      setUpdatingPhone(null);
+      setSelectedPendingGroup(null);
+    }
   };
 
   const handleDeclineGroup = async (group: BookingRequest[]) => {
@@ -744,7 +823,8 @@ const BookingRequestManagerModal = ({
     formatLocal(parseBookingDate(dateStr), "EEE, MMM d yyyy");
 
   const pending = requests.filter((r) => r.status === "pending");
-  const allResolved = requests.filter((r) => r.status !== "pending");
+  const reserved = requests.filter((r) => r.status === "reserved");
+  const allResolved = requests.filter((r) => r.status !== "pending" && r.status !== "reserved");
 
   // Group resolved requests by (phone, submission date)
   const getSubmissionDateKey = (ts: string) => {
@@ -843,13 +923,18 @@ const BookingRequestManagerModal = ({
           <div className="flex flex-col gap-1">
             {group.map((req) => {
               const room = getRoom(req.room);
+              const isZero = req.duration === 0;
               return (
                 <div key={req.id} className="flex items-center gap-2 text-xs text-gray-600">
                   {room && <RoomBadge room={room} rooms={rooms} />}
                   <span>{formatDate(req.date)}</span>
-                  <span className="text-gray-400">
-                    {req.duration}n · {req.numberOfGuests} guest{req.numberOfGuests > 1 ? "s" : ""}
-                  </span>
+                  {isZero ? (
+                    <span className="text-amber-500 font-medium">→ wish list</span>
+                  ) : (
+                    <span className="text-gray-400">
+                      {req.duration}n · {req.numberOfGuests} guest{req.numberOfGuests > 1 ? "s" : ""}
+                    </span>
+                  )}
                 </div>
               );
             })}
@@ -880,6 +965,14 @@ const BookingRequestManagerModal = ({
             onClick={() => handleAcceptGroup(group)}
           >
             {isUpdating ? "..." : group.length > 1 ? `Accept all (${group.length})` : "Accept"}
+          </button>
+          <button
+            type="button"
+            disabled={isUpdating}
+            className="flex-1 bg-amber-400 text-white text-xs font-medium py-1.5 rounded hover:bg-amber-500 disabled:opacity-50"
+            onClick={() => handleReserveGroup(group)}
+          >
+            {isUpdating ? "..." : "Reserve"}
           </button>
           <button
             type="button"
@@ -1026,6 +1119,94 @@ const BookingRequestManagerModal = ({
                 {pendingGroups.map((group) => renderPendingGroup(group))}
               </div>
             )}
+            {reserved.length > 0 && (() => {
+              const reservedGroups: BookingRequest[][] = [];
+              const seen = new Set<string>();
+              for (const req of reserved) {
+                const phone = normalizePhone(req.guestPhone);
+                if (!seen.has(phone)) {
+                  seen.add(phone);
+                  reservedGroups.push(reserved.filter((r) => normalizePhone(r.guestPhone) === phone));
+                }
+              }
+              return (
+                <div className="flex flex-col gap-2">
+                  <h3 className="text-xs font-bold text-amber-500 uppercase tracking-wider">
+                    Reserved ({reserved.length})
+                  </h3>
+                  {reservedGroups.map((group) => {
+                    const first = group[0];
+                    const matched = matchGuest(first.guestPhone);
+                    const displayName = matched?.name ?? first.guestName;
+                    const phone = normalizePhone(first.guestPhone);
+                    const isUpdating = updatingPhone === phone;
+                    const firstRoom = getRoom(first.room);
+                    const borderClass = firstRoom
+                      ? getRoomColor(firstRoom.name, firstRoom.color).replace("bg-", "border-")
+                      : "border-amber-400";
+                    return (
+                      <div key={phone} className={`rounded-lg border-l-4 ${borderClass} bg-amber-50 shadow-sm p-3 flex flex-col gap-2`}>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-sm">{displayName}</span>
+                          <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">Reserved</span>
+                          <span className="text-[10px] text-gray-400 ml-auto">{formatPhone(first.guestPhone)}</span>
+                        </div>
+                        {/* Payment reminder */}
+                        {(() => {
+                          const { nights, revenue } = calcGroupStats(group, getRoom, matchGuest);
+                          return revenue > 0 ? (
+                            <div className="flex items-center justify-between bg-amber-100 border border-amber-300 rounded-lg px-3 py-2">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-amber-700 text-xs">Collect payment</span>
+                                <span className="text-[11px] text-amber-600">{nights}n</span>
+                              </div>
+                              <span className="text-sm font-bold text-amber-800">{fmtRevenue(revenue)}</span>
+                            </div>
+                          ) : null;
+                        })()}
+                        <div className="flex flex-col gap-1">
+                          {group.map((req) => {
+                            const room = getRoom(req.room);
+                            return (
+                              <div key={req.id} className="flex items-center gap-2 text-xs text-gray-600">
+                                {room && <RoomBadge room={room} rooms={rooms} />}
+                                <span>{formatDate(req.date)}</span>
+                                <span className="text-gray-400">{req.duration}n · {req.numberOfGuests} guest{req.numberOfGuests > 1 ? "s" : ""}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            disabled={isUpdating}
+                            className="flex-1 bg-green-500 text-white text-xs font-medium py-1.5 rounded hover:bg-green-600 disabled:opacity-50"
+                            onClick={() => handleAcceptGroup(group)}
+                          >
+                            {isUpdating ? "..." : "Accept"}
+                          </button>
+                          <button
+                            type="button"
+                            className="flex-1 bg-amber-500 text-white text-xs font-medium py-1.5 rounded hover:bg-amber-600"
+                            onClick={() => handleRequestPayment(group)}
+                          >
+                            Request $
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isUpdating}
+                            className="flex-1 bg-red-500 text-white text-xs font-medium py-1.5 rounded hover:bg-red-600 disabled:opacity-50"
+                            onClick={() => handleDeclineGroup(group)}
+                          >
+                            {isUpdating ? "..." : "Release"}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
             {allResolved.length > 0 && (
               <div className="flex flex-col gap-2">
                 <button

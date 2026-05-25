@@ -1,10 +1,11 @@
 import { useRef, useState } from "react";
-import { addDays, format, parseISO } from "date-fns";
+import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { roomType } from "../../util/types/roomType";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import { fetchBookingRequestsByGuest, fetchCalendarBookingsByGuest } from "../../util/bookingRequestOperations";
 import { fetchGuestByPhone } from "../../util/guestOperations";
 import RoomBadge from "../shared/RoomBadge";
+import GuestLoyaltyBanner from "./GuestLoyaltyBanner";
 
 export interface GuestBooking {
   id: string;
@@ -20,6 +21,7 @@ export interface GuestBooking {
 interface MyBookingsSheetProps {
   hostId: string;
   calendarId: string;
+  doorCode?: string;
   initialPhone: string;
   rooms: roomType[];
   wishListDates?: Set<string>;
@@ -28,12 +30,54 @@ interface MyBookingsSheetProps {
   onPhoneConfirmed: (phone: string) => void;
 }
 
+const resolveInstructions = (
+  template: string,
+  vars: { guestName: string; roomName: string; roomCode: string; doorCode: string; checkInDate: string; checkOutDate: string; duration: string }
+) =>
+  template
+    .replace(/\{\{guestName\}\}/g, vars.guestName)
+    .replace(/\{\{roomName\}\}/g, vars.roomName)
+    .replace(/\{\{roomCode\}\}/g, vars.roomCode)
+    .replace(/\{\{doorCode\}\}/g, vars.doorCode)
+    .replace(/\{\{checkInDate\}\}/g, vars.checkInDate)
+    .replace(/\{\{checkOutDate\}\}/g, vars.checkOutDate)
+    .replace(/\{\{duration\}\}/g, vars.duration);
+
+const CheckInInstructionsPanel = ({ instructions, theme }: { instructions: string; theme: any }) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={`rounded-xl border ${theme.tagBorder} overflow-hidden`}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={`w-full flex items-center justify-between px-3 py-2.5 ${theme.tagBg} text-left`}
+      >
+        <div className="flex items-center gap-2">
+          <svg className={`w-4 h-4 shrink-0 ${theme.textPrimary}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span className={`text-[11px] font-bold uppercase tracking-wide ${theme.textPrimary}`}>Check-in instructions</span>
+        </div>
+        <svg className={`w-3.5 h-3.5 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && (
+        <div className="px-3 py-3 bg-white">
+          <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{instructions}</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const statusLabel: Record<string, { label: string; color: string }> = {
   pending:   { label: "Pending",   color: "text-amber-600 bg-amber-50 border-amber-200" },
   confirmed: { label: "Confirmed", color: "text-green-700 bg-green-50 border-green-200" },
+  reserved:  { label: "Reserved",  color: "text-amber-700 bg-amber-100 border-amber-300" },
 };
 
-const MyBookingsSheet = ({ hostId, calendarId, initialPhone, rooms, wishListDates, onToggleWishDate, onClose, onPhoneConfirmed }: MyBookingsSheetProps) => {
+const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, rooms, wishListDates, onToggleWishDate, onClose, onPhoneConfirmed }: MyBookingsSheetProps) => {
   const { theme } = useTiBookTheme();
   const activeRooms = rooms.filter((r) => r.active);
   const roomMap = new Map(rooms.map((r) => [r.id, r]));
@@ -113,37 +157,71 @@ const MyBookingsSheet = ({ hostId, calendarId, initialPhone, rooms, wishListDate
     ? format(parseISO(pastBookings.reduce((min, b) => dateKey(b) < min ? dateKey(b) : min, dateKey(pastBookings[0]))), "MMM yyyy")
     : null;
 
-  const loyaltyTier =
-    totalStays >= 50 ? { label: "Cherished Guest", color: "text-amber-700 bg-amber-50 border-amber-200", message: "You are one of our most loyal and treasured guests. Every stay you've had with us is something we hold close — your trust in TT House means everything to us." } :
-    totalStays >= 20 ? { label: "Valued Guest",    color: "text-purple-700 bg-purple-50 border-purple-200", message: "Your loyalty over the years has meant so much to us. We are genuinely grateful you keep choosing TT House as your home away from home." } :
-    totalStays >= 5  ? { label: "Loyal Guest",     color: "text-blue-700 bg-blue-50 border-blue-200", message: "We love having you back! Your continued trust in TT House warms our hearts every time." } :
-    totalStays >= 1  ? { label: "Returning Guest", color: "text-green-700 bg-green-50 border-green-200", message: "It's wonderful to see you again! We hope every stay with us feels like coming home." } :
-    null;
 
-  const renderRow = (b: GuestBooking) => {
+  const renderRow = (b: GuestBooking, isNext = false) => {
     const checkIn  = parseISO(dateKey(b));
     const checkOut = addDays(checkIn, Number(b.duration) || 1);
     const room     = roomMap.get(b.room);
     const st        = statusLabel[b.status] ?? { label: b.status, color: "text-gray-500 bg-gray-50 border-gray-200" };
     const nightRate = guestPricing.get(b.room);
     const total     = nightRate !== undefined ? nightRate * (Number(b.duration) || 1) : undefined;
+    const isToday   = isNext && dateKey(b) === today;
+    const daysLeft  = isToday ? 0 : differenceInCalendarDays(checkIn, parseISO(today));
     return (
-      <div key={b.id} className="flex items-start justify-between gap-3 py-3 border-b border-gray-100 last:border-0">
-        <div className="flex flex-col gap-0.5">
-          <RoomBadge room={room ?? { name: "Room" }} rooms={activeRooms} override={room ? undefined : "bg-gray-400"} />
-          <span className="text-xs text-gray-500">
-            {format(checkIn, "MMM d")} – {format(checkOut, "MMM d, yyyy")}
-            <span className="ml-1 text-gray-400">· {b.duration} night{b.duration !== 1 ? "s" : ""}</span>
-          </span>
-          {total !== undefined && (
-            <span className={`text-xs font-semibold ${theme.textPrimary}`}>
-              ${total} <span className="font-normal text-gray-400">(${nightRate}/night)</span>
+      <div key={b.id} className={`flex flex-col gap-2 py-3 border-b border-gray-100 last:border-0 ${isNext ? "pb-4" : ""} ${isToday ? `-mx-4 px-4 rounded-2xl bg-amber-50 border border-amber-200 shadow-sm` : ""}`}>
+        {isToday && (
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            <span className="text-[11px] font-bold text-amber-600 uppercase tracking-wide">Check-in today</span>
+          </div>
+        )}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-0.5">
+            <RoomBadge room={room ?? { name: "Room" }} rooms={activeRooms} override={room ? undefined : "bg-gray-400"} />
+            <span className="text-xs text-gray-500">
+              {format(checkIn, "MMM d")} – {format(checkOut, "MMM d, yyyy")}
+              <span className="ml-1 text-gray-400">· {b.duration} night{b.duration !== 1 ? "s" : ""}</span>
             </span>
-          )}
+            {!isToday && (
+              <span className="text-[11px] font-semibold text-indigo-500 mt-0.5">
+                {daysLeft === 1 ? "Tomorrow!" : `in ${daysLeft} days`}
+              </span>
+            )}
+          {total !== undefined && (
+              <span className={`text-xs font-semibold ${theme.textPrimary}`}>
+                ${total} <span className="font-normal text-gray-400">(${nightRate}/night)</span>
+              </span>
+            )}
+          </div>
+          <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${st.color} shrink-0`}>
+            {st.label}
+          </span>
         </div>
-        <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${st.color} shrink-0`}>
-          {st.label}
-        </span>
+        {isNext && room?.checkInInstructions && (
+          <CheckInInstructionsPanel
+            instructions={resolveInstructions(room.checkInInstructions, {
+              guestName:    b.guestName.split(" ")[0],
+              roomName:     room.name,
+              roomCode:     room.roomCode ?? "",
+              doorCode:     doorCode ?? "",
+              checkInDate:  format(checkIn, "MMM d, yyyy"),
+              checkOutDate: format(checkOut, "MMM d, yyyy"),
+              duration:     String(b.duration),
+            })}
+            theme={theme}
+          />
+        )}
+        {isNext && room?.roomCode && (
+          <div className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border ${theme.tagBg} ${theme.tagBorder}`}>
+            <svg className={`w-4 h-4 shrink-0 ${theme.textPrimary}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+            </svg>
+            <div className="flex flex-col">
+              <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wide leading-none mb-0.5">Room code</span>
+              <span className={`text-lg font-bold tracking-widest ${theme.textPrimaryDark} leading-none`}>{room.roomCode}</span>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -204,39 +282,13 @@ const MyBookingsSheet = ({ hostId, calendarId, initialPhone, rooms, wishListDate
 
           {/* Welcome banner */}
           {guestFirstName && (
-            <div className={`mt-3 mb-2 px-4 py-3 rounded-2xl ${theme.tagBg} border ${theme.tagBorder}`}>
-              <div className="flex items-start justify-between gap-2">
-                <p className={`text-sm font-bold ${theme.textPrimaryDark}`}>
-                  Hi {guestFirstName}! Welcome back
-                </p>
-                {loyaltyTier && (
-                  <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${loyaltyTier.color}`}>
-                    {loyaltyTier.label}
-                  </span>
-                )}
-              </div>
-
-              {totalStays > 0 && memberSince && (
-                <div className="flex items-center gap-2 mt-2 flex-wrap">
-                  <span className={`text-[11px] font-bold ${theme.textPrimary}`}>
-                    {totalStays} {totalStays === 1 ? "stay" : "stays"}
-                  </span>
-                  <span className="text-gray-300 text-[10px]">·</span>
-                  <span className={`text-[11px] font-bold ${theme.textPrimary}`}>
-                    {totalNights} {totalNights === 1 ? "night" : "nights"}
-                  </span>
-                  <span className="text-gray-300 text-[10px]">·</span>
-                  <span className="text-[11px] text-gray-400">
-                    with us since {memberSince}
-                  </span>
-                </div>
-              )}
-
-              <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
-                {loyaltyTier
-                  ? loyaltyTier.message
-                  : "Thank you for choosing TT House. We're always happy to have you with us."}
-              </p>
+            <div className="mt-3 mb-2">
+              <GuestLoyaltyBanner
+                firstName={guestFirstName}
+                totalStays={totalStays}
+                totalNights={totalNights}
+                memberSince={memberSince}
+              />
             </div>
           )}
 
@@ -251,7 +303,7 @@ const MyBookingsSheet = ({ hostId, calendarId, initialPhone, rooms, wishListDate
           ) : (
             <>
               <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide pt-2 pb-1">Upcoming</p>
-              {upcoming.map(renderRow)}
+              {upcoming.map((b, i) => renderRow(b, i === 0))}
             </>
           )}
 

@@ -2,13 +2,14 @@
 import { useForm, SubmitHandler } from "react-hook-form";
 import { roomType } from "../../util/types/roomType";
 import { dayType } from "../../util/types/dayType";
-import { createBookingRequest } from "../../util/bookingRequestOperations";
+import { createBookingRequest, fetchBookingRequestsByGuest, fetchCalendarBookingsByGuest } from "../../util/bookingRequestOperations";
 import { getAvailableRooms } from "../../util/bookingOperations";
 import { fetchGuestByPhone } from "../../util/guestOperations";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import RoomBadge from "../shared/RoomBadge";
+import GuestLoyaltyBanner from "./GuestLoyaltyBanner";
 
 const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -121,6 +122,9 @@ const BookingRequestModal = ({
   const [guestPricing, setGuestPricing] = useState<GuestPricing | null>(null);
   const [foundGuestName, setFoundGuestName] = useState<string | null>(null);
   const [isLookingUp, setIsLookingUp] = useState(false);
+  const [guestTotalStays, setGuestTotalStays] = useState(0);
+  const [guestTotalNights, setGuestTotalNights] = useState(0);
+  const [guestMemberSince, setGuestMemberSince] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [datesError, setDatesError] = useState("");
   const [roomDropdownOpen, setRoomDropdownOpen] = useState(false);
@@ -182,14 +186,37 @@ const BookingRequestModal = ({
   // Phone lookup with debounce
   useEffect(() => {
     const phone = watchedPhone?.trim();
-    if (!phone || phone.length < 7) { setGuestPricing(null); return; }
+    if (!phone || phone.length < 7) {
+      setGuestPricing(null);
+      setFoundGuestName(null);
+      setGuestTotalStays(0);
+      setGuestTotalNights(0);
+      setGuestMemberSince(null);
+      return;
+    }
     setIsLookingUp(true);
     const timer = setTimeout(() => {
-      fetchGuestByPhone(phone, hostId)
-        .then((guest) => {
+      Promise.all([
+        fetchGuestByPhone(phone, hostId),
+        fetchBookingRequestsByGuest(hostId, phone),
+        fetchCalendarBookingsByGuest(calendarId, phone),
+      ])
+        .then(([guest, requests, calBookings]) => {
           setGuestPricing(guest ? guest.pricing : null);
           if (guest?.name) { setValue("guestName", guest.name); setFoundGuestName(guest.name); }
           else setFoundGuestName(null);
+
+          const all = [...(calBookings ?? []), ...(requests ?? [])];
+          setGuestTotalStays(all.length);
+          setGuestTotalNights(all.reduce((sum, b) => sum + (b.duration ?? 1), 0));
+          if (all.length > 0) {
+            const earliest = all
+              .map((b) => parseISO(String(b.date).slice(0, 10)))
+              .sort((a, z) => a.getTime() - z.getTime())[0];
+            setGuestMemberSince(format(earliest, "MMM yyyy"));
+          } else {
+            setGuestMemberSince(null);
+          }
         })
         .finally(() => setIsLookingUp(false));
     }, 600);
@@ -463,13 +490,21 @@ const BookingRequestModal = ({
                 </div>
                 {errors.guestPhone && <span className="text-red-500 text-xs">{errors.guestPhone.message}</span>}
                 {!isLookingUp && watchedPhone?.trim().length >= 7 && (
-                  guestPricing !== null ? (
-                    <p className={`text-xs ${theme.textPrimary} mt-0.5`}>Welcome back{foundGuestName ? `, ${foundGuestName}` : ""}! Your personal rate has been applied.</p>
-                  ) : (
+                  guestPricing === null && (
                     <p className="text-xs text-gray-400 mt-0.5">We'll sort out pricing together after your request.</p>
                   )
                 )}
               </div>
+
+              {/* Returning guest banner */}
+              {!isLookingUp && foundGuestName && (
+                <GuestLoyaltyBanner
+                  firstName={foundGuestName.split(" ")[0]}
+                  totalStays={guestTotalStays}
+                  totalNights={guestTotalNights}
+                  memberSince={guestMemberSince}
+                />
+              )}
 
               {/* Name */}
               <div>

@@ -13,6 +13,7 @@ interface GuestCalendarProps {
   cartDates: Map<string, string | null>;
   wishListDates?: Set<string>;
   myBookingDates?: Set<string>;
+  reservedMap?: Map<string, Set<string>>;
   scrollToTodayTrigger?: number;
   simplified?: boolean;
   onMonthChange?: (month: Date) => void;
@@ -52,6 +53,7 @@ const GuestCalendar = ({
   cartDates,
   wishListDates,
   myBookingDates,
+  reservedMap,
   scrollToTodayTrigger = 0,
   simplified = false,
   onMonthChange,
@@ -141,10 +143,11 @@ const GuestCalendar = ({
   const getStatus = (date: Date): { status: TileStatus; roomsLeft: number } => {
     if (isBefore(date, startOfToday())) return { status: "past", roomsLeft: 0 };
     const total = scopedRooms.length;
-    const day = monthMap.get(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`);
-    if (!day) return { status: "available", roomsLeft: total };
-    if (day.isBlocked) return { status: "blocked", roomsLeft: 0 };
-    const bookedIds = new Set(day.bookings.map((b) => b.room?.id).filter(Boolean));
+    const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    const day = monthMap.get(dateKey);
+    if (day?.isBlocked) return { status: "blocked", roomsLeft: 0 };
+    const bookedIds = new Set<string>(day?.bookings.map((b) => b.room?.id).filter(Boolean) as string[] ?? []);
+    reservedMap?.get(dateKey)?.forEach((id) => bookedIds.add(id));
     const bookedScoped = scopedRooms.filter((r) => bookedIds.has(r.id)).length;
     const roomsLeft = Math.max(total - bookedScoped, 0);
     if (roomsLeft === 0) return { status: "full", roomsLeft: 0 };

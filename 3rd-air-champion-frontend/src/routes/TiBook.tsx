@@ -16,9 +16,10 @@ import { fetchRooms } from "../util/roomOperations";
 import BookingRequestModal from "../components/tibook/BookingRequestModal";
 import RoomCards from "../components/tibook/RoomCards";
 import WishListSummarySheet from "../components/tibook/WishListSummarySheet";
+import WishListModal from "../components/tibook/WishListModal";
 import MyBookingsSheet, { GuestBooking } from "../components/tibook/MyBookingsSheet";
 import { getGuestWishList } from "../util/wishListOperations";
-import { fetchBookingRequestsByGuest, fetchCalendarBookingsByGuest } from "../util/bookingRequestOperations";
+import { fetchBookingRequestsByGuest, fetchBookingRequestsByHost, fetchCalendarBookingsByGuest } from "../util/bookingRequestOperations";
 
 const TiBookInner = () => {
   const { theme } = useTiBookTheme();
@@ -47,7 +48,9 @@ const TiBookInner = () => {
   const [guestPhone, setGuestPhone] = useState(() => localStorage.getItem("tiBookGuestPhone") ?? "");
   const [guestName, setGuestName] = useState(() => localStorage.getItem("tiBookGuestName") ?? "");
   const [guestBookings, setGuestBookings] = useState<GuestBooking[]>([]);
+  const [reservedMap, setReservedMap] = useState<Map<string, Set<string>>>(new Map());
   const [myBookingsOpen, setMyBookingsOpen] = useState(false);
+  const [wishListModalDate, setWishListModalDate] = useState<string | null>(null);
   const cohostNames = (import.meta.env.VITE_TI_BOOK_COHOST_NAMES as string | undefined)
     ?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
 
@@ -92,9 +95,23 @@ const TiBookInner = () => {
     fetchHost(hostId, token)
       .then((host) => {
         if (host) setCurrentHost({ ...host, id: hostId });
-        return Promise.all([fetchRooms(hostId, token), fetchDays(host?.calendar as string, token)]);
+        return Promise.all([fetchRooms(hostId, token), fetchDays(host?.calendar as string, token), fetchBookingRequestsByHost(hostId, token)]);
       })
-      .then(([rooms, days]) => { setRooms(rooms); setDays(days); })
+      .then(([rooms, days, requests]) => {
+        setRooms(rooms);
+        setDays(days);
+        const map = new Map<string, Set<string>>();
+        (requests ?? []).filter((r: any) => r.status === "reserved").forEach((r: any) => {
+          const start = parseISO(String(r.date).slice(0, 10));
+          for (let i = 0; i < r.duration; i++) {
+            const d = addDays(start, i);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+            if (!map.has(key)) map.set(key, new Set());
+            map.get(key)!.add(r.room);
+          }
+        });
+        setReservedMap(map);
+      })
       .finally(() => setIsLoading(false));
   }, [token]);
 
@@ -142,11 +159,12 @@ const TiBookInner = () => {
     if (roomId === null) {
       const scopedRooms = rooms.filter((r) => r.active && (selectedRoomIds === null || selectedRoomIds.has(r.id)));
       const day = monthMap.get(key);
-      if (day) {
-        const bookedIds = new Set(day.bookings.map((b) => b.room?.id).filter(Boolean));
-        const available = scopedRooms.filter((r) => !bookedIds.has(r.id));
-        if (available.length === 1) roomId = available[0].id;
-      }
+      const bookedIds = new Set<string>([
+        ...(day?.bookings.map((b) => b.room?.id).filter(Boolean) as string[] ?? []),
+        ...(reservedMap.get(key) ?? []),
+      ]);
+      const available = scopedRooms.filter((r) => !bookedIds.has(r.id));
+      if (available.length === 1) roomId = available[0].id;
     }
     setCartDates((prev) => {
       const next = new Map(prev);
@@ -157,11 +175,7 @@ const TiBookInner = () => {
 
   const handleWishListClick = (date: Date) => {
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-    setWishListDates((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      return next;
-    });
+    setWishListModalDate(key);
   };
 
   const handleSendSuccess = (phone: string, name: string, newDates: string[]) => {
@@ -239,6 +253,7 @@ const TiBookInner = () => {
             cartDates={cartDates}
             wishListDates={wishListDates}
             myBookingDates={myBookingDates}
+            reservedMap={reservedMap}
             scrollToTodayTrigger={scrollToTodayTrigger}
             simplified={!isSelecting}
             onMonthChange={setCurrentMonth}
@@ -291,6 +306,25 @@ const TiBookInner = () => {
           onClose={() => setWishListSummaryOpen(false)}
           onToggleDate={(date) => setWishListDates((prev) => { const next = new Set(prev); if (next.has(date)) next.delete(date); else next.add(date); return next; })}
           onSendSuccess={handleSendSuccess}
+        />
+      )}
+
+      {wishListModalDate && currentHost && (
+        <WishListModal
+          hostId={currentHost.id}
+          date={wishListModalDate}
+          isWishlisted={wishListDates.has(wishListModalDate)}
+          savedPhone={guestPhone}
+          savedName={guestName}
+          onClose={() => setWishListModalDate(null)}
+          onSuccess={(phone, name, newDates) => {
+            localStorage.setItem("tiBookGuestPhone", phone);
+            localStorage.setItem("tiBookGuestName", name);
+            setGuestPhone(phone);
+            setGuestName(name);
+            setWishListDates(new Set(newDates));
+            setWishListModalDate(null);
+          }}
         />
       )}
 
