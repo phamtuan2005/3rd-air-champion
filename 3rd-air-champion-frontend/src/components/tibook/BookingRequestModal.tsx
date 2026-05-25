@@ -29,6 +29,7 @@ interface BookingRequestModalProps {
   onClose: () => void;
   onSuccess: () => void;
   onWishListSent?: (phone: string, name: string, newDates: string[]) => void;
+  onRemoveWishDate?: (date: string) => void;
 }
 
 interface FormData {
@@ -114,6 +115,7 @@ const BookingRequestModal = ({
   onClose,
   onSuccess,
   onWishListSent,
+  onRemoveWishDate,
 }: BookingRequestModalProps) => {
   const { theme } = useTiBookTheme();
   const [step, setStep] = useState<1 | 2>(1);
@@ -138,6 +140,7 @@ const BookingRequestModal = ({
   const [datesError, setDatesError] = useState("");
   const [roomDropdownOpen, setRoomDropdownOpen] = useState(false);
   const [localWishList, setLocalWishList] = useState<Set<string>>(wishListDates ?? new Set());
+  const [pendingRemove, setPendingRemove] = useState<string | null>(null);
 
   const cartGroups = useMemo(() => buildCartGroups(cartDates, rooms), [cartDates, rooms]);
   const hasAnyRoomGroup = cartGroups.some((g) => g.roomId === null);
@@ -473,19 +476,45 @@ const BookingRequestModal = ({
                   <p className="text-sm font-medium mb-2">Sold-out dates (wish list)</p>
                   <div className="flex flex-col gap-1.5">
                     {sortedWishListDates.map((d) => (
-                      <div key={d} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200">
-                        <span className="text-amber-500 text-sm">★</span>
-                        <span className="flex-1 text-sm text-gray-700 font-medium">
-                          {format(new Date(d + "T12:00:00"), "EEE, MMM d yyyy")}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setLocalWishList((prev) => { const next = new Set(prev); next.delete(d); return next; })}
-                          className="text-gray-400 hover:text-red-400 transition-colors text-base leading-none px-1"
-                          aria-label="Remove"
-                        >
-                          ×
-                        </button>
+                      <div key={d} className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-colors ${pendingRemove === d ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"}`}>
+                        {pendingRemove === d ? (
+                          <>
+                            <span className="flex-1 text-sm text-red-600 font-medium">Remove {format(new Date(d + "T12:00:00"), "MMM d")}?</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setLocalWishList((prev) => { const next = new Set(prev); next.delete(d); return next; });
+                                onRemoveWishDate?.(d);
+                                setPendingRemove(null);
+                              }}
+                              className="text-xs font-semibold text-red-500 hover:text-red-700 px-2 py-0.5 rounded-lg border border-red-300 hover:border-red-400 transition-colors"
+                            >
+                              Yes, remove
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPendingRemove(null)}
+                              className="text-xs font-semibold text-gray-400 hover:text-gray-600 px-2 py-0.5 rounded-lg border border-gray-200 transition-colors"
+                            >
+                              Keep
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-amber-500 text-sm">★</span>
+                            <span className="flex-1 text-sm text-gray-700 font-medium">
+                              {format(new Date(d + "T12:00:00"), "EEE, MMM d yyyy")}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setPendingRemove(d)}
+                              className="text-gray-400 hover:text-red-400 transition-colors text-base leading-none px-1"
+                              aria-label="Remove"
+                            >
+                              ×
+                            </button>
+                          </>
+                        )}
                       </div>
                     ))}
                   </div>
