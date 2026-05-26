@@ -167,7 +167,6 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
     ? bookings[0].guestName.split(" ")[0]
     : null;
 
-  const pastBookings = (bookings ?? []).filter((b) => dateKey(b) < today);
   const allNonAirbnbBookings = (bookings ?? []);
   const totalStays = allNonAirbnbBookings.length;
   const totalNights = allNonAirbnbBookings.reduce((sum, b) => sum + (Number(b.duration) || 1), 0);
