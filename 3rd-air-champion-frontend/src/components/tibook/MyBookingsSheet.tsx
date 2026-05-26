@@ -30,6 +30,7 @@ interface MyBookingsSheetProps {
   onToggleWishDate?: (date: string) => void;
   onClose: () => void;
   onPhoneConfirmed: (phone: string) => void;
+  onClear?: () => void;
 }
 
 const resolveInstructions = (
@@ -79,7 +80,7 @@ const statusLabel: Record<string, { label: string; color: string }> = {
   reserved:  { label: "Reserved",  color: "text-amber-700 bg-amber-100 border-amber-300" },
 };
 
-const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialName, rooms, wishListDates, onToggleWishDate, onClose, onPhoneConfirmed }: MyBookingsSheetProps) => {
+const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialName, rooms, wishListDates, onToggleWishDate, onClose, onPhoneConfirmed, onClear }: MyBookingsSheetProps) => {
   const { theme } = useTiBookTheme();
   const activeRooms = rooms.filter((r) => r.active);
   const roomMap = new Map(rooms.map((r) => [r.id, r]));
@@ -160,17 +161,18 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
 
   const today = new Date().toISOString().slice(0, 10);
   const dateKey = (b: GuestBooking) => String(b.date).slice(0, 10);
-  const upcoming = (bookings ?? []).filter((b) => dateKey(b) >= today).sort((a, b) => dateKey(a).localeCompare(dateKey(b)));
+  const upcoming = (bookings ?? []).filter((b) => dateKey(b) >= today && b.status === "confirmed").sort((a, b) => dateKey(a).localeCompare(dateKey(b)));
 
   const guestFirstName = bookings && bookings.length > 0
     ? bookings[0].guestName.split(" ")[0]
     : null;
 
   const pastBookings = (bookings ?? []).filter((b) => dateKey(b) < today);
-  const totalStays = pastBookings.length;
-  const totalNights = pastBookings.reduce((sum, b) => sum + (Number(b.duration) || 1), 0);
-  const memberSince = pastBookings.length > 0
-    ? format(parseISO(pastBookings.reduce((min, b) => dateKey(b) < min ? dateKey(b) : min, dateKey(pastBookings[0]))), "MMM yyyy")
+  const allNonAirbnbBookings = (bookings ?? []);
+  const totalStays = allNonAirbnbBookings.length;
+  const totalNights = allNonAirbnbBookings.reduce((sum, b) => sum + (Number(b.duration) || 1), 0);
+  const memberSince = allNonAirbnbBookings.length > 0
+    ? format(parseISO(allNonAirbnbBookings.reduce((min, b) => dateKey(b) < min ? dateKey(b) : min, dateKey(allNonAirbnbBookings[0]))), "MMM yyyy")
     : null;
 
 
@@ -277,18 +279,28 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
               type="tel"
               placeholder="Your phone number"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => { setPhone(e.target.value); setBookings(null); setGuestPricing(new Map()); }}
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
               className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-gray-400"
             />
-            <button
-              type="button"
-              disabled={loading || !phone.trim()}
-              onClick={handleSearch}
-              className={`px-4 py-2.5 rounded-xl text-white text-sm font-semibold ${theme.btn} disabled:opacity-50 whitespace-nowrap`}
-            >
-              {loading ? "…" : "Search"}
-            </button>
+            {bookings !== null ? (
+              <button
+                type="button"
+                onClick={() => { setPhone(""); setBookings(null); setGuestPricing(new Map()); setError(""); localStorage.removeItem("tiBookGuestPhone"); onClear?.(); }}
+                className="px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:border-gray-400 whitespace-nowrap"
+              >
+                Clear
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={loading || !phone.trim()}
+                onClick={handleSearch}
+                className={`px-4 py-2.5 rounded-xl text-white text-sm font-semibold ${theme.btn} disabled:opacity-50 whitespace-nowrap`}
+              >
+                {loading ? "…" : "Search"}
+              </button>
+            )}
           </div>
           {error && <p className="px-4 pb-2 text-xs text-red-500">{error}</p>}
         </div>
@@ -323,7 +335,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
             </>
           )}
 
-          {sortedWishDates.length > 0 && (
+          {bookings !== null && sortedWishDates.length > 0 && (
             <div className="mt-3 border-t border-gray-100 pt-2">
               <button
                 type="button"
