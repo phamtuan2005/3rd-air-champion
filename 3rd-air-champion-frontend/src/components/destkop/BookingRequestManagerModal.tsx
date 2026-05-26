@@ -14,6 +14,37 @@ import RoomBadge from "../shared/RoomBadge";
 import { format, toZonedTime } from "date-fns-tz";
 import { format as formatLocal, addDays } from "date-fns";
 
+type RequestOutcome =
+  | { type: "booked" }
+  | { type: "relocated"; roomName: string; roomColor?: string }
+  | { type: "unfulfilled"; inWishList: boolean };
+
+const resolveRequestOutcome = (
+  req: BookingRequest,
+  monthMap: Map<string, import("../../util/types/dayType").dayType>,
+  wishListEntries: WishListEntry[],
+): RequestOutcome => {
+  const phone = req.guestPhone.replace(/\D/g, "");
+  const checkInKey = req.date.slice(0, 10);
+  const day = monthMap.get(checkInKey);
+  if (day) {
+    const matching = day.bookings.find(
+      (b) => (b.guest?.phone ?? "").replace(/\D/g, "") === phone,
+    );
+    if (matching) {
+      if (matching.room?.id === req.room) return { type: "booked" };
+      return { type: "relocated", roomName: matching.room?.name ?? "", roomColor: matching.room?.color };
+    }
+  }
+  const wishEntry = wishListEntries.find((e) => e.guestPhone.replace(/\D/g, "") === phone);
+  const inWishList = wishEntry
+    ? Array.from({ length: Math.max(req.duration, 1) }, (_, i) =>
+        formatLocal(addDays(parseBookingDate(checkInKey), i), "yyyy-MM-dd"),
+      ).some((d) => wishEntry.dates.includes(d))
+    : false;
+  return { type: "unfulfilled", inWishList };
+};
+
 const formatPhone = (raw: string): string => {
   const digits = raw.replace(/\D/g, "");
   const local = digits.startsWith("84") ? "0" + digits.slice(2) : digits;
@@ -372,8 +403,11 @@ interface SwipeableHistoryGroupRowProps {
   rooms: roomType[];
   guests: guestType[];
   timeZone: string;
+  monthMap: Map<string, import("../../util/types/dayType").dayType>;
+  wishListEntries: WishListEntry[];
   onDeleteGroup: (ids: string[]) => void;
   onSelect: (group: BookingRequest[]) => void;
+  onAddToWishList: (phone: string, name: string, dates: string[]) => Promise<void>;
 }
 
 const SwipeableHistoryGroupRow = ({
@@ -381,11 +415,16 @@ const SwipeableHistoryGroupRow = ({
   rooms,
   guests,
   timeZone,
+  monthMap,
+  wishListEntries,
   onDeleteGroup,
   onSelect,
+  onAddToWishList,
 }: SwipeableHistoryGroupRowProps) => {
   const [offset, setOffset] = useState(0);
   const [confirming, setConfirming] = useState(false);
+  const [addingWishList, setAddingWishList] = useState<Set<string>>(new Set());
+  const activeRooms = rooms.filter((r) => r.active);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const offsetAtStart = useRef(0);
@@ -493,13 +532,45 @@ const SwipeableHistoryGroupRow = ({
         {/* Request rows */}
         {[...group].sort((a, b) => a.date.localeCompare(b.date)).map((req) => {
           const room = rooms.find((r) => r.id === req.room);
+          const outcome = resolveRequestOutcome(req, monthMap, wishListEntries);
+          const isAdding = addingWishList.has(req.id);
           return (
-            <div key={req.id} className="flex items-center gap-2 text-[11px] text-gray-600">
-              {room && <RoomBadge room={room} rooms={rooms} />}
+            <div key={req.id} className="flex items-center gap-2 text-[11px] text-gray-600 flex-wrap">
+              {room && <RoomBadge room={room} rooms={activeRooms} />}
               <span className="whitespace-nowrap">{formatLocal(parseBookingDate(req.date), "EEE, MMM d yyyy")}</span>
               <span className="text-gray-400 whitespace-nowrap">
                 {req.duration}n · {req.numberOfGuests} guest{req.numberOfGuests > 1 ? "s" : ""}
               </span>
+              {outcome.type === "booked" && (
+                <span className="ml-auto text-green-500 font-bold text-xs">✓</span>
+              )}
+              {outcome.type === "relocated" && (
+                <span className="ml-auto flex items-center gap-1 shrink-0">
+                  <span className="text-gray-400">→</span>
+                  <RoomBadge room={{ name: outcome.roomName, color: outcome.roomColor }} rooms={activeRooms} />
+                </span>
+              )}
+              {outcome.type === "unfulfilled" && outcome.inWishList && (
+                <span className="ml-auto text-amber-400 text-xs">★</span>
+              )}
+              {outcome.type === "unfulfilled" && !outcome.inWishList && req.status === "cancelled" && (
+                <button
+                  type="button"
+                  disabled={isAdding}
+                  className="ml-auto text-amber-500 text-[10px] font-semibold hover:text-amber-700 disabled:opacity-50 whitespace-nowrap"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    const dates = Array.from({ length: Math.max(req.duration, 1) }, (_, i) =>
+                      formatLocal(addDays(parseBookingDate(req.date.slice(0, 10)), i), "yyyy-MM-dd"),
+                    );
+                    setAddingWishList((prev) => new Set([...prev, req.id]));
+                    await onAddToWishList(req.guestPhone, req.guestName, dates);
+                    setAddingWishList((prev) => { const next = new Set(prev); next.delete(req.id); return next; });
+                  }}
+                >
+                  {isAdding ? "…" : "→ wish list"}
+                </button>
+              )}
             </div>
           );
         })}
@@ -1107,8 +1178,17 @@ const BookingRequestManagerModal = ({
                           rooms={rooms}
                           guests={guests}
                           timeZone={timeZone}
+                          monthMap={monthMap}
+                          wishListEntries={wishListEntries}
                           onDeleteGroup={handleDeleteGroup}
                           onSelect={setSelectedHistoryGroup}
+                          onAddToWishList={async (phone, name, dates) => {
+                            const normalized = phone.replace(/\D/g, "");
+                            const existing = wishListEntries.find((e) => e.guestPhone.replace(/\D/g, "") === normalized);
+                            const merged = existing ? [...new Set([...existing.dates, ...dates])].sort() : [...dates];
+                            await setGuestWishList({ host: hostId, guestPhone: normalized, guestName: name, dates: merged });
+                            getHostWishLists(hostId, token).then(setWishListEntries).catch(() => {});
+                          }}
                         />
                       ))}
                     </div>

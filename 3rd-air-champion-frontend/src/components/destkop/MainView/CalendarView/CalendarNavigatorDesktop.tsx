@@ -168,7 +168,7 @@ const CalendarNavigator = ({
 
                   monthMap.forEach((day, dateKey) => {
                     const booking = day.bookings.find(
-                      (booking) => booking.guest.name === currentGuest,
+                      (booking) => booking.guest.id == currentGuest,
                     );
 
                     if (booking) {

@@ -10,6 +10,7 @@ import {
   guestUpdateZodObject,
 } from "./zodUpdateGuest";
 import Pricing from "./Pricing";
+import { getLoyaltyTier } from "../../../tibook/GuestLoyaltyBanner";
 
 interface DetailsModalProps {
   booking: bookingType;
@@ -135,10 +136,18 @@ const DetailsModal = ({
               const entry = guestBookingCount.find((g) => g.GuestId === booking.guest.id);
               const count = entry?.DistinctStartDateCount ?? 0;
               const since = entry?.FirstStayDate ? format(parseISO(entry.FirstStayDate), "MMM yyyy") : null;
+              const loyaltyTier = getLoyaltyTier(count);
               return (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-600 border border-amber-200">
-                  ↩ {count} {count === 1 ? "stay" : "stays"}{since ? ` since ${since}` : ""}
-                </span>
+                <div className="flex flex-wrap items-center gap-1">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-600 border border-amber-200">
+                    ↩ {count} {count === 1 ? "stay" : "stays"}{since ? ` since ${since}` : ""}
+                  </span>
+                  {loyaltyTier && (
+                    <span className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border ${loyaltyTier.color}`}>
+                      {loyaltyTier.label}
+                    </span>
+                  )}
+                </div>
               );
             })()}
           </div>

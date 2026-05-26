@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { isSameDay, isSameMonth } from "date-fns";
+import { isSameDay } from "date-fns";
 import { dayType } from "../../../../util/types/dayType";
 import { bookingType } from "../../../../util/types/bookingType";
 import { roomType } from "../../../../util/types/roomType";
@@ -78,15 +78,6 @@ const CustomCalendar = ({
         if (guestBookings.length > 0) {
           filteredMap.set(date, { ...dayEntry, bookings: guestBookings });
         }
-        const booking = guestBookings.find((b) => b.guest.id === currentGuest && !b.reserved);
-        if (booking) {
-          const localDate = toZonedTime(date, timeZone);
-          const localStartDate = toZonedTime(booking.startDate, timeZone);
-          // Store only the check-in date once per booking (not every night)
-          if (isSameDay(localDate, localStartDate) && isSameMonth(localDate, currentMonth)) {
-            newPaidDates.push(localStartDate);
-          }
-        }
       });
       setPaidDates(newPaidDates);
       setUseMonthMap(filteredMap);
@@ -135,8 +126,7 @@ const CustomCalendar = ({
       if (!bookedDate) return;
       const booking = bookedDate.bookings.find((b) => !b.reserved);
       if (!booking) return;
-      // Toggle the booking's check-in date, not the individual night clicked
-      handlePaidDates(toZonedTime(booking.startDate, timeZone));
+      handlePaidDates(date);
     }
   };
 

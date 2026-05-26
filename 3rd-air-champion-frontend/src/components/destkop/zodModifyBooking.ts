@@ -8,9 +8,7 @@ export const modifyBookingObject = z.object({
   startDate: z.date({
     message: "Please select a date",
   }),
-  endDate: z.date({
-    message: "Please select a date",
-  }),
+  duration: z.number({ message: "Please enter duration" }).int().min(1, "At least 1 night"),
 });
 
 export type modifyBookingSchema = z.infer<typeof modifyBookingObject>;

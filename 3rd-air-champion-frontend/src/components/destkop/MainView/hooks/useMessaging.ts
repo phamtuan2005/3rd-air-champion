@@ -112,10 +112,6 @@ export const useMessaging = ({
               guestName = booking.guest.name;
 
               const startDate = toZonedTime(booking.startDate.split("T")[0], timeZone);
-              const isPaid = paidDates.some((paidDate) =>
-                isSameDay(toZonedTime(paidDate, timeZone), startDate),
-              );
-
               const weekday = format(startDate, "EEE");
               const dateFormatted = format(startDate, "MMM d");
               const duration = booking.duration;
@@ -130,13 +126,18 @@ export const useMessaging = ({
 
               numberOfNights += duration;
 
+              const paidNights = Array.from({ length: duration }, (_, i) => addDays(startDate, i))
+                .filter((night) => paidDates.some((pd) => isSameDay(pd, night))).length;
+              const bookingPaidAmount = paidNights * pricePerNight;
+              const paidLabel = paidNights === 0 ? "" : `(paid $${bookingPaidAmount})`;
+
               if (duration === 1) {
                 totalPriceOfMonth += pricePerNight;
-                return `* ${weekday} to ${endWeekday} morning, ${dateFormatted} - ${endDateFormatted} morning, 1 night, ${roomName}, $${pricePerNight} ${isPaid ? "(paid)" : ""}`;
+                return `* ${weekday} to ${endWeekday} morning, ${dateFormatted} - ${endDateFormatted} morning, 1 night, ${roomName}, $${pricePerNight} ${paidLabel}`.trimEnd();
               } else {
                 const totalPrice = pricePerNight * duration;
                 totalPriceOfMonth += totalPrice;
-                return `* ${weekday} to ${endWeekday} morning, ${dateFormatted} - ${endDateFormatted} morning, ${duration} nights, ${roomName}, $${pricePerNight} * ${duration} = $${totalPrice} ${isPaid ? "(paid)" : ""}`;
+                return `* ${weekday} to ${endWeekday} morning, ${dateFormatted} - ${endDateFormatted} morning, ${duration} nights, ${roomName}, $${pricePerNight} * ${duration} = $${totalPrice} ${paidLabel}`.trimEnd();
               }
             })
             .join("\n");
@@ -149,17 +150,13 @@ export const useMessaging = ({
 
     let totalPaidAmount = 0;
     paidDates.forEach((paidDate) => {
-      // paidDate is the check-in date; find the booking that starts on this date
       const day = monthMap.get(paidDate.toISOString().split("T")[0]);
       if (!day) return;
-      const booking = day.bookings.find(
-        (b) => b.guest.id === currentGuest && !b.reserved &&
-          isSameDay(toZonedTime(b.startDate, timeZone), paidDate),
-      );
+      const booking = day.bookings.find((b) => b.guest.id === currentGuest && !b.reserved);
       if (!booking) return;
       const pricePerNight =
         booking.guest.pricing.find((p) => p.room === booking.room.id)?.price || booking.price;
-      totalPaidAmount += pricePerNight * booking.duration;
+      totalPaidAmount += pricePerNight;
     });
 
     const unpaid = totalPriceOfMonth - totalPaidAmount;

@@ -145,8 +145,8 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName }: Avai
               <td className="pt-2">Total</td>
               <td className="pt-2">{totalNights}</td>
               <td className="pt-2 text-right">
-                <span className="inline-block bg-emerald-600 text-white text-xs font-bold px-2 py-0.5 rounded">
-                  ${totalMonthProfit.toFixed(2)}
+                <span className="inline-block bg-emerald-600 text-white text-2xl font-bold px-3 py-1 rounded-lg">
+                  ${Math.round(totalMonthProfit).toLocaleString()}
                 </span>
               </td>
             </tr>

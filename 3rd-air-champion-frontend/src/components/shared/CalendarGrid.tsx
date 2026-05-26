@@ -9,7 +9,6 @@ import {
   isSameDay,
   isSameMonth,
   isWithinInterval,
-  parseISO,
   startOfToday,
 } from "date-fns";
 import { dayType } from "../../util/types/dayType";
@@ -31,8 +30,6 @@ interface CalendarGridProps {
   paidDates?: Date[];
   // TiMag guest mode: pre-filtered room list, bypasses active filter
   overrideRooms?: roomType[];
-  // TiMag: date→(roomId→{guestName,startDate,duration}) for soft reservations (no actual booking yet)
-  reservedMap?: Map<string, Map<string, { guestName: string; startDate: string; duration: number }>>;
   onMonthChange: (month: Date) => void;
   // TiBook: instant single click; TiMag: uses double-click detection (300ms delay)
   onDateClick?: (date: Date) => void;
@@ -59,7 +56,6 @@ const CalendarGrid = ({
   monthsBack = 24,
   paidDates = [],
   overrideRooms,
-  reservedMap,
   onMonthChange,
   onDateClick,
   onDoubleClick,
@@ -285,38 +281,6 @@ const CalendarGrid = ({
     }
 
     sortedUsedRooms.sort((a, b) => a.name.localeCompare(b.name));
-
-    // Inject reserved entries as synthetic bookings so they use the same geometry as real bookings
-    if (reservedMap) {
-      const dateKey = date.toISOString().split("T")[0];
-      const prevDayKey = addDays(date, -1).toISOString().split("T")[0];
-      for (const room of sortedUsedRooms) {
-        if (gridContent[room.name].am !== null || gridContent[room.name].pm !== null) continue;
-        const info = reservedMap.get(dateKey)?.get(room.id);
-        const prevInfo = reservedMap.get(prevDayKey)?.get(room.id);
-        const makeBooking = (src: { guestName: string; startDate: string; duration: number }): bookingType => {
-          const start = parseISO(src.startDate);
-          const end = addDays(start, src.duration - 1);
-          return {
-            id: `reserved-${room.id}-${src.startDate}`,
-            alias: "", price: 0, airbnbPrice: 0, notes: "", earlyCheckin: false, lateCheckout: false,
-            guest: { id: "reserved", name: src.guestName, alias: "", notes: "", pricing: [], numberOfGuests: 1, phone: "", returning: false, email: "" },
-            room: { ...room, color: "bg-amber-300" },
-            description: "reserved",
-            duration: src.duration, numberOfGuests: 1,
-            startDate: start.toISOString(), endDate: end.toISOString(), airbnbBlocked: false,
-          };
-        };
-        if (info) {
-          const b = makeBooking(info);
-          gridContent[room.name].pm = b;
-          if (!isSameDay(date, toZonedTime(info.startDate, timeZone))) gridContent[room.name].am = b;
-        } else if (prevInfo) {
-          // Checkout day: AM cap only
-          gridContent[room.name].am = makeBooking(prevInfo);
-        }
-      }
-    }
 
     // Gaps mode: replace all bars with green availability bars
     if (gapsMode) {

@@ -111,7 +111,7 @@ const Row = ({
           onChange={(e) => setGuests(parseInt(e.target.value) || 1)}
           className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm w-16 focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-300"
         >
-          {[1,2,3,4,5,6,7,8,9,10].map((n) => (
+          {[1,2,3,4].map((n) => (
             <option key={n} value={n}>{n}</option>
           ))}
         </select>

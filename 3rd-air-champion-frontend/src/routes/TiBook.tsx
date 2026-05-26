@@ -143,7 +143,7 @@ const TiBookInner = () => {
 
   const myBookingDates = useMemo(() => {
     const dates = new Set<string>();
-    guestBookings.forEach((b) => {
+    guestBookings.filter((b) => b.status === "confirmed").forEach((b) => {
       const checkIn = parseISO(String(b.date).slice(0, 10));
       for (let i = 0; i < b.duration; i++) {
         const d = addDays(checkIn, i);
@@ -303,6 +303,7 @@ const TiBookInner = () => {
           onToggleWishDate={(date) => setWishListDates((prev) => { const next = new Set(prev); if (next.has(date)) next.delete(date); else next.add(date); return next; })}
           onClose={() => setMyBookingsOpen(false)}
           onPhoneConfirmed={handlePhoneConfirmed}
+          onClear={() => { setGuestPhone(""); setGuestName(""); setGuestBookings([]); localStorage.removeItem("tiBookGuestName"); }}
         />
       )}
 

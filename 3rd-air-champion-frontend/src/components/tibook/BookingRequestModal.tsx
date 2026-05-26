@@ -291,6 +291,7 @@ const BookingRequestModal = ({
 
   const sortedWishListDates = [...localWishList].sort();
   const hasWishList = sortedWishListDates.length > 0;
+  const isWishListOnly = cartDates.size === 0 && !notes.trim() && hasWishList;
 
   const handleNextStep = () => {
     if (cartDates.size === 0 && !notes.trim() && !hasWishList) {
@@ -410,7 +411,7 @@ const BookingRequestModal = ({
             <button
               type="button"
               className="text-gray-400 hover:text-gray-600 text-xl leading-none px-1"
-              onClick={onClose}
+              onClick={() => { if (submitted) onSuccess(); onClose(); }}
             >
               &times;
             </button>
@@ -661,8 +662,8 @@ const BookingRequestModal = ({
                 {errors.guestName && <span className="text-red-500 text-xs">{errors.guestName.message}</span>}
               </div>
 
-              {/* Room section */}
-              {cartDates.size > 0 ? (
+              {/* Room section — hidden when guest only has wish list dates, no cart or notes */}
+              {!isWishListOnly && (cartDates.size > 0 ? (
                 <div>
                   <label className="block text-sm font-medium mb-2">Room summary</label>
                   <div className="flex flex-col gap-2">
@@ -818,6 +819,22 @@ const BookingRequestModal = ({
                     </div>
                   )}
                 </div>
+              ))}
+
+              {/* Wish list summary */}
+              {hasWishList && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Wish list dates</label>
+                  <div className={`${theme.tagBg} border ${theme.tagBorder} rounded-xl px-3 py-2.5 flex flex-col gap-1`}>
+                    {sortedWishListDates.map((d) => (
+                      <div key={d} className="flex items-center gap-2">
+                        <span className="text-amber-400 text-sm">★</span>
+                        <span className="text-sm text-gray-700">{format(new Date(d + "T12:00:00"), "EEE, MMM d yyyy")}</span>
+                      </div>
+                    ))}
+                    <p className="text-xs text-gray-400 mt-0.5">We'll notify you if these open up.</p>
+                  </div>
+                </div>
               )}
 
               {/* Number of guests */}
@@ -841,7 +858,7 @@ const BookingRequestModal = ({
             <div className="flex-shrink-0 border-t border-gray-100 px-4 py-3">
               <button
                 type="submit"
-                disabled={isSubmitting || (cartDates.size === 0 && displayRooms.length === 0)}
+                disabled={isSubmitting || (!isWishListOnly && cartDates.size === 0 && displayRooms.length === 0)}
                 className={`w-full ${theme.btn} ${theme.btnHover} ${theme.btnActive} text-white py-3 rounded-xl font-semibold disabled:opacity-50 transition-colors`}
               >
                 {isSubmitting ? "Sending..." : "Send My Request"}
