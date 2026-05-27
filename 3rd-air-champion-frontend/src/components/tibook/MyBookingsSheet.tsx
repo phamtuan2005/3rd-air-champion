@@ -206,7 +206,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
             </span>
             {!isToday && (
               <span className="text-[11px] font-semibold text-indigo-500 mt-0.5">
-                {daysLeft === 1 ? "Tomorrow!" : `in ${daysLeft} days`}
+                {daysLeft < 0 ? "Staying now" : daysLeft === 0 ? "Check-in today" : daysLeft === 1 ? "Tomorrow!" : `in ${daysLeft} days`}
               </span>
             )}
           {total !== undefined && (
