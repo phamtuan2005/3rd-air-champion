@@ -304,6 +304,8 @@ const TiBookInner = () => {
           onClose={() => setMyBookingsOpen(false)}
           onPhoneConfirmed={handlePhoneConfirmed}
           onClear={() => { setGuestPhone(""); setGuestName(""); setGuestBookings([]); localStorage.removeItem("tiBookGuestName"); }}
+          cancellationFullRefundDays={currentHost.cancellationFullRefundDays}
+          cancellationHalfRefundDays={currentHost.cancellationHalfRefundDays}
         />
       )}
 
