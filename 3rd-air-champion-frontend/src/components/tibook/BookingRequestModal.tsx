@@ -866,8 +866,7 @@ const BookingRequestModal = ({
                     <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z" />
                   </svg>
                   <p className="text-[11px] text-gray-500 leading-relaxed">
-                    <span className="font-semibold text-gray-700">Cancellation policy: </span>
-                    Full refund if cancelled {cancellationFullRefundDays}+ days before check-in. 50% refund if cancelled {cancellationHalfRefundDays}–{cancellationFullRefundDays - 1} days before. No refund within {cancellationHalfRefundDays} days.
+                    We fully understand your plans can change, and TT House will be flexible with that. Full refund if you cancel {cancellationFullRefundDays}+ days before check-in · 50% refund if {cancellationHalfRefundDays}–{cancellationFullRefundDays - 1} days before · No refund within {cancellationHalfRefundDays} days. Feel free to reach out to us anytime!
                   </p>
                 </div>
               </div>
