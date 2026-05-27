@@ -347,7 +347,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
                     {futureBookings.length > 0 && (
                       <>
                         <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide pt-3 pb-1">Upcoming</p>
-                        {futureBookings.map((b) => renderRow(b, false))}
+                        {futureBookings.map((b, i) => renderRow(b, i === 0))}
                       </>
                     )}
                   </>
