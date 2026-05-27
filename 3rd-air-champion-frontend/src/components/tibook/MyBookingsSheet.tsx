@@ -324,18 +324,34 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
             </div>
           )}
 
-          {bookings === null ? null : upcoming.length === 0 && bookings.length > 0 ? (
-            <p className="text-sm text-gray-400 text-center py-6">
-              No upcoming bookings. We look forward to having you again!
-            </p>
-          ) : bookings.length === 0 ? (
+          {bookings === null ? null : bookings.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-6">
               We couldn't find any bookings for this number. Please double-check the number you used when booking.
             </p>
           ) : (
             <>
-              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide pt-2 pb-1">Upcoming</p>
-              {upcoming.map((b, i) => renderRow(b, i === 0))}
+              {/* Check-in today — shown above Upcoming */}
+              {upcoming[0] && dateKey(upcoming[0]) === today && (
+                <div className="pt-2">{renderRow(upcoming[0], true)}</div>
+              )}
+
+              {/* Upcoming (excluding today's check-in) */}
+              {(() => {
+                const rest = upcoming[0] && dateKey(upcoming[0]) === today ? upcoming.slice(1) : upcoming;
+                if (rest.length === 0 && !(upcoming[0] && dateKey(upcoming[0]) === today)) {
+                  return (
+                    <p className="text-sm text-gray-400 text-center py-6">
+                      No upcoming bookings. We look forward to having you again!
+                    </p>
+                  );
+                }
+                return rest.length > 0 ? (
+                  <>
+                    <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide pt-3 pb-1">Upcoming</p>
+                    {rest.map((b) => renderRow(b, false))}
+                  </>
+                ) : null;
+              })()}
             </>
           )}
 
