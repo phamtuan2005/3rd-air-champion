@@ -42,6 +42,8 @@ const hostSchema = new mongoose.Schema(
     phone: { type: String, default: "" },
     contactEmail: { type: String, default: "" },
     licenseNumber: { type: String, default: "" },
+    cancellationFullRefundDays: { type: Number },
+    cancellationHalfRefundDays: { type: Number },
   },
   { timestamps: true }
 );

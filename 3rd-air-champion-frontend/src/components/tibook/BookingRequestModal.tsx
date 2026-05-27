@@ -32,6 +32,8 @@ interface BookingRequestModalProps {
   onWishListSent?: (phone: string, name: string, newDates: string[]) => void;
   onRemoveWishDate?: (date: string) => void;
   onRemoveCartRange?: (dateKeys: string[]) => void;
+  cancellationFullRefundDays?: number;
+  cancellationHalfRefundDays?: number;
 }
 
 interface FormData {
@@ -120,6 +122,8 @@ const BookingRequestModal = ({
   onWishListSent,
   onRemoveWishDate,
   onRemoveCartRange,
+  cancellationFullRefundDays,
+  cancellationHalfRefundDays,
 }: BookingRequestModalProps) => {
   const { theme } = useTiBookTheme();
   const [step, setStep] = useState<1 | 2>(1);
@@ -854,6 +858,20 @@ const BookingRequestModal = ({
                 <p className="text-red-500 text-sm">Something went wrong — please try again.</p>
               )}
             </div>
+
+            {cancellationFullRefundDays !== undefined && cancellationHalfRefundDays !== undefined && (
+              <div className="flex-shrink-0 px-4 pt-2 pb-1">
+                <div className={`flex items-start gap-2 px-3 py-2.5 rounded-xl border ${theme.tagBg} ${theme.tagBorder}`}>
+                  <svg className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${theme.textPrimary}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z" />
+                  </svg>
+                  <p className="text-[11px] text-gray-500 leading-relaxed">
+                    <span className="font-semibold text-gray-700">Cancellation policy: </span>
+                    Full refund if cancelled {cancellationFullRefundDays}+ days before check-in. 50% refund if cancelled {cancellationHalfRefundDays}–{cancellationFullRefundDays - 1} days before. No refund within {cancellationHalfRefundDays} days.
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div className="flex-shrink-0 border-t border-gray-100 px-4 py-3">
               <button

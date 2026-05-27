@@ -30,7 +30,7 @@ export const hostResolvers = {
     },
     updateHost: async (
       _: unknown,
-      { _id, email, name, password, airbnbsync, doorCode, airbnbName, airbnbAddress, airbnbRating, airbnbReviewCount, airbnbReviewsUrl, airbnbProfileUrl, cohostProfileUrls, airbnbSuperhost, highlights, houseRules, phone, contactEmail, licenseNumber }: any
+      { _id, email, name, password, airbnbsync, doorCode, airbnbName, airbnbAddress, airbnbRating, airbnbReviewCount, airbnbReviewsUrl, airbnbProfileUrl, cohostProfileUrls, airbnbSuperhost, highlights, houseRules, phone, contactEmail, licenseNumber, cancellationFullRefundDays, cancellationHalfRefundDays }: any
     ) => {
       const updateData: {
         email?: string;
@@ -51,6 +51,8 @@ export const hostResolvers = {
         phone?: string;
         contactEmail?: string;
         licenseNumber?: string;
+        cancellationFullRefundDays?: number;
+        cancellationHalfRefundDays?: number;
       } = {};
       if (email) updateData.email = email;
       if (name) updateData.name = name;
@@ -70,6 +72,8 @@ export const hostResolvers = {
       if (phone !== undefined) updateData.phone = phone;
       if (contactEmail !== undefined) updateData.contactEmail = contactEmail;
       if (licenseNumber !== undefined) updateData.licenseNumber = licenseNumber;
+      if (cancellationFullRefundDays !== undefined) updateData.cancellationFullRefundDays = cancellationFullRefundDays;
+      if (cancellationHalfRefundDays !== undefined) updateData.cancellationHalfRefundDays = cancellationHalfRefundDays;
 
       return await Host.findByIdAndUpdate(_id, { $set: updateData }, {
         new: true,

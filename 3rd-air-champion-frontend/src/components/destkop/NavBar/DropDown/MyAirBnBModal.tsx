@@ -17,6 +17,8 @@ interface MyAirBnBInfo {
   phone: string;
   contactEmail: string;
   licenseNumber: string;
+  cancellationFullRefundDays: number | "";
+  cancellationHalfRefundDays: number | "";
 }
 
 interface MyAirBnBModalProps {
@@ -25,12 +27,13 @@ interface MyAirBnBModalProps {
   onSaved: (info: MyAirBnBInfo) => void;
 }
 
-type Tab = "public" | "property" | "contact";
+type Tab = "public" | "property" | "contact" | "policies";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "public", label: "Public" },
   { id: "property", label: "Property" },
   { id: "contact", label: "Contact" },
+  { id: "policies", label: "Policies" },
 ];
 
 const Field = ({
@@ -98,6 +101,8 @@ const MyAirBnBModal = ({ current, onClose, onSaved }: MyAirBnBModalProps) => {
             ? draft.highlights.split(",").map((s) => s.trim()).filter(Boolean)
             : undefined,
           cohostProfileUrls: draft.cohostProfileUrl ? [draft.cohostProfileUrl] : [],
+          cancellationFullRefundDays: draft.cancellationFullRefundDays === "" ? undefined : draft.cancellationFullRefundDays,
+          cancellationHalfRefundDays: draft.cancellationHalfRefundDays === "" ? undefined : draft.cancellationHalfRefundDays,
         },
         token
       );
@@ -325,6 +330,42 @@ const MyAirBnBModal = ({ current, onClose, onSaved }: MyAirBnBModalProps) => {
                   onChange={(e) => set("houseRules", e.target.value)}
                 />
               </Field>
+            </>
+          )}
+
+          {tab === "policies" && (
+            <>
+              <p className="text-xs text-gray-400">Set how many days before check-in guests qualify for a refund. Leave blank to disable the policy.</p>
+              <Field label="Full refund threshold (days)" hint="Guests get 100% refund if they cancel this many days or more before check-in">
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="e.g. 14"
+                  className={inputCls}
+                  value={draft.cancellationFullRefundDays}
+                  onChange={(e) =>
+                    set("cancellationFullRefundDays", e.target.value === "" ? "" : parseInt(e.target.value, 10))
+                  }
+                />
+              </Field>
+              <Field label="50% refund threshold (days)" hint="Guests get 50% refund if they cancel this many days or more before check-in (but less than the full-refund threshold)">
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="e.g. 7"
+                  className={inputCls}
+                  value={draft.cancellationHalfRefundDays}
+                  onChange={(e) =>
+                    set("cancellationHalfRefundDays", e.target.value === "" ? "" : parseInt(e.target.value, 10))
+                  }
+                />
+              </Field>
+              {draft.cancellationFullRefundDays !== "" && draft.cancellationHalfRefundDays !== "" && (
+                <div className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3 border border-gray-200 leading-relaxed">
+                  <span className="font-semibold text-gray-700">Preview: </span>
+                  Full refund if cancelled {draft.cancellationFullRefundDays}+ days before check-in. 50% refund if cancelled {draft.cancellationHalfRefundDays}–{Number(draft.cancellationFullRefundDays) - 1} days before. No refund within {draft.cancellationHalfRefundDays} days.
+                </div>
+              )}
             </>
           )}
 

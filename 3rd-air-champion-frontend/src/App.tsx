@@ -75,6 +75,8 @@ function App() {
     phone: "",
     contactEmail: "",
     licenseNumber: "",
+    cancellationFullRefundDays: "" as number | "",
+    cancellationHalfRefundDays: "" as number | "",
   });
 
   const navigate = useNavigate();
@@ -107,6 +109,8 @@ function App() {
           phone: result.phone ?? "",
           contactEmail: result.contactEmail ?? "",
           licenseNumber: result.licenseNumber ?? "",
+          cancellationFullRefundDays: result.cancellationFullRefundDays ?? "",
+          cancellationHalfRefundDays: result.cancellationHalfRefundDays ?? "",
         });
         setIsLoading(false); // Data fetched, stop loading
       })
@@ -246,6 +250,8 @@ function App() {
                       setBookingRequestPendingCount
                     }
                     setWishListAvailableCount={setWishListAvailableCount}
+                    cancellationFullRefundDays={airBnBInfo.cancellationFullRefundDays === "" ? undefined : airBnBInfo.cancellationFullRefundDays}
+                    cancellationHalfRefundDays={airBnBInfo.cancellationHalfRefundDays === "" ? undefined : airBnBInfo.cancellationHalfRefundDays}
                   ></MainView>
                 </div>
 

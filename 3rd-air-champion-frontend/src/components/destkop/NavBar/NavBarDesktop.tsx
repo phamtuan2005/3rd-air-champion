@@ -18,6 +18,8 @@ interface AirBnBInfo {
   phone: string;
   contactEmail: string;
   licenseNumber: string;
+  cancellationFullRefundDays: number | "";
+  cancellationHalfRefundDays: number | "";
 }
 
 interface NavBarDesktopProps {

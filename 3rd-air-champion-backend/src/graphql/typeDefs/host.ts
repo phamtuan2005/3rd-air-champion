@@ -30,6 +30,8 @@ export const hostDefs = gql`
     phone: String
     contactEmail: String
     licenseNumber: String
+    cancellationFullRefundDays: Int
+    cancellationHalfRefundDays: Int
     createdAt: String
     updatedAt: String
   }
@@ -61,6 +63,8 @@ export const hostDefs = gql`
       phone: String
       contactEmail: String
       licenseNumber: String
+      cancellationFullRefundDays: Int
+      cancellationHalfRefundDays: Int
     ): Host!
     deleteCohosts(_id: String!, cohostIds: [String]!): Host!
     deleteGuests(_id: String!, guestIds: [String!]!): Host!

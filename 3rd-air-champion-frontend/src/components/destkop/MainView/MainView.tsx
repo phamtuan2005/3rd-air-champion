@@ -59,6 +59,8 @@ interface MainViewProps {
   setIsRequestManagerOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setBookingRequestPendingCount: React.Dispatch<React.SetStateAction<number>>;
   setWishListAvailableCount: React.Dispatch<React.SetStateAction<number>>;
+  cancellationFullRefundDays?: number;
+  cancellationHalfRefundDays?: number;
 }
 
 const MainView = ({
@@ -85,6 +87,8 @@ const MainView = ({
   setIsRequestManagerOpen,
   setBookingRequestPendingCount,
   setWishListAvailableCount,
+  cancellationFullRefundDays,
+  cancellationHalfRefundDays,
 }: MainViewProps) => {
   const token = localStorage.getItem("token");
 
@@ -858,6 +862,8 @@ const MainView = ({
         <UnbookingConfirmation
           monthMap={monthMap}
           booking={selectedUnbooking}
+          cancellationFullRefundDays={cancellationFullRefundDays}
+          cancellationHalfRefundDays={cancellationHalfRefundDays}
           onClose={() => setSelectedUnbooking(null)}
           onUnbook={onUnbook}
         />
