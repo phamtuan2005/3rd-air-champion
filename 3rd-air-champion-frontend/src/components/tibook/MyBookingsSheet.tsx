@@ -330,27 +330,26 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
             </p>
           ) : (
             <>
-              {/* Check-in today — shown above Upcoming */}
-              {upcoming[0] && dateKey(upcoming[0]) === today && (
-                <div className="pt-2">{renderRow(upcoming[0], true)}</div>
-              )}
-
-              {/* Upcoming (excluding today's check-in) */}
-              {(() => {
-                const rest = upcoming[0] && dateKey(upcoming[0]) === today ? upcoming.slice(1) : upcoming;
-                if (rest.length === 0 && !(upcoming[0] && dateKey(upcoming[0]) === today)) {
-                  return (
-                    <p className="text-sm text-gray-400 text-center py-6">
-                      No upcoming bookings. We look forward to having you again!
-                    </p>
-                  );
-                }
-                return rest.length > 0 ? (
+              {upcoming.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-6">
+                  No upcoming bookings. We look forward to having you again!
+                </p>
+              ) : (() => {
+                const stayingNow    = upcoming.filter((b) => dateKey(b) < today);
+                const checkInToday  = upcoming.filter((b) => dateKey(b) === today);
+                const futureBookings = upcoming.filter((b) => dateKey(b) > today);
+                return (
                   <>
-                    <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide pt-3 pb-1">Upcoming</p>
-                    {rest.map((b) => renderRow(b, false))}
+                    {stayingNow.map((b) => <div key={b.id} className="pt-2">{renderRow(b, true)}</div>)}
+                    {checkInToday.map((b) => <div key={b.id} className="pt-2">{renderRow(b, true)}</div>)}
+                    {futureBookings.length > 0 && (
+                      <>
+                        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide pt-3 pb-1">Upcoming</p>
+                        {futureBookings.map((b) => renderRow(b, false))}
+                      </>
+                    )}
                   </>
-                ) : null;
+                );
               })()}
             </>
           )}
