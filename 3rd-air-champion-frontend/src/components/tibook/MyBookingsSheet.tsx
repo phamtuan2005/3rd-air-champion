@@ -162,7 +162,11 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
   const _now = new Date();
   const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-${String(_now.getDate()).padStart(2, "0")}`;
   const dateKey = (b: GuestBooking) => String(b.date).slice(0, 10);
-  const upcoming = (bookings ?? []).filter((b) => dateKey(b) >= today && b.status === "confirmed").sort((a, b) => dateKey(a).localeCompare(dateKey(b)));
+  const upcoming = (bookings ?? []).filter((b) => {
+    const checkOut = addDays(parseISO(dateKey(b)), Number(b.duration) || 1);
+    const checkOutKey = `${checkOut.getFullYear()}-${String(checkOut.getMonth() + 1).padStart(2, "0")}-${String(checkOut.getDate()).padStart(2, "0")}`;
+    return checkOutKey > today && b.status === "confirmed";
+  }).sort((a, b) => dateKey(a).localeCompare(dateKey(b)));
 
   const guestFirstName = bookings && bookings.length > 0
     ? bookings[0].guestName.split(" ")[0]
