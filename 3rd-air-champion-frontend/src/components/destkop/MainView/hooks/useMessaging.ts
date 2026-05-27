@@ -77,12 +77,15 @@ export const useMessaging = ({
         .map((paidDate) => startOfMonth(paidDate).toISOString().split("T")[0]),
     );
     const months = Array.from(uniqueMonths, (uniqueMonth) => toZonedTime(uniqueMonth, timeZone));
-    const monthStrings = months.map((month) => format(month, "LLLL"));
+    const currentYear = new Date().getFullYear();
+    const monthStrings = months.map((month) =>
+      format(month, month.getFullYear() !== currentYear ? "LLLL yyyy" : "LLLL"),
+    );
 
     const body = `Your bookings for ${
       monthStrings.length > 0
         ? formatListWithAnd(monthStrings)
-        : format(currentMonth, "LLLL")
+        : format(currentMonth, currentMonth.getFullYear() !== currentYear ? "LLLL yyyy" : "LLLL")
     } are now as follows:\n`;
 
     const sortedEntries = Array.from(monthMap.entries()).sort(([dateStrA], [dateStrB]) => {
