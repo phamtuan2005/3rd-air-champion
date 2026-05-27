@@ -3,6 +3,7 @@ import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { roomType } from "../../util/types/roomType";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import { fetchBookingRequestsByGuest, fetchCalendarBookingsByGuest } from "../../util/bookingRequestOperations";
+import { formatCancellationPolicy } from "../../util/cancellationPolicy";
 import { fetchGuestByPhone } from "../../util/guestOperations";
 import { toggleWishListDate } from "../../util/wishListOperations";
 import RoomBadge from "../shared/RoomBadge";
@@ -371,7 +372,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z" />
               </svg>
               <p className="text-[11px] text-gray-500 leading-relaxed">
-                We fully understand your plans can change, and TT House will be flexible with that. Full refund if you cancel {cancellationFullRefundDays}+ days before check-in · 50% refund if {cancellationHalfRefundDays}–{cancellationFullRefundDays - 1} days before · No refund within {cancellationHalfRefundDays} days. Feel free to reach out to us anytime!
+                {formatCancellationPolicy(cancellationFullRefundDays, cancellationHalfRefundDays)}
               </p>
             </div>
           )}

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { updateAirBnBInfo, getHost } from "../../../../util/hostOperations";
+import { formatCancellationPolicy } from "../../../../util/cancellationPolicy";
 
 interface MyAirBnBInfo {
   doorCode: string;
@@ -363,7 +364,7 @@ const MyAirBnBModal = ({ current, onClose, onSaved }: MyAirBnBModalProps) => {
               {draft.cancellationFullRefundDays !== "" && draft.cancellationHalfRefundDays !== "" && (
                 <div className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3 border border-gray-200 leading-relaxed">
                   <span className="font-semibold text-gray-700">Preview: </span>
-                  Full refund if cancelled {draft.cancellationFullRefundDays}+ days before check-in. 50% refund if cancelled {draft.cancellationHalfRefundDays}–{Number(draft.cancellationFullRefundDays) - 1} days before. No refund within {draft.cancellationHalfRefundDays} days.
+                  {formatCancellationPolicy(draft.cancellationFullRefundDays as number, draft.cancellationHalfRefundDays as number)}
                 </div>
               )}
             </>

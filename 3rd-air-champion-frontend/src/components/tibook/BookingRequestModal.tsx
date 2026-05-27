@@ -3,6 +3,7 @@ import { useForm, SubmitHandler } from "react-hook-form";
 import { roomType } from "../../util/types/roomType";
 import { dayType } from "../../util/types/dayType";
 import { createBookingRequest, fetchBookingRequestsByGuest, fetchCalendarBookingsByGuest } from "../../util/bookingRequestOperations";
+import { formatCancellationPolicy } from "../../util/cancellationPolicy";
 import { setGuestWishList } from "../../util/wishListOperations";
 import { getAvailableRooms } from "../../util/bookingOperations";
 import { fetchGuestByPhone } from "../../util/guestOperations";
@@ -866,7 +867,7 @@ const BookingRequestModal = ({
                     <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z" />
                   </svg>
                   <p className="text-[11px] text-gray-500 leading-relaxed">
-                    We fully understand your plans can change, and TT House will be flexible with that. Full refund if you cancel {cancellationFullRefundDays}+ days before check-in · 50% refund if {cancellationHalfRefundDays}–{cancellationFullRefundDays - 1} days before · No refund within {cancellationHalfRefundDays} days. Feel free to reach out to us anytime!
+                    {formatCancellationPolicy(cancellationFullRefundDays, cancellationHalfRefundDays)}
                   </p>
                 </div>
               </div>
