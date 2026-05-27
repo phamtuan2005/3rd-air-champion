@@ -189,10 +189,17 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
     const st        = statusLabel[b.status] ?? { label: b.status, color: "text-gray-500 bg-gray-50 border-gray-200" };
     const nightRate = guestPricing.get(b.room);
     const total     = nightRate !== undefined ? nightRate * (Number(b.duration) || 1) : undefined;
-    const isToday   = isNext && dateKey(b) === today;
-    const daysLeft  = isToday ? 0 : differenceInCalendarDays(checkIn, parseISO(today));
+    const daysLeft     = differenceInCalendarDays(checkIn, parseISO(today));
+    const isStayingNow = daysLeft < 0;
+    const isToday      = daysLeft === 0;
     return (
-      <div key={b.id} className={`flex flex-col gap-2 py-3 border-b border-gray-100 last:border-0 ${isNext ? "pb-4" : ""} ${isToday ? `-mx-4 px-4 rounded-2xl bg-amber-50 border border-amber-200 shadow-sm` : ""}`}>
+      <div key={b.id} className={`flex flex-col gap-2 py-3 border-b border-gray-100 last:border-0 ${isNext ? "pb-4" : ""} ${(isToday || isStayingNow) ? `-mx-4 px-4 rounded-2xl bg-amber-50 border border-amber-200 shadow-sm` : ""}`}>
+        {isStayingNow && (
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-[11px] font-bold text-amber-600 uppercase tracking-wide">Staying now</span>
+          </div>
+        )}
         {isToday && (
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
@@ -206,9 +213,9 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
               {format(checkIn, "MMM d")} – {format(checkOut, "MMM d, yyyy")}
               <span className="ml-1 text-gray-400">· {b.duration} night{b.duration !== 1 ? "s" : ""}</span>
             </span>
-            {!isToday && (
+            {!isToday && !isStayingNow && (
               <span className="text-[11px] font-semibold text-indigo-500 mt-0.5">
-                {daysLeft < 0 ? "Staying now" : daysLeft === 0 ? "Check-in today" : daysLeft === 1 ? "Tomorrow!" : `in ${daysLeft} days`}
+                {daysLeft === 1 ? "Tomorrow!" : `in ${daysLeft} days`}
               </span>
             )}
           {total !== undefined && (
