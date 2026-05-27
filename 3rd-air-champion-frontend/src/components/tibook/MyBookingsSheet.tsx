@@ -332,17 +332,6 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
             </p>
           ) : (
             <>
-              {cancellationFullRefundDays != null && cancellationHalfRefundDays != null && (
-                <div className={`flex items-start gap-2 px-3 py-2.5 rounded-xl border mt-2 mb-1 ${theme.tagBg} ${theme.tagBorder}`}>
-                  <svg className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${theme.textPrimary}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z" />
-                  </svg>
-                  <p className="text-[11px] text-gray-500 leading-relaxed">
-                    We fully understand your plans can change, and TT House will be flexible with that. Full refund if you cancel {cancellationFullRefundDays}+ days before check-in · 50% refund if {cancellationHalfRefundDays}–{cancellationFullRefundDays - 1} days before · No refund within {cancellationHalfRefundDays} days. Feel free to reach out to us anytime!
-                  </p>
-                </div>
-              )}
-
               {upcoming.length === 0 ? (
                 <p className="text-sm text-gray-400 text-center py-6">
                   No upcoming bookings. We look forward to having you again!
@@ -365,6 +354,17 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
                 );
               })()}
             </>
+          )}
+
+          {bookings !== null && cancellationFullRefundDays != null && cancellationHalfRefundDays != null && (
+            <div className={`flex items-start gap-2 px-3 py-2.5 rounded-xl border mt-3 ${theme.tagBg} ${theme.tagBorder}`}>
+              <svg className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${theme.textPrimary}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z" />
+              </svg>
+              <p className="text-[11px] text-gray-500 leading-relaxed">
+                We fully understand your plans can change, and TT House will be flexible with that. Full refund if you cancel {cancellationFullRefundDays}+ days before check-in · 50% refund if {cancellationHalfRefundDays}–{cancellationFullRefundDays - 1} days before · No refund within {cancellationHalfRefundDays} days. Feel free to reach out to us anytime!
+              </p>
+            </div>
           )}
 
           {bookings !== null && sortedWishDates.length > 0 && (
