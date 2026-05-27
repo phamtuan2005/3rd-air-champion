@@ -159,7 +159,8 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
     }
   };
 
-  const today = new Date().toISOString().slice(0, 10);
+  const _now = new Date();
+  const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-${String(_now.getDate()).padStart(2, "0")}`;
   const dateKey = (b: GuestBooking) => String(b.date).slice(0, 10);
   const upcoming = (bookings ?? []).filter((b) => dateKey(b) >= today && b.status === "confirmed").sort((a, b) => dateKey(a).localeCompare(dateKey(b)));
 
