@@ -337,17 +337,19 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
                   No upcoming bookings. We look forward to having you again!
                 </p>
               ) : (() => {
-                const stayingNow    = upcoming.filter((b) => dateKey(b) < today);
-                const checkInToday  = upcoming.filter((b) => dateKey(b) === today);
+                const stayingNow     = upcoming.filter((b) => dateKey(b) < today);
+                const checkInToday   = upcoming.filter((b) => dateKey(b) === today);
                 const futureBookings = upcoming.filter((b) => dateKey(b) > today);
+                // The single most-imminent booking across all buckets (upcoming is sorted by date)
+                const nextId = upcoming[0]?.id;
                 return (
                   <>
-                    {stayingNow.map((b) => <div key={b.id} className="pt-2">{renderRow(b, true)}</div>)}
-                    {checkInToday.map((b) => <div key={b.id} className="pt-2">{renderRow(b, true)}</div>)}
+                    {stayingNow.map((b) => <div key={b.id} className="pt-2">{renderRow(b, b.id === nextId)}</div>)}
+                    {checkInToday.map((b) => <div key={b.id} className="pt-2">{renderRow(b, b.id === nextId)}</div>)}
                     {futureBookings.length > 0 && (
                       <>
                         <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide pt-3 pb-1">Upcoming</p>
-                        {futureBookings.map((b, i) => renderRow(b, i === 0))}
+                        {futureBookings.map((b) => renderRow(b, b.id === nextId))}
                       </>
                     )}
                   </>
