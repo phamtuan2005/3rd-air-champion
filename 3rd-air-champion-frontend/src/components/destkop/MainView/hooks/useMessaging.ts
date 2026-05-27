@@ -113,11 +113,12 @@ export const useMessaging = ({
 
               const startDate = toZonedTime(booking.startDate.split("T")[0], timeZone);
               const weekday = format(startDate, "EEE");
-              const dateFormatted = format(startDate, "MMM d");
+              const currentYear = new Date().getFullYear();
+              const dateFormatted = format(startDate, startDate.getFullYear() !== currentYear ? "MMM d, yyyy" : "MMM d");
               const duration = booking.duration;
               const endDate = addDays(startDate, duration);
               const endWeekday = format(endDate, "EEE");
-              const endDateFormatted = format(endDate, "MMM d");
+              const endDateFormatted = format(endDate, endDate.getFullYear() !== currentYear ? "MMM d, yyyy" : "MMM d");
 
               const roomName = booking.room.name;
               const pricePerNight =
