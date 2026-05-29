@@ -6,7 +6,6 @@ export interface LoyaltyTier {
   message: (totalStays: number, totalNights: number, memberSince: string | null) => string;
 }
 
-const s = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 export const LOYALTY_TIERS: { minStays: number; tier: LoyaltyTier }[] = [
   {
@@ -14,8 +13,8 @@ export const LOYALTY_TIERS: { minStays: number; tier: LoyaltyTier }[] = [
     tier: {
       label: "Cherished Guest",
       color: "text-amber-700 bg-amber-50 border-amber-200",
-      message: (stays, nights) =>
-        `${s(stays, "stay")} and ${s(nights, "night")} — you are not just a guest, you are part of the TT House family. ` +
+      message: () =>
+        `You are not just a guest, you are part of the TT House family. ` +
         `We hold every single one of those nights close to our hearts, and your trust in us means everything. Thank you for being so wonderfully you.`,
     },
   },
@@ -24,8 +23,8 @@ export const LOYALTY_TIERS: { minStays: number; tier: LoyaltyTier }[] = [
     tier: {
       label: "Valued Guest",
       color: "text-purple-700 bg-purple-50 border-purple-200",
-      message: (stays, nights, since) =>
-        `${s(stays, "stay")} and ${s(nights, "night")}${since ? ` since ${since}` : ""} — you have truly made TT House your home away from home. ` +
+      message: () =>
+        `You have truly made TT House your home away from home. ` +
         `We are so grateful you keep choosing us, and we will always do our best to deserve that trust.`,
     },
   },
@@ -34,8 +33,8 @@ export const LOYALTY_TIERS: { minStays: number; tier: LoyaltyTier }[] = [
     tier: {
       label: "Loyal Guest",
       color: "text-blue-700 bg-blue-50 border-blue-200",
-      message: (stays, nights) =>
-        `${s(stays, "stay")} and ${s(nights, "night")} with us — every time you come back, it genuinely warms our hearts. ` +
+      message: () =>
+        `Every time you come back, it genuinely warms our hearts. ` +
         `You are a true friend of TT House, and we look forward to many more stays together.`,
     },
   },
