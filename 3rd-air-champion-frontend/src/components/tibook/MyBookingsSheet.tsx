@@ -77,6 +77,25 @@ const CheckInInstructionsPanel = ({ instructions, theme }: { instructions: strin
   );
 };
 
+const mergeConsecutiveBookings = (bookings: GuestBooking[]): GuestBooking[] => {
+  if (bookings.length <= 1) return bookings;
+  const dk = (b: GuestBooking) => String(b.date).slice(0, 10);
+  const merged: GuestBooking[] = [];
+  let cur = { ...bookings[0] };
+  for (let i = 1; i < bookings.length; i++) {
+    const nxt = bookings[i];
+    const curCheckOut = format(addDays(parseISO(dk(cur)), Number(cur.duration) || 1), "yyyy-MM-dd");
+    if (cur.room === nxt.room && curCheckOut === dk(nxt)) {
+      cur = { ...cur, duration: (Number(cur.duration) || 1) + (Number(nxt.duration) || 1) };
+    } else {
+      merged.push(cur);
+      cur = { ...nxt };
+    }
+  }
+  merged.push(cur);
+  return merged;
+};
+
 const statusLabel: Record<string, { label: string; color: string }> = {
   pending:   { label: "Pending",   color: "text-amber-600 bg-amber-50 border-amber-200" },
   confirmed: { label: "Confirmed", color: "text-green-700 bg-green-50 border-green-200" },
@@ -345,11 +364,12 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
                   No upcoming bookings. We look forward to having you again!
                 </p>
               ) : (() => {
-                const stayingNow     = upcoming.filter((b) => dateKey(b) < today);
-                const checkInToday   = upcoming.filter((b) => dateKey(b) === today);
-                const futureBookings = upcoming.filter((b) => dateKey(b) > today);
-                // The single most-imminent booking across all buckets (upcoming is sorted by date)
-                const nextId = upcoming[0]?.id;
+                const merged         = mergeConsecutiveBookings(upcoming);
+                const stayingNow     = merged.filter((b) => dateKey(b) < today);
+                const checkInToday   = merged.filter((b) => dateKey(b) === today);
+                const futureBookings = merged.filter((b) => dateKey(b) > today);
+                // The single most-imminent booking across all buckets (merged is sorted by date)
+                const nextId = merged[0]?.id;
                 return (
                   <>
                     {stayingNow.map((b) => <div key={b.id} className="pt-2">{renderRow(b, b.id === nextId)}</div>)}
