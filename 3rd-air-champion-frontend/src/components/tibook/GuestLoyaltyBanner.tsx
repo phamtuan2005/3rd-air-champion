@@ -1,21 +1,12 @@
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
 
-const loyaltyDurationPhrase = (memberSince: string | null): string => {
-  if (!memberSince) return "over the years";
-  const since = new Date(memberSince);
-  const now = new Date();
-  const months = (now.getFullYear() - since.getFullYear()) * 12 + (now.getMonth() - since.getMonth());
-  if (months < 2) return "since your first stay";
-  if (months < 12) return `over the past ${months} months`;
-  if (months < 24) return "over the past year";
-  return "over the years";
-};
-
 export interface LoyaltyTier {
   label: string;
   color: string;
-  message: string;
+  message: (totalStays: number, totalNights: number, memberSince: string | null) => string;
 }
+
+const s = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 export const LOYALTY_TIERS: { minStays: number; tier: LoyaltyTier }[] = [
   {
@@ -23,7 +14,9 @@ export const LOYALTY_TIERS: { minStays: number; tier: LoyaltyTier }[] = [
     tier: {
       label: "Cherished Guest",
       color: "text-amber-700 bg-amber-50 border-amber-200",
-      message: "You are one of our most loyal and treasured guests. Every stay you've had with us is something we hold close — your trust in TT House means everything to us.",
+      message: (stays, nights) =>
+        `${s(stays, "stay")} and ${s(nights, "night")} — you are not just a guest, you are part of the TT House family. ` +
+        `We hold every single one of those nights close to our hearts, and your trust in us means everything. Thank you for being so wonderfully you.`,
     },
   },
   {
@@ -31,7 +24,9 @@ export const LOYALTY_TIERS: { minStays: number; tier: LoyaltyTier }[] = [
     tier: {
       label: "Valued Guest",
       color: "text-purple-700 bg-purple-50 border-purple-200",
-      message: "Your loyalty over the years has meant so much to us. We are genuinely grateful you keep choosing TT House as your home away from home.",
+      message: (stays, nights, since) =>
+        `${s(stays, "stay")} and ${s(nights, "night")}${since ? ` since ${since}` : ""} — you have truly made TT House your home away from home. ` +
+        `We are so grateful you keep choosing us, and we will always do our best to deserve that trust.`,
     },
   },
   {
@@ -39,7 +34,9 @@ export const LOYALTY_TIERS: { minStays: number; tier: LoyaltyTier }[] = [
     tier: {
       label: "Loyal Guest",
       color: "text-blue-700 bg-blue-50 border-blue-200",
-      message: "We love having you back! Your continued trust in TT House warms our hearts every time.",
+      message: (stays, nights) =>
+        `${s(stays, "stay")} and ${s(nights, "night")} with us — every time you come back, it genuinely warms our hearts. ` +
+        `You are a true friend of TT House, and we look forward to many more stays together.`,
     },
   },
   {
@@ -47,7 +44,9 @@ export const LOYALTY_TIERS: { minStays: number; tier: LoyaltyTier }[] = [
     tier: {
       label: "Returning Guest",
       color: "text-green-700 bg-green-50 border-green-200",
-      message: "It's wonderful to see you again! We hope every stay with us feels like coming home.",
+      message: () =>
+        `It means so much to have you back! We hope every stay with us feels like a little retreat — ` +
+        `comfortable, warm, and just right. See you again soon!`,
     },
   },
 ];
@@ -99,8 +98,8 @@ const GuestLoyaltyBanner = ({ firstName, totalStays, totalNights, memberSince }:
 
       <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
         {loyaltyTier
-          ? loyaltyTier.message.replace("over the years", loyaltyDurationPhrase(memberSince))
-          : "Thank you for choosing TT House. We're always happy to have you with us."}
+          ? loyaltyTier.message(totalStays, totalNights, memberSince)
+          : "Welcome to TT House! We are so happy you are here, and we hope this stay is the first of many. Your comfort is truly our mission."}
       </p>
     </div>
   );
