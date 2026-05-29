@@ -1,5 +1,16 @@
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
 
+const loyaltyDurationPhrase = (memberSince: string | null): string => {
+  if (!memberSince) return "over the years";
+  const since = new Date(memberSince);
+  const now = new Date();
+  const months = (now.getFullYear() - since.getFullYear()) * 12 + (now.getMonth() - since.getMonth());
+  if (months < 2) return "since your first stay";
+  if (months < 12) return `over the past ${months} months`;
+  if (months < 24) return "over the past year";
+  return "over the years";
+};
+
 export interface LoyaltyTier {
   label: string;
   color: string;
@@ -88,7 +99,7 @@ const GuestLoyaltyBanner = ({ firstName, totalStays, totalNights, memberSince }:
 
       <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
         {loyaltyTier
-          ? loyaltyTier.message
+          ? loyaltyTier.message.replace("over the years", loyaltyDurationPhrase(memberSince))
           : "Thank you for choosing TT House. We're always happy to have you with us."}
       </p>
     </div>
