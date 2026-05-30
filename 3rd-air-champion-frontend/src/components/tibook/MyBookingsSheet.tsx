@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { roomType } from "../../util/types/roomType";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
-import { fetchBookingRequestsByGuest, fetchCalendarBookingsByGuest } from "../../util/bookingRequestOperations";
+import { fetchCalendarBookingsByGuest } from "../../util/bookingRequestOperations";
 import { formatCancellationPolicy } from "../../util/cancellationPolicy";
 import { fetchGuestByPhone } from "../../util/guestOperations";
 import { toggleWishListDate } from "../../util/wishListOperations";
@@ -164,23 +164,13 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
     setLoading(true);
     setError("");
     try {
-      const [calendarBookings, tiBookRequests, guest] = await Promise.all([
+      const [calendarBookings, guest] = await Promise.all([
         fetchCalendarBookingsByGuest(calendarId, p),
-        fetchBookingRequestsByGuest(hostId, p),
         fetchGuestByPhone(p, hostId),
       ]);
-      // Calendar bookings are source of truth; exclude any TiBook request that overlaps (start date falls within) a calendar stay
-      const cal: GuestBooking[] = (calendarBookings ?? []).map((b: GuestBooking) => ({ ...b, _source: "calendar" as const }));
-      const tib: GuestBooking[] = (tiBookRequests ?? []).map((b: GuestBooking) => ({ ...b, _source: "tibook" as const }));
-      const extraRequests = tib.filter((b) => {
-        const bDate = String(b.date).slice(0, 10);
-        return !cal.some((calEntry) => {
-          const calStart = String(calEntry.date).slice(0, 10);
-          const calEnd = format(addDays(parseISO(calStart), Number(calEntry.duration) || 1), "yyyy-MM-dd");
-          return b.room === calEntry.room && bDate >= calStart && bDate <= calEnd;
-        });
-      });
-      setBookings([...cal, ...extraRequests]);
+      // Calendar is the source of truth — it already deduplicates by startDate and carries correct duration.
+      // TiBook requests that are confirmed are already on the calendar; pending ones aren't shown in upcoming anyway.
+      setBookings((calendarBookings ?? []) as GuestBooking[]);
       setGuestPricing(new Map((guest?.pricing ?? []).map((pr: { room: string; price: number }) => [pr.room, pr.price])));
       localStorage.setItem("tiBookGuestPhone", p);
       onPhoneConfirmed(p);
