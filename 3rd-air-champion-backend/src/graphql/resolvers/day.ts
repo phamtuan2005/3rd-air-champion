@@ -128,21 +128,19 @@ export const dayResolvers = {
       for (const day of days) {
         for (const booking of day.bookings as any[]) {
           if (booking.guest?.toString() !== guest._id.toString()) continue;
-          const rawStart = booking.startDate ?? day.date;
-          const startDate: Date = rawStart instanceof Date ? rawStart : new Date(rawStart);
           const roomId = booking.room?._id?.toString() ?? booking.room?.toString();
-          const key = `${roomId}:${startDate.toISOString().slice(0, 10)}`;
+          const key = `${roomId}:${day.date.toISOString().slice(0, 10)}`;
           if (seen.has(key)) continue;
           seen.add(key);
           result.push({
             id: booking._id.toString(),
             guestName: guest.name,
-            date: startDate.toISOString(),
+            date: day.date.toISOString(),
             room: roomId,
-            duration: booking.duration ?? 1,
+            duration: 1,
             numberOfGuests: booking.numberOfGuests ?? 1,
             status: booking.reserved ? "reserved" : "confirmed",
-            createdAt: (day as any).createdAt?.toISOString() ?? startDate.toISOString(),
+            createdAt: (day as any).createdAt?.toISOString() ?? day.date.toISOString(),
           });
         }
       }
