@@ -167,10 +167,18 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
         fetchBookingRequestsByGuest(hostId, p),
         fetchGuestByPhone(p, hostId),
       ]);
-      // Calendar bookings are source of truth; add TiBook requests only if not already on calendar
-      const calendarKeys = new Set((calendarBookings ?? []).map((b: GuestBooking) => `${b.room}:${String(b.date).slice(0, 10)}`));
-      const extraRequests = (tiBookRequests ?? []).filter((b: GuestBooking) => !calendarKeys.has(`${b.room}:${String(b.date).slice(0, 10)}`));
-      setBookings([...(calendarBookings ?? []), ...extraRequests]);
+      // Calendar bookings are source of truth; exclude any TiBook request whose date falls inside a calendar booking's range
+      const cal = (calendarBookings ?? []) as GuestBooking[];
+      const tib = (tiBookRequests ?? []) as GuestBooking[];
+      const extraRequests = tib.filter((b: GuestBooking) => {
+        const bDate = String(b.date).slice(0, 10);
+        return !cal.some((calEntry) => {
+          const calStart = String(calEntry.date).slice(0, 10);
+          const calEnd = format(addDays(parseISO(calStart), Number(calEntry.duration) || 1), "yyyy-MM-dd");
+          return b.room === calEntry.room && bDate >= calStart && bDate < calEnd;
+        });
+      });
+      setBookings([...cal, ...extraRequests]);
       setGuestPricing(new Map((guest?.pricing ?? []).map((pr: { room: string; price: number }) => [pr.room, pr.price])));
       localStorage.setItem("tiBookGuestPhone", p);
       onPhoneConfirmed(p);
