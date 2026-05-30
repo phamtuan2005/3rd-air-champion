@@ -279,7 +279,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
 
   return (
     <div className={`fixed inset-0 z-50 ${isDragging ? "select-none" : ""}`}>
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/30" onPointerDown={onClose} />
       <div
         className="absolute inset-x-0 bottom-0 bg-white rounded-t-2xl shadow-xl overflow-hidden"
         style={{
