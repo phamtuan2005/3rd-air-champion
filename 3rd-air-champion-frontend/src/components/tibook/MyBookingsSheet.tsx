@@ -18,6 +18,7 @@ export interface GuestBooking {
   numberOfGuests: number;
   status: string;
   createdAt: string;
+  _source?: "calendar" | "tibook";
 }
 
 interface MyBookingsSheetProps {
@@ -85,7 +86,8 @@ const mergeConsecutiveBookings = (bookings: GuestBooking[]): GuestBooking[] => {
   for (let i = 1; i < bookings.length; i++) {
     const nxt = bookings[i];
     const curCheckOut = format(addDays(parseISO(dk(cur)), Number(cur.duration) || 1), "yyyy-MM-dd");
-    if (cur.room === nxt.room && curCheckOut === dk(nxt)) {
+    // Only merge same-source, same-room consecutive entries; never merge calendar into tibook or vice versa
+    if (cur.room === nxt.room && curCheckOut === dk(nxt) && cur._source === nxt._source) {
       cur = { ...cur, duration: (Number(cur.duration) || 1) + (Number(nxt.duration) || 1) };
     } else {
       merged.push(cur);
@@ -167,15 +169,15 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
         fetchBookingRequestsByGuest(hostId, p),
         fetchGuestByPhone(p, hostId),
       ]);
-      // Calendar bookings are source of truth; exclude any TiBook request whose date falls inside a calendar booking's range
-      const cal = (calendarBookings ?? []) as GuestBooking[];
-      const tib = (tiBookRequests ?? []) as GuestBooking[];
-      const extraRequests = tib.filter((b: GuestBooking) => {
+      // Calendar bookings are source of truth; exclude any TiBook request that overlaps (start date falls within) a calendar stay
+      const cal: GuestBooking[] = (calendarBookings ?? []).map((b: GuestBooking) => ({ ...b, _source: "calendar" as const }));
+      const tib: GuestBooking[] = (tiBookRequests ?? []).map((b: GuestBooking) => ({ ...b, _source: "tibook" as const }));
+      const extraRequests = tib.filter((b) => {
         const bDate = String(b.date).slice(0, 10);
         return !cal.some((calEntry) => {
           const calStart = String(calEntry.date).slice(0, 10);
           const calEnd = format(addDays(parseISO(calStart), Number(calEntry.duration) || 1), "yyyy-MM-dd");
-          return b.room === calEntry.room && bDate >= calStart && bDate < calEnd;
+          return b.room === calEntry.room && bDate >= calStart && bDate <= calEnd;
         });
       });
       setBookings([...cal, ...extraRequests]);
