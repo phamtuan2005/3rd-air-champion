@@ -35,6 +35,7 @@ const TiBookInner = () => {
   const [days, setDays] = useState<dayType[]>([]);
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [scrollToTodayTrigger, setScrollToTodayTrigger] = useState(0);
+  const [scrollToMonthTrigger, setScrollToMonthTrigger] = useState<{ month: Date; seq: number } | null>(null);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -155,6 +156,7 @@ const TiBookInner = () => {
 
   const toggleCartDate = (date: Date) => {
     setIsSelecting(true);
+    setScrollToMonthTrigger({ month: new Date(date.getFullYear(), date.getMonth(), 1), seq: Date.now() });
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
     let roomId: string | null = selectedRoomIds?.size === 1 ? Array.from(selectedRoomIds)[0] : null;
     if (roomId === null) {
@@ -176,6 +178,7 @@ const TiBookInner = () => {
 
   const handleWishListClick = (date: Date) => {
     setIsSelecting(true);
+    setScrollToMonthTrigger({ month: new Date(date.getFullYear(), date.getMonth(), 1), seq: Date.now() });
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
     setWishListDates((prev) => {
       const next = new Set(prev);
@@ -253,7 +256,10 @@ const TiBookInner = () => {
           <p className="text-gray-400 text-sm">Loading...</p>
         </div>
       ) : currentHost ? (
-        <div className="flex-1 min-h-0 flex flex-col" onPointerDown={() => setIsSelecting(true)}>
+        <div
+          className="flex-1 min-h-0 flex flex-col"
+          onPointerDown={(e) => { if (!(e.target as HTMLElement).closest("button")) setIsSelecting(true); }}
+        >
           <GuestCalendar
             currentMonth={currentMonth}
             monthMap={monthMap}
@@ -265,6 +271,7 @@ const TiBookInner = () => {
             myBookingDates={myBookingDates}
             reservedMap={reservedMap}
             scrollToTodayTrigger={scrollToTodayTrigger}
+            scrollToMonthTrigger={scrollToMonthTrigger ?? undefined}
             simplified={!isSelecting}
             onMonthChange={setCurrentMonth}
             onDateClick={toggleCartDate}
@@ -303,7 +310,7 @@ const TiBookInner = () => {
           onToggleWishDate={(date) => setWishListDates((prev) => { const next = new Set(prev); if (next.has(date)) next.delete(date); else next.add(date); return next; })}
           onClose={() => setMyBookingsOpen(false)}
           onPhoneConfirmed={handlePhoneConfirmed}
-          onClear={() => { setGuestPhone(""); setGuestName(""); setGuestBookings([]); localStorage.removeItem("tiBookGuestName"); }}
+          onClear={() => { setGuestPhone(""); setGuestName(""); setGuestBookings([]); setWishListDates(new Set()); setPersistedWishListDates(new Set()); setCartDates(new Map()); setSelectedRoomIds(null); localStorage.removeItem("tiBookGuestName"); }}
           cancellationFullRefundDays={currentHost.cancellationFullRefundDays}
           cancellationHalfRefundDays={currentHost.cancellationHalfRefundDays}
         />

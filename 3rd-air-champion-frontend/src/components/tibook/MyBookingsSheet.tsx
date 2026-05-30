@@ -219,7 +219,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
     const isStayingNow = daysLeft < 0;
     const isToday      = daysLeft === 0;
     return (
-      <div key={b.id} className={`flex flex-col gap-2 py-3 border-b border-gray-100 last:border-0 ${isNext ? "pb-4" : ""} ${(isToday || isStayingNow) ? `-mx-4 px-4 rounded-2xl bg-amber-50 border border-amber-200 shadow-sm` : ""}`}>
+      <div key={dateKey(b) + b.room} className={`flex flex-col gap-2 py-3 border-b border-gray-100 last:border-0 ${isNext ? "pb-4" : ""} ${(isToday || isStayingNow) ? `-mx-4 px-4 rounded-2xl bg-amber-50 border border-amber-200 shadow-sm` : ""}`}>
         {isStayingNow && (
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
@@ -373,15 +373,15 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
                 const stayingNow     = upcoming.filter((b) => dateKey(b) < today);
                 const checkInToday   = upcoming.filter((b) => dateKey(b) === today);
                 const futureBookings = upcoming.filter((b) => dateKey(b) > today);
-                const nextId = upcoming[0]?.id;
+                const next = upcoming[0];
                 return (
                   <>
-                    {stayingNow.map((b) => <div key={b.id} className="pt-2">{renderRow(b, b.id === nextId)}</div>)}
-                    {checkInToday.map((b) => <div key={b.id} className="pt-2">{renderRow(b, b.id === nextId)}</div>)}
+                    {stayingNow.map((b) => <div key={dateKey(b) + b.room} className="pt-2">{renderRow(b, b === next)}</div>)}
+                    {checkInToday.map((b) => <div key={dateKey(b) + b.room} className="pt-2">{renderRow(b, b === next)}</div>)}
                     {futureBookings.length > 0 && (
                       <>
                         <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide pt-3 pb-1">Upcoming</p>
-                        {futureBookings.map((b: GuestBooking) => renderRow(b, b.id === nextId))}
+                        {futureBookings.map((b: GuestBooking) => renderRow(b, b === next))}
                       </>
                     )}
                   </>

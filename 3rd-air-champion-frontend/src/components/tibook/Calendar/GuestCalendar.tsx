@@ -16,6 +16,7 @@ interface GuestCalendarProps {
   myBookingDates?: Set<string>;
   reservedMap?: Map<string, Set<string>>;
   scrollToTodayTrigger?: number;
+  scrollToMonthTrigger?: { month: Date; seq: number };
   simplified?: boolean;
   onMonthChange?: (month: Date) => void;
   onDateClick?: (date: Date) => void;
@@ -57,6 +58,7 @@ const GuestCalendar = ({
   myBookingDates,
   reservedMap,
   scrollToTodayTrigger = 0,
+  scrollToMonthTrigger,
   simplified = false,
   onMonthChange,
   onDateClick,
@@ -66,7 +68,6 @@ const GuestCalendar = ({
   const [months, setMonths] = useState<Date[]>([]);
   const [visibleIndex, setVisibleIndex] = useState(0);
   const [containerHeight, setContainerHeight] = useState(0);
-
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const visibleIndexRef = useRef(0);
 
@@ -103,8 +104,22 @@ const GuestCalendar = ({
     if (scrollToTodayTrigger > 0 && scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = 0;
       visibleIndexRef.current = 0;
+      setVisibleIndex(0);
     }
   }, [scrollToTodayTrigger]);
+
+  useEffect(() => {
+    if (!scrollToMonthTrigger || !months.length || !scrollContainerRef.current) return;
+    const today = new Date();
+    const idx = Math.max(0,
+      (scrollToMonthTrigger.month.getFullYear() - today.getFullYear()) * 12 +
+      (scrollToMonthTrigger.month.getMonth() - today.getMonth())
+    );
+    const h = scrollContainerRef.current.offsetHeight;
+    scrollContainerRef.current.scrollTop = idx * h;
+    visibleIndexRef.current = idx;
+    setVisibleIndex(idx);
+  }, [scrollToMonthTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const el = scrollContainerRef.current;
