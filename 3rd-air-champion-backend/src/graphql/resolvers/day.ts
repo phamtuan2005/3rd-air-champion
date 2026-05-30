@@ -119,29 +119,45 @@ export const dayResolvers = {
       if (!guest) return [];
 
       const days = await Day.find({ calendar: calendarId, "bookings.guest": guest._id })
-        .populate("bookings.room")
-        ;
+        .sort({ date: 1 });
 
-      const seen = new Set<string>();
-      const result: any[] = [];
-
+      // Collect one date entry per room per night
+      const roomMap = new Map<string, { dates: Date[]; meta: any }>();
       for (const day of days) {
         for (const booking of day.bookings as any[]) {
           if (booking.guest?.toString() !== guest._id.toString()) continue;
           const roomId = booking.room?._id?.toString() ?? booking.room?.toString();
-          const key = `${roomId}:${day.date.toISOString().slice(0, 10)}`;
-          if (seen.has(key)) continue;
-          seen.add(key);
+          if (!roomMap.has(roomId)) {
+            roomMap.set(roomId, {
+              dates: [],
+              meta: {
+                id: booking._id.toString(),
+                numberOfGuests: booking.numberOfGuests ?? 1,
+                status: booking.reserved ? "reserved" : "confirmed",
+                createdAt: (day as any).createdAt?.toISOString() ?? day.date.toISOString(),
+              },
+            });
+          }
+          roomMap.get(roomId)!.dates.push(day.date);
+        }
+      }
+
+      // For each room, find consecutive date ranges — each range is one stay
+      const result: any[] = [];
+      for (const [roomId, { dates, meta }] of roomMap) {
+        let i = 0;
+        while (i < dates.length) {
+          const checkIn = dates[i];
+          let j = i;
+          while (j + 1 < dates.length && differenceInCalendarDays(dates[j + 1], dates[j]) === 1) j++;
           result.push({
-            id: booking._id.toString(),
+            ...meta,
             guestName: guest.name,
-            date: day.date.toISOString(),
+            date: checkIn.toISOString(),
             room: roomId,
-            duration: 1,
-            numberOfGuests: booking.numberOfGuests ?? 1,
-            status: booking.reserved ? "reserved" : "confirmed",
-            createdAt: (day as any).createdAt?.toISOString() ?? day.date.toISOString(),
+            duration: j - i + 1,
           });
+          i = j + 1;
         }
       }
 
