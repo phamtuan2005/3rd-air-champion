@@ -503,16 +503,10 @@ export const dayResolvers = {
 
       for await (const { room, date } of bookings) {
         const localDate = toZonedTime(date.split("T")[0], timeZone);
-        Day.updateOne(
+        await Day.updateOne(
           { calendar, date: localDate, "bookings.room": room, "bookings.guest": guest },
           { $pull: { bookings: { guest, room } } }
-        )
-          .then(() => {
-            console.log(`Successfully unbooked room ${room} on ${date}`);
-          })
-          .catch((error: any) => {
-            console.error(`Failed to unbook room ${room} on ${date}:`, error.message);
-          });
+        );
       }
 
       return true;

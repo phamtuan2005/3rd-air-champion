@@ -78,24 +78,26 @@ const CheckInInstructionsPanel = ({ instructions, theme }: { instructions: strin
   );
 };
 
-const mergeConsecutiveBookings = (bookings: GuestBooking[]): GuestBooking[] => {
-  if (bookings.length <= 1) return bookings;
+// Airbnb re-sync race condition can leave multiple Day entries for the same stay with different startDates.
+// Absorb any entry whose start date falls within an already-accepted entry's range; when durations differ, keep the longer one.
+const dedupeCalendar = (bookings: GuestBooking[]): GuestBooking[] => {
   const dk = (b: GuestBooking) => String(b.date).slice(0, 10);
-  const merged: GuestBooking[] = [];
-  let cur = { ...bookings[0] };
-  for (let i = 1; i < bookings.length; i++) {
-    const nxt = bookings[i];
-    const curCheckOut = format(addDays(parseISO(dk(cur)), Number(cur.duration) || 1), "yyyy-MM-dd");
-    // Only merge same-source, same-room consecutive entries; never merge calendar into tibook or vice versa
-    if (cur.room === nxt.room && curCheckOut === dk(nxt) && cur._source === nxt._source) {
-      cur = { ...cur, duration: (Number(cur.duration) || 1) + (Number(nxt.duration) || 1) };
-    } else {
-      merged.push(cur);
-      cur = { ...nxt };
+  const sorted = [...bookings].sort((a, b) => dk(a).localeCompare(dk(b)));
+  const result: GuestBooking[] = [];
+  for (const b of sorted) {
+    const bDate = dk(b);
+    const idx = result.findIndex((kept) => {
+      const kStart = dk(kept);
+      const kEnd = format(addDays(parseISO(kStart), Number(kept.duration) || 1), "yyyy-MM-dd");
+      return b.room === kept.room && bDate >= kStart && bDate <= kEnd;
+    });
+    if (idx === -1) {
+      result.push(b);
+    } else if ((Number(b.duration) || 1) > (Number(result[idx].duration) || 1)) {
+      result[idx] = { ...b, date: result[idx].date }; // keep earlier check-in, use longer duration
     }
   }
-  merged.push(cur);
-  return merged;
+  return result;
 };
 
 const statusLabel: Record<string, { label: string; color: string }> = {
@@ -168,9 +170,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
         fetchCalendarBookingsByGuest(calendarId, p),
         fetchGuestByPhone(p, hostId),
       ]);
-      // Calendar is the source of truth — it already deduplicates by startDate and carries correct duration.
-      // TiBook requests that are confirmed are already on the calendar; pending ones aren't shown in upcoming anyway.
-      setBookings((calendarBookings ?? []) as GuestBooking[]);
+      setBookings(dedupeCalendar((calendarBookings ?? []) as GuestBooking[]));
       setGuestPricing(new Map((guest?.pricing ?? []).map((pr: { room: string; price: number }) => [pr.room, pr.price])));
       localStorage.setItem("tiBookGuestPhone", p);
       onPhoneConfirmed(p);
@@ -364,12 +364,10 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
                   No upcoming bookings. We look forward to having you again!
                 </p>
               ) : (() => {
-                const merged         = mergeConsecutiveBookings(upcoming);
-                const stayingNow     = merged.filter((b) => dateKey(b) < today);
-                const checkInToday   = merged.filter((b) => dateKey(b) === today);
-                const futureBookings = merged.filter((b) => dateKey(b) > today);
-                // The single most-imminent booking across all buckets (merged is sorted by date)
-                const nextId = merged[0]?.id;
+                const stayingNow     = upcoming.filter((b) => dateKey(b) < today);
+                const checkInToday   = upcoming.filter((b) => dateKey(b) === today);
+                const futureBookings = upcoming.filter((b) => dateKey(b) > today);
+                const nextId = upcoming[0]?.id;
                 return (
                   <>
                     {stayingNow.map((b) => <div key={b.id} className="pt-2">{renderRow(b, b.id === nextId)}</div>)}
@@ -377,7 +375,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
                     {futureBookings.length > 0 && (
                       <>
                         <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide pt-3 pb-1">Upcoming</p>
-                        {futureBookings.map((b) => renderRow(b, b.id === nextId))}
+                        {futureBookings.map((b: GuestBooking) => renderRow(b, b.id === nextId))}
                       </>
                     )}
                   </>
