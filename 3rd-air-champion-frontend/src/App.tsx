@@ -45,6 +45,7 @@ function App() {
     null,
   );
 
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isFooterVisible, setIsFooterVisible] = useState(false);
   const [isTodoModalOpen, setIsTodoModalOpen] = useState(true);
   const [isBookModalOpen, setIsBookModalOpen] = useState(false);
@@ -142,12 +143,13 @@ function App() {
   const handleLogout = () => {
     localStorage.removeItem("token");
     setToken(null);
-    alert("Logged out!");
+    setShowLogoutConfirm(false);
   };
 
   // Render the host data once it's fetched
   return (
     host && (
+      <>
       <GuestModeContext.Provider
         value={{
           currentGuest,
@@ -191,7 +193,7 @@ function App() {
               <div className="grid grid-rows-[80px_1fr] h-screen lg:grid-rows-[120px_1fr]">
                 {/* Navbar */}
                 <NavBarDesktop
-                  handleLogout={handleLogout}
+                  handleLogout={() => setShowLogoutConfirm(true)}
                   name={getCohostName() ?? host?.name}
                   setIsAboutModalOpen={setIsAboutModalOpen}
                   airBnBInfo={airBnBInfo}
@@ -294,6 +296,34 @@ function App() {
           </isSyncModalOpenContext.Provider>
         </FooterContext.Provider>
       </GuestModeContext.Provider>
+
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-2xl px-8 py-7 flex flex-col gap-5 w-80">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xl font-bold text-gray-900">Log out?</span>
+              <span className="text-base text-gray-500">You'll need to sign in again to access TiMag.</span>
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 py-3 rounded-xl border border-gray-200 text-base font-semibold text-gray-600 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex-1 py-3 rounded-xl bg-red-500 hover:bg-red-600 active:bg-red-700 text-white text-base font-semibold transition-colors"
+              >
+                Log out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      </>
     )
   );
 }

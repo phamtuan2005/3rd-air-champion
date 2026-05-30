@@ -47,6 +47,7 @@ export const useCalendarData = ({
   const [blockedAirBnBDates, setIsBlockedAirBnBDates] = useState<{
     room: { duration: number; start: string }[];
   }>();
+  const [syncStatus, setSyncStatus] = useState<"syncing" | "done" | null>(null);
   const [airBnBBookingCount, setAirBnBBookingCount] = useState<
     { Alias: string; Room: string; DistinctStartDateCount: number }[]
   >([]);
@@ -124,8 +125,8 @@ export const useCalendarData = ({
     }
   };
 
-  const onSync = () => {
-    if (shouldCallOnSync) alert("Synchronizing with Airbnb");
+  const onSync = (isAuto = false) => {
+    if (shouldCallOnSync || isAuto) setSyncStatus("syncing");
     const savedData = localStorage.getItem("syncData");
     const requestBody: {
       calendar?: string;
@@ -145,9 +146,16 @@ export const useCalendarData = ({
     )
       .then((result) => {
         setIsBlockedAirBnBDates(result.blocked);
-        if (shouldCallOnSync) setIsCalendarLoading(true);
+        if (shouldCallOnSync || isAuto) {
+          setSyncStatus("done");
+          setTimeout(() => setSyncStatus(null), 2500);
+          setIsCalendarLoading(true);
+        }
       })
-      .catch((err) => console.error("Error syncing calendars:", err));
+      .catch((err) => {
+        console.error("Error syncing calendars:", err);
+        setSyncStatus(null);
+      });
   };
 
   const onAirbnbPriceUpdate = (bookingId: string, airbnbPrice: number) => {
@@ -164,7 +172,7 @@ export const useCalendarData = ({
 
   useEffect(() => {
     if (initialSync && guests.length > 0) {
-      onSync();
+      onSync(true);
       setIsInitialSync(false);
     }
   }, [guests, initialSync]);
@@ -293,5 +301,6 @@ export const useCalendarData = ({
     onAirbnbPriceUpdate,
     airBnBBookingCount,
     guestBookingCount,
+    syncStatus,
   };
 };
