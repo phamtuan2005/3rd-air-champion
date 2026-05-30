@@ -55,12 +55,14 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
             ))}
           </div>
           <span className="text-sm sm:text-base font-bold tracking-wide text-gray-800">
-            Book with TT House
+            <span className="sm:hidden">TT House</span>
+            <span className="hidden sm:inline">Book with TT House</span>
           </span>
         </div>
       ) : (
         <h1 className="text-sm sm:text-base font-bold tracking-wide text-gray-800 flex-1">
-          TiBook · Book with TT House
+          <span className="sm:hidden">TiBook</span>
+          <span className="hidden sm:inline">TiBook · Book with TT House</span>
         </h1>
       )}
       <div className="flex items-center gap-2">
