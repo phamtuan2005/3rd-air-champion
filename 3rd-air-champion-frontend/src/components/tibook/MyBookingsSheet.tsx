@@ -93,8 +93,14 @@ const dedupeCalendar = (bookings: GuestBooking[]): GuestBooking[] => {
     });
     if (idx === -1) {
       result.push(b);
-    } else if ((Number(b.duration) || 1) > (Number(result[idx].duration) || 1)) {
-      result[idx] = { ...b, date: result[idx].date }; // keep earlier check-in, use longer duration
+    } else {
+      // Extend the kept entry if this absorbed entry reaches further
+      const bEnd = format(addDays(parseISO(bDate), Number(b.duration) || 1), "yyyy-MM-dd");
+      const kEnd = format(addDays(parseISO(dk(result[idx])), Number(result[idx].duration) || 1), "yyyy-MM-dd");
+      if (bEnd > kEnd) {
+        const newDuration = differenceInCalendarDays(parseISO(bEnd), parseISO(dk(result[idx])));
+        result[idx] = { ...result[idx], duration: newDuration };
+      }
     }
   }
   return result;
