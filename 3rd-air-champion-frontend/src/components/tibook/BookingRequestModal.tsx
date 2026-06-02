@@ -377,8 +377,8 @@ const BookingRequestModal = ({
 
   const stepLabel = step === 1 ? "Your Dates" : "About You";
   const stepHint = step === 1
-    ? "Pick dates from the calendar or write them below"
-    : "Just a few details and you're done";
+    ? "Pick your dates — just one more step after this"
+    : "Last step — fill in your info and you're done";
 
   return (
     <div
@@ -408,10 +408,9 @@ const BookingRequestModal = ({
           </div>
           <div className="flex items-center gap-3">
             {!submitted && (
-              <div className="flex gap-1">
-                <span className={`w-2 h-2 rounded-full ${step === 1 ? theme.btn : "bg-gray-200"}`} />
-                <span className={`w-2 h-2 rounded-full ${step === 2 ? theme.btn : "bg-gray-200"}`} />
-              </div>
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${theme.tagBg} ${theme.tagText}`}>
+                Step {step} of 2
+              </span>
             )}
             <button
               type="button"
@@ -422,6 +421,15 @@ const BookingRequestModal = ({
             </button>
           </div>
         </div>
+        {/* Progress bar */}
+        {!submitted && (
+          <div className="h-1 w-full bg-gray-100 flex-shrink-0">
+            <div
+              className={`h-full ${theme.btn} transition-all duration-300`}
+              style={{ width: step === 1 ? "50%" : "100%" }}
+            />
+          </div>
+        )}
 
         {/* Success screen */}
         {submitted ? (
