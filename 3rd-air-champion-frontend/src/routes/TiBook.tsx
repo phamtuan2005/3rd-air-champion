@@ -11,7 +11,6 @@ import GuestCalendar from "../components/tibook/Calendar/GuestCalendar";
 import HostProfileBanner from "../components/tibook/HostProfileBanner";
 import { dayType } from "../util/types/dayType";
 import { fetchDays } from "../util/dayOperations";
-import { toZonedTime } from "date-fns-tz";
 import { fetchRooms } from "../util/roomOperations";
 import BookingRequestModal from "../components/tibook/BookingRequestModal";
 import RoomCards from "../components/tibook/RoomCards";
@@ -61,15 +60,14 @@ const TiBookInner = () => {
     });
   };
 
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const monthMap = useMemo(() => {
     const map = new Map<string, dayType>();
     days.forEach((day) => {
-      const key = toZonedTime(day.date, timeZone).toISOString().split("T")[0];
+      const key = String(day.date).slice(0, 10);
       map.set(key, day);
     });
     return map;
-  }, [days]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [days]);
 
   const authorizeTiBook = async () => {
     const tiBookEmail = import.meta.env.VITE_TI_BOOK_EMAIL;
@@ -207,7 +205,7 @@ const TiBookInner = () => {
     for (let d = 1; d <= daysInMonth; d++) {
       const candidate = new Date(month.getFullYear(), month.getMonth(), d);
       if (candidate < today) continue;
-      const key = candidate.toISOString().split("T")[0];
+      const key = `${candidate.getFullYear()}-${String(candidate.getMonth() + 1).padStart(2, "0")}-${String(candidate.getDate()).padStart(2, "0")}`;
       const day = monthMap.get(key);
       if (!day || (!day.isBlocked && day.bookings.length === 0)) return candidate;
     }

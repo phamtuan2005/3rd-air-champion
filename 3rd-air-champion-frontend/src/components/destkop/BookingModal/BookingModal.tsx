@@ -8,7 +8,7 @@ import DatePickerModal from "./DatePickerModal";
 import { SubmitHandler, useForm, useFieldArray, Controller, useWatch } from "react-hook-form";
 import { bookDaySchema, bookDaysZodObject } from "./zodBookDays";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { getAvailableRooms, postBooking } from "../../../util/bookingOperations";
+import { getAvailableRooms, postBooking } from "../../../util/bookingOperations";
 import { dayType } from "../../../util/types/dayType";
 import { format, addDays } from "date-fns";
 import { ANY_ROOM_SENTINEL } from "./zodBookDays";
@@ -29,8 +29,8 @@ interface BookingModalProps {
   selectedRoom: roomType | undefined;
   showAddPane: "guest" | "room" | null;
   prefill?: BookingPrefill | null;
-  prefills?: BookingPrefill[];
-  onBooking: (bookedDays: dayType[]) => void;
+  prefills?: BookingPrefill[];
+  onBooking: (bookedDays: dayType[]) => void;
   setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setShowAddPane: React.Dispatch<React.SetStateAction<"guest" | "room" | null>>;
 }
@@ -68,7 +68,7 @@ const humanizeError = (raw: string): string => {
 };
 
 const BookingModal = ({
-  calendarId,
+  calendarId,
   guests,
   rooms,
   selectedDate,
@@ -76,7 +76,7 @@ const BookingModal = ({
   showAddPane,
   prefill,
   prefills,
-  onBooking,
+  onBooking,
   setIsModalOpen,
   setShowAddPane,
 }: BookingModalProps) => {
@@ -84,7 +84,10 @@ const BookingModal = ({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bookingResults, setBookingResults] = useState<BookingResult[]>([]);
-  const [reservedRows, setReservedRows] = useState<Set<number>>(new Set());
+  const initialRowCount = prefills && prefills.length > 0 ? prefills.length : 1;
+  const [reservedRows, setReservedRows] = useState<Set<number>>(
+    new Set(Array.from({ length: initialRowCount }, (_, i) => i)),
+  );
 
   const toggleReservedRow = (index: number) =>
     setReservedRows((prev) => {
@@ -272,7 +275,7 @@ const BookingModal = ({
 
     setIsSubmitting(false);
     setBookingResults(results);
-    if (allBookedDays.length > 0) onBooking(allBookedDays);
+    if (allBookedDays.length > 0) onBooking(allBookedDays);
   };
 
   const handleRetry = async () => {
@@ -557,13 +560,11 @@ const BookingModal = ({
                 <button
                   type="button"
                   className="border border-dashed border-blue-400 text-blue-500 rounded px-3 py-1 text-sm hover:bg-blue-50"
-                  onClick={() =>
-                    append({
-                      rooms: [ANY_ROOM_SENTINEL],
-                      date: new Date(),
-                      duration: 1,
-                    })
-                  }
+                  onClick={() => {
+                    const newIndex = fields.length;
+                    append({ rooms: [ANY_ROOM_SENTINEL], date: new Date(), duration: 1 });
+                    setReservedRows((prev) => new Set(prev).add(newIndex));
+                  }}
                 >
                   + Add Row
                 </button>

@@ -1,5 +1,4 @@
-import { isSameMonth } from "date-fns";
-import { formatDateToMonthYear } from "../../../util/formatDate";
+import { format, isSameMonth } from "date-fns";
 import TodayButton from "./TodayButton";
 import { useTiBookTheme } from "../../../contexts/TiBookThemeContext";
 
@@ -17,7 +16,7 @@ const CalendarNavigator = ({
   onBookingRequest,
 }: CalendarNavigatorProps) => {
   const { theme } = useTiBookTheme();
-  const formattedDate = formatDateToMonthYear(currentMonth.toISOString().split("T")[0]);
+  const formattedDate = format(currentMonth, "MMM yyyy");
   const isCurrentMonth = isSameMonth(currentMonth, new Date());
 
   return (

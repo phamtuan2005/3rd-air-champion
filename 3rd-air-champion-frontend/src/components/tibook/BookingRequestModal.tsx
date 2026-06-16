@@ -8,12 +8,10 @@ import { setGuestWishList } from "../../util/wishListOperations";
 import { getAvailableRooms } from "../../util/bookingOperations";
 import { fetchGuestByPhone } from "../../util/guestOperations";
 import { format, parseISO } from "date-fns";
-import { toZonedTime } from "date-fns-tz";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import RoomBadge from "../shared/RoomBadge";
 import GuestLoyaltyBanner from "./GuestLoyaltyBanner";
 
-const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 interface BookingRequestModalProps {
   hostId: string;
@@ -268,7 +266,7 @@ const BookingRequestModal = ({
   useEffect(() => {
     if (cartDates.size > 0) return;
     if (!watchedDate || !watchedDuration) return;
-    const dateStr = toZonedTime(new Date(watchedDate), timeZone).toISOString().split("T")[0];
+    const dateStr = String(watchedDate).slice(0, 10);
     setIsLoadingRooms(true);
     getAvailableRooms({ calendar: calendarId, date: dateStr, duration: watchedDuration }, token)
       .then((result) => {
