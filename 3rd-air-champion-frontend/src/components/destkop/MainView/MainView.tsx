@@ -193,6 +193,7 @@ const MainView = ({
     getCurrentGuestBill,
     handleBookingConfirmation,
     handleSendCalEvents,
+    calEventsHint,
   } = useMessaging({
     monthMap,
     currentMonth,
@@ -893,6 +894,18 @@ const MainView = ({
       )}
 
       <IcsModal icsModal={icsModal} setIcsModal={setIcsModal} airbnbName={airbnbName} />
+
+      {/* Cal Events hint toast */}
+      {calEventsHint && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[9999] pointer-events-none">
+          <div className="flex items-center gap-3 px-6 py-4 rounded-2xl shadow-xl text-base font-semibold text-white bg-amber-500 transition-all max-w-[90vw]">
+            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            {calEventsHint}
+          </div>
+        </div>
+      )}
 
       {/* Sync status toast */}
       {syncStatus && (

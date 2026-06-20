@@ -33,6 +33,12 @@ export const useMessaging = ({
   airbnbAddress,
 }: UseMessagingParams) => {
   const [icsModal, setIcsModal] = useState<IcsModalState | null>(null);
+  const [calEventsHint, setCalEventsHint] = useState<string | null>(null);
+
+  const showCalEventsHint = (message: string) => {
+    setCalEventsHint(message);
+    setTimeout(() => setCalEventsHint(null), 4000);
+  };
 
   const getCurrentGuestBill = (guest: string) => {
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -196,7 +202,10 @@ export const useMessaging = ({
       guestBookings.push(...matching);
     }
 
-    if (guestBookings.length === 0) return;
+    if (guestBookings.length === 0) {
+      showCalEventsHint("Tap the guest's paid date(s) on the calendar first, then send Cal Events.");
+      return;
+    }
 
     const formatICSDateTime = (date: Date, hour: number) =>
       format(date, `yyyyMMdd'T'${String(hour).padStart(2, "0")}0000`);
@@ -253,5 +262,6 @@ export const useMessaging = ({
     getCurrentGuestBill,
     handleBookingConfirmation,
     handleSendCalEvents,
+    calEventsHint,
   };
 };
