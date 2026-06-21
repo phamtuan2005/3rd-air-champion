@@ -16,7 +16,7 @@ import BookingRequestModal from "../components/tibook/BookingRequestModal";
 import RoomCards from "../components/tibook/RoomCards";
 import MyBookingsSheet, { GuestBooking } from "../components/tibook/MyBookingsSheet";
 import { getGuestWishList } from "../util/wishListOperations";
-import { fetchBookingRequestsByGuest, fetchBookingRequestsByHost, fetchCalendarBookingsByGuest } from "../util/bookingRequestOperations";
+import { fetchBookingRequestsByHost, fetchCalendarBookingsByGuest } from "../util/bookingRequestOperations";
 
 const TiBookInner = () => {
   const { theme } = useTiBookTheme();
@@ -127,15 +127,15 @@ const TiBookInner = () => {
       .catch(() => {});
   }, [guestPhone, currentHost]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load guest bookings for calendar dots when phone + host are ready
+  // Load guest bookings for calendar dots when phone + host are ready.
+  // Read calendar bookings only — the host's actual Day entries are the source
+  // of truth (same source as "Your Bookings"). Booking requests are NOT flipped
+  // to "cancelled" on unbook, so including them paints stale dots for cancelled stays.
   useEffect(() => {
     if (!guestPhone || !currentHost) return;
-    Promise.all([
-      fetchBookingRequestsByGuest(currentHost.id, guestPhone),
-      fetchCalendarBookingsByGuest(currentHost.calendar, guestPhone),
-    ])
-      .then(([requests, calendarBookings]) => {
-        setGuestBookings([...(calendarBookings ?? []), ...(requests ?? [])]);
+    fetchCalendarBookingsByGuest(currentHost.calendar, guestPhone)
+      .then((calendarBookings) => {
+        setGuestBookings(calendarBookings ?? []);
       })
       .catch(() => {});
   }, [guestPhone, currentHost]); // eslint-disable-line react-hooks/exhaustive-deps
