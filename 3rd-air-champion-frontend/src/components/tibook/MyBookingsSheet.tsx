@@ -204,7 +204,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
   const totalStays = allNonAirbnbBookings.length;
   const totalNights = allNonAirbnbBookings.reduce((sum, b) => sum + (Number(b.duration) || 1), 0);
   const memberSince = allNonAirbnbBookings.length > 0
-    ? format(parseISO(allNonAirbnbBookings.reduce((min, b) => dateKey(b) < min ? dateKey(b) : min, dateKey(allNonAirbnbBookings[0]))), "MMM yyyy")
+    ? format(parseISO(allNonAirbnbBookings.reduce((min, b) => dateKey(b) < min ? dateKey(b) : min, dateKey(allNonAirbnbBookings[0]))), "MMMM yyyy")
     : null;
 
 
@@ -236,7 +236,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
           <div className="flex flex-col gap-0.5">
             <RoomBadge room={room ?? { name: "Room" }} rooms={activeRooms} override={room ? undefined : "bg-gray-400"} />
             <span className="text-xs text-gray-500">
-              {format(checkIn, "MMM d")} – {format(checkOut, "MMM d, yyyy")}
+              {format(checkIn, "MMMM d")} – {format(checkOut, "MMMM d, yyyy")}
               <span className="ml-1 text-gray-400">· {b.duration} night{b.duration !== 1 ? "s" : ""}</span>
             </span>
             {!isToday && !isStayingNow && (
@@ -261,8 +261,8 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
               roomName:     room.name,
               roomCode:     room.roomCode ?? "",
               doorCode:     doorCode ?? "",
-              checkInDate:  format(checkIn, "MMM d, yyyy"),
-              checkOutDate: format(checkOut, "MMM d, yyyy"),
+              checkInDate:  format(checkIn, "MMMM d, yyyy"),
+              checkOutDate: format(checkOut, "MMMM d, yyyy"),
               duration:     String(b.duration),
             })}
             theme={theme}
@@ -429,7 +429,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
                       <div key={d} className="flex flex-col gap-1 px-3 py-2 rounded-xl border bg-red-50 border-red-200">
                         <div className="flex items-center justify-between">
                           <span className="text-xs text-red-600 font-medium">
-                            Remove {format(parseISO(d), "MMM d")}?
+                            Remove {format(parseISO(d), "MMMM d")}?
                           </span>
                           <div className="flex items-center gap-2 ml-2">
                             <button
@@ -470,7 +470,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
                     ) : (
                       <div key={d} className={`flex items-center justify-between px-3 py-2 rounded-xl border ${theme.tagBg} ${theme.tagBorder}`}>
                         <span className={`text-sm font-semibold ${theme.textPrimaryDark}`}>
-                          {format(parseISO(d), "EEE, MMM d yyyy")}
+                          {format(parseISO(d), "EEE, MMMM d yyyy")}
                         </span>
                         {onToggleWishDate && (
                           <button
