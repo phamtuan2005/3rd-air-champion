@@ -16,7 +16,7 @@ const CalendarNavigator = ({
   onBookingRequest,
 }: CalendarNavigatorProps) => {
   const { theme } = useTiBookTheme();
-  const formattedDate = format(currentMonth, "MMM yyyy");
+  const formattedDate = format(currentMonth, "MMMM yyyy");
   const isCurrentMonth = isSameMonth(currentMonth, new Date());
 
   return (

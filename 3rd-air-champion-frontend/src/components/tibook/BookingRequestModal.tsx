@@ -245,7 +245,7 @@ const BookingRequestModal = ({
             const earliest = all
               .map((b) => parseISO(String(b.date).slice(0, 10)))
               .sort((a, z) => a.getTime() - z.getTime())[0];
-            setGuestMemberSince(format(earliest, "MMM yyyy"));
+            setGuestMemberSince(format(earliest, "MMMM yyyy"));
           } else {
             setGuestMemberSince(null);
           }
@@ -548,7 +548,7 @@ const BookingRequestModal = ({
                       <div key={d} className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-colors ${pendingRemove === d ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"}`}>
                         {pendingRemove === d ? (
                           <>
-                            <span className="flex-1 text-sm text-red-600 font-medium">Remove {format(new Date(d + "T12:00:00"), "MMM d")}?</span>
+                            <span className="flex-1 text-sm text-red-600 font-medium">Remove {format(new Date(d + "T12:00:00"), "MMMM d")}?</span>
                             <button
                               type="button"
                               onClick={() => {
