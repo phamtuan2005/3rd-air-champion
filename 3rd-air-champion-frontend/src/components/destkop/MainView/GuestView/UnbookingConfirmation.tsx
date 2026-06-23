@@ -21,7 +21,10 @@ const UnbookingConfirmation = ({
   onClose,
   onUnbook,
 }: UnbookingConfirmationProps) => {
-  const total = booking.price * booking.duration;
+  const pricePerNight =
+    booking.guest.pricing?.find((p) => p.room === booking.room.id)?.price ??
+    booking.price;
+  const total = pricePerNight * booking.duration;
   const daysUntilCheckin = differenceInCalendarDays(parseISO(booking.startDate.split("T")[0]), new Date());
   const refundPct =
     cancellationFullRefundDays !== undefined && cancellationHalfRefundDays !== undefined
