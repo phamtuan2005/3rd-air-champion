@@ -107,6 +107,12 @@ const dedupeCalendar = (bookings: GuestBooking[]): GuestBooking[] => {
   return result;
 };
 
+// Show only the last 4 digits in the recognized bar — a small privacy nicety on a screen a guest might show someone.
+const maskPhone = (p: string) => {
+  const last4 = p.replace(/\D/g, "").slice(-4);
+  return last4 ? `•••• ${last4}` : p;
+};
+
 const statusLabel: Record<string, { label: string; color: string }> = {
   pending:   { label: "Pending",   color: "text-amber-600 bg-amber-50 border-amber-200" },
   confirmed: { label: "Confirmed", color: "text-green-700 bg-green-50 border-green-200" },
@@ -165,6 +171,15 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
+  };
+
+  const handleClear = () => {
+    setPhone("");
+    setBookings(null);
+    setGuestPricing(new Map());
+    setError("");
+    localStorage.removeItem("tiBookGuestPhone");
+    onClear?.();
   };
 
   const handleSearch = async () => {
@@ -332,26 +347,18 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
         </div>
 
-        {/* Phone search — wrapped with error so grid always has exactly 4 rows */}
-        <div>
-          <div className="flex gap-2 px-4 pt-3 pb-2">
-            <input
-              type="tel"
-              placeholder="Your phone number"
-              value={phone}
-              onChange={(e) => { setPhone(e.target.value); setBookings(null); setGuestPricing(new Map()); }}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-gray-400"
-            />
-            {bookings !== null ? (
-              <button
-                type="button"
-                onClick={() => { setPhone(""); setBookings(null); setGuestPricing(new Map()); setError(""); localStorage.removeItem("tiBookGuestPhone"); onClear?.(); }}
-                className="px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:border-gray-400 whitespace-nowrap"
-              >
-                Clear
-              </button>
-            ) : (
+        {/* Phone search (before recognition) / slim recognized bar (after) — one grid row either way */}
+        {bookings === null ? (
+          <div>
+            <div className="flex gap-2 px-4 pt-3 pb-2">
+              <input
+                type="tel"
+                placeholder="Your phone number"
+                value={phone}
+                onChange={(e) => { setPhone(e.target.value); setGuestPricing(new Map()); }}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-gray-400"
+              />
               <button
                 type="button"
                 disabled={loading || !phone.trim()}
@@ -360,10 +367,28 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
               >
                 {loading ? "…" : "Search"}
               </button>
-            )}
+            </div>
+            {error && <p className="px-4 pb-2 text-xs text-red-500">{error}</p>}
           </div>
-          {error && <p className="px-4 pb-2 text-xs text-red-500">{error}</p>}
-        </div>
+        ) : (
+          <div className="flex items-center justify-between gap-2 px-4 pt-3 pb-2">
+            <span className="flex items-center gap-1.5 text-xs text-gray-400 min-w-0">
+              <svg className="w-3.5 h-3.5 shrink-0 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              </svg>
+              <span className="truncate">
+                Showing bookings for <span className="font-semibold text-gray-500">{maskPhone(phone)}</span>
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={handleClear}
+              className={`shrink-0 text-xs font-semibold ${theme.textPrimary} hover:underline`}
+            >
+              Not you?
+            </button>
+          </div>
+        )}
 
         {/* Welcome banner — pinned in its own grid row so it stays put while the list scrolls */}
         {guestFirstName ? (
