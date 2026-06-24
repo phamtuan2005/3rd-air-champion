@@ -25,6 +25,7 @@ interface MyBookingsSheetProps {
   hostId: string;
   calendarId: string;
   doorCode?: string;
+  airbnbAddress?: string;
   initialPhone: string;
   initialName?: string;
   rooms: roomType[];
@@ -112,7 +113,7 @@ const statusLabel: Record<string, { label: string; color: string }> = {
   reserved:  { label: "Reserved",  color: "text-amber-700 bg-amber-100 border-amber-300" },
 };
 
-const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialName, rooms, wishListDates, onToggleWishDate, cancellationFullRefundDays, cancellationHalfRefundDays, onClose, onPhoneConfirmed, onClear }: MyBookingsSheetProps) => {
+const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialPhone, initialName, rooms, wishListDates, onToggleWishDate, cancellationFullRefundDays, cancellationHalfRefundDays, onClose, onPhoneConfirmed, onClear }: MyBookingsSheetProps) => {
   const { theme } = useTiBookTheme();
   const activeRooms = rooms.filter((r) => r.active);
   const roomMap = new Map(rooms.map((r) => [r.id, r]));
@@ -139,7 +140,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
   const guestNameForToggle =
     (bookings && bookings.length > 0 ? bookings[0].guestName : null) ?? resolvedName;
 
-  const [sheetHeight, setSheetHeight] = useState(() => Math.round(window.innerHeight * 0.62));
+  const [sheetHeight, setSheetHeight] = useState(() => Math.round(window.innerHeight * 0.8));
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<{ startY: number; startH: number } | null>(null);
   const heightRef = useRef(sheetHeight);
@@ -254,6 +255,26 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
             {st.label}
           </span>
         </div>
+        {isNext && airbnbAddress && (
+          <a
+            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(airbnbAddress)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border ${theme.tagBg} ${theme.tagBorder} hover:brightness-95 active:brightness-90 transition`}
+          >
+            <svg className={`w-4 h-4 shrink-0 ${theme.textPrimary}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <div className="flex flex-col min-w-0 flex-1">
+              <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wide leading-none mb-0.5">Address · tap for directions</span>
+              <span className={`text-sm font-semibold ${theme.textPrimaryDark} leading-snug`}>{airbnbAddress}</span>
+            </div>
+            <svg className="w-4 h-4 shrink-0 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+          </a>
+        )}
         {isNext && room?.checkInInstructions && (
           <CheckInInstructionsPanel
             instructions={resolveInstructions(room.checkInInstructions, {
@@ -292,7 +313,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
           height: sheetHeight,
           transition: isDragging ? "none" : "height 0.2s ease",
           display: "grid",
-          gridTemplateRows: "auto auto auto 1fr",
+          gridTemplateRows: "auto auto auto auto 1fr",
         }}
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
@@ -344,20 +365,22 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, initialPhone, initialNa
           {error && <p className="px-4 pb-2 text-xs text-red-500">{error}</p>}
         </div>
 
+        {/* Welcome banner — pinned in its own grid row so it stays put while the list scrolls */}
+        {guestFirstName ? (
+          <div className="px-4 pt-3 pb-2">
+            <GuestLoyaltyBanner
+              firstName={guestFirstName}
+              totalStays={totalStays}
+              totalNights={totalNights}
+              memberSince={memberSince}
+            />
+          </div>
+        ) : (
+          <div />
+        )}
+
         {/* Results — grid row "1fr" fills remaining height */}
         <div className="overflow-y-auto px-4 pb-4">
-
-          {/* Welcome banner */}
-          {guestFirstName && (
-            <div className="mt-3 mb-2">
-              <GuestLoyaltyBanner
-                firstName={guestFirstName}
-                totalStays={totalStays}
-                totalNights={totalNights}
-                memberSince={memberSince}
-              />
-            </div>
-          )}
 
           {bookings === null ? null : bookings.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-6">

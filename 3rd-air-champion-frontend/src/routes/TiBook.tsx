@@ -301,6 +301,7 @@ const TiBookInner = () => {
           hostId={currentHost.id}
           calendarId={currentHost.calendar}
           doorCode={currentHost.doorCode}
+          airbnbAddress={currentHost.airbnbAddress}
           initialPhone={guestPhone}
           initialName={guestName}
           rooms={rooms}
