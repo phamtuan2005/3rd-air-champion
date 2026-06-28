@@ -37,6 +37,9 @@ interface CalendarGridProps {
   // TiMag: guest name; TiBook: room name
   resolveBarLabel?: (booking: bookingType) => string;
   gapsMode?: boolean;
+  // Reports whether today's tile is on the currently visible page (a month can span
+  // several pages, so "current month" no longer implies "today is on screen").
+  onTodayInViewChange?: (inView: boolean) => void;
 }
 
 const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -61,6 +64,7 @@ const CalendarGrid = ({
   onDoubleClick,
   resolveBarLabel,
   gapsMode = false,
+  onTodayInViewChange,
 }: CalendarGridProps) => {
   const [months, setMonths] = useState<Date[]>([]);
   const [visibleIndex, setVisibleIndex] = useState<number>(monthsBack);
@@ -74,6 +78,7 @@ const CalendarGrid = ({
   // Track the month currently in view (not just the page index) so we can re-anchor
   // to the same month when the page count changes — e.g. rooms added, container resized.
   const visibleMonthRef = useRef<Date>(currentMonth);
+  const didInitScrollRef = useRef(false);
 
   const usedRooms = useMemo(() => {
     const base = overrideRooms
@@ -102,6 +107,12 @@ const CalendarGrid = ({
   const firstPageIndexOfMonth = (d: Date) =>
     monthPageStarts.get(`${d.getFullYear()}-${d.getMonth()}`) ?? null;
 
+  // The page whose cells actually contain this date (today may sit on page 2/3 of its month).
+  const pageIndexContainingDate = (d: Date) => {
+    const idx = pageLayouts.findIndex((l) => l.cells.some((c) => c && isSameDay(c, d)));
+    return idx >= 0 ? idx : null;
+  };
+
   useEffect(() => {
     const now = new Date();
     const arr: Date[] = [];
@@ -120,16 +131,32 @@ const CalendarGrid = ({
     if (!el || pageLayouts.length === 0) return;
     const h = el.offsetHeight;
     if (h === 0) return;
-    const idx = firstPageIndexOfMonth(visibleMonthRef.current) ?? 0;
-    el.scrollTop = idx * h;
-    visibleIndexRef.current = idx;
-    setVisibleIndex(idx);
+    // First positioning lands on the page that actually contains today; later runs
+    // (resize / rooms changed) re-anchor to the visible month so we don't drift.
+    let idx: number | null;
+    if (!didInitScrollRef.current) {
+      idx = pageIndexContainingDate(startOfToday()) ?? firstPageIndexOfMonth(visibleMonthRef.current);
+      didInitScrollRef.current = true;
+    } else {
+      idx = firstPageIndexOfMonth(visibleMonthRef.current);
+    }
+    const target = idx ?? 0;
+    el.scrollTop = target * h;
+    visibleIndexRef.current = target;
+    setVisibleIndex(target);
   }, [pageLayouts, containerHeight]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Tell the parent whether today is on the visible page (drives the Today button).
+  useEffect(() => {
+    if (!onTodayInViewChange) return;
+    const cells = pageLayouts[visibleIndex]?.cells ?? [];
+    onTodayInViewChange(cells.some((c) => c && isSameDay(c, startOfToday())));
+  }, [visibleIndex, pageLayouts, onTodayInViewChange]);
 
   useEffect(() => {
     if (scrollToTodayTrigger > 0 && scrollContainerRef.current && pageLayouts.length > 0) {
       const today = new Date();
-      const idx = firstPageIndexOfMonth(today) ?? monthsBack;
+      const idx = pageIndexContainingDate(startOfToday()) ?? firstPageIndexOfMonth(today) ?? monthsBack;
       const h = scrollContainerRef.current.offsetHeight;
       scrollContainerRef.current.scrollTop = idx * h;
       visibleIndexRef.current = idx;

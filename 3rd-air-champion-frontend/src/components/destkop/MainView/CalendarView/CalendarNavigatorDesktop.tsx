@@ -28,6 +28,7 @@ interface CalendarNavigatorProps {
   selectedRoomName: string | null;
   getCurrentGuestBill: (guest: string) => number;
   onGoToToday: () => void;
+  todayInView?: boolean;
   setPaidDates: React.Dispatch<React.SetStateAction<Date[]>>;
   setSelectedRoomName: React.Dispatch<React.SetStateAction<string | null>>;
   gapsMode: boolean;
@@ -46,6 +47,7 @@ const CalendarNavigator = ({
   selectedRoomName,
   getCurrentGuestBill,
   onGoToToday,
+  todayInView,
   setPaidDates,
   setSelectedRoomName,
   gapsMode,
@@ -60,13 +62,17 @@ const CalendarNavigator = ({
     year: "numeric",
     month: "long",
   });
+  // Disable only when today is actually on screen. A month can span several pages, so
+  // being in the current month no longer means today is visible — fall back to month
+  // match only if the grid hasn't reported visibility yet.
   const isCurrentMonth = isSameMonth(currentMonth, new Date());
+  const disableToday = todayInView ?? isCurrentMonth;
   const todayButton = (
     <button
       onClick={onGoToToday}
-      disabled={isCurrentMonth}
+      disabled={disableToday}
       className={`text-xs px-2 py-0.5 rounded border transition-colors ${
-        isCurrentMonth
+        disableToday
           ? "text-gray-300 border-gray-200 cursor-default"
           : "text-blue-500 border-blue-300 hover:bg-blue-50 cursor-pointer"
       }`}

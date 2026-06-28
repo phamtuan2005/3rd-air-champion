@@ -132,6 +132,7 @@ const MainView = ({
   const [editingRoomId, setEditingRoomId] = useState<string>("");
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
   const [scrollToTodayTrigger, setScrollToTodayTrigger] = useState(0);
+  const [todayInView, setTodayInView] = useState(true);
   const [pendingAcceptRequestIds, setPendingAcceptRequestIds] = useState<string[]>([]);
   const [acceptCompletedTick, setAcceptCompletedTick] = useState(0);
   const [bookingPrefills, setBookingPrefills] = useState<Array<{
@@ -530,6 +531,7 @@ const MainView = ({
                 setCurrentMonth(new Date());
                 setScrollToTodayTrigger((t) => t + 1);
               }}
+              todayInView={todayInView}
               setPaidDates={setPaidDates}
               setSelectedRoomName={setSelectedRoomName}
               gapsMode={gapsMode}
@@ -550,6 +552,7 @@ const MainView = ({
               setSelectedDate={setSelectedDate}
               scrollToTodayTrigger={scrollToTodayTrigger}
               gapsMode={gapsMode}
+              onTodayInViewChange={setTodayInView}
             />
             {showAddPane === "guest" && (
               <div

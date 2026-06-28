@@ -23,6 +23,7 @@ interface CustomCalendarProps {
   setPaidDates: React.Dispatch<React.SetStateAction<Date[]>>;
   setSelectedDate: React.Dispatch<React.SetStateAction<Date>>;
   gapsMode?: boolean;
+  onTodayInViewChange?: (inView: boolean) => void;
 }
 
 const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -42,6 +43,7 @@ const CustomCalendar = ({
   setPaidDates,
   setSelectedDate,
   gapsMode = false,
+  onTodayInViewChange,
 }: CustomCalendarProps) => {
   const [useMonthMap, setUseMonthMap] = useState<Map<string, dayType>>(monthMap);
 
@@ -152,6 +154,7 @@ const CustomCalendar = ({
       onDoubleClick={handleDoubleClick}
       resolveBarLabel={resolveBarLabel}
       gapsMode={gapsMode}
+      onTodayInViewChange={onTodayInViewChange}
     />
   );
 };
