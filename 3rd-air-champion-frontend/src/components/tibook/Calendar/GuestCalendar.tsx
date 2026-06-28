@@ -163,9 +163,12 @@ const GuestCalendar = ({
     const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
     const day = monthMap.get(dateKey);
     if (day?.isBlocked) return { status: "blocked", roomsLeft: 0 };
-    const bookedIds = new Set<string>(day?.bookings.map((b) => b.room?.id).filter(Boolean) as string[] ?? []);
-    reservedMap?.get(dateKey)?.forEach((id) => bookedIds.add(id));
-    const bookedScoped = scopedRooms.filter((r) => bookedIds.has(r.id)).length;
+    // Unavailable = booked + reserved + host-blocked rooms. Per-room blocks live in day.blockedRooms
+    // (day.isBlocked only covers whole-day blocks); without them, blocked rooms stayed bookable here.
+    const unavailableIds = new Set<string>(day?.bookings.map((b) => b.room?.id).filter(Boolean) as string[] ?? []);
+    reservedMap?.get(dateKey)?.forEach((id) => unavailableIds.add(id));
+    day?.blockedRooms?.forEach((r) => { if (r?.id) unavailableIds.add(r.id); });
+    const bookedScoped = scopedRooms.filter((r) => unavailableIds.has(r.id)).length;
     const roomsLeft = Math.max(total - bookedScoped, 0);
     if (roomsLeft === 0) return { status: "full", roomsLeft: 0 };
     if (bookedScoped > 0) return { status: "partial", roomsLeft };

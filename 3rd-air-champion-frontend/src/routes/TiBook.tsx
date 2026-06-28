@@ -163,6 +163,7 @@ const TiBookInner = () => {
       const bookedIds = new Set<string>([
         ...(day?.bookings.map((b) => b.room?.id).filter(Boolean) as string[] ?? []),
         ...(reservedMap.get(key) ?? []),
+        ...((day?.blockedRooms?.map((r) => r?.id).filter(Boolean) as string[]) ?? []),
       ]);
       const available = scopedRooms.filter((r) => !bookedIds.has(r.id));
       if (available.length === 1) roomId = available[0].id;

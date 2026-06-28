@@ -183,8 +183,16 @@ const BookingRequestModal = ({
       while (cur <= last) { dates.push(cur.toISOString().split("T")[0]); cur.setDate(cur.getDate() + 1); }
       return dates;
     });
+    // Exclude both booked and host-blocked rooms across the requested dates, otherwise a blocked
+    // room stays selectable here and the guest could submit a double-booking.
     const bookedIds = new Set(
-      allDates.flatMap((d) => monthMap.get(d)?.bookings.map((b) => b.room?.id).filter(Boolean) ?? [])
+      allDates.flatMap((d) => {
+        const day = monthMap.get(d);
+        return [
+          ...(day?.bookings.map((b) => b.room?.id).filter(Boolean) ?? []),
+          ...(day?.blockedRooms?.map((r) => r?.id).filter(Boolean) ?? []),
+        ];
+      })
     );
     return activeRooms.filter((r) => !bookedIds.has(r.id));
   }, [cartGroups, monthMap, activeRooms]);
