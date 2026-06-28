@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import "../../styles/calendarStyle.css";
 import {
   addDays,
@@ -79,6 +79,10 @@ const CalendarGrid = ({
   // to the same month when the page count changes — e.g. rooms added, container resized.
   const visibleMonthRef = useRef<Date>(currentMonth);
   const didInitScrollRef = useRef(false);
+  // While the layout reflows (rooms filtered, resized), the page count changes and the
+  // browser fires transient scroll events from the old scrollTop. Ignore scroll handling
+  // until this timestamp so a reflow can't hijack the visible month to a far page.
+  const suppressScrollUntilRef = useRef(0);
 
   const usedRooms = useMemo(() => {
     const base = overrideRooms
@@ -126,7 +130,9 @@ const CalendarGrid = ({
   // (initial load, container resize, rooms added/removed). Because a month can now
   // own multiple pages, page indices shift when rows-per-page changes — re-deriving
   // from the month keeps the same month on screen instead of drifting.
-  useEffect(() => {
+  // useLayoutEffect: re-anchor synchronously after the DOM mutates and BEFORE paint, so the
+  // correct scrollTop is in place before the browser dispatches any reflow scroll event.
+  useLayoutEffect(() => {
     const el = scrollContainerRef.current;
     if (!el || pageLayouts.length === 0) return;
     const h = el.offsetHeight;
@@ -143,6 +149,8 @@ const CalendarGrid = ({
     const target = idx ?? 0;
     el.scrollTop = target * h;
     visibleIndexRef.current = target;
+    // Ignore scroll events briefly so the reflow's transient scroll can't override the anchor.
+    suppressScrollUntilRef.current = performance.now() + 250;
     setVisibleIndex(target);
   }, [pageLayouts, containerHeight]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -231,6 +239,9 @@ const CalendarGrid = ({
   }, [months, numRows]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    // Skip scrolls fired by a layout reflow (the page count just changed) — they carry a
+    // stale scrollTop that would otherwise re-point the visible month to the wrong page.
+    if (performance.now() < suppressScrollUntilRef.current) return;
     const el = e.target as HTMLElement;
     const calendarHeight = el.offsetHeight;
     const snappedIndex = Math.round(el.scrollTop / calendarHeight);
