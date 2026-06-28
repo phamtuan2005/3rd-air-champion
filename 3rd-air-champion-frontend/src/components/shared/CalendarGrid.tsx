@@ -71,6 +71,9 @@ const CalendarGrid = ({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const calendarWrapperRef = useRef<HTMLDivElement>(null);
   const visibleIndexRef = useRef<number>(monthsBack);
+  // Track the month currently in view (not just the page index) so we can re-anchor
+  // to the same month when the page count changes — e.g. rooms added, container resized.
+  const visibleMonthRef = useRef<Date>(currentMonth);
 
   const usedRooms = useMemo(() => {
     const base = overrideRooms
@@ -86,6 +89,19 @@ const CalendarGrid = ({
   const rowHeight =
     containerHeight > 0 ? Math.floor(containerHeight / numRows) : minRowHeight;
 
+  // A month may span several pages; map each month to the index of its first page.
+  const monthPageStarts = useMemo(() => {
+    const map = new Map<string, number>();
+    pageLayouts.forEach((l, i) => {
+      const key = `${l.month.getFullYear()}-${l.month.getMonth()}`;
+      if (!map.has(key)) map.set(key, i);
+    });
+    return map;
+  }, [pageLayouts]);
+
+  const firstPageIndexOfMonth = (d: Date) =>
+    monthPageStarts.get(`${d.getFullYear()}-${d.getMonth()}`) ?? null;
+
   useEffect(() => {
     const now = new Date();
     const arr: Date[] = [];
@@ -95,24 +111,30 @@ const CalendarGrid = ({
     setMonths(arr);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Anchor to the visible month's first page whenever the page layout changes
+  // (initial load, container resize, rooms added/removed). Because a month can now
+  // own multiple pages, page indices shift when rows-per-page changes — re-deriving
+  // from the month keeps the same month on screen instead of drifting.
   useEffect(() => {
-    if (scrollContainerRef.current && months.length > 0) {
-      const today = new Date();
-      const monthDiff =
-        (currentMonth.getFullYear() - today.getFullYear()) * 12 +
-        (currentMonth.getMonth() - today.getMonth());
-      const targetIndex = monthsBack + monthDiff;
-      const h = scrollContainerRef.current.offsetHeight;
-      scrollContainerRef.current.scrollTop = targetIndex * h;
-      visibleIndexRef.current = targetIndex;
-    }
-  }, [months]); // eslint-disable-line react-hooks/exhaustive-deps
+    const el = scrollContainerRef.current;
+    if (!el || pageLayouts.length === 0) return;
+    const h = el.offsetHeight;
+    if (h === 0) return;
+    const idx = firstPageIndexOfMonth(visibleMonthRef.current) ?? 0;
+    el.scrollTop = idx * h;
+    visibleIndexRef.current = idx;
+    setVisibleIndex(idx);
+  }, [pageLayouts, containerHeight]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (scrollToTodayTrigger > 0 && scrollContainerRef.current && months.length > 0) {
+    if (scrollToTodayTrigger > 0 && scrollContainerRef.current && pageLayouts.length > 0) {
+      const today = new Date();
+      const idx = firstPageIndexOfMonth(today) ?? monthsBack;
       const h = scrollContainerRef.current.offsetHeight;
-      scrollContainerRef.current.scrollTop = monthsBack * h;
-      visibleIndexRef.current = monthsBack;
+      scrollContainerRef.current.scrollTop = idx * h;
+      visibleIndexRef.current = idx;
+      visibleMonthRef.current = new Date(today.getFullYear(), today.getMonth(), 1);
+      setVisibleIndex(idx);
     }
   }, [scrollToTodayTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -126,10 +148,10 @@ const CalendarGrid = ({
   useEffect(() => {
     const el = scrollContainerRef.current;
     if (!el) return;
+    // Only record the height here; the month-anchor effect (keyed on containerHeight)
+    // owns scroll positioning so it always re-derives the page from the visible month.
     const obs = new ResizeObserver(([entry]) => {
-      const h = entry.contentRect.height;
-      setContainerHeight(h);
-      if (h > 0) el.scrollTop = visibleIndexRef.current * h;
+      setContainerHeight(entry.contentRect.height);
     });
     obs.observe(el);
     setContainerHeight(el.clientHeight);
@@ -139,33 +161,43 @@ const CalendarGrid = ({
   useEffect(() => {
     if (months.length === 0 || numRows <= 0) return;
     const layouts: PageLayout[] = [];
-    let overflowDate: Date | null = null;
+    const totalCells = numRows * 7;
 
     for (const month of months) {
+      const monthStart = new Date(month.getFullYear(), month.getMonth(), 1);
       const monthEnd = new Date(month.getFullYear(), month.getMonth() + 1, 0);
-      const hadOverflow = overflowDate !== null;
-      const pageStart: Date = overflowDate ?? new Date(month.getFullYear(), month.getMonth(), 1);
-      const startCol = getDay(pageStart);
-      const totalCells = numRows * 7;
-      const cells: (Date | null)[] = Array(totalCells).fill(null);
+      // Each month is self-contained: if its weeks don't fit in one page, emit
+      // continuation pages for the SAME month rather than spilling into the next.
+      let pageStart: Date = monthStart;
+      let isFirstPage = true;
 
-      let cellIdx = startCol;
-      let cur: Date = pageStart;
-      while (cellIdx < totalCells && !isAfter(cur, monthEnd)) {
-        cells[cellIdx] = cur;
-        cur = addDays(cur, 1);
-        cellIdx++;
-      }
-
-      if (!hadOverflow) {
-        const monthStart = new Date(month.getFullYear(), month.getMonth(), 1);
-        for (let i = 0; i < startCol; i++) {
-          cells[i] = addDays(monthStart, i - startCol);
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const cells: (Date | null)[] = Array(totalCells).fill(null);
+        let cellIdx = getDay(pageStart);
+        let cur: Date = pageStart;
+        while (cellIdx < totalCells && !isAfter(cur, monthEnd)) {
+          cells[cellIdx] = cur;
+          cur = addDays(cur, 1);
+          cellIdx++;
         }
-      }
 
-      overflowDate = isAfter(cur, monthEnd) ? null : cur;
-      layouts.push({ month, cells });
+        // Leading neighbor-month days only on the month's first page (for week alignment).
+        if (isFirstPage) {
+          const startCol = getDay(monthStart);
+          for (let i = 0; i < startCol; i++) {
+            cells[i] = addDays(monthStart, i - startCol);
+          }
+        }
+
+        layouts.push({ month, cells });
+
+        if (isAfter(cur, monthEnd)) break; // month fully placed
+        // A page only overflows when it filled completely (last cell = Saturday),
+        // so the continuation always resumes on the next Sunday — week alignment holds.
+        pageStart = cur;
+        isFirstPage = false;
+      }
     }
 
     setPageLayouts(layouts);
@@ -181,9 +213,10 @@ const CalendarGrid = ({
       return;
     }
 
-    const snappedMonth = months[snappedIndex];
-    if (snappedMonth) {
-      onMonthChange(snappedMonth);
+    const layout = pageLayouts[snappedIndex];
+    if (layout) {
+      onMonthChange(layout.month);
+      visibleMonthRef.current = layout.month;
       setVisibleIndex(snappedIndex);
       visibleIndexRef.current = snappedIndex;
     }
