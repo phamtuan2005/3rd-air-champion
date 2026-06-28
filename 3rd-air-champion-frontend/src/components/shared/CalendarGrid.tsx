@@ -365,7 +365,8 @@ const CalendarGrid = ({
             const { pm: pmBooking } = gridContent[room.name] ?? { am: null, pm: null };
             const roomColor = getRoomColor(room.name, room.color);
 
-            if (pmBooking !== null) {
+            // A blocked room is unavailable, not an open gap — show nothing for it.
+            if (pmBooking !== null || blockedRoomIds.has(room.id)) {
               return <div key={room.name} className="row-span-1 h-full" />;
             }
 
