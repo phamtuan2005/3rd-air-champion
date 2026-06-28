@@ -463,52 +463,84 @@ export const dayResolvers = {
         throw new Error("Cannot book past days");
       }
 
-      const existingBookings = await Day.find({
-        calendar,
-        "bookings.room": room,
-        date: { $gte: localDate, $lte: addDays(localDate, duration - 1) },
-      });
-
-      const existingDates = new Set(
-        existingBookings.map((booking) => booking.date.toISOString())
-      );
-
-      const dates: Date[] = [];
-      for (let i = 0; i < duration; i++) {
-        const bookingDate = addDays(localDate, i);
-        if (!existingDates.has(bookingDate.toISOString())) {
-          dates.push(bookingDate);
-        }
-      }
+      // Canonical span for the whole reservation — every night shares these values.
+      // Reconcile ALL nights in the span (not just missing ones): when a reservation is
+      // extended/shifted, the overlapping nights must be corrected in place, otherwise they
+      // keep stale startDate/endDate/duration and the stay renders as a split bar.
+      const spanStart = localDate;
+      const spanEnd = addDays(localDate, duration - 1);
+      const allDates: Date[] = [];
+      for (let i = 0; i < duration; i++) allDates.push(addDays(localDate, i));
 
       const currentRoom = await Room.findById(room);
       const roomPrice = currentRoom?.price;
 
-      const bulkOperation = dates.map((bookingDate) => ({
-        updateOne: {
-          filter: { calendar, date: bookingDate },
-          update: {
-            $set: { isAirBnB: true },
-            $addToSet: {
-              bookings: {
-                guest,
-                room,
-                price: roomPrice,
-                description,
-                duration,
-                numberOfGuests: 1,
-                startDate: dates[0],
-                endDate: dates[dates.length - 1],
+      // Nights in this span that already hold THIS reservation (matched by its unique
+      // AirBnB code in `description`). Used to decide update-in-place vs. add.
+      const existing = await Day.find({
+        calendar,
+        date: { $gte: spanStart, $lte: spanEnd },
+        bookings: { $elemMatch: { description, room } },
+      });
+      const existingDateSet = new Set(existing.map((d) => d.date.toISOString()));
+
+      // Preserve a host-set alias if one already exists on any night of this reservation,
+      // so updating the span (or filling a new night) never wipes the guest's name.
+      let preservedAlias = "";
+      for (const d of existing) {
+        const b = d.bookings.find(
+          (bk: any) => bk.description === description && String(bk.room) === String(room)
+        );
+        if (b?.alias) { preservedAlias = b.alias; break; }
+      }
+
+      const roomObjectId = new mongoose.Types.ObjectId(room);
+
+      const bulkOperation = allDates.map((bookingDate) =>
+        existingDateSet.has(bookingDate.toISOString())
+          ? {
+              // Existing night: fix the span in place, keeping alias/notes/flags intact.
+              updateOne: {
+                filter: { calendar, date: bookingDate },
+                update: {
+                  $set: {
+                    isAirBnB: true,
+                    "bookings.$[b].startDate": spanStart,
+                    "bookings.$[b].endDate": spanEnd,
+                    "bookings.$[b].duration": duration,
+                  },
+                },
+                arrayFilters: [{ "b.description": description, "b.room": roomObjectId }],
               },
-            },
-          },
-          upsert: true,
-        },
-      }));
+            }
+          : {
+              // Missing night: add it, carrying the preserved alias.
+              updateOne: {
+                filter: { calendar, date: bookingDate },
+                update: {
+                  $set: { isAirBnB: true },
+                  $addToSet: {
+                    bookings: {
+                      guest,
+                      room,
+                      price: roomPrice,
+                      description,
+                      duration,
+                      numberOfGuests: 1,
+                      startDate: spanStart,
+                      endDate: spanEnd,
+                      alias: preservedAlias,
+                    },
+                  },
+                },
+                upsert: true,
+              },
+            }
+      );
 
       await Day.bulkWrite(bulkOperation);
 
-      return await Day.find({ calendar, date: { $in: dates } })
+      return await Day.find({ calendar, date: { $in: allDates } })
         .populate("bookings.guest")
         .populate("bookings.room")
         .populate("blockedRooms");
