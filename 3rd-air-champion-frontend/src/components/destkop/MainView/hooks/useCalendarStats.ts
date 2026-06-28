@@ -181,8 +181,16 @@ export const useCalendarStats = ({
       const baseRoomName = getBaseRoomName(room.name);
       const roomId = room.id;
 
+      // A booked night only counts toward occupancy if the room isn't also blocked that
+      // day — otherwise a booked-and-blocked date is both subtracted from available nights
+      // and counted as occupied, pushing occupancy over 100%.
       const roomSpecificSet = new Set(
-        occupiedDays.filter((day) => day.bookings.some((booking) => booking.room?.id === roomId)),
+        occupiedDays.filter(
+          (day) =>
+            day.bookings.some((booking) => booking.room?.id === roomId) &&
+            !day.isBlocked &&
+            !day.blockedRooms.some((r) => r?.id === roomId),
+        ),
       );
 
       const blockedCount = occupiedDays.filter(
@@ -205,11 +213,22 @@ export const useCalendarStats = ({
     for (const [roomName, roomSet] of roomSets.entries()) {
       const blockedNights = blockedNightsMap.get(roomName) ?? 0;
       const availableNights = Math.max(daysInMonth - blockedNights, 1);
-      const occupancyPercentage = (roomSet.size / availableNights) * 100;
+      // Count distinct booked dates (duplicate Day docs for one date would otherwise
+      // double-count), and never exceed sellable nights — occupancy can't top 100%.
+      const bookedDateCount = new Set(
+        [...roomSet].map((d: dayType) => toZonedTime(d.date, timeZone).toISOString().split("T")[0]),
+      ).size;
+      const bookedNights = Math.min(bookedDateCount, availableNights);
+      const occupancyPercentage = (bookedNights / availableNights) * 100;
       roomOccupancy.push({ name: roomName, occupancy: occupancyPercentage });
 
-      totalOccupiedDays += roomSet.size;
-      if (roomName !== "Master") totalAvailableDays += availableNights;
+      // Master is the hosts' own room — exclude it from BOTH sides of the total, otherwise
+      // its booked nights inflate the numerator while its nights are left out of the
+      // denominator, pushing total occupancy over 100%.
+      if (roomName !== "Master") {
+        totalOccupiedDays += bookedNights;
+        totalAvailableDays += availableNights;
+      }
 
       let airbnbCount = 0;
       roomSet.forEach((day: dayType) => {
