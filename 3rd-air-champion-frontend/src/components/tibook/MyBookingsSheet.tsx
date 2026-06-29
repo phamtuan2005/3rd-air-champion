@@ -212,8 +212,9 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
     return checkOutKey > today && b.status === "confirmed";
   }).sort((a, b) => dateKey(a).localeCompare(dateKey(b)));
 
-  // Download all upcoming stays as one .ics (same event format as TiMag's Cal Events).
-  const handleDownloadCalendar = async () => {
+  // Add all upcoming stays to the phone calendar — opens the .ics directly so the
+  // Calendar app shows its "Add Event" screen (no share sheet). Same event format as TiMag.
+  const handleAddToCalendar = () => {
     if (upcoming.length === 0) return;
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const fmt = (date: Date, hour: number) => format(date, `yyyyMMdd'T'${String(hour).padStart(2, "0")}0000`);
@@ -239,19 +240,12 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
       ...events,
       "END:VCALENDAR",
     ].join("\r\n");
-    const fileName = `my_stays_${dateKey(upcoming[0])}.ics`;
     const blob = new Blob([icsContent], { type: "text/calendar;charset=utf-8" });
-    const file = new File([blob], fileName, { type: "text/calendar" });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try { await navigator.share({ files: [file], title: "My TT House stays" }); } catch { /* user cancelled */ }
-    } else {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fileName;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
+    const url = URL.createObjectURL(blob);
+    // Navigate to the .ics so the OS hands it to the Calendar app: on a phone this opens
+    // the "Add Event" screen directly; on desktop the browser saves/opens it via the same handler.
+    window.location.href = url;
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
   };
 
   const guestFirstName = bookings && bookings.length > 0
@@ -476,7 +470,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
                     )}
                     <button
                       type="button"
-                      onClick={handleDownloadCalendar}
+                      onClick={handleAddToCalendar}
                       className={`w-full mt-4 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-white text-sm font-semibold ${theme.btn}`}
                     >
                       <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
