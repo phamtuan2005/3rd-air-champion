@@ -212,6 +212,48 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
     return checkOutKey > today && b.status === "confirmed";
   }).sort((a, b) => dateKey(a).localeCompare(dateKey(b)));
 
+  // Download all upcoming stays as one .ics (same event format as TiMag's Cal Events).
+  const handleDownloadCalendar = async () => {
+    if (upcoming.length === 0) return;
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const fmt = (date: Date, hour: number) => format(date, `yyyyMMdd'T'${String(hour).padStart(2, "0")}0000`);
+    const events = upcoming.map((b) => {
+      const checkIn = parseISO(dateKey(b));
+      const checkOut = addDays(checkIn, Number(b.duration) || 1);
+      const roomName = roomMap.get(b.room)?.name ?? "Room";
+      return [
+        "BEGIN:VEVENT",
+        `DTSTART;TZID=${tz}:${fmt(checkIn, 14)}`,
+        `DTEND;TZID=${tz}:${fmt(checkOut, 11)}`,
+        `SUMMARY:Stay at ${roomName}`,
+        `DESCRIPTION:${b.duration} night${b.duration !== 1 ? "s" : ""} at ${roomName}`,
+        ...(airbnbAddress ? [`LOCATION:${airbnbAddress.split("\n").join(", ")}`] : []),
+        "END:VEVENT",
+      ].join("\r\n");
+    });
+    const icsContent = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//3rd Air Champion//Bookings//EN",
+      "CALSCALE:GREGORIAN",
+      ...events,
+      "END:VCALENDAR",
+    ].join("\r\n");
+    const fileName = `my_stays_${dateKey(upcoming[0])}.ics`;
+    const blob = new Blob([icsContent], { type: "text/calendar;charset=utf-8" });
+    const file = new File([blob], fileName, { type: "text/calendar" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: "My TT House stays" }); } catch { /* user cancelled */ }
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  };
+
   const guestFirstName = bookings && bookings.length > 0
     ? bookings[0].guestName.split(" ")[0]
     : null;
@@ -432,6 +474,16 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
                         {futureBookings.map((b: GuestBooking) => renderRow(b, b === next))}
                       </>
                     )}
+                    <button
+                      type="button"
+                      onClick={handleDownloadCalendar}
+                      className={`w-full mt-4 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-white text-sm font-semibold ${theme.btn}`}
+                    >
+                      <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      Add my stays to calendar
+                    </button>
                   </>
                 );
               })()}
