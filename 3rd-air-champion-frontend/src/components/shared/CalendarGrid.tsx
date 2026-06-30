@@ -8,13 +8,11 @@ import {
   isBefore,
   isSameDay,
   isSameMonth,
-  isWithinInterval,
   startOfToday,
 } from "date-fns";
 import { dayType } from "../../util/types/dayType";
 import { bookingType } from "../../util/types/bookingType";
 import { roomType } from "../../util/types/roomType";
-import { toZonedTime } from "date-fns-tz";
 import { useDoubleClick } from "../../util/useDoubleClick";
 import { getRoomColor } from "../../util/getRoomColor";
 
@@ -42,8 +40,13 @@ interface CalendarGridProps {
   onTodayInViewChange?: (inView: boolean) => void;
 }
 
-const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const SUBROW_HEIGHT = 20;
+
+// Key a grid cell by its LOCAL calendar day. date.toISOString() converts to UTC, which
+// shifts the day for east-of-UTC timezones and breaks monthMap lookups; local components
+// stay stable in every timezone and match the monthMap keys.
+const localDateKey = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 interface PageLayout {
   month: Date;
@@ -263,7 +266,7 @@ const CalendarGrid = ({
   const getTileClasses = (date: Date, pageMonth: Date) => {
     const className = ["react-calendar__custom_tile"];
     if (isSameDay(date, startOfToday())) className.push("react-calendar__custom_tile_today");
-    const day = monthMap.get(date.toISOString().split("T")[0]);
+    const day = monthMap.get(localDateKey(date));
     if (day?.isBlocked) className.push("react-calendar__custom_tile_blocked");
     const totalAvailableRooms = new Set(
       usedRooms.map((r) => r.name.replace(/(.+?)\1+$/, "$1")),
@@ -280,13 +283,20 @@ const CalendarGrid = ({
   };
 
   const getTileContent = (date: Date) => {
-    const day = monthMap.get(date.toISOString().split("T")[0]);
-    const prevDay = monthMap.get(addDays(date, -1).toISOString().split("T")[0]);
+    const day = monthMap.get(localDateKey(date));
+    const prevDay = monthMap.get(localDateKey(addDays(date, -1)));
+
+    // Compare calendar days as yyyy-MM-dd strings — timezone-stable and consistent with the
+    // monthMap keys. (isSameDay + toZonedTime shifted bars by a day off the host's timezone.)
+    const cellKey = localDateKey(date);
+    const dayKey = (d: string | Date) => String(d).slice(0, 10);
+    const addDayKey = (key: string, n: number) =>
+      localDateKey(addDays(new Date(`${key}T12:00:00`), n));
 
     const checkoutBookings: bookingType[] = prevDay
       ? prevDay.bookings.filter((b) =>
           b.endDate && b.room && b.guest
-            ? isSameDay(date, addDays(toZonedTime(b.endDate, timeZone), 1)) &&
+            ? cellKey === addDayKey(dayKey(b.endDate), 1) &&
               (!selectedRoomName || b.room.name === selectedRoomName)
             : false,
         )
@@ -339,11 +349,10 @@ const CalendarGrid = ({
     if (filteredDay) {
       filteredDay.bookings.forEach((booking) => {
         if (!booking.startDate || !booking.endDate || !booking.room || !booking.guest) return;
-        const startDate = toZonedTime(booking.startDate, timeZone);
-        const dbEndDate = toZonedTime(booking.endDate, timeZone);
-        const isStart = isSameDay(date, startDate);
-        const isBetween =
-          !isStart && isWithinInterval(date, { start: startDate, end: dbEndDate });
+        const startKey = dayKey(booking.startDate);
+        const endKey = dayKey(booking.endDate);
+        const isStart = cellKey === startKey;
+        const isBetween = !isStart && cellKey > startKey && cellKey <= endKey;
         ensureGridRow(booking.room);
         if (!gridContent[booking.room.name]) return;
         if (isBetween) gridContent[booking.room.name].am = booking;
@@ -459,12 +468,9 @@ const CalendarGrid = ({
             ? getRoomColor(amBooking.room.name, amBooking.room.color)
             : "";
           const amIsEnd = amBooking?.endDate
-            ? isSameDay(date, addDays(toZonedTime(amBooking.endDate, timeZone), 1))
+            ? cellKey === addDayKey(dayKey(amBooking.endDate), 1)
             : false;
-          const pmStartDate = pmBooking?.startDate
-            ? toZonedTime(pmBooking.startDate, timeZone)
-            : null;
-          const pmIsStart = pmBooking && pmStartDate ? isSameDay(date, pmStartDate) : false;
+          const pmIsStart = pmBooking?.startDate ? cellKey === dayKey(pmBooking.startDate) : false;
           const pmColor = pmBooking?.room?.name
             ? getRoomColor(pmBooking.room.name, pmBooking.room.color)
             : "";

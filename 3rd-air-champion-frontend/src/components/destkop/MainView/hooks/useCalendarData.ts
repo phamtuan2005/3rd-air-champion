@@ -12,8 +12,6 @@ import { dayType } from "../../../../util/types/dayType";
 import { roomType } from "../../../../util/types/roomType";
 import { guestType } from "../../../../util/types/guestType";
 import { bookingType } from "../../../../util/types/bookingType";
-import { addDays, isSameDay } from "date-fns";
-import { toZonedTime } from "date-fns-tz";
 
 interface UseCalendarDataParams {
   calendarId: string;
@@ -57,7 +55,6 @@ export const useCalendarData = ({
 
   const transformBookings = (
     map: Map<string, dayType>,
-    timeZone: string,
   ) => {
     const propagateBooking = (
       booking: bookingType,
@@ -84,12 +81,15 @@ export const useCalendarData = ({
       const nextKey = sortedKeys[nextIndex];
       const nextDay = map.get(nextKey);
       const nextBooking = nextDay?.bookings.find((b) => {
-        const currentDate = toZonedTime(currentKey, timeZone);
-        const nextDate = toZonedTime(nextKey, timeZone);
+        // Consecutive-day check on the yyyy-MM-dd keys — timezone-stable. (toZonedTime +
+        // isSameDay here truncated multi-night stays in timezones east of the host's.)
+        const [y, m, d] = currentKey.split("-").map(Number);
+        const nx = new Date(y, m - 1, d + 1);
+        const nextOfCurrent = `${nx.getFullYear()}-${String(nx.getMonth() + 1).padStart(2, "0")}-${String(nx.getDate()).padStart(2, "0")}`;
         return (
           b.guest.id === booking.guest.id &&
           b.room.id === booking.room.id &&
-          isSameDay(nextDate, addDays(currentDate, 1))
+          nextKey === nextOfCurrent
         );
       });
 
@@ -252,10 +252,11 @@ export const useCalendarData = ({
 
   // Build monthMap from days
   useEffect(() => {
-    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const map = new Map<string, dayType>();
     days.forEach((day) => {
-      const formattedDate = toZonedTime(day.date, timeZone).toISOString().split("T")[0];
+      // Key by the UTC calendar day of the stored date — timezone-stable, matches the
+      // grid's local cell keys. (toZonedTime(deviceTz) shifted keys in other timezones.)
+      const formattedDate = new Date(day.date).toISOString().split("T")[0];
       map.set(formattedDate, day);
     });
     setMonthMap(map);
@@ -263,7 +264,7 @@ export const useCalendarData = ({
     const sortedMap = new Map(
       [...map.entries()].sort(([keyA], [keyB]) => keyA.localeCompare(keyB)),
     );
-    transformBookings(sortedMap, timeZone);
+    transformBookings(sortedMap);
 
     if (pendingLoadingClearRef.current) {
       pendingLoadingClearRef.current = false;
