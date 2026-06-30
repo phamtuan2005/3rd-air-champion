@@ -93,7 +93,7 @@ const BlockRoomsModal = ({
   }, [selectedRooms, monthMap]);
 
   const handleBlock = () => {
-    if (!hasSelection || duration < 1) return;
+    if (!hasSelection || !(duration >= 1)) return;
     setIsBlocking(true);
     setErrorMsg("");
     const dateKey = format(startDate, "yyyy-MM-dd");
@@ -204,8 +204,14 @@ const BlockRoomsModal = ({
             type="number"
             min={1}
             className="text-sm border border-gray-200 rounded-lg px-3 py-2 w-24 focus:outline-none focus:ring-2 focus:ring-rose-300"
-            value={duration}
-            onChange={(e) => setDuration(Math.max(1, parseInt(e.target.value) || 1))}
+            value={Number.isNaN(duration) ? "" : duration}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === "") { setDuration(NaN); return; } // allow clearing the box while typing
+              const n = parseInt(v, 10);
+              setDuration(Number.isNaN(n) ? NaN : Math.max(1, n));
+            }}
+            onBlur={() => { if (!(duration >= 1)) setDuration(1); }}
           />
         </div>
 
