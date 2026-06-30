@@ -16,7 +16,8 @@ const GuestAddPane = ({ guestErrorMessage, onAddGuest }: GuestAddPaneProps) => {
   } = useForm<guestAddSchema>({ resolver: zodResolver(guestAddZodObject) });
 
   const onSubmit: SubmitHandler<guestAddSchema> = (data) => {
-    onAddGuest(data as { name: string; phone: string });
+    // Strip formatting — store the phone as digits only.
+    onAddGuest({ name: data.name, phone: data.phone.replace(/\D/g, "") });
   };
 
   return (

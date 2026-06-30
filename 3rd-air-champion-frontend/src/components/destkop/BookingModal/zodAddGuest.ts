@@ -9,9 +9,18 @@ export const guestAddZodObject = z.object({
     }),
   phone: z
     .string()
-    .min(10, { message: "Phone number must be at least 10 characters long." })
-    .max(15, { message: "Phone number must be at most 15 characters long." })
-    .regex(/^\d+$/, { message: "Phone number must contain only digits." }),
+    // Accept common phone formatting — digits plus ( ) + - . and spaces.
+    .regex(/^[\d\s()+.\-]+$/, {
+      message: "Phone number can only contain digits and ( ) + - . or spaces.",
+    })
+    // Validate by digit count (formatting is stripped on submit).
+    .refine(
+      (val) => {
+        const digits = val.replace(/\D/g, "");
+        return digits.length >= 10 && digits.length <= 15;
+      },
+      { message: "Phone number must be 10–15 digits." },
+    ),
 });
 
 export type guestAddSchema = z.infer<typeof guestAddZodObject>;
