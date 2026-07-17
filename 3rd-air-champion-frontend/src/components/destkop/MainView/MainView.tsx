@@ -193,6 +193,7 @@ const MainView = ({
     setIcsModal,
     getCurrentGuestBill,
     handleBookingConfirmation,
+    buildConfirmationForBookings,
     handleSendCalEvents,
     calEventsHint,
   } = useMessaging({
@@ -598,6 +599,7 @@ const MainView = ({
             onBooking={onBookingComplete}
             setIsModalOpen={setIsModalOpen}
             setShowAddPane={setShowAddPane}
+            buildConfirmationForBookings={buildConfirmationForBookings}
           />
         )}
       </div>

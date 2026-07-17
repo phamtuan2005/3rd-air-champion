@@ -4,6 +4,16 @@ import { toZonedTime } from "date-fns-tz";
 import { dayType } from "../../../../util/types/dayType";
 import { bookingType } from "../../../../util/types/bookingType";
 
+// A single booking row the confirmation text bills for.
+export interface ConfirmationBooking {
+  startDate: string; // ISO or yyyy-MM-dd
+  duration: number;
+  roomName: string;
+  pricePerNight: number;
+}
+
+type ConfirmationLineItem = ConfirmationBooking & { paidNights: number };
+
 export interface IcsModalState {
   icsContent: string;
   phone: string;
@@ -70,7 +80,77 @@ export const useMessaging = ({
     return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
   };
 
-  const handleBookingConfirmation = (phone: string) => {
+  // Pure text composer — the single source of truth for the confirmation format. Both the
+  // month-view "Confirm Booking" button and the Book Rooms modal feed it line items so the
+  // wording, pricing, totals and "To pay" math are always identical; only the set of
+  // bookings differs (whole month vs. just the rows the host booked).
+  const composeConfirmationText = (
+    guestName: string,
+    header: string,
+    lineItems: ConfirmationLineItem[],
+    totalPaidAmount: number,
+  ): string => {
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const currentYear = new Date().getFullYear();
+
+    let totalPrice = 0;
+    let numberOfNights = 0;
+
+    const bookingDetails = lineItems
+      .map((item) => {
+        const startDate = toZonedTime(item.startDate.split("T")[0], timeZone);
+        const weekday = format(startDate, "EEE");
+        const dateFormatted = format(startDate, startDate.getFullYear() !== currentYear ? "MMM d, yyyy" : "MMM d");
+        const duration = item.duration;
+        const endDate = addDays(startDate, duration);
+        const endWeekday = format(endDate, "EEE");
+        const endDateFormatted = format(endDate, endDate.getFullYear() !== currentYear ? "MMM d, yyyy" : "MMM d");
+
+        const roomName = item.roomName;
+        const pricePerNight = item.pricePerNight;
+
+        numberOfNights += duration;
+
+        const bookingPaidAmount = item.paidNights * pricePerNight;
+        const paidLabel = item.paidNights === 0 ? "" : `(paid $${bookingPaidAmount})`;
+
+        if (duration === 1) {
+          totalPrice += pricePerNight;
+          return `* ${weekday} to ${endWeekday} morning, ${dateFormatted} - ${endDateFormatted} morning, 1 night, ${roomName}, $${pricePerNight} ${paidLabel}`.trimEnd();
+        } else {
+          const lineTotal = pricePerNight * duration;
+          totalPrice += lineTotal;
+          return `* ${weekday} to ${endWeekday} morning, ${dateFormatted} - ${endDateFormatted} morning, ${duration} nights, ${roomName}, $${pricePerNight} * ${duration} = $${lineTotal} ${paidLabel}`.trimEnd();
+        }
+      })
+      .join("\n");
+
+    const details = lineItems.length > 0 ? bookingDetails + "\n" : "";
+    const unpaid = totalPrice - totalPaidAmount;
+    const politePreface = `Many thanks for your ${numberOfNights === 1 ? "inquiry" : "inquiries"}!`;
+    const accomodationPreface = numberOfNights > 3 ? "I do my best to accomodate you." : "";
+
+    return `${guestName === "" ? "" : `Hi ${guestName},`}\n${politePreface}${accomodationPreface ? `\n${accomodationPreface}` : ""}\n${header}${details}\nTotal price = $${totalPrice}${totalPaidAmount > 0 ? `\nTotal paid = $${totalPaidAmount}` : ""}${
+      unpaid > 0
+        ? `\nTo pay = ${totalPaidAmount > 0 ? `$${totalPrice} - $${totalPaidAmount} = $${unpaid}` : `$${unpaid}`}`
+        : ""
+    }\n\nCould you please confirm whether everything is in order?`;
+  };
+
+  const monthHeader = (months: Date[], lead = "Your bookings"): string => {
+    const currentYear = new Date().getFullYear();
+    const monthStrings = months.map((month) =>
+      format(month, month.getFullYear() !== currentYear ? "LLLL yyyy" : "LLLL"),
+    );
+    return `${lead} for ${
+      monthStrings.length > 0
+        ? formatListWithAnd(monthStrings)
+        : format(currentMonth, currentMonth.getFullYear() !== currentYear ? "LLLL yyyy" : "LLLL")
+    } are now as follows:\n`;
+  };
+
+  // Whole-month statement for a guest phone (the GuestView "Confirm Booking" button).
+  const buildBookingConfirmation = (phone: string): string => {
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     const uniqueMonths = new Set<string>(
@@ -83,80 +163,42 @@ export const useMessaging = ({
         .map((paidDate) => startOfMonth(paidDate).toISOString().split("T")[0]),
     );
     const months = Array.from(uniqueMonths, (uniqueMonth) => toZonedTime(uniqueMonth, timeZone));
-    const currentYear = new Date().getFullYear();
-    const monthStrings = months.map((month) =>
-      format(month, month.getFullYear() !== currentYear ? "LLLL yyyy" : "LLLL"),
+
+    const sortedEntries = Array.from(monthMap.entries()).sort(([dateStrA], [dateStrB]) =>
+      compareAsc(toZonedTime(dateStrA, timeZone), toZonedTime(dateStrB, timeZone)),
     );
 
-    const body = `Your bookings for ${
-      monthStrings.length > 0
-        ? formatListWithAnd(monthStrings)
-        : format(currentMonth, currentMonth.getFullYear() !== currentYear ? "LLLL yyyy" : "LLLL")
-    } are now as follows:\n`;
-
-    const sortedEntries = Array.from(monthMap.entries()).sort(([dateStrA], [dateStrB]) => {
-      const dateA = toZonedTime(dateStrA, timeZone);
-      const dateB = toZonedTime(dateStrB, timeZone);
-      return compareAsc(dateA, dateB);
-    });
-
-    let totalPriceOfMonth = 0;
     let guestName = "";
-    let numberOfNights = 0;
+    const lineItems: ConfirmationLineItem[] = [];
 
-    const bookingDetails = sortedEntries.reduce((acc, [dateStr, dayEntry]) => {
+    sortedEntries.forEach(([dateStr, dayEntry]) => {
       const date = toZonedTime(dateStr, timeZone);
-
       if (
-        (months.length > 0 && months.some((month) => isSameMonth(date, month))) ||
-        isSameMonth(date, currentMonth)
-      ) {
-        const matchingBookings = dayEntry.bookings.filter(
+        !((months.length > 0 && months.some((month) => isSameMonth(date, month))) ||
+          isSameMonth(date, currentMonth))
+      )
+        return;
+
+      dayEntry.bookings
+        .filter(
           (booking) => booking.guest.phone === phone && booking.startDate.split("T")[0] === dateStr && !booking.reserved,
-        );
-
-        if (matchingBookings.length > 0) {
-          const bookingText = matchingBookings
-            .map((booking: bookingType) => {
-              guestName = booking.guest.name;
-
-              const startDate = toZonedTime(booking.startDate.split("T")[0], timeZone);
-              const weekday = format(startDate, "EEE");
-              const currentYear = new Date().getFullYear();
-              const dateFormatted = format(startDate, startDate.getFullYear() !== currentYear ? "MMM d, yyyy" : "MMM d");
-              const duration = booking.duration;
-              const endDate = addDays(startDate, duration);
-              const endWeekday = format(endDate, "EEE");
-              const endDateFormatted = format(endDate, endDate.getFullYear() !== currentYear ? "MMM d, yyyy" : "MMM d");
-
-              const roomName = booking.room.name;
-              const pricePerNight =
-                booking.guest.pricing.find((p) => p.room === booking.room.id)?.price ||
-                booking.price;
-
-              numberOfNights += duration;
-
-              const paidNights = Array.from({ length: duration }, (_, i) => addDays(startDate, i))
-                .filter((night) => paidDates.some((pd) => isSameDay(pd, night))).length;
-              const bookingPaidAmount = paidNights * pricePerNight;
-              const paidLabel = paidNights === 0 ? "" : `(paid $${bookingPaidAmount})`;
-
-              if (duration === 1) {
-                totalPriceOfMonth += pricePerNight;
-                return `* ${weekday} to ${endWeekday} morning, ${dateFormatted} - ${endDateFormatted} morning, 1 night, ${roomName}, $${pricePerNight} ${paidLabel}`.trimEnd();
-              } else {
-                const totalPrice = pricePerNight * duration;
-                totalPriceOfMonth += totalPrice;
-                return `* ${weekday} to ${endWeekday} morning, ${dateFormatted} - ${endDateFormatted} morning, ${duration} nights, ${roomName}, $${pricePerNight} * ${duration} = $${totalPrice} ${paidLabel}`.trimEnd();
-              }
-            })
-            .join("\n");
-          return acc + bookingText + "\n";
-        }
-      }
-
-      return acc;
-    }, "");
+        )
+        .forEach((booking: bookingType) => {
+          guestName = booking.guest.name;
+          const startDate = toZonedTime(booking.startDate.split("T")[0], timeZone);
+          const pricePerNight =
+            booking.guest.pricing.find((p) => p.room === booking.room.id)?.price || booking.price;
+          const paidNights = Array.from({ length: booking.duration }, (_, i) => addDays(startDate, i))
+            .filter((night) => paidDates.some((pd) => isSameDay(pd, night))).length;
+          lineItems.push({
+            startDate: booking.startDate,
+            duration: booking.duration,
+            roomName: booking.room.name,
+            pricePerNight,
+            paidNights,
+          });
+        });
+    });
 
     let totalPaidAmount = 0;
     paidDates.forEach((paidDate) => {
@@ -169,16 +211,29 @@ export const useMessaging = ({
       totalPaidAmount += pricePerNight;
     });
 
-    const unpaid = totalPriceOfMonth - totalPaidAmount;
-    const politePreface = `Many thanks for your ${numberOfNights === 1 ? "inquiry" : "inquiries"}!`;
-    const accomodationPreface = numberOfNights > 3 ? "I do my best to accomodate you." : "";
+    return composeConfirmationText(guestName, monthHeader(months), lineItems, totalPaidAmount);
+  };
 
-    const fullBody = `${guestName === "" ? "" : `Hi ${guestName},`}\n${politePreface}${accomodationPreface ? `\n${accomodationPreface}` : ""}\n${body}${bookingDetails}\nTotal price = $${totalPriceOfMonth}${totalPaidAmount > 0 ? `\nTotal paid = $${totalPaidAmount}` : ""}${
-      unpaid > 0
-        ? `\nTo pay = ${totalPaidAmount > 0 ? `$${totalPriceOfMonth} - $${totalPaidAmount} = $${unpaid}` : `$${unpaid}`}`
-        : ""
-    }\n\nCould you please confirm whether everything is in order?`;
+  // Same template, but scoped to an explicit set of just-booked rows (Book Rooms modal).
+  // Nothing is paid yet, so the whole amount lands in the "To pay" line.
+  const buildConfirmationForBookings = (
+    guestName: string,
+    bookings: ConfirmationBooking[],
+  ): string => {
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const sorted = [...bookings].sort((a, b) =>
+      compareAsc(toZonedTime(a.startDate.split("T")[0], timeZone), toZonedTime(b.startDate.split("T")[0], timeZone)),
+    );
+    const monthKeys = new Set(
+      sorted.map((b) => startOfMonth(toZonedTime(b.startDate.split("T")[0], timeZone)).toISOString().split("T")[0]),
+    );
+    const months = Array.from(monthKeys, (k) => toZonedTime(k, timeZone));
+    const lineItems: ConfirmationLineItem[] = sorted.map((b) => ({ ...b, paidNights: 0 }));
+    return composeConfirmationText(guestName, monthHeader(months, "Your additional bookings"), lineItems, 0);
+  };
 
+  const handleBookingConfirmation = (phone: string) => {
+    const fullBody = buildBookingConfirmation(phone);
     window.location.href = `sms:${phone}?&body=${encodeURIComponent(fullBody)}`;
   };
 
@@ -261,6 +316,7 @@ export const useMessaging = ({
     setIcsModal,
     getCurrentGuestBill,
     handleBookingConfirmation,
+    buildConfirmationForBookings,
     handleSendCalEvents,
     calEventsHint,
   };

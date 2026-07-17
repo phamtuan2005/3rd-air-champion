@@ -12,6 +12,7 @@ import { getAvailableRooms, postBooking } from "../../../util/bookingOperations"
 import { dayType } from "../../../util/types/dayType";
 import { format, addDays } from "date-fns";
 import { ANY_ROOM_SENTINEL } from "./zodBookDays";
+import { ConfirmationBooking } from "../MainView/hooks/useMessaging";
 
 interface BookingPrefill {
   guestId: string | null;
@@ -33,6 +34,9 @@ interface BookingModalProps {
   onBooking: (bookedDays: dayType[]) => void;
   setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setShowAddPane: React.Dispatch<React.SetStateAction<"guest" | "room" | null>>;
+  // Same confirmation template as the GuestView "Confirm Booking" button, but billed only
+  // for the rows booked here.
+  buildConfirmationForBookings: (guestName: string, bookings: ConfirmationBooking[]) => string;
 }
 
 type FlatBooking = { room: string; date: Date; duration: number };
@@ -45,7 +49,10 @@ type BookingResult = {
   message?: string;
   booking?: FlatBooking;
   reserved?: boolean;
+  lineItem?: ConfirmationBooking; // for the text confirmation (successes only)
 };
+
+type TabId = 1 | 2 | 3;
 
 const extractErrorMessage = (err: unknown): string => {
   if (typeof err === "string") return err;
@@ -79,11 +86,13 @@ const BookingModal = ({
   onBooking,
   setIsModalOpen,
   setShowAddPane,
+  buildConfirmationForBookings,
 }: BookingModalProps) => {
   const token = localStorage.getItem("token");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bookingResults, setBookingResults] = useState<BookingResult[]>([]);
+  const [activeTab, setActiveTab] = useState<TabId>(1);
   const initialRowCount = prefills && prefills.length > 0 ? prefills.length : 1;
   const [reservedRows, setReservedRows] = useState<Set<number>>(
     new Set(Array.from({ length: initialRowCount }, (_, i) => i)),
@@ -133,8 +142,43 @@ const BookingModal = ({
 
   const watchedBookings = useWatch({ control, name: "bookings" });
   const watchedGuestId = useWatch({ control, name: "guest" });
-  const watchedGuestName =
-    guests.find((g) => g.id === watchedGuestId)?.name ?? "";
+  const selectedGuest = guests.find((g) => g.id === watchedGuestId) ?? null;
+  const watchedGuestName = selectedGuest?.name ?? "";
+  const guestPhone = selectedGuest?.phone ?? "";
+
+  const successfulResults = bookingResults.filter((r) => r.status === "success");
+  const hasResults = bookingResults.length > 0;
+  const hasSuccess = successfulResults.length > 0;
+
+  // Same confirmation template as "Confirm Booking", but billed only for the rows just
+  // booked here (not the guest's whole month).
+  const bookedLineItems = successfulResults
+    .map((r) => r.lineItem)
+    .filter((li): li is ConfirmationBooking => Boolean(li));
+  const confirmationText =
+    guestPhone && bookedLineItems.length > 0
+      ? buildConfirmationForBookings(watchedGuestName, bookedLineItems)
+      : "";
+
+  const handleSendText = () => {
+    if (!guestPhone || !confirmationText) return;
+    window.location.href = `sms:${guestPhone}?&body=${encodeURIComponent(confirmationText)}`;
+  };
+
+  // Resolve the per-night price the same way the confirmation text does: guest's room
+  // pricing first, falling back to the price stamped on the created booking.
+  const buildLineItem = (
+    days: dayType[],
+    roomId: string,
+    roomName: string,
+    flat: FlatBooking,
+    guestId: string,
+  ): ConfirmationBooking => {
+    const guest = guests.find((g) => g.id === guestId);
+    const created = days.flatMap((d) => d.bookings).find((b) => b.room?.id === roomId && b.guest?.id === guestId);
+    const pricePerNight = guest?.pricing.find((p) => p.room === roomId)?.price || created?.price || 0;
+    return { startDate: format(flat.date, "yyyy-MM-dd"), duration: flat.duration, roomName, pricePerNight };
+  };
 
   const processBooking = async (
     flat: FlatBooking,
@@ -195,6 +239,7 @@ const BookingModal = ({
           roomName: roomLabel,
           roomColor,
           status: "success",
+          lineItem: buildLineItem(days, roomId, roomLabel, flat, guestId),
         },
         bookedDays: days,
       };
@@ -239,7 +284,7 @@ const BookingModal = ({
         { calendar: calendarId, date: format(flat.date, "yyyy-MM-dd'T'HH:mm:ss"), guest: guestId, isAirBnB: false, numberOfGuests, room: roomId, duration: flat.duration, reserved: true },
         token as string,
       );
-      return { result: { label: `${dateLabel} · ${durationLabel}`, roomName: roomLabel, roomColor, status: "success", reserved: true }, bookedDays: days };
+      return { result: { label: `${dateLabel} · ${durationLabel}`, roomName: roomLabel, roomColor, status: "success", reserved: true, lineItem: buildLineItem(days, roomId, roomLabel, flat, guestId) }, bookedDays: days };
     } catch (err) {
       return { result: { label: `${dateLabel} · ${durationLabel}`, roomName: roomLabel, roomColor, status: "error", message: humanizeError(extractErrorMessage(err)), reserved: true }, bookedDays: [] };
     }
@@ -275,6 +320,7 @@ const BookingModal = ({
 
     setIsSubmitting(false);
     setBookingResults(results);
+    setActiveTab(2);
     if (allBookedDays.length > 0) onBooking(allBookedDays);
   };
 
@@ -312,7 +358,7 @@ const BookingModal = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-gray-100 flex-shrink-0">
+        <div className="flex items-center justify-between px-4 pt-3 pb-2 flex-shrink-0">
           <h2 className="text-lg font-bold">Book Rooms</h2>
           <button
             type="button"
@@ -323,12 +369,39 @@ const BookingModal = ({
           </button>
         </div>
 
+        {/* Tabs */}
+        <div className="flex px-4 border-b border-gray-100 flex-shrink-0">
+          {([
+            { id: 1 as TabId, label: "1 · Booking", disabled: false },
+            { id: 2 as TabId, label: "2 · Confirmation", disabled: !hasResults },
+            { id: 3 as TabId, label: "3 · Send Text", disabled: !hasSuccess },
+          ]).map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              disabled={tab.disabled}
+              onClick={() => setActiveTab(tab.id)}
+              className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+                activeTab === tab.id
+                  ? "border-green-500 text-green-600"
+                  : tab.disabled
+                    ? "border-transparent text-gray-300 cursor-not-allowed"
+                    : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
         <form
           className="flex flex-col flex-1 min-h-0"
           onSubmit={handleSubmit(onSubmit)}
         >
           {/* Scrollable body */}
           <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-4">
+            {/* ── Tab 1: Booking ─────────────────────────────────────────── */}
+            <div className={activeTab === 1 ? "flex flex-col gap-4" : "hidden"}>
             {/* Guest + Number of Guests row */}
             <div className="flex gap-4 items-start">
               <div className="flex-1">
@@ -499,10 +572,11 @@ const BookingModal = ({
                 {errors.bookings.message}
               </span>
             )}
+            </div>
 
-            {/* Results summary */}
-            {bookingResults.length > 0 && (
-              <div className="border-t border-gray-200 pt-3">
+            {/* ── Tab 2: Confirmation ──────────────────────────────────────── */}
+            <div className={activeTab === 2 ? "flex flex-col gap-4" : "hidden"}>
+              <div>
                 <p className="text-sm font-medium mb-2">Booking Summary</p>
                 <ul className="flex flex-col gap-1">
                   {Object.entries(
@@ -550,12 +624,36 @@ const BookingModal = ({
                   })}
                 </ul>
               </div>
-            )}
+            </div>
+
+            {/* ── Tab 3: Send Text ─────────────────────────────────────────── */}
+            <div className={activeTab === 3 ? "flex flex-col gap-3" : "hidden"}>
+              <p className="text-sm font-medium">Text booking confirmation</p>
+              {!hasSuccess ? (
+                <p className="text-sm text-gray-500">
+                  Book at least one room first, then you can text the guest a confirmation.
+                </p>
+              ) : !guestPhone ? (
+                <p className="text-sm text-amber-600">
+                  {watchedGuestName || "This guest"} has no phone number on file. Add one to the
+                  guest to send a text confirmation.
+                </p>
+              ) : (
+                <>
+                  <p className="text-xs text-gray-500">
+                    Sends to {watchedGuestName} at {guestPhone}
+                  </p>
+                  <pre className="text-xs bg-gray-50 border border-gray-200 rounded-lg p-3 whitespace-pre-wrap font-sans text-gray-700">
+                    {confirmationText}
+                  </pre>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Sticky footer */}
           <div className="flex-shrink-0 border-t border-gray-100 px-4 py-3">
-            {bookingResults.length === 0 ? (
+            {activeTab === 1 ? (
               <div className="flex justify-between items-center">
                 <button
                   type="button"
@@ -576,7 +674,7 @@ const BookingModal = ({
                   {isSubmitting ? "Booking..." : "Book All"}
                 </button>
               </div>
-            ) : (
+            ) : activeTab === 2 ? (
               <div className="flex justify-end gap-2">
                 {bookingResults.some(
                   (r) => r.status === "error" && r.booking
@@ -590,6 +688,15 @@ const BookingModal = ({
                     {isSubmitting ? "Retrying..." : "Retry Failed"}
                   </button>
                 )}
+                {hasSuccess && (
+                  <button
+                    type="button"
+                    className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+                    onClick={() => setActiveTab(3)}
+                  >
+                    Send Text →
+                  </button>
+                )}
                 <button
                   type="button"
                   className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
@@ -597,6 +704,33 @@ const BookingModal = ({
                 >
                   Close
                 </button>
+              </div>
+            ) : (
+              <div className="flex justify-between items-center">
+                <button
+                  type="button"
+                  className="text-sm text-gray-500 hover:text-gray-700"
+                  onClick={() => setActiveTab(2)}
+                >
+                  ← Back
+                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+                    onClick={() => setIsModalOpen(false)}
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!hasSuccess || !guestPhone}
+                    className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 disabled:opacity-50"
+                    onClick={handleSendText}
+                  >
+                    Send Text
+                  </button>
+                </div>
               </div>
             )}
           </div>
