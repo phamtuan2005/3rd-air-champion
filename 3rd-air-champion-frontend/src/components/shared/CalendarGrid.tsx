@@ -144,7 +144,16 @@ const CalendarGrid = ({
     // (resize / rooms changed) re-anchor to the visible month so we don't drift.
     let idx: number | null;
     if (!didInitScrollRef.current) {
-      idx = pageIndexContainingDate(startOfToday()) ?? firstPageIndexOfMonth(visibleMonthRef.current);
+      // A remount can happen mid-session — e.g. an AirBnB price edit flips
+      // isCalendarLoading, which unmounts and remounts the grid. If the user was
+      // viewing another month, re-anchor to THAT month instead of snapping to today.
+      const anchor = visibleMonthRef.current;
+      const today = startOfToday();
+      const anchorIsThisMonth =
+        anchor.getFullYear() === today.getFullYear() && anchor.getMonth() === today.getMonth();
+      idx = anchorIsThisMonth
+        ? (pageIndexContainingDate(today) ?? firstPageIndexOfMonth(anchor))
+        : firstPageIndexOfMonth(anchor);
       didInitScrollRef.current = true;
     } else {
       idx = firstPageIndexOfMonth(visibleMonthRef.current);
