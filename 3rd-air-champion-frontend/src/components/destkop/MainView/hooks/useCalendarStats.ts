@@ -56,6 +56,10 @@ export const useCalendarStats = ({
     const blockedTyped = blockedAirBnBDates as
       | Record<string, { start: string; duration: number }[]>
       | undefined;
+    // The Block AirBnB modal only lists ACTIVE rooms, so the badge must count the same set —
+    // otherwise a booking/block on an inactive room inflates the badge while the modal
+    // (correctly) shows "all reflected".
+    const activeRoomIds = new Set(rooms.filter((r) => r.active).map((r) => r.id));
 
     const uniqueById = new Map<string, bookingType>();
     for (const day of monthMap.values()) {
@@ -71,6 +75,7 @@ export const useCalendarStats = ({
       if (!seenRanges.has(key)) seenRanges.set(key, booking);
     }
     const actionableBookings = [...seenRanges.values()].filter((b) => {
+      if (!activeRoomIds.has(b.room.id)) return false;
       const end = toZonedTime(b.endDate, timeZone);
       if (!(isAfter(end, today) || end.toDateString() === today.toDateString())) return false;
       if (b.airbnbBlocked) return false;
@@ -90,6 +95,7 @@ export const useCalendarStats = ({
       const localDate = toZonedTime(dateStr, timeZone);
       if (isBefore(localDate, today) && localDate.toDateString() !== today.toDateString()) continue;
       for (const room of day.blockedRooms) {
+        if (!activeRoomIds.has(room.id)) continue;
         if (!roomDateMap.has(room.id)) roomDateMap.set(room.id, []);
         roomDateMap.get(room.id)!.push(dateStr);
       }
@@ -111,7 +117,7 @@ export const useCalendarStats = ({
     }
 
     return actionableBookings.length + blockRangeCount;
-  }, [monthMap, blockedAirBnBDates]);
+  }, [monthMap, blockedAirBnBDates, rooms]);
 
   useEffect(() => {
     setAirbnbPendingCount(airbnbPendingCount);
