@@ -17,6 +17,31 @@ const formatPhone = (raw: string): string => {
   return raw;
 };
 
+// Strip formatting + country/trunk prefix so numbers stored differently (+84…, 0…, spaced)
+// still compare equal.
+const normalizePhone = (raw: string): string => {
+  const digits = (raw || "").replace(/\D/g, "");
+  if (digits.startsWith("84")) return digits.slice(2);
+  if (digits.startsWith("0")) return digits.slice(1);
+  return digits;
+};
+const samePhone = (a: string, b: string): boolean => {
+  const na = normalizePhone(a);
+  return na.length > 0 && na === normalizePhone(b);
+};
+
+// A wish date is "fulfilled" once this guest already holds a booking that night — the wish
+// is satisfied, so it should never show as available or trigger a "contact now" nudge.
+const guestBookedOn = (
+  dateKey: string,
+  guestPhone: string,
+  monthMap: Map<string, dayType>,
+): boolean => {
+  const day = monthMap.get(dateKey);
+  if (!day) return false;
+  return day.bookings.some((b) => b.guest?.phone && samePhone(b.guest.phone, guestPhone));
+};
+
 interface WishListPanelProps {
   token: string;
   entries: WishListEntry[];
@@ -25,6 +50,7 @@ interface WishListPanelProps {
   rooms: roomType[];
   onStatusChange: (id: string, status: WishListStatus) => void;
   onDelete: (id: string) => void;
+  onRemoveDate: (id: string, date: string) => void;
 }
 
 const fmtDate = (d: string) => {
@@ -67,22 +93,30 @@ const SWIPE_THRESHOLD = 32;
 interface EntryRowProps {
   entry: WishListEntry;
   availableDates: string[];
+  fulfilledDates: string[];
   hasAvailable: boolean;
+  allFulfilled: boolean;
   token: string;
   onStatusChange: (id: string, status: WishListStatus) => void;
   onDelete: (id: string) => void;
+  onRemoveDate: (id: string, date: string) => void;
 }
 
-const EntryRow = ({ entry, availableDates, hasAvailable, token, onStatusChange, onDelete }: EntryRowProps) => {
+const EntryRow = ({ entry, availableDates, fulfilledDates, hasAvailable, allFulfilled, token, onStatusChange, onDelete, onRemoveDate }: EntryRowProps) => {
   const [offset, setOffset] = useState(0);
+  // The tapped wish date. Opens the action menu; also earmarks which date a future
+  // per-date "remove"/"remind" action would target (only whole-list delete for now).
+  const [menuDate, setMenuDate] = useState<string | null>(null);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const offsetAtStart = useRef(0);
   const didMove = useRef(false);
   const direction = useRef<"horizontal" | "vertical" | null>(null);
 
-  const sortedDates = [...entry.dates].sort();
   const availableSet = new Set(availableDates);
+  const fulfilledSet = new Set(fulfilledDates);
+  const outstandingDates = [...entry.dates].filter((d) => !fulfilledSet.has(d)).sort();
+  const sortedFulfilled = [...fulfilledDates].sort();
   const dateLabels = [...availableDates].sort().map(fmtDate);
   const datePhrase =
     dateLabels.length === 1
@@ -123,7 +157,11 @@ const EntryRow = ({ entry, availableDates, hasAvailable, token, onStatusChange, 
       {/* Swipeable card */}
       <div
         className={`relative border shadow-sm p-3 flex flex-col gap-2 rounded-lg ${
-          hasAvailable ? "bg-green-50 border-green-200" : "bg-white border-gray-100"
+          hasAvailable
+            ? "bg-green-50 border-green-200"
+            : allFulfilled
+              ? "bg-gray-50 border-gray-200 opacity-75"
+              : "bg-white border-gray-100"
         }`}
         style={{
           transform: `translateX(${offset}px)`,
@@ -163,6 +201,11 @@ const EntryRow = ({ entry, availableDates, hasAvailable, token, onStatusChange, 
                 {availableDates.length} available
               </span>
             )}
+            {allFulfilled && (
+              <span className="text-[10px] font-semibold bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
+                Got room
+              </span>
+            )}
             {/* Tappable status badge */}
             <button
               type="button"
@@ -185,21 +228,61 @@ const EntryRow = ({ entry, availableDates, hasAvailable, token, onStatusChange, 
           </a>
         )}
 
-        {/* Date pills */}
+        {/* Date pills — tap any to open the action menu. Outstanding wishes first, then
+            dates the guest already got a room for. */}
         <div className="flex flex-wrap gap-1.5">
-          {sortedDates.map((d) => (
-            <span
+          {outstandingDates.map((d) => (
+            <button
               key={d}
+              type="button"
+              onClick={() => setMenuDate(d)}
               className={
                 availableSet.has(d)
-                  ? "bg-green-100 border border-green-400 text-green-700 text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap"
-                  : "bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap"
+                  ? "bg-green-100 border border-green-400 text-green-700 text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap hover:brightness-95"
+                  : "bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap hover:brightness-95"
               }
             >
               {fmtDate(d)}{availableSet.has(d) ? " ✓" : ""}
-            </span>
+            </button>
+          ))}
+          {sortedFulfilled.map((d) => (
+            <button
+              key={d}
+              type="button"
+              onClick={() => setMenuDate(d)}
+              title="Guest already has a room this night"
+              className="bg-gray-100 border border-gray-200 text-gray-400 line-through text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap hover:brightness-95"
+            >
+              {fmtDate(d)}
+            </button>
           ))}
         </div>
+
+        {/* Action menu for the tapped date. Removes just that date; a "remind guest" action
+            can slot in here later. */}
+        {menuDate && (
+          <div className="flex items-center justify-between gap-2 pt-2 mt-0.5 border-t border-gray-100">
+            <span className="text-[11px] text-gray-500">
+              Remove <span className="font-semibold text-gray-600">{fmtDate(menuDate)}</span>?
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setMenuDate(null)}
+                className="text-[11px] text-gray-400 hover:text-gray-600 px-2 py-1"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => { const d = menuDate; setMenuDate(null); onRemoveDate(entry.id, d); }}
+                className="text-[11px] font-semibold text-white bg-red-500 hover:bg-red-600 rounded-md px-3 py-1"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        )}
 
         <p className="text-[10px] text-gray-300">Added {fmtTimestamp(entry.createdAt)}</p>
       </div>
@@ -207,16 +290,27 @@ const EntryRow = ({ entry, availableDates, hasAvailable, token, onStatusChange, 
   );
 };
 
-const WishListPanel = ({ token, entries, loading, monthMap, rooms, onStatusChange, onDelete }: WishListPanelProps) => {
+const WishListPanel = ({ token, entries, loading, monthMap, rooms, onStatusChange, onDelete, onRemoveDate }: WishListPanelProps) => {
   const activeRooms = rooms.filter((r) => r.active);
   const activeEntries = entries.filter((e) => e.dates.length > 0);
 
   const annotated = activeEntries.map((entry) => {
-    const availableDates = entry.dates.filter((d) => isDateAvailable(d, monthMap, activeRooms));
-    return { entry, availableDates, hasAvailable: availableDates.length > 0 };
+    const fulfilledDates = entry.dates.filter((d) => guestBookedOn(d, entry.guestPhone, monthMap));
+    const outstanding = entry.dates.filter((d) => !fulfilledDates.includes(d));
+    const availableDates = outstanding.filter((d) => isDateAvailable(d, monthMap, activeRooms));
+    return {
+      entry,
+      availableDates,
+      fulfilledDates,
+      hasAvailable: availableDates.length > 0,
+      // The guest already has a room for every date they wished for — nothing left to do.
+      allFulfilled: fulfilledDates.length > 0 && outstanding.length === 0,
+    };
   });
 
-  const sorted = [...annotated].sort((a, b) => Number(b.hasAvailable) - Number(a.hasAvailable));
+  // Available first, still-waiting next, fully-satisfied entries sink to the bottom.
+  const rank = (a: (typeof annotated)[number]) => (a.hasAvailable ? 2 : a.allFulfilled ? 0 : 1);
+  const sorted = [...annotated].sort((a, b) => rank(b) - rank(a));
 
   const handleDelete = (id: string) => {
     onDelete(id);
@@ -244,15 +338,18 @@ const WishListPanel = ({ token, entries, loading, monthMap, rooms, onStatusChang
           Clear {bookedCount} booked
         </button>
       )}
-      {sorted.map(({ entry, availableDates, hasAvailable }) => (
+      {sorted.map(({ entry, availableDates, fulfilledDates, hasAvailable, allFulfilled }) => (
         <EntryRow
           key={entry.id}
           entry={entry}
           availableDates={availableDates}
+          fulfilledDates={fulfilledDates}
           hasAvailable={hasAvailable}
+          allFulfilled={allFulfilled}
           token={token}
           onStatusChange={onStatusChange}
           onDelete={handleDelete}
+          onRemoveDate={onRemoveDate}
         />
       ))}
     </div>
@@ -269,5 +366,9 @@ export const countAvailableWishListEntries = (
   const activeRooms = rooms.filter((r) => r.active);
   return entries
     .filter((e) => e.dates.length > 0)
-    .filter((e) => e.dates.some((d) => isDateAvailable(d, monthMap, activeRooms))).length;
+    .filter((e) =>
+      e.dates.some(
+        (d) => !guestBookedOn(d, e.guestPhone, monthMap) && isDateAvailable(d, monthMap, activeRooms),
+      ),
+    ).length;
 };

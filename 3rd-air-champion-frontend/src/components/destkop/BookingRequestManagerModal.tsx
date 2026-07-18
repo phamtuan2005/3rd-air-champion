@@ -2,7 +2,7 @@
 import { roomType } from "../../util/types/roomType";
 import { guestType } from "../../util/types/guestType";
 import WishListPanel, { countAvailableWishListEntries } from "./WishListPanel";
-import { WishListEntry, WishListStatus, getHostWishLists, setGuestWishList } from "../../util/wishListOperations";
+import { WishListEntry, WishListStatus, getHostWishLists, setGuestWishList, deleteWishListEntry } from "../../util/wishListOperations";
 import { dayType } from "../../util/types/dayType";
 import {
   fetchBookingRequestsByHost,
@@ -745,6 +745,25 @@ const BookingRequestManagerModal = ({
     setWishListEntries((prev) => prev.filter((e) => e.id !== id));
   };
 
+  // Remove a single wished date. Removing the last one drops the whole entry.
+  const handleWishListRemoveDate = (id: string, date: string) => {
+    const entry = wishListEntries.find((e) => e.id === id);
+    if (!entry) return;
+    const remaining = entry.dates.filter((d) => d !== date);
+    if (remaining.length === 0) {
+      setWishListEntries((prev) => prev.filter((e) => e.id !== id));
+      deleteWishListEntry(id, token).catch(() => {});
+    } else {
+      setWishListEntries((prev) => prev.map((e) => (e.id === id ? { ...e, dates: remaining } : e)));
+      setGuestWishList({
+        host: hostId,
+        guestPhone: entry.guestPhone,
+        guestName: entry.guestName,
+        dates: remaining,
+      }).catch(() => {});
+    }
+  };
+
   const normalizePhone = (phone: string) => phone.replace(/\D/g, "");
 
   const matchGuest = (phone: string): guestType | undefined =>
@@ -1121,6 +1140,7 @@ const BookingRequestManagerModal = ({
               rooms={rooms}
               onStatusChange={handleWishListStatusChange}
               onDelete={handleWishListDelete}
+              onRemoveDate={handleWishListRemoveDate}
             />
           </>
         ) : loading ? (
