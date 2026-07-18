@@ -441,6 +441,12 @@ const CalendarGrid = ({
         {sortedUsedRooms.map((room) => {
           const { am: amBooking, pm: pmBooking } = gridContent[room.name];
           const isRoomBlocked = blockedRoomIds.has(room.id);
+          // Blocked bars follow the same PM-checkin / AM-checkout geometry as bookings:
+          // the block's first night starts at 20%, and the morning after its last night
+          // gets a hatched AM cap (0–20%) instead of ending abruptly at midnight.
+          const prevRoomBlocked = prevDay
+            ? (prevDay.blockedRooms ?? []).some((r) => r.id === room.id)
+            : false;
 
           if (!amBooking && !pmBooking) {
             if (overrideRooms && !isRoomBlocked) return <div key={room.name} className="row-span-1 h-full" />;
@@ -450,7 +456,14 @@ const CalendarGrid = ({
                 <div key={room.name} className="row-span-1 h-full relative">
                   <div
                     className="react-calendar__room_blocked_bar absolute"
-                    style={{ top: "1px", bottom: "1px", left: "-1px", right: "-1px" }}
+                    style={{
+                      top: "1px",
+                      bottom: "1px",
+                      left: prevRoomBlocked ? "-1px" : "20%",
+                      right: "-1px",
+                      borderTopLeftRadius: prevRoomBlocked ? undefined : "0.5rem",
+                      borderBottomLeftRadius: prevRoomBlocked ? undefined : "0.5rem",
+                    }}
                   />
                 </div>
               );
@@ -460,13 +473,20 @@ const CalendarGrid = ({
               : false;
             return (
               <div key={room.name} className="row-span-1 h-full relative">
+                {/* Checkout-morning cap of a blocked range that ended last night */}
+                {prevRoomBlocked && (
+                  <div
+                    className="react-calendar__room_blocked_bar absolute"
+                    style={{ top: "1px", bottom: "1px", left: "-1px", right: "80%", borderTopRightRadius: "0.5rem", borderBottomRightRadius: "0.5rem" }}
+                  />
+                )}
                 {isFutureOrToday && (
                   <div
                     className="react-calendar__opportunity_row absolute rounded-lg"
                     style={{ top: "1px", bottom: "1px", left: "20%", right: "-20%" }}
                   />
                 )}
-                {isFutureOrToday && prevDayNoPm && getDay(date) === 0 && (
+                {isFutureOrToday && prevDayNoPm && !prevRoomBlocked && getDay(date) === 0 && (
                   <div
                     className="react-calendar__opportunity_pm absolute"
                     style={{ top: "1px", bottom: "1px", left: "-1px", right: "80%", borderTopRightRadius: "0.5rem", borderBottomRightRadius: "0.5rem" }}
@@ -576,7 +596,9 @@ const CalendarGrid = ({
                     top: "1px",
                     bottom: "1px",
                     left: "20%",
-                    right: "0",
+                    right: "-1px",
+                    borderTopLeftRadius: "0.5rem",
+                    borderBottomLeftRadius: "0.5rem",
                   }}
                 />
               ) : !isBefore(date, startOfToday()) && !overrideRooms ? (
@@ -593,8 +615,23 @@ const CalendarGrid = ({
                   }}
                 />
               ) : null}
+              {/* Checkout-morning cap of a blocked range that ended last night */}
+              {!amBooking && prevRoomBlocked && (
+                <div
+                  className="react-calendar__room_blocked_bar absolute"
+                  style={{
+                    top: "1px",
+                    bottom: "1px",
+                    left: "-1px",
+                    right: "80%",
+                    borderTopRightRadius: "0.5rem",
+                    borderBottomRightRadius: "0.5rem",
+                  }}
+                />
+              )}
               {!amBooking &&
                 prevDayHadNoPmForRoom &&
+                !prevRoomBlocked &&
                 getDay(date) === 0 &&
                 !isBefore(date, startOfToday()) && (
                   <div
