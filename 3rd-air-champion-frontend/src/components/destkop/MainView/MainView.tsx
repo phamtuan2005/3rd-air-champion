@@ -4,7 +4,7 @@ import CustomCalendar from "./CalendarView/CustomCalendarDesktop";
 import { dayType } from "../../../util/types/dayType";
 import BookingModal from "../BookingModal/BookingModal";
 import { bookingType } from "../../../util/types/bookingType";
-import { addDays, isWithinInterval, startOfToday } from "date-fns";
+import { addDays, format, isWithinInterval, startOfToday } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { roomType } from "../../../util/types/roomType";
 import { createRoom, deleteRoom, fetchRooms, updateRoom } from "../../../util/roomOperations";
@@ -14,7 +14,7 @@ import GuestView from "./GuestView/GuestView";
 import BookButton from "../BookButton";
 import { AddPaneContext, GuestModeContext, isSyncModalOpenContext } from "../../../context";
 import DetailsModal from "./GuestView/DetailsModal";
-import { updateBookingGuest, updateBookingAirbnbPrice, updateUnbookGuest } from "../../../util/bookingOperations";
+import { updateBookingGuest, updateBookingAirbnbPrice, updateBookingReserved, updateUnbookGuest } from "../../../util/bookingOperations";
 import UnbookingConfirmation from "./GuestView/UnbookingConfirmation";
 import ToDoList from "./ToDoList";
 import AvailabilitiesModal from "./AvailabilitiesModal";
@@ -150,6 +150,9 @@ const MainView = ({
   const [selectedUnbooking, setSelectedUnbooking] = useState<bookingType | null>(null);
   const [selectedModifyBooking, setSelectedModifyBooking] = useState<bookingType | null>(null);
   const [paidDates, setPaidDates] = useState<Date[]>([]);
+  // Guest mode: soft-hold dates double-tapped for batch confirm-to-firm
+  const [holdDates, setHoldDates] = useState<Date[]>([]);
+  const [isConfirmingHolds, setIsConfirmingHolds] = useState(false);
 
   // ── Data & sync hook ──────────────────────────────────────────────────────
   const {
@@ -473,6 +476,37 @@ const MainView = ({
       return [...prev.filter((d) => !ids.has(d.id)), ...updated];
     });
 
+  // Distinct soft-hold stays covered by the double-tapped dates. One entry per stay
+  // (guest+room+startDate), since confirming flips the WHOLE stay, not single nights.
+  const selectedHoldStays = useMemo(() => {
+    const stays = new Map<string, string>(); // stayKey -> a booking id within the stay
+    if (!currentGuest) return stays;
+    holdDates.forEach((d) => {
+      const day = monthMap.get(format(d, "yyyy-MM-dd"));
+      day?.bookings.forEach((b) => {
+        if (b.reserved && b.guest?.id === currentGuest)
+          stays.set(`${b.room?.id}|${b.startDate}`, b.id);
+      });
+    });
+    return stays;
+  }, [holdDates, monthMap, currentGuest]);
+
+  const onConfirmHolds = async () => {
+    if (selectedHoldStays.size === 0) return;
+    setIsConfirmingHolds(true);
+    try {
+      // Sequential to avoid write races on shared Day docs.
+      for (const id of selectedHoldStays.values()) {
+        const updatedDays = await updateBookingReserved({ id, reserved: false }, token as string);
+        onDaysUpdate(updatedDays);
+      }
+      setHoldDates([]);
+    } catch (err) {
+      console.error("Error confirming holds:", err);
+    }
+    setIsConfirmingHolds(false);
+  };
+
   const missingProfitBookings = useMemo(() => {
     const seen = new Set<string>();
     const result: { id: string; alias: string; roomName: string; roomColor?: string; startDate: string; duration: number; description: string; numberOfGuests: number }[] = [];
@@ -553,10 +587,35 @@ const MainView = ({
               setIsMobileModalOpen={setIsMobileModalOpen}
               setPaidDates={setPaidDates}
               setSelectedDate={setSelectedDate}
+              holdDates={holdDates}
+              setHoldDates={setHoldDates}
               scrollToTodayTrigger={scrollToTodayTrigger}
               gapsMode={gapsMode}
               onTodayInViewChange={setTodayInView}
             />
+            {/* Floating confirm bar — appears once soft-hold dates are double-tapped */}
+            {selectedHoldStays.size > 0 && (
+              <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 bg-white border border-amber-300 shadow-lg rounded-full pl-4 pr-2 py-1.5">
+                <span className="text-sm font-medium text-amber-700">
+                  {selectedHoldStays.size} hold{selectedHoldStays.size > 1 ? "s" : ""} selected
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setHoldDates([])}
+                  className="text-xs text-gray-400 hover:text-gray-600"
+                >
+                  Clear
+                </button>
+                <button
+                  type="button"
+                  onClick={onConfirmHolds}
+                  disabled={isConfirmingHolds}
+                  className="bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold px-4 py-1.5 rounded-full disabled:opacity-50"
+                >
+                  {isConfirmingHolds ? "Confirming…" : "Confirm as booked"}
+                </button>
+              </div>
+            )}
             {showAddPane === "guest" && (
               <div
                 className="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center z-50"

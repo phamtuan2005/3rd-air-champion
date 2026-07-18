@@ -693,6 +693,36 @@ export const dayResolvers = {
         .populate("bookings.room")
         .populate("blockedRooms");
     },
+    // Flips reserved (soft hold) on/off for the WHOLE stay the booking _id belongs to —
+    // same guest+room across startDate..endDate — mirroring markAirBnBBlocked.
+    setBookingReserved: async (_: unknown, { _id, reserved }: any) => {
+      const dayOfBooking = await Day.findOne({ "bookings._id": _id });
+      if (!dayOfBooking) throw new Error("Booking not found");
+
+      const calendar = dayOfBooking.calendar;
+      const currentBooking = dayOfBooking.bookings.find((booking: any) => booking.id === _id);
+      const startDate = currentBooking?.startDate;
+      const endDate = currentBooking?.endDate;
+
+      await Day.updateMany(
+        {
+          calendar,
+          date: { $gte: startDate, $lte: endDate },
+          "bookings.guest": currentBooking?.guest,
+          "bookings.room": currentBooking?.room,
+        },
+        { $set: { "bookings.$[matchingBooking].reserved": reserved } },
+        {
+          arrayFilters: [{ "matchingBooking.guest": currentBooking?.guest, "matchingBooking.room": currentBooking?.room }],
+          runValidators: true,
+        }
+      );
+
+      return await Day.find({ calendar, date: { $gte: startDate, $lte: endDate } })
+        .populate("bookings.guest")
+        .populate("bookings.room")
+        .populate("blockedRooms");
+    },
     unbookGuest: async (_: unknown, { _id }: any) => {
       const dayOfBooking = await Day.findOne({ "bookings._id": _id });
       const calendar = dayOfBooking?.calendar;

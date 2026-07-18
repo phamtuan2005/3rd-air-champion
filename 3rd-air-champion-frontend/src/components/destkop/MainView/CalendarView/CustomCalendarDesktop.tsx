@@ -22,6 +22,9 @@ interface CustomCalendarProps {
   setIsMobileModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setPaidDates: React.Dispatch<React.SetStateAction<Date[]>>;
   setSelectedDate: React.Dispatch<React.SetStateAction<Date>>;
+  // Guest mode: soft-hold dates selected for batch confirm-to-firm
+  holdDates: Date[];
+  setHoldDates: React.Dispatch<React.SetStateAction<Date[]>>;
   gapsMode?: boolean;
   onTodayInViewChange?: (inView: boolean) => void;
 }
@@ -42,6 +45,8 @@ const CustomCalendar = ({
   setIsMobileModalOpen,
   setPaidDates,
   setSelectedDate,
+  holdDates,
+  setHoldDates,
   gapsMode = false,
   onTodayInViewChange,
 }: CustomCalendarProps) => {
@@ -99,9 +104,10 @@ const CustomCalendar = ({
     }
   }, [currentGuest, currentAirBnBGuest, monthMap]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reset modal / paid dates when guest filter changes
+  // Reset modal / paid dates / hold selection when guest filter changes
   useEffect(() => {
     setIsMobileModalOpen(false);
+    setHoldDates([]);
     if (!currentGuest && !currentAirBnBGuest) setPaidDates([]);
   }, [currentGuest, currentAirBnBGuest]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -126,6 +132,17 @@ const CustomCalendar = ({
     if (currentGuest) {
       const bookedDate = useMonthMap.get(date.toISOString().split("T")[0]);
       if (!bookedDate) return;
+      // Soft-hold night → toggle it in the confirm-to-firm selection (amber ring);
+      // firm night → the existing paid-date toggle.
+      const reservedBooking = bookedDate.bookings.find((b) => b.reserved);
+      if (reservedBooking) {
+        setHoldDates((prev) =>
+          prev.some((hd) => isSameDay(hd, date))
+            ? prev.filter((hd) => !isSameDay(hd, date))
+            : [...prev, date],
+        );
+        return;
+      }
       const booking = bookedDate.bookings.find((b) => !b.reserved);
       if (!booking) return;
       handlePaidDates(date);
@@ -148,6 +165,7 @@ const CustomCalendar = ({
       scrollToTodayTrigger={scrollToTodayTrigger}
       monthsBack={24}
       paidDates={paidDates}
+      holdDates={holdDates}
       overrideRooms={overrideRooms}
       onMonthChange={setCurrentMonth}
       onDateClick={handleDateClick}

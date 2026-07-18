@@ -145,6 +145,17 @@
   font-size: 1rem;
 }
 
+/* Soft-hold dates selected for confirm-to-firm (guest mode double-tap).
+   box-shadow inset, not border — border widths shift the booking bars. */
+.react-calendar__custom_tile_hold {
+  box-shadow: inset 0 0 0 2px rgb(217 119 6); /* amber-600 */
+}
+.react-calendar__custom_tile_hold > abbr {
+  color: rgb(217 119 6);
+  font-weight: bold;
+  font-size: 1rem;
+}
+
 /* Base styling for tiles without bookings */
 .react-calendar__custom_tile_no_booking {
 }

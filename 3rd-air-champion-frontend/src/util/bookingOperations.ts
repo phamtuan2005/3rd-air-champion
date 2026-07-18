@@ -131,6 +131,24 @@ export const markAirBnBBlocked = async (
     });
 };
 
+// Flip a stay's reserved (soft hold) flag; resolves with the updated Day docs.
+export const updateBookingReserved = async (
+  request: { id: string; reserved: boolean },
+  token: string
+) => {
+  return axios
+    .post(`${BACKEND_ENDPOINT}/day/update/booking/reserved`, request, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    .then((result) => result.data)
+    .catch((err) => {
+      if (err.response && err.response.data && err.response.data.errors) {
+        throw err.response.data.errors;
+      }
+      throw "An unexpected error occurred. Please try again.";
+    });
+};
+
 export const updateUnbookGuest = async (id: string, token: string) => {
   return axios
     .post(

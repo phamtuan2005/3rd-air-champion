@@ -946,6 +946,80 @@ router.post("/update/booking/airbnb-blocked", async (req: Request, res: any) => 
     });
 });
 
+// Flip a stay's reserved (soft hold) flag; returns the updated Day docs for the stay range.
+router.post("/update/booking/reserved", async (req: Request, res: any) => {
+  if (!("user" in req))
+    return res.status(401).json({ error: "Invalid or expired token" });
+
+  const { id, reserved } = req.body;
+
+  const query = `
+        mutation SetBookingReserved($id: String!, $reserved: Boolean!) {
+          setBookingReserved(_id: $id, reserved: $reserved) {
+            id
+            calendar
+            date
+            isAirBnB
+            isBlocked
+            blockedRooms {
+              host
+              id
+              name
+              price
+            }
+            bookings {
+              id
+              alias
+              notes
+              earlyCheckin
+              lateCheckout
+              price
+              airbnbPrice
+              airbnbBlocked
+              guest {
+                id
+                name
+                alias
+                email
+                phone
+                numberOfGuests
+                returning
+                notes
+                host
+                pricing {
+                  id
+                  price
+                  room
+                }
+              }
+              room {
+                id
+                host
+                name
+                price
+              }
+              description
+              duration
+              numberOfGuests
+              startDate
+              endDate
+              reserved
+            }
+          }
+        }`;
+
+  sendGraphQLRequest(query, { id, reserved })
+    .then((result: any) => {
+      if (result.errors) {
+        return res.status(400).json({ errors: result.errors[0].message });
+      }
+      res.status(200).json(result.data.setBookingReserved);
+    })
+    .catch((error: any) => {
+      res.status(500).json({ error: error.message });
+    });
+});
+
 router.put("/update", async (req: Request, res: any) => {
   if (!("user" in req))
     return res.status(401).json({ error: "Invalid or expired token" });

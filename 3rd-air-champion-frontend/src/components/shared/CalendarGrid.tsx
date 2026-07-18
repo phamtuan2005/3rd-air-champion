@@ -26,6 +26,8 @@ interface CalendarGridProps {
   monthsBack?: number;
   // TiMag passes paid dates to highlight tiles
   paidDates?: Date[];
+  // TiMag guest mode: soft-hold dates selected for confirm-to-firm
+  holdDates?: Date[];
   // TiMag guest mode: pre-filtered room list, bypasses active filter
   overrideRooms?: roomType[];
   onMonthChange: (month: Date) => void;
@@ -61,6 +63,7 @@ const CalendarGrid = ({
   scrollToTodayTrigger = 0,
   monthsBack = 24,
   paidDates = [],
+  holdDates = [],
   overrideRooms,
   onMonthChange,
   onDateClick,
@@ -285,6 +288,8 @@ const CalendarGrid = ({
     if (day && day.bookings.length > 0) className.push("react-calendar__custom_tile_booking");
     if (paidDates.some((pd) => isSameDay(pd, date)))
       className.push("react-calendar__custom_tile_paid");
+    if (holdDates.some((hd) => isSameDay(hd, date)))
+      className.push("react-calendar__custom_tile_hold");
     if (!isSameMonth(date, pageMonth)) className.push("react-calendar__custom_tile_outside");
     return className;
   };
