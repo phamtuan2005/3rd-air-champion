@@ -111,15 +111,6 @@ const CustomCalendar = ({
     if (!currentGuest && !currentAirBnBGuest) setPaidDates([]);
   }, [currentGuest, currentAirBnBGuest]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handlePaidDates = (date: Date) => {
-    const foundDate = paidDates.find((pd) => isSameDay(date, pd));
-    setPaidDates(
-      foundDate
-        ? paidDates.filter((pd) => !isSameDay(date, pd))
-        : [...paidDates, date],
-    );
-  };
-
   const handleDateClick = (date: Date) => {
     setSelectedDate(date);
     setIsMobileModalOpen(true);
@@ -132,8 +123,7 @@ const CustomCalendar = ({
     if (currentGuest) {
       const bookedDate = useMonthMap.get(date.toISOString().split("T")[0]);
       if (!bookedDate) return;
-      // Soft-hold night → toggle it in the confirm-to-firm selection (amber ring);
-      // firm night → the existing paid-date toggle.
+      // Soft-hold night → toggle it in the confirm-to-firm selection (amber ring).
       const reservedBooking = bookedDate.bookings.find((b) => b.reserved);
       if (reservedBooking) {
         setHoldDates((prev) =>
@@ -145,7 +135,18 @@ const CustomCalendar = ({
       }
       const booking = bookedDate.bookings.find((b) => !b.reserved);
       if (!booking) return;
-      handlePaidDates(date);
+      // Firm night → cycle: paid (red) → downgrade-selected (amber) → clear.
+      // Marking paid stays a single double-tap, so the billing flow is unchanged.
+      const isPaid = paidDates.some((pd) => isSameDay(pd, date));
+      const isHeld = holdDates.some((hd) => isSameDay(hd, date));
+      if (!isPaid && !isHeld) {
+        setPaidDates([...paidDates, date]);
+      } else if (isPaid) {
+        setPaidDates(paidDates.filter((pd) => !isSameDay(pd, date)));
+        setHoldDates((prev) => [...prev, date]);
+      } else {
+        setHoldDates((prev) => prev.filter((hd) => !isSameDay(hd, date)));
+      }
     }
   };
 

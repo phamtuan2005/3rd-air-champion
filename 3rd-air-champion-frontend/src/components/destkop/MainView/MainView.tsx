@@ -153,6 +153,9 @@ const MainView = ({
   // Guest mode: soft-hold dates double-tapped for batch confirm-to-firm
   const [holdDates, setHoldDates] = useState<Date[]>([]);
   const [isConfirmingHolds, setIsConfirmingHolds] = useState(false);
+  const [confirmHoldsError, setConfirmHoldsError] = useState("");
+  // Drag offset of the floating confirm bar (movable so panels can't trap it)
+  const [holdBarOffset, setHoldBarOffset] = useState({ x: 0, y: 0 });
 
   // ── Data & sync hook ──────────────────────────────────────────────────────
   const {
@@ -476,35 +479,73 @@ const MainView = ({
       return [...prev.filter((d) => !ids.has(d.id)), ...updated];
     });
 
-  // Distinct soft-hold stays covered by the double-tapped dates. One entry per stay
-  // (guest+room+startDate), since confirming flips the WHOLE stay, not single nights.
-  const selectedHoldStays = useMemo(() => {
-    const stays = new Map<string, string>(); // stayKey -> a booking id within the stay
-    if (!currentGuest) return stays;
+  // Distinct stays covered by the double-tapped (amber) dates, split by direction:
+  // reserved stays get confirmed to firm, firm stays get downgraded to soft hold.
+  // One entry per stay (guest+room+startDate) — actions flip the WHOLE stay.
+  const { reservedHoldStays, firmHoldStays } = useMemo(() => {
+    const reserved = new Map<string, string>(); // stayKey -> a booking id within the stay
+    const firm = new Map<string, string>();
+    if (!currentGuest) return { reservedHoldStays: reserved, firmHoldStays: firm };
     holdDates.forEach((d) => {
       const day = monthMap.get(format(d, "yyyy-MM-dd"));
       day?.bookings.forEach((b) => {
-        if (b.reserved && b.guest?.id === currentGuest)
-          stays.set(`${b.room?.id}|${b.startDate}`, b.id);
+        if (b.guest?.id !== currentGuest || !b.room) return;
+        const key = `${b.room.id}|${b.startDate}`;
+        if (b.reserved) reserved.set(key, b.id);
+        else firm.set(key, b.id);
       });
     });
-    return stays;
+    return { reservedHoldStays: reserved, firmHoldStays: firm };
   }, [holdDates, monthMap, currentGuest]);
 
-  const onConfirmHolds = async () => {
-    if (selectedHoldStays.size === 0) return;
+  const totalHoldSelection = reservedHoldStays.size + firmHoldStays.size;
+
+  const runHoldAction = async (stays: Map<string, string>, reserved: boolean) => {
+    if (stays.size === 0) return;
     setIsConfirmingHolds(true);
+    setConfirmHoldsError("");
     try {
       // Sequential to avoid write races on shared Day docs.
-      for (const id of selectedHoldStays.values()) {
-        const updatedDays = await updateBookingReserved({ id, reserved: false }, token as string);
+      for (const id of stays.values()) {
+        const updatedDays = await updateBookingReserved({ id, reserved }, token as string);
         onDaysUpdate(updatedDays);
       }
       setHoldDates([]);
     } catch (err) {
-      console.error("Error confirming holds:", err);
+      // Surface in the bar — console-only errors are invisible on the phone.
+      console.error("Error updating holds:", err);
+      setConfirmHoldsError(typeof err === "string" ? err : "Update failed. Please try again.");
     }
     setIsConfirmingHolds(false);
+  };
+
+  const onConfirmHolds = () => runHoldAction(reservedHoldStays, false);
+  const onDowngradeHolds = () => runHoldAction(firmHoldStays, true);
+
+  // The confirm bar is draggable (pointer events) so it can be pulled clear of
+  // whatever panel happens to occupy the bottom of the screen.
+  const holdBarDragRef = useRef<{ startX: number; startY: number; baseX: number; baseY: number } | null>(null);
+  const holdBarMovedRef = useRef(false);
+  const onHoldBarPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    holdBarDragRef.current = { startX: e.clientX, startY: e.clientY, baseX: holdBarOffset.x, baseY: holdBarOffset.y };
+    holdBarMovedRef.current = false;
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onHoldBarPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = holdBarDragRef.current;
+    if (!drag) return;
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+    if (Math.abs(dx) + Math.abs(dy) > 6) holdBarMovedRef.current = true;
+    setHoldBarOffset({ x: drag.baseX + dx, y: drag.baseY + dy });
+  };
+  const onHoldBarPointerUp = () => {
+    holdBarDragRef.current = null;
+  };
+  // Suppress the click that follows a drag so releasing over a button doesn't fire it.
+  const holdBarClickGuard = (action: () => void) => () => {
+    if (holdBarMovedRef.current) return;
+    action();
   };
 
   const missingProfitBookings = useMemo(() => {
@@ -593,27 +634,59 @@ const MainView = ({
               gapsMode={gapsMode}
               onTodayInViewChange={setTodayInView}
             />
-            {/* Floating confirm bar — appears once soft-hold dates are double-tapped */}
-            {selectedHoldStays.size > 0 && (
-              <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 bg-white border border-amber-300 shadow-lg rounded-full pl-4 pr-2 py-1.5">
-                <span className="text-sm font-medium text-amber-700">
-                  {selectedHoldStays.size} hold{selectedHoldStays.size > 1 ? "s" : ""} selected
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setHoldDates([])}
-                  className="text-xs text-gray-400 hover:text-gray-600"
-                >
-                  Clear
-                </button>
-                <button
-                  type="button"
-                  onClick={onConfirmHolds}
-                  disabled={isConfirmingHolds}
-                  className="bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold px-4 py-1.5 rounded-full disabled:opacity-50"
-                >
-                  {isConfirmingHolds ? "Confirming…" : "Confirm as booked"}
-                </button>
+            {/* Floating hold bar — appears once dates are double-tapped into the amber
+                selection. Confirms holds → firm, or downgrades firm → hold, per what's
+                selected. z-[60] keeps it above the guest contact panel (z-50); drag to move. */}
+            {totalHoldSelection > 0 && (
+              <div
+                className="fixed bottom-24 left-1/2 z-[60] flex flex-col items-center gap-1"
+                style={{
+                  transform: `translate(calc(-50% + ${holdBarOffset.x}px), ${holdBarOffset.y}px)`,
+                  touchAction: "none",
+                }}
+                onPointerDown={onHoldBarPointerDown}
+                onPointerMove={onHoldBarPointerMove}
+                onPointerUp={onHoldBarPointerUp}
+              >
+                <div className="flex items-center gap-2.5 bg-white border border-amber-300 shadow-lg rounded-full pl-2.5 pr-2 py-1.5 cursor-grab active:cursor-grabbing">
+                  {/* Grip dots — signals the bar is movable */}
+                  <span className="text-gray-300 text-sm leading-none select-none">⠿</span>
+                  <span className="text-sm font-medium text-amber-700 whitespace-nowrap select-none">
+                    {totalHoldSelection} selected
+                  </span>
+                  <button
+                    type="button"
+                    onClick={holdBarClickGuard(() => { setHoldDates([]); setConfirmHoldsError(""); })}
+                    className="text-xs text-gray-400 hover:text-gray-600"
+                  >
+                    Clear
+                  </button>
+                  {reservedHoldStays.size > 0 && (
+                    <button
+                      type="button"
+                      onClick={holdBarClickGuard(onConfirmHolds)}
+                      disabled={isConfirmingHolds}
+                      className="bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold px-3.5 py-1.5 rounded-full disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {isConfirmingHolds ? "Working…" : `Confirm ${reservedHoldStays.size} as booked`}
+                    </button>
+                  )}
+                  {firmHoldStays.size > 0 && (
+                    <button
+                      type="button"
+                      onClick={holdBarClickGuard(onDowngradeHolds)}
+                      disabled={isConfirmingHolds}
+                      className="border border-amber-400 text-amber-600 hover:bg-amber-50 text-sm font-semibold px-3.5 py-1.5 rounded-full disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {isConfirmingHolds ? "Working…" : `${firmHoldStays.size} → soft hold`}
+                    </button>
+                  )}
+                </div>
+                {confirmHoldsError && (
+                  <span className="bg-white border border-red-200 text-red-500 text-xs rounded-full px-3 py-1 shadow">
+                    {confirmHoldsError}
+                  </span>
+                )}
               </div>
             )}
             {showAddPane === "guest" && (
