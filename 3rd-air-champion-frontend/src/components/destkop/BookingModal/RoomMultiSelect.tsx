@@ -10,9 +10,11 @@ interface RoomMultiSelectProps {
   onChange: (rooms: string[]) => void;
   showAny?: boolean;
   showAll?: boolean;
+  // Rooms already taken for the row's chosen nights — muted and unselectable.
+  unavailableRoomIds?: Set<string>;
 }
 
-const RoomMultiSelect = ({ rooms, value, onChange, showAny = true, showAll = false }: RoomMultiSelectProps) => {
+const RoomMultiSelect = ({ rooms, value, onChange, showAny = true, showAll = false, unavailableRoomIds }: RoomMultiSelectProps) => {
   const [open, setOpen] = useState(false);
   const activeRooms = useMemo(() => rooms.filter((r) => r.active), [rooms]);
 
@@ -74,6 +76,11 @@ const RoomMultiSelect = ({ rooms, value, onChange, showAny = true, showAll = fal
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
               <h3 className="text-sm font-semibold text-gray-700">
                 Select Rooms
+                {unavailableRoomIds && (
+                  <span className="ml-2 text-[11px] font-medium text-green-600">
+                    {activeRooms.filter((r) => !unavailableRoomIds.has(r.id)).length} available
+                  </span>
+                )}
               </h3>
               <button
                 type="button"
@@ -113,19 +120,30 @@ const RoomMultiSelect = ({ rooms, value, onChange, showAny = true, showAll = fal
 
               {activeRooms.map((room) => {
                 const checked = !isAny && value.includes(room.id);
+                // A selected room that turned unavailable (date changed after picking)
+                // stays clickable so it can be deselected.
+                const unavailable = (unavailableRoomIds?.has(room.id) ?? false) && !checked;
                 return (
                   <li
                     key={room.id}
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 cursor-pointer"
-                    onClick={() => handleToggleRoom(room.id)}
+                    className={`flex items-center gap-3 px-4 py-2.5 text-sm ${
+                      unavailable ? "opacity-45 cursor-not-allowed" : "hover:bg-gray-50 cursor-pointer"
+                    }`}
+                    onClick={() => { if (!unavailable) handleToggleRoom(room.id); }}
                   >
                     <input
                       type="checkbox"
                       readOnly
                       checked={checked}
+                      disabled={unavailable}
                       className="pointer-events-none w-4 h-4"
                     />
-                    <RoomBadge room={room} rooms={activeRooms} />
+                    <span className={unavailable ? "line-through" : ""}>
+                      <RoomBadge room={room} rooms={activeRooms} />
+                    </span>
+                    {unavailable && (
+                      <span className="ml-auto text-[10px] text-gray-400 font-medium">booked</span>
+                    )}
                   </li>
                 );
               })}

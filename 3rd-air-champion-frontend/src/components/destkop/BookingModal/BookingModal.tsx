@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { guestType } from "../../../util/types/guestType";
 import { roomType } from "../../../util/types/roomType";
 import RoomBadge from "../../shared/RoomBadge";
@@ -26,6 +26,8 @@ interface BookingModalProps {
   calendarId: string;
   guests: guestType[];
   rooms: roomType[];
+  // Lets the room picker mute rooms already taken for the row's chosen nights.
+  monthMap: Map<string, dayType>;
   selectedDate: Date;
   selectedRoom: roomType | undefined;
   showAddPane: "guest" | "room" | null;
@@ -78,6 +80,7 @@ const BookingModal = ({
   calendarId,
   guests,
   rooms,
+  monthMap,
   selectedDate,
   selectedRoom,
   showAddPane,
@@ -142,6 +145,28 @@ const BookingModal = ({
 
   const watchedBookings = useWatch({ control, name: "bookings" });
   const watchedGuestId = useWatch({ control, name: "guest" });
+
+  // Per row: rooms already taken for the chosen nights (bookings, per-room blocks, or a
+  // fully blocked day). Recomputed live as the check-in date / duration changes so the
+  // picker can proactively mute rooms that aren't actually available.
+  const unavailableRoomIdsPerRow = useMemo(
+    () =>
+      (watchedBookings ?? []).map((wb) => {
+        const taken = new Set<string>();
+        const date = wb?.date instanceof Date && !isNaN(wb.date.getTime()) ? wb.date : null;
+        if (!date) return taken;
+        const duration = typeof wb?.duration === "number" && wb.duration >= 1 ? wb.duration : 1;
+        for (let i = 0; i < duration; i++) {
+          const day = monthMap.get(format(addDays(date, i), "yyyy-MM-dd"));
+          if (!day) continue;
+          if (day.isBlocked) rooms.forEach((r) => taken.add(r.id));
+          day.bookings.forEach((b) => b.room && taken.add(b.room.id));
+          (day.blockedRooms ?? []).forEach((r) => taken.add(r.id));
+        }
+        return taken;
+      }),
+    [watchedBookings, monthMap, rooms],
+  );
   const selectedGuest = guests.find((g) => g.id === watchedGuestId) ?? null;
   const watchedGuestName = selectedGuest?.name ?? "";
   const guestPhone = selectedGuest?.phone ?? "";
@@ -473,6 +498,7 @@ const BookingModal = ({
                             rooms={rooms}
                             value={f.value}
                             onChange={f.onChange}
+                            unavailableRoomIds={unavailableRoomIdsPerRow[index]}
                           />
                         )}
                       />
