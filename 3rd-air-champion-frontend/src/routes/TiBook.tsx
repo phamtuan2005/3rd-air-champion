@@ -313,6 +313,7 @@ const TiBookInner = () => {
           onClear={() => { setGuestPhone(""); setGuestName(""); setGuestBookings([]); setWishListDates(new Set()); setPersistedWishListDates(new Set()); setCartDates(new Map()); setSelectedRoomIds(null); localStorage.removeItem("tiBookGuestName"); }}
           cancellationFullRefundDays={currentHost.cancellationFullRefundDays}
           cancellationHalfRefundDays={currentHost.cancellationHalfRefundDays}
+          houseRules={currentHost.houseRules}
         />
       )}
 
@@ -335,6 +336,7 @@ const TiBookInner = () => {
           onRemoveCartRange={(keys) => setCartDates((prev) => { const next = new Map(prev); keys.forEach((k) => next.delete(k)); return next; })}
           cancellationFullRefundDays={currentHost.cancellationFullRefundDays}
           cancellationHalfRefundDays={currentHost.cancellationHalfRefundDays}
+          houseRules={currentHost.houseRules}
           onRemoveWishDate={(date) => setWishListDates((prev) => { const next = new Set(prev); next.delete(date); return next; })}
           onWishListSent={(phone, name, newDates) => {
             localStorage.setItem("tiBookGuestPhone", phone);

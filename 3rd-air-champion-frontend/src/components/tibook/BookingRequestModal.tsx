@@ -33,6 +33,7 @@ interface BookingRequestModalProps {
   onRemoveCartRange?: (dateKeys: string[]) => void;
   cancellationFullRefundDays?: number;
   cancellationHalfRefundDays?: number;
+  houseRules?: string;
 }
 
 interface FormData {
@@ -123,6 +124,7 @@ const BookingRequestModal = ({
   onRemoveCartRange,
   cancellationFullRefundDays,
   cancellationHalfRefundDays,
+  houseRules,
 }: BookingRequestModalProps) => {
   const { theme } = useTiBookTheme();
   const [step, setStep] = useState<1 | 2>(1);
@@ -452,6 +454,20 @@ const BookingRequestModal = ({
                 : "We'll let you know as soon as those dates open up!"}
               {hasWishList && cartDates.size > 0 && " We'll also notify you if your wish list dates become available."}
             </p>
+            {/* House rules — shown here, after sending, when the guest has time to read them */}
+            {houseRules?.trim() && (
+              <div className={`w-full px-3 py-2.5 rounded-xl border text-left ${theme.tagBg} ${theme.tagBorder}`}>
+                <div className="flex items-center gap-2 mb-1">
+                  <svg className={`w-3.5 h-3.5 shrink-0 ${theme.textPrimary}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                  </svg>
+                  <span className={`text-[11px] font-semibold ${theme.textPrimary}`}>While you wait — our house rules</span>
+                </div>
+                <p className="text-[11px] text-gray-500 leading-relaxed whitespace-pre-line max-h-48 overflow-y-auto">
+                  {houseRules.trim()}
+                </p>
+              </div>
+            )}
             <button
               type="button"
               className="mt-2 text-sm text-gray-400 underline"
