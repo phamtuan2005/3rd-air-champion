@@ -16,6 +16,7 @@ const PLACEHOLDERS = [
   { label: "Door Code", value: "{{doorCode}}" },
   { label: "AirBnB Name", value: "{{airBnBName}}" },
   { label: "AirBnB Address", value: "{{airBnBAddress}}" },
+  { label: "House Rules", value: "{{houseRules}}" },
 ];
 
 const ReminderTemplateModal = ({ onClose }: ReminderTemplateModalProps) => {

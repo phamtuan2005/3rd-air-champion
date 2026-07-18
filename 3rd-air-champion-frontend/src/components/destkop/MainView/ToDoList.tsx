@@ -10,9 +10,10 @@ interface ToDoListProps {
   doorCode: string;
   airbnbName: string;
   airbnbAddress: string;
+  houseRules?: string;
 }
 
-const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress }: ToDoListProps) => {
+const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = "" }: ToDoListProps) => {
   const [upcomingDays, setUpcomingDays] = useState<dayType[]>([]);
   const [checkoutBookings, setCheckoutBookings] = useState<bookingType[]>([]);
 
@@ -134,7 +135,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress }: ToDoListPro
                       const phone = booking.guest.phone;
                       const startDate = format(addDays(startOfToday(), 1), "MMMM do");
                       const currentTemplate = localStorage.getItem(TEMPLATE_KEY) || DEFAULT_TEMPLATE;
-                      const message = resolveTemplate(currentTemplate, booking, startDate, doorCode, airbnbName, airbnbAddress);
+                      const message = resolveTemplate(currentTemplate, booking, startDate, doorCode, airbnbName, airbnbAddress, houseRules);
                       window.location.href = `sms:${phone}?&body=${encodeURIComponent(message)}`;
                       toggleTaskCompletion(taskId);
                     }}

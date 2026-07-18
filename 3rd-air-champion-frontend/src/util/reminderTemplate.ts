@@ -12,8 +12,12 @@ export const resolveTemplate = (
   doorCode: string,
   airBnBName: string = "",
   airBnBAddress: string = "",
+  houseRules: string = "",
 ) =>
   template
+    // When there are no house rules, remove the placeholder along with the blank line
+    // above it so the message doesn't end with stray newlines.
+    .replace(/\n*\{\{houseRules\}\}/g, houseRules.trim() ? `\n\n${houseRules.trim()}` : "")
     .replace(/\{\{name\}\}/g, booking.guest.alias || booking.alias || booking.guest.name)
     .replace(/\{\{stayDuration\}\}/g, booking.duration === 1 ? "tomorrow night" : `${booking.duration} nights, starting tomorrow`)
     .replace(/\{\{duration\}\} \{\{nightWord\}\}, starting tomorrow/g, booking.duration === 1 ? "tomorrow night" : `${booking.duration} nights, starting tomorrow`)

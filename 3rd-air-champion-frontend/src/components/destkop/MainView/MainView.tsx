@@ -42,6 +42,7 @@ interface MainViewProps {
   doorCode: string;
   airbnbName: string;
   airbnbAddress: string;
+  houseRules?: string;
   isTodoModalOpen: boolean;
   setIsTodoModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isModalOpen: boolean;
@@ -70,6 +71,7 @@ const MainView = ({
   doorCode,
   airbnbName,
   airbnbAddress,
+  houseRules = "",
   isTodoModalOpen,
   setIsTodoModalOpen,
   isModalOpen,
@@ -589,9 +591,9 @@ const MainView = ({
         {isModalOpen && (
           <BookingModal
             calendarId={calendarId}
-            
             guests={guests}
             rooms={rooms}
+            monthMap={monthMap}
             selectedDate={selectedDate}
             selectedRoom={selectedRoom}
             showAddPane={showAddPane}
@@ -639,6 +641,7 @@ const MainView = ({
             doorCode={doorCode}
             airbnbName={airbnbName}
             airbnbAddress={airbnbAddress}
+            houseRules={houseRules}
           />
         ) : isRequestManagerOpen ? (
           <BookingRequestManagerModal
@@ -774,6 +777,7 @@ const MainView = ({
           doorCode={doorCode}
           airbnbName={airbnbName}
           airbnbAddress={airbnbAddress}
+          houseRules={houseRules}
         />
       </MobilePanel>
 

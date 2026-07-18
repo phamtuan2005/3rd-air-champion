@@ -233,6 +233,7 @@ function App() {
                     doorCode={airBnBInfo.doorCode}
                     airbnbName={airBnBInfo.airbnbName}
                     airbnbAddress={airBnBInfo.airbnbAddress}
+                    houseRules={airBnBInfo.houseRules}
                     isTodoModalOpen={isTodoModalOpen}
                     setIsTodoModalOpen={setIsTodoModalOpen}
                     isModalOpen={isBookModalOpen}
