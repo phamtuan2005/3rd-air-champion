@@ -186,22 +186,20 @@ const CalendarGrid = ({
   }, [scrollToTodayTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (calendarWrapperRef.current) {
-      const tile = calendarWrapperRef.current.querySelector(".react-calendar__custom_tile");
-      if (tile) setTileWidth(tile.getBoundingClientRect().width);
-    }
-  }, [currentMonth]);
-
-  useEffect(() => {
     const el = scrollContainerRef.current;
     if (!el) return;
     // Only record the height here; the month-anchor effect (keyed on containerHeight)
     // owns scroll positioning so it always re-derives the page from the visible month.
+    // Tile width = container / 7 (the grid is 7 equal columns). Deriving it here instead
+    // of measuring a rendered tile avoids the first-load race where no tile exists yet,
+    // which left tileWidth null and let guest names overflow across tiles until a scroll.
     const obs = new ResizeObserver(([entry]) => {
       setContainerHeight(entry.contentRect.height);
+      setTileWidth(entry.contentRect.width / 7);
     });
     obs.observe(el);
     setContainerHeight(el.clientHeight);
+    setTileWidth(el.clientWidth / 7);
     return () => obs.disconnect();
   }, []);
 
