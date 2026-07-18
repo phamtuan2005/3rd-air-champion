@@ -56,6 +56,10 @@ export const useCalendarStats = ({
     const blockedTyped = blockedAirBnBDates as
       | Record<string, { start: string; duration: number }[]>
       | undefined;
+    // Until the AirBnB sync returns, we can't know which bookings are already reflected
+    // there. Counting them all as pending flashed a huge bogus badge (e.g. 46 → 0) on
+    // first load — report 0 while the true state is unknown.
+    if (!blockedTyped) return 0;
     // The Block AirBnB modal only lists ACTIVE rooms, so the badge must count the same set —
     // otherwise a booking/block on an inactive room inflates the badge while the modal
     // (correctly) shows "all reflected".

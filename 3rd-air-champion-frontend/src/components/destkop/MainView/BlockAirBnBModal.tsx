@@ -172,14 +172,20 @@ const BlockAirBnBModal = ({ monthMap, rooms, blockedAirBnBDates, token, onDaysUp
     <div className="p-3 flex flex-col gap-3 h-full overflow-y-auto">
       <h2 className="text-sm font-bold text-gray-700">
         Block AirBnB
-        {totalPending > 0 && (
+        {blockedAirBnBDates && totalPending > 0 && (
           <span className="ml-2 text-[10px] font-normal text-rose-500">
             {totalPending} pending
           </span>
         )}
       </h2>
 
-      {roomStats.length === 0 ? (
+      {!blockedAirBnBDates ? (
+        // Until the sync returns we can't tell what's already reflected on AirBnB —
+        // listing everything as pending here would mirror the bogus first-load badge.
+        <p className="text-xs text-gray-400 font-medium mt-2 animate-pulse">
+          Syncing with AirBnB…
+        </p>
+      ) : roomStats.length === 0 ? (
         <p className="text-xs text-emerald-600 font-medium mt-2">
           All bookings and blocked rooms are already reflected on AirBnB.
         </p>
