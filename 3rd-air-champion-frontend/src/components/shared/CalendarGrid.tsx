@@ -321,6 +321,13 @@ const CalendarGrid = ({
 
     const blockedRoomIds = new Set((day?.blockedRooms ?? []).map((r) => r.id));
 
+    // Blocked-bar hatch: a blocked range is drawn as several divs (PM start, full days,
+    // AM cap), each of which would start the -45° stripe pattern at its own corner —
+    // making the stripes visibly break at every seam. Phase-shift each segment's
+    // background to a shared global origin so the stripes run continuously.
+    const hatchPhase = (leftPx: number): React.CSSProperties =>
+      tileWidth ? { backgroundPosition: `${-(getDay(date) * tileWidth + leftPx)}px 0px` } : {};
+
     const usedRoomIdSet = new Set(usedRooms.map((r) => r.id));
 
     const sortedUsedRooms = [...usedRooms]
@@ -463,6 +470,7 @@ const CalendarGrid = ({
                       right: "-1px",
                       borderTopLeftRadius: prevRoomBlocked ? undefined : "0.5rem",
                       borderBottomLeftRadius: prevRoomBlocked ? undefined : "0.5rem",
+                      ...hatchPhase(prevRoomBlocked ? -1 : 0.2 * (tileWidth ?? 0)),
                     }}
                   />
                 </div>
@@ -477,7 +485,7 @@ const CalendarGrid = ({
                 {prevRoomBlocked && (
                   <div
                     className="react-calendar__room_blocked_bar absolute"
-                    style={{ top: "1px", bottom: "1px", left: "-1px", right: "80%", borderTopRightRadius: "0.5rem", borderBottomRightRadius: "0.5rem" }}
+                    style={{ top: "1px", bottom: "1px", left: "-1px", right: "80%", borderTopRightRadius: "0.5rem", borderBottomRightRadius: "0.5rem", ...hatchPhase(-1) }}
                   />
                 )}
                 {isFutureOrToday && (
@@ -599,6 +607,7 @@ const CalendarGrid = ({
                     right: "-1px",
                     borderTopLeftRadius: "0.5rem",
                     borderBottomLeftRadius: "0.5rem",
+                    ...hatchPhase(0.2 * (tileWidth ?? 0)),
                   }}
                 />
               ) : !isBefore(date, startOfToday()) && !overrideRooms ? (
@@ -626,6 +635,7 @@ const CalendarGrid = ({
                     right: "80%",
                     borderTopRightRadius: "0.5rem",
                     borderBottomRightRadius: "0.5rem",
+                    ...hatchPhase(-1),
                   }}
                 />
               )}

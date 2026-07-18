@@ -125,14 +125,25 @@
 }
 
 .react-calendar__room_blocked_bar {
+  /* The hatch is a 10x10px seamless tile: stripe period 7.071px along the -45°
+     axis repeats exactly every 10px horizontally and vertically (10·sin45° = 7.071),
+     so tiles join invisibly and background-position can phase-align segments to a
+     shared origin (see hatchPhase in CalendarGrid). Without an explicit
+     background-size, a CSS gradient is element-sized and position-shifting it
+     creates visible tiling seams INSIDE the bar. */
+  /* Opaque colors (pre-composited over the gray-100 tile background) so the bar
+     covers the day-boundary gridline like booking bars do — translucent alpha let
+     the 1px border show through as a dark seam, and doubled up where segments
+     overlap. */
   background-image: repeating-linear-gradient(
     -45deg,
-    rgba(100, 116, 139, 0.45) 0px,
-    rgba(100, 116, 139, 0.45) 3px,
-    transparent 3px,
-    transparent 7px
+    rgb(171, 180, 193) 0px,
+    rgb(171, 180, 193) 3px,
+    rgb(229, 232, 237) 3px,
+    rgb(229, 232, 237) 7.071px
   );
-  background-color: rgba(148, 163, 184, 0.15);
+  background-size: 10px 10px;
+  background-color: rgb(229, 232, 237);
 }
 
 .react-calendar__custom_tile_full {
