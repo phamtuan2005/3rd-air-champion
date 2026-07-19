@@ -76,6 +76,53 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
   const [activeTab, setActiveTab] = useState<"roster" | "hours" | "pay">("roster");
   const autoTabDone = useRef(false);
 
+  // Floating window: draggable via the header, resizable via the corner grip,
+  // no backdrop — the calendar stays visible behind it.
+  const [pos, setPos] = useState(() => ({
+    x: Math.max(8, Math.round(window.innerWidth / 2 - Math.min(384, window.innerWidth - 16) / 2)),
+    y: 60,
+  }));
+  const [size, setSize] = useState(() => ({
+    w: Math.min(384, window.innerWidth - 16),
+    h: Math.min(Math.round(window.innerHeight * 0.75), 640),
+  }));
+  const dragOffset = useRef<{ dx: number; dy: number } | null>(null);
+  const resizeStart = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
+
+  const onDragStart = (e: React.PointerEvent) => {
+    dragOffset.current = { dx: e.clientX - pos.x, dy: e.clientY - pos.y };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onDragMove = (e: React.PointerEvent) => {
+    if (!dragOffset.current) return;
+    setPos({
+      x: Math.min(Math.max(4, e.clientX - dragOffset.current.dx), window.innerWidth - 120),
+      y: Math.min(Math.max(4, e.clientY - dragOffset.current.dy), window.innerHeight - 80),
+    });
+  };
+  const onDragEnd = () => {
+    dragOffset.current = null;
+  };
+
+  const onResizeStart = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    resizeStart.current = { x: e.clientX, y: e.clientY, w: size.w, h: size.h };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onResizeMove = (e: React.PointerEvent) => {
+    if (!resizeStart.current) return;
+    setSize({
+      w: Math.min(Math.max(300, resizeStart.current.w + e.clientX - resizeStart.current.x), 560),
+      h: Math.min(
+        Math.max(300, resizeStart.current.h + e.clientY - resizeStart.current.y),
+        window.innerHeight - 24,
+      ),
+    });
+  };
+  const onResizeEnd = () => {
+    resizeStart.current = null;
+  };
+
   const [newCleaner, setNewCleaner] = useState({ name: "", phone: "", payRate: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [edit, setEdit] = useState({ name: "", phone: "", payRate: "", baselineHours: "" });
@@ -250,17 +297,19 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
   };
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-[110] flex items-end justify-center bg-black/40 p-4 sm:items-center"
-      onClick={onClose}
-    >
       <div
-        className="flex max-h-[85vh] w-full max-w-sm flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
-        onClick={(e) => e.stopPropagation()}
+        className="fixed z-[110] flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+        style={{ left: pos.x, top: pos.y, width: size.w, height: size.h }}
       >
         {/* Bright brand bar */}
         <div className="h-1.5 shrink-0 bg-gradient-to-r from-emerald-400 via-blue-400 to-violet-400" />
-        <div className="flex items-center justify-between px-4 pb-1 pt-3">
+        {/* Header doubles as the drag handle */}
+        <div
+          className="flex cursor-move touch-none items-center justify-between px-4 pb-1 pt-3"
+          onPointerDown={onDragStart}
+          onPointerMove={onDragMove}
+          onPointerUp={onDragEnd}
+        >
           <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
             <FaBroom className="text-emerald-600" />
             Cleaners
@@ -589,8 +638,17 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
           </>
           )}
         </div>
-      </div>
-    </div>,
+        {/* Resize grip */}
+        <div
+          className="absolute bottom-0 right-0 flex h-10 w-10 cursor-nwse-resize touch-none items-end justify-end rounded-tl-xl pb-1 pr-1.5 text-base leading-none text-gray-400"
+          onPointerDown={onResizeStart}
+          onPointerMove={onResizeMove}
+          onPointerUp={onResizeEnd}
+          aria-label="Resize"
+        >
+          ◢
+        </div>
+      </div>,
     document.body,
   );
 };
