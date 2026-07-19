@@ -844,12 +844,15 @@ const MainView = ({
       </div>
 
       {/* Mobile slide-up panels */}
-      <div
-        className={`fixed bottom-0 left-0 w-full bg-white border-t border-gray-300 z-50 flex flex-col sm:hidden transition-transform duration-300 ${
-          isMobileModalOpen ? "translate-y-0" : "translate-y-full"
-        }`}
-        style={{ height: "calc(100% - 15rem)" }}
+      {/* Booking list uses the same resizable MobilePanel as the ToDo panel */}
+      <MobilePanel
+        isOpen={isMobileModalOpen}
+        onClose={() => {
+          setCurrentBookings(null);
+          setIsMobileModalOpen(false);
+        }}
       >
+        <div className="flex h-full flex-col">
         <div className="flex items-center justify-center gap-2 px-2 py-1 border-b border-gray-200">
           <button onClick={() => shiftDate(-1)} className="p-1 rounded hover:bg-gray-100 text-gray-500">
             <FaChevronLeft size={12} />
@@ -860,16 +863,8 @@ const MainView = ({
           <button onClick={() => shiftDate(1)} className="p-1 rounded hover:bg-gray-100 text-gray-500">
             <FaChevronRight size={12} />
           </button>
-          <button
-            className="text-gray-500 font-bold text-[1.5rem] leading-none px-4 py-0.5 rounded hover:bg-gray-100"
-            onClick={() => {
-              setCurrentBookings(null);
-              setIsMobileModalOpen(false);
-            }}
-          >
-            &times;
-          </button>
         </div>
+        <div className="min-h-0 flex-1">
         <GuestView
           airBnBBookingCount={airBnBBookingCount}
           guestBookingCount={guestBookingCount}
@@ -901,7 +896,9 @@ const MainView = ({
             setSelectedRoom={setSelectedRoom}
           />
         </GuestView>
-      </div>
+        </div>
+        </div>
+      </MobilePanel>
 
       <MobilePanel isOpen={isTodoModalOpen} onClose={() => setIsTodoModalOpen(false)}>
         <ToDoList
