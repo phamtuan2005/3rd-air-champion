@@ -133,6 +133,10 @@ const MainView = ({
 
   // ── Local UI state ────────────────────────────────────────────────────────
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
+  // Bookings whose dates still need blocking on Airbnb — shown as a toast
+  const [blockReminders, setBlockReminders] = useState<
+    { room: string; start: string; end: string }[]
+  >([]);
   const [currentBookings, setCurrentBookings] = useState<bookingType[] | null>();
   const [selectedRoomName, setSelectedRoomName] = useState<string | null>(null);
   const [gapsMode, setGapsMode] = useState(false);
@@ -413,9 +417,15 @@ const MainView = ({
 
       const room = rooms.find((room) => room.id === roomName);
       if (!isBlocked) {
-        alert(
-          `Please block ${date.toISOString().split("T")[0]} to ${bookingEnd.toISOString().split("T")[0]} for Room: ${room?.name}`,
-        );
+        // In-design toast instead of a browser alert — links to the Block panel
+        setBlockReminders((prev) => [
+          ...prev,
+          {
+            room: room?.name ?? "",
+            start: date.toISOString().split("T")[0],
+            end: bookingEnd.toISOString().split("T")[0],
+          },
+        ]);
       }
     }
 
@@ -1030,6 +1040,40 @@ const MainView = ({
           token={token as string}
         />
       )}
+      {/* Block-on-Airbnb reminder toast — replaces the old browser alert */}
+      {blockReminders.length > 0 && (
+        <div className="fixed bottom-4 left-1/2 z-[220] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 overflow-hidden rounded-2xl border border-amber-300 bg-amber-50 shadow-2xl">
+          <div className="flex items-start gap-3 p-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-amber-800">Block these dates on Airbnb</p>
+              {blockReminders.map((r, i) => (
+                <p key={i} className="mt-0.5 text-xs text-amber-700">
+                  <span className="font-semibold">{r.room}</span> ·{" "}
+                  {format(new Date(r.start + "T00:00:00"), "MMM d")} –{" "}
+                  {format(new Date(r.end + "T00:00:00"), "MMM d")}
+                </p>
+              ))}
+            </div>
+            <button
+              className="shrink-0 rounded-lg bg-amber-600 px-2.5 py-1.5 text-xs font-semibold text-white"
+              onClick={() => {
+                setBlockReminders([]);
+                setIsBlockAirBnBModalOpen(true);
+              }}
+            >
+              Review
+            </button>
+            <button
+              className="shrink-0 px-1 text-lg leading-none text-amber-400"
+              onClick={() => setBlockReminders([])}
+              aria-label="Dismiss"
+            >
+              &times;
+            </button>
+          </div>
+        </div>
+      )}
+
       {isCleanersOpen && (
         <CleanersModal
           hostId={hostId}

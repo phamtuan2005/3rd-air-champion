@@ -137,6 +137,8 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
   // Payout adds to paid, Undo subtracts — phone number pads have no minus key,
   // so direction is a toggle and the typed amount is always positive.
   const [payMode, setPayMode] = useState<"payout" | "undo">("payout");
+  // Two-tap confirm rendered in-design — no browser confirm() popup
+  const [payConfirmArmed, setPayConfirmArmed] = useState(false);
   const [error, setError] = useState("");
 
   const todayKey = format(startOfToday(), "yyyy-MM-dd");
@@ -234,8 +236,15 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
       .catch((err) => setError(err.response?.data?.error ?? "Could not update cleaner"));
   };
 
+  // Two-tap remove: first tap arms the button into "Confirm?", second commits
+  const [removeArmedId, setRemoveArmedId] = useState<string | null>(null);
+
   const handleDelete = (cleaner: CleanerType) => {
-    if (!window.confirm(`Remove ${cleaner.name}? Their assignments will be removed too.`)) return;
+    if (removeArmedId !== cleaner.id) {
+      setRemoveArmedId(cleaner.id);
+      return;
+    }
+    setRemoveArmedId(null);
     deleteCleaner(cleaner.id, token)
       .then(() => {
         setCleaners((prev) => prev.filter((c) => c.id !== cleaner.id));
@@ -296,16 +305,17 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
   const handlePay = (entry: CleanerSummaryType) => {
     const amount = parseFloat(payDraft);
     if (!(amount > 0) || !isFinite(amount)) return;
+    // Payouts change money records — never on a single tap. First tap arms the
+    // button into an explicit "Confirm $X"; second tap commits.
+    if (!payConfirmArmed) {
+      setPayConfirmArmed(true);
+      return;
+    }
     const signed = payMode === "undo" ? -amount : amount;
-    // Payouts change money records — never on a single mis-tap
-    const label =
-      payMode === "payout"
-        ? `Record $${amount} payout to ${entry.name}?`
-        : `Undo $${amount} from ${entry.name}'s paid total?`;
-    if (!window.confirm(label)) return;
     recordCleanerPayment(entry.id, signed, token)
       .then(() => {
         setPayingId(null);
+        setPayConfirmArmed(false);
         setError("");
         reloadSummary();
       })
@@ -481,10 +491,14 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                 </button>
                 <button
                   type="button"
-                  className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-600"
+                  className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold ${
+                    removeArmedId === cleaner.id
+                      ? "bg-red-600 text-white"
+                      : "border border-red-200 bg-red-50 text-red-600"
+                  }`}
                   onClick={() => handleDelete(cleaner)}
                 >
-                  Remove
+                  {removeArmedId === cleaner.id ? "Confirm?" : "Remove"}
                 </button>
               </div>
             ),
@@ -620,6 +634,7 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                       onClick={() => {
                         setPayingId(entry.id);
                         setPayMode("payout");
+                        setPayConfirmArmed(false);
                         setPayDraft(
                           entry.balance > 0.5 ? String(Math.round(entry.balance * 100) / 100) : "",
                         );
@@ -641,7 +656,10 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                         <button
                           key={key}
                           type="button"
-                          onClick={() => setPayMode(key)}
+                          onClick={() => {
+                            setPayMode(key);
+                            setPayConfirmArmed(false);
+                          }}
                           className={`rounded-md py-1 text-[11px] font-semibold ${
                             payMode === key
                               ? key === "undo"
@@ -664,15 +682,33 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                         step="0.01"
                         min="0"
                         value={payDraft}
-                        onChange={(e) => setPayDraft(e.target.value)}
+                        onChange={(e) => {
+                          setPayDraft(e.target.value);
+                          setPayConfirmArmed(false);
+                        }}
                       />
-                      <button type="button" className={pillEmerald} onClick={() => handlePay(entry)}>
-                        Save
+                      <button
+                        type="button"
+                        className={
+                          payConfirmArmed
+                            ? `rounded-lg px-2.5 py-1.5 text-xs font-bold text-white ${
+                                payMode === "undo" ? "bg-red-600" : "bg-emerald-700"
+                              }`
+                            : pillEmerald
+                        }
+                        onClick={() => handlePay(entry)}
+                      >
+                        {payConfirmArmed
+                          ? `Confirm $${parseFloat(payDraft) || 0}`
+                          : "Save"}
                       </button>
                       <button
                         type="button"
                         className={pillNeutral}
-                        onClick={() => setPayingId(null)}
+                        onClick={() => {
+                          setPayingId(null);
+                          setPayConfirmArmed(false);
+                        }}
                       >
                         Cancel
                       </button>
