@@ -72,8 +72,8 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
   const [cleaners, setCleaners] = useState<CleanerType[]>([]);
   const [assignments, setAssignments] = useState<CleaningAssignmentType[]>([]);
   const [summary, setSummary] = useState<CleanerSummaryType[]>([]);
-  // Roster / Hours / Pay tabs — everything in one scroll was overcrowded
-  const [activeTab, setActiveTab] = useState<"roster" | "hours" | "pay">("roster");
+  // Pay / Hours / Roster tabs — everything in one scroll was overcrowded
+  const [activeTab, setActiveTab] = useState<"roster" | "hours" | "pay">("pay");
   const autoTabDone = useRef(false);
 
   // Floating window: draggable via the header, resizable via the corner grip,
@@ -124,6 +124,8 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
   };
 
   const [newCleaner, setNewCleaner] = useState({ name: "", phone: "", payRate: "" });
+  // Add form hidden behind a button at the end of the roster
+  const [addOpen, setAddOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [edit, setEdit] = useState({ name: "", phone: "", payRate: "", baselineHours: "" });
   const [hoursDraft, setHoursDraft] = useState<Record<string, string>>({});
@@ -196,6 +198,7 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
       .then((created) => {
         setCleaners((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
         setNewCleaner({ name: "", phone: "", payRate: "" });
+        setAddOpen(false);
         setError("");
         reloadSummary();
       })
@@ -327,9 +330,9 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
         <div className="mx-4 mb-2 grid shrink-0 grid-cols-3 gap-1 rounded-xl bg-gray-100 p-1">
           {(
             [
-              { key: "roster", label: "Roster", count: cleaners.length },
-              { key: "hours", label: "Hours", count: needHours.length },
               { key: "pay", label: "Pay", count: summary.filter((s) => s.balance > 0.5).length },
+              { key: "hours", label: "Hours", count: needHours.length },
+              { key: "roster", label: "Roster", count: cleaners.length },
             ] as const
           ).map(({ key, label, count }) => (
             <button
@@ -358,36 +361,9 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
 
           {activeTab === "roster" && (
           <>
-          {/* Add cleaner */}
-          <div className="mb-3 flex items-center gap-1.5">
-            <input
-              className={`${inputCls} min-w-0 flex-1`}
-              placeholder="Name"
-              value={newCleaner.name}
-              onChange={(e) => setNewCleaner((p) => ({ ...p, name: e.target.value }))}
-            />
-            <input
-              className={`${inputCls} w-24`}
-              placeholder="Phone"
-              type="tel"
-              value={newCleaner.phone}
-              onChange={(e) => setNewCleaner((p) => ({ ...p, phone: e.target.value }))}
-            />
-            <input
-              className={`${inputCls} w-14`}
-              placeholder="$/hr"
-              type="number"
-              value={newCleaner.payRate}
-              onChange={(e) => setNewCleaner((p) => ({ ...p, payRate: e.target.value }))}
-            />
-            <button type="button" className={pillDark} onClick={handleAdd}>
-              Add
-            </button>
-          </div>
-
           {/* Roster */}
-          {cleaners.length === 0 && (
-            <p className="py-4 text-center text-sm text-gray-400">No cleaners yet — add one above</p>
+          {cleaners.length === 0 && !addOpen && (
+            <p className="py-4 text-center text-sm text-gray-400">No cleaners yet — add one below</p>
           )}
           {cleaners.map((cleaner, index) =>
             editingId === cleaner.id ? (
@@ -492,6 +468,50 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
             ),
           )}
 
+          {/* Add cleaner — hidden behind a button at the end of the roster */}
+          {!addOpen ? (
+            <button
+              type="button"
+              onClick={() => setAddOpen(true)}
+              className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-gray-300 py-2.5 text-sm font-semibold text-gray-500"
+            >
+              + Add Cleaner
+            </button>
+          ) : (
+            <div className="mt-1 rounded-xl border border-gray-200 p-2">
+              <div className="flex items-center gap-1.5">
+                <input
+                  className={`${inputCls} min-w-0 flex-1`}
+                  placeholder="Name"
+                  autoFocus
+                  value={newCleaner.name}
+                  onChange={(e) => setNewCleaner((p) => ({ ...p, name: e.target.value }))}
+                />
+                <input
+                  className={`${inputCls} w-24`}
+                  placeholder="Phone"
+                  type="tel"
+                  value={newCleaner.phone}
+                  onChange={(e) => setNewCleaner((p) => ({ ...p, phone: e.target.value }))}
+                />
+                <input
+                  className={`${inputCls} w-14`}
+                  placeholder="$/hr"
+                  type="number"
+                  value={newCleaner.payRate}
+                  onChange={(e) => setNewCleaner((p) => ({ ...p, payRate: e.target.value }))}
+                />
+              </div>
+              <div className="mt-1.5 flex justify-end gap-1.5">
+                <button type="button" className={pillNeutral} onClick={() => setAddOpen(false)}>
+                  Cancel
+                </button>
+                <button type="button" className={pillDark} onClick={handleAdd}>
+                  Add
+                </button>
+              </div>
+            </div>
+          )}
           </>
           )}
 
