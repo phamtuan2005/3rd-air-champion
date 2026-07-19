@@ -445,7 +445,7 @@ const BookingCard = ({
             </div>
             {/* Resize grip */}
             <div
-              className="absolute bottom-0 right-0 flex h-5 w-5 cursor-nwse-resize touch-none items-end justify-end pb-0.5 pr-1 text-[10px] leading-none text-gray-300"
+              className="absolute bottom-0 right-0 flex h-10 w-10 cursor-nwse-resize touch-none items-end justify-end rounded-tl-xl pb-1 pr-1.5 text-base leading-none text-gray-400"
               onPointerDown={onResizeStart}
               onPointerMove={onResizeMove}
               onPointerUp={onResizeEnd}
