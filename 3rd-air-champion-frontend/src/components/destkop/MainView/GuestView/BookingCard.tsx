@@ -2,6 +2,16 @@ import { getRoomColor } from "../../../../util/getRoomColor";
 import { bookingType } from "../../../../util/types/bookingType";
 import { useContext, useState } from "react";
 import { createPortal } from "react-dom";
+import {
+  FaAirbnb,
+  FaDollarSign,
+  FaFilter,
+  FaRegCalendarAlt,
+  FaRegCalendarPlus,
+  FaRegCheckCircle,
+  FaRegCommentDots,
+  FaRegTrashAlt,
+} from "react-icons/fa";
 import { format as formatLocal } from "date-fns";
 import RebookCount from "./RebookCount";
 import { FooterContext } from "../../../../context";
@@ -25,7 +35,8 @@ interface BookingCardProps {
 }
 
 // Full-width action rows for the guest action modal
-const rowBase = "w-full rounded-xl px-4 py-3 text-left text-sm font-semibold";
+const rowBase =
+  "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold";
 const rowPrimary = `${rowBase} bg-gray-900 text-white`;
 const rowNeutral = `${rowBase} border border-gray-200 bg-white text-gray-700`;
 const rowDanger = `${rowBase} border border-red-200 bg-red-50 text-red-600`;
@@ -260,7 +271,8 @@ const BookingCard = ({
                           : "border-gray-200 bg-white text-gray-700"
                       }`}
                     >
-                      Filter stays on calendar
+                      <FaFilter size={14} className="shrink-0" />
+                      <span className="flex-1">Filter stays on calendar</span>
                       <span className="text-xs font-bold">{isFiltered ? "ON" : "OFF"}</span>
                     </button>
                   )}
@@ -278,6 +290,7 @@ const BookingCard = ({
                           })
                         }
                       >
+                        <FaRegCalendarAlt size={14} className="shrink-0" />
                         Modify Booking
                       </button>
                       {booking.guest.phone && (
@@ -289,6 +302,7 @@ const BookingCard = ({
                               closeThen(() => handleBookingConfirmation(booking.guest.phone))
                             }
                           >
+                            <FaRegCheckCircle size={14} className="shrink-0" />
                             Send Confirmation
                           </button>
                           <button
@@ -300,6 +314,7 @@ const BookingCard = ({
                               )
                             }
                           >
+                            <FaRegCalendarPlus size={14} className="shrink-0" />
                             Send Calendar Events
                           </button>
                           <button
@@ -311,6 +326,7 @@ const BookingCard = ({
                               })
                             }
                           >
+                            <FaRegCommentDots size={14} className="shrink-0" />
                             Message Guest
                           </button>
                         </>
@@ -321,6 +337,7 @@ const BookingCard = ({
                           className={rowNeutral}
                           onClick={() => closeThen(() => onPricingEdit(booking))}
                         >
+                          <FaDollarSign size={14} className="shrink-0" />
                           Edit Pricing
                         </button>
                       )}
@@ -329,6 +346,7 @@ const BookingCard = ({
                         className={rowDanger}
                         onClick={() => closeThen(() => setSelectedUnbooking(booking))}
                       >
+                        <FaRegTrashAlt size={14} className="shrink-0" />
                         Unbook
                       </button>
                     </>
@@ -349,6 +367,7 @@ const BookingCard = ({
                         })
                       }
                     >
+                      <FaAirbnb size={16} className="shrink-0" />
                       Open on Airbnb
                     </button>
                   )}
