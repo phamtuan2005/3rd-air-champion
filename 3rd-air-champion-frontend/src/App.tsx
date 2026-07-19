@@ -39,6 +39,7 @@ function App() {
   const [roomErrorMessage, setRoomErrorMessage] = useState("");
   const [isEditRoomOpen, setIsEditRoomOpen] = useState(false);
   const [isManageGuestOpen, setIsManageGuestOpen] = useState(false);
+  const [isCleanersOpen, setIsCleanersOpen] = useState(false);
 
   const [currentGuest, setCurrentGuest] = useState<string | null>(null);
   const [currentAirBnBGuest, setCurrentAirBnBGuest] = useState<string | null>(
@@ -188,6 +189,8 @@ function App() {
                 setIsEditRoomOpen,
                 isManageGuestOpen,
                 setIsManageGuestOpen,
+                isCleanersOpen,
+                setIsCleanersOpen,
               }}
             >
               <div className="grid grid-rows-[80px_1fr] h-screen lg:grid-rows-[120px_1fr]">

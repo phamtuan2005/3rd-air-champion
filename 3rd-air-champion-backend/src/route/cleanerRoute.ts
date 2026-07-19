@@ -1,4 +1,5 @@
 import express, { Request } from "express";
+import mongoose from "mongoose";
 import Cleaner from "../model/cleanerSchema";
 import CleaningAssignment from "../model/cleaningAssignmentSchema";
 
@@ -69,6 +70,55 @@ router.delete("/:id", async (req: Request, res: any) => {
   try {
     await Cleaner.findOneAndDelete({ _id: id });
     res.status(200).json({ ok: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// All-time earnings ledger per cleaner: hours (recorded + baseline) × rate,
+// minus payments already made. Cleaners claim on different schedules, so the
+// owed balance must span months.
+router.get("/summary", async (req: Request, res: any) => {
+  const { hostId } = req.query;
+  if (!hostId) return res.status(400).json({ error: "hostId is required" });
+  try {
+    const cleaners = await Cleaner.find({ host: hostId }).sort({ name: 1 });
+    const sums = await CleaningAssignment.aggregate([
+      {
+        $match: {
+          host: new mongoose.Types.ObjectId(hostId as string),
+          hours: { $ne: null },
+        },
+      },
+      { $group: { _id: "$cleaner", hours: { $sum: "$hours" } } },
+    ]);
+    const hoursByCleaner = new Map(sums.map((s) => [String(s._id), s.hours]));
+    res.status(200).json(
+      cleaners.map((c: any) => {
+        const hours = (hoursByCleaner.get(String(c._id)) ?? 0) + (c.baselineHours ?? 0);
+        const earned = hours * (c.payRate ?? 0);
+        const paid = c.paidAmount ?? 0;
+        return { id: c._id, name: c.name, hours, earned, paid, balance: earned - paid };
+      })
+    );
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Record a payout — increments the cleaner's running paid total
+router.post("/pay", async (req: Request, res: any) => {
+  const { id, amount } = req.body;
+  if (!id || typeof amount !== "number" || !isFinite(amount))
+    return res.status(400).json({ error: "id and numeric amount are required" });
+  try {
+    const cleaner = await Cleaner.findByIdAndUpdate(
+      id,
+      { $inc: { paidAmount: amount } },
+      { new: true }
+    );
+    if (!cleaner) return res.status(404).json({ error: "Cleaner not found" });
+    res.status(200).json({ id: cleaner._id, paid: (cleaner as any).paidAmount });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

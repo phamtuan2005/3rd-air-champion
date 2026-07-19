@@ -18,6 +18,8 @@ interface AddPaneContextType {
   setIsEditRoomOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isManageGuestOpen: boolean;
   setIsManageGuestOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isCleanersOpen: boolean;
+  setIsCleanersOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 interface FooterContextType {

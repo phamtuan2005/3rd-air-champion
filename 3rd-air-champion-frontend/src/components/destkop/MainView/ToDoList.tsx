@@ -75,10 +75,10 @@ const ToDoList = ({ monthMap, hostId, token, doorCode, airbnbName, airbnbAddress
     sameDay: boolean;
   } | null>(null);
 
-  useEffect(() => {
+  const reloadCleanerData = () => {
     if (!hostId || !token) return;
     // Month start → next week: covers the Upcoming horizon plus this month's
-    // finished cleanings (hours recording + monthly pay in CleanersModal).
+    // finished cleanings.
     const start = `${format(startOfToday(), "yyyy-MM")}-01`;
     const end = format(addDays(startOfToday(), 7), "yyyy-MM-dd");
     fetchCleaners(hostId, token)
@@ -87,7 +87,9 @@ const ToDoList = ({ monthMap, hostId, token, doorCode, airbnbName, airbnbAddress
     fetchAssignments(hostId, start, end, token)
       .then(setAssignments)
       .catch((err) => console.error("Error fetching assignments:", err));
-  }, [hostId, token]);
+  };
+
+  useEffect(reloadCleanerData, [hostId, token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const assignmentFor = (morningKey: string, roomId: string) =>
     assignments.find((a) => a.date === morningKey && a.room?.id === roomId);
@@ -125,42 +127,6 @@ const ToDoList = ({ monthMap, hostId, token, doorCode, airbnbName, airbnbAddress
         setAssignTarget(null);
       })
       .catch((err) => console.error("Error assigning cleaner:", err));
-  };
-
-  // Guests arriving after a cleaning — the cleaner needs the headcount to set
-  // up beds and towels. First check-in for the room on/after the morning.
-  const nextGuestCount = (roomId: string, morningKey: string): number | null => {
-    for (let i = 0; i <= 30; i++) {
-      const key = format(addDays(new Date(morningKey + "T00:00:00"), i), "yyyy-MM-dd");
-      const found = monthMap
-        .get(key)
-        ?.bookings.find((b) => b.room?.id === roomId && b.startDate.split("T")[0] === key);
-      if (found) return found.numberOfGuests || 1;
-    }
-    return null;
-  };
-
-  // One SMS per cleaner with their whole week: "* Monday 7/21: Cozy (1), Chill (2)"
-  const textSchedule = (cleaner: CleanerType) => {
-    if (!cleaner.phone) return;
-    const todayKey = format(startOfToday(), "yyyy-MM-dd");
-    const mine = assignments
-      .filter((a) => a.cleaner?.id === cleaner.id && a.date >= todayKey && a.room)
-      .sort((a, b) => a.date.localeCompare(b.date));
-    if (mine.length === 0) return;
-
-    const byDay = new Map<string, string[]>();
-    mine.forEach((a) => {
-      const count = nextGuestCount(a.room!.id, a.date);
-      const label = `${a.room!.name}${count ? ` (${count})` : ""}`;
-      byDay.set(a.date, [...(byDay.get(a.date) ?? []), label]);
-    });
-    const lines = [...byDay.entries()].map(
-      ([date, rooms]) =>
-        `* ${format(new Date(date + "T00:00:00"), "EEEE M/d")}: ${rooms.join(", ")}`,
-    );
-    const message = `Hi ${cleaner.name}, your cleaning schedule:\n${lines.join("\n")}\n(numbers = guests arriving)\nThank you! — Anh-Tuan`;
-    window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(message)}`;
   };
 
   const handleUnassign = () => {
@@ -549,16 +515,6 @@ const ToDoList = ({ monthMap, hostId, token, doorCode, airbnbName, airbnbAddress
           emptyState("No checkouts in the next 7 days")
         ))}
 
-      {activeTab === "forecast" && (
-        <button
-          type="button"
-          onClick={() => setCleanersOpen(true)}
-          className="mt-2 self-center rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700"
-        >
-          Manage Cleaners
-        </button>
-      )}
-
       {/* Assign-cleaner popover for one room+morning */}
       {assignTarget &&
         createPortal(
@@ -635,12 +591,12 @@ const ToDoList = ({ monthMap, hostId, token, doorCode, airbnbName, airbnbAddress
         <CleanersModal
           hostId={hostId}
           token={token}
-          cleaners={cleaners}
-          setCleaners={setCleaners}
-          assignments={assignments}
-          setAssignments={setAssignments}
-          onTextSchedule={textSchedule}
-          onClose={() => setCleanersOpen(false)}
+          monthMap={monthMap}
+          onClose={() => {
+            setCleanersOpen(false);
+            // Roster or hours may have changed while the modal was open
+            reloadCleanerData();
+          }}
         />
       )}
     </div>

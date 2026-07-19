@@ -56,6 +56,34 @@ export const deleteCleaner = async (id: string, token: string): Promise<void> =>
   await axios.delete(`${BACKEND_ENDPOINT}/cleaner/${id}`, auth(token));
 };
 
+export interface CleanerSummaryType {
+  id: string;
+  name: string;
+  hours: number; // all-time recorded + baseline
+  earned: number; // hours × rate
+  paid: number; // running payouts
+  balance: number; // earned − paid: what the host owes right now
+}
+
+export const fetchCleanerSummary = async (
+  hostId: string,
+  token: string,
+): Promise<CleanerSummaryType[]> => {
+  const response = await axios.get(`${BACKEND_ENDPOINT}/cleaner/summary`, {
+    params: { hostId },
+    ...auth(token),
+  });
+  return response.data;
+};
+
+export const recordCleanerPayment = async (
+  id: string,
+  amount: number,
+  token: string,
+): Promise<void> => {
+  await axios.post(`${BACKEND_ENDPOINT}/cleaner/pay`, { id, amount }, auth(token));
+};
+
 export const fetchAssignments = async (
   hostId: string,
   start: string,

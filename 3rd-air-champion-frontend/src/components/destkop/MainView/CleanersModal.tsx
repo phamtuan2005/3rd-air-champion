@@ -1,11 +1,18 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { format, startOfToday } from "date-fns";
+import { addDays, format, startOfToday } from "date-fns";
+import { FaBroom, FaDollarSign, FaRegClock } from "react-icons/fa";
+import { dayType } from "../../../util/types/dayType";
 import {
   CleanerType,
+  CleanerSummaryType,
   CleaningAssignmentType,
   createCleaner,
   deleteCleaner,
+  fetchAssignments,
+  fetchCleaners,
+  fetchCleanerSummary,
+  recordCleanerPayment,
   updateAssignmentHours,
   updateCleaner,
 } from "../../../util/cleanerOperations";
@@ -13,12 +20,7 @@ import {
 interface CleanersModalProps {
   hostId: string;
   token: string;
-  cleaners: CleanerType[];
-  setCleaners: React.Dispatch<React.SetStateAction<CleanerType[]>>;
-  assignments: CleaningAssignmentType[];
-  setAssignments: React.Dispatch<React.SetStateAction<CleaningAssignmentType[]>>;
-  // Sends the cleaner their whole week's schedule as one SMS
-  onTextSchedule: (cleaner: CleanerType) => void;
+  monthMap: Map<string, dayType>; // for arriving-guest counts in the schedule SMS
   onClose: () => void;
 }
 
@@ -27,25 +29,79 @@ const inputCls =
 const pillDark = "rounded-lg bg-gray-900 px-2.5 py-1.5 text-xs font-semibold text-white";
 const pillNeutral =
   "rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-700";
+const pillEmerald = "rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white";
 
-const CleanersModal = ({
-  hostId,
-  token,
-  cleaners,
-  setCleaners,
-  assignments,
-  setAssignments,
-  onTextSchedule,
-  onClose,
-}: CleanersModalProps) => {
+// Bright identity colors for cleaner avatars, cycled by roster position
+const AVATAR_COLORS = [
+  "bg-emerald-100 text-emerald-700",
+  "bg-blue-100 text-blue-700",
+  "bg-violet-100 text-violet-700",
+  "bg-amber-100 text-amber-700",
+  "bg-rose-100 text-rose-700",
+];
+
+const initials = (name: string) =>
+  name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+const SectionHeader = ({
+  icon,
+  title,
+  hint,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  hint?: string;
+}) => (
+  <div className="mb-2 mt-5 first:mt-0">
+    <h3 className="flex items-center gap-2 text-sm font-bold text-gray-900">
+      {icon}
+      {title}
+    </h3>
+    {hint && <p className="mt-0.5 text-xs text-gray-400">{hint}</p>}
+  </div>
+);
+
+const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps) => {
+  // Self-sufficient: fetches its own data so it can be opened from anywhere
+  // (NavBar dropdown or the Upcoming assign popover).
+  const [cleaners, setCleaners] = useState<CleanerType[]>([]);
+  const [assignments, setAssignments] = useState<CleaningAssignmentType[]>([]);
+  const [summary, setSummary] = useState<CleanerSummaryType[]>([]);
+
   const [newCleaner, setNewCleaner] = useState({ name: "", phone: "", payRate: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [edit, setEdit] = useState({ name: "", phone: "", payRate: "", baselineHours: "" });
   const [hoursDraft, setHoursDraft] = useState<Record<string, string>>({});
+  const [payingId, setPayingId] = useState<string | null>(null);
+  const [payDraft, setPayDraft] = useState("");
   const [error, setError] = useState("");
 
   const todayKey = format(startOfToday(), "yyyy-MM-dd");
   const monthKey = format(startOfToday(), "yyyy-MM");
+
+  const reloadSummary = () =>
+    fetchCleanerSummary(hostId, token)
+      .then(setSummary)
+      .catch((err) => console.error("Error fetching cleaner summary:", err));
+
+  useEffect(() => {
+    if (!hostId || !token) return;
+    const start = `${monthKey}-01`;
+    const end = format(addDays(startOfToday(), 7), "yyyy-MM-dd");
+    fetchCleaners(hostId, token)
+      .then(setCleaners)
+      .catch((err) => console.error("Error fetching cleaners:", err));
+    fetchAssignments(hostId, start, end, token)
+      .then(setAssignments)
+      .catch((err) => console.error("Error fetching assignments:", err));
+    reloadSummary();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hostId, token]);
 
   // Past (or today's) cleanings whose hours haven't been recorded yet
   const needHours = assignments.filter((a) => a.date <= todayKey && a.hours == null && a.cleaner);
@@ -55,11 +111,7 @@ const CleanersModal = ({
   const monthlyPay = new Map<string, { name: string; hours: number; pay: number }>();
   cleaners.forEach((c) => {
     if (c.baselineMonth === monthKey && c.baselineHours > 0) {
-      monthlyPay.set(c.id, {
-        name: c.name,
-        hours: c.baselineHours,
-        pay: c.baselineHours * c.payRate,
-      });
+      monthlyPay.set(c.id, { name: c.name, hours: c.baselineHours, pay: c.baselineHours * c.payRate });
     }
   });
   assignments
@@ -86,6 +138,7 @@ const CleanersModal = ({
         setCleaners((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
         setNewCleaner({ name: "", phone: "", payRate: "" });
         setError("");
+        reloadSummary();
       })
       .catch((err) => setError(err.response?.data?.error ?? "Could not add cleaner"));
   };
@@ -108,6 +161,7 @@ const CleanersModal = ({
         setCleaners((prev) => prev.map((c) => (c.id === id ? updated : c)));
         setEditingId(null);
         setError("");
+        reloadSummary();
       })
       .catch((err) => setError(err.response?.data?.error ?? "Could not update cleaner"));
   };
@@ -119,6 +173,7 @@ const CleanersModal = ({
         setCleaners((prev) => prev.filter((c) => c.id !== cleaner.id));
         setAssignments((prev) => prev.filter((a) => a.cleaner?.id !== cleaner.id));
         setError("");
+        reloadSummary();
       })
       .catch((err) => setError(err.response?.data?.error ?? "Could not remove cleaner"));
   };
@@ -130,8 +185,56 @@ const CleanersModal = ({
       .then((updated) => {
         setAssignments((prev) => prev.map((a) => (a.id === assignment.id ? updated : a)));
         setError("");
+        reloadSummary();
       })
       .catch((err) => setError(err.response?.data?.error ?? "Could not save hours"));
+  };
+
+  // Guests arriving after a cleaning — the cleaner needs the headcount to set
+  // up beds and towels. First check-in for the room on/after the morning.
+  const nextGuestCount = (roomId: string, morningKey: string): number | null => {
+    for (let i = 0; i <= 30; i++) {
+      const key = format(addDays(new Date(morningKey + "T00:00:00"), i), "yyyy-MM-dd");
+      const found = monthMap
+        .get(key)
+        ?.bookings.find((b) => b.room?.id === roomId && b.startDate.split("T")[0] === key);
+      if (found) return found.numberOfGuests || 1;
+    }
+    return null;
+  };
+
+  // One SMS per cleaner with their whole week: "* Monday 7/21: Cozy (1), Chill (2)"
+  const textSchedule = (cleaner: CleanerType) => {
+    if (!cleaner.phone) return;
+    const mine = assignments
+      .filter((a) => a.cleaner?.id === cleaner.id && a.date >= todayKey && a.room)
+      .sort((a, b) => a.date.localeCompare(b.date));
+    if (mine.length === 0) return;
+
+    const byDay = new Map<string, string[]>();
+    mine.forEach((a) => {
+      const count = nextGuestCount(a.room!.id, a.date);
+      const label = `${a.room!.name}${count ? ` (${count})` : ""}`;
+      byDay.set(a.date, [...(byDay.get(a.date) ?? []), label]);
+    });
+    const lines = [...byDay.entries()].map(
+      ([date, rooms]) =>
+        `* ${format(new Date(date + "T00:00:00"), "EEEE M/d")}: ${rooms.join(", ")}`,
+    );
+    const message = `Hi ${cleaner.name}, your cleaning schedule:\n${lines.join("\n")}\n(numbers = guests arriving)\nThank you! — Anh-Tuan`;
+    window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(message)}`;
+  };
+
+  const handlePay = (entry: CleanerSummaryType) => {
+    const amount = parseFloat(payDraft);
+    if (!(amount > 0)) return;
+    recordCleanerPayment(entry.id, amount, token)
+      .then(() => {
+        setPayingId(null);
+        setError("");
+        reloadSummary();
+      })
+      .catch((err) => setError(err.response?.data?.error ?? "Could not record payment"));
   };
 
   return createPortal(
@@ -143,8 +246,13 @@ const CleanersModal = ({
         className="flex max-h-[85vh] w-full max-w-sm flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Bright brand bar */}
+        <div className="h-1.5 shrink-0 bg-gradient-to-r from-emerald-400 via-blue-400 to-violet-400" />
         <div className="flex items-center justify-between px-4 pb-1 pt-3">
-          <h2 className="text-lg font-bold text-gray-900">Cleaners</h2>
+          <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
+            <FaBroom className="text-emerald-600" />
+            Cleaners
+          </h2>
           <button
             type="button"
             onClick={onClose}
@@ -189,7 +297,7 @@ const CleanersModal = ({
           {cleaners.length === 0 && (
             <p className="py-4 text-center text-sm text-gray-400">No cleaners yet — add one above</p>
           )}
-          {cleaners.map((cleaner) =>
+          {cleaners.map((cleaner, index) =>
             editingId === cleaner.id ? (
               <div key={cleaner.id} className="mb-2 rounded-xl border border-gray-200 p-2">
                 <div className="mb-1.5 flex items-center gap-1.5">
@@ -237,13 +345,18 @@ const CleanersModal = ({
                 key={cleaner.id}
                 className="mb-2 flex items-center gap-2 rounded-xl border border-gray-200 p-2.5"
               >
+                <span
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${AVATAR_COLORS[index % AVATAR_COLORS.length]}`}
+                >
+                  {initials(cleaner.name)}
+                </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-gray-900">{cleaner.name}</p>
-                  {cleaner.phone && <p className="text-xs text-gray-500">{cleaner.phone}</p>}
+                  <p className="text-xs text-gray-500">
+                    {cleaner.phone && <span>{cleaner.phone} · </span>}
+                    <span className="font-bold text-emerald-600">${cleaner.payRate}/hr</span>
+                  </p>
                 </div>
-                <span className="shrink-0 text-sm font-bold text-emerald-600">
-                  ${cleaner.payRate}/hr
-                </span>
                 {cleaner.phone && (
                   <button
                     type="button"
@@ -251,7 +364,7 @@ const CleanersModal = ({
                     disabled={
                       !assignments.some((a) => a.cleaner?.id === cleaner.id && a.date >= todayKey)
                     }
-                    onClick={() => onTextSchedule(cleaner)}
+                    onClick={() => textSchedule(cleaner)}
                   >
                     Text
                   </button>
@@ -287,71 +400,138 @@ const CleanersModal = ({
             ),
           )}
 
-          {/* Hours to record for finished cleanings — header always visible so
-              the flow is discoverable before the first cleaning day arrives */}
-          <h3 className="mb-1 mt-4 text-sm font-bold text-gray-900">Record hours</h3>
-          <p className="mb-2 text-xs text-gray-400">
-            Finished cleanings waiting for worked hours — pay is hours × rate
-          </p>
+          {/* Hours to record for finished cleanings */}
+          <SectionHeader
+            icon={<FaRegClock className="text-amber-500" />}
+            title="Record hours"
+            hint="Finished cleanings waiting for worked hours — pay is hours × rate"
+          />
           {needHours.length === 0 ? (
             <p className="mb-2 rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-center text-xs text-gray-400">
               Nothing to record yet — cleanings appear here once their day arrives
             </p>
           ) : (
-            <>
-              {needHours.map((a) => (
-                <div
-                  key={a.id}
-                  className="mb-2 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2.5"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-gray-900">
-                      {format(new Date(a.date + "T00:00:00"), "M/d")} · {a.room?.name}
-                    </p>
-                    <p className="text-xs text-gray-500">{a.cleaner?.name}</p>
-                  </div>
-                  <input
-                    className={`${inputCls} w-16`}
-                    type="number"
-                    step="0.5"
-                    min="0"
-                    placeholder="hrs"
-                    value={hoursDraft[a.id] ?? ""}
-                    onChange={(e) => setHoursDraft((p) => ({ ...p, [a.id]: e.target.value }))}
-                  />
-                  <button type="button" className={pillDark} onClick={() => handleSaveHours(a)}>
-                    Save
-                  </button>
+            needHours.map((a) => (
+              <div
+                key={a.id}
+                className="mb-2 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2.5"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-gray-900">
+                    {format(new Date(a.date + "T00:00:00"), "M/d")} · {a.room?.name}
+                  </p>
+                  <p className="text-xs text-gray-500">{a.cleaner?.name}</p>
                 </div>
-              ))}
-            </>
+                <input
+                  className={`${inputCls} w-16`}
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  placeholder="hrs"
+                  value={hoursDraft[a.id] ?? ""}
+                  onChange={(e) => setHoursDraft((p) => ({ ...p, [a.id]: e.target.value }))}
+                />
+                <button type="button" className={pillDark} onClick={() => handleSaveHours(a)}>
+                  Save
+                </button>
+              </div>
+            ))
           )}
 
-          {/* Pay owed this month per cleaner */}
-          <h3 className="mb-1 mt-4 text-sm font-bold text-gray-900">
-            Pay — {format(startOfToday(), "MMMM")}
-          </h3>
+          {/* All-time balance per cleaner — cleaners claim on their own schedule
+              (right away / bi-weekly / at a threshold), so owed spans months */}
+          <SectionHeader
+            icon={<FaDollarSign className="text-emerald-600" />}
+            title="Balance & payouts"
+            hint="Owed = everything earned so far minus what you've already paid"
+          />
+          {summary.length === 0 ? (
+            <p className="mb-2 rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-center text-xs text-gray-400">
+              No earnings yet
+            </p>
+          ) : (
+            summary.map((entry) => (
+              <div key={entry.id} className="mb-1.5 rounded-xl border border-gray-200 p-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-gray-900">{entry.name}</p>
+                    <p className="text-xs text-gray-500">
+                      {entry.hours} hr · earned ${Math.round(entry.earned).toLocaleString()} · paid $
+                      {Math.round(entry.paid).toLocaleString()}
+                    </p>
+                  </div>
+                  <span
+                    className={`shrink-0 text-lg font-bold ${
+                      entry.balance > 0.5 ? "text-emerald-600" : "text-gray-300"
+                    }`}
+                  >
+                    ${Math.round(entry.balance).toLocaleString()}
+                  </span>
+                  {payingId !== entry.id && (
+                    <button
+                      type="button"
+                      className={pillEmerald}
+                      disabled={entry.balance <= 0}
+                      onClick={() => {
+                        setPayingId(entry.id);
+                        setPayDraft(String(Math.round(entry.balance * 100) / 100));
+                      }}
+                    >
+                      Pay
+                    </button>
+                  )}
+                </div>
+                {payingId === entry.id && (
+                  <div className="mt-2 flex items-center gap-1.5">
+                    <label className="text-xs text-gray-500">Record payout $</label>
+                    <input
+                      className={`${inputCls} w-20`}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={payDraft}
+                      onChange={(e) => setPayDraft(e.target.value)}
+                    />
+                    <button type="button" className={pillEmerald} onClick={() => handlePay(entry)}>
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      className={pillNeutral}
+                      onClick={() => setPayingId(null)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+
+          {/* Pay accrued this month per cleaner */}
+          <SectionHeader
+            icon={<FaRegClock className="text-blue-500" />}
+            title={`This month — ${format(startOfToday(), "MMMM")}`}
+          />
           {monthlyPay.size === 0 ? (
             <p className="rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-center text-xs text-gray-400">
               No hours recorded this month yet
             </p>
           ) : (
-            <>
-              {[...monthlyPay.values()].map((entry) => (
-                <div
-                  key={entry.name}
-                  className="mb-1.5 flex items-center justify-between rounded-xl border border-gray-200 p-2.5"
-                >
-                  <p className="text-sm font-semibold text-gray-900">{entry.name}</p>
-                  <p className="text-xs text-gray-500">
-                    {entry.hours} hr ·{" "}
-                    <span className="text-sm font-bold text-emerald-600">
-                      ${Math.round(entry.pay).toLocaleString()}
-                    </span>
-                  </p>
-                </div>
-              ))}
-            </>
+            [...monthlyPay.values()].map((entry) => (
+              <div
+                key={entry.name}
+                className="mb-1.5 flex items-center justify-between rounded-xl border border-gray-200 p-2.5"
+              >
+                <p className="text-sm font-semibold text-gray-900">{entry.name}</p>
+                <p className="text-xs text-gray-500">
+                  {entry.hours} hr ·{" "}
+                  <span className="text-sm font-bold text-emerald-600">
+                    ${Math.round(entry.pay).toLocaleString()}
+                  </span>
+                </p>
+              </div>
+            ))
           )}
         </div>
       </div>

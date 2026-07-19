@@ -12,6 +12,10 @@ const cleanerSchema = new mongoose.Schema(
     // into later months.
     baselineHours: { type: Number, default: 0 },
     baselineMonth: { type: String, default: "" },
+    // Running total the host has paid out — balance owed is computed as
+    // all-time earnings minus this. Cleaners claim on different schedules
+    // (right away / bi-weekly / at a threshold), so owed must survive months.
+    paidAmount: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
