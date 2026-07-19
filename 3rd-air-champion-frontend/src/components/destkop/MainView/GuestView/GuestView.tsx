@@ -97,18 +97,6 @@ const GuestView = ({
 
   return (
     <div className="flex flex-col h-full overflow-y-scroll">
-      <GuestSearch
-        guests={guests}
-        monthMap={monthMap}
-        onSelectGuest={(id, month) => {
-          setCurrentGuest(id);
-          setCurrentMonth(month);
-        }}
-        onSelectAirBnBGuest={(alias, month) => {
-          setCurrentAirBnBGuest(alias);
-          setCurrentMonth(month);
-        }}
-      />
       <div className="px-2">
       <div className="mb-3 mt-2 grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1">
         {tabs.map(({ key, label, count }) => (
@@ -135,6 +123,18 @@ const GuestView = ({
 
       {activeTab === "guests" && (
         <>
+      <GuestSearch
+        guests={guests}
+        monthMap={monthMap}
+        onSelectGuest={(id, month) => {
+          setCurrentGuest(id);
+          setCurrentMonth(month);
+        }}
+        onSelectAirBnBGuest={(alias, month) => {
+          setCurrentAirBnBGuest(alias);
+          setCurrentMonth(month);
+        }}
+      />
       {sortedBookings.length === 0 && (
         <p className="py-6 text-center text-sm text-gray-400">No bookings on this date</p>
       )}
