@@ -89,6 +89,16 @@ const BookingCard = ({
                 {booking.numberOfGuests > 1 && `(${booking.numberOfGuests}) `}
                 {guestLabel}
               </span>
+              {/* Booking source must be readable at first glance */}
+              <span
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                  isAirBnB
+                    ? "bg-[#FF5A5F] text-white"
+                    : "border border-emerald-200 bg-emerald-50 text-emerald-700"
+                }`}
+              >
+                {isAirBnB ? "Airbnb" : "Direct"}
+              </span>
               {isReserved && (
                 <span className="shrink-0 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">
                   Reserved
