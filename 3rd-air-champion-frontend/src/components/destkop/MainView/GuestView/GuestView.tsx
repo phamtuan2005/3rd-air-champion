@@ -1,3 +1,4 @@
+import { format } from "date-fns";
 import { bookingType } from "../../../../util/types/bookingType";
 import { dayType } from "../../../../util/types/dayType";
 import { guestType } from "../../../../util/types/guestType";
@@ -71,23 +72,6 @@ const GuestView = ({
   // Filter out orphaned bookings with null room to prevent crashes
   currentBookings = currentBookings.filter((b) => b.room != null);
 
-  const getBookingLabel = (booking: bookingType) => {
-    const guestPart = `${booking.numberOfGuests > 1 ? `(${booking.numberOfGuests}) ` : ""}${booking.guest.alias || booking.alias || booking.guest.name} (${booking.room.name})`;
-    const pricePart =
-      booking.guest.name === "AirBnB"
-        ? booking.airbnbPrice ? `, $${booking.airbnbPrice.toFixed(2)}` : ""
-        : (() => {
-            const guestRate = booking.guest.pricing?.find(p => p.room === booking.room.id)?.price ?? booking.price;
-            return guestRate ? `, $${(guestRate * booking.duration).toFixed(2)}` : "";
-          })();
-    return guestPart + pricePart;
-  };
-
-  const maxLabelLen =
-    currentBookings.length > 0
-      ? Math.max(...currentBookings.map(b => getBookingLabel(b).length))
-      : 0;
-
   const sortedBookings = [...currentBookings].sort((a, b) =>
     a.room.name.localeCompare(b.room.name),
   );
@@ -107,11 +91,13 @@ const GuestView = ({
         }}
       />
       <div className="px-2">
+      <h2 className="mb-2 mt-2 text-center text-sm font-bold text-gray-900">
+        {format(selectedDate, "EEEE, MMM d")}
+      </h2>
       {sortedBookings.map((booking, index) => (
         <BookingCard
           key={index}
           booking={booking}
-          maxLabelLen={maxLabelLen}
           currentGuest={currentGuest}
           currentAirBnBGuest={currentAirBnBGuest}
           airBnBBookingCount={airBnBBookingCount}

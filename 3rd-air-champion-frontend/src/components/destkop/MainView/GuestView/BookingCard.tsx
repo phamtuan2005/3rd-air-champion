@@ -1,7 +1,5 @@
 import { getRoomColor } from "../../../../util/getRoomColor";
 import { bookingType } from "../../../../util/types/bookingType";
-import { FaMinus } from "react-icons/fa";
-import { CiCalendar } from "react-icons/ci";
 import { useContext } from "react";
 import { format as formatLocal } from "date-fns";
 import RebookCount from "./RebookCount";
@@ -10,7 +8,6 @@ import { getLoyaltyTier } from "../../../tibook/GuestLoyaltyBanner";
 
 interface BookingCardProps {
   booking: bookingType;
-  maxLabelLen: number;
   currentGuest: string | null;
   currentAirBnBGuest: string | null;
   airBnBBookingCount: { Alias: string; Room: string; DistinctStartDateCount: number }[];
@@ -26,9 +23,15 @@ interface BookingCardProps {
   onPricingEdit: (booking: bookingType) => void;
 }
 
+// Shared pill button styles for the action row
+const pillBase = "rounded-lg px-2.5 py-1.5 text-xs font-semibold";
+const pillDark = `${pillBase} bg-gray-900 text-white`;
+const pillDanger = `${pillBase} border border-red-200 bg-red-50 text-red-600`;
+const pillNeutral = `${pillBase} border border-gray-200 bg-white text-gray-700`;
+const pillBlue = `${pillBase} bg-blue-600 text-white`;
+
 const BookingCard = ({
   booking,
-  maxLabelLen,
   currentGuest,
   currentAirBnBGuest,
   airBnBBookingCount,
@@ -50,105 +53,112 @@ const BookingCard = ({
   };
 
   const isReserved = booking.reserved === true;
+  const isAirBnB = booking.guest.name === "AirBnB";
+  const guestLabel = booking.guest.alias || booking.alias || booking.guest.name;
 
   return (
     <div
-      className={`border-b border-solid w-full py-1 ${isReserved ? "bg-amber-50" : ""}`}
-      style={{ display: "grid", gridTemplateColumns: `min(${maxLabelLen}ch, 50vw) 1fr`, gap: "0 0.75rem" }}
+      className={`mb-2 rounded-xl border p-3 ${
+        isReserved ? "border-amber-300 bg-amber-50" : "border-gray-200 bg-white"
+      }`}
     >
-      {/* Row 1, Col 1: Color box (tappable) */}
+      {/* Header — tap to open booking details (disabled for soft holds) */}
       <button
         type="button"
         onClick={() => !isReserved && setSelectedBooking(booking)}
-        className={`${getRoomColor(booking.room.name, booking.room.color)} ${booking.guest.name === "AirBnB" ? "text-white" : "text-black"} px-2 py-1 rounded-md font-bold text-lg mb-1 text-left opacity-80`}
+        className="flex w-full items-center gap-2 text-left"
       >
-        {booking.numberOfGuests > 1 && `(${booking.numberOfGuests}) `}
-        {booking.guest.alias || booking.alias || booking.guest.name}{" "}
-        ({booking.room.name})
-        {isReserved && ", reserved"}
-        {booking.guest.name === "AirBnB"
-          ? booking.airbnbPrice ? `, $${booking.airbnbPrice.toFixed(2)}` : ""
+        <span
+          className={`${getRoomColor(booking.room.name, booking.room.color)} shrink-0 rounded-md px-2 py-0.5 text-xs font-bold ${
+            isAirBnB ? "text-white" : "text-black"
+          }`}
+        >
+          {booking.room.name}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-900">
+          {booking.numberOfGuests > 1 && `(${booking.numberOfGuests}) `}
+          {guestLabel}
+        </span>
+        {isReserved && (
+          <span className="shrink-0 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">
+            Reserved
+          </span>
+        )}
+        {isAirBnB
+          ? booking.airbnbPrice && (
+              <span className="shrink-0 text-sm font-bold text-gray-900">
+                ${booking.airbnbPrice.toFixed(2)}
+              </span>
+            )
           : (() => {
-              const guestRate = booking.guest.pricing?.find(p => p.room === booking.room.id)?.price ?? booking.price;
+              const guestRate =
+                booking.guest.pricing?.find((p) => p.room === booking.room.id)?.price ??
+                booking.price;
               return guestRate ? (
                 <span
-                  onClick={(e) => { e.stopPropagation(); onPricingEdit(booking); }}
-                  className="underline decoration-dotted"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onPricingEdit(booking);
+                  }}
+                  className="shrink-0 text-sm font-bold text-gray-900 underline decoration-dotted"
                 >
-                  {`, $${(guestRate * booking.duration).toFixed(2)}`}
+                  ${(guestRate * booking.duration).toFixed(2)}
                 </span>
-              ) : "";
+              ) : null;
             })()}
       </button>
 
-      {/* Row 1, Col 2: Quick change buttons */}
-      <div className="flex items-center gap-4 mb-1">
-        {booking.guest.name !== "AirBnB" && (
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedModifyBooking(booking);
-              if (typeof setIsMobileModalOpen !== "undefined")
-                setIsMobileModalOpen(false);
-            }}
-            className="flex justify-center w-[24px] h-[24px] items-center rounded-full shadow-md bg-green-500 hover:bg-green-600 text-white font-semibold"
-          >
-            <CiCalendar size={14} />
-          </button>
-        )}
-        {booking.guest.name !== "AirBnB" && (
-          <button
-            type="button"
-            onClick={() => setSelectedUnbooking(booking)}
-            className="flex justify-center w-[24px] h-[24px] items-center rounded-full shadow-md bg-red-500 hover:bg-red-600 text-white font-semibold"
-          >
-            <FaMinus size={14} />
-          </button>
+      {/* Stay dates */}
+      <p className="mt-1 text-xs text-gray-500">
+        {booking.duration === 1
+          ? formatLocal(parseLocalDate(booking.startDate), "MMM d")
+          : `${formatLocal(parseLocalDate(booking.startDate), "MMM d")} – ${formatLocal(parseLocalDate(booking.endDate), "MMM d")}`}
+        <span className="ml-1 text-gray-400">
+          · {booking.duration} {booking.duration > 1 ? "nights" : "night"}
+        </span>
+      </p>
+
+      {/* Return-guest history / loyalty */}
+      <div className="mt-1">
+        {isAirBnB ? (
+          <RebookCount booking={booking} airBnBBookingCount={airBnBBookingCount} />
+        ) : (
+          (() => {
+            const entry = guestBookingCount.find((g) => g.GuestId === booking.guest.id);
+            const count = entry?.DistinctStartDateCount ?? 0;
+            const since = entry?.FirstStayDate
+              ? formatLocal(parseLocalDate(entry.FirstStayDate), "MMM yyyy")
+              : null;
+            const loyaltyTier = getLoyaltyTier(count);
+            return (
+              <div className="flex flex-wrap items-center gap-1">
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-600">
+                  ↩ {count} {count === 1 ? "stay" : "stays"}
+                  {since ? ` since ${since}` : ""}
+                </span>
+                {loyaltyTier && (
+                  <span
+                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${loyaltyTier.color}`}
+                  >
+                    {loyaltyTier.label}
+                  </span>
+                )}
+              </div>
+            );
+          })()
         )}
       </div>
 
-      {/* Notes — spans both columns */}
+      {/* Notes */}
       {(booking.guest.notes || booking.notes) && (
-        <div className="text-gray-600 mb-1" style={{ gridColumn: "1 / -1" }}>
+        <p className="mt-1 text-xs italic text-gray-500">
           {booking.guest.notes || booking.notes}
-        </div>
+        </p>
       )}
 
-      {/* Row 2, Col 1: Date range + rebook count */}
-      <div className="flex flex-col mb-2">
-        <p className="text-sm text-gray-700">
-          {booking.duration === 1
-            ? formatLocal(parseLocalDate(booking.startDate), "MMM d")
-            : `${formatLocal(parseLocalDate(booking.startDate), "MMM d")} – ${formatLocal(parseLocalDate(booking.endDate), "MMM d")}`}
-          <span className="ml-2 text-xs text-gray-400 font-medium">
-            · {booking.duration} {booking.duration > 1 ? "nights" : "night"}
-          </span>
-        </p>
-        {booking.guest.name === "AirBnB" ? (
-          <RebookCount booking={booking} airBnBBookingCount={airBnBBookingCount} />
-        ) : (() => {
-          const entry = guestBookingCount.find(g => g.GuestId === booking.guest.id);
-          const count = entry?.DistinctStartDateCount ?? 0;
-          const since = entry?.FirstStayDate ? formatLocal(parseLocalDate(entry.FirstStayDate), "MMM yyyy") : null;
-          const loyaltyTier = getLoyaltyTier(count);
-          return (
-            <div className="flex flex-wrap items-center gap-1">
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-600 border border-amber-200">
-                ↩ {count} {count === 1 ? "stay" : "stays"}{since ? ` since ${since}` : ""}
-              </span>
-              {loyaltyTier && (
-                <span className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border ${loyaltyTier.color}`}>
-                  {loyaltyTier.label}
-                </span>
-              )}
-            </div>
-          );
-        })()}
-      </div>
-
-      {/* Row 2, Col 2: Action buttons */}
-      <div className="flex items-center gap-2 mb-2">
-        {booking.guest.name !== "AirBnB" ? (
+      {/* Action row */}
+      <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-gray-100 pt-2">
+        {!isAirBnB ? (
           <>
             <input
               type="checkbox"
@@ -162,31 +172,49 @@ const BookingCard = ({
                 }
               }}
               checked={currentGuest === booking.guest.id}
-              className="w-4 h-4"
+              className="mr-0.5 h-4 w-4 accent-black"
             />
+            <button
+              type="button"
+              className={pillDark}
+              onClick={() => {
+                setSelectedModifyBooking(booking);
+                if (typeof setIsMobileModalOpen !== "undefined") setIsMobileModalOpen(false);
+              }}
+            >
+              Modify
+            </button>
+            <button type="button" className={pillDanger} onClick={() => setSelectedUnbooking(booking)}>
+              Unbook
+            </button>
+            {booking.guest.phone && (
+              <button
+                type="button"
+                className={pillNeutral}
+                onClick={() => {
+                  window.location.href = `sms:${booking.guest.phone}`;
+                }}
+              >
+                Message
+              </button>
+            )}
             {currentGuest && (
               <>
                 <button
-                  className="rounded-full shadow-md bg-black text-white font-semibold h-[44px] w-[44px] text-[0.55rem]"
+                  type="button"
+                  className={pillDark}
                   onClick={() => handleBookingConfirmation(booking.guest.phone)}
                 >
-                  Confirm Booking
+                  Confirm
                 </button>
                 <button
-                  className="rounded-full shadow-md bg-blue-600 hover:bg-blue-700 text-white font-semibold h-[44px] w-[44px] text-[0.55rem]"
+                  type="button"
+                  className={pillBlue}
                   onClick={() => handleSendCalEvents(booking.guest.phone, booking.guest.email)}
                 >
                   Cal Events
                 </button>
               </>
-            )}
-            {booking.guest.phone && (
-              <button
-                className="rounded-full shadow-md bg-black text-white font-semibold h-[44px] w-[44px] text-[0.55rem]"
-                onClick={() => { window.location.href = `sms:${booking.guest.phone}`; }}
-              >
-                Message
-              </button>
             )}
           </>
         ) : (
@@ -204,11 +232,12 @@ const BookingCard = ({
                   }
                 }}
                 checked={currentAirBnBGuest === booking.alias}
-                className="w-4 h-4"
+                className="mr-0.5 h-4 w-4 accent-black"
               />
             )}
             <button
-              className="rounded-full shadow-md bg-black text-white font-semibold h-[44px] w-[44px] text-[0.55rem]"
+              type="button"
+              className={pillDark}
               onClick={() => {
                 const url = booking.description.match(
                   /https:\/\/www\.airbnb\.com\/hosting\/reservations\/details\/\S+/,
