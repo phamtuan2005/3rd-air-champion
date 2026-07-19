@@ -134,6 +134,9 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
   const [hoursDraft, setHoursDraft] = useState<Record<string, string>>({});
   const [payingId, setPayingId] = useState<string | null>(null);
   const [payDraft, setPayDraft] = useState("");
+  // Payout adds to paid, Undo subtracts — phone number pads have no minus key,
+  // so direction is a toggle and the typed amount is always positive.
+  const [payMode, setPayMode] = useState<"payout" | "undo">("payout");
   const [error, setError] = useState("");
 
   const todayKey = format(startOfToday(), "yyyy-MM-dd");
@@ -292,14 +295,15 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
 
   const handlePay = (entry: CleanerSummaryType) => {
     const amount = parseFloat(payDraft);
-    if (!amount || !isFinite(amount)) return;
+    if (!(amount > 0) || !isFinite(amount)) return;
+    const signed = payMode === "undo" ? -amount : amount;
     // Payouts change money records — never on a single mis-tap
     const label =
-      amount > 0
+      payMode === "payout"
         ? `Record $${amount} payout to ${entry.name}?`
-        : `Correct ${entry.name}'s paid total by -$${Math.abs(amount)}?`;
+        : `Undo $${amount} from ${entry.name}'s paid total?`;
     if (!window.confirm(label)) return;
-    recordCleanerPayment(entry.id, amount, token)
+    recordCleanerPayment(entry.id, signed, token)
       .then(() => {
         setPayingId(null);
         setError("");
@@ -615,6 +619,7 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                       // enter a negative correction for a mis-recorded payout
                       onClick={() => {
                         setPayingId(entry.id);
+                        setPayMode("payout");
                         setPayDraft(
                           entry.balance > 0.5 ? String(Math.round(entry.balance * 100) / 100) : "",
                         );
@@ -626,12 +631,38 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                 </div>
                 {payingId === entry.id && (
                   <div className="mt-2">
+                    <div className="mb-1.5 grid grid-cols-2 gap-1 rounded-lg bg-gray-100 p-0.5">
+                      {(
+                        [
+                          { key: "payout", label: "Payout" },
+                          { key: "undo", label: "Undo mistake" },
+                        ] as const
+                      ).map(({ key, label }) => (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setPayMode(key)}
+                          className={`rounded-md py-1 text-[11px] font-semibold ${
+                            payMode === key
+                              ? key === "undo"
+                                ? "bg-white text-red-600 shadow-sm"
+                                : "bg-white text-gray-900 shadow-sm"
+                              : "text-gray-500"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
                     <div className="flex items-center gap-1.5">
-                      <label className="text-xs text-gray-500">Record payout $</label>
+                      <label className="text-xs text-gray-500">
+                        {payMode === "payout" ? "Pay $" : "Undo $"}
+                      </label>
                       <input
                         className={`${inputCls} w-20`}
                         type="number"
                         step="0.01"
+                        min="0"
                         value={payDraft}
                         onChange={(e) => setPayDraft(e.target.value)}
                       />
@@ -647,7 +678,9 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                       </button>
                     </div>
                     <p className="mt-1 text-[10px] text-gray-400">
-                      Enter a negative amount to undo a mis-recorded payout
+                      {payMode === "payout"
+                        ? "Adds to this cleaner's paid total"
+                        : "Subtracts a mis-recorded payout from the paid total"}
                     </p>
                   </div>
                 )}
