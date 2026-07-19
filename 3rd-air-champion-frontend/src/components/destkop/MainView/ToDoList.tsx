@@ -92,6 +92,23 @@ const ToDoList = ({ monthMap, hostId, token, doorCode, airbnbName, airbnbAddress
   const assignmentFor = (morningKey: string, roomId: string) =>
     assignments.find((a) => a.date === morningKey && a.room?.id === roomId);
 
+  // Who cleans how many rooms this week — the host's workload overview
+  const weekTotals = (() => {
+    const totals = new Map<string, number>();
+    let unassignedCount = 0;
+    cleaningForecast.forEach((day) =>
+      day.entries.forEach((e) => {
+        const a = assignmentFor(day.morningKey, e.checkoutBooking.room.id);
+        if (a?.cleaner) totals.set(a.cleaner.name, (totals.get(a.cleaner.name) ?? 0) + 1);
+        else unassignedCount++;
+      }),
+    );
+    return {
+      assigned: [...totals.entries()].sort((x, y) => y[1] - x[1]),
+      unassignedCount,
+    };
+  })();
+
   const handleAssign = (cleaner: CleanerType) => {
     if (!assignTarget) return;
     assignCleaner(
@@ -423,9 +440,73 @@ const ToDoList = ({ monthMap, hostId, token, doorCode, airbnbName, airbnbAddress
               check-in · <span className="font-semibold text-red-500">dashed red</span> = gap night
               likely sells, extra clean before arrival · tap to assign a cleaner
             </p>
+
+            {/* Who cleans how many rooms this week */}
+            {(weekTotals.assigned.length > 0 || weekTotals.unassignedCount > 0) && (
+              <div className="mb-2 flex flex-wrap items-center justify-center gap-1.5">
+                {weekTotals.assigned.map(([name, count]) => (
+                  <span
+                    key={name}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-2 py-0.5 text-xs font-semibold text-gray-700"
+                  >
+                    {name}
+                    <span className="rounded-full bg-gray-900 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                      {count}
+                    </span>
+                  </span>
+                ))}
+                {weekTotals.unassignedCount > 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                    Unassigned
+                    <span className="rounded-full bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                      {weekTotals.unassignedCount}
+                    </span>
+                  </span>
+                )}
+              </div>
+            )}
+
             {cleaningForecast.map((day) => {
               const morning = new Date(day.morningKey + "T00:00:00");
               const expected = day.entries.reduce((sum, e) => sum + e.rebookOdds, 0);
+
+              // Group the day's rooms by assigned cleaner; unassigned last
+              const groups = new Map<string, typeof day.entries>();
+              const unassigned: typeof day.entries = [];
+              day.entries.forEach((entry) => {
+                const a = assignmentFor(day.morningKey, entry.checkoutBooking.room.id);
+                if (a?.cleaner)
+                  groups.set(a.cleaner.name, [...(groups.get(a.cleaner.name) ?? []), entry]);
+                else unassigned.push(entry);
+              });
+
+              const chip = (entry: (typeof day.entries)[number], i: number) => (
+                <button
+                  key={`${entry.checkoutBooking.room.id}-${i}`}
+                  type="button"
+                  onClick={() =>
+                    setAssignTarget({
+                      morningKey: day.morningKey,
+                      roomId: entry.checkoutBooking.room.id,
+                      roomName: entry.checkoutBooking.room.name,
+                      sameDay: entry.sameDayCheckIn != null,
+                    })
+                  }
+                  className={`${getRoomColor(entry.checkoutBooking.room.name, entry.checkoutBooking.room.color)} rounded px-1.5 py-0.5 text-[11px] font-semibold text-black ${
+                    entry.sameDayCheckIn
+                      ? entry.probable
+                        ? "outline-2 outline-dashed outline-red-500"
+                        : "ring-2 ring-red-500"
+                      : ""
+                  }`}
+                >
+                  {entry.checkoutBooking.room.name}
+                  {entry.rebookOdds < 0.995 && (
+                    <span className="ml-1 opacity-70">{Math.round(entry.rebookOdds * 100)}%</span>
+                  )}
+                </button>
+              );
+
               return (
                 <div
                   key={day.morningKey}
@@ -437,43 +518,22 @@ const ToDoList = ({ monthMap, hostId, token, doorCode, airbnbName, airbnbAddress
                     </span>
                     <span className="text-xs font-bold text-gray-900">{format(morning, "M/d")}</span>
                   </div>
-                  <div className="flex flex-1 flex-wrap gap-1">
-                    {day.entries.map((entry, i) => {
-                      const assigned = assignmentFor(day.morningKey, entry.checkoutBooking.room.id);
-                      return (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() =>
-                            setAssignTarget({
-                              morningKey: day.morningKey,
-                              roomId: entry.checkoutBooking.room.id,
-                              roomName: entry.checkoutBooking.room.name,
-                              sameDay: entry.sameDayCheckIn != null,
-                            })
-                          }
-                          className={`${getRoomColor(entry.checkoutBooking.room.name, entry.checkoutBooking.room.color)} rounded px-1.5 py-0.5 text-[11px] font-semibold text-black ${
-                            entry.sameDayCheckIn
-                              ? entry.probable
-                                ? "outline-2 outline-dashed outline-red-500"
-                                : "ring-2 ring-red-500"
-                              : ""
-                          }`}
-                        >
-                          {entry.checkoutBooking.room.name}
-                          {entry.rebookOdds < 0.995 && (
-                            <span className="ml-1 opacity-70">
-                              {Math.round(entry.rebookOdds * 100)}%
-                            </span>
-                          )}
-                          {assigned?.cleaner && (
-                            <span className="ml-1 font-bold">
-                              · {assigned.cleaner.name.split(" ")[0]}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
+                  <div className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1">
+                    {[...groups.entries()].map(([name, entries]) => (
+                      <span key={name} className="inline-flex flex-wrap items-center gap-1">
+                        <span className="text-[10px] font-bold text-gray-500">{name}</span>
+                        {entries.map(chip)}
+                      </span>
+                    ))}
+                    {unassigned.length > 0 && (
+                      <span className="inline-flex flex-wrap items-center gap-1">
+                        {/* Label the leftovers only when the day is partially assigned */}
+                        {groups.size > 0 && (
+                          <span className="text-[10px] font-bold text-amber-600">Unassigned</span>
+                        )}
+                        {unassigned.map(chip)}
+                      </span>
+                    )}
                   </div>
                   {/* Expected cleanings = Σ odds; falls back to the plain count when all confirmed */}
                   <span className="shrink-0 text-xs font-bold text-gray-700">
