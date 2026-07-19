@@ -87,7 +87,7 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
     h: Math.min(Math.round(window.innerHeight * 0.75), 640),
   }));
   const dragOffset = useRef<{ dx: number; dy: number } | null>(null);
-  const resizeStart = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
+  const resizeStart = useRef<{ pointerY: number; top: number; h: number } | null>(null);
 
   const onDragStart = (e: React.PointerEvent) => {
     dragOffset.current = { dx: e.clientX - pos.x, dy: e.clientY - pos.y };
@@ -104,22 +104,25 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
     dragOffset.current = null;
   };
 
-  const onResizeStart = (e: React.PointerEvent) => {
-    e.stopPropagation();
-    resizeStart.current = { x: e.clientX, y: e.clientY, w: size.w, h: size.h };
+  // Handle-bar resize, mirroring the ToDo sheet: drag the bar vertically to
+  // change height. The window's bottom edge stays anchored — the top edge
+  // follows the pointer (drag up = taller, drag down = shorter).
+  const onBarStart = (e: React.PointerEvent) => {
+    resizeStart.current = { pointerY: e.clientY, top: pos.y, h: size.h };
     e.currentTarget.setPointerCapture(e.pointerId);
   };
-  const onResizeMove = (e: React.PointerEvent) => {
+  const onBarMove = (e: React.PointerEvent) => {
     if (!resizeStart.current) return;
-    setSize({
-      w: Math.min(Math.max(300, resizeStart.current.w + e.clientX - resizeStart.current.x), 560),
-      h: Math.min(
-        Math.max(300, resizeStart.current.h + e.clientY - resizeStart.current.y),
-        window.innerHeight - 24,
-      ),
-    });
+    const start = resizeStart.current;
+    const bottom = start.top + start.h;
+    const newH = Math.min(
+      Math.max(280, start.h - (e.clientY - start.pointerY)),
+      Math.min(window.innerHeight - 24, bottom - 4),
+    );
+    setSize((s) => ({ ...s, h: newH }));
+    setPos((p) => ({ ...p, y: bottom - newH }));
   };
-  const onResizeEnd = () => {
+  const onBarEnd = () => {
     resizeStart.current = null;
   };
 
@@ -312,9 +315,18 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
       >
         {/* Bright brand bar */}
         <div className="h-1.5 shrink-0 bg-gradient-to-r from-emerald-400 via-blue-400 to-violet-400" />
-        {/* Header doubles as the drag handle */}
+        {/* Handle bar — drag vertically to resize, like the ToDo sheet */}
         <div
-          className="flex cursor-move touch-none items-center justify-between px-4 pb-1 pt-3"
+          className="flex shrink-0 cursor-row-resize touch-none select-none items-center justify-center pb-1 pt-2"
+          onPointerDown={onBarStart}
+          onPointerMove={onBarMove}
+          onPointerUp={onBarEnd}
+        >
+          <div className="h-1 w-10 rounded-full bg-gray-300" />
+        </div>
+        {/* Header doubles as the move handle */}
+        <div
+          className="flex cursor-move touch-none items-center justify-between px-4 pb-1 pt-0"
           onPointerDown={onDragStart}
           onPointerMove={onDragMove}
           onPointerUp={onDragEnd}
@@ -667,16 +679,6 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
           )}
           </>
           )}
-        </div>
-        {/* Resize grip */}
-        <div
-          className="absolute bottom-0 right-0 flex h-10 w-10 cursor-nwse-resize touch-none items-end justify-end rounded-tl-xl pb-1 pr-1.5 text-base leading-none text-gray-400"
-          onPointerDown={onResizeStart}
-          onPointerMove={onResizeMove}
-          onPointerUp={onResizeEnd}
-          aria-label="Resize"
-        >
-          ◢
         </div>
       </div>,
     document.body,
