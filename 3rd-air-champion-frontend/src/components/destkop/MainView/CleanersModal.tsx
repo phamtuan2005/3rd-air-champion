@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { addDays, format, startOfToday } from "date-fns";
 import { FaBroom, FaDollarSign, FaRegClock } from "react-icons/fa";
@@ -72,6 +72,9 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
   const [cleaners, setCleaners] = useState<CleanerType[]>([]);
   const [assignments, setAssignments] = useState<CleaningAssignmentType[]>([]);
   const [summary, setSummary] = useState<CleanerSummaryType[]>([]);
+  // Roster / Hours / Pay tabs — everything in one scroll was overcrowded
+  const [activeTab, setActiveTab] = useState<"roster" | "hours" | "pay">("roster");
+  const autoTabDone = useRef(false);
 
   const [newCleaner, setNewCleaner] = useState({ name: "", phone: "", payRate: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -105,6 +108,15 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
 
   // Past (or today's) cleanings whose hours haven't been recorded yet
   const needHours = assignments.filter((a) => a.date <= todayKey && a.hours == null && a.cleaner);
+
+  // Once data arrives, land on Hours if recordings are waiting — the most
+  // time-sensitive job in this modal. Never overrides a user-tapped tab.
+  useEffect(() => {
+    if (autoTabDone.current || assignments.length === 0) return;
+    autoTabDone.current = true;
+    if (needHours.length > 0) setActiveTab("hours");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assignments]);
 
   // Pay owed this month per cleaner = baseline (pre-tracking hours entered for
   // this month) + Σ recorded assignment hours, all × rate
@@ -263,9 +275,40 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
           </button>
         </div>
 
+        <div className="mx-4 mb-2 grid shrink-0 grid-cols-3 gap-1 rounded-xl bg-gray-100 p-1">
+          {(
+            [
+              { key: "roster", label: "Roster", count: cleaners.length },
+              { key: "hours", label: "Hours", count: needHours.length },
+              { key: "pay", label: "Pay", count: summary.filter((s) => s.balance > 0.5).length },
+            ] as const
+          ).map(({ key, label, count }) => (
+            <button
+              key={key}
+              onClick={() => setActiveTab(key)}
+              className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition-colors ${
+                activeTab === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+              }`}
+            >
+              {label}
+              {count > 0 && (
+                <span
+                  className={`min-w-[1.25rem] rounded-full px-1 py-0.5 text-center text-[10px] font-bold leading-none ${
+                    activeTab === key ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-600"
+                  }`}
+                >
+                  {count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
           {error && <p className="mb-2 text-xs font-semibold text-red-500">{error}</p>}
 
+          {activeTab === "roster" && (
+          <>
           {/* Add cleaner */}
           <div className="mb-3 flex items-center gap-1.5">
             <input
@@ -400,6 +443,11 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
             ),
           )}
 
+          </>
+          )}
+
+          {activeTab === "hours" && (
+          <>
           {/* Hours to record for finished cleanings */}
           <SectionHeader
             icon={<FaRegClock className="text-amber-500" />}
@@ -438,6 +486,11 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
             ))
           )}
 
+          </>
+          )}
+
+          {activeTab === "pay" && (
+          <>
           {/* All-time balance per cleaner — cleaners claim on their own schedule
               (right away / bi-weekly / at a threshold), so owed spans months */}
           <SectionHeader
@@ -532,6 +585,8 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                 </p>
               </div>
             ))
+          )}
+          </>
           )}
         </div>
       </div>
