@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { dayType } from "../../../util/types/dayType";
 import { addDays, startOfToday, format } from "date-fns";
 import { getRoomColor } from "../../../util/getRoomColor";
@@ -16,7 +16,6 @@ interface ToDoListProps {
 type TabKey = "reminders" | "cleaning" | "forecast";
 
 const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = "" }: ToDoListProps) => {
-  const [upcomingDays, setUpcomingDays] = useState<dayType[]>([]);
   // Reminders / Cleaning = today's actionable tasks; Forecast = planning info.
   const [activeTab, setActiveTab] = useState<TabKey>("reminders");
 
@@ -24,34 +23,20 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
     Record<string, { completed: boolean; date: string | null }>
   >(() => JSON.parse(localStorage.getItem("completedTasks") || "{}"));
 
-  useEffect(() => {
-    const dates = [1, 2].map((days) => {
-      const dateKey = addDays(startOfToday(), days).toISOString().split("T")[0];
-      return monthMap.get(dateKey);
-    });
-    setUpcomingDays(dates.filter((day) => day !== undefined) as dayType[]);
-  }, [monthMap]);
-
-  const upcomingDates = [1, 2].map(
-    (days) => addDays(startOfToday(), days).toISOString().split("T")[0],
-  );
-  const tomorrowKey = upcomingDates[0];
+  const tomorrowKey = addDays(startOfToday(), 1).toISOString().split("T")[0];
 
   // Guests checking in tomorrow who get a reminder SMS (AirBnB guests are
   // reminded through the platform instead).
-  const reminderBookings = useMemo(
-    () =>
-      upcomingDays.flatMap((day) =>
-        day.bookings.filter(
-          (booking) =>
-            booking.room != null &&
-            booking.guest.name !== "AirBnB" &&
-            booking.startDate === tomorrowKey &&
-            day.date.toString().split("T")[0] === tomorrowKey,
-        ),
-      ),
-    [upcomingDays, tomorrowKey],
-  );
+  const reminderBookings = useMemo(() => {
+    const day = monthMap.get(tomorrowKey);
+    if (!day || day.date.toString().split("T")[0] !== tomorrowKey) return [];
+    return day.bookings.filter(
+      (booking) =>
+        booking.room != null &&
+        booking.guest.name !== "AirBnB" &&
+        booking.startDate === tomorrowKey,
+    );
+  }, [monthMap, tomorrowKey]);
 
   // All rooms needing cleaning: today's checkouts + rooms vacated earlier that were
   // never marked cleaned (the old logic assumed an empty room was never occupied).
@@ -70,6 +55,18 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
   useEffect(() => {
     localStorage.setItem("completedTasks", JSON.stringify(completedTasks));
   }, [completedTasks]);
+
+  // Once data arrives, open on the first tab that has work (Reminders →
+  // Cleaning → Upcoming). Runs once; never overrides a tab the user tapped.
+  const autoTabDone = useRef(false);
+  useEffect(() => {
+    if (autoTabDone.current || monthMap.size === 0) return;
+    autoTabDone.current = true;
+    if (reminderBookings.length === 0) {
+      if (cleaningItems.length > 0) setActiveTab("cleaning");
+      else if (forecastTotal > 0) setActiveTab("forecast");
+    }
+  }, [monthMap, reminderBookings, cleaningItems, forecastTotal]);
 
   const toggleTaskCompletion = (taskId: string) => {
     const currentDate = format(startOfToday(), "MMM d, yyyy");
