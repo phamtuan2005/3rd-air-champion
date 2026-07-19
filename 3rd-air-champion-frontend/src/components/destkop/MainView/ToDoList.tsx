@@ -319,19 +319,19 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
               return (
                 <div
                   key={day.morningKey}
-                  className="mb-2 flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-3"
+                  className="mb-1 flex items-center gap-2.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1"
                 >
-                  <div className="w-11 shrink-0 text-center">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                  <div className="flex w-16 shrink-0 items-baseline gap-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
                       {format(morning, "EEE")}
-                    </p>
-                    <p className="text-sm font-bold text-gray-900">{format(morning, "M/d")}</p>
+                    </span>
+                    <span className="text-xs font-bold text-gray-900">{format(morning, "M/d")}</span>
                   </div>
-                  <div className="flex flex-1 flex-wrap gap-1.5">
+                  <div className="flex flex-1 flex-wrap gap-1">
                     {day.entries.map((entry, i) => (
                       <span
                         key={i}
-                        className={`${getRoomColor(entry.checkoutBooking.room.name, entry.checkoutBooking.room.color)} rounded-md px-2 py-1 text-xs font-semibold text-black ${
+                        className={`${getRoomColor(entry.checkoutBooking.room.name, entry.checkoutBooking.room.color)} rounded px-1.5 py-0.5 text-[11px] font-semibold text-black ${
                           entry.sameDayCheckIn ? "ring-2 ring-red-500" : ""
                         }`}
                       >
@@ -339,7 +339,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                       </span>
                     ))}
                   </div>
-                  <span className="shrink-0 text-sm font-bold text-gray-700">
+                  <span className="shrink-0 text-xs font-bold text-gray-700">
                     {day.entries.length}
                   </span>
                 </div>
