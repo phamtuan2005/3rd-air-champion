@@ -3,7 +3,7 @@ import { dayType } from "../../../util/types/dayType";
 import { addDays, startOfToday, format } from "date-fns";
 import { getRoomColor } from "../../../util/getRoomColor";
 import { DEFAULT_TEMPLATE, TEMPLATE_KEY, resolveTemplate } from "../../../util/reminderTemplate";
-import { cleaningTaskId, getCleaningCounts, getCleaningItems } from "../../../util/cleaningTasks";
+import { cleaningTaskId, getCleaningCounts, getCleaningForecast, getCleaningItems } from "../../../util/cleaningTasks";
 
 interface ToDoListProps {
   monthMap: Map<string, dayType>;
@@ -36,6 +36,11 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
   );
   const cleaningCounts = getCleaningCounts(cleaningItems);
 
+  // Next 7 mornings of expected cleanings — every checkout counts (at ~100%
+  // occupancy, empty nights after a checkout get rebooked last-minute), so the
+  // cleaner schedule can be planned before the bookings materialize.
+  const cleaningForecast = useMemo(() => getCleaningForecast(monthMap), [monthMap]);
+
   useEffect(() => {
     localStorage.setItem("completedTasks", JSON.stringify(completedTasks));
   }, [completedTasks]);
@@ -62,7 +67,8 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
     (days) => addDays(startOfToday(), days).toISOString().split("T")[0],
   );
 
-  const hasAnything = upcomingDays.length > 0 || cleaningItems.length > 0;
+  const hasAnything =
+    upcomingDays.length > 0 || cleaningItems.length > 0 || cleaningForecast.length > 0;
 
   return hasAnything ? (
     <div className="flex flex-col h-full px-2 overflow-y-scroll">
@@ -253,6 +259,40 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
               );
             });
           })()}
+        </>
+      )}
+
+      {cleaningForecast.length > 0 && (
+        <>
+          <h2 className="font-bold self-center text-md mt-4 mb-0.5">Cleaning Forecast</h2>
+          <p className="self-center text-xs text-gray-400 mb-1">
+            every checkout counts — empty nights get rebooked · red ring = same-day check-in booked
+          </p>
+          {cleaningForecast.map((day) => (
+            <div
+              key={day.morningKey}
+              className="w-full border-b border-solid flex items-center gap-2 py-1"
+            >
+              <span className="font-semibold text-sm w-16 shrink-0">
+                {format(new Date(day.morningKey + "T00:00:00"), "EEE M/d")}
+              </span>
+              <span className="font-bold text-sm w-4 shrink-0 text-center">
+                {day.entries.length}
+              </span>
+              <div className="flex flex-wrap gap-1">
+                {day.entries.map((entry, i) => (
+                  <span
+                    key={i}
+                    className={`${getRoomColor(entry.checkoutBooking.room.name, entry.checkoutBooking.room.color)} text-black text-xs font-semibold px-1.5 py-0.5 rounded-md ${
+                      entry.sameDayCheckIn ? "ring-2 ring-red-500" : ""
+                    }`}
+                  >
+                    {entry.checkoutBooking.room.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
         </>
       )}
     </div>

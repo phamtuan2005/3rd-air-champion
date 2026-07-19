@@ -115,6 +115,49 @@ export const getCleaningItems = (
   });
 };
 
+export interface ForecastEntry {
+  checkoutBooking: bookingType; // stay vacating that morning
+  sameDayCheckIn: bookingType | null; // confirmed turnover — hard deadline
+}
+
+export interface CleaningForecastDay {
+  morningKey: string; // yyyy-MM-dd of the cleaning morning
+  entries: ForecastEntry[];
+}
+
+// Cleaning workload for the next `horizon` mornings, starting tomorrow. Every
+// checkout counts as a cleaning that morning regardless of whether a next
+// check-in exists yet: at ~100% occupancy an empty night after a checkout is
+// almost surely rebooked last-minute, so scheduling cleaners only for confirmed
+// turnovers underestimates the workload.
+export const getCleaningForecast = (
+  monthMap: Map<string, dayType>,
+  horizon = 7,
+): CleaningForecastDay[] => {
+  const today = startOfToday();
+  const out: CleaningForecastDay[] = [];
+  for (let d = 1; d <= horizon; d++) {
+    const morningKey = dateKey(addDays(today, d));
+    const lastNightKey = dateKey(addDays(today, d - 1));
+    const lastNight = monthMap.get(lastNightKey);
+    if (!lastNight) continue;
+    const entries: ForecastEntry[] = [];
+    for (const b of lastNight.bookings) {
+      if (!b.room || b.reserved) continue;
+      if (b.endDate.split("T")[0] !== lastNightKey) continue; // last night of the stay
+      const sameDayCheckIn =
+        monthMap
+          .get(morningKey)
+          ?.bookings.find(
+            (n) => n.room?.id === b.room.id && n.startDate.split("T")[0] === morningKey,
+          ) ?? null;
+      entries.push({ checkoutBooking: b, sameDayCheckIn });
+    }
+    if (entries.length) out.push({ morningKey, entries });
+  }
+  return out;
+};
+
 // min = dirty rooms that must be cleaned before today's check-ins;
 // max = every room currently needing cleaning.
 export const getCleaningCounts = (items: CleaningItem[]) => {
