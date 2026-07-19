@@ -1,6 +1,6 @@
 import { getRoomColor } from "../../../../util/getRoomColor";
 import { bookingType } from "../../../../util/types/bookingType";
-import { useContext, useState } from "react";
+import { useContext, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   FaAirbnb,
@@ -34,9 +34,10 @@ interface BookingCardProps {
   onPricingEdit: (booking: bookingType) => void;
 }
 
-// Full-width action rows for the guest action modal
+// Full-width action rows for the guest action palette (compact — it floats
+// over the calendar and must not cover it)
 const rowBase =
-  "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold";
+  "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold";
 const rowPrimary = `${rowBase} bg-gray-900 text-white`;
 const rowNeutral = `${rowBase} border border-gray-200 bg-white text-gray-700`;
 const rowDanger = `${rowBase} border border-red-200 bg-red-50 text-red-600`;
@@ -58,9 +59,36 @@ const BookingCard = ({
   onPricingEdit,
 }: BookingCardProps) => {
   const { setIsFooterVisible } = useContext(FooterContext)!;
-  // All per-booking actions live in a centered modal focused on this guest —
-  // an inline row of small buttons on every card read as clutter.
+  // All per-booking actions live in a small draggable palette focused on this
+  // guest. It must not block the calendar: after toggling the filter the host
+  // taps calendar dates to mark which nights are paid.
   const [actionsOpen, setActionsOpen] = useState(false);
+  const PALETTE_WIDTH = 264;
+  const [palettePos, setPalettePos] = useState({ x: 16, y: 96 });
+  const dragOffset = useRef<{ dx: number; dy: number } | null>(null);
+
+  const openActions = () => {
+    setPalettePos({
+      x: Math.max(8, Math.round(window.innerWidth / 2 - PALETTE_WIDTH / 2)),
+      y: 96,
+    });
+    setActionsOpen(true);
+  };
+
+  const onDragStart = (e: React.PointerEvent) => {
+    dragOffset.current = { dx: e.clientX - palettePos.x, dy: e.clientY - palettePos.y };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onDragMove = (e: React.PointerEvent) => {
+    if (!dragOffset.current) return;
+    setPalettePos({
+      x: Math.min(Math.max(4, e.clientX - dragOffset.current.dx), window.innerWidth - PALETTE_WIDTH + 40),
+      y: Math.min(Math.max(4, e.clientY - dragOffset.current.dy), window.innerHeight - 80),
+    });
+  };
+  const onDragEnd = () => {
+    dragOffset.current = null;
+  };
 
   const parseLocalDate = (s: string) => {
     const [y, m, d] = s.substring(0, 10).split("-").map(Number);
@@ -172,7 +200,7 @@ const BookingCard = ({
           {/* Single entry point for all per-guest actions */}
           <button
             type="button"
-            onClick={() => setActionsOpen(true)}
+            onClick={openActions}
             aria-label="Guest actions"
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-lg font-bold leading-none text-gray-600"
           >
@@ -219,31 +247,34 @@ const BookingCard = ({
         )}
       </div>
 
-      {/* Guest action modal — everything about this guest in one place.
-          Portaled to <body> so transformed/scrolling panel ancestors can't clip it. */}
+      {/* Guest action palette — everything about this guest in one place.
+          No backdrop: the calendar stays tappable (paid-date marking) while it
+          floats. Draggable via its header, like the hold bar. Portaled to
+          <body> so transformed/scrolling panel ancestors can't clip it. */}
       {actionsOpen &&
         createPortal(
           <div
-            className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 p-4 sm:items-center"
-            onClick={() => setActionsOpen(false)}
+            className="fixed z-[100] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+            style={{ left: palettePos.x, top: palettePos.y, width: PALETTE_WIDTH }}
           >
-            <div
-              className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className={`h-2 ${roomColor}`} />
-              <div className="p-4">
-                <div className="flex items-start justify-between gap-2">
+            <div className={`h-1.5 ${roomColor}`} />
+            <div className="px-3 pb-2 pt-2">
+                <div
+                  className="flex cursor-move touch-none items-start justify-between gap-2"
+                  onPointerDown={onDragStart}
+                  onPointerMove={onDragMove}
+                  onPointerUp={onDragEnd}
+                >
                   <div className="min-w-0">
                     <p className="flex items-center gap-2">
-                      <span className="truncate text-lg font-bold text-gray-900">{guestLabel}</span>
+                      <span className="truncate text-sm font-bold text-gray-900">{guestLabel}</span>
                       {isAirBnB && (
                         <span className="shrink-0 rounded-full bg-[#FF5A5F] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
                           Airbnb
                         </span>
                       )}
                     </p>
-                    <p className="mt-0.5 text-xs text-gray-500">
+                    <p className="mt-0.5 text-[10px] text-gray-500">
                       {booking.room.name} · {dateRange} · {booking.duration}{" "}
                       {booking.duration > 1 ? "nights" : "night"}
                     </p>
@@ -252,13 +283,13 @@ const BookingCard = ({
                     type="button"
                     onClick={() => setActionsOpen(false)}
                     aria-label="Close"
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xl leading-none text-gray-400"
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-lg leading-none text-gray-400"
                   >
                     &times;
                   </button>
                 </div>
 
-                <div className="mt-4 flex flex-col gap-2">
+                <div className="mt-2 flex flex-col gap-1.5">
                   {/* Calendar filter — replaces the old per-card checkbox
                       (AirBnB stays are only filterable when they have an alias) */}
                   {(!isAirBnB || booking.alias !== "") && (
@@ -372,7 +403,6 @@ const BookingCard = ({
                     </button>
                   )}
                 </div>
-              </div>
             </div>
           </div>,
           document.body,
