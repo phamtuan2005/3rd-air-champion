@@ -116,11 +116,17 @@ export const getCleaningItems = (
 };
 
 export interface ForecastEntry {
-  checkoutBooking: bookingType; // stay vacating that morning
+  checkoutBooking: bookingType; // stay vacating that morning (or, for probable
+  // entries, the arriving stay — it carries the room identity)
   sameDayCheckIn: bookingType | null; // confirmed turnover — hard deadline
-  // Odds the vacated room is needed again right away: 1 when a same-day
-  // check-in is already booked, else the room's trailing occupancy.
+  // Odds the cleaning happens: 1 when the checkout is confirmed, else the
+  // room's trailing occupancy.
   rebookOdds: number;
+  // True when no booking exists yet but the cleaning is expected anyway: the
+  // night before a confirmed check-in is empty, and at high occupancy that
+  // night almost surely sells last-minute. The gap-filler must leave on the
+  // check-in morning, dirtying the room again right before the arrival.
+  probable?: boolean;
 }
 
 export const OCCUPANCY_WINDOW_DAYS = 60;
@@ -196,6 +202,33 @@ export const getCleaningForecast = (
         rebookOdds: sameDayCheckIn ? 1 : occupancyOdds.get(b.room.id) ?? 1,
       });
     }
+
+    // Probable gap-fill turnovers: a confirmed check-in this morning whose room
+    // sat empty the night before. That empty night sells last-minute at ~the
+    // room's occupancy odds, and the gap-filling guest must check out THIS
+    // morning (the arrival bounds the gap) — an extra cleaning the earlier
+    // checkout-morning clean does not cover.
+    const morningDay = monthMap.get(morningKey);
+    if (morningDay) {
+      for (const arriving of morningDay.bookings) {
+        if (!arriving.room || arriving.reserved) continue;
+        if (arriving.startDate.split("T")[0] !== morningKey) continue; // check-in today
+        // Already covered by a confirmed checkout entry for this room
+        if (entries.some((e) => e.checkoutBooking.room.id === arriving.room.id)) continue;
+        const gapNight = monthMap.get(lastNightKey);
+        const occupied = gapNight?.bookings.some((b) => b.room?.id === arriving.room.id);
+        const blocked =
+          gapNight?.isBlocked || gapNight?.blockedRooms?.some((r) => r.id === arriving.room.id);
+        if (occupied || blocked) continue;
+        entries.push({
+          checkoutBooking: arriving,
+          sameDayCheckIn: arriving,
+          rebookOdds: occupancyOdds.get(arriving.room.id) ?? 1,
+          probable: true,
+        });
+      }
+    }
+
     if (entries.length) out.push({ morningKey, entries });
   }
   return out;

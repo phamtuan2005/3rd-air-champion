@@ -419,9 +419,9 @@ const ToDoList = ({ monthMap, hostId, token, doorCode, airbnbName, airbnbAddress
         (cleaningForecast.length > 0 ? (
           <>
             <p className="mb-2 text-center text-xs text-gray-400">
-              % = rebooking odds ·{" "}
-              <span className="font-semibold text-red-500">red ring</span> = same-day check-in ·
-              tap a room to assign a cleaner
+              % = odds · <span className="font-semibold text-red-500">solid red</span> = same-day
+              check-in · <span className="font-semibold text-red-500">dashed red</span> = gap night
+              likely sells, extra clean before arrival · tap to assign a cleaner
             </p>
             {cleaningForecast.map((day) => {
               const morning = new Date(day.morningKey + "T00:00:00");
@@ -453,11 +453,15 @@ const ToDoList = ({ monthMap, hostId, token, doorCode, airbnbName, airbnbAddress
                             })
                           }
                           className={`${getRoomColor(entry.checkoutBooking.room.name, entry.checkoutBooking.room.color)} rounded px-1.5 py-0.5 text-[11px] font-semibold text-black ${
-                            entry.sameDayCheckIn ? "ring-2 ring-red-500" : ""
+                            entry.sameDayCheckIn
+                              ? entry.probable
+                                ? "outline-2 outline-dashed outline-red-500"
+                                : "ring-2 ring-red-500"
+                              : ""
                           }`}
                         >
                           {entry.checkoutBooking.room.name}
-                          {!entry.sameDayCheckIn && entry.rebookOdds < 0.995 && (
+                          {entry.rebookOdds < 0.995 && (
                             <span className="ml-1 opacity-70">
                               {Math.round(entry.rebookOdds * 100)}%
                             </span>
