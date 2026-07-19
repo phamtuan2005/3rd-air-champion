@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { dayType } from "../../../util/types/dayType";
-import { bookingType } from "../../../util/types/bookingType";
 import { addDays, startOfToday, format } from "date-fns";
 import { getRoomColor } from "../../../util/getRoomColor";
 import { DEFAULT_TEMPLATE, TEMPLATE_KEY, resolveTemplate } from "../../../util/reminderTemplate";
+import { cleaningTaskId, getCleaningCounts, getCleaningItems } from "../../../util/cleaningTasks";
 
 interface ToDoListProps {
   monthMap: Map<string, dayType>;
@@ -15,7 +15,6 @@ interface ToDoListProps {
 
 const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = "" }: ToDoListProps) => {
   const [upcomingDays, setUpcomingDays] = useState<dayType[]>([]);
-  const [checkoutBookings, setCheckoutBookings] = useState<bookingType[]>([]);
 
   const [completedTasks, setCompletedTasks] = useState<
     Record<string, { completed: boolean; date: string | null }>
@@ -27,17 +26,15 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
       return monthMap.get(dateKey);
     });
     setUpcomingDays(dates.filter((day) => day !== undefined) as dayType[]);
-
-    const yesterdayKey = addDays(startOfToday(), -1)
-      .toISOString()
-      .split("T")[0];
-    const yesterdayDay = monthMap.get(yesterdayKey);
-    setCheckoutBookings(
-      yesterdayDay?.bookings.filter(
-        (booking) => booking.endDate.split("T")[0] === yesterdayKey,
-      ) ?? [],
-    );
   }, [monthMap]);
+
+  // All rooms needing cleaning: today's checkouts + rooms vacated earlier that were
+  // never marked cleaned (the old logic assumed an empty room was never occupied).
+  const cleaningItems = useMemo(
+    () => getCleaningItems(monthMap, completedTasks),
+    [monthMap, completedTasks],
+  );
+  const cleaningCounts = getCleaningCounts(cleaningItems);
 
   useEffect(() => {
     localStorage.setItem("completedTasks", JSON.stringify(completedTasks));
@@ -61,14 +58,11 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
     roomId: string,
   ) => `${startDate}-${endDate}-${guestId}-${roomId}`;
 
-  const generateCleaningTaskId = (endDate: string, roomId: string) =>
-    `clean-${endDate}-${roomId}`;
-
   const upcomingDates = [1, 2].map(
     (days) => addDays(startOfToday(), days).toISOString().split("T")[0],
   );
 
-  const hasAnything = upcomingDays.length > 0 || checkoutBookings.length > 0;
+  const hasAnything = upcomingDays.length > 0 || cleaningItems.length > 0;
 
   return hasAnything ? (
     <div className="flex flex-col h-full px-2 overflow-y-scroll">
@@ -167,62 +161,30 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
         }),
       )}
 
-      {checkoutBookings.length > 0 && (
+      {cleaningItems.length > 0 && (
         <>
-          <h2 className="font-bold self-center text-md mt-4 mb-1">
-            {checkoutBookings.length} Rooms to Clean
+          <h2 className="font-bold self-center text-md mt-4 mb-0.5">
+            Rooms to Clean: {cleaningCounts.min === cleaningCounts.max
+              ? cleaningCounts.max
+              : `${cleaningCounts.min}–${cleaningCounts.max}`}
           </h2>
+          {cleaningCounts.min !== cleaningCounts.max && (
+            <p className="self-center text-xs text-gray-400 mb-1">
+              min {cleaningCounts.min} before today&apos;s check-ins · max {cleaningCounts.max} total
+            </p>
+          )}
           {(() => {
-            const items = checkoutBookings
-              .map((booking) => {
-                let nextCheckIn: bookingType | null = null;
-                let nextCheckInDate: string | null = null;
-                for (let i = 0; i <= 30; i++) {
-                  const dateKey = addDays(startOfToday(), i)
-                    .toISOString()
-                    .split("T")[0];
-                  const day = monthMap.get(dateKey);
-                  if (day) {
-                    const found = day.bookings.find(
-                      (b) =>
-                        b.startDate.split("T")[0] === dateKey &&
-                        b.room?.id === booking.room?.id,
-                    );
-                    if (found) {
-                      nextCheckIn = found;
-                      nextCheckInDate = dateKey;
-                      break;
-                    }
-                  }
-                }
-                return { booking, nextCheckIn, nextCheckInDate };
-              })
-              .sort((a, b) => {
-                const priorityOf = (item: typeof a) => {
-                  if (item.nextCheckIn?.earlyCheckin) return 0;
-                  if (item.booking.lateCheckout) return 2;
-                  return 1;
-                };
-                return priorityOf(a) - priorityOf(b);
-              });
-
             const maxLabelLen = Math.max(
-              ...items.map(({ booking: b, nextCheckIn: n }) => {
+              ...cleaningItems.map(({ booking: b, nextCheckIn: n }) => {
                 const label = `${b.room.name}${n ? `, ${n.numberOfGuests} ${n.numberOfGuests === 1 ? "person" : "persons"}` : ""}`;
                 return label.length;
               }),
             );
 
-            return items.map(({ booking, nextCheckIn, nextCheckInDate }, index) => {
-              const cleaningTaskId = generateCleaningTaskId(
-                booking.endDate,
-                booking.room?.id ?? "",
-              );
-              const task = completedTasks[cleaningTaskId] || {
-                completed: false,
-                date: null,
-              };
-              const isCompleted = task.completed;
+            return cleaningItems.map((item, index) => {
+              const { booking, nextCheckIn, nextCheckInDate } = item;
+              const taskId = cleaningTaskId(booking.endDate, booking.room?.id ?? "");
+              const isCompleted = item.isCompleted;
 
               return (
                 <div
@@ -240,23 +202,27 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                       type="checkbox"
                       className="mr-2 shrink-0"
                       checked={isCompleted}
-                      onChange={() => toggleTaskCompletion(cleaningTaskId)}
+                      onChange={() => toggleTaskCompletion(taskId)}
                     />
                     <div className="flex flex-col">
                       <div className={`${getRoomColor(booking.room.name, booking.room.color)} ${nextCheckIn?.guest.name === "AirBnB" ? "text-white" : "text-black"} p-1 rounded-md`} style={{ width: `${maxLabelLen}ch`, maxWidth: '50vw' }}>
                         {booking.room.name}
                         {nextCheckIn && `, ${nextCheckIn.numberOfGuests} ${nextCheckIn.numberOfGuests === 1 ? "person" : "persons"}`}
                       </div>
+                      {/* Scenario: turnover this morning vs sitting empty since an earlier checkout */}
+                      {item.vacatedToday ? (
+                        <p className="text-sm text-gray-600">Checked out this morning</p>
+                      ) : (
+                        <p className="text-sm font-semibold text-amber-600">
+                          Empty since {format(addDays(new Date(item.checkoutKey + "T00:00:00"), 1), "MM/dd")} — not cleaned yet
+                        </p>
+                      )}
                       {nextCheckIn && nextCheckInDate ? (
-                        <p className="text-sm text-gray-600">
+                        <p className={`text-sm ${item.mustCleanToday ? "font-semibold text-red-500" : "text-gray-600"}`}>
                           {nextCheckIn.guest.alias ||
                             nextCheckIn.alias ||
                             nextCheckIn.guest.name}{" "}
-                          checking in on{" "}
-                          {format(
-                            new Date(nextCheckInDate + "T00:00:00"),
-                            "MM/dd",
-                          )}
+                          checking in {item.mustCleanToday ? "TODAY" : `on ${format(new Date(nextCheckInDate + "T00:00:00"), "MM/dd")}`}
                         </p>
                       ) : (
                         <p className="text-sm text-gray-600">
@@ -279,7 +245,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                         </p>
                       )}
                       {isCompleted && (
-                        <p className="text-sm">Cleaned on {task.date}</p>
+                        <p className="text-sm">Cleaned on {item.completedDate}</p>
                       )}
                     </div>
                   </div>

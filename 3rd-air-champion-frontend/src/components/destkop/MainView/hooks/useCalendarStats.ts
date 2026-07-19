@@ -15,6 +15,7 @@ import { toZonedTime } from "date-fns-tz";
 import { dayType } from "../../../../util/types/dayType";
 import { roomType } from "../../../../util/types/roomType";
 import { bookingType } from "../../../../util/types/bookingType";
+import { getCleaningCounts, getCleaningItems, getCompletedTasks } from "../../../../util/cleaningTasks";
 
 interface UseCalendarStatsParams {
   monthMap: Map<string, dayType>;
@@ -159,11 +160,11 @@ export const useCalendarStats = ({
   }, [availableNightsCount, setAvailableNightsCount]);
 
   const todoCleanCount = useMemo(() => {
-    const yesterdayKey = addDays(startOfToday(), -1).toISOString().split("T")[0];
-    const yesterdayDay = monthMap.get(yesterdayKey);
-    return (
-      yesterdayDay?.bookings.filter((b) => b.endDate.split("T")[0] === yesterdayKey).length ?? 0
-    );
+    // Shared with ToDoList so the badge and the list can never disagree. Counts ALL
+    // rooms currently needing cleaning: today's checkouts + rooms vacated earlier
+    // that were never marked cleaned (the old yesterday-only count underestimated).
+    const items = getCleaningItems(monthMap, getCompletedTasks());
+    return getCleaningCounts(items).max;
   }, [monthMap]);
 
   useEffect(() => {
