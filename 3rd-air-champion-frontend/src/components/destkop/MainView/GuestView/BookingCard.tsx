@@ -63,7 +63,7 @@ const BookingCard = ({
   // guest. It must not block the calendar: after toggling the filter the host
   // taps calendar dates to mark which nights are paid.
   const [actionsOpen, setActionsOpen] = useState(false);
-  const PALETTE_WIDTH = 264;
+  const PALETTE_WIDTH = 212;
   const [palettePos, setPalettePos] = useState({ x: 16, y: 96 });
   const dragOffset = useRef<{ dx: number; dy: number } | null>(null);
 
@@ -303,7 +303,7 @@ const BookingCard = ({
                       }`}
                     >
                       <FaFilter size={14} className="shrink-0" />
-                      <span className="flex-1">Filter stays on calendar</span>
+                      <span className="flex-1">Filter on calendar</span>
                       <span className="text-xs font-bold">{isFiltered ? "ON" : "OFF"}</span>
                     </button>
                   )}
