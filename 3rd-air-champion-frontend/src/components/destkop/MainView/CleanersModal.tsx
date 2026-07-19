@@ -249,6 +249,7 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
       .then(() => {
         setCleaners((prev) => prev.filter((c) => c.id !== cleaner.id));
         setAssignments((prev) => prev.filter((a) => a.cleaner?.id !== cleaner.id));
+        setEditingId(null);
         setError("");
         reloadSummary();
       })
@@ -435,8 +436,35 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                     value={edit.baselineHours}
                     onChange={(e) => setEdit((p) => ({ ...p, baselineHours: e.target.value }))}
                   />
+                  <button
+                    type="button"
+                    className={pillNeutral}
+                    onClick={() => {
+                      setEditingId(null);
+                      setRemoveArmedId(null);
+                    }}
+                  >
+                    Cancel
+                  </button>
                   <button type="button" className={pillDark} onClick={() => handleSaveEdit(cleaner.id)}>
                     Save
+                  </button>
+                </div>
+                {/* Removal is rare and destructive — tucked away in Edit,
+                    subtle until armed */}
+                <div className="mt-2 border-t border-gray-100 pt-2">
+                  <button
+                    type="button"
+                    className={
+                      removeArmedId === cleaner.id
+                        ? "rounded-lg bg-red-600 px-2.5 py-1.5 text-xs font-bold text-white"
+                        : "text-xs font-semibold text-red-400"
+                    }
+                    onClick={() => handleDelete(cleaner)}
+                  >
+                    {removeArmedId === cleaner.id
+                      ? "Confirm remove — their assignments go too"
+                      : "Remove cleaner…"}
                   </button>
                 </div>
               </div>
@@ -488,17 +516,6 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                   }}
                 >
                   Edit
-                </button>
-                <button
-                  type="button"
-                  className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold ${
-                    removeArmedId === cleaner.id
-                      ? "bg-red-600 text-white"
-                      : "border border-red-200 bg-red-50 text-red-600"
-                  }`}
-                  onClick={() => handleDelete(cleaner)}
-                >
-                  {removeArmedId === cleaner.id ? "Confirm?" : "Remove"}
                 </button>
               </div>
             ),
