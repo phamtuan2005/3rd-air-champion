@@ -92,7 +92,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
   const tabs: { key: TabKey; label: string; count: number }[] = [
     { key: "reminders", label: "Reminders", count: reminderBookings.length },
     { key: "cleaning", label: "Cleaning", count: cleaningCounts.max },
-    { key: "forecast", label: "Forecast", count: forecastTotal },
+    { key: "forecast", label: "Upcoming", count: forecastTotal },
   ];
 
   const emptyState = (message: string) => (
