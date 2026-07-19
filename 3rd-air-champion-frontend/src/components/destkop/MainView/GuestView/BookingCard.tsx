@@ -63,15 +63,23 @@ const BookingCard = ({
   // guest. It must not block the calendar: after toggling the filter the host
   // taps calendar dates to mark which nights are paid.
   const [actionsOpen, setActionsOpen] = useState(false);
-  const PALETTE_WIDTH = 212;
+  const DEFAULT_PALETTE_WIDTH = 212;
   const [palettePos, setPalettePos] = useState({ x: 16, y: 96 });
+  // h === null → size to content; set once the user drags the resize grip
+  const [paletteSize, setPaletteSize] = useState<{ w: number; h: number | null }>({
+    w: DEFAULT_PALETTE_WIDTH,
+    h: null,
+  });
+  const paletteRef = useRef<HTMLDivElement | null>(null);
   const dragOffset = useRef<{ dx: number; dy: number } | null>(null);
+  const resizeStart = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
 
   const openActions = () => {
     setPalettePos({
-      x: Math.max(8, Math.round(window.innerWidth / 2 - PALETTE_WIDTH / 2)),
+      x: Math.max(8, Math.round(window.innerWidth / 2 - DEFAULT_PALETTE_WIDTH / 2)),
       y: 96,
     });
+    setPaletteSize({ w: DEFAULT_PALETTE_WIDTH, h: null });
     setActionsOpen(true);
   };
 
@@ -82,12 +90,33 @@ const BookingCard = ({
   const onDragMove = (e: React.PointerEvent) => {
     if (!dragOffset.current) return;
     setPalettePos({
-      x: Math.min(Math.max(4, e.clientX - dragOffset.current.dx), window.innerWidth - PALETTE_WIDTH + 40),
+      x: Math.min(Math.max(4, e.clientX - dragOffset.current.dx), window.innerWidth - paletteSize.w + 40),
       y: Math.min(Math.max(4, e.clientY - dragOffset.current.dy), window.innerHeight - 80),
     });
   };
   const onDragEnd = () => {
     dragOffset.current = null;
+  };
+
+  const onResizeStart = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    resizeStart.current = {
+      x: e.clientX,
+      y: e.clientY,
+      w: paletteSize.w,
+      h: paletteRef.current?.offsetHeight ?? 300,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onResizeMove = (e: React.PointerEvent) => {
+    if (!resizeStart.current) return;
+    setPaletteSize({
+      w: Math.min(Math.max(176, resizeStart.current.w + e.clientX - resizeStart.current.x), 400),
+      h: Math.min(Math.max(150, resizeStart.current.h + e.clientY - resizeStart.current.y), 640),
+    });
+  };
+  const onResizeEnd = () => {
+    resizeStart.current = null;
   };
 
   const parseLocalDate = (s: string) => {
@@ -254,11 +283,17 @@ const BookingCard = ({
       {actionsOpen &&
         createPortal(
           <div
-            className="fixed z-[100] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
-            style={{ left: palettePos.x, top: palettePos.y, width: PALETTE_WIDTH }}
+            ref={paletteRef}
+            className="fixed z-[100] flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+            style={{
+              left: palettePos.x,
+              top: palettePos.y,
+              width: paletteSize.w,
+              height: paletteSize.h ?? undefined,
+            }}
           >
-            <div className={`h-1.5 ${roomColor}`} />
-            <div className="px-3 pb-2 pt-2">
+            <div className={`h-1.5 shrink-0 ${roomColor}`} />
+            <div className="flex min-h-0 flex-1 flex-col px-3 pb-2 pt-2">
                 <div
                   className="flex cursor-move touch-none items-start justify-between gap-2"
                   onPointerDown={onDragStart}
@@ -289,7 +324,7 @@ const BookingCard = ({
                   </button>
                 </div>
 
-                <div className="mt-2 flex flex-col gap-1.5">
+                <div className="mt-2 flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto">
                   {/* Calendar filter — replaces the old per-card checkbox
                       (AirBnB stays are only filterable when they have an alias) */}
                   {(!isAirBnB || booking.alias !== "") && (
@@ -326,16 +361,20 @@ const BookingCard = ({
                       </button>
                       {booking.guest.phone && (
                         <>
-                          <button
-                            type="button"
-                            className={rowNeutral}
-                            onClick={() =>
-                              closeThen(() => handleBookingConfirmation(booking.guest.phone))
-                            }
-                          >
-                            <FaRegCheckCircle size={14} className="shrink-0" />
-                            Send Confirmation
-                          </button>
+                          {/* Confirmation text is built from the filtered guest's
+                              paid dates — only meaningful while the filter is ON */}
+                          {isFiltered && (
+                            <button
+                              type="button"
+                              className={rowNeutral}
+                              onClick={() =>
+                                closeThen(() => handleBookingConfirmation(booking.guest.phone))
+                              }
+                            >
+                              <FaRegCheckCircle size={14} className="shrink-0" />
+                              Send Confirmation
+                            </button>
+                          )}
                           <button
                             type="button"
                             className={rowNeutral}
@@ -403,6 +442,16 @@ const BookingCard = ({
                     </button>
                   )}
                 </div>
+            </div>
+            {/* Resize grip */}
+            <div
+              className="absolute bottom-0 right-0 flex h-5 w-5 cursor-nwse-resize touch-none items-end justify-end pb-0.5 pr-1 text-[10px] leading-none text-gray-300"
+              onPointerDown={onResizeStart}
+              onPointerMove={onResizeMove}
+              onPointerUp={onResizeEnd}
+              aria-label="Resize"
+            >
+              ◢
             </div>
           </div>,
           document.body,
