@@ -310,12 +310,13 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
         (cleaningForecast.length > 0 ? (
           <>
             <p className="mb-2 text-center text-xs text-gray-400">
-              Every checkout counts — empty nights get rebooked ·{" "}
+              % = rebooking odds from the room&apos;s last 60 days ·{" "}
               <span className="font-semibold text-red-500">red ring</span> = same-day check-in
               booked
             </p>
             {cleaningForecast.map((day) => {
               const morning = new Date(day.morningKey + "T00:00:00");
+              const expected = day.entries.reduce((sum, e) => sum + e.rebookOdds, 0);
               return (
                 <div
                   key={day.morningKey}
@@ -336,11 +337,19 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                         }`}
                       >
                         {entry.checkoutBooking.room.name}
+                        {!entry.sameDayCheckIn && entry.rebookOdds < 0.995 && (
+                          <span className="ml-1 opacity-70">
+                            {Math.round(entry.rebookOdds * 100)}%
+                          </span>
+                        )}
                       </span>
                     ))}
                   </div>
+                  {/* Expected cleanings = Σ odds; falls back to the plain count when all confirmed */}
                   <span className="shrink-0 text-xs font-bold text-gray-700">
-                    {day.entries.length}
+                    {Math.abs(expected - Math.round(expected)) < 0.05
+                      ? Math.round(expected)
+                      : `≈${expected.toFixed(1)}`}
                   </span>
                 </div>
               );

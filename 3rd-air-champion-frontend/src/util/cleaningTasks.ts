@@ -118,7 +118,44 @@ export const getCleaningItems = (
 export interface ForecastEntry {
   checkoutBooking: bookingType; // stay vacating that morning
   sameDayCheckIn: bookingType | null; // confirmed turnover — hard deadline
+  // Odds the vacated room is needed again right away: 1 when a same-day
+  // check-in is already booked, else the room's trailing occupancy.
+  rebookOdds: number;
 }
+
+export const OCCUPANCY_WINDOW_DAYS = 60;
+
+// Measured odds that a sellable night ends up occupied, per room, over the
+// trailing window — the data-driven estimate of last-minute demand. Blocked
+// nights are excluded from the denominator; a missing Day doc means the night
+// sat empty. Reserved (amber) stays count as occupied ([[project-reserved-not-vacancy]]).
+export const getRoomOccupancyOdds = (
+  monthMap: Map<string, dayType>,
+  windowDays = OCCUPANCY_WINDOW_DAYS,
+): Map<string, number> => {
+  const today = startOfToday();
+  const roomIds = new Set<string>();
+  for (let i = 1; i <= windowDays; i++) {
+    const day = monthMap.get(dateKey(addDays(today, -i)));
+    if (!day) continue;
+    day.bookings.forEach((b) => b.room && roomIds.add(b.room.id));
+    day.blockedRooms?.forEach((r) => roomIds.add(r.id));
+  }
+
+  const odds = new Map<string, number>();
+  roomIds.forEach((roomId) => {
+    let booked = 0;
+    let sellable = 0;
+    for (let i = 1; i <= windowDays; i++) {
+      const day = monthMap.get(dateKey(addDays(today, -i)));
+      if (day?.isBlocked || day?.blockedRooms?.some((r) => r.id === roomId)) continue;
+      sellable++;
+      if (day?.bookings.some((b) => b.room?.id === roomId)) booked++;
+    }
+    if (sellable > 0) odds.set(roomId, booked / sellable);
+  });
+  return odds;
+};
 
 export interface CleaningForecastDay {
   morningKey: string; // yyyy-MM-dd of the cleaning morning
@@ -126,15 +163,16 @@ export interface CleaningForecastDay {
 }
 
 // Cleaning workload for the next `horizon` mornings, starting tomorrow. Every
-// checkout counts as a cleaning that morning regardless of whether a next
-// check-in exists yet: at ~100% occupancy an empty night after a checkout is
-// almost surely rebooked last-minute, so scheduling cleaners only for confirmed
-// turnovers underestimates the workload.
+// checkout counts as a cleaning that morning even when no next check-in exists
+// yet — empty nights get rebooked last-minute — but instead of assuming 100%,
+// each unconfirmed entry carries the room's measured rebooking odds from its
+// trailing occupancy history.
 export const getCleaningForecast = (
   monthMap: Map<string, dayType>,
   horizon = 7,
 ): CleaningForecastDay[] => {
   const today = startOfToday();
+  const occupancyOdds = getRoomOccupancyOdds(monthMap);
   const out: CleaningForecastDay[] = [];
   for (let d = 1; d <= horizon; d++) {
     const morningKey = dateKey(addDays(today, d));
@@ -151,7 +189,12 @@ export const getCleaningForecast = (
           ?.bookings.find(
             (n) => n.room?.id === b.room.id && n.startDate.split("T")[0] === morningKey,
           ) ?? null;
-      entries.push({ checkoutBooking: b, sameDayCheckIn });
+      entries.push({
+        checkoutBooking: b,
+        sameDayCheckIn,
+        // No history for the room → assume booked (safe upper bound).
+        rebookOdds: sameDayCheckIn ? 1 : occupancyOdds.get(b.room.id) ?? 1,
+      });
     }
     if (entries.length) out.push({ morningKey, entries });
   }
