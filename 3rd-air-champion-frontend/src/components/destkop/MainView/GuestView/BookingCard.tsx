@@ -1,6 +1,7 @@
 import { getRoomColor } from "../../../../util/getRoomColor";
 import { bookingType } from "../../../../util/types/bookingType";
 import { useContext, useState } from "react";
+import { createPortal } from "react-dom";
 import { format as formatLocal } from "date-fns";
 import RebookCount from "./RebookCount";
 import { FooterContext } from "../../../../context";
@@ -23,12 +24,11 @@ interface BookingCardProps {
   onPricingEdit: (booking: bookingType) => void;
 }
 
-// Shared pill button styles for the action row
-const pillBase = "rounded-lg px-2.5 py-1.5 text-xs font-semibold";
-const pillDark = `${pillBase} bg-gray-900 text-white`;
-const pillDanger = `${pillBase} border border-red-200 bg-red-50 text-red-600`;
-const pillNeutral = `${pillBase} border border-gray-200 bg-white text-gray-700`;
-const pillBlue = `${pillBase} bg-blue-600 text-white`;
+// Full-width action rows for the guest action modal
+const rowBase = "w-full rounded-xl px-4 py-3 text-left text-sm font-semibold";
+const rowPrimary = `${rowBase} bg-gray-900 text-white`;
+const rowNeutral = `${rowBase} border border-gray-200 bg-white text-gray-700`;
+const rowDanger = `${rowBase} border border-red-200 bg-red-50 text-red-600`;
 
 const BookingCard = ({
   booking,
@@ -47,8 +47,8 @@ const BookingCard = ({
   onPricingEdit,
 }: BookingCardProps) => {
   const { setIsFooterVisible } = useContext(FooterContext)!;
-  // Actions are hidden until the ⋯ button is tapped — a wall of buttons on
-  // every card read as confusing clutter.
+  // All per-booking actions live in a centered modal focused on this guest —
+  // an inline row of small buttons on every card read as clutter.
   const [actionsOpen, setActionsOpen] = useState(false);
 
   const parseLocalDate = (s: string) => {
@@ -59,11 +59,44 @@ const BookingCard = ({
   const isReserved = booking.reserved === true;
   const isAirBnB = booking.guest.name === "AirBnB";
   const guestLabel = booking.guest.alias || booking.alias || booking.guest.name;
+  const roomColor = getRoomColor(booking.room.name, booking.room.color);
+
+  const guestRate = isAirBnB
+    ? null
+    : (booking.guest.pricing?.find((p) => p.room === booking.room.id)?.price ?? booking.price);
 
   const dateRange =
     booking.duration === 1
       ? formatLocal(parseLocalDate(booking.startDate), "MMM d")
       : `${formatLocal(parseLocalDate(booking.startDate), "MMM d")} – ${formatLocal(parseLocalDate(booking.endDate), "MMM d")}`;
+
+  // The calendar-highlight filter (previously a bare checkbox on each card)
+  const isFiltered = isAirBnB
+    ? currentAirBnBGuest === booking.alias
+    : currentGuest === booking.guest.id;
+
+  const toggleFilter = () => {
+    if (isAirBnB) {
+      if (currentAirBnBGuest === booking.alias) {
+        setCurrentAirBnBGuest(null);
+      } else {
+        setCurrentAirBnBGuest(booking.alias);
+        setIsFooterVisible(true);
+      }
+    } else {
+      if (currentGuest === booking.guest.id) {
+        setCurrentGuest(null);
+      } else {
+        setCurrentGuest(booking.guest.id);
+        setIsFooterVisible(true);
+      }
+    }
+  };
+
+  const closeThen = (action: () => void) => {
+    setActionsOpen(false);
+    action();
+  };
 
   return (
     <div
@@ -72,9 +105,7 @@ const BookingCard = ({
       }`}
     >
       {/* Room identity as a color accent, not a button-look chip */}
-      <div
-        className={`absolute inset-y-0 left-0 w-3 ${getRoomColor(booking.room.name, booking.room.color)}`}
-      />
+      <div className={`absolute inset-y-0 left-0 w-3 ${roomColor}`} />
 
       <div className="p-3 pl-5">
         <div className="flex items-start gap-2">
@@ -118,30 +149,21 @@ const BookingCard = ({
                   ${Math.round(booking.airbnbPrice).toLocaleString()}
                 </span>
               )
-            : (() => {
-                const guestRate =
-                  booking.guest.pricing?.find((p) => p.room === booking.room.id)?.price ??
-                  booking.price;
-                return guestRate ? (
-                  <span
-                    onClick={() => onPricingEdit(booking)}
-                    className="shrink-0 text-lg font-bold text-emerald-600 underline decoration-dotted"
-                  >
-                    ${Math.round(guestRate * booking.duration).toLocaleString()}
-                  </span>
-                ) : null;
-              })()}
+            : guestRate && (
+                <span
+                  onClick={() => onPricingEdit(booking)}
+                  className="shrink-0 text-lg font-bold text-emerald-600 underline decoration-dotted"
+                >
+                  ${Math.round(guestRate * booking.duration).toLocaleString()}
+                </span>
+              )}
 
-          {/* Single entry point for all per-booking actions */}
+          {/* Single entry point for all per-guest actions */}
           <button
             type="button"
-            onClick={() => setActionsOpen((open) => !open)}
-            aria-label="Booking actions"
-            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border text-sm font-bold leading-none ${
-              actionsOpen
-                ? "border-gray-900 bg-gray-900 text-white"
-                : "border-gray-200 bg-white text-gray-500"
-            }`}
+            onClick={() => setActionsOpen(true)}
+            aria-label="Guest actions"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-lg font-bold leading-none text-gray-600"
           >
             ⋯
           </button>
@@ -184,112 +206,158 @@ const BookingCard = ({
             {booking.guest.notes || booking.notes}
           </p>
         )}
+      </div>
 
-        {/* Action row — only when opened via ⋯ */}
-        {actionsOpen && (
-          <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-gray-100 pt-2">
-            {!isAirBnB ? (
-              <>
-                <input
-                  type="checkbox"
-                  value={booking.guest.id}
-                  onChange={(event) => {
-                    if (currentGuest == event.target.value) {
-                      setCurrentGuest(null);
-                    } else {
-                      setCurrentGuest(event.target.value);
-                      setIsFooterVisible(true);
-                    }
-                  }}
-                  checked={currentGuest === booking.guest.id}
-                  className="mr-0.5 h-4 w-4 accent-black"
-                />
-                <button
-                  type="button"
-                  className={pillDark}
-                  onClick={() => {
-                    setSelectedModifyBooking(booking);
-                    if (typeof setIsMobileModalOpen !== "undefined") setIsMobileModalOpen(false);
-                  }}
-                >
-                  Modify
-                </button>
-                <button
-                  type="button"
-                  className={pillDanger}
-                  onClick={() => setSelectedUnbooking(booking)}
-                >
-                  Unbook
-                </button>
-                {booking.guest.phone && (
+      {/* Guest action modal — everything about this guest in one place.
+          Portaled to <body> so transformed/scrolling panel ancestors can't clip it. */}
+      {actionsOpen &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 p-4 sm:items-center"
+            onClick={() => setActionsOpen(false)}
+          >
+            <div
+              className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className={`h-2 ${roomColor}`} />
+              <div className="p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="flex items-center gap-2">
+                      <span className="truncate text-lg font-bold text-gray-900">{guestLabel}</span>
+                      {isAirBnB && (
+                        <span className="shrink-0 rounded-full bg-[#FF5A5F] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                          Airbnb
+                        </span>
+                      )}
+                    </p>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      {booking.room.name} · {dateRange} · {booking.duration}{" "}
+                      {booking.duration > 1 ? "nights" : "night"}
+                    </p>
+                  </div>
                   <button
                     type="button"
-                    className={pillNeutral}
-                    onClick={() => {
-                      window.location.href = `sms:${booking.guest.phone}`;
-                    }}
+                    onClick={() => setActionsOpen(false)}
+                    aria-label="Close"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xl leading-none text-gray-400"
                   >
-                    Message
+                    &times;
                   </button>
-                )}
-                {currentGuest && (
-                  <>
+                </div>
+
+                <div className="mt-4 flex flex-col gap-2">
+                  {/* Calendar filter — replaces the old per-card checkbox
+                      (AirBnB stays are only filterable when they have an alias) */}
+                  {(!isAirBnB || booking.alias !== "") && (
                     <button
                       type="button"
-                      className={pillDark}
-                      onClick={() => handleBookingConfirmation(booking.guest.phone)}
+                      onClick={toggleFilter}
+                      className={`${rowBase} flex items-center justify-between border ${
+                        isFiltered
+                          ? "border-gray-900 bg-gray-900 text-white"
+                          : "border-gray-200 bg-white text-gray-700"
+                      }`}
                     >
-                      Confirm
+                      Filter stays on calendar
+                      <span className="text-xs font-bold">{isFiltered ? "ON" : "OFF"}</span>
                     </button>
+                  )}
+
+                  {!isAirBnB ? (
+                    <>
+                      <button
+                        type="button"
+                        className={rowPrimary}
+                        onClick={() =>
+                          closeThen(() => {
+                            setSelectedModifyBooking(booking);
+                            if (typeof setIsMobileModalOpen !== "undefined")
+                              setIsMobileModalOpen(false);
+                          })
+                        }
+                      >
+                        Modify Booking
+                      </button>
+                      {booking.guest.phone && (
+                        <>
+                          <button
+                            type="button"
+                            className={rowNeutral}
+                            onClick={() =>
+                              closeThen(() => handleBookingConfirmation(booking.guest.phone))
+                            }
+                          >
+                            Send Confirmation
+                          </button>
+                          <button
+                            type="button"
+                            className={rowNeutral}
+                            onClick={() =>
+                              closeThen(() =>
+                                handleSendCalEvents(booking.guest.phone, booking.guest.email),
+                              )
+                            }
+                          >
+                            Send Calendar Events
+                          </button>
+                          <button
+                            type="button"
+                            className={rowNeutral}
+                            onClick={() =>
+                              closeThen(() => {
+                                window.location.href = `sms:${booking.guest.phone}`;
+                              })
+                            }
+                          >
+                            Message Guest
+                          </button>
+                        </>
+                      )}
+                      {guestRate != null && guestRate > 0 && (
+                        <button
+                          type="button"
+                          className={rowNeutral}
+                          onClick={() => closeThen(() => onPricingEdit(booking))}
+                        >
+                          Edit Pricing
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className={rowDanger}
+                        onClick={() => closeThen(() => setSelectedUnbooking(booking))}
+                      >
+                        Unbook
+                      </button>
+                    </>
+                  ) : (
                     <button
                       type="button"
-                      className={pillBlue}
-                      onClick={() => handleSendCalEvents(booking.guest.phone, booking.guest.email)}
-                    >
-                      Cal Events
-                    </button>
-                  </>
-                )}
-              </>
-            ) : (
-              <>
-                {booking.alias !== "" && (
-                  <input
-                    type="checkbox"
-                    value={booking.alias}
-                    onChange={(event) => {
-                      if (currentAirBnBGuest == event.target.value) {
-                        setCurrentAirBnBGuest(null);
-                      } else {
-                        setCurrentAirBnBGuest(event.target.value);
-                        setIsFooterVisible(true);
+                      className={rowPrimary}
+                      onClick={() =>
+                        closeThen(() => {
+                          const url = booking.description.match(
+                            /https:\/\/www\.airbnb\.com\/hosting\/reservations\/details\/\S+/,
+                          )?.[0];
+                          if (url) {
+                            window.open(url, "_blank", "noopener,noreferrer");
+                          } else {
+                            alert("No valid URL found in the description.");
+                          }
+                        })
                       }
-                    }}
-                    checked={currentAirBnBGuest === booking.alias}
-                    className="mr-0.5 h-4 w-4 accent-black"
-                  />
-                )}
-                <button
-                  type="button"
-                  className={pillDark}
-                  onClick={() => {
-                    const url = booking.description.match(
-                      /https:\/\/www\.airbnb\.com\/hosting\/reservations\/details\/\S+/,
-                    )?.[0];
-                    if (url) {
-                      window.open(url, "_blank", "noopener,noreferrer");
-                    } else {
-                      alert("No valid URL found in the description.");
-                    }
-                  }}
-                >
-                  Booking Details
-                </button>
-              </>
-            )}
-          </div>
+                    >
+                      Open on Airbnb
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body,
         )}
-      </div>
     </div>
   );
 };
