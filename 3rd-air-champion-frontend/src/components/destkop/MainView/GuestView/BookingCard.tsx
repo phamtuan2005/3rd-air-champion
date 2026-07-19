@@ -85,7 +85,7 @@ const BookingCard = ({
             className="min-w-0 flex-1 text-left"
           >
             <p className="flex items-center gap-2">
-              <span className="truncate text-sm font-semibold text-gray-900">
+              <span className="truncate text-base font-bold text-gray-900">
                 {booking.numberOfGuests > 1 && `(${booking.numberOfGuests}) `}
                 {guestLabel}
               </span>
@@ -111,10 +111,11 @@ const BookingCard = ({
             </p>
           </button>
 
+          {/* Profit is the reward — big, green, whole dollars */}
           {isAirBnB
             ? booking.airbnbPrice && (
-                <span className="shrink-0 text-sm font-bold text-gray-900">
-                  ${booking.airbnbPrice.toFixed(2)}
+                <span className="shrink-0 text-lg font-bold text-emerald-600">
+                  ${Math.round(booking.airbnbPrice).toLocaleString()}
                 </span>
               )
             : (() => {
@@ -124,9 +125,9 @@ const BookingCard = ({
                 return guestRate ? (
                   <span
                     onClick={() => onPricingEdit(booking)}
-                    className="shrink-0 text-sm font-bold text-gray-900 underline decoration-dotted"
+                    className="shrink-0 text-lg font-bold text-emerald-600 underline decoration-dotted"
                   >
-                    ${(guestRate * booking.duration).toFixed(2)}
+                    ${Math.round(guestRate * booking.duration).toLocaleString()}
                   </span>
                 ) : null;
               })()}
