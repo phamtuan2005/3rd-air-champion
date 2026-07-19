@@ -18,6 +18,7 @@ import hostRoute from "./route/hostRoute";
 import syncRoute from "./route/syncRoute";
 import bookingRequestRoute from "./route/bookingRequestRoute";
 import wishListRoute from "./route/wishListRoute";
+import cleanerRoute from "./route/cleanerRoute";
 import { authenticateToken } from "./middleware/authenticateJWT";
 import cors from "cors";
 
@@ -103,6 +104,7 @@ const startServer = async () => {
     apiRouter.use("/room", roomRoute);
     apiRouter.use("/day", dayRoute);
     apiRouter.use("/airbnb", syncRoute);
+    apiRouter.use("/cleaner", cleanerRoute);
 
     app.use("/api", apiRouter);
 

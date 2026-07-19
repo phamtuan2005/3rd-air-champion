@@ -770,6 +770,8 @@ const MainView = ({
         ) : isTodoModalOpen ? (
           <ToDoList
             monthMap={monthMap}
+            hostId={hostId}
+            token={token as string}
             doorCode={doorCode}
             airbnbName={airbnbName}
             airbnbAddress={airbnbAddress}
@@ -903,6 +905,8 @@ const MainView = ({
       <MobilePanel isOpen={isTodoModalOpen} onClose={() => setIsTodoModalOpen(false)}>
         <ToDoList
           monthMap={monthMap}
+          hostId={hostId}
+          token={token as string}
           doorCode={doorCode}
           airbnbName={airbnbName}
           airbnbAddress={airbnbAddress}
