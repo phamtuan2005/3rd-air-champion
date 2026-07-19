@@ -73,10 +73,10 @@ const BookingCard = ({
     >
       {/* Room identity as a color accent, not a button-look chip */}
       <div
-        className={`absolute inset-y-0 left-0 w-1.5 ${getRoomColor(booking.room.name, booking.room.color)}`}
+        className={`absolute inset-y-0 left-0 w-3 ${getRoomColor(booking.room.name, booking.room.color)}`}
       />
 
-      <div className="p-3 pl-4">
+      <div className="p-3 pl-5">
         <div className="flex items-start gap-2">
           {/* Tap the info area to open booking details (disabled for soft holds) */}
           <button
