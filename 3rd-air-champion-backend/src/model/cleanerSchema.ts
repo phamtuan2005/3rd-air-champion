@@ -7,6 +7,11 @@ const cleanerSchema = new mongoose.Schema(
     phone: { type: String, default: "" },
     // Hourly rate in dollars — pay is computed from recorded hours, not per job
     payRate: { type: Number, default: 0 },
+    // Hours worked before assignment tracking started, counted toward the
+    // month in baselineMonth ("yyyy-MM") only — stale baselines don't leak
+    // into later months.
+    baselineHours: { type: Number, default: 0 },
+    baselineMonth: { type: String, default: "" },
   },
   { timestamps: true }
 );

@@ -10,6 +10,8 @@ const serializeCleaner = (c: any) => ({
   name: c.name,
   phone: c.phone,
   payRate: c.payRate,
+  baselineHours: c.baselineHours ?? 0,
+  baselineMonth: c.baselineMonth ?? "",
 });
 
 const serializeAssignment = (a: any) => ({
@@ -45,13 +47,15 @@ router.post("/create", async (req: Request, res: any) => {
 });
 
 router.patch("/update", async (req: Request, res: any) => {
-  const { id, name, phone, payRate } = req.body;
+  const { id, name, phone, payRate, baselineHours, baselineMonth } = req.body;
   if (!id) return res.status(400).json({ error: "id is required" });
   try {
     const update: Record<string, unknown> = {};
     if (name !== undefined) update.name = name;
     if (phone !== undefined) update.phone = phone;
     if (payRate !== undefined) update.payRate = payRate;
+    if (baselineHours !== undefined) update.baselineHours = baselineHours;
+    if (baselineMonth !== undefined) update.baselineMonth = baselineMonth;
     const cleaner = await Cleaner.findByIdAndUpdate(id, update, { new: true, runValidators: true });
     if (!cleaner) return res.status(404).json({ error: "Cleaner not found" });
     res.status(200).json(serializeCleaner(cleaner));

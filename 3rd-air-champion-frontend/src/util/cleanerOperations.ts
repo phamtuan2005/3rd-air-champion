@@ -7,6 +7,8 @@ export interface CleanerType {
   name: string;
   phone: string;
   payRate: number; // $/hour
+  baselineHours: number; // pre-tracking hours counted toward baselineMonth only
+  baselineMonth: string; // "yyyy-MM"
 }
 
 export interface CleaningAssignmentType {
@@ -36,7 +38,14 @@ export const createCleaner = async (
 };
 
 export const updateCleaner = async (
-  data: { id: string; name?: string; phone?: string; payRate?: number },
+  data: {
+    id: string;
+    name?: string;
+    phone?: string;
+    payRate?: number;
+    baselineHours?: number;
+    baselineMonth?: string;
+  },
   token: string,
 ): Promise<CleanerType> => {
   const response = await axios.patch(`${BACKEND_ENDPOINT}/cleaner/update`, data, auth(token));

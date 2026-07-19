@@ -40,7 +40,7 @@ const CleanersModal = ({
 }: CleanersModalProps) => {
   const [newCleaner, setNewCleaner] = useState({ name: "", phone: "", payRate: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [edit, setEdit] = useState({ name: "", phone: "", payRate: "" });
+  const [edit, setEdit] = useState({ name: "", phone: "", payRate: "", baselineHours: "" });
   const [hoursDraft, setHoursDraft] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
 
@@ -50,8 +50,18 @@ const CleanersModal = ({
   // Past (or today's) cleanings whose hours haven't been recorded yet
   const needHours = assignments.filter((a) => a.date <= todayKey && a.hours == null && a.cleaner);
 
-  // Pay owed this month per cleaner = Σ recorded hours × rate
+  // Pay owed this month per cleaner = baseline (pre-tracking hours entered for
+  // this month) + Σ recorded assignment hours, all × rate
   const monthlyPay = new Map<string, { name: string; hours: number; pay: number }>();
+  cleaners.forEach((c) => {
+    if (c.baselineMonth === monthKey && c.baselineHours > 0) {
+      monthlyPay.set(c.id, {
+        name: c.name,
+        hours: c.baselineHours,
+        pay: c.baselineHours * c.payRate,
+      });
+    }
+  });
   assignments
     .filter((a) => a.date.startsWith(monthKey) && a.hours != null && a.cleaner)
     .forEach((a) => {
@@ -87,6 +97,10 @@ const CleanersModal = ({
         name: edit.name.trim(),
         phone: edit.phone.trim(),
         payRate: parseFloat(edit.payRate) || 0,
+        // Baseline is anchored to the month it was entered — it counts toward
+        // this month's pay and expires on its own.
+        baselineHours: parseFloat(edit.baselineHours) || 0,
+        baselineMonth: monthKey,
       },
       token,
     )
@@ -177,27 +191,46 @@ const CleanersModal = ({
           )}
           {cleaners.map((cleaner) =>
             editingId === cleaner.id ? (
-              <div key={cleaner.id} className="mb-2 flex items-center gap-1.5 rounded-xl border border-gray-200 p-2">
-                <input
-                  className={`${inputCls} min-w-0 flex-1`}
-                  value={edit.name}
-                  onChange={(e) => setEdit((p) => ({ ...p, name: e.target.value }))}
-                />
-                <input
-                  className={`${inputCls} w-24`}
-                  type="tel"
-                  value={edit.phone}
-                  onChange={(e) => setEdit((p) => ({ ...p, phone: e.target.value }))}
-                />
-                <input
-                  className={`${inputCls} w-14`}
-                  type="number"
-                  value={edit.payRate}
-                  onChange={(e) => setEdit((p) => ({ ...p, payRate: e.target.value }))}
-                />
-                <button type="button" className={pillDark} onClick={() => handleSaveEdit(cleaner.id)}>
-                  Save
-                </button>
+              <div key={cleaner.id} className="mb-2 rounded-xl border border-gray-200 p-2">
+                <div className="mb-1.5 flex items-center gap-1.5">
+                  <input
+                    className={`${inputCls} min-w-0 flex-1`}
+                    placeholder="Name"
+                    value={edit.name}
+                    onChange={(e) => setEdit((p) => ({ ...p, name: e.target.value }))}
+                  />
+                  <input
+                    className={`${inputCls} w-24`}
+                    placeholder="Phone"
+                    type="tel"
+                    value={edit.phone}
+                    onChange={(e) => setEdit((p) => ({ ...p, phone: e.target.value }))}
+                  />
+                  <input
+                    className={`${inputCls} w-14`}
+                    placeholder="$/hr"
+                    type="number"
+                    value={edit.payRate}
+                    onChange={(e) => setEdit((p) => ({ ...p, payRate: e.target.value }))}
+                  />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <label className="flex-1 text-xs text-gray-500">
+                    Baseline hrs already worked this month
+                  </label>
+                  <input
+                    className={`${inputCls} w-16`}
+                    placeholder="hrs"
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    value={edit.baselineHours}
+                    onChange={(e) => setEdit((p) => ({ ...p, baselineHours: e.target.value }))}
+                  />
+                  <button type="button" className={pillDark} onClick={() => handleSaveEdit(cleaner.id)}>
+                    Save
+                  </button>
+                </div>
               </div>
             ) : (
               <div
@@ -232,6 +265,12 @@ const CleanersModal = ({
                       name: cleaner.name,
                       phone: cleaner.phone,
                       payRate: String(cleaner.payRate),
+                      // Only surface a baseline that belongs to this month —
+                      // an old month's baseline has already expired
+                      baselineHours:
+                        cleaner.baselineMonth === monthKey && cleaner.baselineHours > 0
+                          ? String(cleaner.baselineHours)
+                          : "",
                     });
                   }}
                 >
