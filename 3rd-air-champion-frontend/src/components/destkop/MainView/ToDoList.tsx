@@ -15,6 +15,9 @@ interface ToDoListProps {
 
 const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = "" }: ToDoListProps) => {
   const [upcomingDays, setUpcomingDays] = useState<dayType[]>([]);
+  // Today = actionable tasks; Forecast = planning info. Split into tabs so the
+  // forecast never crowds today's list.
+  const [activeTab, setActiveTab] = useState<"today" | "forecast">("today");
 
   const [completedTasks, setCompletedTasks] = useState<
     Record<string, { completed: boolean; date: string | null }>
@@ -40,6 +43,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
   // occupancy, empty nights after a checkout get rebooked last-minute), so the
   // cleaner schedule can be planned before the bookings materialize.
   const cleaningForecast = useMemo(() => getCleaningForecast(monthMap), [monthMap]);
+  const forecastTotal = cleaningForecast.reduce((sum, d) => sum + d.entries.length, 0);
 
   useEffect(() => {
     localStorage.setItem("completedTasks", JSON.stringify(completedTasks));
@@ -76,6 +80,22 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
         To Do for Today ({format(startOfToday(), "MMM d, yyyy")})
       </h1>
 
+      <div className="flex self-center gap-1 mt-1 mb-2 bg-gray-100 rounded-full p-0.5">
+        {(["today", "forecast"] as const).map((tab) => (
+          <button
+            key={tab}
+            className={`px-4 py-1 rounded-full text-sm font-semibold ${
+              activeTab === tab ? "bg-white shadow" : "text-gray-500"
+            }`}
+            onClick={() => setActiveTab(tab)}
+          >
+            {tab === "today" ? "Today" : `Forecast · ${forecastTotal}`}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "today" && (
+        <>
       {upcomingDays.flatMap((day, dayIndex) =>
         day.bookings.map((booking, index) => {
           if (!booking.room) return null;
@@ -262,9 +282,17 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
         </>
       )}
 
-      {cleaningForecast.length > 0 && (
+      {upcomingDays.length === 0 && cleaningItems.length === 0 && (
+        <div className="flex flex-1 items-center justify-center text-gray-400">
+          Nothing to do today
+        </div>
+      )}
+        </>
+      )}
+
+      {activeTab === "forecast" &&
+        (cleaningForecast.length > 0 ? (
         <>
-          <h2 className="font-bold self-center text-md mt-4 mb-0.5">Cleaning Forecast</h2>
           <p className="self-center text-xs text-gray-400 mb-1">
             every checkout counts — empty nights get rebooked · red ring = same-day check-in booked
           </p>
@@ -294,7 +322,11 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
             </div>
           ))}
         </>
-      )}
+      ) : (
+        <div className="flex flex-1 items-center justify-center text-gray-400">
+          No checkouts in the next 7 days
+        </div>
+      ))}
     </div>
   ) : (
     <div className="flex items-center justify-center h-full w-full">
