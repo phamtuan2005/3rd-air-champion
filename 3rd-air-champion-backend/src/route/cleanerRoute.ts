@@ -106,19 +106,18 @@ router.get("/summary", async (req: Request, res: any) => {
   }
 });
 
-// Record a payout — increments the cleaner's running paid total
+// Record a payout — adjusts the cleaner's running paid total. Negative
+// amounts correct a mis-recorded payout; the total never drops below zero.
 router.post("/pay", async (req: Request, res: any) => {
   const { id, amount } = req.body;
-  if (!id || typeof amount !== "number" || !isFinite(amount))
-    return res.status(400).json({ error: "id and numeric amount are required" });
+  if (!id || typeof amount !== "number" || !isFinite(amount) || amount === 0)
+    return res.status(400).json({ error: "id and a non-zero numeric amount are required" });
   try {
-    const cleaner = await Cleaner.findByIdAndUpdate(
-      id,
-      { $inc: { paidAmount: amount } },
-      { new: true }
-    );
+    const cleaner: any = await Cleaner.findById(id);
     if (!cleaner) return res.status(404).json({ error: "Cleaner not found" });
-    res.status(200).json({ id: cleaner._id, paid: (cleaner as any).paidAmount });
+    cleaner.paidAmount = Math.max(0, (cleaner.paidAmount ?? 0) + amount);
+    await cleaner.save();
+    res.status(200).json({ id: cleaner._id, paid: cleaner.paidAmount });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

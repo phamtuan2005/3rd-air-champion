@@ -289,7 +289,13 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
 
   const handlePay = (entry: CleanerSummaryType) => {
     const amount = parseFloat(payDraft);
-    if (!(amount > 0)) return;
+    if (!amount || !isFinite(amount)) return;
+    // Payouts change money records — never on a single mis-tap
+    const label =
+      amount > 0
+        ? `Record $${amount} payout to ${entry.name}?`
+        : `Correct ${entry.name}'s paid total by -$${Math.abs(amount)}?`;
+    if (!window.confirm(label)) return;
     recordCleanerPayment(entry.id, amount, token)
       .then(() => {
         setPayingId(null);
@@ -332,7 +338,7 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
             [
               { key: "pay", label: "Pay", count: summary.filter((s) => s.balance > 0.5).length },
               { key: "hours", label: "Hours", count: needHours.length },
-              { key: "roster", label: "Roster", count: cleaners.length },
+              { key: "roster", label: "Team", count: cleaners.length },
             ] as const
           ).map(({ key, label, count }) => (
             <button
@@ -604,26 +610,30 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                   )}
                 </div>
                 {payingId === entry.id && (
-                  <div className="mt-2 flex items-center gap-1.5">
-                    <label className="text-xs text-gray-500">Record payout $</label>
-                    <input
-                      className={`${inputCls} w-20`}
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={payDraft}
-                      onChange={(e) => setPayDraft(e.target.value)}
-                    />
-                    <button type="button" className={pillEmerald} onClick={() => handlePay(entry)}>
-                      Save
-                    </button>
-                    <button
-                      type="button"
-                      className={pillNeutral}
-                      onClick={() => setPayingId(null)}
-                    >
-                      Cancel
-                    </button>
+                  <div className="mt-2">
+                    <div className="flex items-center gap-1.5">
+                      <label className="text-xs text-gray-500">Record payout $</label>
+                      <input
+                        className={`${inputCls} w-20`}
+                        type="number"
+                        step="0.01"
+                        value={payDraft}
+                        onChange={(e) => setPayDraft(e.target.value)}
+                      />
+                      <button type="button" className={pillEmerald} onClick={() => handlePay(entry)}>
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        className={pillNeutral}
+                        onClick={() => setPayingId(null)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    <p className="mt-1 text-[10px] text-gray-400">
+                      Enter a negative amount to undo a mis-recorded payout
+                    </p>
                   </div>
                 )}
               </div>
