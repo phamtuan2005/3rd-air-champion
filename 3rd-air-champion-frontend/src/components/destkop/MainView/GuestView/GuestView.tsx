@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { addDays, format } from "date-fns";
+import { addDays } from "date-fns";
 import { bookingType } from "../../../../util/types/bookingType";
 import { dayType } from "../../../../util/types/dayType";
 import { guestType } from "../../../../util/types/guestType";
@@ -110,11 +110,7 @@ const GuestView = ({
         }}
       />
       <div className="px-2">
-      <h2 className="mb-2 mt-2 text-center text-sm font-bold text-gray-900">
-        {format(selectedDate, "EEEE, MMM d")}
-      </h2>
-
-      <div className="mb-3 grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1">
+      <div className="mb-3 mt-2 grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1">
         {tabs.map(({ key, label, count }) => (
           <button
             key={key}
