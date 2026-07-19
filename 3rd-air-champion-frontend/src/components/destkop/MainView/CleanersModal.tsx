@@ -611,10 +611,13 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                     <button
                       type="button"
                       className={pillEmerald}
-                      disabled={entry.balance <= 0}
+                      // Never disabled: at $0 owed the input is still needed to
+                      // enter a negative correction for a mis-recorded payout
                       onClick={() => {
                         setPayingId(entry.id);
-                        setPayDraft(String(Math.round(entry.balance * 100) / 100));
+                        setPayDraft(
+                          entry.balance > 0.5 ? String(Math.round(entry.balance * 100) / 100) : "",
+                        );
                       }}
                     >
                       Pay
