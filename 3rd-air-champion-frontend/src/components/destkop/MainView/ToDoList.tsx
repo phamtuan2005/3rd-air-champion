@@ -103,19 +103,47 @@ const ToDoList = ({ monthMap, hostId, token, doorCode, airbnbName, airbnbAddress
           ...prev.filter((a) => !(a.date === created.date && a.room?.id === created.room?.id)),
           created,
         ]);
-        // Text the cleaner the confirmation
-        if (cleaner.phone) {
-          const dateLabel = format(new Date(assignTarget.morningKey + "T00:00:00"), "EEEE, MMM d");
-          const message = `Hi ${cleaner.name}, you're scheduled to clean ${assignTarget.roomName} on ${dateLabel}.${
-            assignTarget.sameDay
-              ? " The next guest checks in that same day, so please have it ready by 3 PM."
-              : ""
-          } Thank you! — Anh-Tuan`;
-          window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(message)}`;
-        }
+        // No SMS here — cleaners handle 2-3 rooms, so assignments are batched
+        // and the whole week goes out as ONE text per cleaner (Manage Cleaners → Text).
         setAssignTarget(null);
       })
       .catch((err) => console.error("Error assigning cleaner:", err));
+  };
+
+  // Guests arriving after a cleaning — the cleaner needs the headcount to set
+  // up beds and towels. First check-in for the room on/after the morning.
+  const nextGuestCount = (roomId: string, morningKey: string): number | null => {
+    for (let i = 0; i <= 30; i++) {
+      const key = format(addDays(new Date(morningKey + "T00:00:00"), i), "yyyy-MM-dd");
+      const found = monthMap
+        .get(key)
+        ?.bookings.find((b) => b.room?.id === roomId && b.startDate.split("T")[0] === key);
+      if (found) return found.numberOfGuests || 1;
+    }
+    return null;
+  };
+
+  // One SMS per cleaner with their whole week: "* Monday 7/21: Cozy (1), Chill (2)"
+  const textSchedule = (cleaner: CleanerType) => {
+    if (!cleaner.phone) return;
+    const todayKey = format(startOfToday(), "yyyy-MM-dd");
+    const mine = assignments
+      .filter((a) => a.cleaner?.id === cleaner.id && a.date >= todayKey && a.room)
+      .sort((a, b) => a.date.localeCompare(b.date));
+    if (mine.length === 0) return;
+
+    const byDay = new Map<string, string[]>();
+    mine.forEach((a) => {
+      const count = nextGuestCount(a.room!.id, a.date);
+      const label = `${a.room!.name}${count ? ` (${count})` : ""}`;
+      byDay.set(a.date, [...(byDay.get(a.date) ?? []), label]);
+    });
+    const lines = [...byDay.entries()].map(
+      ([date, rooms]) =>
+        `* ${format(new Date(date + "T00:00:00"), "EEEE M/d")}: ${rooms.join(", ")}`,
+    );
+    const message = `Hi ${cleaner.name}, your cleaning schedule:\n${lines.join("\n")}\n(numbers = guests arriving)\nThank you! — Anh-Tuan`;
+    window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(message)}`;
   };
 
   const handleUnassign = () => {
@@ -547,6 +575,7 @@ const ToDoList = ({ monthMap, hostId, token, doorCode, airbnbName, airbnbAddress
           setCleaners={setCleaners}
           assignments={assignments}
           setAssignments={setAssignments}
+          onTextSchedule={textSchedule}
           onClose={() => setCleanersOpen(false)}
         />
       )}

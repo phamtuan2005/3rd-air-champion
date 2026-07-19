@@ -17,6 +17,8 @@ interface CleanersModalProps {
   setCleaners: React.Dispatch<React.SetStateAction<CleanerType[]>>;
   assignments: CleaningAssignmentType[];
   setAssignments: React.Dispatch<React.SetStateAction<CleaningAssignmentType[]>>;
+  // Sends the cleaner their whole week's schedule as one SMS
+  onTextSchedule: (cleaner: CleanerType) => void;
   onClose: () => void;
 }
 
@@ -33,6 +35,7 @@ const CleanersModal = ({
   setCleaners,
   assignments,
   setAssignments,
+  onTextSchedule,
   onClose,
 }: CleanersModalProps) => {
   const [newCleaner, setNewCleaner] = useState({ name: "", phone: "", payRate: "" });
@@ -208,6 +211,18 @@ const CleanersModal = ({
                 <span className="shrink-0 text-sm font-bold text-emerald-600">
                   ${cleaner.payRate}/hr
                 </span>
+                {cleaner.phone && (
+                  <button
+                    type="button"
+                    className="rounded-lg bg-blue-600 px-2.5 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+                    disabled={
+                      !assignments.some((a) => a.cleaner?.id === cleaner.id && a.date >= todayKey)
+                    }
+                    onClick={() => onTextSchedule(cleaner)}
+                  >
+                    Text
+                  </button>
+                )}
                 <button
                   type="button"
                   className={pillNeutral}
