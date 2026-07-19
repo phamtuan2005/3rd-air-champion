@@ -248,13 +248,18 @@ const CleanersModal = ({
             ),
           )}
 
-          {/* Hours to record for finished cleanings */}
-          {needHours.length > 0 && (
+          {/* Hours to record for finished cleanings — header always visible so
+              the flow is discoverable before the first cleaning day arrives */}
+          <h3 className="mb-1 mt-4 text-sm font-bold text-gray-900">Record hours</h3>
+          <p className="mb-2 text-xs text-gray-400">
+            Finished cleanings waiting for worked hours — pay is hours × rate
+          </p>
+          {needHours.length === 0 ? (
+            <p className="mb-2 rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-center text-xs text-gray-400">
+              Nothing to record yet — cleanings appear here once their day arrives
+            </p>
+          ) : (
             <>
-              <h3 className="mb-1 mt-4 text-sm font-bold text-gray-900">Record hours</h3>
-              <p className="mb-2 text-xs text-gray-400">
-                Finished cleanings waiting for worked hours — pay is hours × rate
-              </p>
               {needHours.map((a) => (
                 <div
                   key={a.id}
@@ -284,11 +289,15 @@ const CleanersModal = ({
           )}
 
           {/* Pay owed this month per cleaner */}
-          {monthlyPay.size > 0 && (
+          <h3 className="mb-1 mt-4 text-sm font-bold text-gray-900">
+            Pay — {format(startOfToday(), "MMMM")}
+          </h3>
+          {monthlyPay.size === 0 ? (
+            <p className="rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-center text-xs text-gray-400">
+              No hours recorded this month yet
+            </p>
+          ) : (
             <>
-              <h3 className="mb-1 mt-4 text-sm font-bold text-gray-900">
-                Pay — {format(startOfToday(), "MMMM")}
-              </h3>
               {[...monthlyPay.values()].map((entry) => (
                 <div
                   key={entry.name}
