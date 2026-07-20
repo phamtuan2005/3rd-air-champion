@@ -177,10 +177,12 @@ router.post("/unassign", async (req: Request, res: any) => {
   }
 });
 
-// Record hours worked after the cleaning is done
+// Record hours worked after the cleaning is done. hours === null clears the
+// entry back to unrecorded (the amber "Record hours" pending card) — that's
+// how a 0-hour day is expressed: the cleaner didn't work, nothing to pay.
 router.patch("/hours", async (req: Request, res: any) => {
   const { id, hours } = req.body;
-  if (!id || hours == null) return res.status(400).json({ error: "id and hours are required" });
+  if (!id || hours === undefined) return res.status(400).json({ error: "id and hours are required" });
   try {
     const assignment = await CleaningAssignment.findByIdAndUpdate(
       id,

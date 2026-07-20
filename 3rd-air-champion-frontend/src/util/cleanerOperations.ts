@@ -114,7 +114,7 @@ export const unassignCleaner = async (
 
 export const updateAssignmentHours = async (
   id: string,
-  hours: number,
+  hours: number | null, // null clears the recording back to unrecorded/pending
   token: string,
 ): Promise<CleaningAssignmentType> => {
   const response = await axios.patch(`${BACKEND_ENDPOINT}/cleaner/hours`, { id, hours }, auth(token));

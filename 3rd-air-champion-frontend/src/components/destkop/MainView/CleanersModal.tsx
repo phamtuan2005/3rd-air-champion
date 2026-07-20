@@ -346,12 +346,22 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
   }) => {
     const hours = parseFloat(hoursDraft[group.key]);
     if (!(hours >= 0)) return;
+    // 0 = the cleaner didn't work that day: clear every room back to null so
+    // the day returns to the amber pending card, rather than storing "0 hr".
+    const clearing = hours === 0;
     Promise.all(
-      group.assignments.map((a, i) => updateAssignmentHours(a.id, i === 0 ? hours : 0, token)),
+      group.assignments.map((a, i) =>
+        updateAssignmentHours(a.id, clearing ? null : i === 0 ? hours : 0, token),
+      ),
     )
       .then((updatedList) => {
         setAssignments((prev) => prev.map((a) => updatedList.find((u) => u.id === a.id) ?? a));
         setEditingDayKey(null);
+        setHoursDraft((p) => {
+          const next = { ...p };
+          delete next[group.key];
+          return next;
+        });
         setError("");
         reloadSummary();
       })
