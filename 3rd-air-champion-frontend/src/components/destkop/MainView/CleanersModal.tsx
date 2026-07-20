@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { addDays, format, startOfToday } from "date-fns";
+import { addDays, format, startOfToday, startOfWeek } from "date-fns";
 import { FaBroom, FaDollarSign, FaRegClock } from "react-icons/fa";
 import { dayType } from "../../../util/types/dayType";
 import {
@@ -72,9 +72,13 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
   const [cleaners, setCleaners] = useState<CleanerType[]>([]);
   const [assignments, setAssignments] = useState<CleaningAssignmentType[]>([]);
   const [summary, setSummary] = useState<CleanerSummaryType[]>([]);
-  // Pay / Hours / Roster tabs — everything in one scroll was overcrowded
-  const [activeTab, setActiveTab] = useState<"roster" | "hours" | "pay">("pay");
+  // Pay / Hours / Week / Team tabs — everything in one scroll was overcrowded
+  const [activeTab, setActiveTab] = useState<"roster" | "hours" | "pay" | "week">("pay");
   const autoTabDone = useRef(false);
+  // The cleaner-facing schedule is a FIXED Mon–Sun week (unlike the rolling
+  // Upcoming forecast) — texted schedules must not shift under the cleaner's
+  // feet as days pass. 0 = this week, 1 = next week.
+  const [weekOffset, setWeekOffset] = useState<0 | 1>(0);
 
   // Floating window: draggable via the header, resizable via the corner grip,
   // no backdrop — the calendar stays visible behind it.
@@ -149,10 +153,25 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
       .then(setSummary)
       .catch((err) => console.error("Error fetching cleaner summary:", err));
 
+  // Selected fixed week (Mon–Sun)
+  const weekMonday = addDays(startOfWeek(startOfToday(), { weekStartsOn: 1 }), weekOffset * 7);
+  const weekDates = Array.from({ length: 7 }, (_, i) =>
+    format(addDays(weekMonday, i), "yyyy-MM-dd"),
+  );
+  const weekAssignments = assignments.filter(
+    (a) => a.date >= weekDates[0] && a.date <= weekDates[6] && a.cleaner && a.room,
+  );
+
   useEffect(() => {
     if (!hostId || !token) return;
-    const start = `${monthKey}-01`;
-    const end = format(addDays(startOfToday(), 7), "yyyy-MM-dd");
+    // Cover this month (hours + pay) AND this week + next week (fixed schedule),
+    // whichever starts/ends wider.
+    const thisMonday = format(startOfWeek(startOfToday(), { weekStartsOn: 1 }), "yyyy-MM-dd");
+    const start = thisMonday < `${monthKey}-01` ? thisMonday : `${monthKey}-01`;
+    const end = format(
+      addDays(startOfWeek(startOfToday(), { weekStartsOn: 1 }), 13),
+      "yyyy-MM-dd",
+    );
     fetchCleaners(hostId, token)
       .then(setCleaners)
       .catch((err) => console.error("Error fetching cleaners:", err));
@@ -282,11 +301,12 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
     return null;
   };
 
-  // One SMS per cleaner with their whole week: "* Monday 7/21: Cozy (1), Chill (2)"
+  // One SMS per cleaner, bound to the FIXED selected week — the message a
+  // cleaner receives never depends on which day the host happens to send it.
   const textSchedule = (cleaner: CleanerType) => {
     if (!cleaner.phone) return;
-    const mine = assignments
-      .filter((a) => a.cleaner?.id === cleaner.id && a.date >= todayKey && a.room)
+    const mine = weekAssignments
+      .filter((a) => a.cleaner!.id === cleaner.id)
       .sort((a, b) => a.date.localeCompare(b.date));
     if (mine.length === 0) return;
 
@@ -300,7 +320,8 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
       ([date, rooms]) =>
         `* ${format(new Date(date + "T00:00:00"), "EEEE M/d")}: ${rooms.join(", ")}`,
     );
-    const message = `Hi ${cleaner.name}, your cleaning schedule:\n${lines.join("\n")}\n(numbers = guests arriving)\nThank you! — Anh-Tuan`;
+    const weekLabel = `${format(weekMonday, "MMM d")} – ${format(addDays(weekMonday, 6), "MMM d")}`;
+    const message = `Hi ${cleaner.name}, your cleaning schedule for ${weekLabel}:\n${lines.join("\n")}\n(numbers = guests arriving)\nThank you! — Anh-Tuan`;
     window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(message)}`;
   };
 
@@ -361,11 +382,12 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
           </button>
         </div>
 
-        <div className="mx-4 mb-2 grid shrink-0 grid-cols-3 gap-1 rounded-xl bg-gray-100 p-1">
+        <div className="mx-4 mb-2 grid shrink-0 grid-cols-4 gap-1 rounded-xl bg-gray-100 p-1">
           {(
             [
               { key: "pay", label: "Pay", count: summary.filter((s) => s.balance > 0.5).length },
               { key: "hours", label: "Hours", count: needHours.length },
+              { key: "week", label: "Week", count: weekAssignments.length },
               { key: "roster", label: "Team", count: cleaners.length },
             ] as const
           ).map(({ key, label, count }) => (
@@ -520,9 +542,7 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                   <button
                     type="button"
                     className="rounded-lg bg-blue-600 px-2.5 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
-                    disabled={
-                      !assignments.some((a) => a.cleaner?.id === cleaner.id && a.date >= todayKey)
-                    }
+                    disabled={!weekAssignments.some((a) => a.cleaner!.id === cleaner.id)}
                     onClick={() => textSchedule(cleaner)}
                   >
                     Text
@@ -598,6 +618,93 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
               </div>
             </div>
           )}
+          </>
+          )}
+
+          {activeTab === "week" && (
+          <>
+          {/* Fixed Mon–Sun schedule — the frame all cleaner-facing actions
+              (like the texted schedule) bind to, unlike the rolling Upcoming */}
+          <div className="mb-2 grid grid-cols-2 gap-1 rounded-lg bg-gray-100 p-0.5">
+            {(
+              [
+                { off: 0, label: "This week" },
+                { off: 1, label: "Next week" },
+              ] as const
+            ).map(({ off, label }) => (
+              <button
+                key={off}
+                type="button"
+                onClick={() => setWeekOffset(off)}
+                className={`rounded-md py-1 text-[11px] font-semibold ${
+                  weekOffset === off ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {weekDates.map((dateKey) => {
+            const dayDate = new Date(dateKey + "T00:00:00");
+            const dayAssignments = weekAssignments.filter((a) => a.date === dateKey);
+            const groups = new Map<string, string[]>();
+            dayAssignments.forEach((a) => {
+              groups.set(a.cleaner!.name, [...(groups.get(a.cleaner!.name) ?? []), a.room!.name]);
+            });
+            const isToday = dateKey === todayKey;
+            return (
+              <div
+                key={dateKey}
+                className={`mb-1 flex items-center gap-2.5 rounded-lg border px-2.5 py-1.5 ${
+                  isToday ? "border-emerald-300 bg-emerald-50" : "border-gray-200 bg-white"
+                }`}
+              >
+                <div className="flex w-16 shrink-0 items-baseline gap-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                    {format(dayDate, "EEE")}
+                  </span>
+                  <span className="text-xs font-bold text-gray-900">{format(dayDate, "M/d")}</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  {dayAssignments.length === 0 ? (
+                    <span className="text-xs text-gray-300">—</span>
+                  ) : (
+                    [...groups.entries()].map(([name, rooms]) => (
+                      <p key={name} className="text-xs text-gray-700">
+                        <span className="font-bold">{name}:</span> {rooms.join(", ")}
+                      </p>
+                    ))
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Text actions bound to this exact week */}
+          {(() => {
+            const withWork = cleaners.filter(
+              (c) => c.phone && weekAssignments.some((a) => a.cleaner!.id === c.id),
+            );
+            return withWork.length > 0 ? (
+              <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+                {withWork.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className="rounded-lg bg-blue-600 px-2.5 py-1.5 text-xs font-semibold text-white"
+                    onClick={() => textSchedule(c)}
+                  >
+                    Text {c.name.split(" ")[0]}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-2 text-center text-xs text-gray-400">
+                Assign rooms in the ToDo Upcoming tab — they land here by date
+              </p>
+            );
+          })()}
           </>
           )}
 
