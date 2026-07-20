@@ -212,8 +212,8 @@ const NavBarDesktop = ({
           {/* Cleaners — broom icon + short "Clean" caption (<=5 chars), end of bar */}
           <button
             type="button"
-            aria-label="Cleaners"
-            title="Cleaners"
+            aria-label="Clean"
+            title="Clean"
             className={`flex flex-1 items-center justify-center gap-1 text-white bg-violet-500 px-1 py-1 text-xs sm:flex-none sm:px-2 rounded-md whitespace-nowrap ${
               isCleanersOpen ? "drop-shadow-[0_4px_6px_rgba(139,92,246,0.5)]" : ""
             }`}

@@ -450,7 +450,7 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
         >
           <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
             <FaBroom className="text-emerald-600" />
-            Cleaners
+            Clean
           </h2>
           <button
             type="button"

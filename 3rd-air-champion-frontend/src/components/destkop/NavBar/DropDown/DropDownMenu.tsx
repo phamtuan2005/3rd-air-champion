@@ -1,6 +1,6 @@
 import { useContext } from "react";
 import { createPortal } from "react-dom";
-import { FaBroom, FaDoorOpen, FaSync, FaUser, FaEye, FaEyeSlash } from "react-icons/fa";
+import { FaDoorOpen, FaSync, FaUser, FaEye, FaEyeSlash } from "react-icons/fa";
 import { TiUserAdd } from "react-icons/ti";
 import { MdOutlineMessage } from "react-icons/md";
 import { MdEditNote } from "react-icons/md";
@@ -30,7 +30,7 @@ const DropDownMenu = ({
   isFooterVisible,
   onToggleFooter,
 }: DropDownMenuProps) => {
-  const { setIsEditRoomOpen, setIsCleanersOpen } = useContext(AddPaneContext)!;
+  const { setIsEditRoomOpen } = useContext(AddPaneContext)!;
 
   const close = () => setIsDropdownOpen(false);
 
@@ -79,13 +79,6 @@ const DropDownMenu = ({
           >
             <TiUserAdd className="text-lg flex-shrink-0" />
             <AddGuestButton />
-          </li>
-          <li
-            className="flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 cursor-pointer text-base font-semibold text-gray-700 border-b border-gray-100"
-            onClick={() => { close(); setIsCleanersOpen(true); }}
-          >
-            <FaBroom className="text-lg flex-shrink-0" />
-            <span>Cleaners</span>
           </li>
           <li
             className="flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 cursor-pointer text-base font-semibold text-gray-700 border-b border-gray-100"

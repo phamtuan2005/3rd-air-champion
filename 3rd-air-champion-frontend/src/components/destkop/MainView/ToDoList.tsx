@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { dayType } from "../../../util/types/dayType";
 import { addDays, startOfToday, format } from "date-fns";
-import { FaBroom } from "react-icons/fa";
 import { getRoomColor } from "../../../util/getRoomColor";
 import { DEFAULT_TEMPLATE, TEMPLATE_KEY, resolveTemplate } from "../../../util/reminderTemplate";
 import { cleaningTaskId, getCleaningCounts, getCleaningForecast, getCleaningItems } from "../../../util/cleaningTasks";
@@ -320,17 +319,6 @@ const ToDoList = ({ monthMap, hostId, token, doorCode, airbnbName, airbnbAddress
         ) : (
           emptyState("No check-ins tomorrow")
         ))}
-
-      {activeTab === "cleaning" && (
-        <button
-          type="button"
-          onClick={() => setCleanersOpen(true)}
-          className="mb-2 flex items-center justify-center gap-2 self-center rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700"
-        >
-          <FaBroom className="text-emerald-600" />
-          Cleaners
-        </button>
-      )}
 
       {activeTab === "cleaning" &&
         (cleaningItems.length > 0 ? (
