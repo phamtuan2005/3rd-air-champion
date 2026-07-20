@@ -40,6 +40,8 @@ const AVATAR_COLORS = [
   "bg-amber-100 text-amber-700",
   "bg-rose-100 text-rose-700",
 ];
+// Solid variants of the same identity colors (Text buttons match avatars)
+const SOLID_COLORS = ["bg-emerald-600", "bg-blue-600", "bg-violet-600", "bg-amber-600", "bg-rose-600"];
 
 const initials = (name: string) =>
   name
@@ -704,22 +706,32 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
               (c) => c.phone && weekAssignments.some((a) => a.cleaner!.id === c.id),
             );
             return withWork.length > 0 ? (
-              <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
-                {/* Week-colored so a hurried host can't text the wrong week:
-                    blue = this week, violet = next week */}
-                {withWork.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold text-white ${
-                      weekOffset === 0 ? "bg-blue-600" : "bg-violet-600"
-                    }`}
-                    onClick={() => textSchedule(c)}
-                  >
-                    Text {c.name.split(" ")[0]}
-                    {weekOffset === 1 && " · next wk"}
-                  </button>
-                ))}
+              <div className="mt-2">
+                {/* The week being sent, spelled out and week-colored */}
+                <p
+                  className={`mb-1.5 text-center text-xs font-semibold ${
+                    weekOffset === 0 ? "text-blue-700" : "text-violet-700"
+                  }`}
+                >
+                  Sends {weekOffset === 0 ? "this week" : "NEXT week"} ·{" "}
+                  {format(weekMonday, "MMM d")} – {format(addDays(weekMonday, 6), "MMM d")}
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-1.5">
+                  {/* Button color = the cleaner's identity color (same as their
+                      Team avatar); the week is marked above and in the label */}
+                  {withWork.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold text-white ${
+                        SOLID_COLORS[Math.max(0, cleaners.indexOf(c)) % SOLID_COLORS.length]
+                      }`}
+                      onClick={() => textSchedule(c)}
+                    >
+                      Text {c.name.split(" ")[0]}
+                    </button>
+                  ))}
+                </div>
               </div>
             ) : (
               <p className="mt-2 text-center text-xs text-gray-400">
