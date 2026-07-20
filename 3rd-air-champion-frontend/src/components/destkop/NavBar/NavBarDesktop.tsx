@@ -209,17 +209,18 @@ const NavBarDesktop = ({
               </span>
             )}
           </button>
-          {/* Cleaners — icon only (broom), at the end of the toolbar after Block */}
+          {/* Cleaners — broom icon + short "Clean" caption (<=5 chars), end of bar */}
           <button
             type="button"
             aria-label="Cleaners"
             title="Cleaners"
-            className={`flex flex-1 items-center justify-center text-white bg-violet-500 px-1 py-1 text-xs sm:flex-none sm:px-2 rounded-md ${
+            className={`flex flex-1 items-center justify-center gap-1 text-white bg-violet-500 px-1 py-1 text-xs sm:flex-none sm:px-2 rounded-md whitespace-nowrap ${
               isCleanersOpen ? "drop-shadow-[0_4px_6px_rgba(139,92,246,0.5)]" : ""
             }`}
             onClick={() => setIsCleanersOpen((v) => !v)}
           >
             <FaBroom className="text-sm" />
+            Clean
           </button>
         </div>}
       </div>
