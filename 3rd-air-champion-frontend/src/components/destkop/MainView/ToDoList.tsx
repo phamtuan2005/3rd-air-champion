@@ -95,6 +95,19 @@ const ToDoList = ({ monthMap, hostId, token, doorCode, airbnbName, airbnbAddress
   const assignmentFor = (morningKey: string, roomId: string) =>
     assignments.find((a) => a.date === morningKey && a.room?.id === roomId);
 
+  // Arriving-guest headcount for a room's cleaning morning — first check-in
+  // on/after that day (same figure the Week schedule and SMS show)
+  const nextGuestCount = (roomId: string, morningKey: string): number | null => {
+    for (let i = 0; i <= 30; i++) {
+      const key = format(addDays(new Date(morningKey + "T00:00:00"), i), "yyyy-MM-dd");
+      const found = monthMap
+        .get(key)
+        ?.bookings.find((b) => b.room?.id === roomId && b.startDate.split("T")[0] === key);
+      if (found) return found.numberOfGuests || 1;
+    }
+    return null;
+  };
+
   // Who cleans how many rooms this week — the host's workload overview
   const weekTotals = (() => {
     const totals = new Map<string, number>();
@@ -473,6 +486,12 @@ const ToDoList = ({ monthMap, hostId, token, doorCode, airbnbName, airbnbAddress
                   }`}
                 >
                   {entry.checkoutBooking.room.name}
+                  {(() => {
+                    const count =
+                      entry.sameDayCheckIn?.numberOfGuests ||
+                      nextGuestCount(entry.checkoutBooking.room.id, day.morningKey);
+                    return count ? ` (${count})` : "";
+                  })()}
                   {entry.rebookOdds < 0.995 && (
                     <span className="ml-1 opacity-70">{Math.round(entry.rebookOdds * 100)}%</span>
                   )}
