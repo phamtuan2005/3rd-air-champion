@@ -401,12 +401,6 @@ const ToDoList = ({ monthMap, hostId, token, doorCode, airbnbName, airbnbAddress
       {activeTab === "forecast" &&
         (cleaningForecast.length > 0 ? (
           <>
-            <p className="mb-2 text-center text-xs text-gray-400">
-              % = odds · <span className="font-semibold text-red-500">solid red</span> = same-day
-              check-in · <span className="font-semibold text-red-500">dashed red</span> = gap night
-              likely sells, extra clean before arrival · tap to assign a cleaner
-            </p>
-
             {/* Who cleans how many rooms this week */}
             {(weekTotals.assigned.length > 0 || weekTotals.unassignedCount > 0) && (
               <div className="mb-2 flex flex-wrap items-center justify-center gap-1.5">
@@ -510,6 +504,13 @@ const ToDoList = ({ monthMap, hostId, token, doorCode, airbnbName, airbnbAddress
                 </div>
               );
             })}
+
+            {/* Legend below the table so the data leads */}
+            <p className="mb-1 mt-2 text-center text-xs text-gray-400">
+              % = odds · <span className="font-semibold text-red-500">solid red</span> = same-day
+              check-in · <span className="font-semibold text-red-500">dashed red</span> = gap night
+              likely sells, extra clean before arrival · tap to assign a cleaner
+            </p>
           </>
         ) : (
           emptyState("No checkouts in the next 7 days")
