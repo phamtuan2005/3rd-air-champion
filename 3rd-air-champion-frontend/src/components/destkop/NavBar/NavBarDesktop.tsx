@@ -176,18 +176,6 @@ const NavBarDesktop = ({
           >
             Book
           </button>
-          {/* Cleaners — icon only (broom), sits between Book and Availabilities */}
-          <button
-            type="button"
-            aria-label="Cleaners"
-            title="Cleaners"
-            className={`flex flex-1 items-center justify-center text-white bg-violet-500 px-1 py-1 text-xs sm:flex-none sm:px-2 rounded-md ${
-              isCleanersOpen ? "drop-shadow-[0_4px_6px_rgba(139,92,246,0.5)]" : ""
-            }`}
-            onClick={() => setIsCleanersOpen((v) => !v)}
-          >
-            <FaBroom className="text-sm" />
-          </button>
           <button
             type="button"
             className={`relative flex-1 text-white bg-emerald-600 px-1 py-1 text-xs sm:flex-none sm:px-2 rounded-md ${
@@ -218,6 +206,18 @@ const NavBarDesktop = ({
                 {airbnbPendingCount}
               </span>
             )}
+          </button>
+          {/* Cleaners — icon only (broom), at the end of the toolbar after Block */}
+          <button
+            type="button"
+            aria-label="Cleaners"
+            title="Cleaners"
+            className={`flex flex-1 items-center justify-center text-white bg-violet-500 px-1 py-1 text-xs sm:flex-none sm:px-2 rounded-md ${
+              isCleanersOpen ? "drop-shadow-[0_4px_6px_rgba(139,92,246,0.5)]" : ""
+            }`}
+            onClick={() => setIsCleanersOpen((v) => !v)}
+          >
+            <FaBroom className="text-sm" />
           </button>
         </div>}
       </div>
