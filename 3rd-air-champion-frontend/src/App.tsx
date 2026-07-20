@@ -207,6 +207,8 @@ function App() {
                   setIsTodoModalOpen={setIsTodoModalOpen}
                   isBookModalOpen={isBookModalOpen}
                   setIsBookModalOpen={setIsBookModalOpen}
+                  isCleanersOpen={isCleanersOpen}
+                  setIsCleanersOpen={setIsCleanersOpen}
                   isAvailabilitiesModalOpen={isAvailabilitiesModalOpen}
                   setIsAvailabilitiesModalOpen={setIsAvailabilitiesModalOpen}
                   isBlockAirBnBModalOpen={isBlockAirBnBModalOpen}

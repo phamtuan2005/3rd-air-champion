@@ -1,5 +1,6 @@
 import { useContext, useState } from "react";
 import { createPortal } from "react-dom";
+import { FaBroom } from "react-icons/fa";
 import ProfileDesktop from "./ProfileDesktop";
 import { FooterContext, GuestModeContext } from "../../../context";
 
@@ -34,6 +35,8 @@ interface NavBarDesktopProps {
   setIsTodoModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isBookModalOpen: boolean;
   setIsBookModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isCleanersOpen: boolean;
+  setIsCleanersOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isAvailabilitiesModalOpen: boolean;
   setIsAvailabilitiesModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isBlockAirBnBModalOpen: boolean;
@@ -61,6 +64,8 @@ const NavBarDesktop = ({
   setIsTodoModalOpen,
   isBookModalOpen,
   setIsBookModalOpen,
+  isCleanersOpen,
+  setIsCleanersOpen,
   isAvailabilitiesModalOpen,
   setIsAvailabilitiesModalOpen,
   isBlockAirBnBModalOpen,
@@ -170,6 +175,18 @@ const NavBarDesktop = ({
             onClick={() => setIsBookModalOpen(true)}
           >
             Book
+          </button>
+          {/* Cleaners — icon only (broom), sits between Book and Availabilities */}
+          <button
+            type="button"
+            aria-label="Cleaners"
+            title="Cleaners"
+            className={`flex flex-1 items-center justify-center text-white bg-violet-500 px-1 py-1 text-xs sm:flex-none sm:px-2 rounded-md ${
+              isCleanersOpen ? "drop-shadow-[0_4px_6px_rgba(139,92,246,0.5)]" : ""
+            }`}
+            onClick={() => setIsCleanersOpen((v) => !v)}
+          >
+            <FaBroom className="text-sm" />
           </button>
           <button
             type="button"
