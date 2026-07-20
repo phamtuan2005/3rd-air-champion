@@ -653,6 +653,34 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
             title="Balance & payouts"
             hint="Owed = everything earned so far minus what you've already paid"
           />
+          {/* Grand total across the whole team */}
+          {summary.length > 0 &&
+            (() => {
+              const totals = summary.reduce(
+                (acc, s) => ({
+                  earned: acc.earned + s.earned,
+                  paid: acc.paid + s.paid,
+                  balance: acc.balance + s.balance,
+                }),
+                { earned: 0, paid: 0, balance: 0 },
+              );
+              return (
+                <div className="mb-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                  <div className="flex items-baseline justify-between">
+                    <p className="text-xs font-semibold text-emerald-700">
+                      Total cleaning fees so far
+                    </p>
+                    <p className="text-xl font-bold text-emerald-700">
+                      ${Math.round(totals.earned).toLocaleString()}
+                    </p>
+                  </div>
+                  <p className="mt-0.5 text-xs text-emerald-600">
+                    paid ${Math.round(totals.paid).toLocaleString()} · still owed $
+                    {Math.round(totals.balance).toLocaleString()}
+                  </p>
+                </div>
+              );
+            })()}
           {summary.length === 0 ? (
             <p className="mb-2 rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-center text-xs text-gray-400">
               No earnings yet
