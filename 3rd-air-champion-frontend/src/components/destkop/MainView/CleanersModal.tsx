@@ -139,6 +139,8 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
   const [editingId, setEditingId] = useState<string | null>(null);
   const [edit, setEdit] = useState({ name: "", phone: "", payRate: "", baselineHours: "" });
   const [hoursDraft, setHoursDraft] = useState<Record<string, string>>({});
+  // Which already-recorded cleaner-day is currently open for correction
+  const [editingDayKey, setEditingDayKey] = useState<string | null>(null);
   const [payingId, setPayingId] = useState<string | null>(null);
   const [payDraft, setPayDraft] = useState("");
   // Payout adds to paid, Undo subtracts — phone number pads have no minus key,
@@ -196,6 +198,52 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
 
   // Past (or today's) cleanings whose hours haven't been recorded yet
   const needHours = assignments.filter((a) => a.date <= todayKey && a.hours == null && a.cleaner);
+
+  // A cleaner reports ONE daily total, not a figure per room — group the
+  // finished cleanings by cleaner + date so the host enters a single number.
+  const needHoursGroups = (() => {
+    const map = new Map<
+      string,
+      { key: string; cleaner: CleanerType; date: string; assignments: CleaningAssignmentType[] }
+    >();
+    needHours
+      .slice()
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .forEach((a) => {
+        const key = `${a.cleaner!.id}|${a.date}`;
+        const g = map.get(key) ?? { key, cleaner: a.cleaner!, date: a.date, assignments: [] };
+        g.assignments.push(a);
+        map.set(key, g);
+      });
+    return [...map.values()];
+  })();
+
+  // Already-recorded cleaner-days this month — kept editable so a mistyped
+  // total can be corrected. Total = Σ of the day's assignment hours (the whole
+  // total sits on the first room, 0 on the rest, so the sum is the total).
+  const recordedGroups = (() => {
+    const map = new Map<
+      string,
+      {
+        key: string;
+        cleaner: CleanerType;
+        date: string;
+        hours: number;
+        assignments: CleaningAssignmentType[];
+      }
+    >();
+    assignments
+      .filter((a) => a.date.startsWith(monthKey) && a.hours != null && a.cleaner)
+      .forEach((a) => {
+        const key = `${a.cleaner!.id}|${a.date}`;
+        const g =
+          map.get(key) ?? { key, cleaner: a.cleaner!, date: a.date, hours: 0, assignments: [] };
+        g.hours += a.hours!;
+        g.assignments.push(a);
+        map.set(key, g);
+      });
+    return [...map.values()].sort((a, b) => b.date.localeCompare(a.date));
+  })();
 
   // Once data arrives, land on Hours if recordings are waiting — the most
   // time-sensitive job in this modal. Never overrides a user-tapped tab.
@@ -288,12 +336,22 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
       .catch((err) => setError(err.response?.data?.error ?? "Could not remove cleaner"));
   };
 
-  const handleSaveHours = (assignment: CleaningAssignmentType) => {
-    const hours = parseFloat(hoursDraft[assignment.id]);
+  // Save one cleaner's total for a day. The backend keeps hours per
+  // assignment, but only the SUM is ever used (pay, summary, monthly), so put
+  // the whole daily total on the day's first room and 0 on the rest — the sum
+  // equals exactly what the cleaner reported, no per-room figure invented.
+  const handleSaveDayHours = (group: {
+    key: string;
+    assignments: CleaningAssignmentType[];
+  }) => {
+    const hours = parseFloat(hoursDraft[group.key]);
     if (!(hours >= 0)) return;
-    updateAssignmentHours(assignment.id, hours, token)
-      .then((updated) => {
-        setAssignments((prev) => prev.map((a) => (a.id === assignment.id ? updated : a)));
+    Promise.all(
+      group.assignments.map((a, i) => updateAssignmentHours(a.id, i === 0 ? hours : 0, token)),
+    )
+      .then((updatedList) => {
+        setAssignments((prev) => prev.map((a) => updatedList.find((u) => u.id === a.id) ?? a));
+        setEditingDayKey(null);
         setError("");
         reloadSummary();
       })
@@ -398,7 +456,7 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
           {(
             [
               { key: "pay", label: "Pay", count: summary.filter((s) => s.balance > 0.5).length },
-              { key: "hours", label: "Hours", count: needHours.length },
+              { key: "hours", label: "Hours", count: needHoursGroups.length },
               { key: "week", label: "Week", count: weekAssignments.length },
               { key: "roster", label: "Team", count: cleaners.length },
             ] as const
@@ -753,40 +811,130 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
           <SectionHeader
             icon={<FaRegClock className="text-amber-500" />}
             title="Record hours"
-            hint="Finished cleanings waiting for worked hours — pay is hours × rate"
+            hint="A cleaner reports one total per day — pay is hours × rate"
           />
-          {needHours.length === 0 ? (
+          {needHoursGroups.length === 0 ? (
             <p className="mb-2 rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-center text-xs text-gray-400">
               Nothing to record yet — cleanings appear here once their day arrives
             </p>
           ) : (
-            needHours.map((a) => (
+            needHoursGroups.map((group) => (
               <div
-                key={a.id}
-                className="mb-2 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2.5"
+                key={group.key}
+                className="mb-2 rounded-xl border border-amber-200 bg-amber-50 p-2.5"
               >
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-gray-900">
-                    {format(new Date(a.date + "T00:00:00"), "M/d")} · {a.room?.name}
-                  </p>
-                  <p className="text-xs text-gray-500">{a.cleaner?.name}</p>
+                <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-gray-900">{group.cleaner.name}</p>
+                    <p className="text-xs text-gray-500">
+                      {format(new Date(group.date + "T00:00:00"), "EEEE M/d")}
+                    </p>
+                  </div>
+                  <input
+                    className={`${inputCls} w-16`}
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    placeholder="hrs"
+                    value={hoursDraft[group.key] ?? ""}
+                    onChange={(e) =>
+                      setHoursDraft((p) => ({ ...p, [group.key]: e.target.value }))
+                    }
+                  />
+                  <button
+                    type="button"
+                    className={pillDark}
+                    onClick={() => handleSaveDayHours(group)}
+                  >
+                    Save
+                  </button>
                 </div>
-                <input
-                  className={`${inputCls} w-16`}
-                  type="number"
-                  step="0.5"
-                  min="0"
-                  placeholder="hrs"
-                  value={hoursDraft[a.id] ?? ""}
-                  onChange={(e) => setHoursDraft((p) => ({ ...p, [a.id]: e.target.value }))}
-                />
-                <button type="button" className={pillDark} onClick={() => handleSaveHours(a)}>
-                  Save
-                </button>
+                {/* Rooms cleaned that day, for context — the total covers them all */}
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {group.assignments.map((a) => (
+                    <span
+                      key={a.id}
+                      className={`${getRoomColor(a.room?.name ?? "", a.room ? roomColorById.get(a.room.id) : undefined)} rounded px-1.5 py-0.5 text-[11px] font-semibold text-black`}
+                    >
+                      {a.room?.name}
+                    </span>
+                  ))}
+                </div>
               </div>
             ))
           )}
 
+          {/* Already-recorded days — tap Edit to fix a mistyped total */}
+          {recordedGroups.length > 0 && (
+            <>
+              <SectionHeader
+                icon={<FaRegClock className="text-blue-500" />}
+                title={`Recorded this month — ${format(startOfToday(), "MMMM")}`}
+                hint="Tap Edit to correct a total"
+              />
+              {recordedGroups.map((group) => (
+                <div key={group.key} className="mb-1.5 rounded-xl border border-gray-200 p-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-gray-900">
+                        {group.cleaner.name}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {format(new Date(group.date + "T00:00:00"), "EEE M/d")} ·{" "}
+                        {group.assignments.map((a) => a.room?.name).join(", ")}
+                      </p>
+                    </div>
+                    {editingDayKey === group.key ? (
+                      <>
+                        <input
+                          className={`${inputCls} w-16`}
+                          type="number"
+                          step="0.5"
+                          min="0"
+                          placeholder="hrs"
+                          autoFocus
+                          value={hoursDraft[group.key] ?? ""}
+                          onChange={(e) =>
+                            setHoursDraft((p) => ({ ...p, [group.key]: e.target.value }))
+                          }
+                        />
+                        <button
+                          type="button"
+                          className={pillDark}
+                          onClick={() => handleSaveDayHours(group)}
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          className={pillNeutral}
+                          onClick={() => setEditingDayKey(null)}
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="shrink-0 text-sm font-bold text-gray-900">
+                          {group.hours} hr
+                        </span>
+                        <button
+                          type="button"
+                          className={pillNeutral}
+                          onClick={() => {
+                            setEditingDayKey(group.key);
+                            setHoursDraft((p) => ({ ...p, [group.key]: String(group.hours) }));
+                          }}
+                        >
+                          Edit
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
           </>
           )}
 
