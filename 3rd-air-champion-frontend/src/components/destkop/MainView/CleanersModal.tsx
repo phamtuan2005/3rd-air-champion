@@ -236,15 +236,13 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
       .catch((err) => setError(err.response?.data?.error ?? "Could not update cleaner"));
   };
 
-  // Two-tap remove: first tap arms the button into "Confirm?", second commits
-  const [removeArmedId, setRemoveArmedId] = useState<string | null>(null);
+  // Swipe-to-remove: dragging a roster row to the right reveals the red
+  // Remove button underneath — deliberate by construction, no accidental taps.
+  const [swipeOpenId, setSwipeOpenId] = useState<string | null>(null);
+  const swipeStart = useRef<{ id: string; x: number; y: number } | null>(null);
 
   const handleDelete = (cleaner: CleanerType) => {
-    if (removeArmedId !== cleaner.id) {
-      setRemoveArmedId(cleaner.id);
-      return;
-    }
-    setRemoveArmedId(null);
+    setSwipeOpenId(null);
     deleteCleaner(cleaner.id, token)
       .then(() => {
         setCleaners((prev) => prev.filter((c) => c.id !== cleaner.id));
@@ -439,10 +437,7 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                   <button
                     type="button"
                     className={pillNeutral}
-                    onClick={() => {
-                      setEditingId(null);
-                      setRemoveArmedId(null);
-                    }}
+                    onClick={() => setEditingId(null)}
                   >
                     Cancel
                   </button>
@@ -450,29 +445,35 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                     Save
                   </button>
                 </div>
-                {/* Removal is rare and destructive — tucked away in Edit,
-                    subtle until armed */}
-                <div className="mt-2 border-t border-gray-100 pt-2">
-                  <button
-                    type="button"
-                    className={
-                      removeArmedId === cleaner.id
-                        ? "rounded-lg bg-red-600 px-2.5 py-1.5 text-xs font-bold text-white"
-                        : "text-xs font-semibold text-red-400"
-                    }
-                    onClick={() => handleDelete(cleaner)}
-                  >
-                    {removeArmedId === cleaner.id
-                      ? "Confirm remove — their assignments go too"
-                      : "Remove cleaner…"}
-                  </button>
-                </div>
               </div>
             ) : (
-              <div
-                key={cleaner.id}
-                className="mb-2 flex items-center gap-2 rounded-xl border border-gray-200 p-2.5"
-              >
+              <div key={cleaner.id} className="relative mb-2 overflow-hidden rounded-xl">
+                {/* Revealed by swiping the row to the right */}
+                <button
+                  type="button"
+                  className="absolute inset-y-0 left-0 flex w-20 items-center justify-center bg-red-600 text-xs font-bold text-white"
+                  onClick={() => handleDelete(cleaner)}
+                >
+                  Remove
+                </button>
+                <div
+                  className={`relative flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-2.5 transition-transform duration-200 ${
+                    swipeOpenId === cleaner.id ? "translate-x-20" : ""
+                  }`}
+                  style={{ touchAction: "pan-y" }}
+                  onPointerDown={(e) =>
+                    (swipeStart.current = { id: cleaner.id, x: e.clientX, y: e.clientY })
+                  }
+                  onPointerUp={(e) => {
+                    const s = swipeStart.current;
+                    swipeStart.current = null;
+                    if (!s || s.id !== cleaner.id) return;
+                    const dx = e.clientX - s.x;
+                    const dy = Math.abs(e.clientY - s.y);
+                    if (dx > 40 && dx > dy) setSwipeOpenId(cleaner.id);
+                    else if (dx < -20 || swipeOpenId === cleaner.id) setSwipeOpenId(null);
+                  }}
+                >
                 <span
                   className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${AVATAR_COLORS[index % AVATAR_COLORS.length]}`}
                 >
@@ -517,6 +518,7 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                 >
                   Edit
                 </button>
+                </div>
               </div>
             ),
           )}
