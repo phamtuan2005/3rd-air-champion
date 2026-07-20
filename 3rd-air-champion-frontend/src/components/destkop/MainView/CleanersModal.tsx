@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { addDays, format, startOfToday, startOfWeek } from "date-fns";
 import { FaBroom, FaDollarSign, FaRegClock } from "react-icons/fa";
 import { dayType } from "../../../util/types/dayType";
+import { getRoomColor } from "../../../util/getRoomColor";
 import {
   CleanerType,
   CleanerSummaryType,
@@ -160,6 +161,15 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
   );
   const weekAssignments = assignments.filter(
     (a) => a.date >= weekDates[0] && a.date <= weekDates[6] && a.cleaner && a.room,
+  );
+
+  // Custom room colors live on booking.room in monthMap (assignments only
+  // carry id+name) — recover them so Week chips match the Upcoming chips.
+  const roomColorById = new Map<string, string>();
+  monthMap.forEach((day) =>
+    day.bookings.forEach((b) => {
+      if (b.room?.id && b.room.color) roomColorById.set(b.room.id, b.room.color);
+    }),
   );
 
   useEffect(() => {
@@ -538,16 +548,8 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                     <span className="font-bold text-emerald-600">${cleaner.payRate}/hr</span>
                   </p>
                 </div>
-                {cleaner.phone && (
-                  <button
-                    type="button"
-                    className="rounded-lg bg-blue-600 px-2.5 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
-                    disabled={!weekAssignments.some((a) => a.cleaner!.id === cleaner.id)}
-                    onClick={() => textSchedule(cleaner)}
-                  >
-                    Text
-                  </button>
-                )}
+                {/* Texting lives only in the Week tab, bound to the visible
+                    week — a Text here couldn't say WHICH week it sends */}
                 <button
                   type="button"
                   className={pillNeutral}
@@ -637,7 +639,11 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                 type="button"
                 onClick={() => setWeekOffset(off)}
                 className={`rounded-md py-1 text-[11px] font-semibold ${
-                  weekOffset === off ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+                  weekOffset === off
+                    ? off === 0
+                      ? "bg-white text-blue-700 shadow-sm"
+                      : "bg-white text-violet-700 shadow-sm"
+                    : "text-gray-500"
                 }`}
               >
                 {label}
@@ -648,9 +654,9 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
           {weekDates.map((dateKey) => {
             const dayDate = new Date(dateKey + "T00:00:00");
             const dayAssignments = weekAssignments.filter((a) => a.date === dateKey);
-            const groups = new Map<string, string[]>();
+            const groups = new Map<string, { id: string; name: string }[]>();
             dayAssignments.forEach((a) => {
-              groups.set(a.cleaner!.name, [...(groups.get(a.cleaner!.name) ?? []), a.room!.name]);
+              groups.set(a.cleaner!.name, [...(groups.get(a.cleaner!.name) ?? []), a.room!]);
             });
             const isToday = dateKey === todayKey;
             return (
@@ -671,8 +677,19 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                     <span className="text-xs text-gray-300">—</span>
                   ) : (
                     [...groups.entries()].map(([name, rooms]) => (
-                      <p key={name} className="text-xs text-gray-700">
-                        <span className="font-bold">{name}:</span> {rooms.join(", ")}
+                      <p
+                        key={name}
+                        className="mb-0.5 flex flex-wrap items-center gap-1 last:mb-0"
+                      >
+                        <span className="text-[10px] font-bold text-gray-500">{name}</span>
+                        {rooms.map((room, i) => (
+                          <span
+                            key={`${room.id}-${i}`}
+                            className={`${getRoomColor(room.name, roomColorById.get(room.id))} rounded px-1.5 py-0.5 text-[11px] font-semibold text-black`}
+                          >
+                            {room.name}
+                          </span>
+                        ))}
                       </p>
                     ))
                   )}
@@ -688,14 +705,19 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
             );
             return withWork.length > 0 ? (
               <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+                {/* Week-colored so a hurried host can't text the wrong week:
+                    blue = this week, violet = next week */}
                 {withWork.map((c) => (
                   <button
                     key={c.id}
                     type="button"
-                    className="rounded-lg bg-blue-600 px-2.5 py-1.5 text-xs font-semibold text-white"
+                    className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold text-white ${
+                      weekOffset === 0 ? "bg-blue-600" : "bg-violet-600"
+                    }`}
                     onClick={() => textSchedule(c)}
                   >
                     Text {c.name.split(" ")[0]}
+                    {weekOffset === 1 && " · next wk"}
                   </button>
                 ))}
               </div>
