@@ -684,14 +684,19 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                         className="mb-0.5 flex flex-wrap items-center gap-1 last:mb-0"
                       >
                         <span className="text-[10px] font-bold text-gray-500">{name}</span>
-                        {rooms.map((room, i) => (
-                          <span
-                            key={`${room.id}-${i}`}
-                            className={`${getRoomColor(room.name, roomColorById.get(room.id))} rounded px-1.5 py-0.5 text-[11px] font-semibold text-black`}
-                          >
-                            {room.name}
-                          </span>
-                        ))}
+                        {rooms.map((room, i) => {
+                          // Same headcount the SMS carries — beds/towels to prep
+                          const count = nextGuestCount(room.id, dateKey);
+                          return (
+                            <span
+                              key={`${room.id}-${i}`}
+                              className={`${getRoomColor(room.name, roomColorById.get(room.id))} rounded px-1.5 py-0.5 text-[11px] font-semibold text-black`}
+                            >
+                              {room.name}
+                              {count ? ` (${count})` : ""}
+                            </span>
+                          );
+                        })}
                       </p>
                     ))
                   )}
