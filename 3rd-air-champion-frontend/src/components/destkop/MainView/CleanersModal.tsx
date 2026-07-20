@@ -240,9 +240,12 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
   // Remove button underneath — deliberate by construction, no accidental taps.
   const [swipeOpenId, setSwipeOpenId] = useState<string | null>(null);
   const swipeStart = useRef<{ id: string; x: number; y: number } | null>(null);
+  // Tapping the revealed Remove swaps the row for an in-design confirm strip
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
 
   const handleDelete = (cleaner: CleanerType) => {
     setSwipeOpenId(null);
+    setConfirmRemoveId(null);
     deleteCleaner(cleaner.id, token)
       .then(() => {
         setCleaners((prev) => prev.filter((c) => c.id !== cleaner.id));
@@ -447,18 +450,45 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                 </div>
               </div>
             ) : (
-              <div key={cleaner.id} className="relative mb-2 overflow-hidden rounded-xl">
-                {/* Revealed by swiping the row to the right */}
+              confirmRemoveId === cleaner.id ? (
+              <div
+                key={cleaner.id}
+                className="mb-2 flex items-center justify-between gap-2 rounded-xl border border-red-300 bg-red-50 p-2.5"
+              >
+                <p className="min-w-0 flex-1 text-xs font-semibold text-red-700">
+                  Are you sure to remove {cleaner.name} from the team?
+                </p>
                 <button
                   type="button"
-                  className="absolute inset-y-0 left-0 flex w-20 items-center justify-center bg-red-600 text-xs font-bold text-white"
+                  className={pillNeutral}
+                  onClick={() => setConfirmRemoveId(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg bg-red-600 px-2.5 py-1.5 text-xs font-bold text-white"
                   onClick={() => handleDelete(cleaner)}
+                >
+                  Remove
+                </button>
+              </div>
+              ) : (
+              <div key={cleaner.id} className="relative mb-2 overflow-hidden rounded-xl">
+                {/* Revealed by swiping the row to the left (iOS convention) */}
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 flex w-20 items-center justify-center bg-red-600 text-xs font-bold text-white"
+                  onClick={() => {
+                    setSwipeOpenId(null);
+                    setConfirmRemoveId(cleaner.id);
+                  }}
                 >
                   Remove
                 </button>
                 <div
                   className={`relative flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-2.5 transition-transform duration-200 ${
-                    swipeOpenId === cleaner.id ? "translate-x-20" : ""
+                    swipeOpenId === cleaner.id ? "-translate-x-20" : ""
                   }`}
                   style={{ touchAction: "pan-y" }}
                   onPointerDown={(e) =>
@@ -470,8 +500,8 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                     if (!s || s.id !== cleaner.id) return;
                     const dx = e.clientX - s.x;
                     const dy = Math.abs(e.clientY - s.y);
-                    if (dx > 40 && dx > dy) setSwipeOpenId(cleaner.id);
-                    else if (dx < -20 || swipeOpenId === cleaner.id) setSwipeOpenId(null);
+                    if (dx < -40 && -dx > dy) setSwipeOpenId(cleaner.id);
+                    else if (dx > 20 || swipeOpenId === cleaner.id) setSwipeOpenId(null);
                   }}
                 >
                 <span
@@ -520,6 +550,7 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                 </button>
                 </div>
               </div>
+              )
             ),
           )}
 
