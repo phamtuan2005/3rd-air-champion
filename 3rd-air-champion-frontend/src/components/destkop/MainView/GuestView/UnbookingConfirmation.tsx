@@ -38,6 +38,11 @@ const UnbookingConfirmation = ({
   onUnbook,
 }: UnbookingConfirmationProps) => {
   const many = bookings.length > 1;
+  const refunds = bookings.map((b) =>
+    refundFor(b, cancellationFullRefundDays, cancellationHalfRefundDays),
+  );
+  const hasPolicy = refunds.some((r) => r !== null);
+  const totalRefund = refunds.reduce((sum, r) => sum + (r?.amount ?? 0), 0);
 
   const handleConfirm = () => {
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -72,8 +77,8 @@ const UnbookingConfirmation = ({
 
         {/* One row per stay, with the refund it qualifies for */}
         <div className="min-h-0 flex-1 overflow-y-auto space-y-1.5">
-          {bookings.map((booking) => {
-            const refund = refundFor(booking, cancellationFullRefundDays, cancellationHalfRefundDays);
+          {bookings.map((booking, i) => {
+            const refund = refunds[i];
             return (
               <div
                 key={`${booking.room.id}|${booking.startDate}`}
@@ -104,6 +109,15 @@ const UnbookingConfirmation = ({
             );
           })}
         </div>
+
+        {hasPolicy && (
+          <div className="mt-3 flex items-center justify-between rounded-lg bg-gray-50 border border-gray-200 px-3 py-2">
+            <span className="text-sm font-semibold text-gray-700">
+              Total refund{many ? ` (${bookings.length} bookings)` : ""}
+            </span>
+            <span className="text-lg font-bold text-emerald-600">${totalRefund.toLocaleString()}</span>
+          </div>
+        )}
 
         <div className="flex justify-end gap-2 mt-3 pt-3 border-t border-gray-100">
           <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md text-sm font-semibold">
