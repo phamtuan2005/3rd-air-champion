@@ -1,6 +1,7 @@
 ﻿import { useState } from "react";
 import { bookingType, feeType, feesTotal } from "../../../../util/types/bookingType";
 import { roomType } from "../../../../util/types/roomType";
+import { getRoomColor } from "../../../../util/getRoomColor";
 import { FaRegEdit } from "react-icons/fa";
 import { useForm, Controller, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -59,7 +60,11 @@ const DetailsModal = ({
   const nightRate = isAirBnB
     ? 0
     : (booking.guest.pricing?.find((p) => p.room === booking.room.id)?.price ?? booking.price);
-  const stayTotal = nightRate * booking.duration + feesTotal(booking.fees);
+  const feeSum = feesTotal(booking.fees);
+  // Grand total: direct = nights × rate + fees; AirBnB = payout + on-site fees.
+  const stayTotal = isAirBnB
+    ? (booking.airbnbPrice || 0) + feeSum
+    : nightRate * booking.duration + feeSum;
   const [isWriting, setIsWriting] = useState(isAirBnB && !booking.airbnbPrice);
   const [isPricingEditing, setIsPricingEditing] = useState(startWithPricingEdit ?? false);
   const [profitInput, setProfitInput] = useState(String(booking.airbnbPrice || 0));
@@ -204,30 +209,170 @@ const DetailsModal = ({
         </div>
 
         <div className="space-y-4">
-          {/* Stay summary — room, dates, nights, and (direct guests) the total */}
+          {/* Stay summary — colored room chip, AirBnB tag, dates, nights, total */}
           <div className="rounded-lg bg-gray-50 border border-gray-100 px-3 py-2">
-            <div className="flex items-baseline justify-between gap-2">
-              <p className="text-sm font-semibold text-gray-800">
-                {booking.room?.name}
-                <span className="ml-1 text-xs font-normal text-gray-400">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-2">
+                <span
+                  className={`${getRoomColor(booking.room.name, booking.room.color)} shrink-0 rounded px-2 py-0.5 text-sm font-semibold text-black`}
+                >
+                  {booking.room?.name}
+                </span>
+                {isAirBnB && (
+                  <span className="shrink-0 rounded-full bg-[#FF5A5F] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                    Airbnb
+                  </span>
+                )}
+                <span className="shrink-0 text-xs text-gray-400">
                   {booking.duration} night{booking.duration !== 1 ? "s" : ""}
                 </span>
-              </p>
-              {!isAirBnB && nightRate > 0 && (
+              </div>
+              {stayTotal > 0 && (
                 <span className="shrink-0 text-base font-bold text-emerald-600">
                   ${Math.round(stayTotal).toLocaleString()}
                 </span>
               )}
             </div>
-            <p className="mt-0.5 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-gray-500">
               {format(stayCheckIn, "EEE, MMM d")} – {format(stayCheckOut, "EEE, MMM d, yyyy")}
               {!isAirBnB && nightRate > 0 && (
                 <span className="text-gray-400">
                   {" · "}${nightRate}/night × {booking.duration}
-                  {feesTotal(booking.fees) ? ` + $${feesTotal(booking.fees)} fees` : ""}
+                  {feeSum ? ` + $${feeSum} fees` : ""}
+                </span>
+              )}
+              {isAirBnB && (booking.airbnbPrice > 0 || feeSum !== 0) && (
+                <span className="text-gray-400">
+                  {" · "}AirBnB ${booking.airbnbPrice || 0}
+                  {feeSum ? ` + $${feeSum} on-site` : ""}
                 </span>
               )}
             </p>
+          </div>
+
+          {/* Additional fees (parking, cleaning, cancellation, …) — right under
+              the summary. Shown for AirBnB too: some guests pay these on-site
+              directly to the host, outside the AirBnB payout. */}
+          <div className="border-t border-gray-100 pt-3">
+            <div className="mb-1 flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Additional fees
+              </p>
+              {!isFeesEditing && (
+                <button
+                  type="button"
+                  onClick={() => setIsFeesEditing(true)}
+                  className="text-xs font-semibold text-blue-500 hover:text-blue-700"
+                >
+                  {(booking.fees?.length ?? 0) > 0 ? "Edit" : "+ Add"}
+                </button>
+              )}
+            </div>
+
+            {!isFeesEditing ? (
+              (booking.fees?.length ?? 0) === 0 ? (
+                <p className="text-sm italic text-gray-400">No extra fees</p>
+              ) : (
+                <div className="space-y-1">
+                  {booking.fees!.map((f, i) => (
+                    <div key={i} className="flex items-center justify-between text-sm">
+                      <span className="text-gray-700">{f.label || "Fee"}</span>
+                      <span
+                        className={`font-semibold ${f.amount < 0 ? "text-red-500" : "text-gray-800"}`}
+                      >
+                        {f.amount < 0 ? "-" : ""}${Math.abs(f.amount).toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between border-t border-gray-100 pt-1 text-sm">
+                    <span className="font-semibold text-gray-700">Fees total</span>
+                    <span className="font-bold text-emerald-600">${feeSum.toFixed(2)}</span>
+                  </div>
+                </div>
+              )
+            ) : (
+              <div>
+                {/* One-tap presets + custom */}
+                <div className="mb-2 flex flex-wrap gap-1.5">
+                  {FEE_PRESETS.map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => addFeeLine(p)}
+                      className="rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                    >
+                      + {p}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => addFeeLine("")}
+                    className="rounded-full border border-dashed border-gray-300 px-2.5 py-1 text-xs font-semibold text-gray-500 hover:bg-gray-50"
+                  >
+                    + Custom
+                  </button>
+                </div>
+
+                {feeDraft.length === 0 ? (
+                  <p className="mb-2 text-xs text-gray-400">Tap a preset above to add a fee</p>
+                ) : (
+                  <div className="mb-2 space-y-1.5">
+                    {feeDraft.map((f, i) => (
+                      <div key={i} className="flex items-center gap-1.5">
+                        <input
+                          className="min-w-0 flex-1 rounded border px-2 py-1 text-sm"
+                          placeholder="Fee label"
+                          value={f.label}
+                          onChange={(e) => setFeeLine(i, { label: e.target.value })}
+                        />
+                        <span className="text-sm text-gray-500">$</span>
+                        <input
+                          className="w-20 rounded border px-2 py-1 text-sm"
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={f.amount}
+                          onChange={(e) => setFeeLine(i, { amount: e.target.value })}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeFeeLine(i)}
+                          aria-label="Remove fee"
+                          className="px-1 text-lg leading-none text-gray-400 hover:text-red-500"
+                        >
+                          &times;
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="mb-1 flex items-center justify-between text-sm">
+                  <span className="font-semibold text-gray-700">Fees total</span>
+                  <span className="font-bold text-emerald-600">${draftFeesTotal.toFixed(2)}</span>
+                </div>
+                <p className="mb-2 text-[10px] text-gray-400">
+                  Use a negative amount for a discount.
+                </p>
+
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={saveFees}
+                    className="rounded-md bg-green-500 px-4 py-1.5 text-sm text-white hover:bg-green-600"
+                  >
+                    Save fees
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelFees}
+                    className="rounded-md bg-gray-200 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-300"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Notes */}
@@ -364,133 +509,6 @@ const DetailsModal = ({
                 }}
                 setIsEditing={setIsPricingEditing}
               />
-            </div>
-          )}
-
-          {/* Additional fees (parking, cleaning, cancellation, …) — direct guests only */}
-          {!isAirBnB && (
-            <div className="border-t border-gray-100 pt-3">
-              <div className="mb-1 flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                  Additional fees
-                </p>
-                {!isFeesEditing && (
-                  <button
-                    type="button"
-                    onClick={() => setIsFeesEditing(true)}
-                    className="text-xs font-semibold text-blue-500 hover:text-blue-700"
-                  >
-                    {(booking.fees?.length ?? 0) > 0 ? "Edit" : "+ Add"}
-                  </button>
-                )}
-              </div>
-
-              {!isFeesEditing ? (
-                (booking.fees?.length ?? 0) === 0 ? (
-                  <p className="text-sm italic text-gray-400">No extra fees</p>
-                ) : (
-                  <div className="space-y-1">
-                    {booking.fees!.map((f, i) => (
-                      <div key={i} className="flex items-center justify-between text-sm">
-                        <span className="text-gray-700">{f.label || "Fee"}</span>
-                        <span
-                          className={`font-semibold ${f.amount < 0 ? "text-red-500" : "text-gray-800"}`}
-                        >
-                          {f.amount < 0 ? "-" : ""}${Math.abs(f.amount).toFixed(2)}
-                        </span>
-                      </div>
-                    ))}
-                    <div className="flex items-center justify-between border-t border-gray-100 pt-1 text-sm">
-                      <span className="font-semibold text-gray-700">Fees total</span>
-                      <span className="font-bold text-emerald-600">
-                        ${feesTotal(booking.fees).toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-                )
-              ) : (
-                <div>
-                  {/* One-tap presets + custom */}
-                  <div className="mb-2 flex flex-wrap gap-1.5">
-                    {FEE_PRESETS.map((p) => (
-                      <button
-                        key={p}
-                        type="button"
-                        onClick={() => addFeeLine(p)}
-                        className="rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                      >
-                        + {p}
-                      </button>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => addFeeLine("")}
-                      className="rounded-full border border-dashed border-gray-300 px-2.5 py-1 text-xs font-semibold text-gray-500 hover:bg-gray-50"
-                    >
-                      + Custom
-                    </button>
-                  </div>
-
-                  {feeDraft.length === 0 ? (
-                    <p className="mb-2 text-xs text-gray-400">Tap a preset above to add a fee</p>
-                  ) : (
-                    <div className="mb-2 space-y-1.5">
-                      {feeDraft.map((f, i) => (
-                        <div key={i} className="flex items-center gap-1.5">
-                          <input
-                            className="min-w-0 flex-1 rounded border px-2 py-1 text-sm"
-                            placeholder="Fee label"
-                            value={f.label}
-                            onChange={(e) => setFeeLine(i, { label: e.target.value })}
-                          />
-                          <span className="text-sm text-gray-500">$</span>
-                          <input
-                            className="w-20 rounded border px-2 py-1 text-sm"
-                            type="number"
-                            step="0.01"
-                            placeholder="0.00"
-                            value={f.amount}
-                            onChange={(e) => setFeeLine(i, { amount: e.target.value })}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeFeeLine(i)}
-                            aria-label="Remove fee"
-                            className="px-1 text-lg leading-none text-gray-400 hover:text-red-500"
-                          >
-                            &times;
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="mb-1 flex items-center justify-between text-sm">
-                    <span className="font-semibold text-gray-700">Fees total</span>
-                    <span className="font-bold text-emerald-600">${draftFeesTotal.toFixed(2)}</span>
-                  </div>
-                  <p className="mb-2 text-[10px] text-gray-400">
-                    Use a negative amount for a discount.
-                  </p>
-
-                  <div className="flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={saveFees}
-                      className="rounded-md bg-green-500 px-4 py-1.5 text-sm text-white hover:bg-green-600"
-                    >
-                      Save fees
-                    </button>
-                    <button
-                      type="button"
-                      onClick={cancelFees}
-                      className="rounded-md bg-gray-200 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-300"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 

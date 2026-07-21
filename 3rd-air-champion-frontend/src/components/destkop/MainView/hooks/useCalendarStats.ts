@@ -304,6 +304,12 @@ export const useCalendarStats = ({
               guestProfit += singleDayProfit;
               airBnBProfit += singleDayProfit;
             }
+            // On-site fees paid directly to the host count once, on check-in.
+            if (booking.startDate.split("T")[0] === dateKey) {
+              const feeSum = feesTotal(booking.fees);
+              guestProfit += feeSum;
+              airBnBProfit += feeSum;
+            }
           }
         }
       }

@@ -132,8 +132,8 @@ const BookingCard = ({
   const guestRate = isAirBnB
     ? null
     : (booking.guest.pricing?.find((p) => p.room === booking.room.id)?.price ?? booking.price);
-  // Extra fees (parking, cleaning, …) fold into the direct-guest total shown here
-  const feeSum = isAirBnB ? 0 : feesTotal(booking.fees);
+  // Extra fees (parking, cleaning, on-site AirBnB charges, …) fold into the total
+  const feeSum = feesTotal(booking.fees);
 
   const dateRange =
     booking.duration === 1
@@ -214,9 +214,12 @@ const BookingCard = ({
 
           {/* Profit is the reward — big, green, whole dollars */}
           {isAirBnB
-            ? booking.airbnbPrice && (
-                <span className="shrink-0 text-lg font-bold text-emerald-600">
-                  ${Math.round(booking.airbnbPrice).toLocaleString()}
+            ? (booking.airbnbPrice || feeSum) && (
+                <span
+                  className="shrink-0 text-lg font-bold text-emerald-600"
+                  title={feeSum ? `AirBnB $${Math.round(booking.airbnbPrice || 0)} + on-site $${feeSum}` : undefined}
+                >
+                  ${Math.round((booking.airbnbPrice || 0) + feeSum).toLocaleString()}
                 </span>
               )
             : guestRate && (
