@@ -158,11 +158,11 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
   // Per-card mode; In–Out computes the total we save (backend still stores hrs).
   const [hoursMode, setHoursMode] = useState<Record<string, "total" | "inout">>({});
   const [timeDraft, setTimeDraft] = useState<Record<string, { in: string; out: string }>>({});
-  // Pay tab: which cleaner's per-date hours breakdown is expanded, plus an
-  // optional tip added to the texted payment statement.
-  const [breakdownId, setBreakdownId] = useState<string | null>(null);
+  // Pay tab: tapping a cleaner row opens a focused detail modal holding the
+  // breakdown, tip, text, and payout/undo controls — keeps the list itself
+  // clean no matter how many recorded days a cleaner has.
+  const [detailId, setDetailId] = useState<string | null>(null);
   const [tipDraft, setTipDraft] = useState<Record<string, string>>({});
-  const [payingId, setPayingId] = useState<string | null>(null);
   const [payDraft, setPayDraft] = useState("");
   // Payout adds to paid, Undo subtracts — phone number pads have no minus key,
   // so direction is a toggle and the typed amount is always positive.
@@ -483,15 +483,28 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
     const signed = payMode === "undo" ? -amount : amount;
     recordCleanerPayment(entry.id, signed, token)
       .then(() => {
-        setPayingId(null);
+        // Stay in the detail modal so the host sees the updated balance; just
+        // reset the input and disarm the confirm.
         setPayConfirmArmed(false);
+        setPayDraft("");
         setError("");
         reloadSummary();
       })
       .catch((err) => setError(err.response?.data?.error ?? "Could not record payment"));
   };
 
+  // The cleaner whose focused pay detail modal is open (fresh from summary so
+  // the balance reflects payouts recorded while the modal stays open).
+  const detailEntry = detailId ? summary.find((s) => s.id === detailId) ?? null : null;
+  const closeDetail = () => {
+    setDetailId(null);
+    setPayConfirmArmed(false);
+    setPayDraft("");
+    setPayMode("payout");
+  };
+
   return createPortal(
+    <>
       <div
         className="fixed z-[110] flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
         style={{ left: pos.x, top: pos.y, width: size.w, height: size.h }}
@@ -1074,7 +1087,7 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
           <SectionHeader
             icon={<FaDollarSign className="text-emerald-600" />}
             title="Balance & payouts"
-            hint="Owed = earned − paid. Tap a name for the hours-by-date breakdown & tip"
+            hint="Owed = earned − paid. Tap a cleaner to pay, tip, or text a breakdown"
           />
           {/* Grand total across the whole team */}
           {summary.length > 0 &&
@@ -1110,201 +1123,35 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
             </p>
           ) : (
             summary.map((entry) => (
-              <div key={entry.id} className="mb-1.5 rounded-xl border border-gray-200 p-2.5">
-                <div className="flex items-center gap-2">
-                  {/* Tap the name to reveal the transparent hours-by-date breakdown */}
-                  <button
-                    type="button"
-                    onClick={() => setBreakdownId((id) => (id === entry.id ? null : entry.id))}
-                    className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
-                  >
-                    <span className="text-[10px] text-gray-400">
-                      {breakdownId === entry.id ? "▾" : "▸"}
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold text-gray-900">
-                        {entry.name}
-                      </span>
-                      <span className="block text-xs text-gray-500">
-                        {entry.hours} hr · earned ${Math.round(entry.earned).toLocaleString()} · paid $
-                        {Math.round(entry.paid).toLocaleString()}
-                      </span>
-                    </span>
-                  </button>
-                  <span
-                    className={`shrink-0 text-lg font-bold ${
-                      entry.balance > 0.5 ? "text-emerald-600" : "text-gray-300"
-                    }`}
-                  >
-                    ${Math.round(entry.balance).toLocaleString()}
-                  </span>
-                  {payingId !== entry.id && (
-                    <button
-                      type="button"
-                      className={pillEmerald}
-                      // Never disabled: at $0 owed the input is still needed to
-                      // enter a negative correction for a mis-recorded payout
-                      onClick={() => {
-                        setPayingId(entry.id);
-                        setPayMode("payout");
-                        setPayConfirmArmed(false);
-                        setPayDraft(
-                          entry.balance > 0.5 ? String(Math.round(entry.balance * 100) / 100) : "",
-                        );
-                      }}
-                    >
-                      Pay
-                    </button>
-                  )}
+              <button
+                key={entry.id}
+                type="button"
+                onClick={() => {
+                  setDetailId(entry.id);
+                  setPayMode("payout");
+                  setPayConfirmArmed(false);
+                  setPayDraft(
+                    entry.balance > 0.5 ? String(Math.round(entry.balance * 100) / 100) : "",
+                  );
+                }}
+                className="mb-1.5 flex w-full items-center gap-2 rounded-xl border border-gray-200 p-2.5 text-left transition-colors hover:bg-gray-50"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-gray-900">{entry.name}</p>
+                  <p className="text-xs text-gray-500">
+                    {entry.hours} hr · earned ${Math.round(entry.earned).toLocaleString()} · paid $
+                    {Math.round(entry.paid).toLocaleString()}
+                  </p>
                 </div>
-                {payingId === entry.id && (
-                  <div className="mt-2">
-                    <div className="mb-1.5 grid grid-cols-2 gap-1 rounded-lg bg-gray-100 p-0.5">
-                      {(
-                        [
-                          { key: "payout", label: "Payout" },
-                          { key: "undo", label: "Undo mistake" },
-                        ] as const
-                      ).map(({ key, label }) => (
-                        <button
-                          key={key}
-                          type="button"
-                          onClick={() => {
-                            setPayMode(key);
-                            setPayConfirmArmed(false);
-                          }}
-                          className={`rounded-md py-1 text-[11px] font-semibold ${
-                            payMode === key
-                              ? key === "undo"
-                                ? "bg-white text-red-600 shadow-sm"
-                                : "bg-white text-gray-900 shadow-sm"
-                              : "text-gray-500"
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <label className="text-xs text-gray-500">
-                        {payMode === "payout" ? "Pay $" : "Undo $"}
-                      </label>
-                      <input
-                        className={`${inputCls} w-20`}
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={payDraft}
-                        onChange={(e) => {
-                          setPayDraft(e.target.value);
-                          setPayConfirmArmed(false);
-                        }}
-                      />
-                      <button
-                        type="button"
-                        className={
-                          payConfirmArmed
-                            ? `rounded-lg px-2.5 py-1.5 text-xs font-bold text-white ${
-                                payMode === "undo" ? "bg-red-600" : "bg-emerald-700"
-                              }`
-                            : pillEmerald
-                        }
-                        onClick={() => handlePay(entry)}
-                      >
-                        {payConfirmArmed
-                          ? `Confirm $${parseFloat(payDraft) || 0}`
-                          : "Save"}
-                      </button>
-                      <button
-                        type="button"
-                        className={pillNeutral}
-                        onClick={() => {
-                          setPayingId(null);
-                          setPayConfirmArmed(false);
-                        }}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                    <p className="mt-1 text-[10px] text-gray-400">
-                      {payMode === "payout"
-                        ? "Adds to this cleaner's paid total"
-                        : "Subtracts a mis-recorded payout from the paid total"}
-                    </p>
-                  </div>
-                )}
-                {breakdownId === entry.id &&
-                  (() => {
-                    const cleaner = cleaners.find((c) => c.id === entry.id);
-                    const rate = cleaner?.payRate ?? 0;
-                    const days = cleanerDayHours(entry.id);
-                    const subtotal = days.reduce((s, [, h]) => s + h * rate, 0);
-                    const tip = parseFloat(tipDraft[entry.id]) || 0;
-                    return (
-                      <div className="mt-2 rounded-lg bg-gray-50 p-2">
-                        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-                          {format(startOfToday(), "MMMM")} — hours by date
-                        </p>
-                        {days.length === 0 ? (
-                          <p className="py-1 text-center text-[11px] text-gray-400">
-                            No recorded hours this month
-                          </p>
-                        ) : (
-                          days.map(([date, hrs]) => (
-                            <div key={date} className="flex items-center gap-2 py-0.5 text-xs">
-                              <span className="flex-1 text-gray-600">
-                                {format(new Date(date + "T00:00:00"), "EEE M/d")}
-                              </span>
-                              <span className="text-gray-500">{hrs} hr</span>
-                              <span className="w-16 text-right font-semibold text-gray-800">
-                                ${(hrs * rate).toFixed(2)}
-                              </span>
-                            </div>
-                          ))
-                        )}
-                        <div className="mt-1 flex items-center justify-between border-t border-gray-200 pt-1 text-xs">
-                          <span className="font-semibold text-gray-700">Subtotal</span>
-                          <span className="font-bold text-gray-900">${subtotal.toFixed(2)}</span>
-                        </div>
-                        <div className="mt-1.5 flex items-center justify-between gap-2">
-                          <label className="text-xs text-gray-600">Tip $</label>
-                          <input
-                            className={`${inputCls} w-24`}
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            placeholder="0.00"
-                            value={tipDraft[entry.id] ?? ""}
-                            onChange={(e) =>
-                              setTipDraft((p) => ({ ...p, [entry.id]: e.target.value }))
-                            }
-                          />
-                        </div>
-                        <div className="mt-1 flex items-center justify-between text-sm">
-                          <span className="font-semibold text-gray-700">Total</span>
-                          <span className="font-bold text-emerald-600">
-                            ${(subtotal + tip).toFixed(2)}
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          disabled={!cleaner?.phone}
-                          onClick={() => textPayment(entry)}
-                          className={`mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold text-white ${
-                            cleaner?.phone ? "bg-blue-500" : "cursor-not-allowed bg-gray-300"
-                          }`}
-                        >
-                          Text {entry.name.split(" ")[0]}
-                        </button>
-                        {!cleaner?.phone && (
-                          <p className="mt-1 text-center text-[10px] text-gray-400">
-                            Add a phone number in Team to text
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })()}
-              </div>
+                <span
+                  className={`shrink-0 text-lg font-bold ${
+                    entry.balance > 0.5 ? "text-emerald-600" : "text-gray-300"
+                  }`}
+                >
+                  ${Math.round(entry.balance).toLocaleString()}
+                </span>
+                <span className="shrink-0 text-gray-300">›</span>
+              </button>
             ))
           )}
 
@@ -1336,7 +1183,194 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
           </>
           )}
         </div>
-      </div>,
+      </div>
+
+      {/* Focused per-cleaner pay detail — keeps the Pay list clean no matter
+          how many recorded days a cleaner has. Tapping a row opens this. */}
+      {detailEntry &&
+        (() => {
+          const entry = detailEntry;
+          const cleaner = cleaners.find((c) => c.id === entry.id);
+          const rate = cleaner?.payRate ?? 0;
+          const days = cleanerDayHours(entry.id);
+          const subtotal = days.reduce((s, [, h]) => s + h * rate, 0);
+          const tip = parseFloat(tipDraft[entry.id]) || 0;
+          return (
+            <div
+              className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 p-4"
+              onClick={closeDetail}
+            >
+              <div
+                className="flex max-h-[85vh] w-full max-w-sm flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Header */}
+                <div className="flex items-start justify-between gap-2 border-b border-gray-100 p-4">
+                  <div className="min-w-0">
+                    <h3 className="truncate text-lg font-bold text-gray-900">{entry.name}</h3>
+                    <p className="text-xs text-gray-500">
+                      {entry.hours} hr · earned ${Math.round(entry.earned).toLocaleString()} · paid $
+                      {Math.round(entry.paid).toLocaleString()}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={closeDetail}
+                    aria-label="Close"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xl leading-none text-gray-400"
+                  >
+                    &times;
+                  </button>
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                  {error && <p className="mb-2 text-xs font-semibold text-red-500">{error}</p>}
+                  {/* Balance owed */}
+                  <div className="mb-3 flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                    <span className="text-sm font-semibold text-emerald-700">Balance owed</span>
+                    <span className="text-2xl font-bold text-emerald-700">
+                      ${Math.round(entry.balance).toLocaleString()}
+                    </span>
+                  </div>
+
+                  {/* Hours by date — scrolls so a heavy month never runs long */}
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                    {format(startOfToday(), "MMMM")} — hours by date
+                  </p>
+                  <div className="max-h-48 overflow-y-auto rounded-lg bg-gray-50 p-2">
+                    {days.length === 0 ? (
+                      <p className="py-1 text-center text-[11px] text-gray-400">
+                        No recorded hours this month
+                      </p>
+                    ) : (
+                      days.map(([date, hrs]) => (
+                        <div key={date} className="flex items-center gap-2 py-0.5 text-xs">
+                          <span className="flex-1 text-gray-600">
+                            {format(new Date(date + "T00:00:00"), "EEE M/d")}
+                          </span>
+                          <span className="text-gray-500">{hrs} hr</span>
+                          <span className="w-16 text-right font-semibold text-gray-800">
+                            ${(hrs * rate).toFixed(2)}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <div className="mt-1 flex items-center justify-between px-1 text-xs">
+                    <span className="font-semibold text-gray-700">Subtotal</span>
+                    <span className="font-bold text-gray-900">${subtotal.toFixed(2)}</span>
+                  </div>
+
+                  {/* Tip + statement total */}
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <label className="text-sm text-gray-600">Tip $</label>
+                    <input
+                      className={`${inputCls} w-24`}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={tipDraft[entry.id] ?? ""}
+                      onChange={(e) => setTipDraft((p) => ({ ...p, [entry.id]: e.target.value }))}
+                    />
+                  </div>
+                  <div className="mt-1 flex items-center justify-between text-sm">
+                    <span className="font-semibold text-gray-700">Statement total</span>
+                    <span className="font-bold text-emerald-600">
+                      ${(subtotal + tip).toFixed(2)}
+                    </span>
+                  </div>
+
+                  {/* Text the breakdown */}
+                  <button
+                    type="button"
+                    disabled={!cleaner?.phone}
+                    onClick={() => textPayment(entry)}
+                    className={`mt-2 w-full rounded-lg py-2 text-sm font-semibold text-white ${
+                      cleaner?.phone ? "bg-blue-500" : "cursor-not-allowed bg-gray-300"
+                    }`}
+                  >
+                    Text {entry.name.split(" ")[0]} the breakdown
+                  </button>
+                  {!cleaner?.phone && (
+                    <p className="mt-1 text-center text-[10px] text-gray-400">
+                      Add a phone number in Team to text
+                    </p>
+                  )}
+
+                  {/* Payout / Undo mistake */}
+                  <div className="mt-4 border-t border-gray-100 pt-3">
+                    <div className="mb-1.5 grid grid-cols-2 gap-1 rounded-lg bg-gray-100 p-0.5">
+                      {(
+                        [
+                          { key: "payout", label: "Payout" },
+                          { key: "undo", label: "Undo mistake" },
+                        ] as const
+                      ).map(({ key, label }) => (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => {
+                            setPayMode(key);
+                            setPayConfirmArmed(false);
+                          }}
+                          className={`rounded-md py-1 text-[11px] font-semibold ${
+                            payMode === key
+                              ? key === "undo"
+                                ? "bg-white text-red-600 shadow-sm"
+                                : "bg-white text-gray-900 shadow-sm"
+                              : "text-gray-500"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <label className="text-xs text-gray-500">
+                        {payMode === "payout" ? "Pay $" : "Undo $"}
+                      </label>
+                      <input
+                        className={`${inputCls} w-24`}
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={payDraft}
+                        onChange={(e) => {
+                          setPayDraft(e.target.value);
+                          setPayConfirmArmed(false);
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className={
+                          payConfirmArmed
+                            ? `flex-1 rounded-lg px-2.5 py-1.5 text-xs font-bold text-white ${
+                                payMode === "undo" ? "bg-red-600" : "bg-emerald-700"
+                              }`
+                            : `flex-1 ${pillEmerald}`
+                        }
+                        onClick={() => handlePay(entry)}
+                      >
+                        {payConfirmArmed
+                          ? `Confirm $${parseFloat(payDraft) || 0}`
+                          : payMode === "payout"
+                            ? "Record payout"
+                            : "Record undo"}
+                      </button>
+                    </div>
+                    <p className="mt-1 text-[10px] text-gray-400">
+                      {payMode === "payout"
+                        ? "Adds to this cleaner's paid total"
+                        : "Subtracts a mis-recorded payout from the paid total"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+    </>,
     document.body,
   );
 };
