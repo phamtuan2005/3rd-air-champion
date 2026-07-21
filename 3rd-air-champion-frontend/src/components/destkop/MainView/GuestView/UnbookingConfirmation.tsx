@@ -50,14 +50,16 @@ const UnbookingConfirmation = ({
   const guest = bookings[0]?.guest;
   const textGuest = () => {
     if (!guest?.phone) return;
-    const lines = bookings.map(
-      (b) => `* ${b.room.name}: ${formatDate(b.startDate)} – ${formatDate(b.endDate)}`,
-    );
+    const lines = bookings.map((b, i) => {
+      const r = refunds[i];
+      const refundText = r ? ` — refund $${r.amount} (${r.pct}%)` : "";
+      return `* ${b.room.name}: ${formatDate(b.startDate)} – ${formatDate(b.endDate)}${refundText}`;
+    });
     const name = bookings[0].alias || guest.name;
     const body = [
       `Hi ${name}, this confirms your booking${many ? "s have" : " has"} been cancelled:`,
       ...lines,
-      ...(hasPolicy ? [`Refund: $${totalRefund.toLocaleString()}`] : []),
+      ...(hasPolicy && many ? [`Total refund: $${totalRefund.toLocaleString()}`] : []),
       `Thank you! — Anh-Tuan`,
     ].join("\n");
     window.location.href = `sms:${guest.phone}?&body=${encodeURIComponent(body)}`;
