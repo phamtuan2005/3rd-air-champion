@@ -41,7 +41,8 @@ interface GuestViewProps {
   setIsMobileModalOpen?: React.Dispatch<React.SetStateAction<boolean>>;
   setSelectedBooking: React.Dispatch<React.SetStateAction<bookingType>>;
   setSelectedModifyBooking: React.Dispatch<React.SetStateAction<bookingType>>;
-  setSelectedUnbooking: React.Dispatch<React.SetStateAction<bookingType>>;
+  onToggleUnbook: (booking: bookingType) => void;
+  pendingUnbookKeys: Set<string>;
   onPricingEdit: (booking: bookingType) => void;
 }
 
@@ -67,7 +68,8 @@ const GuestView = ({
   setCurrentMonth,
   setSelectedBooking,
   setSelectedModifyBooking,
-  setSelectedUnbooking,
+  onToggleUnbook,
+  pendingUnbookKeys,
   onPricingEdit,
 }: GuestViewProps) => {
   // Guests = bookings + booking actions; Cleaning = turnover rooms for this date.
@@ -152,7 +154,8 @@ const GuestView = ({
           setCurrentAirBnBGuest={setCurrentAirBnBGuest}
           setSelectedBooking={setSelectedBooking}
           setSelectedModifyBooking={setSelectedModifyBooking}
-          setSelectedUnbooking={setSelectedUnbooking}
+          onToggleUnbook={onToggleUnbook}
+          isPendingUnbook={pendingUnbookKeys.has(`${booking.room.id}|${booking.startDate}`)}
           setIsMobileModalOpen={setIsMobileModalOpen}
           onPricingEdit={onPricingEdit}
         />

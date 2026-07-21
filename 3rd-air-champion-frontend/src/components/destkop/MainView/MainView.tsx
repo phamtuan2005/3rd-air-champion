@@ -156,7 +156,11 @@ const MainView = ({
   const [selectedDate, setSelectedDate] = useState<Date>(startOfToday());
   const [selectedRoom, setSelectedRoom] = useState<roomType>();
   const [selectedBooking, setSelectedBooking] = useState<bookingType | null>(null);
-  const [selectedUnbooking, setSelectedUnbooking] = useState<bookingType | null>(null);
+  // Batch unbook (soft → firm): stays marked "pending removal" (keyed room|start),
+  // confirmed together via a floating pill. Mirrors the hold-bar interaction.
+  const [pendingUnbook, setPendingUnbook] = useState<Map<string, bookingType>>(new Map());
+  const [showUnbookConfirm, setShowUnbookConfirm] = useState(false);
+  const [unbookBarOffset, setUnbookBarOffset] = useState({ x: 0, y: 0 });
   const [selectedModifyBooking, setSelectedModifyBooking] = useState<bookingType | null>(null);
   const [paidDates, setPaidDates] = useState<Date[]>([]);
   // Guest mode: soft-hold dates double-tapped for batch confirm-to-firm
@@ -453,7 +457,8 @@ const MainView = ({
   };
 
   const onUnbook = (ids: string[]) => {
-    setSelectedUnbooking(null);
+    setShowUnbookConfirm(false);
+    setPendingUnbook(new Map());
 
     const unbookSequentially = (index: number) => {
       if (index >= ids.length) {
@@ -561,6 +566,43 @@ const MainView = ({
   // Suppress the click that follows a drag so releasing over a button doesn't fire it.
   const holdBarClickGuard = (action: () => void) => () => {
     if (holdBarMovedRef.current) return;
+    action();
+  };
+
+  // ── Batch unbook selection ────────────────────────────────────────────────
+  const unbookKey = (b: bookingType) => `${b.room.id}|${b.startDate}`;
+  const pendingUnbookKeys = new Set(pendingUnbook.keys());
+  const toggleUnbook = (b: bookingType) => {
+    setPendingUnbook((prev) => {
+      const next = new Map(prev);
+      const key = unbookKey(b);
+      if (next.has(key)) next.delete(key);
+      else next.set(key, b);
+      return next;
+    });
+  };
+  // The unbook pill is draggable too, on its own offset (same mechanics as the
+  // hold bar) so it can be pulled clear of the guest panel.
+  const unbookBarDragRef = useRef<{ startX: number; startY: number; baseX: number; baseY: number } | null>(null);
+  const unbookBarMovedRef = useRef(false);
+  const onUnbookBarPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    unbookBarDragRef.current = { startX: e.clientX, startY: e.clientY, baseX: unbookBarOffset.x, baseY: unbookBarOffset.y };
+    unbookBarMovedRef.current = false;
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onUnbookBarPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = unbookBarDragRef.current;
+    if (!drag) return;
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+    if (Math.abs(dx) + Math.abs(dy) > 6) unbookBarMovedRef.current = true;
+    setUnbookBarOffset({ x: drag.baseX + dx, y: drag.baseY + dy });
+  };
+  const onUnbookBarPointerUp = () => {
+    unbookBarDragRef.current = null;
+  };
+  const unbookBarClickGuard = (action: () => void) => () => {
+    if (unbookBarMovedRef.current) return;
     action();
   };
 
@@ -852,7 +894,8 @@ const MainView = ({
               setCurrentMonth={setCurrentMonth}
               setSelectedBooking={setSelectedBooking as React.Dispatch<React.SetStateAction<bookingType>>}
               setSelectedModifyBooking={setSelectedModifyBooking as React.Dispatch<React.SetStateAction<bookingType>>}
-              setSelectedUnbooking={setSelectedUnbooking as React.Dispatch<React.SetStateAction<bookingType>>}
+              onToggleUnbook={toggleUnbook}
+              pendingUnbookKeys={pendingUnbookKeys}
               onPricingEdit={onPricingEdit}
             >
               <BookButton setIsModalOpen={setIsModalOpen} setSelectedRoom={setSelectedRoom} />
@@ -905,7 +948,8 @@ const MainView = ({
           setIsMobileModalOpen={setIsMobileModalOpen}
           setSelectedBooking={setSelectedBooking as React.Dispatch<React.SetStateAction<bookingType>>}
           setSelectedModifyBooking={setSelectedModifyBooking as React.Dispatch<React.SetStateAction<bookingType>>}
-          setSelectedUnbooking={setSelectedUnbooking as React.Dispatch<React.SetStateAction<bookingType>>}
+          onToggleUnbook={toggleUnbook}
+          pendingUnbookKeys={pendingUnbookKeys}
           onPricingEdit={onPricingEdit}
         >
           <BookButton
@@ -1019,13 +1063,49 @@ const MainView = ({
           onPricingUpdate={onPricingUpdate}
         />
       )}
-      {selectedUnbooking && (
+      {/* Floating batch-unbook pill — appears once stays are marked for removal.
+          Drag to move; Clear to abandon; Unbook opens the firm confirmation.
+          z-[65] sits above the guest panel (z-50) but below the confirm modal. */}
+      {pendingUnbook.size > 0 && (
+        <div
+          className="fixed bottom-24 left-1/2 z-[65] flex flex-col items-center"
+          style={{
+            transform: `translate(calc(-50% + ${unbookBarOffset.x}px), ${unbookBarOffset.y}px)`,
+            touchAction: "none",
+          }}
+          onPointerDown={onUnbookBarPointerDown}
+          onPointerMove={onUnbookBarPointerMove}
+          onPointerUp={onUnbookBarPointerUp}
+        >
+          <div className="flex items-center gap-2.5 rounded-full border border-red-300 bg-white py-1.5 pl-2.5 pr-2 shadow-lg cursor-grab active:cursor-grabbing">
+            <span className="select-none text-sm leading-none text-gray-300">⠿</span>
+            <span className="select-none whitespace-nowrap text-sm font-medium text-red-700">
+              {pendingUnbook.size} to unbook
+            </span>
+            <button
+              type="button"
+              onClick={unbookBarClickGuard(() => setPendingUnbook(new Map()))}
+              className="text-xs text-gray-400 hover:text-gray-600"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={unbookBarClickGuard(() => setShowUnbookConfirm(true))}
+              className="whitespace-nowrap rounded-full bg-red-600 px-3.5 py-1.5 text-sm font-semibold text-white hover:bg-red-700"
+            >
+              Unbook {pendingUnbook.size}
+            </button>
+          </div>
+        </div>
+      )}
+      {showUnbookConfirm && pendingUnbook.size > 0 && (
         <UnbookingConfirmation
           monthMap={monthMap}
-          booking={selectedUnbooking}
+          bookings={[...pendingUnbook.values()]}
           cancellationFullRefundDays={cancellationFullRefundDays}
           cancellationHalfRefundDays={cancellationHalfRefundDays}
-          onClose={() => setSelectedUnbooking(null)}
+          onClose={() => setShowUnbookConfirm(false)}
           onUnbook={onUnbook}
         />
       )}

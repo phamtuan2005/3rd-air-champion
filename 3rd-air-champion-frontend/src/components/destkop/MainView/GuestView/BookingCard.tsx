@@ -29,7 +29,8 @@ interface BookingCardProps {
   setCurrentAirBnBGuest: React.Dispatch<React.SetStateAction<string | null>>;
   setSelectedBooking: React.Dispatch<React.SetStateAction<bookingType>>;
   setSelectedModifyBooking: React.Dispatch<React.SetStateAction<bookingType>>;
-  setSelectedUnbooking: React.Dispatch<React.SetStateAction<bookingType>>;
+  onToggleUnbook: (booking: bookingType) => void;
+  isPendingUnbook: boolean;
   setIsMobileModalOpen?: React.Dispatch<React.SetStateAction<boolean>>;
   onPricingEdit: (booking: bookingType) => void;
 }
@@ -54,7 +55,8 @@ const BookingCard = ({
   setCurrentAirBnBGuest,
   setSelectedBooking,
   setSelectedModifyBooking,
-  setSelectedUnbooking,
+  onToggleUnbook,
+  isPendingUnbook,
   setIsMobileModalOpen,
   onPricingEdit,
 }: BookingCardProps) => {
@@ -171,11 +173,29 @@ const BookingCard = ({
   return (
     <div
       className={`relative mb-2 overflow-hidden rounded-xl border ${
-        isReserved ? "border-amber-300 bg-amber-50" : "border-gray-200 bg-white"
+        isPendingUnbook
+          ? "border-red-300 bg-red-50"
+          : isReserved
+            ? "border-amber-300 bg-amber-50"
+            : "border-gray-200 bg-white"
       }`}
     >
       {/* Room identity as a color accent, not a button-look chip */}
       <div className={`absolute inset-y-0 left-0 w-3 ${roomColor}`} />
+
+      {/* Marked for batch unbook — one tap to keep it */}
+      {isPendingUnbook && (
+        <div className="flex items-center justify-between gap-2 bg-red-100 py-1 pl-5 pr-3 text-[11px] font-bold text-red-700">
+          <span className="uppercase tracking-wide">Pending removal</span>
+          <button
+            type="button"
+            onClick={() => onToggleUnbook(booking)}
+            className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-red-600 hover:bg-red-50"
+          >
+            Undo
+          </button>
+        </div>
+      )}
 
       <div className="p-3 pl-5">
         <div className="flex items-start gap-2">
@@ -420,10 +440,10 @@ const BookingCard = ({
                       <button
                         type="button"
                         className={rowDanger}
-                        onClick={() => closeThen(() => setSelectedUnbooking(booking))}
+                        onClick={() => closeThen(() => onToggleUnbook(booking))}
                       >
                         <FaRegTrashAlt size={14} className="shrink-0" />
-                        Unbook
+                        {isPendingUnbook ? "Keep booking" : "Mark to unbook"}
                       </button>
                     </>
                   ) : (

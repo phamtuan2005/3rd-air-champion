@@ -5,7 +5,7 @@ import { dayType } from "../../../../util/types/dayType";
 import { addDays, differenceInCalendarDays, parseISO } from "date-fns";
 
 interface UnbookingConfirmationProps {
-  booking: bookingType;
+  bookings: bookingType[]; // one or many stays to unbook in a single firm step
   monthMap: Map<string, dayType>;
   cancellationFullRefundDays?: number;
   cancellationHalfRefundDays?: number;
@@ -13,102 +13,107 @@ interface UnbookingConfirmationProps {
   onUnbook: (ids: string[]) => void;
 }
 
+// Refund % for one stay, given the host's cancellation policy and how far out
+// the check-in is. Returns null when no policy is configured.
+const refundFor = (
+  booking: bookingType,
+  fullDays?: number,
+  halfDays?: number,
+): { pct: number; amount: number } | null => {
+  if (fullDays === undefined || halfDays === undefined) return null;
+  const rate =
+    booking.guest.pricing?.find((p) => p.room === booking.room.id)?.price ?? booking.price;
+  const total = rate * booking.duration;
+  const daysOut = differenceInCalendarDays(parseISO(booking.startDate.split("T")[0]), new Date());
+  const pct = daysOut >= fullDays ? 100 : daysOut >= halfDays ? 50 : 0;
+  return { pct, amount: Math.round((total * pct) / 100) };
+};
+
 const UnbookingConfirmation = ({
-  booking,
+  bookings,
   monthMap,
   cancellationFullRefundDays,
   cancellationHalfRefundDays,
   onClose,
   onUnbook,
 }: UnbookingConfirmationProps) => {
-  const pricePerNight =
-    booking.guest.pricing?.find((p) => p.room === booking.room.id)?.price ??
-    booking.price;
-  const total = pricePerNight * booking.duration;
-  const daysUntilCheckin = differenceInCalendarDays(parseISO(booking.startDate.split("T")[0]), new Date());
-  const refundPct =
-    cancellationFullRefundDays !== undefined && cancellationHalfRefundDays !== undefined
-      ? daysUntilCheckin >= cancellationFullRefundDays
-        ? 100
-        : daysUntilCheckin >= cancellationHalfRefundDays
-        ? 50
-        : 0
-      : null;
-  const refundAmount = refundPct !== null ? Math.round((total * refundPct) / 100) : null;
+  const many = bookings.length > 1;
+
+  const handleConfirm = () => {
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    // Each stay is stored as one booking record per night; collect every
+    // night's id across every selected stay, then delete them all in one batch.
+    const bookingIds: string[] = [];
+    bookings.forEach((booking) => {
+      const startDate = toZonedTime(booking.startDate, timeZone);
+      for (let i = 0; i < booking.duration; i++) {
+        const currentDay = monthMap.get(addDays(startDate, i).toISOString().split("T")[0]);
+        currentDay?.bookings.forEach((b) => {
+          if (b.guest.id === booking.guest.id && b.room.id === booking.room.id) {
+            bookingIds.push(b.id);
+          }
+        });
+      }
+    });
+    onUnbook(bookingIds);
+  };
 
   return (
-    <div className="fixed bottom-0 left-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center z-50">
-      <div className="bg-white rounded-lg p-4 max-w-lg w-full shadow-lg">
-        <button
-          onClick={onClose}
-          className="text-gray-700 font-bold text-[1.5rem]"
-        >
-          &times;
-        </button>
+    <div className="fixed bottom-0 left-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center z-[70]">
+      <div className="bg-white rounded-xl p-4 max-w-lg w-full shadow-lg max-h-[85vh] flex flex-col">
+        <div className="flex items-center justify-between mb-2">
+          <h1 className="text-lg font-bold text-gray-800">
+            Unbook {bookings.length} {many ? "bookings" : "booking"}?
+          </h1>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl leading-none px-1">
+            &times;
+          </button>
+        </div>
 
-        {/* Content */}
-        {/* Warning label*/}
-        <h1>
-          Are you sure you want to unbook:{" "}
-          <span className="font-semibold">
-            {booking.alias || booking.guest.name}
-          </span>{" "}
-          on{" "}
-          <span className="font-semibold">{formatDate(booking.startDate)}</span>{" "}
-          to{" "}
-          <span className="font-semibold">{formatDate(booking.endDate)}</span>
-        </h1>
+        {/* One row per stay, with the refund it qualifies for */}
+        <div className="min-h-0 flex-1 overflow-y-auto space-y-1.5">
+          {bookings.map((booking) => {
+            const refund = refundFor(booking, cancellationFullRefundDays, cancellationHalfRefundDays);
+            return (
+              <div
+                key={`${booking.room.id}|${booking.startDate}`}
+                className="flex items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-gray-900">
+                    {booking.alias || booking.guest.name}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {booking.room.name} · {formatDate(booking.startDate)} – {formatDate(booking.endDate)}
+                  </p>
+                </div>
+                {refund && (
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                      refund.pct === 100
+                        ? "bg-green-100 text-green-700"
+                        : refund.pct === 50
+                          ? "bg-amber-100 text-amber-700"
+                          : "bg-red-100 text-red-700"
+                    }`}
+                  >
+                    Refund ${refund.amount} ({refund.pct}%)
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
 
-        {/* Refund summary */}
-        {refundAmount !== null && (
-          <div className={`mt-3 px-3 py-2 rounded-lg text-sm font-medium border ${
-            refundPct === 100 ? "bg-green-50 border-green-200 text-green-700" :
-            refundPct === 50  ? "bg-amber-50 border-amber-200 text-amber-700" :
-                                "bg-red-50 border-red-200 text-red-700"
-          }`}>
-            Refund: <span className="font-bold">${refundAmount}</span>
-            {" "}({refundPct}% of ${total}) — {daysUntilCheckin} day{daysUntilCheckin !== 1 ? "s" : ""} before check-in
-          </div>
-        )}
-
-        {/* Action buttons */}
-        <div className="flex justify-end space-x-4 mt-4">
-          <button
-            onClick={() => {
-              const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-              const bookingIds: string[] = [];
-              const startDate = toZonedTime(booking.startDate, timeZone);
-
-              for (let i = 0; i < booking.duration; i++) {
-                const currentDay = monthMap.get(
-                  addDays(startDate, i).toISOString().split("T")[0]
-                );
-
-                if (currentDay) {
-                  // Find matching bookings in the current day
-                  currentDay.bookings.forEach((b) => {
-                    if (
-                      b.guest.id === booking.guest.id &&
-                      b.room.id === booking.room.id
-                    ) {
-                      bookingIds.push(b.id); // Collect the booking ID
-                    }
-                  });
-                }
-              }
-
-              onUnbook(bookingIds);
-            }}
-            className="px-4 py-2 bg-green-500 text-white rounded"
-          >
-            Confirm
+        <div className="flex justify-end gap-2 mt-3 pt-3 border-t border-gray-100">
+          <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md text-sm font-semibold">
+            Cancel
           </button>
           <button
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-500 text-white rounded"
+            onClick={handleConfirm}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm font-bold"
           >
-            Cancel
+            Unbook {bookings.length} {many ? "bookings" : "booking"}
           </button>
         </div>
       </div>
