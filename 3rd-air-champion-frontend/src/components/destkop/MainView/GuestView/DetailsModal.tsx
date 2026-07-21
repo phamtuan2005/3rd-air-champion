@@ -4,7 +4,7 @@ import { roomType } from "../../../../util/types/roomType";
 import { FaRegEdit } from "react-icons/fa";
 import { useForm, Controller, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { format, parseISO } from "date-fns";
+import { addDays, format, parseISO } from "date-fns";
 import {
   guestUpdateSchema,
   guestUpdateZodObject,
@@ -48,6 +48,18 @@ const DetailsModal = ({
   onPricingUpdate,
 }: DetailsModalProps) => {
   const isAirBnB = booking.guest.name === "AirBnB";
+  // Stay summary — shown for every booking (dates + nights); direct guests also
+  // get the running total (nights × negotiated rate + fees).
+  const parseLocalDate = (s: string) => {
+    const [y, m, d] = s.substring(0, 10).split("-").map(Number);
+    return new Date(y, m - 1, d);
+  };
+  const stayCheckIn = parseLocalDate(booking.startDate);
+  const stayCheckOut = addDays(stayCheckIn, booking.duration);
+  const nightRate = isAirBnB
+    ? 0
+    : (booking.guest.pricing?.find((p) => p.room === booking.room.id)?.price ?? booking.price);
+  const stayTotal = nightRate * booking.duration + feesTotal(booking.fees);
   const [isWriting, setIsWriting] = useState(isAirBnB && !booking.airbnbPrice);
   const [isPricingEditing, setIsPricingEditing] = useState(startWithPricingEdit ?? false);
   const [profitInput, setProfitInput] = useState(String(booking.airbnbPrice || 0));
@@ -192,6 +204,32 @@ const DetailsModal = ({
         </div>
 
         <div className="space-y-4">
+          {/* Stay summary — room, dates, nights, and (direct guests) the total */}
+          <div className="rounded-lg bg-gray-50 border border-gray-100 px-3 py-2">
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="text-sm font-semibold text-gray-800">
+                {booking.room?.name}
+                <span className="ml-1 text-xs font-normal text-gray-400">
+                  {booking.duration} night{booking.duration !== 1 ? "s" : ""}
+                </span>
+              </p>
+              {!isAirBnB && nightRate > 0 && (
+                <span className="shrink-0 text-base font-bold text-emerald-600">
+                  ${Math.round(stayTotal).toLocaleString()}
+                </span>
+              )}
+            </div>
+            <p className="mt-0.5 text-xs text-gray-500">
+              {format(stayCheckIn, "EEE, MMM d")} – {format(stayCheckOut, "EEE, MMM d, yyyy")}
+              {!isAirBnB && nightRate > 0 && (
+                <span className="text-gray-400">
+                  {" · "}${nightRate}/night × {booking.duration}
+                  {feesTotal(booking.fees) ? ` + $${feesTotal(booking.fees)} fees` : ""}
+                </span>
+              )}
+            </p>
+          </div>
+
           {/* Notes */}
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Notes</p>
