@@ -51,6 +51,19 @@ const initials = (name: string) =>
     .slice(0, 2)
     .toUpperCase();
 
+// Decimal hours between two "HH:MM" clock times (2dp), or null if either is
+// missing/invalid or the leave time isn't after the arrival time. Cleaning is
+// daytime, so no midnight wrap.
+const hoursBetween = (inStr?: string, outStr?: string): number | null => {
+  if (!inStr || !outStr) return null;
+  const [ih, im] = inStr.split(":").map(Number);
+  const [oh, om] = outStr.split(":").map(Number);
+  if ([ih, im, oh, om].some((n) => Number.isNaN(n))) return null;
+  const mins = oh * 60 + om - (ih * 60 + im);
+  if (mins <= 0) return null;
+  return Math.round((mins / 60) * 100) / 100;
+};
+
 const SectionHeader = ({
   icon,
   title,
@@ -141,6 +154,10 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
   const [hoursDraft, setHoursDraft] = useState<Record<string, string>>({});
   // Which already-recorded cleaner-day is currently open for correction
   const [editingDayKey, setEditingDayKey] = useState<string | null>(null);
+  // Some cleaners report a decimal total, others report arrival/leave times.
+  // Per-card mode; In–Out computes the total we save (backend still stores hrs).
+  const [hoursMode, setHoursMode] = useState<Record<string, "total" | "inout">>({});
+  const [timeDraft, setTimeDraft] = useState<Record<string, { in: string; out: string }>>({});
   const [payingId, setPayingId] = useState<string | null>(null);
   const [payDraft, setPayDraft] = useState("");
   // Payout adds to paid, Undo subtracts — phone number pads have no minus key,
@@ -344,8 +361,14 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
     key: string;
     assignments: CleaningAssignmentType[];
   }) => {
-    const hours = parseFloat(hoursDraft[group.key]);
-    if (!(hours >= 0)) return;
+    // In–Out mode derives the total from the arrival/leave times; Total mode
+    // takes the typed number. Both save the same resulting hours.
+    const mode = hoursMode[group.key] ?? "total";
+    const hours =
+      mode === "inout"
+        ? hoursBetween(timeDraft[group.key]?.in, timeDraft[group.key]?.out)
+        : parseFloat(hoursDraft[group.key]);
+    if (hours == null || !(hours >= 0)) return;
     // 0 = the cleaner didn't work that day: clear every room back to null so
     // the day returns to the amber pending card, rather than storing "0 hr".
     const clearing = hours === 0;
@@ -358,6 +381,11 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
         setAssignments((prev) => prev.map((a) => updatedList.find((u) => u.id === a.id) ?? a));
         setEditingDayKey(null);
         setHoursDraft((p) => {
+          const next = { ...p };
+          delete next[group.key];
+          return next;
+        });
+        setTimeDraft((p) => {
           const next = { ...p };
           delete next[group.key];
           return next;
@@ -821,7 +849,7 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
           <SectionHeader
             icon={<FaRegClock className="text-amber-500" />}
             title="Record hours"
-            hint="A cleaner reports one total per day — pay is hours × rate"
+            hint="Enter a daily total, or the arrival/leave times — pay is hours × rate"
           />
           {needHoursGroups.length === 0 ? (
             <p className="mb-2 rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-center text-xs text-gray-400">
@@ -840,17 +868,70 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                       {format(new Date(group.date + "T00:00:00"), "EEEE M/d")}
                     </p>
                   </div>
-                  <input
-                    className={`${inputCls} w-16`}
-                    type="number"
-                    step="0.5"
-                    min="0"
-                    placeholder="hrs"
-                    value={hoursDraft[group.key] ?? ""}
-                    onChange={(e) =>
-                      setHoursDraft((p) => ({ ...p, [group.key]: e.target.value }))
-                    }
-                  />
+                  {/* How this cleaner reports: a decimal total, or come/leave times */}
+                  <div className="flex shrink-0 rounded-lg bg-gray-100 p-0.5 text-[10px] font-semibold">
+                    {(["total", "inout"] as const).map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setHoursMode((p) => ({ ...p, [group.key]: m }))}
+                        className={`rounded-md px-2 py-1 ${
+                          (hoursMode[group.key] ?? "total") === m
+                            ? "bg-white text-gray-900 shadow-sm"
+                            : "text-gray-500"
+                        }`}
+                      >
+                        {m === "total" ? "Total" : "In–Out"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center justify-end gap-1.5">
+                  {(hoursMode[group.key] ?? "total") === "total" ? (
+                    <input
+                      className={`${inputCls} w-16`}
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      placeholder="hrs"
+                      value={hoursDraft[group.key] ?? ""}
+                      onChange={(e) =>
+                        setHoursDraft((p) => ({ ...p, [group.key]: e.target.value }))
+                      }
+                    />
+                  ) : (
+                    <>
+                      <label className="text-[10px] font-semibold text-gray-500">In</label>
+                      <input
+                        className={`${inputCls} w-[92px]`}
+                        type="time"
+                        value={timeDraft[group.key]?.in ?? ""}
+                        onChange={(e) =>
+                          setTimeDraft((p) => ({
+                            ...p,
+                            [group.key]: { in: e.target.value, out: p[group.key]?.out ?? "" },
+                          }))
+                        }
+                      />
+                      <label className="text-[10px] font-semibold text-gray-500">Out</label>
+                      <input
+                        className={`${inputCls} w-[92px]`}
+                        type="time"
+                        value={timeDraft[group.key]?.out ?? ""}
+                        onChange={(e) =>
+                          setTimeDraft((p) => ({
+                            ...p,
+                            [group.key]: { in: p[group.key]?.in ?? "", out: e.target.value },
+                          }))
+                        }
+                      />
+                      {hoursBetween(timeDraft[group.key]?.in, timeDraft[group.key]?.out) != null && (
+                        <span className="text-xs font-bold text-emerald-600">
+                          = {hoursBetween(timeDraft[group.key]?.in, timeDraft[group.key]?.out)} hr
+                        </span>
+                      )}
+                    </>
+                  )}
                   <button
                     type="button"
                     className={pillDark}
