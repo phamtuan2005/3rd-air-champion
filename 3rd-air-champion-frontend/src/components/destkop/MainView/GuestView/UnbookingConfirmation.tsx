@@ -44,6 +44,25 @@ const UnbookingConfirmation = ({
   const hasPolicy = refunds.some((r) => r !== null);
   const totalRefund = refunds.reduce((sum, r) => sum + (r?.amount ?? 0), 0);
 
+  // Text the guest a cancellation notice (all selected stays belong to one
+  // guest — the hold selection / card action is guest-scoped). "— Anh-Tuan"
+  // keeps the personal sender name.
+  const guest = bookings[0]?.guest;
+  const textGuest = () => {
+    if (!guest?.phone) return;
+    const lines = bookings.map(
+      (b) => `* ${b.room.name}: ${formatDate(b.startDate)} – ${formatDate(b.endDate)}`,
+    );
+    const name = bookings[0].alias || guest.name;
+    const body = [
+      `Hi ${name}, this confirms your booking${many ? "s have" : " has"} been cancelled:`,
+      ...lines,
+      ...(hasPolicy ? [`Refund: $${totalRefund.toLocaleString()}`] : []),
+      `Thank you! — Anh-Tuan`,
+    ].join("\n");
+    window.location.href = `sms:${guest.phone}?&body=${encodeURIComponent(body)}`;
+  };
+
   const handleConfirm = () => {
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     // Each stay is stored as one booking record per night; collect every
@@ -119,7 +138,15 @@ const UnbookingConfirmation = ({
           </div>
         )}
 
-        <div className="flex justify-end gap-2 mt-3 pt-3 border-t border-gray-100">
+        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+          <button
+            type="button"
+            onClick={textGuest}
+            disabled={!guest?.phone}
+            className="mr-auto px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm font-semibold disabled:cursor-not-allowed disabled:bg-gray-300"
+          >
+            Text guest
+          </button>
           <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md text-sm font-semibold">
             Cancel
           </button>
