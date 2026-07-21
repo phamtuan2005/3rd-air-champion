@@ -156,11 +156,9 @@ const MainView = ({
   const [selectedDate, setSelectedDate] = useState<Date>(startOfToday());
   const [selectedRoom, setSelectedRoom] = useState<roomType>();
   const [selectedBooking, setSelectedBooking] = useState<bookingType | null>(null);
-  // Batch unbook (soft → firm): stays marked "pending removal" (keyed room|start),
-  // confirmed together via a floating pill. Mirrors the hold-bar interaction.
-  const [pendingUnbook, setPendingUnbook] = useState<Map<string, bookingType>>(new Map());
-  const [showUnbookConfirm, setShowUnbookConfirm] = useState(false);
-  const [unbookBarOffset, setUnbookBarOffset] = useState({ x: 0, y: 0 });
+  // One or many stays queued for the unbook confirmation (single card action or
+  // the whole hold-bar selection).
+  const [unbookBookings, setUnbookBookings] = useState<bookingType[] | null>(null);
   const [selectedModifyBooking, setSelectedModifyBooking] = useState<bookingType | null>(null);
   const [paidDates, setPaidDates] = useState<Date[]>([]);
   // Guest mode: soft-hold dates double-tapped for batch confirm-to-firm
@@ -457,8 +455,8 @@ const MainView = ({
   };
 
   const onUnbook = (ids: string[]) => {
-    setShowUnbookConfirm(false);
-    setPendingUnbook(new Map());
+    setUnbookBookings(null);
+    setHoldDates([]);
 
     const unbookSequentially = (index: number) => {
       if (index >= ids.length) {
@@ -503,10 +501,11 @@ const MainView = ({
   // Distinct stays covered by the double-tapped (amber) dates, split by direction:
   // reserved stays get confirmed to firm, firm stays get downgraded to soft hold.
   // One entry per stay (guest+room+startDate) — actions flip the WHOLE stay.
-  const { reservedHoldStays, firmHoldStays } = useMemo(() => {
+  const { reservedHoldStays, firmHoldStays, allHoldStays } = useMemo(() => {
     const reserved = new Map<string, string>(); // stayKey -> a booking id within the stay
     const firm = new Map<string, string>();
-    if (!currentGuest) return { reservedHoldStays: reserved, firmHoldStays: firm };
+    const all = new Map<string, bookingType>(); // stayKey -> the stay (for batch unbook)
+    if (!currentGuest) return { reservedHoldStays: reserved, firmHoldStays: firm, allHoldStays: all };
     holdDates.forEach((d) => {
       const day = monthMap.get(format(d, "yyyy-MM-dd"));
       day?.bookings.forEach((b) => {
@@ -514,9 +513,10 @@ const MainView = ({
         const key = `${b.room.id}|${b.startDate}`;
         if (b.reserved) reserved.set(key, b.id);
         else firm.set(key, b.id);
+        all.set(key, b);
       });
     });
-    return { reservedHoldStays: reserved, firmHoldStays: firm };
+    return { reservedHoldStays: reserved, firmHoldStays: firm, allHoldStays: all };
   }, [holdDates, monthMap, currentGuest]);
 
   const totalHoldSelection = reservedHoldStays.size + firmHoldStays.size;
@@ -542,6 +542,9 @@ const MainView = ({
 
   const onConfirmHolds = () => runHoldAction(reservedHoldStays, false);
   const onDowngradeHolds = () => runHoldAction(firmHoldStays, true);
+  // Unbook the whole hold selection — route it through the same confirmation the
+  // per-card Unbook uses, which expands each stay to its night ids on Confirm.
+  const onUnbookHolds = () => setUnbookBookings([...allHoldStays.values()]);
 
   // The confirm bar is draggable (pointer events) so it can be pulled clear of
   // whatever panel happens to occupy the bottom of the screen.
@@ -566,43 +569,6 @@ const MainView = ({
   // Suppress the click that follows a drag so releasing over a button doesn't fire it.
   const holdBarClickGuard = (action: () => void) => () => {
     if (holdBarMovedRef.current) return;
-    action();
-  };
-
-  // ── Batch unbook selection ────────────────────────────────────────────────
-  const unbookKey = (b: bookingType) => `${b.room.id}|${b.startDate}`;
-  const pendingUnbookKeys = new Set(pendingUnbook.keys());
-  const toggleUnbook = (b: bookingType) => {
-    setPendingUnbook((prev) => {
-      const next = new Map(prev);
-      const key = unbookKey(b);
-      if (next.has(key)) next.delete(key);
-      else next.set(key, b);
-      return next;
-    });
-  };
-  // The unbook pill is draggable too, on its own offset (same mechanics as the
-  // hold bar) so it can be pulled clear of the guest panel.
-  const unbookBarDragRef = useRef<{ startX: number; startY: number; baseX: number; baseY: number } | null>(null);
-  const unbookBarMovedRef = useRef(false);
-  const onUnbookBarPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    unbookBarDragRef.current = { startX: e.clientX, startY: e.clientY, baseX: unbookBarOffset.x, baseY: unbookBarOffset.y };
-    unbookBarMovedRef.current = false;
-    e.currentTarget.setPointerCapture(e.pointerId);
-  };
-  const onUnbookBarPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const drag = unbookBarDragRef.current;
-    if (!drag) return;
-    const dx = e.clientX - drag.startX;
-    const dy = e.clientY - drag.startY;
-    if (Math.abs(dx) + Math.abs(dy) > 6) unbookBarMovedRef.current = true;
-    setUnbookBarOffset({ x: drag.baseX + dx, y: drag.baseY + dy });
-  };
-  const onUnbookBarPointerUp = () => {
-    unbookBarDragRef.current = null;
-  };
-  const unbookBarClickGuard = (action: () => void) => () => {
-    if (unbookBarMovedRef.current) return;
     action();
   };
 
@@ -739,6 +705,15 @@ const MainView = ({
                       {isConfirmingHolds ? "Working…" : `${firmHoldStays.size} → soft hold`}
                     </button>
                   )}
+                  {/* Batch unbook the whole selection, from the same pill */}
+                  <button
+                    type="button"
+                    onClick={holdBarClickGuard(onUnbookHolds)}
+                    disabled={isConfirmingHolds}
+                    className="bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-3.5 py-1.5 rounded-full disabled:opacity-50 whitespace-nowrap"
+                  >
+                    Unbook {totalHoldSelection}
+                  </button>
                 </div>
                 {confirmHoldsError && (
                   <span className="bg-white border border-red-200 text-red-500 text-xs rounded-full px-3 py-1 shadow">
@@ -894,8 +869,7 @@ const MainView = ({
               setCurrentMonth={setCurrentMonth}
               setSelectedBooking={setSelectedBooking as React.Dispatch<React.SetStateAction<bookingType>>}
               setSelectedModifyBooking={setSelectedModifyBooking as React.Dispatch<React.SetStateAction<bookingType>>}
-              onToggleUnbook={toggleUnbook}
-              pendingUnbookKeys={pendingUnbookKeys}
+              onRequestUnbook={(b) => setUnbookBookings([b])}
               onPricingEdit={onPricingEdit}
             >
               <BookButton setIsModalOpen={setIsModalOpen} setSelectedRoom={setSelectedRoom} />
@@ -948,8 +922,7 @@ const MainView = ({
           setIsMobileModalOpen={setIsMobileModalOpen}
           setSelectedBooking={setSelectedBooking as React.Dispatch<React.SetStateAction<bookingType>>}
           setSelectedModifyBooking={setSelectedModifyBooking as React.Dispatch<React.SetStateAction<bookingType>>}
-          onToggleUnbook={toggleUnbook}
-          pendingUnbookKeys={pendingUnbookKeys}
+          onRequestUnbook={(b) => setUnbookBookings([b])}
           onPricingEdit={onPricingEdit}
         >
           <BookButton
@@ -1063,49 +1036,13 @@ const MainView = ({
           onPricingUpdate={onPricingUpdate}
         />
       )}
-      {/* Floating batch-unbook pill — appears once stays are marked for removal.
-          Drag to move; Clear to abandon; Unbook opens the firm confirmation.
-          z-[65] sits above the guest panel (z-50) but below the confirm modal. */}
-      {pendingUnbook.size > 0 && (
-        <div
-          className="fixed bottom-24 left-1/2 z-[65] flex flex-col items-center"
-          style={{
-            transform: `translate(calc(-50% + ${unbookBarOffset.x}px), ${unbookBarOffset.y}px)`,
-            touchAction: "none",
-          }}
-          onPointerDown={onUnbookBarPointerDown}
-          onPointerMove={onUnbookBarPointerMove}
-          onPointerUp={onUnbookBarPointerUp}
-        >
-          <div className="flex items-center gap-2.5 rounded-full border border-red-300 bg-white py-1.5 pl-2.5 pr-2 shadow-lg cursor-grab active:cursor-grabbing">
-            <span className="select-none text-sm leading-none text-gray-300">⠿</span>
-            <span className="select-none whitespace-nowrap text-sm font-medium text-red-700">
-              {pendingUnbook.size} to unbook
-            </span>
-            <button
-              type="button"
-              onClick={unbookBarClickGuard(() => setPendingUnbook(new Map()))}
-              className="text-xs text-gray-400 hover:text-gray-600"
-            >
-              Clear
-            </button>
-            <button
-              type="button"
-              onClick={unbookBarClickGuard(() => setShowUnbookConfirm(true))}
-              className="whitespace-nowrap rounded-full bg-red-600 px-3.5 py-1.5 text-sm font-semibold text-white hover:bg-red-700"
-            >
-              Unbook {pendingUnbook.size}
-            </button>
-          </div>
-        </div>
-      )}
-      {showUnbookConfirm && pendingUnbook.size > 0 && (
+      {unbookBookings && unbookBookings.length > 0 && (
         <UnbookingConfirmation
           monthMap={monthMap}
-          bookings={[...pendingUnbook.values()]}
+          bookings={unbookBookings}
           cancellationFullRefundDays={cancellationFullRefundDays}
           cancellationHalfRefundDays={cancellationHalfRefundDays}
-          onClose={() => setShowUnbookConfirm(false)}
+          onClose={() => setUnbookBookings(null)}
           onUnbook={onUnbook}
         />
       )}
