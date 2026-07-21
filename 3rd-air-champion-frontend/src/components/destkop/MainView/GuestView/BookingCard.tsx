@@ -1,5 +1,5 @@
 import { getRoomColor } from "../../../../util/getRoomColor";
-import { bookingType } from "../../../../util/types/bookingType";
+import { bookingType, feesTotal } from "../../../../util/types/bookingType";
 import { useContext, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -132,6 +132,8 @@ const BookingCard = ({
   const guestRate = isAirBnB
     ? null
     : (booking.guest.pricing?.find((p) => p.room === booking.room.id)?.price ?? booking.price);
+  // Extra fees (parking, cleaning, …) fold into the direct-guest total shown here
+  const feeSum = isAirBnB ? 0 : feesTotal(booking.fees);
 
   const dateRange =
     booking.duration === 1
@@ -221,8 +223,9 @@ const BookingCard = ({
                 <span
                   onClick={() => onPricingEdit(booking)}
                   className="shrink-0 text-lg font-bold text-emerald-600 underline decoration-dotted"
+                  title={feeSum ? `Nights $${Math.round(guestRate * booking.duration)} + fees $${feeSum}` : undefined}
                 >
-                  ${Math.round(guestRate * booking.duration).toLocaleString()}
+                  ${Math.round(guestRate * booking.duration + feeSum).toLocaleString()}
                 </span>
               )}
 

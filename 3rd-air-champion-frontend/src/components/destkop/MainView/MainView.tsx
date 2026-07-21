@@ -180,6 +180,7 @@ const MainView = ({
     monthMap,
     blockedAirBnBDates,
     onAirbnbPriceUpdate,
+    onFeesUpdate,
     airBnBBookingCount,
     guestBookingCount,
     syncStatus,
@@ -1014,6 +1015,7 @@ const MainView = ({
           onClose={() => { setSelectedBooking(null); setPricingEditOnOpen(false); }}
           onUpdateGuests={onUpdateGuest}
           onAirbnbPriceUpdate={onAirbnbPriceUpdate}
+          onFeesUpdate={onFeesUpdate}
           onPricingUpdate={onPricingUpdate}
         />
       )}

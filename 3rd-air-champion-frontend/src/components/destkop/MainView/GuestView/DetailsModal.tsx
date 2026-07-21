@@ -1,5 +1,5 @@
 ﻿import { useState } from "react";
-import { bookingType } from "../../../../util/types/bookingType";
+import { bookingType, feeType, feesTotal } from "../../../../util/types/bookingType";
 import { roomType } from "../../../../util/types/roomType";
 import { FaRegEdit } from "react-icons/fa";
 import { useForm, Controller, SubmitHandler } from "react-hook-form";
@@ -28,8 +28,12 @@ interface DetailsModalProps {
     lateCheckout?: boolean;
   }) => void;
   onAirbnbPriceUpdate?: (bookingId: string, airbnbPrice: number) => void;
+  onFeesUpdate?: (bookingId: string, fees: feeType[]) => void;
   onPricingUpdate: (data: { guest: string; room: string; price: number }[]) => void;
 }
+
+// Common extra charges offered as one-tap presets; "+ Custom" adds a blank line.
+const FEE_PRESETS = ["Parking", "Cleaning", "Cancellation", "Pet", "Late checkout"];
 
 const DetailsModal = ({
   booking,
@@ -40,12 +44,40 @@ const DetailsModal = ({
   onClose,
   onUpdateGuests,
   onAirbnbPriceUpdate,
+  onFeesUpdate,
   onPricingUpdate,
 }: DetailsModalProps) => {
   const isAirBnB = booking.guest.name === "AirBnB";
   const [isWriting, setIsWriting] = useState(isAirBnB && !booking.airbnbPrice);
   const [isPricingEditing, setIsPricingEditing] = useState(startWithPricingEdit ?? false);
   const [profitInput, setProfitInput] = useState(String(booking.airbnbPrice || 0));
+
+  // Fees are edited in their own inline section (amounts kept as strings so a
+  // partial "-" or "1." is typable; coerced on save). A negative amount is a
+  // discount.
+  const [isFeesEditing, setIsFeesEditing] = useState(false);
+  const [feeDraft, setFeeDraft] = useState<{ label: string; amount: string }[]>(
+    (booking.fees ?? []).map((f) => ({ label: f.label, amount: String(f.amount) })),
+  );
+  const addFeeLine = (label: string) =>
+    setFeeDraft((prev) => [...prev, { label, amount: "" }]);
+  const setFeeLine = (i: number, patch: Partial<{ label: string; amount: string }>) =>
+    setFeeDraft((prev) => prev.map((f, idx) => (idx === i ? { ...f, ...patch } : f)));
+  const removeFeeLine = (i: number) =>
+    setFeeDraft((prev) => prev.filter((_, idx) => idx !== i));
+  const cancelFees = () => {
+    setFeeDraft((booking.fees ?? []).map((f) => ({ label: f.label, amount: String(f.amount) })));
+    setIsFeesEditing(false);
+  };
+  const saveFees = () => {
+    const cleaned: feeType[] = feeDraft
+      .map((f) => ({ label: f.label.trim(), amount: Number(f.amount) || 0 }))
+      .filter((f) => f.label !== "" || f.amount !== 0);
+    onFeesUpdate?.(booking.id, cleaned);
+    setIsFeesEditing(false);
+    onClose();
+  };
+  const draftFeesTotal = feeDraft.reduce((s, f) => s + (Number(f.amount) || 0), 0);
   const {
     control,
     handleSubmit,
@@ -294,6 +326,133 @@ const DetailsModal = ({
                 }}
                 setIsEditing={setIsPricingEditing}
               />
+            </div>
+          )}
+
+          {/* Additional fees (parking, cleaning, cancellation, …) — direct guests only */}
+          {!isAirBnB && (
+            <div className="border-t border-gray-100 pt-3">
+              <div className="mb-1 flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  Additional fees
+                </p>
+                {!isFeesEditing && (
+                  <button
+                    type="button"
+                    onClick={() => setIsFeesEditing(true)}
+                    className="text-xs font-semibold text-blue-500 hover:text-blue-700"
+                  >
+                    {(booking.fees?.length ?? 0) > 0 ? "Edit" : "+ Add"}
+                  </button>
+                )}
+              </div>
+
+              {!isFeesEditing ? (
+                (booking.fees?.length ?? 0) === 0 ? (
+                  <p className="text-sm italic text-gray-400">No extra fees</p>
+                ) : (
+                  <div className="space-y-1">
+                    {booking.fees!.map((f, i) => (
+                      <div key={i} className="flex items-center justify-between text-sm">
+                        <span className="text-gray-700">{f.label || "Fee"}</span>
+                        <span
+                          className={`font-semibold ${f.amount < 0 ? "text-red-500" : "text-gray-800"}`}
+                        >
+                          {f.amount < 0 ? "-" : ""}${Math.abs(f.amount).toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between border-t border-gray-100 pt-1 text-sm">
+                      <span className="font-semibold text-gray-700">Fees total</span>
+                      <span className="font-bold text-emerald-600">
+                        ${feesTotal(booking.fees).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                )
+              ) : (
+                <div>
+                  {/* One-tap presets + custom */}
+                  <div className="mb-2 flex flex-wrap gap-1.5">
+                    {FEE_PRESETS.map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => addFeeLine(p)}
+                        className="rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                      >
+                        + {p}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => addFeeLine("")}
+                      className="rounded-full border border-dashed border-gray-300 px-2.5 py-1 text-xs font-semibold text-gray-500 hover:bg-gray-50"
+                    >
+                      + Custom
+                    </button>
+                  </div>
+
+                  {feeDraft.length === 0 ? (
+                    <p className="mb-2 text-xs text-gray-400">Tap a preset above to add a fee</p>
+                  ) : (
+                    <div className="mb-2 space-y-1.5">
+                      {feeDraft.map((f, i) => (
+                        <div key={i} className="flex items-center gap-1.5">
+                          <input
+                            className="min-w-0 flex-1 rounded border px-2 py-1 text-sm"
+                            placeholder="Fee label"
+                            value={f.label}
+                            onChange={(e) => setFeeLine(i, { label: e.target.value })}
+                          />
+                          <span className="text-sm text-gray-500">$</span>
+                          <input
+                            className="w-20 rounded border px-2 py-1 text-sm"
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={f.amount}
+                            onChange={(e) => setFeeLine(i, { amount: e.target.value })}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeFeeLine(i)}
+                            aria-label="Remove fee"
+                            className="px-1 text-lg leading-none text-gray-400 hover:text-red-500"
+                          >
+                            &times;
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="mb-1 flex items-center justify-between text-sm">
+                    <span className="font-semibold text-gray-700">Fees total</span>
+                    <span className="font-bold text-emerald-600">${draftFeesTotal.toFixed(2)}</span>
+                  </div>
+                  <p className="mb-2 text-[10px] text-gray-400">
+                    Use a negative amount for a discount.
+                  </p>
+
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={saveFees}
+                      className="rounded-md bg-green-500 px-4 py-1.5 text-sm text-white hover:bg-green-600"
+                    >
+                      Save fees
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelFees}
+                      className="rounded-md bg-gray-200 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-300"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

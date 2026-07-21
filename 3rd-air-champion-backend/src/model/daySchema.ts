@@ -22,6 +22,15 @@ const daySchema = new mongoose.Schema(
         guest: { type: mongoose.Schema.ObjectId, ref: "Guest" },
         price: { type: Number, default: "0" },
         airbnbPrice: { type: Number, default: 0 },
+        // Per-stay extra charges (parking, cleaning, cancellation, etc.) for
+        // direct guests — copied onto every night of the stay like airbnbPrice,
+        // counted ONCE in totals. amount may be negative for a discount.
+        fees: [
+          {
+            label: { type: String, default: "" },
+            amount: { type: Number, default: 0 },
+          },
+        ],
         description: { type: String, default: "" },
         duration: { type: Number, default: 1 },
         numberOfGuests: { type: Number, default: 0 },

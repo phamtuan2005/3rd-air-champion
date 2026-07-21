@@ -2,7 +2,7 @@ import { useState } from "react";
 import { addDays, compareAsc, format, isSameDay, isSameMonth, startOfMonth } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { dayType } from "../../../../util/types/dayType";
-import { bookingType } from "../../../../util/types/bookingType";
+import { bookingType, feeType, feesTotal } from "../../../../util/types/bookingType";
 
 // A single booking row the confirmation text bills for.
 export interface ConfirmationBooking {
@@ -10,6 +10,7 @@ export interface ConfirmationBooking {
   duration: number;
   roomName: string;
   pricePerNight: number;
+  fees?: feeType[]; // per-stay extra charges, itemized + added to the total
 }
 
 type ConfirmationLineItem = ConfirmationBooking & { paidNights: number };
@@ -65,7 +66,7 @@ export const useMessaging = ({
             const pricePerNight =
               booking.guest.pricing.find((p) => p.room === booking.room.id)?.price ||
               booking.price;
-            return sum + pricePerNight * booking.duration;
+            return sum + pricePerNight * booking.duration + feesTotal(booking.fees);
           }, 0)
         );
       }
@@ -125,14 +126,23 @@ export const useMessaging = ({
       })
       .join("\n");
 
-    const details = lineItems.length > 0 ? bookingDetails + "\n" : "";
-    const unpaid = totalPrice - totalPaidAmount;
+    // Per-stay extra fees, itemized after the room lines and rolled into the total.
+    const allFees = lineItems.flatMap((li) => li.fees ?? []);
+    const feesSum = allFees.reduce((s, f) => s + (Number(f.amount) || 0), 0);
+    const feeLines = allFees
+      .map((f) => `* ${f.label || "Fee"}: ${f.amount < 0 ? "-" : ""}$${Math.abs(f.amount)}`)
+      .join("\n");
+
+    const details =
+      lineItems.length > 0 ? bookingDetails + (feeLines ? `\n${feeLines}` : "") + "\n" : "";
+    const grandTotal = totalPrice + feesSum;
+    const unpaid = grandTotal - totalPaidAmount;
     const politePreface = `Many thanks for your ${numberOfNights === 1 ? "inquiry" : "inquiries"}!`;
     const accomodationPreface = numberOfNights > 3 ? "I do my best to accomodate you." : "";
 
-    return `${guestName === "" ? "" : `Hi ${guestName},`}\n${politePreface}${accomodationPreface ? `\n${accomodationPreface}` : ""}\n${header}${details}\nTotal price = $${totalPrice}${totalPaidAmount > 0 ? `\nTotal paid = $${totalPaidAmount}` : ""}${
+    return `${guestName === "" ? "" : `Hi ${guestName},`}\n${politePreface}${accomodationPreface ? `\n${accomodationPreface}` : ""}\n${header}${details}\nTotal price = $${grandTotal}${totalPaidAmount > 0 ? `\nTotal paid = $${totalPaidAmount}` : ""}${
       unpaid > 0
-        ? `\nTo pay = ${totalPaidAmount > 0 ? `$${totalPrice} - $${totalPaidAmount} = $${unpaid}` : `$${unpaid}`}`
+        ? `\nTo pay = ${totalPaidAmount > 0 ? `$${grandTotal} - $${totalPaidAmount} = $${unpaid}` : `$${unpaid}`}`
         : ""
     }\n\nCould you please confirm whether everything is in order?`;
   };
@@ -196,6 +206,7 @@ export const useMessaging = ({
             roomName: booking.room.name,
             pricePerNight,
             paidNights,
+            fees: booking.fees,
           });
         });
     });

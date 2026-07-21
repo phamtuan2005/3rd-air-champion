@@ -136,6 +136,10 @@ export const dayResolvers = {
                 numberOfGuests: booking.numberOfGuests ?? 1,
                 status: booking.reserved ? "reserved" : "confirmed",
                 createdAt: (day as any).createdAt?.toISOString() ?? day.date.toISOString(),
+                fees: (booking.fees ?? []).map((f: any) => ({
+                  label: f.label,
+                  amount: f.amount,
+                })),
               },
             });
           }
@@ -654,6 +658,47 @@ export const dayResolvers = {
           "bookings.room": currentBooking?.room,
         },
         { $set: { "bookings.$[matchingBooking].airbnbPrice": airbnbPrice } },
+        {
+          arrayFilters: [{ "matchingBooking.guest": currentBooking?.guest, "matchingBooking.room": currentBooking?.room }],
+          runValidators: true,
+        }
+      );
+
+      return await Day.find({ calendar, date: { $gte: startDate, $lte: endDate } })
+        .populate("bookings.guest")
+        .populate("bookings.room")
+        .populate("blockedRooms");
+    },
+    // Per-stay extra fees (parking, cleaning, cancellation, …). Written onto
+    // every night of the stay via arrayFilters, exactly like the AirBnB payout,
+    // so any night the frontend reads carries the same fee list.
+    updateBookingFees: async (_: unknown, { _id, fees }: any) => {
+      const dayOfBooking = await Day.findOne({ "bookings._id": _id });
+      if (!dayOfBooking) throw new Error("Booking not found");
+
+      const calendar = dayOfBooking.calendar;
+      const currentBooking = dayOfBooking.bookings.find((booking: any) => booking.id === _id);
+
+      let startDate = currentBooking?.startDate;
+      let endDate = currentBooking?.endDate;
+      if (!startDate || !endDate) {
+        startDate = dayOfBooking.date;
+        endDate = addDays(dayOfBooking.date, (currentBooking?.duration ?? 1) - 1);
+      }
+
+      // Normalize: keep labeled lines, coerce amounts to numbers.
+      const cleanFees = (Array.isArray(fees) ? fees : [])
+        .map((f: any) => ({ label: String(f?.label ?? "").trim(), amount: Number(f?.amount) || 0 }))
+        .filter((f: any) => f.label !== "" || f.amount !== 0);
+
+      await Day.updateMany(
+        {
+          calendar,
+          date: { $gte: startDate, $lte: endDate },
+          "bookings.guest": currentBooking?.guest,
+          "bookings.room": currentBooking?.room,
+        },
+        { $set: { "bookings.$[matchingBooking].fees": cleanFees } },
         {
           arrayFilters: [{ "matchingBooking.guest": currentBooking?.guest, "matchingBooking.room": currentBooking?.room }],
           runValidators: true,

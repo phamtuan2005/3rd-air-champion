@@ -7,7 +7,7 @@ import {
 import { fetchRooms } from "../../../../util/roomOperations";
 import { fetchGuests } from "../../../../util/guestOperations";
 import { syncCalendars } from "../../../../util/syncOperations";
-import { updateBookingAirbnbPrice } from "../../../../util/bookingOperations";
+import { updateBookingAirbnbPrice, updateBookingFees } from "../../../../util/bookingOperations";
 import { dayType } from "../../../../util/types/dayType";
 import { roomType } from "../../../../util/types/roomType";
 import { guestType } from "../../../../util/types/guestType";
@@ -164,6 +164,15 @@ export const useCalendarData = ({
       .catch((err) => console.error("Error updating airbnb price:", err));
   };
 
+  const onFeesUpdate = (
+    bookingId: string,
+    fees: { label: string; amount: number }[],
+  ) => {
+    updateBookingFees({ id: bookingId, fees }, token)
+      .then(() => setIsCalendarLoading(true))
+      .catch((err) => console.error("Error updating booking fees:", err));
+  };
+
   useEffect(() => {
     if (airbnbsyncRef.current) {
       localStorage.setItem("syncData", JSON.stringify(airbnbsyncRef.current));
@@ -300,6 +309,7 @@ export const useCalendarData = ({
     monthMap,
     blockedAirBnBDates,
     onAirbnbPriceUpdate,
+    onFeesUpdate,
     airBnBBookingCount,
     guestBookingCount,
     syncStatus,

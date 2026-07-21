@@ -18,6 +18,7 @@ export interface GuestBooking {
   numberOfGuests: number;
   status: string;
   createdAt: string;
+  fees?: { label: string; amount: number }[];
   _source?: "calendar" | "tibook";
 }
 
@@ -269,7 +270,8 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
     const room     = roomMap.get(b.room);
     const st        = statusLabel[b.status] ?? { label: b.status, color: "text-gray-500 bg-gray-50 border-gray-200" };
     const nightRate = guestPricing.get(b.room);
-    const total     = nightRate !== undefined ? nightRate * (Number(b.duration) || 1) : undefined;
+    const feeSum    = (b.fees ?? []).reduce((s, f) => s + (Number(f.amount) || 0), 0);
+    const total     = nightRate !== undefined ? nightRate * (Number(b.duration) || 1) + feeSum : undefined;
     const daysLeft     = differenceInCalendarDays(checkIn, parseISO(today));
     const isStayingNow = daysLeft < 0;
     const isToday      = daysLeft === 0;
@@ -301,7 +303,15 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
             )}
           {total !== undefined && (
               <span className={`text-xs font-semibold ${theme.textPrimary}`}>
-                ${total} <span className="font-normal text-gray-400">(${nightRate}/night)</span>
+                ${total}{" "}
+                <span className="font-normal text-gray-400">
+                  (${nightRate}/night{feeSum ? ` + $${feeSum} fees` : ""})
+                </span>
+              </span>
+            )}
+            {(b.fees?.length ?? 0) > 0 && (
+              <span className="text-[11px] text-gray-400">
+                {b.fees!.map((f) => `${f.label || "Fee"} $${f.amount}`).join(" · ")}
               </span>
             )}
           </div>

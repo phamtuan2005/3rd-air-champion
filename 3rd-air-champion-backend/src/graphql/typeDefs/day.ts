@@ -3,11 +3,22 @@ import gql from "graphql-tag";
 export const dayDefs = gql`
   scalar Date
 
+  type Fee {
+    label: String
+    amount: Float
+  }
+
+  input FeeInput {
+    label: String
+    amount: Float
+  }
+
   type Bookings {
     id: ID
     alias: String
     price: Float
     airbnbPrice: Float
+    fees: [Fee]
     guest: Guest
     notes: String
     earlyCheckin: Boolean
@@ -56,6 +67,7 @@ export const dayDefs = gql`
     numberOfGuests: Int!
     status: String!
     createdAt: String!
+    fees: [Fee]
   }
 
   input UnbookBookingInput {
@@ -135,6 +147,11 @@ export const dayDefs = gql`
     updateBookingAirbnbPrice(
       _id: String!
       airbnbPrice: Float!
+    ): [Day]
+
+    updateBookingFees(
+      _id: String!
+      fees: [FeeInput!]!
     ): [Day]
 
     markAirBnBBlocked(_id: String!, blocked: Boolean!): [Day]

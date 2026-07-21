@@ -176,6 +176,10 @@ router.post("/get/guest/calendar", async (req: Request, res: any) => {
         numberOfGuests
         status
         createdAt
+        fees {
+          label
+          amount
+        }
       }
     }`;
 

@@ -26,6 +26,10 @@ router.get("/get", async (req: Request, res: any) => {
               alias
               price
               airbnbPrice
+              fees {
+                label
+                amount
+              }
               notes
               earlyCheckin
               lateCheckout
@@ -146,6 +150,10 @@ router.post("/get/host", async (req: Request, res: any) => {
               alias
               price
               airbnbPrice
+              fees {
+                label
+                amount
+              }
               notes
               earlyCheckin
               lateCheckout
@@ -417,6 +425,10 @@ router.post("/block/room", async (req: Request, res: any) => {
           alias
           price
           airbnbPrice
+          fees {
+            label
+            amount
+          }
           notes
           earlyCheckin
           lateCheckout
@@ -481,6 +493,10 @@ router.post("/unblock/room", async (req: Request, res: any) => {
           alias
           price
           airbnbPrice
+          fees {
+            label
+            amount
+          }
           notes
           earlyCheckin
           lateCheckout
@@ -584,6 +600,10 @@ router.post("/book/range", async (req: Request, res: any) => {
               lateCheckout
               price
               airbnbPrice
+              fees {
+                label
+                amount
+              }
               guest {
                 id
                 alias
@@ -681,6 +701,10 @@ router.post("/update/booking/guest", async (req: Request, res: any) => {
               lateCheckout
               price
               airbnbPrice
+              fees {
+                label
+                amount
+              }
               guest {
                 id
                 name
@@ -755,6 +779,10 @@ router.post("/update/booking/airbnb-price", async (req: Request, res: any) => {
               lateCheckout
               price
               airbnbPrice
+              fees {
+                label
+                amount
+              }
               guest {
                 id
                 name
@@ -799,6 +827,82 @@ router.post("/update/booking/airbnb-price", async (req: Request, res: any) => {
     });
 });
 
+router.post("/update/booking/fees", async (req: Request, res: any) => {
+  if (!("user" in req))
+    return res.status(401).json({ error: "Invalid or expired token" });
+
+  const { id, fees } = req.body;
+
+  const query = `
+        mutation UpdateBookingFees($id: String!, $fees: [FeeInput!]!) {
+          updateBookingFees(_id: $id, fees: $fees) {
+            id
+            calendar
+            date
+            isAirBnB
+            isBlocked
+            blockedRooms {
+              host
+              id
+              name
+              price
+            }
+            bookings {
+              id
+              alias
+              notes
+              earlyCheckin
+              lateCheckout
+              price
+              airbnbPrice
+              fees {
+                label
+                amount
+              }
+              guest {
+                id
+                name
+                alias
+                email
+                phone
+                numberOfGuests
+                returning
+                notes
+                host
+                pricing {
+                  id
+                  price
+                  room
+                }
+              }
+              room {
+                id
+                host
+                name
+                price
+              }
+                description
+              duration
+              numberOfGuests
+              startDate
+              endDate
+              reserved
+            }
+          }
+        }`;
+
+  sendGraphQLRequest(query, { id, fees })
+    .then((result: any) => {
+      if (result.errors) {
+        return res.status(400).json({ errors: result.errors[0].message });
+      }
+      res.status(200).json(result.data.updateBookingFees);
+    })
+    .catch((error: any) => {
+      res.status(500).json({ error: error.message });
+    });
+});
+
 router.post("/update/unbook/guest", async (req: Request, res: any) => {
   if (!("user" in req))
     return res.status(401).json({ error: "Invalid or expired token" });
@@ -827,6 +931,10 @@ router.post("/update/unbook/guest", async (req: Request, res: any) => {
               lateCheckout
               price
               airbnbPrice
+              fees {
+                label
+                amount
+              }
               guest {
                 id
                 name
@@ -901,6 +1009,10 @@ router.post("/update/booking/airbnb-blocked", async (req: Request, res: any) => 
               lateCheckout
               price
               airbnbPrice
+              fees {
+                label
+                amount
+              }
               airbnbBlocked
               guest {
                 id
@@ -975,6 +1087,10 @@ router.post("/update/booking/reserved", async (req: Request, res: any) => {
               lateCheckout
               price
               airbnbPrice
+              fees {
+                label
+                amount
+              }
               airbnbBlocked
               guest {
                 id

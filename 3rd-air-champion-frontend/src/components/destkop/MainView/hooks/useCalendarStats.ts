@@ -14,7 +14,7 @@ import {
 import { toZonedTime } from "date-fns-tz";
 import { dayType } from "../../../../util/types/dayType";
 import { roomType } from "../../../../util/types/roomType";
-import { bookingType } from "../../../../util/types/bookingType";
+import { bookingType, feesTotal } from "../../../../util/types/bookingType";
 import { getCleaningCounts, getCleaningItems, getCompletedTasks } from "../../../../util/cleaningTasks";
 
 interface UseCalendarStatsParams {
@@ -295,6 +295,9 @@ export const useCalendarStats = ({
           if (booking.guest.name !== "AirBnB") {
             const guestPricing = booking.guest.pricing?.find((p) => p.room === booking.room.id);
             if (guestPricing) guestProfit += guestPricing.price;
+            // Whole-stay fees count once, on the stay's start night (this month).
+            if (booking.startDate.split("T")[0] === dateKey)
+              guestProfit += feesTotal(booking.fees);
           } else {
             if (booking.airbnbPrice && booking.duration) {
               const singleDayProfit = booking.airbnbPrice / booking.duration;
