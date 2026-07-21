@@ -168,65 +168,99 @@ export interface CleaningForecastDay {
   entries: ForecastEntry[];
 }
 
-// Cleaning workload for the next `horizon` mornings, starting tomorrow. Every
-// checkout counts as a cleaning that morning even when no next check-in exists
-// yet — empty nights get rebooked last-minute — but instead of assuming 100%,
-// each unconfirmed entry carries the room's measured rebooking odds from its
-// trailing occupancy history.
+// How far ahead to look for the confirmed check-in that bounds an in-service
+// gap — a room with a booking on the horizon is between guests, not retired.
+const GAP_ARRIVAL_SCAN_DAYS = 60;
+
+// Cleaning workload for the next `horizon` mornings, starting tomorrow.
+//
+// Two sources feed each morning:
+//  1. Confirmed checkouts — a stay's last night was yesterday (odds = 1, or the
+//     room's rebooking odds if nothing has re-booked it yet).
+//  2. Probable gap turnovers — a room sitting empty & sellable last night, still
+//     inside an in-service gap (a confirmed check-in lies ahead). At the room's
+//     occupancy rate that empty night sells last-minute and the guest checks out
+//     THIS morning. This is modelled for EVERY interior night of the gap, not
+//     just the one before the arrival: after a checkout the very next night is
+//     the highest-demand one to re-sell, so its morning-after needs cleaning too
+//     (e.g. a Sunday-night sale leaving Monday, well before Tuesday's arrival).
 export const getCleaningForecast = (
   monthMap: Map<string, dayType>,
   horizon = 7,
 ): CleaningForecastDay[] => {
   const today = startOfToday();
   const occupancyOdds = getRoomOccupancyOdds(monthMap);
+
+  // Every room the map has ever seen — the candidate pool for gap turnovers.
+  const roomIds = new Set<string>();
+  monthMap.forEach((day) => day.bookings.forEach((b) => b.room && roomIds.add(b.room.id)));
+
+  // Reserved (amber) stays DO occupy a room ([[project-reserved-not-vacancy]]).
+  const isOccupied = (roomId: string, nightKey: string) =>
+    monthMap.get(nightKey)?.bookings.some((b) => b.room?.id === roomId) ?? false;
+  const isBlockedNight = (roomId: string, nightKey: string) => {
+    const day = monthMap.get(nightKey);
+    return !!(day?.isBlocked || day?.blockedRooms?.some((r) => r.id === roomId));
+  };
+  // Next confirmed (non-reserved) arrival for a room at/after a day offset —
+  // its presence means the room is still in service, bounding the gap.
+  const nextConfirmedArrival = (roomId: string, fromOffset: number) => {
+    for (let j = fromOffset; j <= fromOffset + GAP_ARRIVAL_SCAN_DAYS; j++) {
+      const key = dateKey(addDays(today, j));
+      const found = monthMap
+        .get(key)
+        ?.bookings.find(
+          (b) => b.room?.id === roomId && !b.reserved && b.startDate.split("T")[0] === key,
+        );
+      if (found) return { arriving: found, offset: j };
+    }
+    return null;
+  };
+
   const out: CleaningForecastDay[] = [];
   for (let d = 1; d <= horizon; d++) {
     const morningKey = dateKey(addDays(today, d));
     const lastNightKey = dateKey(addDays(today, d - 1));
     const lastNight = monthMap.get(lastNightKey);
-    if (!lastNight) continue;
     const entries: ForecastEntry[] = [];
-    for (const b of lastNight.bookings) {
-      if (!b.room || b.reserved) continue;
-      if (b.endDate.split("T")[0] !== lastNightKey) continue; // last night of the stay
-      const sameDayCheckIn =
-        monthMap
-          .get(morningKey)
-          ?.bookings.find(
-            (n) => n.room?.id === b.room.id && n.startDate.split("T")[0] === morningKey,
-          ) ?? null;
-      entries.push({
-        checkoutBooking: b,
-        sameDayCheckIn,
-        // No history for the room → assume booked (safe upper bound).
-        rebookOdds: sameDayCheckIn ? 1 : occupancyOdds.get(b.room.id) ?? 1,
-      });
+    const covered = new Set<string>(); // rooms already given an entry this morning
+
+    // 1. Confirmed checkouts. A missing prior-night Day doc just means nobody
+    //    stayed — skip the checkout scan, but the gap loop below still runs.
+    if (lastNight) {
+      for (const b of lastNight.bookings) {
+        if (!b.room || b.reserved) continue;
+        if (b.endDate.split("T")[0] !== lastNightKey) continue; // last night of the stay
+        const sameDayCheckIn =
+          monthMap
+            .get(morningKey)
+            ?.bookings.find(
+              (n) => n.room?.id === b.room.id && n.startDate.split("T")[0] === morningKey,
+            ) ?? null;
+        entries.push({
+          checkoutBooking: b,
+          sameDayCheckIn,
+          rebookOdds: sameDayCheckIn ? 1 : occupancyOdds.get(b.room.id) ?? 1,
+        });
+        covered.add(b.room.id);
+      }
     }
 
-    // Probable gap-fill turnovers: a confirmed check-in this morning whose room
-    // sat empty the night before. That empty night sells last-minute at ~the
-    // room's occupancy odds, and the gap-filling guest must check out THIS
-    // morning (the arrival bounds the gap) — an extra cleaning the earlier
-    // checkout-morning clean does not cover.
-    const morningDay = monthMap.get(morningKey);
-    if (morningDay) {
-      for (const arriving of morningDay.bookings) {
-        if (!arriving.room || arriving.reserved) continue;
-        if (arriving.startDate.split("T")[0] !== morningKey) continue; // check-in today
-        // Already covered by a confirmed checkout entry for this room
-        if (entries.some((e) => e.checkoutBooking.room.id === arriving.room.id)) continue;
-        const gapNight = monthMap.get(lastNightKey);
-        const occupied = gapNight?.bookings.some((b) => b.room?.id === arriving.room.id);
-        const blocked =
-          gapNight?.isBlocked || gapNight?.blockedRooms?.some((r) => r.id === arriving.room.id);
-        if (occupied || blocked) continue;
-        entries.push({
-          checkoutBooking: arriving,
-          sameDayCheckIn: arriving,
-          rebookOdds: occupancyOdds.get(arriving.room.id) ?? 1,
-          probable: true,
-        });
-      }
+    // 2. Probable gap turnovers — every empty, sellable night inside a bounded
+    //    in-service gap likely sold last-minute and checks out this morning.
+    for (const roomId of roomIds) {
+      if (covered.has(roomId)) continue;
+      if (isOccupied(roomId, lastNightKey)) continue; // slept in → not a turnover
+      if (isBlockedNight(roomId, lastNightKey)) continue; // couldn't sell that night
+      const next = nextConfirmedArrival(roomId, d);
+      if (!next) continue; // open-ended vacancy → not a gap, don't forecast
+      entries.push({
+        checkoutBooking: next.arriving, // carries the room identity for the chip
+        sameDayCheckIn: next.offset === d ? next.arriving : null,
+        rebookOdds: occupancyOdds.get(roomId) ?? 1,
+        probable: true,
+      });
+      covered.add(roomId);
     }
 
     if (entries.length) out.push({ morningKey, entries });

@@ -466,11 +466,11 @@ const ToDoList = ({ monthMap, hostId, token, doorCode, airbnbName, airbnbAddress
                     })
                   }
                   className={`${getRoomColor(entry.checkoutBooking.room.name, entry.checkoutBooking.room.color)} rounded px-1.5 py-0.5 text-[11px] font-semibold text-black ${
-                    entry.sameDayCheckIn
-                      ? entry.probable
-                        ? "outline-2 outline-dashed outline-red-500"
-                        : "ring-2 ring-red-500"
-                      : ""
+                    entry.probable
+                      ? "outline-2 outline-dashed outline-red-500"
+                      : entry.sameDayCheckIn
+                        ? "ring-2 ring-red-500"
+                        : ""
                   }`}
                 >
                   {entry.checkoutBooking.room.name}
@@ -526,9 +526,9 @@ const ToDoList = ({ monthMap, hostId, token, doorCode, airbnbName, airbnbAddress
 
             {/* Legend below the table so the data leads */}
             <p className="mb-1 mt-2 text-center text-xs text-gray-400">
-              % = odds · <span className="font-semibold text-red-500">solid red</span> = same-day
-              check-in · <span className="font-semibold text-red-500">dashed red</span> = gap night
-              likely sells, extra clean before arrival · tap to assign a cleaner
+              % = odds · <span className="font-semibold text-red-500">solid red</span> = confirmed
+              same-day check-in · <span className="font-semibold text-red-500">dashed red</span> =
+              empty night likely sells last-minute (odds shown) · tap to assign a cleaner
             </p>
           </>
         ) : (
