@@ -158,6 +158,10 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
   // Per-card mode; In–Out computes the total we save (backend still stores hrs).
   const [hoursMode, setHoursMode] = useState<Record<string, "total" | "inout">>({});
   const [timeDraft, setTimeDraft] = useState<Record<string, { in: string; out: string }>>({});
+  // Pay tab: which cleaner's per-date hours breakdown is expanded, plus an
+  // optional tip added to the texted payment statement.
+  const [breakdownId, setBreakdownId] = useState<string | null>(null);
+  const [tipDraft, setTipDraft] = useState<Record<string, string>>({});
   const [payingId, setPayingId] = useState<string | null>(null);
   const [payDraft, setPayDraft] = useState("");
   // Payout adds to paid, Undo subtracts — phone number pads have no minus key,
@@ -431,6 +435,40 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
     const weekLabel = `${format(weekMonday, "MMM d")} – ${format(addDays(weekMonday, 6), "MMM d")}`;
     const message = `Hi ${cleaner.name}, your cleaning schedule for ${weekLabel}:\n${lines.join("\n")}\n(numbers = guests arriving)\nThank you! — Anh-Tuan`;
     window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(message)}`;
+  };
+
+  // A cleaner's recorded hours per date this month — the transparent breakdown
+  // behind the pay total (sums the day's assignment hours per date).
+  const cleanerDayHours = (cleanerId: string): [string, number][] => {
+    const map = new Map<string, number>();
+    assignments
+      .filter((a) => a.cleaner?.id === cleanerId && a.date.startsWith(monthKey) && a.hours != null)
+      .forEach((a) => map.set(a.date, (map.get(a.date) ?? 0) + a.hours!));
+    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  };
+
+  // Texted pay statement: this month's dates × hours × rate, plus any tip.
+  const textPayment = (entry: CleanerSummaryType) => {
+    const cleaner = cleaners.find((c) => c.id === entry.id);
+    if (!cleaner?.phone) return;
+    const rate = cleaner.payRate;
+    const days = cleanerDayHours(entry.id);
+    const tip = parseFloat(tipDraft[entry.id]) || 0;
+    const lines = days.map(
+      ([date, hrs]) =>
+        `* ${format(new Date(date + "T00:00:00"), "EEE M/d")}: ${hrs} hr = $${(hrs * rate).toFixed(2)}`,
+    );
+    const subtotal = days.reduce((s, [, h]) => s + h * rate, 0);
+    const monthLabel = format(startOfToday(), "MMMM");
+    const body = [
+      `Hi ${cleaner.name}, your cleaning pay for ${monthLabel}:`,
+      ...lines,
+      `Hours: ${days.reduce((s, [, h]) => s + h, 0)} · Subtotal: $${subtotal.toFixed(2)}`,
+      ...(tip > 0 ? [`Tip: $${tip.toFixed(2)}`] : []),
+      `Total: $${(subtotal + tip).toFixed(2)}`,
+      `Thank you! — Anh-Tuan`,
+    ].join("\n");
+    window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(body)}`;
   };
 
   const handlePay = (entry: CleanerSummaryType) => {
@@ -1036,7 +1074,7 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
           <SectionHeader
             icon={<FaDollarSign className="text-emerald-600" />}
             title="Balance & payouts"
-            hint="Owed = everything earned so far minus what you've already paid"
+            hint="Owed = earned − paid. Tap a name for the hours-by-date breakdown & tip"
           />
           {/* Grand total across the whole team */}
           {summary.length > 0 &&
@@ -1074,13 +1112,25 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
             summary.map((entry) => (
               <div key={entry.id} className="mb-1.5 rounded-xl border border-gray-200 p-2.5">
                 <div className="flex items-center gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-gray-900">{entry.name}</p>
-                    <p className="text-xs text-gray-500">
-                      {entry.hours} hr · earned ${Math.round(entry.earned).toLocaleString()} · paid $
-                      {Math.round(entry.paid).toLocaleString()}
-                    </p>
-                  </div>
+                  {/* Tap the name to reveal the transparent hours-by-date breakdown */}
+                  <button
+                    type="button"
+                    onClick={() => setBreakdownId((id) => (id === entry.id ? null : entry.id))}
+                    className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+                  >
+                    <span className="text-[10px] text-gray-400">
+                      {breakdownId === entry.id ? "▾" : "▸"}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-gray-900">
+                        {entry.name}
+                      </span>
+                      <span className="block text-xs text-gray-500">
+                        {entry.hours} hr · earned ${Math.round(entry.earned).toLocaleString()} · paid $
+                        {Math.round(entry.paid).toLocaleString()}
+                      </span>
+                    </span>
+                  </button>
                   <span
                     className={`shrink-0 text-lg font-bold ${
                       entry.balance > 0.5 ? "text-emerald-600" : "text-gray-300"
@@ -1183,6 +1233,77 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                     </p>
                   </div>
                 )}
+                {breakdownId === entry.id &&
+                  (() => {
+                    const cleaner = cleaners.find((c) => c.id === entry.id);
+                    const rate = cleaner?.payRate ?? 0;
+                    const days = cleanerDayHours(entry.id);
+                    const subtotal = days.reduce((s, [, h]) => s + h * rate, 0);
+                    const tip = parseFloat(tipDraft[entry.id]) || 0;
+                    return (
+                      <div className="mt-2 rounded-lg bg-gray-50 p-2">
+                        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                          {format(startOfToday(), "MMMM")} — hours by date
+                        </p>
+                        {days.length === 0 ? (
+                          <p className="py-1 text-center text-[11px] text-gray-400">
+                            No recorded hours this month
+                          </p>
+                        ) : (
+                          days.map(([date, hrs]) => (
+                            <div key={date} className="flex items-center gap-2 py-0.5 text-xs">
+                              <span className="flex-1 text-gray-600">
+                                {format(new Date(date + "T00:00:00"), "EEE M/d")}
+                              </span>
+                              <span className="text-gray-500">{hrs} hr</span>
+                              <span className="w-16 text-right font-semibold text-gray-800">
+                                ${(hrs * rate).toFixed(2)}
+                              </span>
+                            </div>
+                          ))
+                        )}
+                        <div className="mt-1 flex items-center justify-between border-t border-gray-200 pt-1 text-xs">
+                          <span className="font-semibold text-gray-700">Subtotal</span>
+                          <span className="font-bold text-gray-900">${subtotal.toFixed(2)}</span>
+                        </div>
+                        <div className="mt-1.5 flex items-center justify-between gap-2">
+                          <label className="text-xs text-gray-600">Tip $</label>
+                          <input
+                            className={`${inputCls} w-24`}
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="0.00"
+                            value={tipDraft[entry.id] ?? ""}
+                            onChange={(e) =>
+                              setTipDraft((p) => ({ ...p, [entry.id]: e.target.value }))
+                            }
+                          />
+                        </div>
+                        <div className="mt-1 flex items-center justify-between text-sm">
+                          <span className="font-semibold text-gray-700">Total</span>
+                          <span className="font-bold text-emerald-600">
+                            ${(subtotal + tip).toFixed(2)}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={!cleaner?.phone}
+                          onClick={() => textPayment(entry)}
+                          className={`mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold text-white ${
+                            cleaner?.phone ? "bg-blue-500" : "cursor-not-allowed bg-gray-300"
+                          }`}
+                        >
+                          Text {entry.name.split(" ")[0]}
+                        </button>
+                        {!cleaner?.phone && (
+                          <p className="mt-1 text-center text-[10px] text-gray-400">
+                            Add a phone number in Team to text
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
               </div>
             ))
           )}
