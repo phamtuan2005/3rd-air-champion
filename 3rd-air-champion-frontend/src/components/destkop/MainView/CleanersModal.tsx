@@ -1129,7 +1129,8 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                     ))}
                   </div>
                 </div>
-                <div className="mt-2 flex flex-wrap items-center justify-end gap-1.5">
+                <div className="mt-2 flex items-center gap-1.5">
+                  <div className="flex flex-1 flex-wrap items-center gap-1.5">
                   {(hoursMode[group.key] ?? "total") === "total" ? (
                     <input
                       className={`${inputCls} w-16`}
@@ -1175,6 +1176,7 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                       )}
                     </>
                   )}
+                  </div>
                   <button
                     type="button"
                     className={pillDark}
