@@ -225,15 +225,15 @@ const NavBarDesktop = ({
           >
             <FaBroom className="text-sm" />
             Clean
-            {/* Yellow (left) = finished cleanings needing hours logged */}
+            {/* Two badges side by side at top-center, small gap between them.
+                Yellow = cleanings needing hours; Rose = unassigned upcoming. */}
             {cleanTodoCount > 0 && (
-              <span className="absolute -top-4 -left-1 min-w-[20px] h-5 px-1 rounded-full bg-yellow-400 text-black text-[10px] font-bold flex items-center justify-center leading-none">
+              <span className="absolute -top-4 right-1/2 mr-0.5 min-w-[20px] h-5 px-1 rounded-full bg-yellow-400 text-black text-[10px] font-bold flex items-center justify-center leading-none">
                 {cleanTodoCount}
               </span>
             )}
-            {/* Rose (right) = upcoming cleanings with no cleaner assigned */}
             {cleanUnassignedCount > 0 && (
-              <span className="absolute -top-4 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
+              <span className="absolute -top-4 left-1/2 ml-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
                 {cleanUnassignedCount}
               </span>
             )}
