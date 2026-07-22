@@ -1,34 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { dayType } from "../../../util/types/dayType";
 import { addDays, startOfToday, format } from "date-fns";
 import { getRoomColor } from "../../../util/getRoomColor";
 import { DEFAULT_TEMPLATE, TEMPLATE_KEY, resolveTemplate } from "../../../util/reminderTemplate";
-import { cleaningTaskId, getCleaningCounts, getCleaningForecast, getCleaningItems } from "../../../util/cleaningTasks";
-import {
-  CleanerType,
-  CleaningAssignmentType,
-  assignCleaner,
-  fetchAssignments,
-  fetchCleaners,
-  unassignCleaner,
-} from "../../../util/cleanerOperations";
-import CleanersModal from "./CleanersModal";
+import { cleaningTaskId, getCleaningCounts, getCleaningItems } from "../../../util/cleaningTasks";
 
 interface ToDoListProps {
   monthMap: Map<string, dayType>;
-  hostId: string;
-  token: string;
   doorCode: string;
   airbnbName: string;
   airbnbAddress: string;
   houseRules?: string;
 }
 
-type TabKey = "reminders" | "cleaning" | "forecast";
+type TabKey = "reminders" | "cleaning";
 
-const ToDoList = ({ monthMap, hostId, token, doorCode, airbnbName, airbnbAddress, houseRules = "" }: ToDoListProps) => {
-  // Reminders / Cleaning = today's actionable tasks; Forecast = planning info.
+const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = "" }: ToDoListProps) => {
+  // Reminders / Cleaning = today's actionable tasks.
   const [activeTab, setActiveTab] = useState<TabKey>("reminders");
 
   const [completedTasks, setCompletedTasks] = useState<
@@ -58,120 +46,18 @@ const ToDoList = ({ monthMap, hostId, token, doorCode, airbnbName, airbnbAddress
   );
   const cleaningCounts = getCleaningCounts(cleaningItems);
 
-  // Next 7 mornings of expected cleanings — every checkout counts (at ~100%
-  // occupancy, empty nights after a checkout get rebooked last-minute), so the
-  // cleaner schedule can be planned before the bookings materialize.
-  const cleaningForecast = useMemo(() => getCleaningForecast(monthMap), [monthMap]);
-  const forecastTotal = cleaningForecast.reduce((sum, d) => sum + d.entries.length, 0);
-
-  // ── Cleaner assignments ───────────────────────────────────────────────────
-  const [cleaners, setCleaners] = useState<CleanerType[]>([]);
-  const [assignments, setAssignments] = useState<CleaningAssignmentType[]>([]);
-  const [cleanersOpen, setCleanersOpen] = useState(false);
-  const [assignTarget, setAssignTarget] = useState<{
-    morningKey: string;
-    roomId: string;
-    roomName: string;
-    sameDay: boolean;
-  } | null>(null);
-
-  const reloadCleanerData = () => {
-    if (!hostId || !token) return;
-    // Month start → next week: covers the Upcoming horizon plus this month's
-    // finished cleanings.
-    const start = `${format(startOfToday(), "yyyy-MM")}-01`;
-    const end = format(addDays(startOfToday(), 7), "yyyy-MM-dd");
-    fetchCleaners(hostId, token)
-      .then(setCleaners)
-      .catch((err) => console.error("Error fetching cleaners:", err));
-    fetchAssignments(hostId, start, end, token)
-      .then(setAssignments)
-      .catch((err) => console.error("Error fetching assignments:", err));
-  };
-
-  useEffect(reloadCleanerData, [hostId, token]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const assignmentFor = (morningKey: string, roomId: string) =>
-    assignments.find((a) => a.date === morningKey && a.room?.id === roomId);
-
-  // Arriving-guest headcount for a room's cleaning morning — first check-in
-  // on/after that day (same figure the Week schedule and SMS show)
-  const nextGuestCount = (roomId: string, morningKey: string): number | null => {
-    for (let i = 0; i <= 30; i++) {
-      const key = format(addDays(new Date(morningKey + "T00:00:00"), i), "yyyy-MM-dd");
-      const found = monthMap
-        .get(key)
-        ?.bookings.find((b) => b.room?.id === roomId && b.startDate.split("T")[0] === key);
-      if (found) return found.numberOfGuests || 1;
-    }
-    return null;
-  };
-
-  // Who cleans how many rooms this week — the host's workload overview
-  const weekTotals = (() => {
-    const totals = new Map<string, number>();
-    let unassignedCount = 0;
-    cleaningForecast.forEach((day) =>
-      day.entries.forEach((e) => {
-        const a = assignmentFor(day.morningKey, e.checkoutBooking.room.id);
-        if (a?.cleaner) totals.set(a.cleaner.name, (totals.get(a.cleaner.name) ?? 0) + 1);
-        else unassignedCount++;
-      }),
-    );
-    return {
-      assigned: [...totals.entries()].sort((x, y) => y[1] - x[1]),
-      unassignedCount,
-    };
-  })();
-
-  const handleAssign = (cleaner: CleanerType) => {
-    if (!assignTarget) return;
-    assignCleaner(
-      { host: hostId, date: assignTarget.morningKey, room: assignTarget.roomId, cleaner: cleaner.id },
-      token,
-    )
-      .then((created) => {
-        setAssignments((prev) => [
-          ...prev.filter((a) => !(a.date === created.date && a.room?.id === created.room?.id)),
-          created,
-        ]);
-        // No SMS here — cleaners handle 2-3 rooms, so assignments are batched
-        // and the whole week goes out as ONE text per cleaner (Manage Cleaners → Text).
-        setAssignTarget(null);
-      })
-      .catch((err) => console.error("Error assigning cleaner:", err));
-  };
-
-  const handleUnassign = () => {
-    if (!assignTarget) return;
-    unassignCleaner(
-      { host: hostId, date: assignTarget.morningKey, room: assignTarget.roomId },
-      token,
-    )
-      .then(() => {
-        setAssignments((prev) =>
-          prev.filter((a) => !(a.date === assignTarget.morningKey && a.room?.id === assignTarget.roomId)),
-        );
-        setAssignTarget(null);
-      })
-      .catch((err) => console.error("Error removing assignment:", err));
-  };
-
   useEffect(() => {
     localStorage.setItem("completedTasks", JSON.stringify(completedTasks));
   }, [completedTasks]);
 
   // Once data arrives, open on the first tab that has work (Reminders →
-  // Cleaning → Upcoming). Runs once; never overrides a tab the user tapped.
+  // Cleaning). Runs once; never overrides a tab the user tapped.
   const autoTabDone = useRef(false);
   useEffect(() => {
     if (autoTabDone.current || monthMap.size === 0) return;
     autoTabDone.current = true;
-    if (reminderBookings.length === 0) {
-      if (cleaningItems.length > 0) setActiveTab("cleaning");
-      else if (forecastTotal > 0) setActiveTab("forecast");
-    }
-  }, [monthMap, reminderBookings, cleaningItems, forecastTotal]);
+    if (reminderBookings.length === 0 && cleaningItems.length > 0) setActiveTab("cleaning");
+  }, [monthMap, reminderBookings, cleaningItems]);
 
   const toggleTaskCompletion = (taskId: string) => {
     const currentDate = format(startOfToday(), "MMM d, yyyy");
@@ -194,7 +80,6 @@ const ToDoList = ({ monthMap, hostId, token, doorCode, airbnbName, airbnbAddress
   const tabs: { key: TabKey; label: string; count: number }[] = [
     { key: "reminders", label: "Reminders", count: reminderBookings.length },
     { key: "cleaning", label: "Cleaning", count: cleaningCounts.max },
-    { key: "forecast", label: "Upcoming", count: forecastTotal },
   ];
 
   const emptyState = (message: string) => (
@@ -210,7 +95,7 @@ const ToDoList = ({ monthMap, hostId, token, doorCode, airbnbName, airbnbAddress
         <p className="text-xs text-gray-400">{format(startOfToday(), "EEEE, MMMM d, yyyy")}</p>
       </div>
 
-      <div className="mb-3 grid shrink-0 grid-cols-3 gap-1 rounded-xl bg-gray-100 p-1">
+      <div className="mb-3 grid shrink-0 grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1">
         {tabs.map(({ key, label, count }) => (
           <button
             key={key}
@@ -411,214 +296,6 @@ const ToDoList = ({ monthMap, hostId, token, doorCode, airbnbName, airbnbAddress
           emptyState("All rooms clean")
         ))}
 
-      {activeTab === "forecast" &&
-        (cleaningForecast.length > 0 ? (
-          <>
-            {/* Who cleans how many rooms this week */}
-            {(weekTotals.assigned.length > 0 || weekTotals.unassignedCount > 0) && (
-              <div className="mb-2 flex flex-wrap items-center justify-center gap-1.5">
-                {weekTotals.assigned.map(([name, count]) => (
-                  <span
-                    key={name}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-2 py-0.5 text-xs font-semibold text-gray-700"
-                  >
-                    {name}
-                    <span className="rounded-full bg-gray-900 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
-                      {count}
-                    </span>
-                  </span>
-                ))}
-                {weekTotals.unassignedCount > 0 && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
-                    Unassigned
-                    <span className="rounded-full bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
-                      {weekTotals.unassignedCount}
-                    </span>
-                  </span>
-                )}
-              </div>
-            )}
-
-            {cleaningForecast.map((day) => {
-              const morning = new Date(day.morningKey + "T00:00:00");
-              const expected = day.entries.reduce((sum, e) => sum + e.rebookOdds, 0);
-
-              // Group the day's rooms by assigned cleaner; unassigned last
-              const groups = new Map<string, typeof day.entries>();
-              const unassigned: typeof day.entries = [];
-              day.entries.forEach((entry) => {
-                const a = assignmentFor(day.morningKey, entry.checkoutBooking.room.id);
-                if (a?.cleaner)
-                  groups.set(a.cleaner.name, [...(groups.get(a.cleaner.name) ?? []), entry]);
-                else unassigned.push(entry);
-              });
-
-              const chip = (entry: (typeof day.entries)[number], i: number) => (
-                <button
-                  key={`${entry.checkoutBooking.room.id}-${i}`}
-                  type="button"
-                  onClick={() =>
-                    setAssignTarget({
-                      morningKey: day.morningKey,
-                      roomId: entry.checkoutBooking.room.id,
-                      roomName: entry.checkoutBooking.room.name,
-                      sameDay: entry.sameDayCheckIn != null,
-                    })
-                  }
-                  className={`${getRoomColor(entry.checkoutBooking.room.name, entry.checkoutBooking.room.color)} rounded px-1.5 py-0.5 text-[11px] font-semibold text-black ${
-                    entry.probable
-                      ? "outline-2 outline-dashed outline-red-500"
-                      : entry.sameDayCheckIn
-                        ? "ring-2 ring-red-500"
-                        : ""
-                  }`}
-                >
-                  {entry.checkoutBooking.room.name}
-                  {(() => {
-                    const count =
-                      entry.sameDayCheckIn?.numberOfGuests ||
-                      nextGuestCount(entry.checkoutBooking.room.id, day.morningKey);
-                    return count ? ` (${count})` : "";
-                  })()}
-                  {entry.rebookOdds < 0.995 && (
-                    <span className="ml-1 opacity-70">{Math.round(entry.rebookOdds * 100)}%</span>
-                  )}
-                </button>
-              );
-
-              return (
-                <div
-                  key={day.morningKey}
-                  className="mb-1 flex items-center gap-2.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1"
-                >
-                  <div className="flex w-16 shrink-0 items-baseline gap-1">
-                    <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-                      {format(morning, "EEE")}
-                    </span>
-                    <span className="text-xs font-bold text-gray-900">{format(morning, "M/d")}</span>
-                  </div>
-                  <div className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1">
-                    {[...groups.entries()].map(([name, entries]) => (
-                      <span key={name} className="inline-flex flex-wrap items-center gap-1">
-                        <span className="text-[10px] font-bold text-gray-500">{name}</span>
-                        {entries.map(chip)}
-                      </span>
-                    ))}
-                    {unassigned.length > 0 && (
-                      <span className="inline-flex flex-wrap items-center gap-1">
-                        {/* Label the leftovers only when the day is partially assigned */}
-                        {groups.size > 0 && (
-                          <span className="text-[10px] font-bold text-amber-600">Unassigned</span>
-                        )}
-                        {unassigned.map(chip)}
-                      </span>
-                    )}
-                  </div>
-                  {/* Expected cleanings = Σ odds; falls back to the plain count when all confirmed */}
-                  <span className="shrink-0 text-xs font-bold text-gray-700">
-                    {Math.abs(expected - Math.round(expected)) < 0.05
-                      ? Math.round(expected)
-                      : `≈${expected.toFixed(1)}`}
-                  </span>
-                </div>
-              );
-            })}
-
-            {/* Legend below the table so the data leads */}
-            <p className="mb-1 mt-2 text-center text-xs text-gray-400">
-              % = odds · <span className="font-semibold text-red-500">solid red</span> = confirmed
-              same-day check-in · <span className="font-semibold text-red-500">dashed red</span> =
-              empty night likely sells last-minute (odds shown) · tap to assign a cleaner
-            </p>
-          </>
-        ) : (
-          emptyState("No checkouts in the next 7 days")
-        ))}
-
-      {/* Assign-cleaner popover for one room+morning */}
-      {assignTarget &&
-        createPortal(
-          <div
-            className="fixed inset-0 z-[105] flex items-end justify-center bg-black/40 p-4 sm:items-center"
-            onClick={() => setAssignTarget(null)}
-          >
-            <div
-              className="w-full max-w-xs overflow-hidden rounded-2xl bg-white p-4 shadow-xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <p className="text-sm font-bold text-gray-900">{assignTarget.roomName}</p>
-              <p className="mb-3 text-xs text-gray-500">
-                Cleaning {format(new Date(assignTarget.morningKey + "T00:00:00"), "EEE, MMM d")}
-                {assignTarget.sameDay && (
-                  <span className="font-semibold text-red-500"> · same-day check-in</span>
-                )}
-              </p>
-
-              {cleaners.length === 0 && (
-                <p className="mb-2 py-2 text-center text-sm text-gray-400">
-                  No cleaners yet — add one below
-                </p>
-              )}
-              {cleaners.map((cleaner) => {
-                const isAssigned =
-                  assignmentFor(assignTarget.morningKey, assignTarget.roomId)?.cleaner?.id ===
-                  cleaner.id;
-                return (
-                  <button
-                    key={cleaner.id}
-                    type="button"
-                    onClick={() => handleAssign(cleaner)}
-                    className={`mb-1.5 flex w-full items-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-semibold ${
-                      isAssigned
-                        ? "border-gray-900 bg-gray-900 text-white"
-                        : "border-gray-200 bg-white text-gray-800"
-                    }`}
-                  >
-                    <span className="min-w-0 flex-1 truncate text-left">{cleaner.name}</span>
-                    <span className={`text-xs ${isAssigned ? "text-gray-300" : "text-emerald-600"}`}>
-                      ${cleaner.payRate}/hr
-                    </span>
-                    {isAssigned && <span className="text-xs font-bold">✓</span>}
-                  </button>
-                );
-              })}
-
-              {assignmentFor(assignTarget.morningKey, assignTarget.roomId) && (
-                <button
-                  type="button"
-                  onClick={handleUnassign}
-                  className="mb-1.5 w-full rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-semibold text-red-600"
-                >
-                  Remove assignment
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  setAssignTarget(null);
-                  setCleanersOpen(true);
-                }}
-                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-700"
-              >
-                Manage cleaners…
-              </button>
-            </div>
-          </div>,
-          document.body,
-        )}
-
-      {cleanersOpen && (
-        <CleanersModal
-          hostId={hostId}
-          token={token}
-          monthMap={monthMap}
-          onClose={() => {
-            setCleanersOpen(false);
-            // Roster or hours may have changed while the modal was open
-            reloadCleanerData();
-          }}
-        />
-      )}
     </div>
   );
 };
