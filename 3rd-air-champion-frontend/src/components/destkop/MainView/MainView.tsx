@@ -16,6 +16,7 @@ import { AddPaneContext, GuestModeContext, isSyncModalOpenContext } from "../../
 import DetailsModal from "./GuestView/DetailsModal";
 import { updateBookingGuest, updateBookingAirbnbPrice, updateBookingReserved, updateUnbookGuest } from "../../../util/bookingOperations";
 import { fetchAssignments } from "../../../util/cleanerOperations";
+import { getCleaningForecast } from "../../../util/cleaningTasks";
 import UnbookingConfirmation from "./GuestView/UnbookingConfirmation";
 import ToDoList from "./ToDoList";
 import AvailabilitiesModal from "./AvailabilitiesModal";
@@ -59,6 +60,7 @@ interface MainViewProps {
   setAvailableNightsCount: React.Dispatch<React.SetStateAction<number>>;
   setTodoCleanCount: React.Dispatch<React.SetStateAction<number>>;
   setCleanTodoCount: React.Dispatch<React.SetStateAction<number>>;
+  setCleanUnassignedCount: React.Dispatch<React.SetStateAction<number>>;
   isRequestManagerOpen: boolean;
   setIsRequestManagerOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setBookingRequestPendingCount: React.Dispatch<React.SetStateAction<number>>;
@@ -89,6 +91,7 @@ const MainView = ({
   setAvailableNightsCount,
   setTodoCleanCount,
   setCleanTodoCount,
+  setCleanUnassignedCount,
   isRequestManagerOpen,
   setIsRequestManagerOpen,
   setBookingRequestPendingCount,
@@ -133,26 +136,6 @@ const MainView = ({
 
   const { currentGuest, setCurrentGuest, currentAirBnBGuest, setCurrentAirBnBGuest } =
     useContext(GuestModeContext)!;
-
-  // Clean button badge = finished cleanings (on/before today) that still need
-  // hours logged, counted per cleaner-day (matches the Clean → Hours tab).
-  // Refetched when the Clean modal opens/closes so recording hours clears it.
-  useEffect(() => {
-    if (!hostId || !token) return;
-    const monthStart = `${format(startOfToday(), "yyyy-MM")}-01`;
-    const todayStr = format(startOfToday(), "yyyy-MM-dd");
-    fetchAssignments(hostId, monthStart, todayStr, token)
-      .then((assigns) => {
-        const days = new Set<string>();
-        assigns.forEach((a) => {
-          if (a.date <= todayStr && a.hours == null && a.cleaner)
-            days.add(`${a.cleaner.id}|${a.date}`);
-        });
-        setCleanTodoCount(days.size);
-      })
-      .catch(() => setCleanTodoCount(0));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hostId, token, isCleanersOpen]);
 
   // ── Local UI state ────────────────────────────────────────────────────────
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
@@ -229,6 +212,46 @@ const MainView = ({
     setAvailableNightsCount,
     setTodoCleanCount,
   });
+
+  // Clean button badges, refetched when the Clean modal opens/closes:
+  //  • cleanTodoCount       = finished cleanings (<= today) still needing hours
+  //                           logged (per cleaner-day, matches Clean → Hours)
+  //  • cleanUnassignedCount = upcoming forecast cleanings (next 7 days) with no
+  //                           cleaner assigned yet (matches Clean → Plan "Unassigned")
+  useEffect(() => {
+    if (!hostId || !token) return;
+    const monthStart = `${format(startOfToday(), "yyyy-MM")}-01`;
+    const todayStr = format(startOfToday(), "yyyy-MM-dd");
+    const end = format(addDays(startOfToday(), 7), "yyyy-MM-dd");
+    fetchAssignments(hostId, monthStart, end, token)
+      .then((assigns) => {
+        const days = new Set<string>();
+        assigns.forEach((a) => {
+          if (a.date <= todayStr && a.hours == null && a.cleaner)
+            days.add(`${a.cleaner.id}|${a.date}`);
+        });
+        setCleanTodoCount(days.size);
+
+        let unassigned = 0;
+        getCleaningForecast(monthMap).forEach((day) =>
+          day.entries.forEach((e) => {
+            const has = assigns.some(
+              (a) =>
+                a.date === day.morningKey &&
+                a.room?.id === e.checkoutBooking.room.id &&
+                a.cleaner,
+            );
+            if (!has) unassigned++;
+          }),
+        );
+        setCleanUnassignedCount(unassigned);
+      })
+      .catch(() => {
+        setCleanTodoCount(0);
+        setCleanUnassignedCount(0);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hostId, token, isCleanersOpen, monthMap]);
 
   // ── Messaging hook ────────────────────────────────────────────────────────
   const {

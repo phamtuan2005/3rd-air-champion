@@ -59,6 +59,8 @@ function App() {
   const [todoCleanCount, setTodoCleanCount] = useState(0);
   // Finished cleanings still needing hours logged — the Clean button badge
   const [cleanTodoCount, setCleanTodoCount] = useState(0);
+  // Upcoming forecast cleanings with no cleaner assigned — 2nd Clean badge
+  const [cleanUnassignedCount, setCleanUnassignedCount] = useState(0);
   const [isRequestManagerOpen, setIsRequestManagerOpen] = useState(false);
   const [bookingRequestPendingCount, setBookingRequestPendingCount] =
     useState(0);
@@ -221,6 +223,7 @@ function App() {
                   availableNightsCount={availableNightsCount}
                   todoCleanCount={todoCleanCount}
                   cleanTodoCount={cleanTodoCount}
+                  cleanUnassignedCount={cleanUnassignedCount}
                   isRequestManagerOpen={isRequestManagerOpen}
                   setIsRequestManagerOpen={setIsRequestManagerOpen}
                   bookingRequestPendingCount={bookingRequestPendingCount}
@@ -256,6 +259,7 @@ function App() {
                     setAvailableNightsCount={setAvailableNightsCount}
                     setTodoCleanCount={setTodoCleanCount}
                     setCleanTodoCount={setCleanTodoCount}
+                    setCleanUnassignedCount={setCleanUnassignedCount}
                     isRequestManagerOpen={isRequestManagerOpen}
                     setIsRequestManagerOpen={setIsRequestManagerOpen}
                     setBookingRequestPendingCount={
