@@ -57,6 +57,8 @@ function App() {
   const [airbnbPendingCount, setAirbnbPendingCount] = useState(0);
   const [availableNightsCount, setAvailableNightsCount] = useState(0);
   const [todoCleanCount, setTodoCleanCount] = useState(0);
+  // Finished cleanings still needing hours logged — the Clean button badge
+  const [cleanTodoCount, setCleanTodoCount] = useState(0);
   const [isRequestManagerOpen, setIsRequestManagerOpen] = useState(false);
   const [bookingRequestPendingCount, setBookingRequestPendingCount] =
     useState(0);
@@ -218,6 +220,7 @@ function App() {
                   airbnbPendingCount={airbnbPendingCount}
                   availableNightsCount={availableNightsCount}
                   todoCleanCount={todoCleanCount}
+                  cleanTodoCount={cleanTodoCount}
                   isRequestManagerOpen={isRequestManagerOpen}
                   setIsRequestManagerOpen={setIsRequestManagerOpen}
                   bookingRequestPendingCount={bookingRequestPendingCount}
@@ -252,6 +255,7 @@ function App() {
                     setAirbnbPendingCount={setAirbnbPendingCount}
                     setAvailableNightsCount={setAvailableNightsCount}
                     setTodoCleanCount={setTodoCleanCount}
+                    setCleanTodoCount={setCleanTodoCount}
                     isRequestManagerOpen={isRequestManagerOpen}
                     setIsRequestManagerOpen={setIsRequestManagerOpen}
                     setBookingRequestPendingCount={

@@ -15,6 +15,7 @@ import BookButton from "../BookButton";
 import { AddPaneContext, GuestModeContext, isSyncModalOpenContext } from "../../../context";
 import DetailsModal from "./GuestView/DetailsModal";
 import { updateBookingGuest, updateBookingAirbnbPrice, updateBookingReserved, updateUnbookGuest } from "../../../util/bookingOperations";
+import { fetchAssignments } from "../../../util/cleanerOperations";
 import UnbookingConfirmation from "./GuestView/UnbookingConfirmation";
 import ToDoList from "./ToDoList";
 import AvailabilitiesModal from "./AvailabilitiesModal";
@@ -57,6 +58,7 @@ interface MainViewProps {
   setAirbnbPendingCount: React.Dispatch<React.SetStateAction<number>>;
   setAvailableNightsCount: React.Dispatch<React.SetStateAction<number>>;
   setTodoCleanCount: React.Dispatch<React.SetStateAction<number>>;
+  setCleanTodoCount: React.Dispatch<React.SetStateAction<number>>;
   isRequestManagerOpen: boolean;
   setIsRequestManagerOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setBookingRequestPendingCount: React.Dispatch<React.SetStateAction<number>>;
@@ -86,6 +88,7 @@ const MainView = ({
   setAirbnbPendingCount,
   setAvailableNightsCount,
   setTodoCleanCount,
+  setCleanTodoCount,
   isRequestManagerOpen,
   setIsRequestManagerOpen,
   setBookingRequestPendingCount,
@@ -130,6 +133,26 @@ const MainView = ({
 
   const { currentGuest, setCurrentGuest, currentAirBnBGuest, setCurrentAirBnBGuest } =
     useContext(GuestModeContext)!;
+
+  // Clean button badge = finished cleanings (on/before today) that still need
+  // hours logged, counted per cleaner-day (matches the Clean → Hours tab).
+  // Refetched when the Clean modal opens/closes so recording hours clears it.
+  useEffect(() => {
+    if (!hostId || !token) return;
+    const monthStart = `${format(startOfToday(), "yyyy-MM")}-01`;
+    const todayStr = format(startOfToday(), "yyyy-MM-dd");
+    fetchAssignments(hostId, monthStart, todayStr, token)
+      .then((assigns) => {
+        const days = new Set<string>();
+        assigns.forEach((a) => {
+          if (a.date <= todayStr && a.hours == null && a.cleaner)
+            days.add(`${a.cleaner.id}|${a.date}`);
+        });
+        setCleanTodoCount(days.size);
+      })
+      .catch(() => setCleanTodoCount(0));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hostId, token, isCleanersOpen]);
 
   // ── Local UI state ────────────────────────────────────────────────────────
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());

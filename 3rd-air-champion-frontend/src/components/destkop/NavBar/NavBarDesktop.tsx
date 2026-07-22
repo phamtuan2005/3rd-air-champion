@@ -46,6 +46,7 @@ interface NavBarDesktopProps {
   airbnbPendingCount: number;
   availableNightsCount: number;
   todoCleanCount: number;
+  cleanTodoCount: number;
   isRequestManagerOpen: boolean;
   setIsRequestManagerOpen: React.Dispatch<React.SetStateAction<boolean>>;
   bookingRequestPendingCount: number;
@@ -75,6 +76,7 @@ const NavBarDesktop = ({
   airbnbPendingCount,
   availableNightsCount,
   todoCleanCount,
+  cleanTodoCount,
   isRequestManagerOpen,
   setIsRequestManagerOpen,
   bookingRequestPendingCount,
@@ -214,13 +216,18 @@ const NavBarDesktop = ({
             type="button"
             aria-label="Clean"
             title="Clean"
-            className={`flex flex-1 items-center justify-center gap-1 text-white bg-violet-500 px-1 py-1 text-xs sm:flex-none sm:px-2 rounded-md whitespace-nowrap ${
+            className={`relative flex flex-1 items-center justify-center gap-1 text-white bg-violet-500 px-1 py-1 text-xs sm:flex-none sm:px-2 rounded-md whitespace-nowrap ${
               isCleanersOpen ? "drop-shadow-[0_4px_6px_rgba(139,92,246,0.5)]" : ""
             }`}
             onClick={() => setIsCleanersOpen((v) => !v)}
           >
             <FaBroom className="text-sm" />
             Clean
+            {cleanTodoCount > 0 && (
+              <span className="absolute -top-4 left-1/2 -translate-x-1/2 min-w-[20px] h-5 px-1 rounded-full bg-yellow-400 text-black text-[10px] font-bold flex items-center justify-center leading-none">
+                {cleanTodoCount}
+              </span>
+            )}
           </button>
         </div>}
       </div>
