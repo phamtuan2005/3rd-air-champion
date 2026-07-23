@@ -25,7 +25,7 @@ const itineraryLines = (chain: bookingType[]) =>
 const buildItinerary = (chain: bookingType[]) => {
   const first = chain[0];
   if (chain.length === 1) {
-    return `Your room is ${first.room.name}${first.room.roomCode ? ` ${first.room.roomCode}` : ""}.`;
+    return `Your room is ${first.room.name}${first.room.roomCode ? ` (${first.room.roomCode})` : ""}.`;
   }
   return `Your stay is in a different room each part of your visit:\n${itineraryLines(chain).join("\n")}\nEach new room is ready after 2 PM. If you head out earlier, feel free to leave your belongings — our cleaning team will happily move them to your next room for you.`;
 };
