@@ -78,6 +78,7 @@ function App() {
     airbnbSuperhost: false,
     highlights: "",
     houseRules: "",
+    cleaningRules: "",
     phone: "",
     contactEmail: "",
     licenseNumber: "",
@@ -112,6 +113,7 @@ function App() {
           airbnbSuperhost: result.airbnbSuperhost ?? false,
           highlights: (result.highlights ?? []).join(", "),
           houseRules: result.houseRules ?? "",
+          cleaningRules: result.cleaningRules ?? "",
           phone: result.phone ?? "",
           contactEmail: result.contactEmail ?? "",
           licenseNumber: result.licenseNumber ?? "",
@@ -245,6 +247,7 @@ function App() {
                     airbnbName={airBnBInfo.airbnbName}
                     airbnbAddress={airBnBInfo.airbnbAddress}
                     houseRules={airBnBInfo.houseRules}
+                    cleaningRules={airBnBInfo.cleaningRules}
                     isTodoModalOpen={isTodoModalOpen}
                     setIsTodoModalOpen={setIsTodoModalOpen}
                     isModalOpen={isBookModalOpen}

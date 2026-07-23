@@ -46,6 +46,7 @@ interface MainViewProps {
   airbnbName: string;
   airbnbAddress: string;
   houseRules?: string;
+  cleaningRules?: string;
   isTodoModalOpen: boolean;
   setIsTodoModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isModalOpen: boolean;
@@ -77,6 +78,7 @@ const MainView = ({
   airbnbName,
   airbnbAddress,
   houseRules = "",
+  cleaningRules = "",
   isTodoModalOpen,
   setIsTodoModalOpen,
   isModalOpen,
@@ -1142,6 +1144,7 @@ const MainView = ({
           hostId={hostId}
           token={token as string}
           monthMap={monthMap}
+          cleaningRules={cleaningRules}
           onClose={() => setIsCleanersOpen(false)}
         />
       )}

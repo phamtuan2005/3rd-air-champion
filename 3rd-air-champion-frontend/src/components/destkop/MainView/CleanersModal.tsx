@@ -25,6 +25,7 @@ interface CleanersModalProps {
   hostId: string;
   token: string;
   monthMap: Map<string, dayType>; // for arriving-guest counts in the schedule SMS
+  cleaningRules?: string; // host's private note to the cleaning team (texted, not shown to guests)
   onClose: () => void;
 }
 
@@ -136,7 +137,7 @@ const SectionHeader = ({
   </div>
 );
 
-const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps) => {
+const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }: CleanersModalProps) => {
   // Self-sufficient: fetches its own data so it can be opened from anywhere
   // (NavBar dropdown or the Upcoming assign popover).
   const [cleaners, setCleaners] = useState<CleanerType[]>([]);
@@ -558,6 +559,14 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
     window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(message)}`;
   };
 
+  // A standing quality reminder (comforter/pillow covers laundered, etc.) the
+  // host keeps in Settings → My AirBnB. Not tied to any week — sendable anytime.
+  const textCleaningRules = (cleaner: CleanerType) => {
+    if (!cleaner.phone || !cleaningRules.trim()) return;
+    const message = `Hi ${cleaner.name}, a quick cleaning reminder for TT House:\n\n${cleaningRules.trim()}\n\nThank you for keeping every room guest-ready — that is TT House's promise to every guest:\n"Your comfort. Our mission." 🏠 — Anh-Tuan`;
+    window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(message)}`;
+  };
+
   // A cleaner's recorded hours per date this month — the transparent breakdown
   // behind the pay total (sums the day's assignment hours per date).
   const cleanerDayHours = (cleanerId: string): [string, number][] => {
@@ -829,8 +838,25 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                     <span className="font-bold text-emerald-600">${cleaner.payRate}/hr</span>
                   </p>
                 </div>
-                {/* Texting lives only in the Week tab, bound to the visible
-                    week — a Text here couldn't say WHICH week it sends */}
+                {/* Cleaning rules aren't week-bound — a standing quality note,
+                    so its Text button lives here on the roster, not the Week tab */}
+                <button
+                  type="button"
+                  className={`${pillNeutral} ${!cleaner.phone || !cleaningRules.trim() ? "opacity-40" : ""}`}
+                  disabled={!cleaner.phone || !cleaningRules.trim()}
+                  title={
+                    !cleaner.phone
+                      ? "Add a phone number to text"
+                      : !cleaningRules.trim()
+                        ? "Set Cleaning Rules in My AirBnB → Property"
+                        : "Text the cleaning rules"
+                  }
+                  onClick={() => textCleaningRules(cleaner)}
+                >
+                  Rules
+                </button>
+                {/* Weekly schedule texting lives in the Week tab, bound to the
+                    visible week — a Text here couldn't say WHICH week it sends */}
                 <button
                   type="button"
                   className={pillNeutral}

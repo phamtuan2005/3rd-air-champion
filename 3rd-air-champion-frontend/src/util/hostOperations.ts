@@ -95,7 +95,7 @@ export const updateDoorCode = async (
 
 export const updateAirBnBInfo = async (
   id: string,
-  data: { doorCode: string; airbnbName: string; airbnbAddress: string; airbnbRating?: number; airbnbReviewCount?: number; airbnbReviewsUrl?: string; airbnbProfileUrl?: string; cohostProfileUrls?: string[]; airbnbSuperhost?: boolean; highlights?: string[]; houseRules: string; phone: string; contactEmail: string; licenseNumber: string; cancellationFullRefundDays?: number; cancellationHalfRefundDays?: number },
+  data: { doorCode: string; airbnbName: string; airbnbAddress: string; airbnbRating?: number; airbnbReviewCount?: number; airbnbReviewsUrl?: string; airbnbProfileUrl?: string; cohostProfileUrls?: string[]; airbnbSuperhost?: boolean; highlights?: string[]; houseRules: string; cleaningRules?: string; phone: string; contactEmail: string; licenseNumber: string; cancellationFullRefundDays?: number; cancellationHalfRefundDays?: number },
   token: string
 ) => {
   return axios

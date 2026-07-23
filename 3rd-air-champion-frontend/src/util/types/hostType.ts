@@ -18,6 +18,7 @@ export interface hostType {
   airbnbSuperhost?: boolean;
   highlights?: string[];
   houseRules?: string;
+  cleaningRules?: string;
   cancellationFullRefundDays?: number;
   cancellationHalfRefundDays?: number;
 }

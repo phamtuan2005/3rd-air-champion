@@ -27,6 +27,7 @@ export const hostDefs = gql`
     airbnbSuperhost: Boolean
     highlights: [String]
     houseRules: String
+    cleaningRules: String
     phone: String
     contactEmail: String
     licenseNumber: String
@@ -60,6 +61,7 @@ export const hostDefs = gql`
       airbnbSuperhost: Boolean
       highlights: [String]
       houseRules: String
+      cleaningRules: String
       phone: String
       contactEmail: String
       licenseNumber: String

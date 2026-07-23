@@ -39,6 +39,7 @@ const hostSchema = new mongoose.Schema(
     airbnbSuperhost: { type: Boolean, default: false },
     highlights: [{ type: String }],
     houseRules: { type: String, default: "" },
+    cleaningRules: { type: String, default: "" },
     phone: { type: String, default: "" },
     contactEmail: { type: String, default: "" },
     licenseNumber: { type: String, default: "" },

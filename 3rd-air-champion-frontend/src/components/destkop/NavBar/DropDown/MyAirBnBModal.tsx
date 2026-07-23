@@ -15,6 +15,7 @@ interface MyAirBnBInfo {
   airbnbSuperhost: boolean;
   highlights: string;
   houseRules: string;
+  cleaningRules: string;
   phone: string;
   contactEmail: string;
   licenseNumber: string;
@@ -329,6 +330,19 @@ const MyAirBnBModal = ({ current, onClose, onSaved }: MyAirBnBModalProps) => {
                   placeholder="No smoking, quiet after 10pm…"
                   value={draft.houseRules}
                   onChange={(e) => set("houseRules", e.target.value)}
+                />
+              </Field>
+
+              <Field
+                label="Cleaning Rules"
+                hint="Private note for your cleaning team — texted from the Cleaners window, never shown to guests."
+              >
+                <textarea
+                  className={`${inputCls} resize-none`}
+                  rows={4}
+                  placeholder="All comforter and pillow covers must be changed and laundered for the next guest…"
+                  value={draft.cleaningRules}
+                  onChange={(e) => set("cleaningRules", e.target.value)}
                 />
               </Field>
             </>
