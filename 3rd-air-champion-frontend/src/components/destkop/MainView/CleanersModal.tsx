@@ -67,6 +67,57 @@ const hoursBetween = (inStr?: string, outStr?: string): number | null => {
   return Math.round((mins / 60) * 100) / 100;
 };
 
+// People report time as hours + minutes, not decimals. These convert between
+// the human "3h 15m" and the decimal hours the backend stores.
+const hmToDecimal = (h?: string, m?: string) =>
+  (parseFloat(h ?? "") || 0) + (parseFloat(m ?? "") || 0) / 60;
+const decimalToHm = (dec: number) => {
+  const total = Math.round(dec * 60);
+  return { h: String(Math.floor(total / 60)), m: String(total % 60) };
+};
+const formatHrMin = (dec: number) => {
+  const total = Math.round(dec * 60);
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h && m) return `${h}h ${m}m`;
+  if (h) return `${h}h`;
+  return `${m}m`;
+};
+
+// Two small inputs (hours + minutes) — the natural way to record worked time.
+const HrMinInput = ({
+  hm,
+  onChange,
+  autoFocus,
+}: {
+  hm?: { h: string; m: string };
+  onChange: (hm: { h: string; m: string }) => void;
+  autoFocus?: boolean;
+}) => (
+  <div className="flex items-center gap-1">
+    <input
+      className={`${inputCls} w-12`}
+      type="number"
+      min="0"
+      placeholder="0"
+      autoFocus={autoFocus}
+      value={hm?.h ?? ""}
+      onChange={(e) => onChange({ h: e.target.value, m: hm?.m ?? "" })}
+    />
+    <span className="text-xs text-gray-500">hr</span>
+    <input
+      className={`${inputCls} w-12`}
+      type="number"
+      min="0"
+      max="59"
+      placeholder="0"
+      value={hm?.m ?? ""}
+      onChange={(e) => onChange({ h: hm?.h ?? "", m: e.target.value })}
+    />
+    <span className="text-xs text-gray-500">min</span>
+  </div>
+);
+
 const SectionHeader = ({
   icon,
   title,
@@ -163,7 +214,7 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
   const [addOpen, setAddOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [edit, setEdit] = useState({ name: "", phone: "", payRate: "", baselineHours: "" });
-  const [hoursDraft, setHoursDraft] = useState<Record<string, string>>({});
+  const [hmDraft, setHmDraft] = useState<Record<string, { h: string; m: string }>>({});
   // Which already-recorded cleaner-day is currently open for correction
   const [editingDayKey, setEditingDayKey] = useState<string | null>(null);
   // Some cleaners report a decimal total, others report arrival/leave times.
@@ -433,10 +484,15 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
     // In–Out mode derives the total from the arrival/leave times; Total mode
     // takes the typed number. Both save the same resulting hours.
     const mode = hoursMode[group.key] ?? "total";
+    if (mode !== "inout") {
+      // Blank hr AND blank min = nothing typed → do nothing (not a "0 = clear")
+      const { h = "", m = "" } = hmDraft[group.key] ?? {};
+      if (h.trim() === "" && m.trim() === "") return;
+    }
     const hours =
       mode === "inout"
         ? hoursBetween(timeDraft[group.key]?.in, timeDraft[group.key]?.out)
-        : parseFloat(hoursDraft[group.key]);
+        : hmToDecimal(hmDraft[group.key]?.h, hmDraft[group.key]?.m);
     if (hours == null || !(hours >= 0)) return;
     // 0 = the cleaner didn't work that day: clear every room back to null so
     // the day returns to the amber pending card, rather than storing "0 hr".
@@ -449,7 +505,7 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
       .then((updatedList) => {
         setAssignments((prev) => prev.map((a) => updatedList.find((u) => u.id === a.id) ?? a));
         setEditingDayKey(null);
-        setHoursDraft((p) => {
+        setHmDraft((p) => {
           const next = { ...p };
           delete next[group.key];
           return next;
@@ -512,7 +568,9 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   };
 
-  // Texted pay statement: this month's dates × hours × rate, plus any tip.
+  // Texted progress statement (NOT a payout notice): this month's dates × hours
+  // × rate so the cleaner can see their hours and earnings so far. Any tip is
+  // shown as an added bonus when present.
   const textPayment = (entry: CleanerSummaryType) => {
     const cleaner = cleaners.find((c) => c.id === entry.id);
     if (!cleaner?.phone) return;
@@ -521,17 +579,23 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
     const tip = parseFloat(tipDraft[entry.id]) || 0;
     const lines = days.map(
       ([date, hrs]) =>
-        `* ${format(new Date(date + "T00:00:00"), "EEE M/d")}: ${hrs} hr = $${(hrs * rate).toFixed(2)}`,
+        `* ${format(new Date(date + "T00:00:00"), "EEE M/d")}: ${formatHrMin(hrs)} = $${(hrs * rate).toFixed(2)}`,
     );
     const subtotal = days.reduce((s, [, h]) => s + h * rate, 0);
+    const totalHrs = days.reduce((s, [, h]) => s + h, 0);
     const monthLabel = format(startOfToday(), "MMMM");
     const body = [
-      `Hi ${cleaner.name}, your cleaning pay for ${monthLabel}:`,
-      ...lines,
-      `Hours: ${days.reduce((s, [, h]) => s + h, 0)} · Subtotal: $${subtotal.toFixed(2)}`,
-      ...(tip > 0 ? [`Tip: $${tip.toFixed(2)}`] : []),
-      `Total: $${(subtotal + tip).toFixed(2)}`,
-      `Thank you! — Anh-Tuan`,
+      `Hi ${cleaner.name}, here's your cleaning summary so far:`,
+      // Recent detail (this month's recorded days)
+      ...(lines.length
+        ? ["", `This month (${monthLabel}) — ${formatHrMin(totalHrs)}, $${subtotal.toFixed(2)}:`, ...lines]
+        : []),
+      "",
+      // Running totals — the number a cleaner saving toward a target watches
+      `Earned so far: $${Math.round(entry.earned).toLocaleString()} (${formatHrMin(entry.hours)})${entry.paid > 0 ? ` · Paid: $${Math.round(entry.paid).toLocaleString()}` : ""}`,
+      `Ready to pay whenever you'd like: $${Math.round(entry.balance).toLocaleString()}`,
+      ...(tip > 0 ? [`(+ $${tip.toFixed(2)} tip at payout)`] : []),
+      `Thanks for your great work! — Anh-Tuan`,
     ].join("\n");
     window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(body)}`;
   };
@@ -1132,16 +1196,9 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                 <div className="mt-2 flex items-center gap-1.5">
                   <div className="flex flex-1 flex-wrap items-center gap-1.5">
                   {(hoursMode[group.key] ?? "total") === "total" ? (
-                    <input
-                      className={`${inputCls} w-16`}
-                      type="number"
-                      step="0.5"
-                      min="0"
-                      placeholder="hrs"
-                      value={hoursDraft[group.key] ?? ""}
-                      onChange={(e) =>
-                        setHoursDraft((p) => ({ ...p, [group.key]: e.target.value }))
-                      }
+                    <HrMinInput
+                      hm={hmDraft[group.key]}
+                      onChange={(hm) => setHmDraft((p) => ({ ...p, [group.key]: hm }))}
                     />
                   ) : (
                     <>
@@ -1171,7 +1228,7 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                       />
                       {hoursBetween(timeDraft[group.key]?.in, timeDraft[group.key]?.out) != null && (
                         <span className="text-xs font-bold text-emerald-600">
-                          = {hoursBetween(timeDraft[group.key]?.in, timeDraft[group.key]?.out)} hr
+                          = {formatHrMin(hoursBetween(timeDraft[group.key]?.in, timeDraft[group.key]?.out)!)}
                         </span>
                       )}
                     </>
@@ -1222,17 +1279,10 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                     </div>
                     {editingDayKey === group.key ? (
                       <>
-                        <input
-                          className={`${inputCls} w-16`}
-                          type="number"
-                          step="0.5"
-                          min="0"
-                          placeholder="hrs"
+                        <HrMinInput
                           autoFocus
-                          value={hoursDraft[group.key] ?? ""}
-                          onChange={(e) =>
-                            setHoursDraft((p) => ({ ...p, [group.key]: e.target.value }))
-                          }
+                          hm={hmDraft[group.key]}
+                          onChange={(hm) => setHmDraft((p) => ({ ...p, [group.key]: hm }))}
                         />
                         <button
                           type="button"
@@ -1252,14 +1302,14 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                     ) : (
                       <>
                         <span className="shrink-0 text-sm font-bold text-gray-900">
-                          {group.hours} hr
+                          {formatHrMin(group.hours)}
                         </span>
                         <button
                           type="button"
                           className={pillNeutral}
                           onClick={() => {
                             setEditingDayKey(group.key);
-                            setHoursDraft((p) => ({ ...p, [group.key]: String(group.hours) }));
+                            setHmDraft((p) => ({ ...p, [group.key]: decimalToHm(group.hours) }));
                           }}
                         >
                           Edit
@@ -1333,7 +1383,7 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-gray-900">{entry.name}</p>
                   <p className="text-xs text-gray-500">
-                    {entry.hours} hr · earned ${Math.round(entry.earned).toLocaleString()} · paid $
+                    {formatHrMin(entry.hours)} · earned ${Math.round(entry.earned).toLocaleString()} · paid $
                     {Math.round(entry.paid).toLocaleString()}
                   </p>
                 </div>
@@ -1366,7 +1416,7 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
               >
                 <p className="text-sm font-semibold text-gray-900">{entry.name}</p>
                 <p className="text-xs text-gray-500">
-                  {entry.hours} hr ·{" "}
+                  {formatHrMin(entry.hours)} ·{" "}
                   <span className="text-sm font-bold text-emerald-600">
                     ${Math.round(entry.pay).toLocaleString()}
                   </span>
@@ -1403,7 +1453,7 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                   <div className="min-w-0">
                     <h3 className="truncate text-lg font-bold text-gray-900">{entry.name}</h3>
                     <p className="text-xs text-gray-500">
-                      {entry.hours} hr · earned ${Math.round(entry.earned).toLocaleString()} · paid $
+                      {formatHrMin(entry.hours)} · earned ${Math.round(entry.earned).toLocaleString()} · paid $
                       {Math.round(entry.paid).toLocaleString()}
                     </p>
                   </div>
@@ -1442,7 +1492,7 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
                           <span className="flex-1 text-gray-600">
                             {format(new Date(date + "T00:00:00"), "EEE M/d")}
                           </span>
-                          <span className="text-gray-500">{hrs} hr</span>
+                          <span className="text-gray-500">{formatHrMin(hrs)}</span>
                           <span className="w-16 text-right font-semibold text-gray-800">
                             ${(hrs * rate).toFixed(2)}
                           </span>
