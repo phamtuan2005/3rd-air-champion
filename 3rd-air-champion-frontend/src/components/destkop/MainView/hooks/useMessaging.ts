@@ -3,6 +3,7 @@ import { addDays, compareAsc, format, isSameDay, isSameMonth, startOfMonth } fro
 import { toZonedTime } from "date-fns-tz";
 import { dayType } from "../../../../util/types/dayType";
 import { bookingType, feeType, feesTotal } from "../../../../util/types/bookingType";
+import { formatCancellationPolicy } from "../../../../util/cancellationPolicy";
 
 // A single booking row the confirmation text bills for.
 export interface ConfirmationBooking {
@@ -33,6 +34,8 @@ interface UseMessagingParams {
   paidDates: Date[];
   airbnbName: string;
   airbnbAddress: string;
+  cancellationFullRefundDays?: number;
+  cancellationHalfRefundDays?: number;
 }
 
 export const useMessaging = ({
@@ -42,6 +45,8 @@ export const useMessaging = ({
   paidDates,
   airbnbName,
   airbnbAddress,
+  cancellationFullRefundDays,
+  cancellationHalfRefundDays,
 }: UseMessagingParams) => {
   const [icsModal, setIcsModal] = useState<IcsModalState | null>(null);
   const [calEventsHint, setCalEventsHint] = useState<string | null>(null);
@@ -139,12 +144,17 @@ export const useMessaging = ({
     const unpaid = grandTotal - totalPaidAmount;
     const politePreface = `Many thanks for your ${numberOfNights === 1 ? "inquiry" : "inquiries"}!`;
     const accomodationPreface = numberOfNights > 3 ? "I do my best to accomodate you." : "";
+    // Cancellation policy sent with every confirmation so terms are clear up front.
+    const cancellationPolicy =
+      cancellationFullRefundDays !== undefined && cancellationHalfRefundDays !== undefined
+        ? `\n\n${formatCancellationPolicy(cancellationFullRefundDays, cancellationHalfRefundDays)}`
+        : "";
 
     return `${guestName === "" ? "" : `Hi ${guestName},`}\n${politePreface}${accomodationPreface ? `\n${accomodationPreface}` : ""}\n${header}${details}\nTotal price = $${grandTotal}${totalPaidAmount > 0 ? `\nTotal paid = $${totalPaidAmount}` : ""}${
       unpaid > 0
         ? `\nTo pay = ${totalPaidAmount > 0 ? `$${grandTotal} - $${totalPaidAmount} = $${unpaid}` : `$${unpaid}`}`
         : ""
-    }\n\nCould you please confirm whether everything is in order?`;
+    }${cancellationPolicy}\n\nCould you please confirm whether everything is in order?`;
   };
 
   const monthHeader = (months: Date[], lead = "Your bookings"): string => {
