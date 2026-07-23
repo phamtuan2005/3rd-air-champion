@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { dayType } from "../../../util/types/dayType";
+import { bookingType } from "../../../util/types/bookingType";
 import { addDays, startOfToday, format } from "date-fns";
 import { getRoomColor } from "../../../util/getRoomColor";
 import { DEFAULT_TEMPLATE, TEMPLATE_KEY, resolveTemplate } from "../../../util/reminderTemplate";
@@ -37,6 +38,33 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
         booking.startDate === tomorrowKey,
     );
   }, [monthMap, tomorrowKey]);
+
+  // Roll a stay forward across rooms: a guest thinks of consecutive nights in
+  // different rooms as ONE booking, so the reminder should cover this night plus
+  // every following night the same guest continues (into another room). Sending
+  // from the arriving booking covers the whole remaining stay; miss it and the
+  // next night's reminder still covers what's left.
+  const buildStayChain = (first: bookingType): bookingType[] => {
+    const chain: bookingType[] = [first];
+    let current = first;
+    for (let i = 0; i < 30; i++) {
+      const lastNight = current.endDate.split("T")[0];
+      const nextKey = format(addDays(new Date(lastNight + "T00:00:00"), 1), "yyyy-MM-dd");
+      const next = monthMap
+        .get(nextKey)
+        ?.bookings.find(
+          (b) =>
+            b.room != null &&
+            !b.reserved &&
+            b.guest?.id === current.guest.id &&
+            b.startDate.split("T")[0] === nextKey,
+        );
+      if (!next) break;
+      chain.push(next);
+      current = next;
+    }
+    return chain;
+  };
 
   // All rooms needing cleaning: today's checkouts + rooms vacated earlier that were
   // never marked cleaned (the old logic assumed an empty room was never occupied).
@@ -171,7 +199,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                         const phone = booking.guest.phone;
                         const startDate = format(addDays(startOfToday(), 1), "MMMM do");
                         const currentTemplate = localStorage.getItem(TEMPLATE_KEY) || DEFAULT_TEMPLATE;
-                        const message = resolveTemplate(currentTemplate, booking, startDate, doorCode, airbnbName, airbnbAddress, houseRules);
+                        const message = resolveTemplate(currentTemplate, buildStayChain(booking), startDate, doorCode, airbnbName, airbnbAddress, houseRules);
                         window.location.href = `sms:${phone}?&body=${encodeURIComponent(message)}`;
                         toggleTaskCompletion(taskId);
                       }}

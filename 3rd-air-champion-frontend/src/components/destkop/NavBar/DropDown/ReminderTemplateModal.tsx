@@ -11,6 +11,7 @@ const PLACEHOLDERS = [
   { label: "Duration", value: "{{duration}}" },
   { label: "Night Word", value: "{{nightWord}}" },
   { label: "Start Date", value: "{{startDate}}" },
+  { label: "Itinerary (room-by-room)", value: "{{itinerary}}" },
   { label: "Room", value: "{{room}}" },
   { label: "Room Code", value: "{{roomCode}}" },
   { label: "Door Code", value: "{{doorCode}}" },
