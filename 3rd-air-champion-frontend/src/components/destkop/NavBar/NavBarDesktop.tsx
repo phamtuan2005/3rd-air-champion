@@ -16,6 +16,7 @@ interface AirBnBInfo {
   airbnbSuperhost: boolean;
   highlights: string;
   houseRules: string;
+  cleaningRules: string;
   phone: string;
   contactEmail: string;
   licenseNumber: string;
