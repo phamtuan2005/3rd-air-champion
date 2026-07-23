@@ -596,8 +596,8 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
       `Ready to pay whenever you'd like: $${Math.round(entry.balance).toLocaleString()}`,
       ...(tip > 0 ? [`(+ $${tip.toFixed(2)} tip at payout)`] : []),
       "",
-      `Thank you for your wonderful work — your care keeps every room at the TT House standard our guests love. 🏠`,
-      `Your comfort. Our mission. — Anh-Tuan`,
+      `Thank you for your wonderful work! Together, we work hard so our guests always feel comfortable — that is TT House's promise to every guest:`,
+      `"Your comfort. Our mission." 🏠 — Anh-Tuan`,
     ].join("\n");
     window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(body)}`;
   };
