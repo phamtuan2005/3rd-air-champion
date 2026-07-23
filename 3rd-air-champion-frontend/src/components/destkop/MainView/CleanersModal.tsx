@@ -554,7 +554,7 @@ const CleanersModal = ({ hostId, token, monthMap, onClose }: CleanersModalProps)
         `* ${format(new Date(date + "T00:00:00"), "EEEE M/d")}: ${rooms.join(", ")}`,
     );
     const weekLabel = `${format(weekMonday, "MMM d")} – ${format(addDays(weekMonday, 6), "MMM d")}`;
-    const message = `Hi ${cleaner.name}, your cleaning schedule for ${weekLabel}:\n${lines.join("\n")}\n(numbers = guests arriving)\nThank you! — Anh-Tuan`;
+    const message = `Hi ${cleaner.name}, your cleaning schedule for ${weekLabel}:\n${lines.join("\n")}\n(numbers = guests arriving)\n\nThank you for your wonderful work! Together, we work hard so our guests always feel comfortable — that is TT House's promise to every guest:\n"Your comfort. Our mission." 🏠 — Anh-Tuan`;
     window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(message)}`;
   };
 
