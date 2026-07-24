@@ -1199,51 +1199,86 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
           {weekDates.map((dateKey) => {
             const dayDate = new Date(dateKey + "T00:00:00");
             const dayAssignments = weekAssignments.filter((a) => a.date === dateKey);
-            const groups = new Map<string, { id: string; name: string }[]>();
-            dayAssignments.forEach((a) => {
-              groups.set(a.cleaner!.name, [...(groups.get(a.cleaner!.name) ?? []), a.room!]);
-            });
             const isToday = dateKey === todayKey;
+            const groups = new Map<string, { cleaner: CleanerType; rooms: { id: string; name: string }[] }>();
+            dayAssignments.forEach((a) => {
+              const g = groups.get(a.cleaner!.id) ?? { cleaner: a.cleaner!, rooms: [] };
+              g.rooms.push(a.room!);
+              groups.set(a.cleaner!.id, g);
+            });
             return (
               <div
                 key={dateKey}
-                className={`mb-1 flex items-center gap-2.5 rounded-lg border px-2.5 py-1.5 ${
-                  isToday ? "border-emerald-300 bg-emerald-50" : "border-gray-200 bg-white"
+                className={`mb-2 overflow-hidden rounded-xl border bg-white ${
+                  isToday
+                    ? "border-violet-400 shadow-sm ring-1 ring-violet-300"
+                    : dayAssignments.length
+                      ? "border-gray-300 shadow-sm"
+                      : "border-gray-200"
                 }`}
               >
-                <div className="flex w-16 shrink-0 items-baseline gap-1">
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-                    {format(dayDate, "EEE")}
+                {/* Day header — date, Today badge, and the room count */}
+                <div
+                  className={`flex items-center justify-between px-3 py-1.5 ${
+                    dayAssignments.length ? "border-b" : ""
+                  } ${isToday ? "border-violet-100 bg-violet-50" : "border-gray-100 bg-gray-50"}`}
+                >
+                  <div className="flex items-baseline gap-1.5">
+                    <span
+                      className={`text-[11px] font-bold uppercase tracking-wide ${
+                        isToday ? "text-violet-500" : "text-gray-400"
+                      }`}
+                    >
+                      {format(dayDate, "EEE")}
+                    </span>
+                    <span className="text-sm font-bold text-gray-900">{format(dayDate, "MMM d")}</span>
+                    {isToday && (
+                      <span className="rounded-full bg-violet-600 px-1.5 py-0.5 text-[9px] font-bold uppercase leading-none text-white">
+                        Today
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs font-semibold text-gray-400">
+                    {dayAssignments.length
+                      ? `${dayAssignments.length} room${dayAssignments.length === 1 ? "" : "s"}`
+                      : "no cleanings"}
                   </span>
-                  <span className="text-xs font-bold text-gray-900">{format(dayDate, "M/d")}</span>
                 </div>
-                <div className="min-w-0 flex-1">
-                  {dayAssignments.length === 0 ? (
-                    <span className="text-xs text-gray-300">—</span>
-                  ) : (
-                    [...groups.entries()].map(([name, rooms]) => (
-                      <p
-                        key={name}
-                        className="mb-0.5 flex flex-wrap items-center gap-1 last:mb-0"
-                      >
-                        <span className="text-[10px] font-bold text-gray-500">{name}</span>
-                        {rooms.map((room, i) => {
-                          // Same headcount the SMS carries — beds/towels to prep
-                          const count = nextGuestCount(room.id, dateKey);
-                          return (
-                            <span
-                              key={`${room.id}-${i}`}
-                              className={`${getRoomColor(room.name, roomColorById.get(room.id))} rounded px-1.5 py-0.5 text-[11px] font-semibold text-black`}
-                            >
-                              {room.name}
-                              {count ? ` (${count})` : ""}
-                            </span>
-                          );
-                        })}
-                      </p>
-                    ))
-                  )}
-                </div>
+                {/* One aligned row per cleaner (avatar + fixed-width name → chips line up) */}
+                {dayAssignments.length > 0 && (
+                  <div className="divide-y divide-gray-100">
+                    {[...groups.values()].map(({ cleaner, rooms }) => (
+                      <div key={cleaner.id} className="flex items-center gap-2 px-3 py-1.5">
+                        <div className="flex w-24 shrink-0 items-center gap-1.5">
+                          <CleanerAvatar
+                            id={cleaner.id}
+                            name={cleaner.name}
+                            sizeClass="h-6 w-6"
+                            textClass="text-[10px]"
+                          />
+                          <span className="truncate text-xs font-semibold text-gray-700">
+                            {cleaner.name.split(" ")[0]}
+                          </span>
+                        </div>
+                        <div className="flex flex-1 flex-wrap items-center gap-1">
+                          {rooms.map((room, i) => {
+                            // Same headcount the SMS carries — beds/towels to prep
+                            const count = nextGuestCount(room.id, dateKey);
+                            return (
+                              <span
+                                key={`${room.id}-${i}`}
+                                className={`${getRoomColor(room.name, roomColorById.get(room.id))} rounded-md px-2 py-1 text-[11px] font-semibold text-black shadow-sm`}
+                              >
+                                {room.name}
+                                {count ? ` (${count})` : ""}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}
