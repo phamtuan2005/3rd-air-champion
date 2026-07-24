@@ -1302,6 +1302,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
 
               {cleaningForecast.map((day) => {
                 const morning = new Date(day.morningKey + "T00:00:00");
+                const isToday = day.morningKey === format(startOfToday(), "yyyy-MM-dd");
                 const groups = new Map<string, { cleaner: CleanerType; entries: typeof day.entries }>();
                 const unassigned: typeof day.entries = [];
                 day.entries.forEach((entry) => {
@@ -1347,17 +1348,32 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                 return (
                   <div
                     key={day.morningKey}
-                    className="mb-2 overflow-hidden rounded-xl border border-gray-200 bg-white"
+                    className={`mb-3 overflow-hidden rounded-xl border bg-white shadow-sm ${
+                      isToday ? "border-violet-400 ring-1 ring-violet-300" : "border-gray-300"
+                    }`}
                   >
                     {/* Day header — the date, room count, and a nudge if any need a cleaner */}
-                    <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-3 py-1.5">
+                    <div
+                      className={`flex items-center justify-between border-b px-3 py-1.5 ${
+                        isToday ? "border-violet-100 bg-violet-50" : "border-gray-100 bg-gray-50"
+                      }`}
+                    >
                       <div className="flex items-baseline gap-1.5">
-                        <span className="text-[11px] font-bold uppercase tracking-wide text-gray-400">
+                        <span
+                          className={`text-[11px] font-bold uppercase tracking-wide ${
+                            isToday ? "text-violet-500" : "text-gray-400"
+                          }`}
+                        >
                           {format(morning, "EEE")}
                         </span>
                         <span className="text-sm font-bold text-gray-900">
                           {format(morning, "MMM d")}
                         </span>
+                        {isToday && (
+                          <span className="rounded-full bg-violet-600 px-1.5 py-0.5 text-[9px] font-bold uppercase leading-none text-white">
+                            Today
+                          </span>
+                        )}
                       </div>
                       <span className="text-xs font-semibold text-gray-400">
                         {day.entries.length} room{day.entries.length === 1 ? "" : "s"}
