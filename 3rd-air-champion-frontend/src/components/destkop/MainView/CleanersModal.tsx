@@ -275,6 +275,12 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
   // wrong cleaner by mistake.
   const msgCleaner = msgMenuId ? cleaners.find((c) => c.id === msgMenuId) ?? null : null;
 
+  // One consistent initials-avatar color per team member across EVERY view
+  // (keyed by their position in the team), so a person looks the same
+  // everywhere — Team, Message, records, Hours, Pay.
+  const avatarClass = (id: string) =>
+    AVATAR_COLORS[Math.max(0, cleaners.findIndex((c) => c.id === id)) % AVATAR_COLORS.length];
+
   // Upcoming tab — the rolling 7-morning cleaning forecast (migrated from the
   // ToDo modal). Assignments/cleaners/monthMap already live here.
   const cleaningForecast = getCleaningForecast(monthMap);
@@ -1325,6 +1331,11 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                 className="mb-2 rounded-xl border border-amber-200 bg-amber-50 p-2.5"
               >
                 <div className="flex items-center gap-2">
+                  <span
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${avatarClass(group.cleaner.id)}`}
+                  >
+                    {initials(group.cleaner.name)}
+                  </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-gray-900">{group.cleaner.name}</p>
                     <p className="text-xs text-gray-500">
@@ -1599,6 +1610,11 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                 }}
                 className="mb-1.5 flex w-full items-center gap-2 rounded-xl border border-gray-200 p-2.5 text-left transition-colors hover:bg-gray-50"
               >
+                <span
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${avatarClass(entry.id)}`}
+                >
+                  {initials(entry.name)}
+                </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-gray-900">{entry.name}</p>
                   <p className="text-xs text-gray-500">
@@ -1858,6 +1874,11 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                       : "border-gray-200 bg-white text-gray-800"
                   }`}
                 >
+                  <span
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${avatarClass(cleaner.id)}`}
+                  >
+                    {initials(cleaner.name)}
+                  </span>
                   <span className="min-w-0 flex-1 truncate text-left">{cleaner.name}</span>
                   <span className={`text-xs ${isAssigned ? "text-gray-300" : "text-emerald-600"}`}>
                     ${cleaner.payRate}/hr
