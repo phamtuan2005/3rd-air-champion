@@ -45,7 +45,6 @@ const AVATAR_COLORS = [
   "bg-rose-100 text-rose-700",
 ];
 // Solid variants of the same identity colors (Text buttons match avatars)
-const SOLID_COLORS = ["bg-emerald-600", "bg-blue-600", "bg-violet-600", "bg-amber-600", "bg-rose-600"];
 
 const initials = (name: string) =>
   name
@@ -214,6 +213,9 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
   // Add form hidden behind a button at the end of the roster
   const [addOpen, setAddOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  // Which cleaner's "Message" menu is open on the Team tab (one home for every
+  // text we send a cleaner — schedule, earnings, cleaning rules, and future ones)
+  const [msgMenuId, setMsgMenuId] = useState<string | null>(null);
   const [edit, setEdit] = useState({ name: "", phone: "", payRate: "", baselineHours: "" });
   const [hmDraft, setHmDraft] = useState<Record<string, { h: string; m: string }>>({});
   // Which already-recorded cleaner-day is currently open for correction
@@ -251,6 +253,19 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
   const weekAssignments = assignments.filter(
     (a) => a.date >= weekDates[0] && a.date <= weekDates[6] && a.cleaner && a.room,
   );
+
+  // Fixed Monday of this/next week. The Team-tab Message menu offers both
+  // explicitly, so a schedule text never depends on which week the Week tab
+  // happens to be showing — each item spells out its own dates.
+  const thisMonday = startOfWeek(startOfToday(), { weekStartsOn: 1 });
+  const nextMonday = addDays(thisMonday, 7);
+  const weekAssignmentCount = (cleanerId: string, monday: Date) => {
+    const d0 = format(monday, "yyyy-MM-dd");
+    const d6 = format(addDays(monday, 6), "yyyy-MM-dd");
+    return assignments.filter(
+      (a) => a.cleaner?.id === cleanerId && a.room && a.date >= d0 && a.date <= d6,
+    ).length;
+  };
 
   // Upcoming tab — the rolling 7-morning cleaning forecast (migrated from the
   // ToDo modal). Assignments/cleaners/monthMap already live here.
@@ -537,10 +552,14 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
 
   // One SMS per cleaner, bound to the FIXED selected week — the message a
   // cleaner receives never depends on which day the host happens to send it.
-  const textSchedule = (cleaner: CleanerType) => {
+  const textSchedule = (cleaner: CleanerType, monday: Date) => {
     if (!cleaner.phone) return;
-    const mine = weekAssignments
-      .filter((a) => a.cleaner!.id === cleaner.id)
+    const d0 = format(monday, "yyyy-MM-dd");
+    const d6 = format(addDays(monday, 6), "yyyy-MM-dd");
+    const mine = assignments
+      .filter(
+        (a) => a.cleaner?.id === cleaner.id && a.room && a.date >= d0 && a.date <= d6,
+      )
       .sort((a, b) => a.date.localeCompare(b.date));
     if (mine.length === 0) return;
 
@@ -554,7 +573,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
       ([date, rooms]) =>
         `* ${format(new Date(date + "T00:00:00"), "EEEE M/d")}: ${rooms.join(", ")}`,
     );
-    const weekLabel = `${format(weekMonday, "MMM d")} – ${format(addDays(weekMonday, 6), "MMM d")}`;
+    const weekLabel = `${format(monday, "MMM d")} – ${format(addDays(monday, 6), "MMM d")}`;
     const message = `Hi ${cleaner.name}, your cleaning schedule for ${weekLabel}:\n${lines.join("\n")}\n(numbers = guests arriving)\n\nThank you for your wonderful work! Together, we work hard so our guests always feel comfortable — that is TT House's promise to every guest:\n"Your comfort. Our mission." 🏠 — Anh-Tuan`;
     window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(message)}`;
   };
@@ -771,6 +790,95 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                   </button>
                 </div>
               </div>
+            ) : msgMenuId === cleaner.id ? (
+              <div key={cleaner.id} className="mb-2 rounded-xl border border-gray-200 p-2.5">
+                <div className="mb-2 flex items-center gap-2">
+                  <span
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${AVATAR_COLORS[index % AVATAR_COLORS.length]}`}
+                  >
+                    {initials(cleaner.name)}
+                  </span>
+                  <p className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-900">
+                    Message {cleaner.name.split(" ")[0]}
+                  </p>
+                  <button type="button" className={pillNeutral} onClick={() => setMsgMenuId(null)}>
+                    Close
+                  </button>
+                </div>
+                {(() => {
+                  const entry = summary.find((s) => s.id === cleaner.id);
+                  const thisCount = weekAssignmentCount(cleaner.id, thisMonday);
+                  const nextCount = weekAssignmentCount(cleaner.id, nextMonday);
+                  const items = [
+                    {
+                      key: "rules",
+                      label: "Cleaning rules",
+                      sub: cleaningRules.trim()
+                        ? "Standing quality reminder"
+                        : "Set it in My AirBnB → Property first",
+                      disabled: !cleaningRules.trim(),
+                      run: () => textCleaningRules(cleaner),
+                    },
+                    {
+                      key: "week",
+                      label: "This week's schedule",
+                      sub: `${format(thisMonday, "MMM d")} – ${format(addDays(thisMonday, 6), "MMM d")} · ${thisCount} room${thisCount === 1 ? "" : "s"}`,
+                      disabled: thisCount === 0,
+                      run: () => textSchedule(cleaner, thisMonday),
+                    },
+                    {
+                      key: "next",
+                      label: "Next week's schedule",
+                      sub: `${format(nextMonday, "MMM d")} – ${format(addDays(nextMonday, 6), "MMM d")} · ${nextCount} room${nextCount === 1 ? "" : "s"}`,
+                      disabled: nextCount === 0,
+                      run: () => textSchedule(cleaner, nextMonday),
+                    },
+                    {
+                      key: "earn",
+                      label: "Earnings so far",
+                      sub: entry
+                        ? `Balance $${Math.round(entry.balance).toLocaleString()}`
+                        : "No hours recorded yet",
+                      disabled: !entry,
+                      run: () => entry && textPayment(entry),
+                    },
+                  ];
+                  return (
+                    <div className="flex flex-col gap-1.5">
+                      {items.map((it) => (
+                        <button
+                          key={it.key}
+                          type="button"
+                          disabled={it.disabled}
+                          onClick={() => {
+                            it.run();
+                            setMsgMenuId(null);
+                          }}
+                          className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left ${
+                            it.disabled
+                              ? "cursor-not-allowed border-gray-100 bg-gray-50 opacity-60"
+                              : "border-gray-200 bg-white hover:border-gray-300"
+                          }`}
+                        >
+                          <span className="min-w-0">
+                            <span className="block text-sm font-semibold text-gray-900">
+                              {it.label}
+                            </span>
+                            <span className="block truncate text-[11px] text-gray-400">
+                              {it.sub}
+                            </span>
+                          </span>
+                          {!it.disabled && (
+                            <span className="shrink-0 text-xs font-semibold text-blue-500">
+                              Text ›
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
             ) : (
               confirmRemoveId === cleaner.id ? (
               <div
@@ -838,25 +946,21 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                     <span className="font-bold text-emerald-600">${cleaner.payRate}/hr</span>
                   </p>
                 </div>
-                {/* Cleaning rules aren't week-bound — a standing quality note,
-                    so its Text button lives here on the roster, not the Week tab */}
+                {/* One home for every message we send a cleaner — schedule,
+                    earnings, cleaning rules — so no single-purpose button ever
+                    reads like TiMag is imposing something on the cleaner */}
                 <button
                   type="button"
-                  className={`${pillNeutral} ${!cleaner.phone || !cleaningRules.trim() ? "opacity-40" : ""}`}
-                  disabled={!cleaner.phone || !cleaningRules.trim()}
-                  title={
-                    !cleaner.phone
-                      ? "Add a phone number to text"
-                      : !cleaningRules.trim()
-                        ? "Set Cleaning Rules in My AirBnB → Property"
-                        : "Text the cleaning rules"
-                  }
-                  onClick={() => textCleaningRules(cleaner)}
+                  className={`${pillNeutral} ${!cleaner.phone ? "opacity-40" : ""}`}
+                  disabled={!cleaner.phone}
+                  title={cleaner.phone ? "Message this cleaner" : "Add a phone number to text"}
+                  onClick={() => {
+                    setSwipeOpenId(null);
+                    setMsgMenuId(cleaner.id);
+                  }}
                 >
-                  Rules
+                  💬 Message
                 </button>
-                {/* Weekly schedule texting lives in the Week tab, bound to the
-                    visible week — a Text here couldn't say WHICH week it sends */}
                 <button
                   type="button"
                   className={pillNeutral}
@@ -1010,45 +1114,14 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
             );
           })}
 
-          {/* Text actions bound to this exact week */}
-          {(() => {
-            const withWork = cleaners.filter(
-              (c) => c.phone && weekAssignments.some((a) => a.cleaner!.id === c.id),
-            );
-            return withWork.length > 0 ? (
-              <div className="mt-2">
-                {/* The week being sent, spelled out and week-colored */}
-                <p
-                  className={`mb-1.5 text-center text-xs font-semibold ${
-                    weekOffset === 0 ? "text-blue-700" : "text-violet-700"
-                  }`}
-                >
-                  Sends {weekOffset === 0 ? "this week" : "NEXT week"} ·{" "}
-                  {format(weekMonday, "MMM d")} – {format(addDays(weekMonday, 6), "MMM d")}
-                </p>
-                <div className="flex flex-wrap items-center justify-center gap-1.5">
-                  {/* Button color = the cleaner's identity color (same as their
-                      Team avatar); the week is marked above and in the label */}
-                  {withWork.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold text-white ${
-                        SOLID_COLORS[Math.max(0, cleaners.indexOf(c)) % SOLID_COLORS.length]
-                      }`}
-                      onClick={() => textSchedule(c)}
-                    >
-                      Text {c.name.split(" ")[0]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p className="mt-2 text-center text-xs text-gray-400">
-                Assign rooms in the Plan tab — they land here by date
-              </p>
-            );
-          })()}
+          {/* Texting a schedule now lives in the Team tab's per-cleaner Message
+              menu (this week + next week offered by explicit dates), so every
+              cleaner text — schedule, earnings, cleaning rules — has one home. */}
+          <p className="mt-2 text-center text-xs text-gray-400">
+            {weekAssignments.length === 0
+              ? "Assign rooms in the Plan tab — they land here by date"
+              : "To text this schedule, open a cleaner's 💬 Message menu in the Team tab"}
+          </p>
           </>
           )}
 
@@ -1553,22 +1626,8 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                     </span>
                   </div>
 
-                  {/* Text the breakdown */}
-                  <button
-                    type="button"
-                    disabled={!cleaner?.phone}
-                    onClick={() => textPayment(entry)}
-                    className={`mt-2 w-full rounded-lg py-2 text-sm font-semibold text-white ${
-                      cleaner?.phone ? "bg-blue-500" : "cursor-not-allowed bg-gray-300"
-                    }`}
-                  >
-                    Text {entry.name.split(" ")[0]} the breakdown
-                  </button>
-                  {!cleaner?.phone && (
-                    <p className="mt-1 text-center text-[10px] text-gray-400">
-                      Add a phone number in Team to text
-                    </p>
-                  )}
+                  {/* Texting the earnings summary now lives in the Team tab's
+                      per-cleaner Message menu ("Earnings so far") */}
 
                   {/* Payout / Undo mistake */}
                   <div className="mt-4 border-t border-gray-100 pt-3">
