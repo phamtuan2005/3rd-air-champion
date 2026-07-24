@@ -1274,17 +1274,21 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
             <>
               {(weekTotals.assigned.length > 0 || weekTotals.unassignedCount > 0) && (
                 <div className="mb-2 flex flex-wrap items-center justify-center gap-1.5">
-                  {weekTotals.assigned.map(([name, count]) => (
-                    <span
-                      key={name}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-2 py-0.5 text-xs font-semibold text-gray-700"
-                    >
-                      {name}
-                      <span className="rounded-full bg-gray-900 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
-                        {count}
+                  {weekTotals.assigned.map(([name, count]) => {
+                    const cl = cleaners.find((c) => c.name === name);
+                    return (
+                      <span
+                        key={name}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white py-0.5 pl-0.5 pr-2 text-xs font-semibold text-gray-700"
+                      >
+                        {cl && <CleanerAvatar id={cl.id} name={name} sizeClass="h-5 w-5" textClass="text-[9px]" />}
+                        {name.split(" ")[0]}
+                        <span className="rounded-full bg-gray-900 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                          {count}
+                        </span>
                       </span>
-                    </span>
-                  ))}
+                    );
+                  })}
                   {weekTotals.unassignedCount > 0 && (
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
                       Unassigned
@@ -1298,14 +1302,15 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
 
               {cleaningForecast.map((day) => {
                 const morning = new Date(day.morningKey + "T00:00:00");
-                const expected = day.entries.reduce((sum, e) => sum + e.rebookOdds, 0);
-                const groups = new Map<string, typeof day.entries>();
+                const groups = new Map<string, { cleaner: CleanerType; entries: typeof day.entries }>();
                 const unassigned: typeof day.entries = [];
                 day.entries.forEach((entry) => {
                   const a = assignmentFor(day.morningKey, entry.checkoutBooking.room.id);
-                  if (a?.cleaner)
-                    groups.set(a.cleaner.name, [...(groups.get(a.cleaner.name) ?? []), entry]);
-                  else unassigned.push(entry);
+                  if (a?.cleaner) {
+                    const g = groups.get(a.cleaner.id) ?? { cleaner: a.cleaner, entries: [] };
+                    g.entries.push(entry);
+                    groups.set(a.cleaner.id, g);
+                  } else unassigned.push(entry);
                 });
                 const chip = (entry: (typeof day.entries)[number], i: number) => (
                   <button
@@ -1319,7 +1324,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                         sameDay: entry.sameDayCheckIn != null,
                       })
                     }
-                    className={`${getRoomColor(entry.checkoutBooking.room.name, entry.checkoutBooking.room.color)} rounded px-1.5 py-0.5 text-[11px] font-semibold text-black ${
+                    className={`${getRoomColor(entry.checkoutBooking.room.name, entry.checkoutBooking.room.color)} rounded-md px-2 py-1 text-[11px] font-semibold text-black shadow-sm transition-transform hover:scale-105 ${
                       entry.probable
                         ? "outline-2 outline-dashed outline-red-500"
                         : entry.sameDayCheckIn
@@ -1342,35 +1347,62 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                 return (
                   <div
                     key={day.morningKey}
-                    className="mb-1 flex items-center gap-2.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1"
+                    className="mb-2 overflow-hidden rounded-xl border border-gray-200 bg-white"
                   >
-                    <div className="flex w-16 shrink-0 items-baseline gap-1">
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-                        {format(morning, "EEE")}
-                      </span>
-                      <span className="text-xs font-bold text-gray-900">{format(morning, "M/d")}</span>
-                    </div>
-                    <div className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1">
-                      {[...groups.entries()].map(([name, entries]) => (
-                        <span key={name} className="inline-flex flex-wrap items-center gap-1">
-                          <span className="text-[10px] font-bold text-gray-500">{name}</span>
-                          {entries.map(chip)}
+                    {/* Day header — the date, room count, and a nudge if any need a cleaner */}
+                    <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-3 py-1.5">
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-[11px] font-bold uppercase tracking-wide text-gray-400">
+                          {format(morning, "EEE")}
                         </span>
+                        <span className="text-sm font-bold text-gray-900">
+                          {format(morning, "MMM d")}
+                        </span>
+                      </div>
+                      <span className="text-xs font-semibold text-gray-400">
+                        {day.entries.length} room{day.entries.length === 1 ? "" : "s"}
+                        {unassigned.length > 0 && (
+                          <span className="text-amber-600"> · {unassigned.length} to assign</span>
+                        )}
+                      </span>
+                    </div>
+                    {/* One aligned row per cleaner (avatar + fixed-width name → chips line
+                        up), unassigned rooms called out in amber at the bottom */}
+                    <div className="divide-y divide-gray-100">
+                      {[...groups.values()].map(({ cleaner, entries }) => (
+                        <div key={cleaner.id} className="flex items-center gap-2 px-3 py-1.5">
+                          <div className="flex w-24 shrink-0 items-center gap-1.5">
+                            <CleanerAvatar
+                              id={cleaner.id}
+                              name={cleaner.name}
+                              sizeClass="h-6 w-6"
+                              textClass="text-[10px]"
+                            />
+                            <span className="truncate text-xs font-semibold text-gray-700">
+                              {cleaner.name.split(" ")[0]}
+                            </span>
+                          </div>
+                          <div className="flex flex-1 flex-wrap items-center gap-1">
+                            {entries.map(chip)}
+                          </div>
+                        </div>
                       ))}
                       {unassigned.length > 0 && (
-                        <span className="inline-flex flex-wrap items-center gap-1">
-                          {groups.size > 0 && (
-                            <span className="text-[10px] font-bold text-amber-600">Unassigned</span>
-                          )}
-                          {unassigned.map(chip)}
-                        </span>
+                        <div className="flex items-center gap-2 bg-amber-50/50 px-3 py-1.5">
+                          <div className="flex w-24 shrink-0 items-center gap-1.5">
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xs font-bold text-amber-600">
+                              !
+                            </span>
+                            <span className="truncate text-xs font-semibold text-amber-600">
+                              Unassigned
+                            </span>
+                          </div>
+                          <div className="flex flex-1 flex-wrap items-center gap-1">
+                            {unassigned.map(chip)}
+                          </div>
+                        </div>
                       )}
                     </div>
-                    <span className="shrink-0 text-xs font-bold text-gray-700">
-                      {Math.abs(expected - Math.round(expected)) < 0.05
-                        ? Math.round(expected)
-                        : `≈${expected.toFixed(1)}`}
-                    </span>
                   </div>
                 );
               })}
