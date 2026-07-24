@@ -11,6 +11,11 @@ const cleaningAssignmentSchema = new mongoose.Schema(
     // Hours actually worked — recorded by the host after the cleaning; null
     // until then. Pay = hours × cleaner.payRate.
     hours: { type: Number, default: null },
+    // What the AUTO-PLANNER drafted for this room, and when. A manual reassign
+    // only changes `cleaner`, leaving these intact — so cleaner !== suggestedCleaner
+    // is a measured correction (ground truth for grading the algorithm).
+    suggestedCleaner: { type: mongoose.Schema.ObjectId, ref: "Cleaner", default: null },
+    suggestedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

@@ -398,7 +398,9 @@ router.post("/autoplan", async (req: Request, res: any) => {
         if (!best) continue; // no healthy paid capacity → stays unassigned
         const assignment = await CleaningAssignment.findOneAndUpdate(
           { host, date, room },
-          { host, date, room, cleaner: best },
+          // Stamp what the algorithm suggested; a later manual reassign changes
+          // only `cleaner`, so the two diverge → a measurable correction.
+          { host, date, room, cleaner: best, suggestedCleaner: best, suggestedAt: new Date() },
           { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
         );
         load.set(`${date}|${best}`, loadOf(date, best) + 1);
