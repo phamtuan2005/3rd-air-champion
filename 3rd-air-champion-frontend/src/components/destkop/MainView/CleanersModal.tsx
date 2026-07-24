@@ -1710,30 +1710,29 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
             title="Balance & payouts"
             hint="Owed = earned − paid. Tap a cleaner to pay, tip, or text a breakdown"
           />
-          {/* Grand total across the whole team */}
+          {/* What the host actually acts on: how much is owed right now, and
+              this month's cost for budgeting — not a vanity lifetime total */}
           {summary.length > 0 &&
             (() => {
-              const totals = summary.reduce(
-                (acc, s) => ({
-                  earned: acc.earned + s.earned,
-                  paid: acc.paid + s.paid,
-                  balance: acc.balance + s.balance,
-                }),
-                { earned: 0, paid: 0, balance: 0 },
-              );
+              const owed = summary.reduce((s, c) => s + c.balance, 0);
+              const owingCount = summary.filter((s) => s.balance > 0.5).length;
+              const thisMonthCost = [...monthlyPay.values()].reduce((s, e) => s + e.pay, 0);
               return (
                 <div className="mb-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                  {/* Hero number = this month's cleaning cost — the figure the
+                      owners actually watch. Owed-now is the context line. */}
                   <div className="flex items-baseline justify-between">
                     <p className="text-xs font-semibold text-emerald-700">
-                      Total cleaning fees so far
+                      Cleaning cost — {format(startOfToday(), "MMMM")}
                     </p>
-                    <p className="text-xl font-bold text-emerald-700">
-                      ${Math.round(totals.earned).toLocaleString()}
+                    <p className="text-2xl font-bold text-emerald-700">
+                      ${Math.round(thisMonthCost).toLocaleString()}
                     </p>
                   </div>
                   <p className="mt-0.5 text-xs text-emerald-600">
-                    paid ${Math.round(totals.paid).toLocaleString()} · still owed $
-                    {Math.round(totals.balance).toLocaleString()}
+                    {owingCount > 0
+                      ? `$${Math.round(owed).toLocaleString()} owed now · ${owingCount} cleaner${owingCount === 1 ? "" : "s"} waiting`
+                      : "all settled up 🎉"}
                   </p>
                 </div>
               );
