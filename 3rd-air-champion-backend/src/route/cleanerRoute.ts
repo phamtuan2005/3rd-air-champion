@@ -11,6 +11,8 @@ const serializeCleaner = (c: any) => ({
   name: c.name,
   phone: c.phone,
   payRate: c.payRate,
+  photo: c.photo ?? "",
+  character: c.character ?? "",
   baselineHours: c.baselineHours ?? 0,
   baselineMonth: c.baselineMonth ?? "",
 });
@@ -37,10 +39,17 @@ router.get("/list", async (req: Request, res: any) => {
 });
 
 router.post("/create", async (req: Request, res: any) => {
-  const { host, name, phone, payRate } = req.body;
+  const { host, name, phone, payRate, photo, character } = req.body;
   if (!host || !name) return res.status(400).json({ error: "host and name are required" });
   try {
-    const cleaner = await Cleaner.create({ host, name, phone: phone ?? "", payRate: payRate ?? 0 });
+    const cleaner = await Cleaner.create({
+      host,
+      name,
+      phone: phone ?? "",
+      payRate: payRate ?? 0,
+      photo: photo ?? "",
+      character: character ?? "",
+    });
     res.status(200).json(serializeCleaner(cleaner));
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -48,13 +57,15 @@ router.post("/create", async (req: Request, res: any) => {
 });
 
 router.patch("/update", async (req: Request, res: any) => {
-  const { id, name, phone, payRate, baselineHours, baselineMonth } = req.body;
+  const { id, name, phone, payRate, photo, character, baselineHours, baselineMonth } = req.body;
   if (!id) return res.status(400).json({ error: "id is required" });
   try {
     const update: Record<string, unknown> = {};
     if (name !== undefined) update.name = name;
     if (phone !== undefined) update.phone = phone;
     if (payRate !== undefined) update.payRate = payRate;
+    if (photo !== undefined) update.photo = photo;
+    if (character !== undefined) update.character = character;
     if (baselineHours !== undefined) update.baselineHours = baselineHours;
     if (baselineMonth !== undefined) update.baselineMonth = baselineMonth;
     const cleaner = await Cleaner.findByIdAndUpdate(id, update, { new: true, runValidators: true });

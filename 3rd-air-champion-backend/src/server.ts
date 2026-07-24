@@ -71,7 +71,7 @@ const startServer = async () => {
 
     await server.start();
 
-    app.use(express.json()); // Middleware for parsing JSON requests
+    app.use(express.json({ limit: "2mb" })); // JSON bodies; headroom for small avatar data URLs
     app.use(cors(corsOptions));
     // Use Apollo Server Middleware
     app.use(

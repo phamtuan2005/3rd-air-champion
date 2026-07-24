@@ -5,6 +5,13 @@ const cleanerSchema = new mongoose.Schema(
     host: { type: mongoose.Schema.ObjectId, ref: "Host", required: true },
     name: { type: String, required: true },
     phone: { type: String, default: "" },
+    // Small, client-compressed square avatar stored as a data URL (or a public
+    // asset path like "Anh-Tuan.jpg" for the owner photos already in the app).
+    photo: { type: String, default: "" },
+    // A short free-text description ("cheerful 24yo, glasses, short black hair").
+    // The illustrated avatar is generated deterministically from this + the name;
+    // only the text is stored, never the rendered image.
+    character: { type: String, default: "" },
     // Hourly rate in dollars — pay is computed from recorded hours, not per job
     payRate: { type: Number, default: 0 },
     // Hours worked before assignment tracking started, counted toward the

@@ -5,6 +5,7 @@ import { FaBroom, FaDollarSign, FaRegClock } from "react-icons/fa";
 import { dayType } from "../../../util/types/dayType";
 import { getRoomColor } from "../../../util/getRoomColor";
 import { getCleaningForecast } from "../../../util/cleaningTasks";
+import { generateAvatar } from "../../../util/avatarGen";
 import {
   CleanerType,
   CleanerSummaryType,
@@ -209,7 +210,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
     resizeStart.current = null;
   };
 
-  const [newCleaner, setNewCleaner] = useState({ name: "", phone: "", payRate: "" });
+  const [newCleaner, setNewCleaner] = useState({ name: "", phone: "", payRate: "", character: "" });
   // Add form hidden behind a button at the end of the roster
   const [addOpen, setAddOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -219,7 +220,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
   // Which cleaners' recorded-days accordions are expanded (Hours tab). Collapsed
   // by default so 5 cleaners × 15–20 records stays a short, scannable list.
   const [expandedRecord, setExpandedRecord] = useState<Set<string>>(new Set());
-  const [edit, setEdit] = useState({ name: "", phone: "", payRate: "", baselineHours: "" });
+  const [edit, setEdit] = useState({ name: "", phone: "", payRate: "", baselineHours: "", character: "" });
   const [hmDraft, setHmDraft] = useState<Record<string, { h: string; m: string }>>({});
   // Which already-recorded cleaner-day is currently open for correction
   const [editingDayKey, setEditingDayKey] = useState<string | null>(null);
@@ -280,6 +281,50 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
   // everywhere — Team, Message, records, Hours, Pay.
   const avatarClass = (id: string) =>
     AVATAR_COLORS[Math.max(0, cleaners.findIndex((c) => c.id === id)) % AVATAR_COLORS.length];
+
+  // The owner photos already shipped in the app — used automatically for these
+  // two, so they need no setup.
+  const builtInPhoto = (name: string) => {
+    const n = name.trim().toLowerCase();
+    if (n.startsWith("anh-tuan") || n.startsWith("anh tuan") || n === "tuan") return "Anh-Tuan.jpg";
+    if (n.startsWith("cindy")) return "Cindy.jpg";
+    return "";
+  };
+
+  // One avatar for a team member everywhere: an explicit photo (owner jpg) wins,
+  // else the illustrated avatar generated from their "character" note, else the
+  // colored initials fallback. Looks the person up in `cleaners` for freshness.
+  const CleanerAvatar = ({
+    id,
+    name,
+    sizeClass = "h-8 w-8",
+    textClass = "text-xs",
+  }: {
+    id: string;
+    name: string;
+    sizeClass?: string;
+    textClass?: string;
+  }) => {
+    const c = cleaners.find((x) => x.id === id);
+    const photo = c?.photo || builtInPhoto(name);
+    if (photo)
+      return <img src={photo} alt={name} className={`${sizeClass} shrink-0 rounded-full object-cover`} />;
+    if (c?.character)
+      return (
+        <img
+          src={generateAvatar(name, c.character)}
+          alt={name}
+          className={`${sizeClass} shrink-0 rounded-full object-cover`}
+        />
+      );
+    return (
+      <span
+        className={`flex ${sizeClass} shrink-0 items-center justify-center rounded-full font-bold ${textClass} ${avatarClass(id)}`}
+      >
+        {initials(name)}
+      </span>
+    );
+  };
 
   // Upcoming tab — the rolling 7-morning cleaning forecast (migrated from the
   // ToDo modal). Assignments/cleaners/monthMap already live here.
@@ -451,12 +496,13 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
         name: newCleaner.name.trim(),
         phone: newCleaner.phone.trim(),
         payRate: parseFloat(newCleaner.payRate) || 0,
+        character: newCleaner.character.trim(),
       },
       token,
     )
       .then((created) => {
         setCleaners((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
-        setNewCleaner({ name: "", phone: "", payRate: "" });
+        setNewCleaner({ name: "", phone: "", payRate: "", character: "" });
         setAddOpen(false);
         setError("");
         reloadSummary();
@@ -471,6 +517,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
         name: edit.name.trim(),
         phone: edit.phone.trim(),
         payRate: parseFloat(edit.payRate) || 0,
+        character: edit.character.trim(),
         // Baseline is anchored to the month it was entered — it counts toward
         // this month's pay and expires on its own.
         baselineHours: parseFloat(edit.baselineHours) || 0,
@@ -767,11 +814,12 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
               </button>
 
               <div className="mb-3 flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
-                <span
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-base font-bold ${AVATAR_COLORS[Math.max(0, cleaners.indexOf(msgCleaner)) % AVATAR_COLORS.length]}`}
-                >
-                  {initials(msgCleaner.name)}
-                </span>
+                <CleanerAvatar
+                  id={msgCleaner.id}
+                  name={msgCleaner.name}
+                  sizeClass="h-11 w-11"
+                  textClass="text-base"
+                />
                 <div className="min-w-0">
                   <p className="truncate text-base font-bold text-gray-900">{msgCleaner.name}</p>
                   <p className="text-xs text-gray-500">{msgCleaner.phone || "No phone number"}</p>
@@ -890,7 +938,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
           {cleaners.length === 0 && !addOpen && (
             <p className="py-4 text-center text-sm text-gray-400">No cleaners yet — add one below</p>
           )}
-          {cleaners.map((cleaner, index) =>
+          {cleaners.map((cleaner) =>
             editingId === cleaner.id ? (
               <div key={cleaner.id} className="mb-2 rounded-xl border border-gray-200 p-2">
                 <div className="mb-1.5 flex items-center gap-1.5">
@@ -913,6 +961,20 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                     type="number"
                     value={edit.payRate}
                     onChange={(e) => setEdit((p) => ({ ...p, payRate: e.target.value }))}
+                  />
+                </div>
+                {/* Character note → live-generated avatar preview */}
+                <div className="mb-1.5 flex items-center gap-2">
+                  <img
+                    src={generateAvatar(edit.name || "?", edit.character)}
+                    alt="avatar preview"
+                    className="h-9 w-9 shrink-0 rounded-full object-cover"
+                  />
+                  <input
+                    className={`${inputCls} min-w-0 flex-1`}
+                    placeholder="Avatar note — e.g. glasses, long brown hair, beard"
+                    value={edit.character}
+                    onChange={(e) => setEdit((p) => ({ ...p, character: e.target.value }))}
                   />
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -995,11 +1057,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                     else if (dx > 20 || swipeOpenId === cleaner.id) setSwipeOpenId(null);
                   }}
                 >
-                <span
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${AVATAR_COLORS[index % AVATAR_COLORS.length]}`}
-                >
-                  {initials(cleaner.name)}
-                </span>
+                <CleanerAvatar id={cleaner.id} name={cleaner.name} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-gray-900">{cleaner.name}</p>
                   <p className="text-xs text-gray-500">
@@ -1031,6 +1089,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                       name: cleaner.name,
                       phone: cleaner.phone,
                       payRate: String(cleaner.payRate),
+                      character: cleaner.character ?? "",
                       // Only surface a baseline that belongs to this month —
                       // an old month's baseline has already expired
                       baselineHours:
@@ -1080,6 +1139,20 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                   type="number"
                   value={newCleaner.payRate}
                   onChange={(e) => setNewCleaner((p) => ({ ...p, payRate: e.target.value }))}
+                />
+              </div>
+              {/* Character note → live-generated avatar preview */}
+              <div className="mt-1.5 flex items-center gap-2">
+                <img
+                  src={generateAvatar(newCleaner.name || "New", newCleaner.character)}
+                  alt="avatar preview"
+                  className="h-9 w-9 shrink-0 rounded-full object-cover"
+                />
+                <input
+                  className={`${inputCls} min-w-0 flex-1`}
+                  placeholder="Describe them for an avatar — e.g. cheerful 24yo, glasses, short black hair"
+                  value={newCleaner.character}
+                  onChange={(e) => setNewCleaner((p) => ({ ...p, character: e.target.value }))}
                 />
               </div>
               <div className="mt-1.5 flex justify-end gap-1.5">
@@ -1331,11 +1404,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                 className="mb-2 rounded-xl border border-amber-200 bg-amber-50 p-2.5"
               >
                 <div className="flex items-center gap-2">
-                  <span
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${avatarClass(group.cleaner.id)}`}
-                  >
-                    {initials(group.cleaner.name)}
-                  </span>
+                  <CleanerAvatar id={group.cleaner.id} name={group.cleaner.name} />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-gray-900">{group.cleaner.name}</p>
                     <p className="text-xs text-gray-500">
@@ -1449,7 +1518,6 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                 });
                 return [...byCleaner.values()].map(({ cleaner, days, totalHours }) => {
                   const open = expandedRecord.has(cleaner.id);
-                  const idx = Math.max(0, cleaners.findIndex((c) => c.id === cleaner.id));
                   return (
                     <div
                       key={cleaner.id}
@@ -1468,11 +1536,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                         }
                         className="flex w-full items-center gap-2 p-2.5 text-left"
                       >
-                        <span
-                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${AVATAR_COLORS[idx % AVATAR_COLORS.length]}`}
-                        >
-                          {initials(cleaner.name)}
-                        </span>
+                        <CleanerAvatar id={cleaner.id} name={cleaner.name} />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-semibold text-gray-900">
                             {cleaner.name}
@@ -1610,11 +1674,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                 }}
                 className="mb-1.5 flex w-full items-center gap-2 rounded-xl border border-gray-200 p-2.5 text-left transition-colors hover:bg-gray-50"
               >
-                <span
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${avatarClass(entry.id)}`}
-                >
-                  {initials(entry.name)}
-                </span>
+                <CleanerAvatar id={entry.id} name={entry.name} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-gray-900">{entry.name}</p>
                   <p className="text-xs text-gray-500">
@@ -1874,11 +1934,12 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                       : "border-gray-200 bg-white text-gray-800"
                   }`}
                 >
-                  <span
-                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${avatarClass(cleaner.id)}`}
-                  >
-                    {initials(cleaner.name)}
-                  </span>
+                  <CleanerAvatar
+                    id={cleaner.id}
+                    name={cleaner.name}
+                    sizeClass="h-7 w-7"
+                    textClass="text-[11px]"
+                  />
                   <span className="min-w-0 flex-1 truncate text-left">{cleaner.name}</span>
                   <span className={`text-xs ${isAssigned ? "text-gray-300" : "text-emerald-600"}`}>
                     ${cleaner.payRate}/hr
