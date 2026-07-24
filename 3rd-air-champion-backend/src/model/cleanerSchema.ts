@@ -19,6 +19,10 @@ const cleanerSchema = new mongoose.Schema(
     // Temporarily out (vacation / leave). Kept on the team but skipped by the
     // auto-planner until they're back.
     paused: { type: Boolean, default: false },
+    // Favorability 1–5 (3 = normal). The auto-planner gently prefers higher-
+    // priority cleaners and gives them first claim on high-stakes (same-day)
+    // turnovers — the host's quality judgment, since reviews aren't in the data.
+    priority: { type: Number, default: 3, min: 1, max: 5 },
     // Hourly rate in dollars — pay is computed from recorded hours, not per job
     payRate: { type: Number, default: 0 },
     // Hours worked before assignment tracking started, counted toward the

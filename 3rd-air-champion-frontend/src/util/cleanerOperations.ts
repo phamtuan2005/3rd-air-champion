@@ -11,6 +11,7 @@ export interface CleanerType {
   character?: string; // free-text note the illustrated avatar is generated from
   availableDays?: number[]; // weekdays they can work (0=Sun…6=Sat); empty = infer from history
   paused?: boolean; // temporarily out (vacation/leave) — skipped by the auto-planner
+  priority?: number; // favorability 1–5 (3 = normal); auto-planner prefers higher
   baselineHours: number; // pre-tracking hours counted toward baselineMonth only
   baselineMonth: string; // "yyyy-MM"
 }
@@ -34,7 +35,7 @@ export const fetchCleaners = async (hostId: string, token: string): Promise<Clea
 };
 
 export const createCleaner = async (
-  data: { host: string; name: string; phone: string; payRate: number; photo?: string; character?: string; availableDays?: number[] },
+  data: { host: string; name: string; phone: string; payRate: number; photo?: string; character?: string; availableDays?: number[]; priority?: number },
   token: string,
 ): Promise<CleanerType> => {
   const response = await axios.post(`${BACKEND_ENDPOINT}/cleaner/create`, data, auth(token));
@@ -51,6 +52,7 @@ export const updateCleaner = async (
     character?: string;
     availableDays?: number[];
     paused?: boolean;
+    priority?: number;
     baselineHours?: number;
     baselineMonth?: string;
   },
@@ -116,7 +118,7 @@ export const assignCleaner = async (
 // Draft a cleaner for each unassigned room from history (frequency + recency +
 // weekday, workload-balanced). Returns the assignments it created.
 export const autoPlanCleanings = async (
-  data: { host: string; targets: { date: string; room: string }[] },
+  data: { host: string; targets: { date: string; room: string; critical?: boolean }[] },
   token: string,
 ): Promise<CleaningAssignmentType[]> => {
   const response = await axios.post(`${BACKEND_ENDPOINT}/cleaner/autoplan`, data, auth(token));

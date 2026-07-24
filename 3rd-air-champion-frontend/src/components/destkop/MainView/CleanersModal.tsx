@@ -43,6 +43,24 @@ const pillEmerald = "rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibo
 // auto-planner infers availability from history instead of enforcing it.
 const DAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"];
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+// Favorability 1–5 (3 = normal). The auto-planner gently prefers higher-priority
+// cleaners and gives them first claim on high-stakes same-day turnovers.
+const StarPicker = ({ value, onChange }: { value: number; onChange: (v: number) => void }) => (
+  <div className="flex gap-0.5">
+    {[1, 2, 3, 4, 5].map((n) => (
+      <button
+        key={n}
+        type="button"
+        title={`${n} / 5`}
+        onClick={() => onChange(n)}
+        className={`text-lg leading-none ${n <= value ? "text-amber-400" : "text-gray-300"}`}
+      >
+        ★
+      </button>
+    ))}
+  </div>
+);
+
 const DayPicker = ({ days, onChange }: { days: number[]; onChange: (d: number[]) => void }) => (
   <div className="flex gap-1">
     {DAY_LETTERS.map((letter, i) => {
@@ -245,6 +263,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
     payRate: "",
     character: "",
     availableDays: [] as number[],
+    priority: 3,
   });
   // Add form hidden behind a button at the end of the roster
   const [addOpen, setAddOpen] = useState(false);
@@ -263,6 +282,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
     character: "",
     availableDays: [] as number[],
     paused: false,
+    priority: 3,
   });
   const [hmDraft, setHmDraft] = useState<Record<string, { h: string; m: string }>>({});
   // Which already-recorded cleaner-day is currently open for correction
@@ -392,11 +412,17 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
   // Every unassigned room across the 7-morning forecast — the auto-planner's
   // targets. Existing assignments are left untouched.
   const unassignedTargets = () => {
-    const targets: { date: string; room: string }[] = [];
+    const targets: { date: string; room: string; critical: boolean }[] = [];
     cleaningForecast.forEach((day) =>
       day.entries.forEach((e) => {
         const a = assignmentFor(day.morningKey, e.checkoutBooking.room.id);
-        if (!a?.cleaner) targets.push({ date: day.morningKey, room: e.checkoutBooking.room.id });
+        if (!a?.cleaner)
+          targets.push({
+            date: day.morningKey,
+            room: e.checkoutBooking.room.id,
+            // High-stakes = a confirmed same-day check-in (must be spotless by 2pm)
+            critical: e.sameDayCheckIn != null,
+          });
       }),
     );
     return targets;
@@ -576,12 +602,13 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
         payRate: parseFloat(newCleaner.payRate) || 0,
         character: newCleaner.character.trim(),
         availableDays: newCleaner.availableDays,
+        priority: newCleaner.priority,
       },
       token,
     )
       .then((created) => {
         setCleaners((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
-        setNewCleaner({ name: "", phone: "", payRate: "", character: "", availableDays: [] });
+        setNewCleaner({ name: "", phone: "", payRate: "", character: "", availableDays: [], priority: 3 });
         setAddOpen(false);
         setError("");
         reloadSummary();
@@ -599,6 +626,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
         character: edit.character.trim(),
         availableDays: edit.availableDays,
         paused: edit.paused,
+        priority: edit.priority,
         // Baseline is anchored to the month it was entered — it counts toward
         // this month's pay and expires on its own.
         baselineHours: parseFloat(edit.baselineHours) || 0,
@@ -1071,6 +1099,18 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                     onChange={(d) => setEdit((p) => ({ ...p, availableDays: d }))}
                   />
                 </div>
+                {/* Priority — auto-plan gently favors higher + gives them the
+                    high-stakes same-day rooms */}
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <label className="text-xs text-gray-500">
+                    Priority
+                    <span className="block text-[10px] text-gray-400">favored in auto-plan · 3 = normal</span>
+                  </label>
+                  <StarPicker
+                    value={edit.priority}
+                    onChange={(v) => setEdit((p) => ({ ...p, priority: v }))}
+                  />
+                </div>
                 {/* On leave — kept on the team but skipped by the auto-planner */}
                 <div className="mb-1.5 flex items-center justify-between gap-2">
                   <label className="text-xs text-gray-500">
@@ -1175,6 +1215,11 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-1.5 truncate text-sm font-semibold text-gray-900">
                     {cleaner.name}
+                    {(cleaner.priority ?? 3) >= 4 && (
+                      <span className="shrink-0 text-amber-400" title="Preferred cleaner">
+                        ★
+                      </span>
+                    )}
                     {cleaner.paused && (
                       <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-amber-700">
                         On leave
@@ -1213,6 +1258,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                       character: cleaner.character ?? "",
                       availableDays: cleaner.availableDays ?? [],
                       paused: cleaner.paused ?? false,
+                      priority: cleaner.priority ?? 3,
                       // Only surface a baseline that belongs to this month —
                       // an old month's baseline has already expired
                       baselineHours:
@@ -1287,6 +1333,17 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                 <DayPicker
                   days={newCleaner.availableDays}
                   onChange={(d) => setNewCleaner((p) => ({ ...p, availableDays: d }))}
+                />
+              </div>
+              {/* Priority — favored in auto-plan */}
+              <div className="mt-1.5 flex items-center justify-between gap-2">
+                <label className="text-xs text-gray-500">
+                  Priority
+                  <span className="block text-[10px] text-gray-400">favored in auto-plan · 3 = normal</span>
+                </label>
+                <StarPicker
+                  value={newCleaner.priority}
+                  onChange={(v) => setNewCleaner((p) => ({ ...p, priority: v }))}
                 />
               </div>
               <div className="mt-1.5 flex justify-end gap-1.5">

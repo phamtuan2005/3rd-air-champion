@@ -15,6 +15,7 @@ const serializeCleaner = (c: any) => ({
   character: c.character ?? "",
   availableDays: c.availableDays ?? [],
   paused: c.paused ?? false,
+  priority: c.priority ?? 3,
   baselineHours: c.baselineHours ?? 0,
   baselineMonth: c.baselineMonth ?? "",
 });
@@ -41,7 +42,7 @@ router.get("/list", async (req: Request, res: any) => {
 });
 
 router.post("/create", async (req: Request, res: any) => {
-  const { host, name, phone, payRate, photo, character, availableDays, paused } = req.body;
+  const { host, name, phone, payRate, photo, character, availableDays, paused, priority } = req.body;
   if (!host || !name) return res.status(400).json({ error: "host and name are required" });
   try {
     const cleaner = await Cleaner.create({
@@ -53,6 +54,7 @@ router.post("/create", async (req: Request, res: any) => {
       character: character ?? "",
       availableDays: Array.isArray(availableDays) ? availableDays : [],
       paused: !!paused,
+      priority: typeof priority === "number" ? priority : 3,
     });
     res.status(200).json(serializeCleaner(cleaner));
   } catch (error: any) {
@@ -62,7 +64,8 @@ router.post("/create", async (req: Request, res: any) => {
 
 router.patch("/update", async (req: Request, res: any) => {
   const {
-    id, name, phone, payRate, photo, character, availableDays, paused, baselineHours, baselineMonth,
+    id, name, phone, payRate, photo, character, availableDays, paused, priority,
+    baselineHours, baselineMonth,
   } = req.body;
   if (!id) return res.status(400).json({ error: "id is required" });
   try {
@@ -74,6 +77,7 @@ router.patch("/update", async (req: Request, res: any) => {
     if (character !== undefined) update.character = character;
     if (availableDays !== undefined) update.availableDays = availableDays;
     if (paused !== undefined) update.paused = paused;
+    if (priority !== undefined) update.priority = priority;
     if (baselineHours !== undefined) update.baselineHours = baselineHours;
     if (baselineMonth !== undefined) update.baselineMonth = baselineMonth;
     const cleaner = await Cleaner.findByIdAndUpdate(id, update, { new: true, runValidators: true });
@@ -259,6 +263,7 @@ router.post("/autoplan", async (req: Request, res: any) => {
       available: (w: number) => boolean;
       reserve: boolean; // owner / $0 labor — excluded from the auto-draft
       paused: boolean; // temporarily out (e.g. vacation) — excluded
+      priority: number; // favorability 1–5 (host's quality/preference judgment)
     };
     const info = new Map<string, Info>();
     cleaners.forEach((c: any) => {
@@ -273,6 +278,7 @@ router.post("/autoplan", async (req: Request, res: any) => {
       // host assigns themselves by hand only when they choose. paused = out now.
       const reserve = (c.payRate ?? 0) <= 0;
       const paused = !!c.paused;
+      const priority = typeof c.priority === "number" ? c.priority : 3;
       // Ceiling follows DEMONSTRATED capacity — the most rooms they've actually
       // done in a day. That already reflects the host's willingness calls and
       // arrangements like "take a 15-min break after 3, then finish 2." The 11–2
@@ -287,17 +293,18 @@ router.post("/autoplan", async (req: Request, res: any) => {
         aff: p.aff,
         reserve,
         paused,
+        priority,
         available: (w: number) =>
           explicit.length > 0 ? explicit.includes(w) : p.dows.size > 0 ? p.dows.has(w) : true,
       });
     });
 
     // ── Existing load in the target window (assignments we must plan around) ──
-    const byDate = new Map<string, string[]>();
+    const byDate = new Map<string, { room: string; critical: boolean }[]>();
     targets.forEach((t: any) => {
       if (!t.date || !t.room) return;
       const arr = byDate.get(t.date) ?? [];
-      arr.push(String(t.room));
+      arr.push({ room: String(t.room), critical: !!t.critical });
       byDate.set(t.date, arr);
     });
     const existing = await CleaningAssignment.find({
@@ -331,12 +338,15 @@ router.post("/autoplan", async (req: Request, res: any) => {
 
       // Day affinity (how much this crew "knows" today's rooms) for choosing extras.
       const dayAff = (id: string) =>
-        rooms.reduce((s, r) => s + (info.get(id)!.aff.get(r) ?? 0), 0);
-      // Add the FEWEST extra cleaners (cheapest per room first) whose ceilings
-      // cover the day — minimizing trips while never exceeding anyone's ceiling.
+        rooms.reduce((s, r) => s + (info.get(id)!.aff.get(r.room) ?? 0), 0);
+      // Bring in the fewest extra cleaners whose ceilings cover the day —
+      // favored (most trusted) first, then cheapest per room, then who knows
+      // today's rooms — minimizing trips while never exceeding a ceiling.
       const extras = poolIds
         .filter((id) => !mustInclude.includes(id))
         .sort((a, b) => {
+          const pd = info.get(b)!.priority - info.get(a)!.priority;
+          if (pd !== 0) return pd;
           const d = info.get(a)!.costPerRoom - info.get(b)!.costPerRoom;
           return d !== 0 ? d : dayAff(b) - dayAff(a);
         });
@@ -347,7 +357,7 @@ router.post("/autoplan", async (req: Request, res: any) => {
 
       // Distribute today's rooms across the crew, balanced by fill-ratio so no one
       // is overloaded, tie-broken by room affinity then lowest $/room.
-      for (const room of rooms) {
+      for (const { room, critical } of rooms) {
         // Only crew still under their honest ceiling. If none, the room is left
         // UNASSIGNED — the signal that you're short a cleaner — rather than
         // burning someone out or dumping it on the owners.
@@ -356,7 +366,14 @@ router.post("/autoplan", async (req: Request, res: any) => {
         let bestKey: number[] | null = null;
         for (const id of cand) {
           const m = info.get(id)!;
-          const key = [-(loadOf(date, id) / m.ceiling), m.aff.get(room) ?? 0, -m.costPerRoom];
+          const favorNorm = (m.priority - 1) / 4; // 0..1
+          // High-stakes same-day turnover → your best AVAILABLE cleaner wins
+          // outright (quality where revenue is on the line). Routine room →
+          // gently prefer favored cleaners, balanced by how full they already are.
+          const primary = critical
+            ? m.priority
+            : 0.5 * favorNorm - loadOf(date, id) / m.ceiling;
+          const key = [primary, m.aff.get(room) ?? 0, -m.costPerRoom];
           if (!bestKey || lexGt(key, bestKey)) {
             best = id;
             bestKey = key;
