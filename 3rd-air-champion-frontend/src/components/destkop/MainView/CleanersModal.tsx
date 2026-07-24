@@ -216,6 +216,9 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
   // Which cleaner's "Message" menu is open on the Team tab (one home for every
   // text we send a cleaner — schedule, earnings, cleaning rules, and future ones)
   const [msgMenuId, setMsgMenuId] = useState<string | null>(null);
+  // Which cleaners' recorded-days accordions are expanded (Hours tab). Collapsed
+  // by default so 5 cleaners × 15–20 records stays a short, scannable list.
+  const [expandedRecord, setExpandedRecord] = useState<Set<string>>(new Set());
   const [edit, setEdit] = useState({ name: "", phone: "", payRate: "", baselineHours: "" });
   const [hmDraft, setHmDraft] = useState<Record<string, { h: string; m: string }>>({});
   // Which already-recorded cleaner-day is currently open for correction
@@ -1418,60 +1421,123 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                 title={`Recorded this month — ${format(startOfToday(), "MMMM")}`}
                 hint="Tap Edit to correct a total"
               />
-              {recordedGroups.map((group) => (
-                <div key={group.key} className="mb-1.5 rounded-xl border border-gray-200 p-2.5">
-                  <div className="flex items-center gap-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-gray-900">
-                        {group.cleaner.name}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {format(new Date(group.date + "T00:00:00"), "EEE M/d")} ·{" "}
-                        {group.assignments.map((a) => a.room?.name).join(", ")}
-                      </p>
-                    </div>
-                    {editingDayKey === group.key ? (
-                      <>
-                        <HrMinInput
-                          autoFocus
-                          hm={hmDraft[group.key]}
-                          onChange={(hm) => setHmDraft((p) => ({ ...p, [group.key]: hm }))}
-                        />
-                        <button
-                          type="button"
-                          className={pillDark}
-                          onClick={() => handleSaveDayHours(group)}
+              {(() => {
+                // Roll the already-sorted cleaner-days up per cleaner. Each
+                // cleaner is one collapsed row (name + day count + total hours);
+                // tap to reveal their days. Keeps the list short with many records.
+                const byCleaner = new Map<
+                  string,
+                  { cleaner: CleanerType; days: typeof recordedGroups; totalHours: number }
+                >();
+                recordedGroups.forEach((g) => {
+                  const cur =
+                    byCleaner.get(g.cleaner.id) ?? { cleaner: g.cleaner, days: [], totalHours: 0 };
+                  cur.days.push(g);
+                  cur.totalHours += g.hours;
+                  byCleaner.set(g.cleaner.id, cur);
+                });
+                return [...byCleaner.values()].map(({ cleaner, days, totalHours }) => {
+                  const open = expandedRecord.has(cleaner.id);
+                  const idx = Math.max(0, cleaners.findIndex((c) => c.id === cleaner.id));
+                  return (
+                    <div
+                      key={cleaner.id}
+                      className="mb-1.5 overflow-hidden rounded-xl border border-gray-200"
+                    >
+                      {/* Collapsed header — tap to expand this cleaner's days */}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedRecord((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(cleaner.id)) next.delete(cleaner.id);
+                            else next.add(cleaner.id);
+                            return next;
+                          })
+                        }
+                        className="flex w-full items-center gap-2 p-2.5 text-left"
+                      >
+                        <span
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${AVATAR_COLORS[idx % AVATAR_COLORS.length]}`}
                         >
-                          Save
-                        </button>
-                        <button
-                          type="button"
-                          className={pillNeutral}
-                          onClick={() => setEditingDayKey(null)}
-                        >
-                          Cancel
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <span className="shrink-0 text-sm font-bold text-gray-900">
-                          {formatHrMin(group.hours)}
+                          {initials(cleaner.name)}
                         </span>
-                        <button
-                          type="button"
-                          className={pillNeutral}
-                          onClick={() => {
-                            setEditingDayKey(group.key);
-                            setHmDraft((p) => ({ ...p, [group.key]: decimalToHm(group.hours) }));
-                          }}
-                        >
-                          Edit
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ))}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-gray-900">
+                            {cleaner.name}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {days.length} day{days.length === 1 ? "" : "s"} ·{" "}
+                            {formatHrMin(totalHours)}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-xs text-gray-400">{open ? "▲" : "▼"}</span>
+                      </button>
+                      {open && (
+                        <div className="space-y-1.5 border-t border-gray-100 p-2">
+                          {days.map((group) => (
+                            <div
+                              key={group.key}
+                              className="flex items-center gap-2 rounded-lg bg-gray-50 p-2"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-xs text-gray-600">
+                                  {format(new Date(group.date + "T00:00:00"), "EEE M/d")} ·{" "}
+                                  {group.assignments.map((a) => a.room?.name).join(", ")}
+                                </p>
+                              </div>
+                              {editingDayKey === group.key ? (
+                                <>
+                                  <HrMinInput
+                                    autoFocus
+                                    hm={hmDraft[group.key]}
+                                    onChange={(hm) =>
+                                      setHmDraft((p) => ({ ...p, [group.key]: hm }))
+                                    }
+                                  />
+                                  <button
+                                    type="button"
+                                    className={pillDark}
+                                    onClick={() => handleSaveDayHours(group)}
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={pillNeutral}
+                                    onClick={() => setEditingDayKey(null)}
+                                  >
+                                    Cancel
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="shrink-0 text-sm font-bold text-gray-900">
+                                    {formatHrMin(group.hours)}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className={pillNeutral}
+                                    onClick={() => {
+                                      setEditingDayKey(group.key);
+                                      setHmDraft((p) => ({
+                                        ...p,
+                                        [group.key]: decimalToHm(group.hours),
+                                      }));
+                                    }}
+                                  >
+                                    Edit
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                });
+              })()}
             </>
           )}
           </>
