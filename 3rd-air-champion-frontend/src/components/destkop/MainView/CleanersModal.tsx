@@ -267,6 +267,11 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
     ).length;
   };
 
+  // The cleaner whose focused Message screen is open. When set, the Team tab
+  // takes over to show ONLY this person — so a text can never be aimed at the
+  // wrong cleaner by mistake.
+  const msgCleaner = msgMenuId ? cleaners.find((c) => c.id === msgMenuId) ?? null : null;
+
   // Upcoming tab — the rolling 7-morning cleaning forecast (migrated from the
   // ToDo modal). Assignments/cleaners/monthMap already live here.
   const cleaningForecast = getCleaningForecast(monthMap);
@@ -734,7 +739,112 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
           {error && <p className="mb-2 text-xs font-semibold text-red-500">{error}</p>}
 
-          {activeTab === "roster" && (
+          {/* Focused, single-cleaner message screen — takes over the whole Team
+              panel so ONLY the chosen cleaner is on screen while you pick what to
+              send. Simple and centralized: one cleaner, one place, no mix-ups. */}
+          {activeTab === "roster" && msgCleaner && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setMsgMenuId(null)}
+                className="mb-3 flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-gray-700"
+              >
+                ‹ Back to team
+              </button>
+
+              <div className="mb-3 flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
+                <span
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-base font-bold ${AVATAR_COLORS[Math.max(0, cleaners.indexOf(msgCleaner)) % AVATAR_COLORS.length]}`}
+                >
+                  {initials(msgCleaner.name)}
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-base font-bold text-gray-900">{msgCleaner.name}</p>
+                  <p className="text-xs text-gray-500">{msgCleaner.phone || "No phone number"}</p>
+                </div>
+              </div>
+
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                Choose a message to send {msgCleaner.name.split(" ")[0]}
+              </p>
+
+              {(() => {
+                const cleaner = msgCleaner;
+                const entry = summary.find((s) => s.id === cleaner.id);
+                const thisCount = weekAssignmentCount(cleaner.id, thisMonday);
+                const nextCount = weekAssignmentCount(cleaner.id, nextMonday);
+                const items = [
+                  {
+                    key: "rules",
+                    label: "Cleaning rules",
+                    sub: cleaningRules.trim()
+                      ? "Standing quality reminder"
+                      : "Set it in My AirBnB → Property first",
+                    disabled: !cleaningRules.trim(),
+                    run: () => textCleaningRules(cleaner),
+                  },
+                  {
+                    key: "week",
+                    label: "This week's schedule",
+                    sub: `${format(thisMonday, "MMM d")} – ${format(addDays(thisMonday, 6), "MMM d")} · ${thisCount} room${thisCount === 1 ? "" : "s"}`,
+                    disabled: thisCount === 0,
+                    run: () => textSchedule(cleaner, thisMonday),
+                  },
+                  {
+                    key: "next",
+                    label: "Next week's schedule",
+                    sub: `${format(nextMonday, "MMM d")} – ${format(addDays(nextMonday, 6), "MMM d")} · ${nextCount} room${nextCount === 1 ? "" : "s"}`,
+                    disabled: nextCount === 0,
+                    run: () => textSchedule(cleaner, nextMonday),
+                  },
+                  {
+                    key: "earn",
+                    label: "Earnings so far",
+                    sub: entry
+                      ? `Balance $${Math.round(entry.balance).toLocaleString()}`
+                      : "No hours recorded yet",
+                    disabled: !entry,
+                    run: () => entry && textPayment(entry),
+                  },
+                ];
+                return (
+                  <div className="flex flex-col gap-2">
+                    {items.map((it) => (
+                      <button
+                        key={it.key}
+                        type="button"
+                        disabled={it.disabled}
+                        onClick={() => {
+                          it.run();
+                          setMsgMenuId(null);
+                        }}
+                        className={`flex items-center justify-between gap-2 rounded-xl border px-3.5 py-3 text-left ${
+                          it.disabled
+                            ? "cursor-not-allowed border-gray-100 bg-gray-50 opacity-60"
+                            : "border-gray-200 bg-white hover:border-gray-300"
+                        }`}
+                      >
+                        <span className="min-w-0">
+                          <span className="block text-sm font-semibold text-gray-900">
+                            {it.label}
+                          </span>
+                          <span className="block truncate text-[11px] text-gray-400">
+                            {it.sub}
+                          </span>
+                        </span>
+                        {!it.disabled && (
+                          <span className="shrink-0 text-xs font-semibold text-blue-500">
+                            Text ›
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+          {activeTab === "roster" && !msgCleaner && (
           <>
           {/* Roster */}
           {cleaners.length === 0 && !addOpen && (
@@ -789,95 +899,6 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                     Save
                   </button>
                 </div>
-              </div>
-            ) : msgMenuId === cleaner.id ? (
-              <div key={cleaner.id} className="mb-2 rounded-xl border border-gray-200 p-2.5">
-                <div className="mb-2 flex items-center gap-2">
-                  <span
-                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${AVATAR_COLORS[index % AVATAR_COLORS.length]}`}
-                  >
-                    {initials(cleaner.name)}
-                  </span>
-                  <p className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-900">
-                    Message {cleaner.name.split(" ")[0]}
-                  </p>
-                  <button type="button" className={pillNeutral} onClick={() => setMsgMenuId(null)}>
-                    Close
-                  </button>
-                </div>
-                {(() => {
-                  const entry = summary.find((s) => s.id === cleaner.id);
-                  const thisCount = weekAssignmentCount(cleaner.id, thisMonday);
-                  const nextCount = weekAssignmentCount(cleaner.id, nextMonday);
-                  const items = [
-                    {
-                      key: "rules",
-                      label: "Cleaning rules",
-                      sub: cleaningRules.trim()
-                        ? "Standing quality reminder"
-                        : "Set it in My AirBnB → Property first",
-                      disabled: !cleaningRules.trim(),
-                      run: () => textCleaningRules(cleaner),
-                    },
-                    {
-                      key: "week",
-                      label: "This week's schedule",
-                      sub: `${format(thisMonday, "MMM d")} – ${format(addDays(thisMonday, 6), "MMM d")} · ${thisCount} room${thisCount === 1 ? "" : "s"}`,
-                      disabled: thisCount === 0,
-                      run: () => textSchedule(cleaner, thisMonday),
-                    },
-                    {
-                      key: "next",
-                      label: "Next week's schedule",
-                      sub: `${format(nextMonday, "MMM d")} – ${format(addDays(nextMonday, 6), "MMM d")} · ${nextCount} room${nextCount === 1 ? "" : "s"}`,
-                      disabled: nextCount === 0,
-                      run: () => textSchedule(cleaner, nextMonday),
-                    },
-                    {
-                      key: "earn",
-                      label: "Earnings so far",
-                      sub: entry
-                        ? `Balance $${Math.round(entry.balance).toLocaleString()}`
-                        : "No hours recorded yet",
-                      disabled: !entry,
-                      run: () => entry && textPayment(entry),
-                    },
-                  ];
-                  return (
-                    <div className="flex flex-col gap-1.5">
-                      {items.map((it) => (
-                        <button
-                          key={it.key}
-                          type="button"
-                          disabled={it.disabled}
-                          onClick={() => {
-                            it.run();
-                            setMsgMenuId(null);
-                          }}
-                          className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left ${
-                            it.disabled
-                              ? "cursor-not-allowed border-gray-100 bg-gray-50 opacity-60"
-                              : "border-gray-200 bg-white hover:border-gray-300"
-                          }`}
-                        >
-                          <span className="min-w-0">
-                            <span className="block text-sm font-semibold text-gray-900">
-                              {it.label}
-                            </span>
-                            <span className="block truncate text-[11px] text-gray-400">
-                              {it.sub}
-                            </span>
-                          </span>
-                          {!it.disabled && (
-                            <span className="shrink-0 text-xs font-semibold text-blue-500">
-                              Text ›
-                            </span>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  );
-                })()}
               </div>
             ) : (
               confirmRemoveId === cleaner.id ? (
