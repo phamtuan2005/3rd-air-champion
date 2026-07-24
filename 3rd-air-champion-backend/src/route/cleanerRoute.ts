@@ -244,8 +244,11 @@ router.post("/autoplan", async (req: Request, res: any) => {
       p.dows.add(dow(a.date));
       p.aff.set(String(a.room), (p.aff.get(String(a.room)) ?? 0) + decay(a.date));
       if (a.hours != null) {
-        p.hours += a.hours;
-        p.rooms += 1;
+        // Recency-weighted so an IMPROVING cleaner (e.g. Henry — weak now but
+        // flexible and learning) is judged on current form, not a rookie average.
+        const wt = decay(a.date);
+        p.hours += a.hours * wt;
+        p.rooms += wt;
       }
     });
 
@@ -270,9 +273,13 @@ router.post("/autoplan", async (req: Request, res: any) => {
       // host assigns themselves by hand only when they choose. paused = out now.
       const reserve = (c.payRate ?? 0) <= 0;
       const paused = !!c.paused;
-      // Honest capacity: the most rooms they've actually done in a day, capped by
-      // what fits the 11–2 window. No inflation — a light helper stays light.
-      const ceiling = p.perDay.size ? Math.min(windowCap, revealed) : windowCap;
+      // Ceiling follows DEMONSTRATED capacity — the most rooms they've actually
+      // done in a day. That already reflects the host's willingness calls and
+      // arrangements like "take a 15-min break after 3, then finish 2." The 11–2
+      // window is only a cold-start PRIOR for a brand-new cleaner, NOT a hard
+      // clamp on a willing one who can stretch. A light helper still stays light,
+      // because their demonstrated max stays low until the host grows it.
+      const ceiling = p.perDay.size ? revealed : windowCap;
       const explicit: number[] = Array.isArray(c.availableDays) ? c.availableDays : [];
       info.set(id, {
         ceiling,
