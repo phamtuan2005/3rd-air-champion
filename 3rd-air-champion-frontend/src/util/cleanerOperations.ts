@@ -10,6 +10,7 @@ export interface CleanerType {
   photo?: string; // explicit image (owner jpg / data URL); overrides the generated avatar
   character?: string; // free-text note the illustrated avatar is generated from
   availableDays?: number[]; // weekdays they can work (0=Sun…6=Sat); empty = infer from history
+  paused?: boolean; // temporarily out (vacation/leave) — skipped by the auto-planner
   baselineHours: number; // pre-tracking hours counted toward baselineMonth only
   baselineMonth: string; // "yyyy-MM"
 }
@@ -49,6 +50,7 @@ export const updateCleaner = async (
     photo?: string;
     character?: string;
     availableDays?: number[];
+    paused?: boolean;
     baselineHours?: number;
     baselineMonth?: string;
   },

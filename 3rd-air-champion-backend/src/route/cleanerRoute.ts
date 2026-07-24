@@ -14,6 +14,7 @@ const serializeCleaner = (c: any) => ({
   photo: c.photo ?? "",
   character: c.character ?? "",
   availableDays: c.availableDays ?? [],
+  paused: c.paused ?? false,
   baselineHours: c.baselineHours ?? 0,
   baselineMonth: c.baselineMonth ?? "",
 });
@@ -40,7 +41,7 @@ router.get("/list", async (req: Request, res: any) => {
 });
 
 router.post("/create", async (req: Request, res: any) => {
-  const { host, name, phone, payRate, photo, character, availableDays } = req.body;
+  const { host, name, phone, payRate, photo, character, availableDays, paused } = req.body;
   if (!host || !name) return res.status(400).json({ error: "host and name are required" });
   try {
     const cleaner = await Cleaner.create({
@@ -51,6 +52,7 @@ router.post("/create", async (req: Request, res: any) => {
       photo: photo ?? "",
       character: character ?? "",
       availableDays: Array.isArray(availableDays) ? availableDays : [],
+      paused: !!paused,
     });
     res.status(200).json(serializeCleaner(cleaner));
   } catch (error: any) {
@@ -59,8 +61,9 @@ router.post("/create", async (req: Request, res: any) => {
 });
 
 router.patch("/update", async (req: Request, res: any) => {
-  const { id, name, phone, payRate, photo, character, availableDays, baselineHours, baselineMonth } =
-    req.body;
+  const {
+    id, name, phone, payRate, photo, character, availableDays, paused, baselineHours, baselineMonth,
+  } = req.body;
   if (!id) return res.status(400).json({ error: "id is required" });
   try {
     const update: Record<string, unknown> = {};
@@ -70,6 +73,7 @@ router.patch("/update", async (req: Request, res: any) => {
     if (photo !== undefined) update.photo = photo;
     if (character !== undefined) update.character = character;
     if (availableDays !== undefined) update.availableDays = availableDays;
+    if (paused !== undefined) update.paused = paused;
     if (baselineHours !== undefined) update.baselineHours = baselineHours;
     if (baselineMonth !== undefined) update.baselineMonth = baselineMonth;
     const cleaner = await Cleaner.findByIdAndUpdate(id, update, { new: true, runValidators: true });
@@ -202,7 +206,6 @@ router.post("/autoplan", async (req: Request, res: any) => {
 
     const DAY = 86_400_000;
     const WINDOW_HOURS = 3; // 11am–2pm cleaning window
-    const TRIP_FLOOR = 2; // rooms that make a cleaner's drive worthwhile
     const DEFAULT_HPR = 1; // assumed hours/room before we have their data
     const dow = (d: string) => new Date(`${d}T12:00:00Z`).getUTCDay();
     const decay = (d: string) =>
@@ -251,6 +254,8 @@ router.post("/autoplan", async (req: Request, res: any) => {
       costPerRoom: number;
       aff: Map<string, number>;
       available: (w: number) => boolean;
+      reserve: boolean; // owner / $0 labor — excluded from the auto-draft
+      paused: boolean; // temporarily out (e.g. vacation) — excluded
     };
     const info = new Map<string, Info>();
     cleaners.forEach((c: any) => {
@@ -259,12 +264,22 @@ router.post("/autoplan", async (req: Request, res: any) => {
       const hpr = p.rooms > 0 ? p.hours / p.rooms : DEFAULT_HPR;
       const windowCap = Math.max(1, Math.floor(WINDOW_HOURS / hpr));
       const revealed = p.perDay.size ? Math.max(...p.perDay.values()) : windowCap;
-      const ceiling = Math.max(1, Math.min(windowCap, Math.max(revealed, TRIP_FLOOR)));
+      // A $0 rate = owner labor. Owners hire a team precisely so THEY don't
+      // clean — a principal engineer's hour is not "free," and the goal is to
+      // spare them (and Cindy). So owners are EXCLUDED from the auto-draft; the
+      // host assigns themselves by hand only when they choose. paused = out now.
+      const reserve = (c.payRate ?? 0) <= 0;
+      const paused = !!c.paused;
+      // Honest capacity: the most rooms they've actually done in a day, capped by
+      // what fits the 11–2 window. No inflation — a light helper stays light.
+      const ceiling = p.perDay.size ? Math.min(windowCap, revealed) : windowCap;
       const explicit: number[] = Array.isArray(c.availableDays) ? c.availableDays : [];
       info.set(id, {
         ceiling,
         costPerRoom: hpr * (c.payRate ?? 0),
         aff: p.aff,
+        reserve,
+        paused,
         available: (w: number) =>
           explicit.length > 0 ? explicit.includes(w) : p.dows.size > 0 ? p.dows.has(w) : true,
       });
@@ -293,8 +308,14 @@ router.post("/autoplan", async (req: Request, res: any) => {
     const results: any[] = [];
     for (const [date, rooms] of [...byDate.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
       const w = dow(date);
-      const eligible = cleaners.filter((c: any) => info.get(String(c._id))!.available(w));
-      const poolIds = (eligible.length ? eligible : cleaners).map((c: any) => String(c._id));
+      // Draftable = PAID, present, available this weekday. Owners ($0) and paused
+      // cleaners are never auto-assigned — the host pitches in by hand if needed.
+      const poolIds = cleaners
+        .filter((c: any) => {
+          const m = info.get(String(c._id))!;
+          return !m.reserve && !m.paused && m.available(w);
+        })
+        .map((c: any) => String(c._id));
 
       // Who's already committed today (respect manual assignments) + total rooms.
       const mustInclude = poolIds.filter((id) => loadOf(date, id) > 0);
@@ -316,13 +337,14 @@ router.post("/autoplan", async (req: Request, res: any) => {
       const capacity = () => crew.reduce((s, id) => s + info.get(id)!.ceiling, 0);
       let ei = 0;
       while (capacity() < R && ei < extras.length) crew.push(extras[ei++]);
-      if (crew.length === 0 && poolIds.length) crew.push(extras[0] ?? poolIds[0]);
 
       // Distribute today's rooms across the crew, balanced by fill-ratio so no one
       // is overloaded, tie-broken by room affinity then lowest $/room.
       for (const room of rooms) {
-        const withRoom = crew.filter((id) => loadOf(date, id) < info.get(id)!.ceiling);
-        const cand = withRoom.length ? withRoom : crew;
+        // Only crew still under their honest ceiling. If none, the room is left
+        // UNASSIGNED — the signal that you're short a cleaner — rather than
+        // burning someone out or dumping it on the owners.
+        const cand = crew.filter((id) => loadOf(date, id) < info.get(id)!.ceiling);
         let best: string | null = null;
         let bestKey: number[] | null = null;
         for (const id of cand) {
@@ -333,7 +355,7 @@ router.post("/autoplan", async (req: Request, res: any) => {
             bestKey = key;
           }
         }
-        if (!best) continue;
+        if (!best) continue; // no healthy paid capacity → stays unassigned
         const assignment = await CleaningAssignment.findOneAndUpdate(
           { host, date, room },
           { host, date, room, cleaner: best },

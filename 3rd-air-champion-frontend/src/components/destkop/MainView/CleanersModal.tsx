@@ -262,6 +262,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
     baselineHours: "",
     character: "",
     availableDays: [] as number[],
+    paused: false,
   });
   const [hmDraft, setHmDraft] = useState<Record<string, { h: string; m: string }>>({});
   // Which already-recorded cleaner-day is currently open for correction
@@ -597,6 +598,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
         payRate: parseFloat(edit.payRate) || 0,
         character: edit.character.trim(),
         availableDays: edit.availableDays,
+        paused: edit.paused,
         // Baseline is anchored to the month it was entered — it counts toward
         // this month's pay and expires on its own.
         baselineHours: parseFloat(edit.baselineHours) || 0,
@@ -1069,6 +1071,26 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                     onChange={(d) => setEdit((p) => ({ ...p, availableDays: d }))}
                   />
                 </div>
+                {/* On leave — kept on the team but skipped by the auto-planner */}
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <label className="text-xs text-gray-500">
+                    On leave
+                    <span className="block text-[10px] text-gray-400">skip in auto-plan while away</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setEdit((p) => ({ ...p, paused: !p.paused }))}
+                    className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                      edit.paused ? "bg-amber-500" : "bg-gray-300"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+                        edit.paused ? "translate-x-5" : "translate-x-0.5"
+                      }`}
+                    />
+                  </button>
+                </div>
                 <div className="flex items-center gap-1.5">
                   <label className="flex-1 text-xs text-gray-500">
                     Baseline hrs already worked this month
@@ -1151,7 +1173,14 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                 >
                 <CleanerAvatar id={cleaner.id} name={cleaner.name} />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-gray-900">{cleaner.name}</p>
+                  <p className="flex items-center gap-1.5 truncate text-sm font-semibold text-gray-900">
+                    {cleaner.name}
+                    {cleaner.paused && (
+                      <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-amber-700">
+                        On leave
+                      </span>
+                    )}
+                  </p>
                   <p className="text-xs text-gray-500">
                     {cleaner.phone && <span>{formatPhone(cleaner.phone)} · </span>}
                     <span className="font-bold text-emerald-600">${cleaner.payRate}/hr</span>
@@ -1183,6 +1212,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                       payRate: String(cleaner.payRate),
                       character: cleaner.character ?? "",
                       availableDays: cleaner.availableDays ?? [],
+                      paused: cleaner.paused ?? false,
                       // Only surface a baseline that belongs to this month —
                       // an old month's baseline has already expired
                       baselineHours:

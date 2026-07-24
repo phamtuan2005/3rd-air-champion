@@ -16,6 +16,9 @@ const cleanerSchema = new mongoose.Schema(
     // so the auto-planner infers availability from history instead. A HARD
     // constraint when set (e.g. a weekend-only cleaner = [0, 6]).
     availableDays: { type: [Number], default: [] },
+    // Temporarily out (vacation / leave). Kept on the team but skipped by the
+    // auto-planner until they're back.
+    paused: { type: Boolean, default: false },
     // Hourly rate in dollars — pay is computed from recorded hours, not per job
     payRate: { type: Number, default: 0 },
     // Hours worked before assignment tracking started, counted toward the
