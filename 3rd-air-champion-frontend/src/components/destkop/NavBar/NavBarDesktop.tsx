@@ -111,14 +111,9 @@ const NavBarDesktop = ({
 
       {/* Centered Navigation Buttons */}
       <div className="flex flex-col items-center gap-3">
-        <div className="flex flex-col items-center px-1 pt-1 sm:pt-2">
-          <h1 className="text-base sm:text-xl font-bold tracking-wide text-gray-800 leading-tight">
-            TT House Manager
-          </h1>
-          <p className="text-[10px] sm:text-xs text-gray-400 leading-tight">
-            Bookings, guests &amp; cleaning — all in one place
-          </p>
-        </div>
+        <h1 className="p-1 sm:p-2 text-base sm:text-xl font-bold tracking-wide text-gray-800">
+          TT House Manager
+        </h1>
         {isGuestMode ? (
           <button
             type="button"

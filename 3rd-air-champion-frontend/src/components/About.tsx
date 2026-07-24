@@ -26,21 +26,22 @@ const About = ({ setIsAboutModalOpen }: AboutProps) => {
             title="About"
             src="./TiMagLogo.svg"
           ></img>
-          TiMag 1.0{" "}
+          TiMag 2.0{" "}
         </h2>
         <p className="mb-4">
-          TiMag 1.0 is designed to manage non AirBnB vs. regular AirBnB bookings
-          within a single platform. AirBnB charges both the guest and host a
-          high usage fee. That makes it unfair for both endusers. As such, TiMag
-          is a system to minimize fees and maximize the staying experience at TT
-          house. It provides the following features:
+          TiMag began as a way to manage direct and AirBnB bookings in one place
+          — sparing both guest and host the heavy platform fees — so every stay
+          at TT House feels personal and fairly priced. TiMag 2.0 has grown into
+          the complete back office for the home: bookings, guests, the cleaning
+          team, and every message in between. Key features:
         </p>
         <ul className="list-disc list-inside space-y-1">
-          <li>Centralized management for room rentals</li>
-          <li>Seamless synchronization with AirBnB calendars</li>
-          <li>Monthly statistics for profit optimization</li>
-          <li>User-friendly interface for effortless operations</li>
-          <li>Action item reminders for better task management</li>
+          <li>One calendar for direct + AirBnB bookings, with live AirBnB sync</li>
+          <li>TiBook guest booking site with SMS confirmations & flexible cancellation</li>
+          <li>Per-stay pricing, extra fees, and monthly profit statistics</li>
+          <li>Cleaning operation: team roster, weekly scheduling, hours & payouts</li>
+          <li>One-tap messaging — guest reminders and cleaner schedule / earnings / cleaning rules</li>
+          <li>Availability & date-blocking tools with action-item reminders</li>
         </ul>
         <p className="mt-4">
           For inquiries, please reach out to Anh-Tri Pham:
