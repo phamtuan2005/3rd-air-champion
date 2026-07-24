@@ -13,6 +13,7 @@ const serializeCleaner = (c: any) => ({
   payRate: c.payRate,
   photo: c.photo ?? "",
   character: c.character ?? "",
+  availableDays: c.availableDays ?? [],
   baselineHours: c.baselineHours ?? 0,
   baselineMonth: c.baselineMonth ?? "",
 });
@@ -39,7 +40,7 @@ router.get("/list", async (req: Request, res: any) => {
 });
 
 router.post("/create", async (req: Request, res: any) => {
-  const { host, name, phone, payRate, photo, character } = req.body;
+  const { host, name, phone, payRate, photo, character, availableDays } = req.body;
   if (!host || !name) return res.status(400).json({ error: "host and name are required" });
   try {
     const cleaner = await Cleaner.create({
@@ -49,6 +50,7 @@ router.post("/create", async (req: Request, res: any) => {
       payRate: payRate ?? 0,
       photo: photo ?? "",
       character: character ?? "",
+      availableDays: Array.isArray(availableDays) ? availableDays : [],
     });
     res.status(200).json(serializeCleaner(cleaner));
   } catch (error: any) {
@@ -57,7 +59,8 @@ router.post("/create", async (req: Request, res: any) => {
 });
 
 router.patch("/update", async (req: Request, res: any) => {
-  const { id, name, phone, payRate, photo, character, baselineHours, baselineMonth } = req.body;
+  const { id, name, phone, payRate, photo, character, availableDays, baselineHours, baselineMonth } =
+    req.body;
   if (!id) return res.status(400).json({ error: "id is required" });
   try {
     const update: Record<string, unknown> = {};
@@ -66,6 +69,7 @@ router.patch("/update", async (req: Request, res: any) => {
     if (payRate !== undefined) update.payRate = payRate;
     if (photo !== undefined) update.photo = photo;
     if (character !== undefined) update.character = character;
+    if (availableDays !== undefined) update.availableDays = availableDays;
     if (baselineHours !== undefined) update.baselineHours = baselineHours;
     if (baselineMonth !== undefined) update.baselineMonth = baselineMonth;
     const cleaner = await Cleaner.findByIdAndUpdate(id, update, { new: true, runValidators: true });
@@ -176,11 +180,18 @@ router.post("/assign", async (req: Request, res: any) => {
   }
 });
 
-// Auto-plan — draft a cleaner for each unassigned room from HISTORY. No ML:
-// score every active cleaner by how often + how RECENTLY they've cleaned that
-// room (and that weekday), balance the batch so nobody is overloaded, and upsert
-// the assignments. Because the host's own reassignments become tomorrow's
-// history (recency-weighted), the draft self-corrects toward their choices.
+// Auto-plan — a constraint-aware batch optimizer, not a frequency counter.
+// Everything below is DERIVED from history, so it sharpens as data grows:
+//   • speed  = recorded hours ÷ rooms  → window capacity = floor(3h / hrs-room)
+//   • ceiling = min(window capacity, most rooms they've ever done in a day)
+//              → a slow cleaner literally can't be handed 5 rooms; burnout-safe
+//   • $/room = hrs-room × rate         → the efficiency we minimize (cost)
+//   • availability = explicit availableDays if set (HARD), else inferred from
+//              the weekdays they've historically worked
+//   • affinity = decayed room history  → final tie-break only
+// Per day it packs rooms into as FEW trips as possible (each worth the drive)
+// without pushing anyone past their ceiling; the host's reassignments become
+// tomorrow's history, so the plan self-corrects toward their real choices.
 router.post("/autoplan", async (req: Request, res: any) => {
   const { host, targets } = req.body; // targets: [{ date: "yyyy-MM-dd", room }]
   if (!host || !Array.isArray(targets))
@@ -188,82 +199,153 @@ router.post("/autoplan", async (req: Request, res: any) => {
   try {
     const cleaners = await Cleaner.find({ host });
     if (cleaners.length === 0) return res.status(200).json([]);
-    const activeIds = new Set(cleaners.map((c: any) => String(c._id)));
 
-    // Deterministic, TZ-safe weekday + recency decay (half-life 30 days).
     const DAY = 86_400_000;
+    const WINDOW_HOURS = 3; // 11am–2pm cleaning window
+    const TRIP_FLOOR = 2; // rooms that make a cleaner's drive worthwhile
+    const DEFAULT_HPR = 1; // assumed hours/room before we have their data
     const dow = (d: string) => new Date(`${d}T12:00:00Z`).getUTCDay();
     const decay = (d: string) =>
       Math.pow(2, -Math.max(0, (Date.now() - Date.parse(`${d}T12:00:00Z`)) / DAY) / 30);
-
-    const history = await CleaningAssignment.find({ host, cleaner: { $ne: null } }).select(
-      "cleaner room date"
-    );
-    const roomScore = new Map<string, Map<string, number>>();
-    const roomDowScore = new Map<string, Map<string, number>>();
-    const bump = (m: Map<string, Map<string, number>>, k: string, c: string, v: number) => {
-      const inner = m.get(k) ?? new Map<string, number>();
-      inner.set(c, (inner.get(c) ?? 0) + v);
-      m.set(k, inner);
+    // Lexicographic "a beats b" over a tuple of higher-is-better numbers.
+    const lexGt = (a: number[], b: number[]) => {
+      for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i]) return a[i] > b[i];
+      }
+      return false;
     };
-    history.forEach((a: any) => {
-      const c = String(a.cleaner);
-      if (!activeIds.has(c)) return;
-      const room = String(a.room);
-      const w = decay(a.date);
-      bump(roomScore, room, c, w);
-      bump(roomDowScore, `${room}|${dow(a.date)}`, c, w);
+
+    // ── Derive each cleaner's profile from full history ──
+    const all = await CleaningAssignment.find({ host }).select("cleaner room date hours");
+    type Prof = {
+      hours: number;
+      rooms: number;
+      perDay: Map<string, number>;
+      dows: Set<number>;
+      aff: Map<string, number>;
+    };
+    const prof = new Map<string, Prof>();
+    cleaners.forEach((c: any) =>
+      prof.set(String(c._id), {
+        hours: 0,
+        rooms: 0,
+        perDay: new Map(),
+        dows: new Set(),
+        aff: new Map(),
+      })
+    );
+    all.forEach((a: any) => {
+      const p = prof.get(String(a.cleaner));
+      if (!p) return;
+      p.perDay.set(a.date, (p.perDay.get(a.date) ?? 0) + 1);
+      p.dows.add(dow(a.date));
+      p.aff.set(String(a.room), (p.aff.get(String(a.room)) ?? 0) + decay(a.date));
+      if (a.hours != null) {
+        p.hours += a.hours;
+        p.rooms += 1;
+      }
     });
 
-    // Seed balance with existing load in the target window so the draft evens out.
-    const batchLoad = new Map<string, number>(cleaners.map((c: any) => [String(c._id), 0]));
-    const dates = targets.map((t: any) => t.date).filter(Boolean);
-    if (dates.length) {
-      const lo = dates.reduce((a: string, b: string) => (a < b ? a : b));
-      const hi = dates.reduce((a: string, b: string) => (a > b ? a : b));
-      const existing = await CleaningAssignment.find({
-        host,
-        cleaner: { $ne: null },
-        date: { $gte: lo, $lte: hi },
-      }).select("cleaner");
-      existing.forEach((a: any) => {
-        const c = String(a.cleaner);
-        if (batchLoad.has(c)) batchLoad.set(c, (batchLoad.get(c) ?? 0) + 1);
+    type Info = {
+      ceiling: number;
+      costPerRoom: number;
+      aff: Map<string, number>;
+      available: (w: number) => boolean;
+    };
+    const info = new Map<string, Info>();
+    cleaners.forEach((c: any) => {
+      const id = String(c._id);
+      const p = prof.get(id)!;
+      const hpr = p.rooms > 0 ? p.hours / p.rooms : DEFAULT_HPR;
+      const windowCap = Math.max(1, Math.floor(WINDOW_HOURS / hpr));
+      const revealed = p.perDay.size ? Math.max(...p.perDay.values()) : windowCap;
+      const ceiling = Math.max(1, Math.min(windowCap, Math.max(revealed, TRIP_FLOOR)));
+      const explicit: number[] = Array.isArray(c.availableDays) ? c.availableDays : [];
+      info.set(id, {
+        ceiling,
+        costPerRoom: hpr * (c.payRate ?? 0),
+        aff: p.aff,
+        available: (w: number) =>
+          explicit.length > 0 ? explicit.includes(w) : p.dows.size > 0 ? p.dows.has(w) : true,
       });
-    }
+    });
 
-    const BALANCE = 0.2; // how strongly to spread work vs. follow room affinity
+    // ── Existing load in the target window (assignments we must plan around) ──
+    const byDate = new Map<string, string[]>();
+    targets.forEach((t: any) => {
+      if (!t.date || !t.room) return;
+      const arr = byDate.get(t.date) ?? [];
+      arr.push(String(t.room));
+      byDate.set(t.date, arr);
+    });
+    const existing = await CleaningAssignment.find({
+      host,
+      cleaner: { $ne: null },
+      date: { $in: [...byDate.keys()] },
+    }).select("cleaner date");
+    const load = new Map<string, number>(); // `${date}|${id}` -> rooms already that day
+    existing.forEach((a: any) => {
+      const k = `${a.date}|${String(a.cleaner)}`;
+      load.set(k, (load.get(k) ?? 0) + 1);
+    });
+    const loadOf = (date: string, id: string) => load.get(`${date}|${id}`) ?? 0;
+
     const results: any[] = [];
-    // Earliest first, so balancing is stable across the week.
-    const sorted = [...targets].sort((a: any, b: any) => String(a.date).localeCompare(b.date));
-    for (const t of sorted) {
-      if (!t.date || !t.room) continue;
-      const room = String(t.room);
-      const rs = roomScore.get(room);
-      const rds = roomDowScore.get(`${room}|${dow(t.date)}`);
-      let best: string | null = null;
-      let bestScore = -Infinity;
-      for (const c of cleaners) {
-        const id = String(c._id);
-        const base = (rs?.get(id) ?? 0) + 0.5 * (rds?.get(id) ?? 0);
-        const score = base - BALANCE * (batchLoad.get(id) ?? 0);
-        if (score > bestScore) {
-          bestScore = score;
-          best = id;
+    for (const [date, rooms] of [...byDate.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+      const w = dow(date);
+      const eligible = cleaners.filter((c: any) => info.get(String(c._id))!.available(w));
+      const poolIds = (eligible.length ? eligible : cleaners).map((c: any) => String(c._id));
+
+      // Who's already committed today (respect manual assignments) + total rooms.
+      const mustInclude = poolIds.filter((id) => loadOf(date, id) > 0);
+      const already = mustInclude.reduce((s, id) => s + loadOf(date, id), 0);
+      const R = rooms.length + already;
+
+      // Day affinity (how much this crew "knows" today's rooms) for choosing extras.
+      const dayAff = (id: string) =>
+        rooms.reduce((s, r) => s + (info.get(id)!.aff.get(r) ?? 0), 0);
+      // Add the FEWEST extra cleaners (cheapest per room first) whose ceilings
+      // cover the day — minimizing trips while never exceeding anyone's ceiling.
+      const extras = poolIds
+        .filter((id) => !mustInclude.includes(id))
+        .sort((a, b) => {
+          const d = info.get(a)!.costPerRoom - info.get(b)!.costPerRoom;
+          return d !== 0 ? d : dayAff(b) - dayAff(a);
+        });
+      const crew = [...mustInclude];
+      const capacity = () => crew.reduce((s, id) => s + info.get(id)!.ceiling, 0);
+      let ei = 0;
+      while (capacity() < R && ei < extras.length) crew.push(extras[ei++]);
+      if (crew.length === 0 && poolIds.length) crew.push(extras[0] ?? poolIds[0]);
+
+      // Distribute today's rooms across the crew, balanced by fill-ratio so no one
+      // is overloaded, tie-broken by room affinity then lowest $/room.
+      for (const room of rooms) {
+        const withRoom = crew.filter((id) => loadOf(date, id) < info.get(id)!.ceiling);
+        const cand = withRoom.length ? withRoom : crew;
+        let best: string | null = null;
+        let bestKey: number[] | null = null;
+        for (const id of cand) {
+          const m = info.get(id)!;
+          const key = [-(loadOf(date, id) / m.ceiling), m.aff.get(room) ?? 0, -m.costPerRoom];
+          if (!bestKey || lexGt(key, bestKey)) {
+            best = id;
+            bestKey = key;
+          }
         }
+        if (!best) continue;
+        const assignment = await CleaningAssignment.findOneAndUpdate(
+          { host, date, room },
+          { host, date, room, cleaner: best },
+          { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+        );
+        load.set(`${date}|${best}`, loadOf(date, best) + 1);
+        const populated = await assignment.populate([
+          { path: "room", select: "name" },
+          { path: "cleaner" },
+        ]);
+        results.push(serializeAssignment(populated));
       }
-      if (!best) continue;
-      const assignment = await CleaningAssignment.findOneAndUpdate(
-        { host, date: t.date, room: t.room },
-        { host, date: t.date, room: t.room, cleaner: best },
-        { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
-      );
-      batchLoad.set(best, (batchLoad.get(best) ?? 0) + 1);
-      const populated = await assignment.populate([
-        { path: "room", select: "name" },
-        { path: "cleaner" },
-      ]);
-      results.push(serializeAssignment(populated));
     }
     res.status(200).json(results);
   } catch (error: any) {

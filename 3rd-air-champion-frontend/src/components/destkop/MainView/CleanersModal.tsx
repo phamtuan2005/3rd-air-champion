@@ -39,6 +39,33 @@ const pillNeutral =
   "rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-700";
 const pillEmerald = "rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white";
 
+// Weekday toggles (0=Sun…6=Sat) for a cleaner's available days. Empty = the
+// auto-planner infers availability from history instead of enforcing it.
+const DAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"];
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const DayPicker = ({ days, onChange }: { days: number[]; onChange: (d: number[]) => void }) => (
+  <div className="flex gap-1">
+    {DAY_LETTERS.map((letter, i) => {
+      const on = days.includes(i);
+      return (
+        <button
+          key={i}
+          type="button"
+          title={DAY_NAMES[i]}
+          onClick={() =>
+            onChange(on ? days.filter((d) => d !== i) : [...days, i].sort((a, b) => a - b))
+          }
+          className={`h-7 w-7 rounded-full text-[11px] font-bold ${
+            on ? "bg-violet-600 text-white" : "bg-gray-100 text-gray-400 hover:bg-gray-200"
+          }`}
+        >
+          {letter}
+        </button>
+      );
+    })}
+  </div>
+);
+
 // Bright identity colors for cleaner avatars, cycled by roster position
 const AVATAR_COLORS = [
   "bg-emerald-100 text-emerald-700",
@@ -212,7 +239,13 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
     resizeStart.current = null;
   };
 
-  const [newCleaner, setNewCleaner] = useState({ name: "", phone: "", payRate: "", character: "" });
+  const [newCleaner, setNewCleaner] = useState({
+    name: "",
+    phone: "",
+    payRate: "",
+    character: "",
+    availableDays: [] as number[],
+  });
   // Add form hidden behind a button at the end of the roster
   const [addOpen, setAddOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -222,7 +255,14 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
   // Which cleaners' recorded-days accordions are expanded (Hours tab). Collapsed
   // by default so 5 cleaners × 15–20 records stays a short, scannable list.
   const [expandedRecord, setExpandedRecord] = useState<Set<string>>(new Set());
-  const [edit, setEdit] = useState({ name: "", phone: "", payRate: "", baselineHours: "", character: "" });
+  const [edit, setEdit] = useState({
+    name: "",
+    phone: "",
+    payRate: "",
+    baselineHours: "",
+    character: "",
+    availableDays: [] as number[],
+  });
   const [hmDraft, setHmDraft] = useState<Record<string, { h: string; m: string }>>({});
   // Which already-recorded cleaner-day is currently open for correction
   const [editingDayKey, setEditingDayKey] = useState<string | null>(null);
@@ -534,12 +574,13 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
         phone: newCleaner.phone.trim(),
         payRate: parseFloat(newCleaner.payRate) || 0,
         character: newCleaner.character.trim(),
+        availableDays: newCleaner.availableDays,
       },
       token,
     )
       .then((created) => {
         setCleaners((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
-        setNewCleaner({ name: "", phone: "", payRate: "", character: "" });
+        setNewCleaner({ name: "", phone: "", payRate: "", character: "", availableDays: [] });
         setAddOpen(false);
         setError("");
         reloadSummary();
@@ -555,6 +596,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
         phone: edit.phone.trim(),
         payRate: parseFloat(edit.payRate) || 0,
         character: edit.character.trim(),
+        availableDays: edit.availableDays,
         // Baseline is anchored to the month it was entered — it counts toward
         // this month's pay and expires on its own.
         baselineHours: parseFloat(edit.baselineHours) || 0,
@@ -1016,6 +1058,17 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                     onChange={(e) => setEdit((p) => ({ ...p, character: e.target.value }))}
                   />
                 </div>
+                {/* Available days — a hard constraint for the auto-planner when set */}
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <label className="text-xs text-gray-500">
+                    Available days
+                    <span className="block text-[10px] text-gray-400">blank = auto from history</span>
+                  </label>
+                  <DayPicker
+                    days={edit.availableDays}
+                    onChange={(d) => setEdit((p) => ({ ...p, availableDays: d }))}
+                  />
+                </div>
                 <div className="flex items-center gap-1.5">
                   <label className="flex-1 text-xs text-gray-500">
                     Baseline hrs already worked this month
@@ -1129,6 +1182,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                       phone: cleaner.phone,
                       payRate: String(cleaner.payRate),
                       character: cleaner.character ?? "",
+                      availableDays: cleaner.availableDays ?? [],
                       // Only surface a baseline that belongs to this month —
                       // an old month's baseline has already expired
                       baselineHours:
@@ -1192,6 +1246,17 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                   placeholder="Describe them for an avatar — e.g. cheerful 24yo, glasses, short black hair"
                   value={newCleaner.character}
                   onChange={(e) => setNewCleaner((p) => ({ ...p, character: e.target.value }))}
+                />
+              </div>
+              {/* Available days — a hard constraint for the auto-planner when set */}
+              <div className="mt-1.5 flex items-center justify-between gap-2">
+                <label className="text-xs text-gray-500">
+                  Available days
+                  <span className="block text-[10px] text-gray-400">blank = auto from history</span>
+                </label>
+                <DayPicker
+                  days={newCleaner.availableDays}
+                  onChange={(d) => setNewCleaner((p) => ({ ...p, availableDays: d }))}
                 />
               </div>
               <div className="mt-1.5 flex justify-end gap-1.5">

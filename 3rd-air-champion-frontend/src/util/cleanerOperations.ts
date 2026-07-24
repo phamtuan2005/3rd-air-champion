@@ -9,6 +9,7 @@ export interface CleanerType {
   payRate: number; // $/hour
   photo?: string; // explicit image (owner jpg / data URL); overrides the generated avatar
   character?: string; // free-text note the illustrated avatar is generated from
+  availableDays?: number[]; // weekdays they can work (0=Sun…6=Sat); empty = infer from history
   baselineHours: number; // pre-tracking hours counted toward baselineMonth only
   baselineMonth: string; // "yyyy-MM"
 }
@@ -32,7 +33,7 @@ export const fetchCleaners = async (hostId: string, token: string): Promise<Clea
 };
 
 export const createCleaner = async (
-  data: { host: string; name: string; phone: string; payRate: number; photo?: string; character?: string },
+  data: { host: string; name: string; phone: string; payRate: number; photo?: string; character?: string; availableDays?: number[] },
   token: string,
 ): Promise<CleanerType> => {
   const response = await axios.post(`${BACKEND_ENDPOINT}/cleaner/create`, data, auth(token));
@@ -47,6 +48,7 @@ export const updateCleaner = async (
     payRate?: number;
     photo?: string;
     character?: string;
+    availableDays?: number[];
     baselineHours?: number;
     baselineMonth?: string;
   },

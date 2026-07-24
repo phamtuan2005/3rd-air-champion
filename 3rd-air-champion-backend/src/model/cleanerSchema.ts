@@ -12,6 +12,10 @@ const cleanerSchema = new mongoose.Schema(
     // The illustrated avatar is generated deterministically from this + the name;
     // only the text is stored, never the rendered image.
     character: { type: String, default: "" },
+    // Weekdays this cleaner can work (0=Sun … 6=Sat). Empty = no hard limit set,
+    // so the auto-planner infers availability from history instead. A HARD
+    // constraint when set (e.g. a weekend-only cleaner = [0, 6]).
+    availableDays: { type: [Number], default: [] },
     // Hourly rate in dollars — pay is computed from recorded hours, not per job
     payRate: { type: Number, default: 0 },
     // Hours worked before assignment tracking started, counted toward the
