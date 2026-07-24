@@ -1787,13 +1787,16 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
               No hours recorded this month yet
             </p>
           ) : (
-            [...monthlyPay.values()].map((entry) => (
+            [...monthlyPay.entries()].map(([id, entry]) => (
               <div
-                key={entry.name}
-                className="mb-1.5 flex items-center justify-between rounded-xl border border-gray-200 p-2.5"
+                key={id}
+                className="mb-1.5 flex items-center justify-between gap-2 rounded-xl border border-gray-200 p-2.5"
               >
-                <p className="text-sm font-semibold text-gray-900">{entry.name}</p>
-                <p className="text-xs text-gray-500">
+                <div className="flex min-w-0 items-center gap-2">
+                  <CleanerAvatar id={id} name={entry.name} />
+                  <p className="truncate text-sm font-semibold text-gray-900">{entry.name}</p>
+                </div>
+                <p className="shrink-0 text-xs text-gray-500">
                   {formatHrMin(entry.hours)} ·{" "}
                   <span className="text-sm font-bold text-emerald-600">
                     ${Math.round(entry.pay).toLocaleString()}
@@ -1828,12 +1831,20 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
               >
                 {/* Header */}
                 <div className="flex items-start justify-between gap-2 border-b border-gray-100 p-4">
-                  <div className="min-w-0">
-                    <h3 className="truncate text-lg font-bold text-gray-900">{entry.name}</h3>
-                    <p className="text-xs text-gray-500">
-                      {formatHrMin(entry.hours)} · earned ${Math.round(entry.earned).toLocaleString()} · paid $
-                      {Math.round(entry.paid).toLocaleString()}
-                    </p>
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <CleanerAvatar
+                      id={entry.id}
+                      name={entry.name}
+                      sizeClass="h-10 w-10"
+                      textClass="text-sm"
+                    />
+                    <div className="min-w-0">
+                      <h3 className="truncate text-lg font-bold text-gray-900">{entry.name}</h3>
+                      <p className="text-xs text-gray-500">
+                        {formatHrMin(entry.hours)} · earned ${Math.round(entry.earned).toLocaleString()} · paid $
+                        {Math.round(entry.paid).toLocaleString()}
+                      </p>
+                    </div>
                   </div>
                   <button
                     type="button"
