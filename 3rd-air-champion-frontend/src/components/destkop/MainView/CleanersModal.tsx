@@ -6,6 +6,7 @@ import { dayType } from "../../../util/types/dayType";
 import { getRoomColor } from "../../../util/getRoomColor";
 import { getCleaningForecast } from "../../../util/cleaningTasks";
 import { generateAvatar } from "../../../util/avatarGen";
+import { formatPhone } from "../../../util/formatPhone";
 import {
   CleanerType,
   CleanerSummaryType,
@@ -822,7 +823,9 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                 />
                 <div className="min-w-0">
                   <p className="truncate text-base font-bold text-gray-900">{msgCleaner.name}</p>
-                  <p className="text-xs text-gray-500">{msgCleaner.phone || "No phone number"}</p>
+                  <p className="text-xs text-gray-500">
+                    {msgCleaner.phone ? formatPhone(msgCleaner.phone) : "No phone number"}
+                  </p>
                 </div>
               </div>
 
@@ -1061,7 +1064,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-gray-900">{cleaner.name}</p>
                   <p className="text-xs text-gray-500">
-                    {cleaner.phone && <span>{cleaner.phone} · </span>}
+                    {cleaner.phone && <span>{formatPhone(cleaner.phone)} · </span>}
                     <span className="font-bold text-emerald-600">${cleaner.payRate}/hr</span>
                   </p>
                 </div>
@@ -1781,29 +1784,34 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
             icon={<FaRegClock className="text-blue-500" />}
             title={`This month — ${format(startOfToday(), "MMMM")}`}
           />
-          {monthlyPay.size === 0 ? (
-            <p className="rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-center text-xs text-gray-400">
-              No hours recorded this month yet
-            </p>
-          ) : (
-            [...monthlyPay.entries()].map(([id, entry]) => (
-              <div
-                key={id}
-                className="mb-1.5 flex items-center justify-between gap-2 rounded-xl border border-gray-200 p-2.5"
-              >
-                <div className="flex min-w-0 items-center gap-2">
-                  <CleanerAvatar id={id} name={entry.name} />
-                  <p className="truncate text-sm font-semibold text-gray-900">{entry.name}</p>
+          {(() => {
+            // Only cleaners who actually logged time this month — a 0m row is
+            // noise in a monthly cost breakdown.
+            const worked = [...monthlyPay.entries()].filter(([, e]) => e.hours > 0);
+            return worked.length === 0 ? (
+              <p className="rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-center text-xs text-gray-400">
+                No hours recorded this month yet
+              </p>
+            ) : (
+              worked.map(([id, entry]) => (
+                <div
+                  key={id}
+                  className="mb-1.5 flex items-center justify-between gap-2 rounded-xl border border-gray-200 p-2.5"
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <CleanerAvatar id={id} name={entry.name} />
+                    <p className="truncate text-sm font-semibold text-gray-900">{entry.name}</p>
+                  </div>
+                  <p className="shrink-0 text-xs text-gray-500">
+                    {formatHrMin(entry.hours)} ·{" "}
+                    <span className="text-sm font-bold text-emerald-600">
+                      ${Math.round(entry.pay).toLocaleString()}
+                    </span>
+                  </p>
                 </div>
-                <p className="shrink-0 text-xs text-gray-500">
-                  {formatHrMin(entry.hours)} ·{" "}
-                  <span className="text-sm font-bold text-emerald-600">
-                    ${Math.round(entry.pay).toLocaleString()}
-                  </span>
-                </p>
-              </div>
-            ))
-          )}
+              ))
+            );
+          })()}
           </>
           )}
         </div>
