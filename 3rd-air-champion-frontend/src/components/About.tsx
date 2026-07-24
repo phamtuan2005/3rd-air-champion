@@ -1,5 +1,5 @@
 import React from "react";
-import { MdEmail, MdOutlineSmartphone } from "react-icons/md";
+import { MdOutlineSmartphone } from "react-icons/md";
 
 interface AboutProps {
   setIsAboutModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -45,15 +45,6 @@ const About = ({ setIsAboutModalOpen }: AboutProps) => {
         </ul>
         <p className="mt-4">
           For inquiries, please reach out to Anh-Tri Pham:
-          <div className="flex items-center space-x-2">
-            <MdEmail />
-            <a
-              href="mailto:anhtp5@uci.edu"
-              className="text-blue-500 underline hover:text-blue-700"
-            >
-              anhtp5@uci.edu
-            </a>
-          </div>
           <div className="flex items-center space-x-2">
             <MdOutlineSmartphone />
             <a
