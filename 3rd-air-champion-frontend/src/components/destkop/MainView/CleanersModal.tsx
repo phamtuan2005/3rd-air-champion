@@ -43,6 +43,30 @@ const pillEmerald = "rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibo
 // auto-planner infers availability from history instead of enforcing it.
 const DAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"];
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const Toggle = ({
+  on,
+  onClick,
+  color = "amber",
+}: {
+  on: boolean;
+  onClick: () => void;
+  color?: "amber" | "emerald";
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+      on ? (color === "emerald" ? "bg-emerald-500" : "bg-amber-500") : "bg-gray-300"
+    }`}
+  >
+    <span
+      className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+        on ? "translate-x-5" : "translate-x-0.5"
+      }`}
+    />
+  </button>
+);
+
 // Favorability 1–5 (3 = normal). The auto-planner gently prefers higher-priority
 // cleaners and gives them first claim on high-stakes same-day turnovers.
 const StarPicker = ({ value, onChange }: { value: number; onChange: (v: number) => void }) => (
@@ -264,6 +288,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
     character: "",
     availableDays: [] as number[],
     priority: 3,
+    isOwner: false,
   });
   // Add form hidden behind a button at the end of the roster
   const [addOpen, setAddOpen] = useState(false);
@@ -283,6 +308,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
     availableDays: [] as number[],
     paused: false,
     priority: 3,
+    isOwner: false,
   });
   const [hmDraft, setHmDraft] = useState<Record<string, { h: string; m: string }>>({});
   // Which already-recorded cleaner-day is currently open for correction
@@ -338,6 +364,8 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
   // takes over to show ONLY this person — so a text can never be aimed at the
   // wrong cleaner by mistake.
   const msgCleaner = msgMenuId ? cleaners.find((c) => c.id === msgMenuId) ?? null : null;
+  // The cleaner whose focused edit modal is open (centralized on that one person).
+  const editCleaner = editingId ? cleaners.find((c) => c.id === editingId) ?? null : null;
 
   // One consistent initials-avatar color per team member across EVERY view
   // (keyed by their position in the team), so a person looks the same
@@ -603,12 +631,13 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
         character: newCleaner.character.trim(),
         availableDays: newCleaner.availableDays,
         priority: newCleaner.priority,
+        isOwner: newCleaner.isOwner,
       },
       token,
     )
       .then((created) => {
         setCleaners((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
-        setNewCleaner({ name: "", phone: "", payRate: "", character: "", availableDays: [], priority: 3 });
+        setNewCleaner({ name: "", phone: "", payRate: "", character: "", availableDays: [], priority: 3, isOwner: false });
         setAddOpen(false);
         setError("");
         reloadSummary();
@@ -627,6 +656,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
         availableDays: edit.availableDays,
         paused: edit.paused,
         priority: edit.priority,
+        isOwner: edit.isOwner,
         // Baseline is anchored to the month it was entered — it counts toward
         // this month's pay and expires on its own.
         baselineHours: parseFloat(edit.baselineHours) || 0,
@@ -1051,111 +1081,9 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
           )}
           {cleaners.map((cleaner) =>
             editingId === cleaner.id ? (
-              <div key={cleaner.id} className="mb-2 rounded-xl border border-gray-200 p-2">
-                <div className="mb-1.5 flex items-center gap-1.5">
-                  <input
-                    className={`${inputCls} min-w-0 flex-1`}
-                    placeholder="Name"
-                    value={edit.name}
-                    onChange={(e) => setEdit((p) => ({ ...p, name: e.target.value }))}
-                  />
-                  <input
-                    className={`${inputCls} w-24`}
-                    placeholder="Phone"
-                    type="tel"
-                    value={edit.phone}
-                    onChange={(e) => setEdit((p) => ({ ...p, phone: e.target.value }))}
-                  />
-                  <input
-                    className={`${inputCls} w-14`}
-                    placeholder="$/hr"
-                    type="number"
-                    value={edit.payRate}
-                    onChange={(e) => setEdit((p) => ({ ...p, payRate: e.target.value }))}
-                  />
-                </div>
-                {/* Character note → live-generated avatar preview */}
-                <div className="mb-1.5 flex items-center gap-2">
-                  <img
-                    src={generateAvatar(edit.name || "?", edit.character)}
-                    alt="avatar preview"
-                    className="h-9 w-9 shrink-0 rounded-full object-cover"
-                  />
-                  <input
-                    className={`${inputCls} min-w-0 flex-1`}
-                    placeholder="Avatar note — e.g. glasses, long brown hair, beard"
-                    value={edit.character}
-                    onChange={(e) => setEdit((p) => ({ ...p, character: e.target.value }))}
-                  />
-                </div>
-                {/* Available days — a hard constraint for the auto-planner when set */}
-                <div className="mb-1.5 flex items-center justify-between gap-2">
-                  <label className="text-xs text-gray-500">
-                    Available days
-                    <span className="block text-[10px] text-gray-400">blank = auto from history</span>
-                  </label>
-                  <DayPicker
-                    days={edit.availableDays}
-                    onChange={(d) => setEdit((p) => ({ ...p, availableDays: d }))}
-                  />
-                </div>
-                {/* Priority — auto-plan gently favors higher + gives them the
-                    high-stakes same-day rooms */}
-                <div className="mb-1.5 flex items-center justify-between gap-2">
-                  <label className="text-xs text-gray-500">
-                    Priority
-                    <span className="block text-[10px] text-gray-400">favored in auto-plan · 3 = normal</span>
-                  </label>
-                  <StarPicker
-                    value={edit.priority}
-                    onChange={(v) => setEdit((p) => ({ ...p, priority: v }))}
-                  />
-                </div>
-                {/* On leave — kept on the team but skipped by the auto-planner */}
-                <div className="mb-1.5 flex items-center justify-between gap-2">
-                  <label className="text-xs text-gray-500">
-                    On leave
-                    <span className="block text-[10px] text-gray-400">skip in auto-plan while away</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setEdit((p) => ({ ...p, paused: !p.paused }))}
-                    className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-                      edit.paused ? "bg-amber-500" : "bg-gray-300"
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
-                        edit.paused ? "translate-x-5" : "translate-x-0.5"
-                      }`}
-                    />
-                  </button>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <label className="flex-1 text-xs text-gray-500">
-                    Baseline hrs already worked this month
-                  </label>
-                  <input
-                    className={`${inputCls} w-16`}
-                    placeholder="hrs"
-                    type="number"
-                    step="0.5"
-                    min="0"
-                    value={edit.baselineHours}
-                    onChange={(e) => setEdit((p) => ({ ...p, baselineHours: e.target.value }))}
-                  />
-                  <button
-                    type="button"
-                    className={pillNeutral}
-                    onClick={() => setEditingId(null)}
-                  >
-                    Cancel
-                  </button>
-                  <button type="button" className={pillDark} onClick={() => handleSaveEdit(cleaner.id)}>
-                    Save
-                  </button>
-                </div>
-              </div>
+              // Editing happens in a focused modal (below) centered on this one
+              // cleaner; the row hides while it's open.
+              null
             ) : (
               confirmRemoveId === cleaner.id ? (
               <div
@@ -1220,6 +1148,11 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                         ★
                       </span>
                     )}
+                    {cleaner.isOwner && (
+                      <span className="shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-700">
+                        Owner
+                      </span>
+                    )}
                     {cleaner.paused && (
                       <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-amber-700">
                         On leave
@@ -1259,6 +1192,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                       availableDays: cleaner.availableDays ?? [],
                       paused: cleaner.paused ?? false,
                       priority: cleaner.priority ?? 3,
+                      isOwner: cleaner.isOwner ?? false,
                       // Only surface a baseline that belongs to this month —
                       // an old month's baseline has already expired
                       baselineHours:
@@ -2020,6 +1954,170 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
           )}
         </div>
       </div>
+
+      {/* Focused edit — a modal centered on ONLY the cleaner being edited, so
+          the (now many) settings have room and there's no mixing people up. */}
+      {editCleaner && (
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setEditingId(null)}
+        >
+          <div
+            className="flex max-h-[85vh] w-full max-w-sm flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center gap-2.5 border-b border-gray-100 p-4">
+              <CleanerAvatar
+                id={editCleaner.id}
+                name={edit.name || editCleaner.name}
+                sizeClass="h-10 w-10"
+                textClass="text-sm"
+              />
+              <div className="min-w-0 flex-1">
+                <h3 className="truncate text-lg font-bold text-gray-900">
+                  {edit.name || editCleaner.name}
+                </h3>
+                <p className="text-xs text-gray-500">Edit team member</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingId(null)}
+                aria-label="Close"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xl leading-none text-gray-400"
+              >
+                &times;
+              </button>
+            </div>
+            {/* Body */}
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+              <div className="grid grid-cols-2 gap-2">
+                <label className="col-span-2 flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                  Name
+                  <input
+                    className={inputCls}
+                    value={edit.name}
+                    onChange={(e) => setEdit((p) => ({ ...p, name: e.target.value }))}
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                  Phone
+                  <input
+                    className={inputCls}
+                    type="tel"
+                    value={edit.phone}
+                    onChange={(e) => setEdit((p) => ({ ...p, phone: e.target.value }))}
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                  $/hr
+                  <input
+                    className={inputCls}
+                    type="number"
+                    value={edit.payRate}
+                    onChange={(e) => setEdit((p) => ({ ...p, payRate: e.target.value }))}
+                  />
+                </label>
+              </div>
+
+              <div>
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                  Avatar
+                </p>
+                <div className="flex items-center gap-2">
+                  <img
+                    src={generateAvatar(edit.name || "?", edit.character)}
+                    alt="avatar preview"
+                    className="h-10 w-10 shrink-0 rounded-full object-cover"
+                  />
+                  <input
+                    className={`${inputCls} min-w-0 flex-1`}
+                    placeholder="e.g. glasses, long brown hair, beard"
+                    value={edit.character}
+                    onChange={(e) => setEdit((p) => ({ ...p, character: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-xs text-gray-500">
+                  Available days
+                  <span className="block text-[10px] text-gray-400">blank = auto from history</span>
+                </label>
+                <DayPicker
+                  days={edit.availableDays}
+                  onChange={(d) => setEdit((p) => ({ ...p, availableDays: d }))}
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-xs text-gray-500">
+                  Priority
+                  <span className="block text-[10px] text-gray-400">favored in auto-plan · 3 = normal</span>
+                </label>
+                <StarPicker
+                  value={edit.priority}
+                  onChange={(v) => setEdit((p) => ({ ...p, priority: v }))}
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-xs text-gray-500">
+                  Owner
+                  <span className="block text-[10px] text-gray-400">
+                    you / Cindy — auto-plan uses only as a last resort
+                  </span>
+                </label>
+                <Toggle
+                  on={edit.isOwner}
+                  color="emerald"
+                  onClick={() => setEdit((p) => ({ ...p, isOwner: !p.isOwner }))}
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-xs text-gray-500">
+                  On leave
+                  <span className="block text-[10px] text-gray-400">skip in auto-plan while away</span>
+                </label>
+                <Toggle
+                  on={edit.paused}
+                  color="amber"
+                  onClick={() => setEdit((p) => ({ ...p, paused: !p.paused }))}
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-2">
+                <label className="flex-1 text-xs text-gray-500">
+                  Baseline hrs already worked this month
+                </label>
+                <input
+                  className={`${inputCls} w-20`}
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  placeholder="hrs"
+                  value={edit.baselineHours}
+                  onChange={(e) => setEdit((p) => ({ ...p, baselineHours: e.target.value }))}
+                />
+              </div>
+            </div>
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-2 border-t border-gray-100 p-3">
+              <button type="button" className={pillNeutral} onClick={() => setEditingId(null)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={pillDark}
+                onClick={() => handleSaveEdit(editCleaner.id)}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Focused per-cleaner pay detail — keeps the Pay list clean no matter
           how many recorded days a cleaner has. Tapping a row opens this. */}

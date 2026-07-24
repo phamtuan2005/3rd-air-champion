@@ -23,6 +23,9 @@ const cleanerSchema = new mongoose.Schema(
     // priority cleaners and gives them first claim on high-stakes (same-day)
     // turnovers — the host's quality judgment, since reviews aren't in the data.
     priority: { type: Number, default: 3, min: 1, max: 5 },
+    // The host themselves (owner labor). Owners are EXCLUDED from the auto-draft
+    // — they exist to be spared, not maximized — and assigned by hand only.
+    isOwner: { type: Boolean, default: false },
     // Hourly rate in dollars — pay is computed from recorded hours, not per job
     payRate: { type: Number, default: 0 },
     // Hours worked before assignment tracking started, counted toward the

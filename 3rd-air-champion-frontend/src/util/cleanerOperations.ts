@@ -12,6 +12,7 @@ export interface CleanerType {
   availableDays?: number[]; // weekdays they can work (0=Sun…6=Sat); empty = infer from history
   paused?: boolean; // temporarily out (vacation/leave) — skipped by the auto-planner
   priority?: number; // favorability 1–5 (3 = normal); auto-planner prefers higher
+  isOwner?: boolean; // the host themselves — auto-plan uses them only as last resort
   baselineHours: number; // pre-tracking hours counted toward baselineMonth only
   baselineMonth: string; // "yyyy-MM"
 }
@@ -35,7 +36,7 @@ export const fetchCleaners = async (hostId: string, token: string): Promise<Clea
 };
 
 export const createCleaner = async (
-  data: { host: string; name: string; phone: string; payRate: number; photo?: string; character?: string; availableDays?: number[]; priority?: number },
+  data: { host: string; name: string; phone: string; payRate: number; photo?: string; character?: string; availableDays?: number[]; priority?: number; isOwner?: boolean },
   token: string,
 ): Promise<CleanerType> => {
   const response = await axios.post(`${BACKEND_ENDPOINT}/cleaner/create`, data, auth(token));
@@ -53,6 +54,7 @@ export const updateCleaner = async (
     availableDays?: number[];
     paused?: boolean;
     priority?: number;
+    isOwner?: boolean;
     baselineHours?: number;
     baselineMonth?: string;
   },
