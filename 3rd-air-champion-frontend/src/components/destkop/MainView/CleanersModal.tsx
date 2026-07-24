@@ -773,9 +773,16 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                 const entry = summary.find((s) => s.id === cleaner.id);
                 const thisCount = weekAssignmentCount(cleaner.id, thisMonday);
                 const nextCount = weekAssignmentCount(cleaner.id, nextMonday);
+                // Each item gets a distinct icon + color. The two schedules are
+                // the easy-to-confuse pair, so they wear clearly different colors
+                // (this week = blue, next week = violet) not just different words.
                 const items = [
                   {
                     key: "rules",
+                    icon: "🧹",
+                    tint: "bg-emerald-100 text-emerald-700",
+                    labelColor: "text-gray-900",
+                    accent: "text-emerald-600",
                     label: "Cleaning rules",
                     sub: cleaningRules.trim()
                       ? "Standing quality reminder"
@@ -785,6 +792,10 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                   },
                   {
                     key: "week",
+                    icon: "📅",
+                    tint: "bg-blue-100 text-blue-700",
+                    labelColor: "text-blue-700",
+                    accent: "text-blue-600",
                     label: "This week's schedule",
                     sub: `${format(thisMonday, "MMM d")} – ${format(addDays(thisMonday, 6), "MMM d")} · ${thisCount} room${thisCount === 1 ? "" : "s"}`,
                     disabled: thisCount === 0,
@@ -792,6 +803,10 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                   },
                   {
                     key: "next",
+                    icon: "⏭️",
+                    tint: "bg-violet-100 text-violet-700",
+                    labelColor: "text-violet-700",
+                    accent: "text-violet-600",
                     label: "Next week's schedule",
                     sub: `${format(nextMonday, "MMM d")} – ${format(addDays(nextMonday, 6), "MMM d")} · ${nextCount} room${nextCount === 1 ? "" : "s"}`,
                     disabled: nextCount === 0,
@@ -799,6 +814,10 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                   },
                   {
                     key: "earn",
+                    icon: "💵",
+                    tint: "bg-amber-100 text-amber-700",
+                    labelColor: "text-gray-900",
+                    accent: "text-amber-600",
                     label: "Earnings so far",
                     sub: entry
                       ? `Balance $${Math.round(entry.balance).toLocaleString()}`
@@ -824,16 +843,23 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                             : "border-gray-200 bg-white hover:border-gray-300"
                         }`}
                       >
-                        <span className="min-w-0">
-                          <span className="block text-sm font-semibold text-gray-900">
-                            {it.label}
+                        <span className="flex min-w-0 items-center gap-3">
+                          <span
+                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base ${it.tint}`}
+                          >
+                            {it.icon}
                           </span>
-                          <span className="block truncate text-[11px] text-gray-400">
-                            {it.sub}
+                          <span className="min-w-0">
+                            <span className={`block text-sm font-semibold ${it.labelColor}`}>
+                              {it.label}
+                            </span>
+                            <span className="block truncate text-[11px] text-gray-400">
+                              {it.sub}
+                            </span>
                           </span>
                         </span>
                         {!it.disabled && (
-                          <span className="shrink-0 text-xs font-semibold text-blue-500">
+                          <span className={`shrink-0 text-xs font-semibold ${it.accent}`}>
                             Text ›
                           </span>
                         )}
