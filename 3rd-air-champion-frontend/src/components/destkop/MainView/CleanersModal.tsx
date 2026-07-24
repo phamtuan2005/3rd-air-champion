@@ -12,6 +12,7 @@ import {
   CleanerSummaryType,
   CleaningAssignmentType,
   assignCleaner,
+  autoPlanCleanings,
   createCleaner,
   deleteCleaner,
   fetchAssignments,
@@ -346,6 +347,41 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
     );
     return { assigned: [...totals.entries()].sort((x, y) => y[1] - x[1]), unassignedCount };
   })();
+
+  // Every unassigned room across the 7-morning forecast — the auto-planner's
+  // targets. Existing assignments are left untouched.
+  const unassignedTargets = () => {
+    const targets: { date: string; room: string }[] = [];
+    cleaningForecast.forEach((day) =>
+      day.entries.forEach((e) => {
+        const a = assignmentFor(day.morningKey, e.checkoutBooking.room.id);
+        if (!a?.cleaner) targets.push({ date: day.morningKey, room: e.checkoutBooking.room.id });
+      }),
+    );
+    return targets;
+  };
+
+  const [autoPlanning, setAutoPlanning] = useState(false);
+  const handleAutoPlan = () => {
+    const targets = unassignedTargets();
+    if (targets.length === 0 || autoPlanning) return;
+    setAutoPlanning(true);
+    autoPlanCleanings({ host: hostId, targets }, token)
+      .then((created) => {
+        // Merge the drafted assignments in; you reassign any from here.
+        setAssignments((prev) => [
+          ...prev.filter(
+            (a) => !created.some((c) => c.date === a.date && c.room?.id === a.room?.id),
+          ),
+          ...created,
+        ]);
+        reloadSummary();
+      })
+      .catch((err) =>
+        setError(err.response?.data?.error ?? "Could not auto-plan — please try again"),
+      )
+      .finally(() => setAutoPlanning(false));
+  };
 
   const handleAssign = (cleaner: CleanerType) => {
     if (!assignTarget) return;
@@ -1336,6 +1372,22 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                     </span>
                   )}
                 </div>
+              )}
+
+              {/* Auto-plan: fill every open room with the cleaner history suggests
+                  (frequency + recency + weekday, balanced). You reassign any you'd
+                  change — and that feedback sharpens the next draft. */}
+              {weekTotals.unassignedCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleAutoPlan}
+                  disabled={autoPlanning}
+                  className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-violet-700 disabled:opacity-60"
+                >
+                  {autoPlanning
+                    ? "Planning…"
+                    : `✨ Auto-plan ${weekTotals.unassignedCount} open room${weekTotals.unassignedCount === 1 ? "" : "s"}`}
+                </button>
               )}
 
               {cleaningForecast.map((day) => {

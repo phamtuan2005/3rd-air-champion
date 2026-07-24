@@ -109,6 +109,16 @@ export const assignCleaner = async (
   return response.data;
 };
 
+// Draft a cleaner for each unassigned room from history (frequency + recency +
+// weekday, workload-balanced). Returns the assignments it created.
+export const autoPlanCleanings = async (
+  data: { host: string; targets: { date: string; room: string }[] },
+  token: string,
+): Promise<CleaningAssignmentType[]> => {
+  const response = await axios.post(`${BACKEND_ENDPOINT}/cleaner/autoplan`, data, auth(token));
+  return response.data;
+};
+
 export const unassignCleaner = async (
   data: { host: string; date: string; room: string },
   token: string,

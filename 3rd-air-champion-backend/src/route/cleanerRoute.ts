@@ -176,6 +176,101 @@ router.post("/assign", async (req: Request, res: any) => {
   }
 });
 
+// Auto-plan — draft a cleaner for each unassigned room from HISTORY. No ML:
+// score every active cleaner by how often + how RECENTLY they've cleaned that
+// room (and that weekday), balance the batch so nobody is overloaded, and upsert
+// the assignments. Because the host's own reassignments become tomorrow's
+// history (recency-weighted), the draft self-corrects toward their choices.
+router.post("/autoplan", async (req: Request, res: any) => {
+  const { host, targets } = req.body; // targets: [{ date: "yyyy-MM-dd", room }]
+  if (!host || !Array.isArray(targets))
+    return res.status(400).json({ error: "host and targets[] are required" });
+  try {
+    const cleaners = await Cleaner.find({ host });
+    if (cleaners.length === 0) return res.status(200).json([]);
+    const activeIds = new Set(cleaners.map((c: any) => String(c._id)));
+
+    // Deterministic, TZ-safe weekday + recency decay (half-life 30 days).
+    const DAY = 86_400_000;
+    const dow = (d: string) => new Date(`${d}T12:00:00Z`).getUTCDay();
+    const decay = (d: string) =>
+      Math.pow(2, -Math.max(0, (Date.now() - Date.parse(`${d}T12:00:00Z`)) / DAY) / 30);
+
+    const history = await CleaningAssignment.find({ host, cleaner: { $ne: null } }).select(
+      "cleaner room date"
+    );
+    const roomScore = new Map<string, Map<string, number>>();
+    const roomDowScore = new Map<string, Map<string, number>>();
+    const bump = (m: Map<string, Map<string, number>>, k: string, c: string, v: number) => {
+      const inner = m.get(k) ?? new Map<string, number>();
+      inner.set(c, (inner.get(c) ?? 0) + v);
+      m.set(k, inner);
+    };
+    history.forEach((a: any) => {
+      const c = String(a.cleaner);
+      if (!activeIds.has(c)) return;
+      const room = String(a.room);
+      const w = decay(a.date);
+      bump(roomScore, room, c, w);
+      bump(roomDowScore, `${room}|${dow(a.date)}`, c, w);
+    });
+
+    // Seed balance with existing load in the target window so the draft evens out.
+    const batchLoad = new Map<string, number>(cleaners.map((c: any) => [String(c._id), 0]));
+    const dates = targets.map((t: any) => t.date).filter(Boolean);
+    if (dates.length) {
+      const lo = dates.reduce((a: string, b: string) => (a < b ? a : b));
+      const hi = dates.reduce((a: string, b: string) => (a > b ? a : b));
+      const existing = await CleaningAssignment.find({
+        host,
+        cleaner: { $ne: null },
+        date: { $gte: lo, $lte: hi },
+      }).select("cleaner");
+      existing.forEach((a: any) => {
+        const c = String(a.cleaner);
+        if (batchLoad.has(c)) batchLoad.set(c, (batchLoad.get(c) ?? 0) + 1);
+      });
+    }
+
+    const BALANCE = 0.2; // how strongly to spread work vs. follow room affinity
+    const results: any[] = [];
+    // Earliest first, so balancing is stable across the week.
+    const sorted = [...targets].sort((a: any, b: any) => String(a.date).localeCompare(b.date));
+    for (const t of sorted) {
+      if (!t.date || !t.room) continue;
+      const room = String(t.room);
+      const rs = roomScore.get(room);
+      const rds = roomDowScore.get(`${room}|${dow(t.date)}`);
+      let best: string | null = null;
+      let bestScore = -Infinity;
+      for (const c of cleaners) {
+        const id = String(c._id);
+        const base = (rs?.get(id) ?? 0) + 0.5 * (rds?.get(id) ?? 0);
+        const score = base - BALANCE * (batchLoad.get(id) ?? 0);
+        if (score > bestScore) {
+          bestScore = score;
+          best = id;
+        }
+      }
+      if (!best) continue;
+      const assignment = await CleaningAssignment.findOneAndUpdate(
+        { host, date: t.date, room: t.room },
+        { host, date: t.date, room: t.room, cleaner: best },
+        { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+      );
+      batchLoad.set(best, (batchLoad.get(best) ?? 0) + 1);
+      const populated = await assignment.populate([
+        { path: "room", select: "name" },
+        { path: "cleaner" },
+      ]);
+      results.push(serializeAssignment(populated));
+    }
+    res.status(200).json(results);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.post("/unassign", async (req: Request, res: any) => {
   const { host, date, room } = req.body;
   if (!host || !date || !room)
