@@ -400,7 +400,12 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
         g.assignments.push(a);
         map.set(key, g);
       });
-    return [...map.values()].sort((a, b) => b.date.localeCompare(a.date));
+    // Group by cleaner (so all of Henry's days sit together, then Thalia's),
+    // then most-recent-first within each cleaner.
+    return [...map.values()].sort(
+      (a, b) =>
+        a.cleaner.name.localeCompare(b.cleaner.name) || b.date.localeCompare(a.date),
+    );
   })();
 
   // Once data arrives, land on Hours if recordings are waiting — the most
