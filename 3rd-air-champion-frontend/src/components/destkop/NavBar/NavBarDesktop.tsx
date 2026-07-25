@@ -153,28 +153,37 @@ const NavBarDesktop = ({
           <button
             type="button"
             title="Requests"
-            className={`relative flex flex-1 items-center justify-center gap-1.5 text-white bg-amber-500 px-1.5 py-1 text-xs sm:flex-none sm:px-3 rounded-md whitespace-nowrap ${
-              isRequestManagerOpen ? "drop-shadow-[0_4px_6px_rgba(245,158,11,0.5)]" : ""
+            className={`relative flex flex-1 items-center justify-center gap-1.5 text-white bg-red-600 px-1.5 py-1 text-xs sm:flex-none sm:px-3 rounded-md whitespace-nowrap ${
+              isRequestManagerOpen ? "drop-shadow-[0_4px_6px_rgba(220,38,38,0.5)]" : ""
             }`}
             onClick={() => {
               closeAllPanels();
               setIsRequestManagerOpen(!isRequestManagerOpen);
             }}
           >
-            {/* Feng shui prosperity coins — round, square hole, tied with red string */}
-            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" aria-hidden="true">
-              <path
-                fill="currentColor"
-                fillRule="evenodd"
-                d="M8.5 9.5a6 6 0 1 0 12 0a6 6 0 1 0-12 0ZM12.7 7.7h3.6v3.6h-3.6Z"
-              />
-              <circle cx="9.5" cy="14.5" r="7.4" fill="#f59e0b" />
-              <path
-                fill="currentColor"
-                fillRule="evenodd"
-                d="M3.5 14.5a6 6 0 1 0 12 0a6 6 0 1 0-12 0ZM7.7 12.7h3.6v3.6h-3.6Z"
-              />
-              <circle cx="12.4" cy="5.2" r="1.5" fill="#dc2626" />
+            {/* Gold $ coin — shiny gradient + dark rim so it reads on the amber button */}
+            <svg viewBox="0 0 24 24" className="h-[18px] w-[18px] shrink-0" aria-hidden="true">
+              <defs>
+                <linearGradient id="reqGold" x1="4" y1="3" x2="20" y2="21" gradientUnits="userSpaceOnUse">
+                  <stop offset="0" stopColor="#FEF3C7" />
+                  <stop offset="0.45" stopColor="#FBBF24" />
+                  <stop offset="1" stopColor="#D97706" />
+                </linearGradient>
+              </defs>
+              <circle cx="12" cy="12" r="10.4" fill="url(#reqGold)" stroke="#92400E" strokeWidth="1.3" />
+              <circle cx="12" cy="12" r="7.9" fill="none" stroke="#B45309" strokeWidth="0.8" opacity="0.55" />
+              <text
+                x="12"
+                y="12.2"
+                textAnchor="middle"
+                dominantBaseline="central"
+                fontFamily="Arial, Helvetica, sans-serif"
+                fontSize="13"
+                fontWeight="900"
+                fill="#fff"
+              >
+                $
+              </text>
             </svg>
             Reqs
             {bookingRequestPendingCount > 0 && (
