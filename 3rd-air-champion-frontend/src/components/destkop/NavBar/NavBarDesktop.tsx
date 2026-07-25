@@ -153,7 +153,7 @@ const NavBarDesktop = ({
           <button
             type="button"
             title="Requests"
-            className={`relative flex flex-1 items-center justify-center gap-1.5 text-white bg-violet-600 px-1.5 py-1 text-xs sm:flex-none sm:w-[84px] rounded-md whitespace-nowrap ${
+            className={`relative flex flex-1 items-center justify-center gap-1.5 text-white bg-violet-600 px-1.5 py-1 text-xs sm:flex-none sm:w-[72px] rounded-md whitespace-nowrap ${
               isRequestManagerOpen ? "drop-shadow-[0_4px_6px_rgba(124,58,237,0.5)]" : ""
             }`}
             onClick={() => {
@@ -243,7 +243,7 @@ const NavBarDesktop = ({
             type="button"
             aria-label="Clean"
             title="Clean"
-            className={`relative flex flex-1 items-center justify-center gap-1.5 text-white bg-orange-500 px-1.5 py-1 text-xs sm:flex-none sm:w-[84px] rounded-md whitespace-nowrap ${
+            className={`relative flex flex-1 items-center justify-center gap-1.5 text-white bg-orange-500 px-1.5 py-1 text-xs sm:flex-none sm:w-[72px] rounded-md whitespace-nowrap ${
               isCleanersOpen ? "drop-shadow-[0_4px_6px_rgba(249,115,22,0.5)]" : ""
             }`}
             onClick={() => setIsCleanersOpen((v) => !v)}
