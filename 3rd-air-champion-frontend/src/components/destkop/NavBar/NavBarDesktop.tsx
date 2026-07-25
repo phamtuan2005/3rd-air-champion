@@ -153,7 +153,7 @@ const NavBarDesktop = ({
           <button
             type="button"
             title="Requests"
-            className={`relative flex flex-1 items-center justify-center gap-1.5 text-white bg-violet-600 px-1.5 py-1 text-xs sm:flex-none sm:w-[72px] rounded-md whitespace-nowrap ${
+            className={`relative flex flex-1 items-center justify-center gap-1 text-white bg-violet-600 px-1 py-1 text-xs sm:flex-none sm:w-[62px] rounded-md whitespace-nowrap ${
               isRequestManagerOpen ? "drop-shadow-[0_4px_6px_rgba(124,58,237,0.5)]" : ""
             }`}
             onClick={() => {
@@ -162,7 +162,7 @@ const NavBarDesktop = ({
             }}
           >
             {/* Gold $ coin — shiny gradient + dark rim so it reads on the amber button */}
-            <svg viewBox="0 0 24 24" className="h-[18px] w-[18px] shrink-0" aria-hidden="true">
+            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" aria-hidden="true">
               <defs>
                 <linearGradient id="reqGold" x1="4" y1="3" x2="20" y2="21" gradientUnits="userSpaceOnUse">
                   <stop offset="0" stopColor="#FEF3C7" />
@@ -243,7 +243,7 @@ const NavBarDesktop = ({
             type="button"
             aria-label="Clean"
             title="Clean"
-            className={`relative flex flex-1 items-center justify-center gap-1.5 text-white bg-orange-500 px-1.5 py-1 text-xs sm:flex-none sm:w-[72px] rounded-md whitespace-nowrap ${
+            className={`relative flex flex-1 items-center justify-center gap-1 text-white bg-orange-500 px-1 py-1 text-xs sm:flex-none sm:w-[62px] rounded-md whitespace-nowrap ${
               isCleanersOpen ? "drop-shadow-[0_4px_6px_rgba(249,115,22,0.5)]" : ""
             }`}
             onClick={() => setIsCleanersOpen((v) => !v)}
