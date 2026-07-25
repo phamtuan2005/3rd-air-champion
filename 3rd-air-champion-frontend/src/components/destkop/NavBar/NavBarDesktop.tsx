@@ -153,8 +153,8 @@ const NavBarDesktop = ({
           <button
             type="button"
             title="Requests"
-            className={`relative flex flex-1 items-center justify-center gap-1.5 text-white bg-red-600 px-1.5 py-1 text-xs sm:flex-none sm:px-3 rounded-md whitespace-nowrap ${
-              isRequestManagerOpen ? "drop-shadow-[0_4px_6px_rgba(220,38,38,0.5)]" : ""
+            className={`relative flex flex-1 items-center justify-center gap-1.5 text-white bg-violet-600 px-1.5 py-1 text-xs sm:flex-none sm:px-3 rounded-md whitespace-nowrap ${
+              isRequestManagerOpen ? "drop-shadow-[0_4px_6px_rgba(124,58,237,0.5)]" : ""
             }`}
             onClick={() => {
               closeAllPanels();
