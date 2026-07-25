@@ -1,6 +1,6 @@
 import { useContext, useState } from "react";
 import { createPortal } from "react-dom";
-import { FaBroom, FaInbox } from "react-icons/fa";
+import { FaBroom } from "react-icons/fa";
 import ProfileDesktop from "./ProfileDesktop";
 import { FooterContext, GuestModeContext } from "../../../context";
 
@@ -161,7 +161,21 @@ const NavBarDesktop = ({
               setIsRequestManagerOpen(!isRequestManagerOpen);
             }}
           >
-            <FaInbox className="text-[13px]" aria-hidden="true" />
+            {/* Feng shui prosperity coins — round, square hole, tied with red string */}
+            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" aria-hidden="true">
+              <path
+                fill="currentColor"
+                fillRule="evenodd"
+                d="M8.5 9.5a6 6 0 1 0 12 0a6 6 0 1 0-12 0ZM12.7 7.7h3.6v3.6h-3.6Z"
+              />
+              <circle cx="9.5" cy="14.5" r="7.4" fill="#f59e0b" />
+              <path
+                fill="currentColor"
+                fillRule="evenodd"
+                d="M3.5 14.5a6 6 0 1 0 12 0a6 6 0 1 0-12 0ZM7.7 12.7h3.6v3.6h-3.6Z"
+              />
+              <circle cx="12.4" cy="5.2" r="1.5" fill="#dc2626" />
+            </svg>
             Reqs
             {bookingRequestPendingCount > 0 && (
               <span className="absolute -top-4 left-1/2 -translate-x-1/2 min-w-[20px] h-5 px-1 rounded-full bg-yellow-400 text-black text-[10px] font-bold flex items-center justify-center leading-none">
