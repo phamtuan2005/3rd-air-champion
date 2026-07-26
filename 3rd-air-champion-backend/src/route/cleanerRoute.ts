@@ -2,6 +2,7 @@ import express, { Request } from "express";
 import mongoose from "mongoose";
 import Cleaner from "../model/cleanerSchema";
 import CleaningAssignment from "../model/cleaningAssignmentSchema";
+import SentSchedule from "../model/sentScheduleSchema";
 
 // All routes here are mounted behind the JWT middleware in server.ts.
 const router = express.Router();
@@ -445,6 +446,45 @@ router.patch("/hours", async (req: Request, res: any) => {
       .populate("cleaner");
     if (!assignment) return res.status(404).json({ error: "Assignment not found" });
     res.status(200).json(serializeAssignment(assignment));
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ── Sent-schedule tracking (drift detection) ─────────────────────────────────
+
+const serializeSent = (d: any) => ({
+  cleaner: String(d.cleaner),
+  weekMonday: d.weekMonday,
+  signature: d.signature ?? "",
+  sentAt: d.updatedAt,
+});
+
+// Record what was just texted to a cleaner for a week (upsert per cleaner+week).
+router.post("/schedule-sent", async (req: Request, res: any) => {
+  const { host, cleaner, weekMonday, signature } = req.body;
+  if (!host || !cleaner || !weekMonday)
+    return res.status(400).json({ error: "host, cleaner, and weekMonday are required" });
+  try {
+    const doc = await SentSchedule.findOneAndUpdate(
+      { host, cleaner, weekMonday },
+      { host, cleaner, weekMonday, signature: signature ?? "" },
+      { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+    );
+    res.status(200).json(serializeSent(doc));
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// All sent-schedule snapshots for the host — the frontend compares each to the
+// live schedule to flag drift ("changed since sent → re-send").
+router.get("/schedule-sent", async (req: Request, res: any) => {
+  const { hostId } = req.query;
+  if (!hostId) return res.status(400).json({ error: "hostId is required" });
+  try {
+    const docs = await SentSchedule.find({ host: hostId });
+    res.status(200).json(docs.map(serializeSent));
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

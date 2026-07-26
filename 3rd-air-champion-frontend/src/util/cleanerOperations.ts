@@ -96,6 +96,34 @@ export const recordCleanerPayment = async (
   await axios.post(`${BACKEND_ENDPOINT}/cleaner/pay`, { id, amount }, auth(token));
 };
 
+export interface SentScheduleType {
+  cleaner: string; // cleaner id
+  weekMonday: string; // yyyy-MM-dd
+  signature: string;
+  sentAt: string;
+}
+
+// The schedule last texted to each cleaner per week (shared across host + cohosts).
+export const fetchSentSchedules = async (
+  hostId: string,
+  token: string,
+): Promise<SentScheduleType[]> => {
+  const response = await axios.get(`${BACKEND_ENDPOINT}/cleaner/schedule-sent`, {
+    params: { hostId },
+    ...auth(token),
+  });
+  return response.data;
+};
+
+// Record what was just texted (upsert per cleaner + week).
+export const recordScheduleSent = async (
+  data: { host: string; cleaner: string; weekMonday: string; signature: string },
+  token: string,
+): Promise<SentScheduleType> => {
+  const response = await axios.post(`${BACKEND_ENDPOINT}/cleaner/schedule-sent`, data, auth(token));
+  return response.data;
+};
+
 export const fetchAssignments = async (
   hostId: string,
   start: string,

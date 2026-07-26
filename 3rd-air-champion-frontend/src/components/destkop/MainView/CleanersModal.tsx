@@ -18,6 +18,8 @@ import {
   fetchAssignments,
   fetchCleaners,
   fetchCleanerSummary,
+  fetchSentSchedules,
+  recordScheduleSent,
   recordCleanerPayment,
   unassignCleaner,
   updateAssignmentHours,
@@ -214,6 +216,9 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
   const [cleaners, setCleaners] = useState<CleanerType[]>([]);
   const [assignments, setAssignments] = useState<CleaningAssignmentType[]>([]);
   const [summary, setSummary] = useState<CleanerSummaryType[]>([]);
+  // Signature of the schedule last TEXTED per cleaner+week (from the backend,
+  // shared with cohosts) — compared to the live schedule to flag drift.
+  const [sentSchedules, setSentSchedules] = useState<Record<string, { signature: string; sentAt: string }>>({});
   // Pay / Hours / Week / Upcoming / Team tabs — everything in one scroll was overcrowded
   const [activeTab, setActiveTab] = useState<
     "roster" | "hours" | "pay" | "week" | "upcoming"
@@ -556,6 +561,15 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
     fetchAssignments(hostId, start, end, token)
       .then(setAssignments)
       .catch((err) => console.error("Error fetching assignments:", err));
+    fetchSentSchedules(hostId, token)
+      .then((rows) =>
+        setSentSchedules(
+          Object.fromEntries(
+            rows.map((r) => [`${r.cleaner}|${r.weekMonday}`, { signature: r.signature, sentAt: r.sentAt }]),
+          ),
+        ),
+      )
+      .catch((err) => console.error("Error fetching sent schedules:", err));
     reloadSummary();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hostId, token]);
@@ -775,6 +789,46 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
     return null;
   };
 
+  // ── Sent-schedule drift ("re-send" flags) ──
+  const sentKey = (cleanerId: string, monday: Date) =>
+    `${cleanerId}|${format(monday, "yyyy-MM-dd")}`;
+  // Signature of a cleaner's LIVE schedule for a fixed week — date|room|guests
+  // per non-stale assignment, matching what the SMS conveys (so a changed guest
+  // count also counts as a change worth re-sending).
+  const scheduleSignature = (cleanerId: string, monday: Date) => {
+    const d0 = format(monday, "yyyy-MM-dd");
+    const d6 = format(addDays(monday, 6), "yyyy-MM-dd");
+    return assignments
+      .filter(
+        (a) =>
+          a.cleaner?.id === cleanerId &&
+          a.room &&
+          a.date >= d0 &&
+          a.date <= d6 &&
+          !isStaleCleaning(a.room.id, a.date),
+      )
+      .map((a) => `${a.date}:${a.room!.id}:${nextGuestCount(a.room!.id, a.date) ?? ""}`)
+      .sort()
+      .join("|");
+  };
+  // "empty" (nothing to clean) | "unsent" | "sent" (matches) | "changed" (drifted)
+  const scheduleStatus = (cleanerId: string, monday: Date) => {
+    const sig = scheduleSignature(cleanerId, monday);
+    if (!sig) return "empty" as const;
+    const rec = sentSchedules[sentKey(cleanerId, monday)];
+    if (!rec) return "unsent" as const;
+    return rec.signature === sig ? ("sent" as const) : ("changed" as const);
+  };
+  // Owed an updated text: a week already sent has since drifted from the plan.
+  const cleanerNeedsResend = (cleanerId: string) =>
+    scheduleStatus(cleanerId, thisMonday) === "changed" ||
+    scheduleStatus(cleanerId, nextMonday) === "changed";
+  // Suffix for a schedule menu item's subtext.
+  const scheduleTag = (cleanerId: string, monday: Date) => {
+    const st = scheduleStatus(cleanerId, monday);
+    return st === "changed" ? " · ⚠️ changed — re-send" : st === "sent" ? " · ✓ sent" : "";
+  };
+
   // One SMS per cleaner, bound to the FIXED selected week — the message a
   // cleaner receives never depends on which day the host happens to send it.
   const textSchedule = (cleaner: CleanerType, monday: Date) => {
@@ -806,6 +860,20 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
     const weekLabel = `${format(monday, "MMM d")} – ${format(addDays(monday, 6), "MMM d")}`;
     const message = `Hi ${cleaner.name}, your cleaning schedule for ${weekLabel}:\n${lines.join("\n")}\n(numbers = guests arriving)\n\nThank you for your wonderful work! Together, we work hard so our guests always feel comfortable — that is TT House's promise to every guest:\n"Your comfort. Our mission." 🏠 — Anh-Tuan`;
     window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(message)}`;
+    // Remember exactly what we sent (shared via backend) so later drift from the
+    // live plan flags a re-send — for you and any cohost.
+    const sig = scheduleSignature(cleaner.id, monday);
+    recordScheduleSent(
+      { host: hostId, cleaner: cleaner.id, weekMonday: d0, signature: sig },
+      token,
+    )
+      .then(() =>
+        setSentSchedules((p) => ({
+          ...p,
+          [sentKey(cleaner.id, monday)]: { signature: sig, sentAt: new Date().toISOString() },
+        })),
+      )
+      .catch(() => {});
   };
 
   // A standing quality reminder (comforter/pillow covers laundered, etc.) the
@@ -1025,7 +1093,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                     labelColor: "text-blue-700",
                     accent: "text-blue-600",
                     label: "This week's schedule",
-                    sub: `${format(thisMonday, "MMM d")} – ${format(addDays(thisMonday, 6), "MMM d")} · ${thisCount} room${thisCount === 1 ? "" : "s"}`,
+                    sub: `${format(thisMonday, "MMM d")} – ${format(addDays(thisMonday, 6), "MMM d")} · ${thisCount} room${thisCount === 1 ? "" : "s"}${scheduleTag(cleaner.id, thisMonday)}`,
                     disabled: thisCount === 0,
                     run: () => textSchedule(cleaner, thisMonday),
                   },
@@ -1036,7 +1104,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                     labelColor: "text-violet-700",
                     accent: "text-violet-600",
                     label: "Next week's schedule",
-                    sub: `${format(nextMonday, "MMM d")} – ${format(addDays(nextMonday, 6), "MMM d")} · ${nextCount} room${nextCount === 1 ? "" : "s"}`,
+                    sub: `${format(nextMonday, "MMM d")} – ${format(addDays(nextMonday, 6), "MMM d")} · ${nextCount} room${nextCount === 1 ? "" : "s"}${scheduleTag(cleaner.id, nextMonday)}`,
                     disabled: nextCount === 0,
                     run: () => textSchedule(cleaner, nextMonday),
                   },
@@ -1194,15 +1262,24 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                     reads like TiMag is imposing something on the cleaner */}
                 <button
                   type="button"
-                  className={`${pillNeutral} ${!cleaner.phone ? "opacity-40" : ""}`}
+                  className={`relative ${pillNeutral} ${!cleaner.phone ? "opacity-40" : ""}`}
                   disabled={!cleaner.phone}
-                  title={cleaner.phone ? "Message this cleaner" : "Add a phone number to text"}
+                  title={
+                    cleanerNeedsResend(cleaner.id)
+                      ? "Schedule changed since you last sent — re-send"
+                      : cleaner.phone
+                        ? "Message this cleaner"
+                        : "Add a phone number to text"
+                  }
                   onClick={() => {
                     setSwipeOpenId(null);
                     setMsgMenuId(cleaner.id);
                   }}
                 >
                   💬 Message
+                  {cleanerNeedsResend(cleaner.id) && (
+                    <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-amber-500 ring-2 ring-white" />
+                  )}
                 </button>
                 <button
                   type="button"
