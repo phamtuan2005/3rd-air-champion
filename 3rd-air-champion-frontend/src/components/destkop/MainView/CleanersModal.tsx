@@ -343,8 +343,23 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
   const weekDates = Array.from({ length: 7 }, (_, i) =>
     format(addDays(weekMonday, i), "yyyy-MM-dd"),
   );
+  // A cleaning morning is real only if a stay actually checked out the night
+  // before. If the room is mid-continuous-stay that morning (a guest slept there
+  // the prior night and is NOT leaving), there was no turnover — so an assignment
+  // for it is STALE (e.g. a probable clean a later multi-night booking absorbed).
+  // Self-heals: cancel the booking and the assignment shows again.
+  const isStaleCleaning = (roomId: string, morningKey: string) => {
+    const prevNight = format(addDays(new Date(morningKey + "T00:00:00"), -1), "yyyy-MM-dd");
+    const occupant = monthMap.get(prevNight)?.bookings.find((b) => b.room?.id === roomId);
+    return !!occupant && occupant.endDate.split("T")[0] !== prevNight;
+  };
   const weekAssignments = assignments.filter(
-    (a) => a.date >= weekDates[0] && a.date <= weekDates[6] && a.cleaner && a.room,
+    (a) =>
+      a.date >= weekDates[0] &&
+      a.date <= weekDates[6] &&
+      a.cleaner &&
+      a.room &&
+      !isStaleCleaning(a.room.id, a.date),
   );
 
   // Fixed Monday of this/next week. The Team-tab Message menu offers both
@@ -356,7 +371,12 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
     const d0 = format(monday, "yyyy-MM-dd");
     const d6 = format(addDays(monday, 6), "yyyy-MM-dd");
     return assignments.filter(
-      (a) => a.cleaner?.id === cleanerId && a.room && a.date >= d0 && a.date <= d6,
+      (a) =>
+        a.cleaner?.id === cleanerId &&
+        a.room &&
+        a.date >= d0 &&
+        a.date <= d6 &&
+        !isStaleCleaning(a.room.id, a.date),
     ).length;
   };
 
@@ -763,7 +783,12 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
     const d6 = format(addDays(monday, 6), "yyyy-MM-dd");
     const mine = assignments
       .filter(
-        (a) => a.cleaner?.id === cleaner.id && a.room && a.date >= d0 && a.date <= d6,
+        (a) =>
+          a.cleaner?.id === cleaner.id &&
+          a.room &&
+          a.date >= d0 &&
+          a.date <= d6 &&
+          !isStaleCleaning(a.room.id, a.date),
       )
       .sort((a, b) => a.date.localeCompare(b.date));
     if (mine.length === 0) return;
