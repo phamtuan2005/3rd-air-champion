@@ -741,25 +741,37 @@ const CalendarGrid = ({
     >
       {displayLayouts.map((layout, index) => {
         const inWindow = Math.abs(index - visibleIndex) <= 1;
+        // Guest/lane mode packs rows short, so numRows balloons and a single
+        // month leaves many empty week-rows below it (a big blank gap). Render
+        // only the week-rows this month actually uses and stretch them to fill
+        // (1fr) — no empty rows, and since fewer rows only makes each TALLER,
+        // nothing drops below the minimum height. Normal mode keeps its fixed
+        // px rows + multi-page splitting untouched.
+        const laneFill = !!overrideRooms;
+        const lastFilled = layout.cells.reduce((m, c, i) => (c ? i : m), -1);
+        const usedRows = Math.max(Math.ceil((lastFilled + 1) / 7), 1);
+        const cells = laneFill ? layout.cells.slice(0, usedRows * 7) : layout.cells;
         return (
           <div
             key={index}
             className="snap-start h-full main-calendar-wrapper"
             ref={index === visibleIndex ? calendarWrapperRef : undefined}
           >
-            {inWindow && layout.cells.length > 0 && (
+            {inWindow && cells.length > 0 && (
               <div
                 style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(7, 1fr)",
-                  gridTemplateRows: `repeat(${numRows}, ${rowHeight}px)`,
+                  gridTemplateRows: laneFill
+                    ? `repeat(${usedRows}, minmax(${minRowHeight}px, 1fr))`
+                    : `repeat(${numRows}, ${rowHeight}px)`,
                   height: "100%",
                   width: "100%",
                   borderTop: "1px solid #d1d5db",
                   borderLeft: "1px solid #d1d5db",
                 }}
               >
-                {layout.cells.map((date, cellIdx) => {
+                {cells.map((date, cellIdx) => {
                   if (!date) return <div key={cellIdx} />;
                   const classes = getTileClasses(date, layout.month);
                   const content = getTileContent(date);
