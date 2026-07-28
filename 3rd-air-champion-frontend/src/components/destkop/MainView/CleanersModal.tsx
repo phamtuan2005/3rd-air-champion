@@ -2351,6 +2351,10 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                     <span>This month's work (gross)</span>
                     <span className="font-semibold">${subtotal.toFixed(2)}</span>
                   </div>
+                  <div className="flex items-center justify-between px-1 text-[11px] text-gray-400">
+                    <span>Paid so far (all-time)</span>
+                    <span className="font-semibold">${entry.paid.toFixed(2)}</span>
+                  </div>
                   <p className="mt-0.5 px-1 text-[10px] text-gray-400">
                     A record of recent work — not the amount due. What you owe is the Balance owed above
                     (already net of everything you've paid).
