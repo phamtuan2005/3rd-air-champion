@@ -574,8 +574,16 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hostId, token]);
 
-  // Past (or today's) cleanings whose hours haven't been recorded yet
-  const needHours = assignments.filter((a) => a.date <= todayKey && a.hours == null && a.cleaner);
+  // Past (or today's) cleanings whose hours haven't been recorded yet — excluding
+  // stale ones (a room a continuous stay absorbed still needs no cleaning).
+  const needHours = assignments.filter(
+    (a) =>
+      a.date <= todayKey &&
+      a.hours == null &&
+      a.cleaner &&
+      a.room &&
+      !isStaleCleaning(a.room.id, a.date),
+  );
 
   // A cleaner reports ONE daily total, not a figure per room — group the
   // finished cleanings by cleaner + date so the host enters a single number.
