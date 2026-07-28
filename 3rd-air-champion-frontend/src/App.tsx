@@ -12,15 +12,6 @@ import {
   GuestModeContext,
 } from "./context";
 
-const formatPhone = (raw: string) => {
-  const digits = raw.replace(/\D/g, "");
-  if (digits.length === 10)
-    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-  if (digits.length === 11 && digits[0] === "1")
-    return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
-  return raw;
-};
-
 function App() {
   useEffect(() => { document.title = "TiMag"; }, []);
 
@@ -273,41 +264,6 @@ function App() {
                     cancellationHalfRefundDays={airBnBInfo.cancellationHalfRefundDays === "" ? undefined : airBnBInfo.cancellationHalfRefundDays}
                   ></MainView>
                 </div>
-
-                <footer
-                  className={`fixed bottom-0 left-0 right-0 z-40 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] p-2 transition-transform duration-300 ${isFooterVisible ? "translate-y-0" : "translate-y-full"}`}
-                >
-                  <p className="text-xs text-center leading-relaxed">
-                    {airBnBInfo.licenseNumber && (
-                      <>
-                        {airBnBInfo.airbnbName} is permitted for STR. License#{" "}
-                        {airBnBInfo.licenseNumber}
-                        {airBnBInfo.phone ||
-                        airBnBInfo.contactEmail ||
-                        airBnBInfo.airbnbAddress
-                          ? "  |  "
-                          : ""}
-                      </>
-                    )}
-                    {airBnBInfo.phone && (
-                      <>
-                        {formatPhone(airBnBInfo.phone)}
-                        {airBnBInfo.contactEmail || airBnBInfo.airbnbAddress
-                          ? "  |  "
-                          : ""}
-                      </>
-                    )}
-                    {airBnBInfo.contactEmail && (
-                      <>
-                        {airBnBInfo.contactEmail}
-                        {airBnBInfo.airbnbAddress ? "  |  " : ""}
-                      </>
-                    )}
-                    {airBnBInfo.airbnbAddress && (
-                      <>{airBnBInfo.airbnbAddress.replace("\n", ", ")}</>
-                    )}
-                  </p>
-                </footer>
               </div>
             </AddPaneContext.Provider>
           </isSyncModalOpenContext.Provider>

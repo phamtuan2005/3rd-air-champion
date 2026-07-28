@@ -12,7 +12,8 @@ import { guestType } from "../../../util/types/guestType";
 import { createGuest, deleteGuest, updateGuest, updateGuestPricing } from "../../../util/guestOperations";
 import GuestView from "./GuestView/GuestView";
 import BookButton from "../BookButton";
-import { AddPaneContext, GuestModeContext, isSyncModalOpenContext } from "../../../context";
+import { AddPaneContext, FooterContext, GuestModeContext, isSyncModalOpenContext } from "../../../context";
+import { formatPhone } from "../../../util/formatPhone";
 import DetailsModal from "./GuestView/DetailsModal";
 import { updateBookingGuest, updateBookingAirbnbPrice, updateBookingReserved, updateUnbookGuest } from "../../../util/bookingOperations";
 import { fetchAssignments } from "../../../util/cleanerOperations";
@@ -138,6 +139,11 @@ const MainView = ({
 
   const { currentGuest, setCurrentGuest, currentAirBnBGuest, setCurrentAirBnBGuest } =
     useContext(GuestModeContext)!;
+
+  // Contact-info banner — rendered in-flow right under the calendar (not a
+  // viewport-pinned overlay) so it stays attached even when guest-filter mode
+  // shrinks the calendar to a short lane-packed view.
+  const { isFooterVisible, phone, contactEmail, licenseNumber } = useContext(FooterContext)!;
 
   // ── Local UI state ────────────────────────────────────────────────────────
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
@@ -708,6 +714,35 @@ const MainView = ({
               gapsMode={gapsMode}
               onTodayInViewChange={setTodayInView}
             />
+            {/* Contact-info banner, hugging the bottom edge of the calendar. In-flow
+                (flex-shrink-0) so it sits seamlessly under the grid instead of floating
+                at the viewport bottom — matters most in guest-filter mode where the
+                lane-packed calendar is short. Toggled via "Show Contact Info". */}
+            {isFooterVisible && (licenseNumber || phone || contactEmail || airbnbName || airbnbAddress) && (
+              <div className="flex-shrink-0 border-t border-gray-300 bg-white shadow-[0_-2px_4px_-2px_rgba(0,0,0,0.08)] px-3 py-1.5">
+                <p className="text-xs text-center leading-relaxed text-gray-700">
+                  {licenseNumber && (
+                    <>
+                      {airbnbName} is permitted for STR. License# {licenseNumber}
+                      {phone || contactEmail || airbnbAddress ? "  |  " : ""}
+                    </>
+                  )}
+                  {phone && (
+                    <>
+                      {formatPhone(phone)}
+                      {contactEmail || airbnbAddress ? "  |  " : ""}
+                    </>
+                  )}
+                  {contactEmail && (
+                    <>
+                      {contactEmail}
+                      {airbnbAddress ? "  |  " : ""}
+                    </>
+                  )}
+                  {airbnbAddress && <>{airbnbAddress.replace("\n", ", ")}</>}
+                </p>
+              </div>
+            )}
             {/* Floating hold bar — appears once dates are double-tapped into the amber
                 selection. Confirms holds → firm, or downgrades firm → hold, per what's
                 selected. z-[60] keeps it above the guest contact panel (z-50); drag to move. */}
