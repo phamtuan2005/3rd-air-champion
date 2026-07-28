@@ -39,6 +39,11 @@ import MissingProfitModal from "./MissingProfitModal";
 import IcsModal from "./IcsModal";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 
+// Contact-info bottom-sheet heights (px).
+const CONTACT_HANDLE_H = 30; // minimized: just the grip
+const CONTACT_OPEN_H = 116; // comfortable height showing the full info
+const CONTACT_MAX_H = 260;
+
 interface MainViewProps {
   calendarId: string;
   hostId: string;
@@ -140,10 +145,34 @@ const MainView = ({
   const { currentGuest, setCurrentGuest, currentAirBnBGuest, setCurrentAirBnBGuest } =
     useContext(GuestModeContext)!;
 
-  // Contact-info banner — rendered in-flow right under the calendar (not a
-  // viewport-pinned overlay) so it stays attached even when guest-filter mode
-  // shrinks the calendar to a short lane-packed view.
+  // Contact-info sheet — a draggable bottom sheet the host can pull up when they
+  // want the property/license details and minimize away when they don't, so it
+  // never eats calendar space (esp. the short lane-packed guest-filter view).
   const { isFooterVisible, phone, contactEmail, licenseNumber } = useContext(FooterContext)!;
+  const [contactSheetH, setContactSheetH] = useState(CONTACT_HANDLE_H);
+  const contactDragRef = useRef<{ y: number; h: number; moved: boolean } | null>(null);
+  const onContactDragStart = (e: React.PointerEvent) => {
+    contactDragRef.current = { y: e.clientY, h: contactSheetH, moved: false };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const onContactDragMove = (e: React.PointerEvent) => {
+    const d = contactDragRef.current;
+    if (!d) return;
+    const dy = d.y - e.clientY; // drag up ⇒ taller
+    if (Math.abs(dy) > 3) d.moved = true;
+    setContactSheetH(Math.min(CONTACT_MAX_H, Math.max(CONTACT_HANDLE_H, d.h + dy)));
+  };
+  const onContactDragEnd = () => {
+    const d = contactDragRef.current;
+    contactDragRef.current = null;
+    // A tap (no real drag) toggles between minimized and open.
+    if (d && !d.moved)
+      setContactSheetH((h) => (h > CONTACT_HANDLE_H + 8 ? CONTACT_HANDLE_H : CONTACT_OPEN_H));
+  };
+  // Whenever the host re-enables "Show Contact Info", pop it open.
+  useEffect(() => {
+    setContactSheetH(isFooterVisible ? CONTACT_OPEN_H : CONTACT_HANDLE_H);
+  }, [isFooterVisible]);
 
   // ── Local UI state ────────────────────────────────────────────────────────
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
@@ -714,33 +743,52 @@ const MainView = ({
               gapsMode={gapsMode}
               onTodayInViewChange={setTodayInView}
             />
-            {/* Contact-info banner, hugging the bottom edge of the calendar. In-flow
-                (flex-shrink-0) so it sits seamlessly under the grid instead of floating
-                at the viewport bottom — matters most in guest-filter mode where the
-                lane-packed calendar is short. Toggled via "Show Contact Info". */}
+            {/* Contact-info sheet — a draggable bottom sheet. Pull the grip up to
+                reveal the property/license details, tap or drag it down to minimize
+                to a slim handle, so it never covers the calendar unless wanted.
+                Fixed overlay (calendar stays compact and untouched). z-40 sits below
+                the hold bar (z-[60]) and modals (z-50). */}
             {isFooterVisible && (licenseNumber || phone || contactEmail || airbnbName || airbnbAddress) && (
-              <div className="flex-shrink-0 border-t border-gray-300 bg-white shadow-[0_-2px_4px_-2px_rgba(0,0,0,0.08)] px-3 py-1.5">
-                <p className="text-xs text-center leading-relaxed text-gray-700">
-                  {licenseNumber && (
-                    <>
-                      {airbnbName} is permitted for STR. License# {licenseNumber}
-                      {phone || contactEmail || airbnbAddress ? "  |  " : ""}
-                    </>
-                  )}
-                  {phone && (
-                    <>
-                      {formatPhone(phone)}
-                      {contactEmail || airbnbAddress ? "  |  " : ""}
-                    </>
-                  )}
-                  {contactEmail && (
-                    <>
-                      {contactEmail}
-                      {airbnbAddress ? "  |  " : ""}
-                    </>
-                  )}
-                  {airbnbAddress && <>{airbnbAddress.replace("\n", ", ")}</>}
-                </p>
+              <div
+                className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-300 rounded-t-2xl shadow-[0_-6px_16px_-6px_rgba(0,0,0,0.25)] flex flex-col overflow-hidden"
+                style={{ height: contactSheetH, touchAction: "none" }}
+              >
+                {/* Drag handle */}
+                <div
+                  className="flex-shrink-0 flex items-center justify-center h-[30px] cursor-grab active:cursor-grabbing select-none relative"
+                  onPointerDown={onContactDragStart}
+                  onPointerMove={onContactDragMove}
+                  onPointerUp={onContactDragEnd}
+                >
+                  <span className="h-1.5 w-10 rounded-full bg-gray-300" />
+                  <span className="absolute right-3 text-[10px] font-medium uppercase tracking-wide text-gray-400">
+                    {contactSheetH > CONTACT_HANDLE_H + 8 ? "Contact ⌄" : "Contact ⌃"}
+                  </span>
+                </div>
+                {/* Info */}
+                <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-3">
+                  <p className="text-xs text-center leading-relaxed text-gray-700">
+                    {licenseNumber && (
+                      <>
+                        {airbnbName} is permitted for STR. License# {licenseNumber}
+                        {phone || contactEmail || airbnbAddress ? "  |  " : ""}
+                      </>
+                    )}
+                    {phone && (
+                      <>
+                        {formatPhone(phone)}
+                        {contactEmail || airbnbAddress ? "  |  " : ""}
+                      </>
+                    )}
+                    {contactEmail && (
+                      <>
+                        {contactEmail}
+                        {airbnbAddress ? "  |  " : ""}
+                      </>
+                    )}
+                    {airbnbAddress && <>{airbnbAddress.replace("\n", ", ")}</>}
+                  </p>
+                </div>
               </div>
             )}
             {/* Floating hold bar — appears once dates are double-tapped into the amber
