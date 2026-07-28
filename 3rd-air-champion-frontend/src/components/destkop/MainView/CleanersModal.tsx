@@ -922,7 +922,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
       `Hi ${cleaner.name}, here's your cleaning summary so far:`,
       // Recent detail (this month's recorded days)
       ...(lines.length
-        ? ["", `This month (${monthLabel}) — ${formatHrMin(totalHrs)}, $${subtotal.toFixed(2)}:`, ...lines]
+        ? ["", `Your work this month (${monthLabel}) — ${formatHrMin(totalHrs)} = $${subtotal.toFixed(2)} gross:`, ...lines]
         : []),
       "",
       // Running totals — the number a cleaner saving toward a target watches
@@ -2309,12 +2309,19 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
 
                 <div className="min-h-0 flex-1 overflow-y-auto p-4">
                   {error && <p className="mb-2 text-xs font-semibold text-red-500">{error}</p>}
-                  {/* Balance owed */}
-                  <div className="mb-3 flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-                    <span className="text-sm font-semibold text-emerald-700">Balance owed</span>
-                    <span className="text-2xl font-bold text-emerald-700">
-                      ${Math.round(entry.balance).toLocaleString()}
-                    </span>
+                  {/* Balance owed — with the reconciliation spelled out so it's
+                      clear WHY it's less than the gross monthly hours below. */}
+                  <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-emerald-700">Balance owed</span>
+                      <span className="text-2xl font-bold text-emerald-700">
+                        ${Math.round(entry.balance).toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-[11px] text-emerald-600">
+                      all-time earned ${Math.round(entry.earned).toLocaleString()} − paid $
+                      {Math.round(entry.paid).toLocaleString()}
+                    </p>
                   </div>
 
                   {/* Hours by date — scrolls so a heavy month never runs long */}
@@ -2340,10 +2347,14 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                       ))
                     )}
                   </div>
-                  <div className="mt-1 flex items-center justify-between px-1 text-xs">
-                    <span className="font-semibold text-gray-700">Subtotal</span>
-                    <span className="font-bold text-gray-900">${subtotal.toFixed(2)}</span>
+                  <div className="mt-1 flex items-center justify-between px-1 text-[11px] text-gray-400">
+                    <span>This month's work (gross)</span>
+                    <span className="font-semibold">${subtotal.toFixed(2)}</span>
                   </div>
+                  <p className="mt-0.5 px-1 text-[10px] text-gray-400">
+                    A record of recent work — not the amount due. What you owe is the Balance owed above
+                    (already net of everything you've paid).
+                  </p>
 
                   {/* Tip + statement total */}
                   <div className="mt-2 flex items-center justify-between gap-2">
@@ -2359,9 +2370,11 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                     />
                   </div>
                   <div className="mt-1 flex items-center justify-between text-sm">
-                    <span className="font-semibold text-gray-700">Statement total</span>
+                    <span className="font-semibold text-gray-700">
+                      To pay{tip > 0 ? " (incl. tip)" : ""}
+                    </span>
                     <span className="font-bold text-emerald-600">
-                      ${(subtotal + tip).toFixed(2)}
+                      ${(Math.max(0, entry.balance) + tip).toFixed(2)}
                     </span>
                   </div>
 
