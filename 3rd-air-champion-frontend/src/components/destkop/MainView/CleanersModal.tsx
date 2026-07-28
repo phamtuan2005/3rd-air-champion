@@ -2028,7 +2028,20 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
               >
                 <CleanerAvatar id={entry.id} name={entry.name} />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-gray-900">{entry.name}</p>
+                  {/* Tap the name to text this cleaner their earnings-so-far;
+                      tap elsewhere on the row to open pay/payout detail. */}
+                  <p className="truncate text-sm font-semibold text-gray-900">
+                    <span
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        textPayment(entry);
+                      }}
+                      title={`Text ${entry.name.split(" ")[0]} their earnings so far`}
+                      className="cursor-pointer underline decoration-dotted decoration-gray-300 underline-offset-2 hover:text-emerald-600"
+                    >
+                      {entry.name}
+                    </span>
+                  </p>
                   <p className="text-xs text-gray-500">
                     {formatHrMin(entry.hours)} · earned ${Math.round(entry.earned).toLocaleString()} · paid $
                     {Math.round(entry.paid).toLocaleString()}
