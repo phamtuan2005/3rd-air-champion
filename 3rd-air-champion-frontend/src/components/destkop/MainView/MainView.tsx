@@ -150,9 +150,19 @@ const MainView = ({
   // never eats calendar space (esp. the short lane-packed guest-filter view).
   const { isFooterVisible, phone, contactEmail, licenseNumber } = useContext(FooterContext)!;
   const [contactSheetH, setContactSheetH] = useState(CONTACT_HANDLE_H);
+  const [contactDragging, setContactDragging] = useState(false);
+  const contactContentRef = useRef<HTMLParagraphElement>(null);
   const contactDragRef = useRef<{ y: number; h: number; moved: boolean } | null>(null);
+  // The height that shows the whole info block exactly — grip + measured text +
+  // padding — so opening auto-fits the content instead of a guessed constant.
+  const idealContactH = () => {
+    const content = contactContentRef.current?.scrollHeight ?? 0;
+    const fit = content > 0 ? CONTACT_HANDLE_H + content + 16 : CONTACT_OPEN_H;
+    return Math.min(Math.max(fit, CONTACT_OPEN_H), window.innerHeight * 0.92);
+  };
   const onContactDragStart = (e: React.PointerEvent) => {
     contactDragRef.current = { y: e.clientY, h: contactSheetH, moved: false };
+    setContactDragging(true);
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
   const onContactDragMove = (e: React.PointerEvent) => {
@@ -167,13 +177,20 @@ const MainView = ({
   const onContactDragEnd = () => {
     const d = contactDragRef.current;
     contactDragRef.current = null;
-    // A tap (no real drag) toggles between minimized and open.
+    setContactDragging(false);
+    // A tap (no real drag) toggles between minimized and the auto-fit open height.
     if (d && !d.moved)
-      setContactSheetH((h) => (h > CONTACT_HANDLE_H + 8 ? CONTACT_HANDLE_H : CONTACT_OPEN_H));
+      setContactSheetH((h) => (h > CONTACT_HANDLE_H + 8 ? CONTACT_HANDLE_H : idealContactH()));
   };
-  // Whenever the host re-enables "Show Contact Info", pop it open.
+  // Whenever the host re-enables "Show Contact Info", auto-open to the ideal
+  // height (measured after paint so the text has laid out).
   useEffect(() => {
-    setContactSheetH(isFooterVisible ? CONTACT_OPEN_H : CONTACT_HANDLE_H);
+    if (!isFooterVisible) {
+      setContactSheetH(CONTACT_HANDLE_H);
+      return;
+    }
+    const id = requestAnimationFrame(() => setContactSheetH(idealContactH()));
+    return () => cancelAnimationFrame(id);
   }, [isFooterVisible]);
 
   // ── Local UI state ────────────────────────────────────────────────────────
@@ -753,7 +770,12 @@ const MainView = ({
             {isFooterVisible && (licenseNumber || phone || contactEmail || airbnbName || airbnbAddress) && (
               <div
                 className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-300 rounded-t-2xl shadow-[0_-6px_16px_-6px_rgba(0,0,0,0.25)] flex flex-col overflow-hidden"
-                style={{ height: contactSheetH, touchAction: "none" }}
+                style={{
+                  height: contactSheetH,
+                  touchAction: "none",
+                  // Animate auto-open / minimize, but track the finger 1:1 while dragging.
+                  transition: contactDragging ? "none" : "height 0.28s cubic-bezier(0.4,0,0.2,1)",
+                }}
               >
                 {/* Drag handle */}
                 <div
@@ -769,7 +791,7 @@ const MainView = ({
                 </div>
                 {/* Info */}
                 <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-3">
-                  <p className="text-xs text-center leading-relaxed text-gray-700">
+                  <p ref={contactContentRef} className="text-xs text-center leading-relaxed text-gray-700">
                     {licenseNumber && (
                       <>
                         {airbnbName} is permitted for STR. License# {licenseNumber}
