@@ -160,7 +160,9 @@ const MainView = ({
     if (!d) return;
     const dy = d.y - e.clientY; // drag up ⇒ taller
     if (Math.abs(dy) > 3) d.moved = true;
-    setContactSheetH(Math.min(CONTACT_MAX_H, Math.max(CONTACT_HANDLE_H, d.h + dy)));
+    // Let it climb almost to the top of the screen — cap at 92% of the viewport.
+    const maxH = Math.max(CONTACT_MAX_H, window.innerHeight * 0.92);
+    setContactSheetH(Math.min(maxH, Math.max(CONTACT_HANDLE_H, d.h + dy)));
   };
   const onContactDragEnd = () => {
     const d = contactDragRef.current;
