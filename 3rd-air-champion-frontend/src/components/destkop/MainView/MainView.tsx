@@ -149,19 +149,19 @@ const MainView = ({
   // want the property/license details and minimize away when they don't, so it
   // never eats calendar space (esp. the short lane-packed guest-filter view).
   const { isFooterVisible, phone, contactEmail, licenseNumber } = useContext(FooterContext)!;
-  const [contactSheetH, setContactSheetH] = useState(CONTACT_HANDLE_H);
+  // Sheet height model:
+  //   "auto"           → open, fits its content exactly (CSS-sized, no measuring)
+  //   CONTACT_HANDLE_H → minimized to just the grip
+  //   any number       → a height the host dragged it to
+  const [contactH, setContactH] = useState<number | "auto">(CONTACT_HANDLE_H);
   const [contactDragging, setContactDragging] = useState(false);
-  const contactContentRef = useRef<HTMLParagraphElement>(null);
+  const contactSheetRef = useRef<HTMLDivElement>(null);
   const contactDragRef = useRef<{ y: number; h: number; moved: boolean } | null>(null);
-  // The height that shows the whole info block exactly — grip + measured text +
-  // padding — so opening auto-fits the content instead of a guessed constant.
-  const idealContactH = () => {
-    const content = contactContentRef.current?.scrollHeight ?? 0;
-    const fit = content > 0 ? CONTACT_HANDLE_H + content + 16 : CONTACT_OPEN_H;
-    return Math.min(Math.max(fit, CONTACT_OPEN_H), window.innerHeight * 0.92);
-  };
+  const isContactOpen = contactH !== CONTACT_HANDLE_H;
   const onContactDragStart = (e: React.PointerEvent) => {
-    contactDragRef.current = { y: e.clientY, h: contactSheetH, moved: false };
+    // Seed from the current rendered pixel height so dragging from "auto" is smooth.
+    const cur = contactSheetRef.current?.offsetHeight ?? CONTACT_OPEN_H;
+    contactDragRef.current = { y: e.clientY, h: cur, moved: false };
     setContactDragging(true);
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
@@ -172,25 +172,18 @@ const MainView = ({
     if (Math.abs(dy) > 3) d.moved = true;
     // Let it climb almost to the top of the screen — cap at 92% of the viewport.
     const maxH = Math.max(CONTACT_MAX_H, window.innerHeight * 0.92);
-    setContactSheetH(Math.min(maxH, Math.max(CONTACT_HANDLE_H, d.h + dy)));
+    setContactH(Math.min(maxH, Math.max(CONTACT_HANDLE_H, d.h + dy)));
   };
   const onContactDragEnd = () => {
     const d = contactDragRef.current;
     contactDragRef.current = null;
     setContactDragging(false);
-    // A tap (no real drag) toggles between minimized and the auto-fit open height.
-    if (d && !d.moved)
-      setContactSheetH((h) => (h > CONTACT_HANDLE_H + 8 ? CONTACT_HANDLE_H : idealContactH()));
+    // A tap (no real drag) toggles between minimized and auto-fit open.
+    if (d && !d.moved) setContactH((h) => (h === CONTACT_HANDLE_H ? "auto" : CONTACT_HANDLE_H));
   };
-  // Whenever the host re-enables "Show Contact Info", auto-open to the ideal
-  // height (measured after paint so the text has laid out).
+  // Show Contact Info → auto-open (fits content); hide → minimize.
   useEffect(() => {
-    if (!isFooterVisible) {
-      setContactSheetH(CONTACT_HANDLE_H);
-      return;
-    }
-    const id = requestAnimationFrame(() => setContactSheetH(idealContactH()));
-    return () => cancelAnimationFrame(id);
+    setContactH(isFooterVisible ? "auto" : CONTACT_HANDLE_H);
   }, [isFooterVisible]);
 
   // ── Local UI state ────────────────────────────────────────────────────────
@@ -769,9 +762,11 @@ const MainView = ({
                 the hold bar (z-[60]) and modals (z-50). */}
             {isFooterVisible && (licenseNumber || phone || contactEmail || airbnbName || airbnbAddress) && (
               <div
+                ref={contactSheetRef}
                 className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-300 rounded-t-2xl shadow-[0_-6px_16px_-6px_rgba(0,0,0,0.25)] flex flex-col overflow-hidden"
                 style={{
-                  height: contactSheetH,
+                  height: contactH,
+                  maxHeight: "92vh",
                   touchAction: "none",
                   // Animate auto-open / minimize, but track the finger 1:1 while dragging.
                   transition: contactDragging ? "none" : "height 0.28s cubic-bezier(0.4,0,0.2,1)",
@@ -786,12 +781,12 @@ const MainView = ({
                 >
                   <span className="h-1.5 w-10 rounded-full bg-gray-300" />
                   <span className="absolute right-3 text-[10px] font-medium uppercase tracking-wide text-gray-400">
-                    {contactSheetH > CONTACT_HANDLE_H + 8 ? "Contact ⌄" : "Contact ⌃"}
+                    {isContactOpen ? "Contact ⌄" : "Contact ⌃"}
                   </span>
                 </div>
                 {/* Info */}
                 <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-3">
-                  <p ref={contactContentRef} className="text-xs text-center leading-relaxed text-gray-700">
+                  <p className="text-xs text-center leading-relaxed text-gray-700">
                     {licenseNumber && (
                       <>
                         {airbnbName} is permitted for STR. License# {licenseNumber}
