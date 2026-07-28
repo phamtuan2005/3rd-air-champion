@@ -784,8 +784,14 @@ const MainView = ({
                     {isContactOpen ? "Contact ⌄" : "Contact ⌃"}
                   </span>
                 </div>
-                {/* Info */}
-                <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-3">
+                {/* Info. In auto-open mode the container must size to its content
+                    (natural height) so the sheet's height:auto actually grows —
+                    flex-1 + basis:0 would collapse it to nothing. Only when the
+                    host drags to an explicit pixel height do we let it flex-fill
+                    and scroll. */}
+                <div
+                  className={`${typeof contactH === "number" ? "flex-1 min-h-0" : ""} overflow-y-auto px-4 pb-3`}
+                >
                   <p className="text-xs text-center leading-relaxed text-gray-700">
                     {licenseNumber && (
                       <>
