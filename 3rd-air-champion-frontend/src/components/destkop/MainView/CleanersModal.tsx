@@ -1484,17 +1484,36 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                   <div className="divide-y divide-gray-100">
                     {[...groups.values()].map(({ cleaner, rooms }) => (
                       <div key={cleaner.id} className="flex items-center gap-2 px-3 py-1.5">
-                        <div className="flex w-24 shrink-0 items-center gap-1.5">
+                        {/* Tap the cleaner to text them THIS displayed week's plan */}
+                        <button
+                          type="button"
+                          disabled={!cleaner.phone}
+                          onClick={() => textSchedule(cleaner, weekMonday)}
+                          title={
+                            !cleaner.phone
+                              ? "Add a phone number to text"
+                              : `Text ${cleaner.name.split(" ")[0]} the ${format(weekMonday, "MMM d")}–${format(addDays(weekMonday, 6), "MMM d")} schedule`
+                          }
+                          className={`-mx-1 flex w-24 shrink-0 items-center gap-1.5 rounded-md px-1 py-0.5 text-left transition-colors ${
+                            cleaner.phone ? "hover:bg-gray-100" : "opacity-50"
+                          }`}
+                        >
                           <CleanerAvatar
                             id={cleaner.id}
                             name={cleaner.name}
                             sizeClass="h-6 w-6"
                             textClass="text-[10px]"
                           />
-                          <span className="truncate text-xs font-semibold text-gray-700">
+                          <span className="truncate text-xs font-semibold text-gray-700 underline decoration-dotted decoration-gray-300 underline-offset-2">
                             {cleaner.name.split(" ")[0]}
                           </span>
-                        </div>
+                          {scheduleStatus(cleaner.id, weekMonday) === "changed" && (
+                            <span
+                              className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500"
+                              title="changed since sent — re-send"
+                            />
+                          )}
+                        </button>
                         <div className="flex flex-1 flex-wrap items-center gap-1">
                           {rooms.map((room, i) => {
                             // Same headcount the SMS carries — beds/towels to prep
