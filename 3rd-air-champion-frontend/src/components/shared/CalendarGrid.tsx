@@ -97,7 +97,41 @@ const CalendarGrid = ({
     return base.sort((a, b) => a.name.localeCompare(b.name));
   }, [overrideRooms, rooms, selectedRoomName]);
 
-  const maxRooms = usedRooms.length;
+  // Guest mode only: pack the guest's stays into overlap "lanes" (classic
+  // interval packing) so N NON-overlapping bookings share ONE row instead of one
+  // row per room. Row count = max simultaneous stays (usually 1). Keyed by
+  // room+dates (per-night copies may have different _ids), not booking id.
+  const guestLanes = useMemo(() => {
+    if (!overrideRooms) return null;
+    const dk = (d: string) => String(d).slice(0, 10);
+    const stays = new Map<string, { start: string; end: string }>();
+    monthMap.forEach((day) =>
+      day.bookings.forEach((b) => {
+        if (!b.room || !b.startDate || !b.endDate) return;
+        const key = `${b.room.id}|${dk(b.startDate)}|${dk(b.endDate)}`;
+        if (!stays.has(key)) stays.set(key, { start: dk(b.startDate), end: dk(b.endDate) });
+      }),
+    );
+    const ordered = [...stays.entries()].sort(
+      (a, b) => a[1].start.localeCompare(b[1].start) || a[1].end.localeCompare(b[1].end),
+    );
+    const laneEnds: string[] = []; // last end-night per lane
+    const laneOf = new Map<string, number>();
+    for (const [key, s] of ordered) {
+      // First lane whose previous stay ended before this one starts (no shared night).
+      let lane = laneEnds.findIndex((end) => end < s.start);
+      if (lane === -1) {
+        lane = laneEnds.length;
+        laneEnds.push(s.end);
+      } else {
+        laneEnds[lane] = s.end;
+      }
+      laneOf.set(key, lane);
+    }
+    return { laneOf, count: Math.max(laneEnds.length, 1) };
+  }, [overrideRooms, monthMap]);
+
+  const maxRooms = guestLanes ? guestLanes.count : usedRooms.length;
   const minRowHeight = (maxRooms + 1) * SUBROW_HEIGHT;
   const numRows =
     containerHeight > 0 ? Math.max(Math.floor(containerHeight / minRowHeight), 1) : 5;
@@ -330,18 +364,36 @@ const CalendarGrid = ({
 
     const usedRoomIdSet = new Set(usedRooms.map((r) => r.id));
 
-    const sortedUsedRooms = [...usedRooms]
-      .filter((r) => !selectedRoomName || r.name === selectedRoomName)
-      .sort((a, b) => a.name.localeCompare(b.name));
+    // In guest mode, rows are LANES (packed by overlap), not rooms. The grid
+    // slot a booking lands in is its lane; bars still color/label by their own
+    // room, so appearance is unchanged — only the row it sits in differs.
+    const laneMode = !!guestLanes;
+    const keyOf = (b: bookingType) =>
+      laneMode
+        ? `lane-${
+            guestLanes!.laneOf.get(`${b.room?.id}|${dayKey(b.startDate)}|${dayKey(b.endDate)}`) ?? 0
+          }`
+        : b.room.name;
 
-    for (const blockedRoom of day?.blockedRooms ?? []) {
-      if (!selectedRoomName || blockedRoom.name === selectedRoomName) {
-        if (!sortedUsedRooms.find((r) => r.id === blockedRoom.id)) {
-          if (usedRoomIdSet.has(blockedRoom.id)) sortedUsedRooms.push(blockedRoom);
+    const sortedUsedRooms: roomType[] = laneMode
+      ? Array.from(
+          { length: guestLanes!.count },
+          (_, i) => ({ id: `lane-${i}`, name: `lane-${i}` }) as roomType,
+        )
+      : [...usedRooms]
+          .filter((r) => !selectedRoomName || r.name === selectedRoomName)
+          .sort((a, b) => a.name.localeCompare(b.name));
+
+    if (!laneMode) {
+      for (const blockedRoom of day?.blockedRooms ?? []) {
+        if (!selectedRoomName || blockedRoom.name === selectedRoomName) {
+          if (!sortedUsedRooms.find((r) => r.id === blockedRoom.id)) {
+            if (usedRoomIdSet.has(blockedRoom.id)) sortedUsedRooms.push(blockedRoom);
+          }
         }
       }
+      sortedUsedRooms.sort((a, b) => a.name.localeCompare(b.name));
     }
-    sortedUsedRooms.sort((a, b) => a.name.localeCompare(b.name));
 
     if (!filteredDay && checkoutBookings.length === 0 && blockedRoomIds.size === 0) {
       if (sortedUsedRooms.length === 0 || overrideRooms) return null;
@@ -353,6 +405,7 @@ const CalendarGrid = ({
     });
 
     const ensureGridRow = (room: roomType) => {
+      if (laneMode) return; // lanes are pre-built above
       if (!gridContent[room.name] && usedRoomIdSet.has(room.id)) {
         gridContent[room.name] = { am: null, pm: null };
         sortedUsedRooms.push(room);
@@ -361,8 +414,9 @@ const CalendarGrid = ({
 
     checkoutBookings.forEach((booking) => {
       ensureGridRow(booking.room);
-      if (!gridContent[booking.room.name]) return;
-      gridContent[booking.room.name].am = booking;
+      const k = keyOf(booking);
+      if (!gridContent[k]) return;
+      gridContent[k].am = booking;
     });
 
     if (filteredDay) {
@@ -373,13 +427,14 @@ const CalendarGrid = ({
         const isStart = cellKey === startKey;
         const isBetween = !isStart && cellKey > startKey && cellKey <= endKey;
         ensureGridRow(booking.room);
-        if (!gridContent[booking.room.name]) return;
-        if (isBetween) gridContent[booking.room.name].am = booking;
-        if (isStart || isBetween) gridContent[booking.room.name].pm = booking;
+        const k = keyOf(booking);
+        if (!gridContent[k]) return;
+        if (isBetween) gridContent[k].am = booking;
+        if (isStart || isBetween) gridContent[k].pm = booking;
       });
     }
 
-    sortedUsedRooms.sort((a, b) => a.name.localeCompare(b.name));
+    if (!laneMode) sortedUsedRooms.sort((a, b) => a.name.localeCompare(b.name));
 
     // Gaps mode: replace all bars with green availability bars
     if (gapsMode) {
@@ -640,6 +695,7 @@ const CalendarGrid = ({
                 />
               )}
               {!amBooking &&
+                !overrideRooms &&
                 prevDayHadNoPmForRoom &&
                 !prevRoomBlocked &&
                 getDay(date) === 0 &&
