@@ -128,7 +128,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
     <div className="p-3 flex flex-col gap-3 h-full overflow-y-auto">
       <div className="flex flex-col gap-0.5">
         <h2 className="text-sm font-bold text-gray-700">
-          {airbnbName ? `${airbnbName}: Availabilities` : "Availabilities"} — {monthLabel}
+          {airbnbName ? `${airbnbName}: Statistics` : "Statistics"} — {monthLabel}
         </h2>
         <span className="text-xs text-gray-500">
           Today: <span className="font-semibold text-gray-700">{format(today, "MMM d, yyyy", { timeZone })}</span>
@@ -203,10 +203,12 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
             <span className="text-gray-500">Misc fee</span>
             <span className="font-medium text-rose-500">−{dollars(miscFee)}</span>
           </div>
-          <div className="mt-0.5 flex items-center justify-between border-t border-gray-200 pt-1.5">
-            <span className="text-sm font-bold text-gray-800">Net profit</span>
+          <div className="mt-0.5 flex items-center justify-between border-t border-gray-200 pt-2">
+            <span className="text-base font-bold text-gray-800">Net profit</span>
             <span
-              className={`text-sm font-bold ${netProfit >= 0 ? "text-emerald-600" : "text-rose-600"}`}
+              className={`inline-block rounded-lg px-3 py-1 text-2xl font-bold text-white ${
+                netProfit >= 0 ? "bg-emerald-600" : "bg-rose-600"
+              }`}
             >
               {dollars(netProfit)}
             </span>
