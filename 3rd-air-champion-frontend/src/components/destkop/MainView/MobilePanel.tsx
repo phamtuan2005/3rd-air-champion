@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface MobilePanelProps {
   isOpen: boolean;
@@ -16,6 +16,14 @@ const MobilePanel = ({ isOpen, onClose, children }: MobilePanelProps) => {
   const dragStartY = useRef(0);
   const heightAtStart = useRef(DEFAULT_HEIGHT_VH);
   const dragging = useRef(false);
+
+  // Always reopen at the normal height. Otherwise a height the host once dragged
+  // tall sticks in state, and since the sheet is bottom-anchored, its close-X
+  // (at the top) gets pushed up under the nav bar and can't be reached — which
+  // is what made the auto-opened ToDo panel look "stuck expanded" after login.
+  useEffect(() => {
+    if (isOpen) setHeight(DEFAULT_HEIGHT_VH);
+  }, [isOpen]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     dragStartY.current = e.touches[0].clientY;
@@ -43,7 +51,7 @@ const MobilePanel = ({ isOpen, onClose, children }: MobilePanelProps) => {
       className={`fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 z-50 flex flex-col sm:hidden transition-transform duration-300 ${
         isOpen ? "translate-y-0" : "translate-y-full"
       }`}
-      style={{ height: `${height}vh` }}
+      style={{ height: `${height}vh`, maxHeight: "calc(100dvh - 96px)" }}
     >
       {/* Drag handle bar */}
       <div
