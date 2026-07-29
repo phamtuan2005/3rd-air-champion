@@ -29,6 +29,7 @@ import GuestAddPane from "../BookingModal/GuestAddPane";
 import EditRoomModal from "../NavBar/DropDown/EditRoomModal";
 import ManageGuestModal from "../NavBar/DropDown/ManageGuestModal";
 import CleanersModal from "./CleanersModal";
+import MiscModal from "./MiscModal";
 import { fetchBookingRequestsByHost, updateBookingRequestStatus } from "../../../util/bookingRequestOperations";
 import { getHostWishLists } from "../../../util/wishListOperations";
 import { useCalendarData } from "./hooks/useCalendarData";
@@ -128,6 +129,8 @@ const MainView = ({
     setIsManageGuestOpen: React.Dispatch<React.SetStateAction<boolean>>;
     isCleanersOpen: boolean;
     setIsCleanersOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    isMiscOpen: boolean;
+    setIsMiscOpen: React.Dispatch<React.SetStateAction<boolean>>;
   };
   const {
     showAddPane,
@@ -140,6 +143,8 @@ const MainView = ({
     setIsManageGuestOpen,
     isCleanersOpen,
     setIsCleanersOpen,
+    isMiscOpen,
+    setIsMiscOpen,
   } = addPaneContext;
 
   const { currentGuest, setCurrentGuest, currentAirBnBGuest, setCurrentAirBnBGuest } =
@@ -1254,6 +1259,14 @@ const MainView = ({
           monthMap={monthMap}
           cleaningRules={cleaningRules}
           onClose={() => setIsCleanersOpen(false)}
+        />
+      )}
+      {isMiscOpen && (
+        <MiscModal
+          hostId={hostId}
+          token={token as string}
+          currentMonth={currentMonth}
+          onClose={() => setIsMiscOpen(false)}
         />
       )}
       {isManageGuestOpen && guests.length > 0 && (

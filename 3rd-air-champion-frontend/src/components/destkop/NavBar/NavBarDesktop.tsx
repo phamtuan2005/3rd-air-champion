@@ -1,6 +1,6 @@
 import { useContext, useState } from "react";
 import { createPortal } from "react-dom";
-import { FaBroom } from "react-icons/fa";
+import { FaBroom, FaReceipt } from "react-icons/fa";
 import ProfileDesktop from "./ProfileDesktop";
 import { FooterContext, GuestModeContext } from "../../../context";
 
@@ -38,6 +38,8 @@ interface NavBarDesktopProps {
   setIsBookModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isCleanersOpen: boolean;
   setIsCleanersOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isMiscOpen: boolean;
+  setIsMiscOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isAvailabilitiesModalOpen: boolean;
   setIsAvailabilitiesModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isBlockAirBnBModalOpen: boolean;
@@ -69,6 +71,8 @@ const NavBarDesktop = ({
   setIsBookModalOpen,
   isCleanersOpen,
   setIsCleanersOpen,
+  isMiscOpen,
+  setIsMiscOpen,
   isAvailabilitiesModalOpen,
   setIsAvailabilitiesModalOpen,
   isBlockAirBnBModalOpen,
@@ -262,6 +266,19 @@ const NavBarDesktop = ({
                 {cleanUnassignedCount}
               </span>
             )}
+          </button>
+          {/* Misc — house expenses log (supplies, utilities, maintenance) */}
+          <button
+            type="button"
+            aria-label="Misc"
+            title="Misc expenses"
+            className={`relative flex flex-1 items-center justify-center gap-1 text-white bg-teal-600 px-1 py-1 text-xs sm:flex-none sm:w-[62px] rounded-md whitespace-nowrap ${
+              isMiscOpen ? "drop-shadow-[0_4px_6px_rgba(13,148,136,0.5)]" : ""
+            }`}
+            onClick={() => setIsMiscOpen((v) => !v)}
+          >
+            <FaReceipt className="text-sm" />
+            Misc
           </button>
         </div>}
       </div>

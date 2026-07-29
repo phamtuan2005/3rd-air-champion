@@ -31,6 +31,7 @@ function App() {
   const [isEditRoomOpen, setIsEditRoomOpen] = useState(false);
   const [isManageGuestOpen, setIsManageGuestOpen] = useState(false);
   const [isCleanersOpen, setIsCleanersOpen] = useState(false);
+  const [isMiscOpen, setIsMiscOpen] = useState(false);
 
   const [currentGuest, setCurrentGuest] = useState<string | null>(null);
   const [currentAirBnBGuest, setCurrentAirBnBGuest] = useState<string | null>(
@@ -188,6 +189,8 @@ function App() {
                 setIsManageGuestOpen,
                 isCleanersOpen,
                 setIsCleanersOpen,
+                isMiscOpen,
+                setIsMiscOpen,
               }}
             >
               <div className="grid grid-rows-[80px_1fr] h-screen lg:grid-rows-[120px_1fr]">
@@ -206,6 +209,8 @@ function App() {
                   setIsBookModalOpen={setIsBookModalOpen}
                   isCleanersOpen={isCleanersOpen}
                   setIsCleanersOpen={setIsCleanersOpen}
+                  isMiscOpen={isMiscOpen}
+                  setIsMiscOpen={setIsMiscOpen}
                   isAvailabilitiesModalOpen={isAvailabilitiesModalOpen}
                   setIsAvailabilitiesModalOpen={setIsAvailabilitiesModalOpen}
                   isBlockAirBnBModalOpen={isBlockAirBnBModalOpen}

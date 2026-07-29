@@ -20,6 +20,8 @@ interface AddPaneContextType {
   setIsManageGuestOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isCleanersOpen: boolean;
   setIsCleanersOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isMiscOpen: boolean;
+  setIsMiscOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 interface FooterContextType {
