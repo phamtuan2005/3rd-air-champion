@@ -277,11 +277,26 @@ const MainView = ({
     const monthStart = `${format(startOfToday(), "yyyy-MM")}-01`;
     const todayStr = format(startOfToday(), "yyyy-MM-dd");
     const end = format(addDays(startOfToday(), 7), "yyyy-MM-dd");
+    // A cleaning is "stale" if the room was occupied the night before and that
+    // booking doesn't check out that morning (a continuing multi-night stay
+    // absorbed the turnover — no clean is actually due). Mirror Clean → Hours
+    // so the badge counts the same cleaner-days it does, not orphaned ones.
+    const isStale = (roomId: string, morningKey: string) => {
+      const prevNight = format(addDays(new Date(morningKey + "T00:00:00"), -1), "yyyy-MM-dd");
+      const occupant = monthMap.get(prevNight)?.bookings.find((b) => b.room?.id === roomId);
+      return !!occupant && occupant.endDate.split("T")[0] !== prevNight;
+    };
     fetchAssignments(hostId, monthStart, end, token)
       .then((assigns) => {
         const days = new Set<string>();
         assigns.forEach((a) => {
-          if (a.date <= todayStr && a.hours == null && a.cleaner)
+          if (
+            a.date <= todayStr &&
+            a.hours == null &&
+            a.cleaner &&
+            a.room &&
+            !isStale(a.room.id, a.date)
+          )
             days.add(`${a.cleaner.id}|${a.date}`);
         });
         setCleanTodoCount(days.size);
