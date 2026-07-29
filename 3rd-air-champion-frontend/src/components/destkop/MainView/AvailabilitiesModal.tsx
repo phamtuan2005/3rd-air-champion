@@ -118,6 +118,8 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
   const totalMonthProfit = stats.reduce((sum, s) => sum + s.estimatedProfit, 0);
   const netProfit = totalMonthProfit - cleaningFee - miscFee;
   const dollars = (n: number) => `$${Math.round(n).toLocaleString()}`;
+  // Shared style so the Total and Net profit amounts always render identical size.
+  const bigAmountCls = "inline-block rounded-lg px-3 py-1 text-2xl font-bold text-white";
 
   const monthLabel = currentMonth.toLocaleString("default", {
     month: "long",
@@ -183,7 +185,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
               <td className="pt-2">Total</td>
               <td className="pt-2">{totalNights}</td>
               <td className="pt-2 text-right">
-                <span className="inline-block bg-emerald-600 text-white text-2xl font-bold px-3 py-1 rounded-lg">
+                <span className={`${bigAmountCls} bg-emerald-600`}>
                   ${Math.round(totalMonthProfit).toLocaleString()}
                 </span>
               </td>
@@ -205,11 +207,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
           </div>
           <div className="mt-0.5 flex items-center justify-between border-t border-gray-200 pt-2">
             <span className="text-base font-bold text-gray-800">Net profit</span>
-            <span
-              className={`inline-block rounded-lg px-3 py-1 text-2xl font-bold text-white ${
-                netProfit >= 0 ? "bg-emerald-600" : "bg-rose-600"
-              }`}
-            >
+            <span className={`${bigAmountCls} ${netProfit >= 0 ? "bg-emerald-600" : "bg-rose-600"}`}>
               {dollars(netProfit)}
             </span>
           </div>
