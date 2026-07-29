@@ -114,7 +114,7 @@ const NavBarDesktop = ({
       </div>
 
       {/* Centered Navigation Buttons */}
-      <div className="flex flex-col items-center gap-3">
+      <div className="flex min-w-0 flex-1 flex-col items-center gap-3">
         <div className="flex items-center gap-2">
           {/* Logo, inline with the title — also opens About */}
           <button
@@ -152,7 +152,7 @@ const NavBarDesktop = ({
               <line x1="3" y1="10" x2="21" y2="10" />
             </svg>
           </button>
-        ) : <div className="flex gap-1 sm:gap-2">
+        ) : <div className="flex w-full justify-center gap-1 sm:w-auto sm:gap-2 [&>button]:min-w-0">
           <button
             type="button"
             className={`relative flex-1 text-white bg-black px-1 py-1 text-xs sm:flex-none sm:px-2 rounded-md whitespace-nowrap ${
@@ -299,9 +299,10 @@ const NavBarDesktop = ({
         </div>}
       </div>
 
-      {/* Spacer — balances the profile on the left so the title stays centered
-          (the logo now sits inline with the title above). */}
-      <div className="h-[44px] w-[44px] sm:h-[76px] sm:w-[76px] shrink-0" aria-hidden="true" />
+      {/* Spacer — balances the profile on the left so the title stays centered.
+          Desktop only: on mobile the button row needs this width, so it's hidden
+          there (the 7-button toolbar would otherwise overflow and widen the page). */}
+      <div className="hidden shrink-0 sm:block sm:h-[76px] sm:w-[76px]" aria-hidden="true" />
 
       {/* Block chooser modal */}
       {isBlockChooserOpen && createPortal(
