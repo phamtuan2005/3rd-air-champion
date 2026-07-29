@@ -115,9 +115,25 @@ const NavBarDesktop = ({
 
       {/* Centered Navigation Buttons */}
       <div className="flex flex-col items-center gap-3">
-        <h1 className="p-1 sm:p-2 text-base sm:text-xl font-bold tracking-wide text-gray-800">
-          TT House Manager
-        </h1>
+        <div className="flex items-center gap-2">
+          {/* Logo, inline with the title — also opens About */}
+          <button
+            type="button"
+            onClick={() => setIsAboutModalOpen(true)}
+            aria-label="About"
+            title="About"
+            className="shrink-0"
+          >
+            <img
+              className="h-7 w-7 sm:h-10 sm:w-10"
+              alt="TT House"
+              src="./TiMagLogo.svg"
+            />
+          </button>
+          <h1 className="p-1 sm:p-2 text-base sm:text-xl font-bold tracking-wide text-gray-800">
+            TT House Manager
+          </h1>
+        </div>
         {isGuestMode ? (
           <button
             type="button"
@@ -283,15 +299,9 @@ const NavBarDesktop = ({
         </div>}
       </div>
 
-      {/* About */}
-      <button type="button" onClick={() => setIsAboutModalOpen(true)}>
-        <img
-          className="h-[44px] w-[44px] sm:h-[76px] sm:w-[76px]"
-          alt="About"
-          title="About"
-          src="./TiMagLogo.svg"
-        ></img>
-      </button>
+      {/* Spacer — balances the profile on the left so the title stays centered
+          (the logo now sits inline with the title above). */}
+      <div className="h-[44px] w-[44px] sm:h-[76px] sm:w-[76px] shrink-0" aria-hidden="true" />
 
       {/* Block chooser modal */}
       {isBlockChooserOpen && createPortal(
