@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { addMonths, format, subMonths } from "date-fns";
 import { FaReceipt, FaChevronLeft, FaChevronRight, FaTrash, FaPen } from "react-icons/fa";
@@ -59,6 +59,50 @@ const emptyDraft = (monthDate: Date) => ({
 const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => {
   const [monthDate, setMonthDate] = useState(() => currentMonth ?? new Date());
   const monthKey = format(monthDate, "yyyy-MM");
+
+  // ── Draggable + resizable floating panel ──────────────────────────────────
+  const initW = Math.min(512, window.innerWidth - 24);
+  const initH = Math.min(640, window.innerHeight - 24);
+  const [size, setSize] = useState({ w: initW, h: initH });
+  const [pos, setPos] = useState({
+    x: Math.max(12, (window.innerWidth - initW) / 2),
+    y: Math.max(12, (window.innerHeight - initH) / 2),
+  });
+  const dragRef = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
+  const resizeRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
+
+  const onDragStart = (e: React.PointerEvent) => {
+    dragRef.current = { x: e.clientX, y: e.clientY, px: pos.x, py: pos.y };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const onDragMove = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    setPos({
+      x: Math.min(window.innerWidth - 60, Math.max(0, d.px + (e.clientX - d.x))),
+      y: Math.min(window.innerHeight - 40, Math.max(0, d.py + (e.clientY - d.y))),
+    });
+  };
+  const onDragEnd = () => {
+    dragRef.current = null;
+  };
+
+  const onResizeStart = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    resizeRef.current = { x: e.clientX, y: e.clientY, w: size.w, h: size.h };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const onResizeMove = (e: React.PointerEvent) => {
+    const r = resizeRef.current;
+    if (!r) return;
+    setSize({
+      w: Math.min(window.innerWidth - 24, Math.max(340, r.w + (e.clientX - r.x))),
+      h: Math.min(window.innerHeight - 24, Math.max(380, r.h + (e.clientY - r.y))),
+    });
+  };
+  const onResizeEnd = () => {
+    resizeRef.current = null;
+  };
 
   const [expenses, setExpenses] = useState<MiscExpenseType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -170,19 +214,24 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
   };
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-4"
-      onClick={onClose}
-    >
+    <>
+      {/* Dimmed backdrop — click to close */}
+      <div className="fixed inset-0 z-[105] bg-black/40" onClick={onClose} />
+      {/* Floating panel — drag the header to move, drag the corner grip to resize */}
       <div
-        className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
-        onClick={(ev) => ev.stopPropagation()}
+        className="fixed z-[110] flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+        style={{ left: pos.x, top: pos.y, width: size.w, height: size.h }}
       >
         {/* Brand bar */}
         <div className="h-1.5 shrink-0 bg-gradient-to-r from-emerald-400 via-blue-400 to-violet-400" />
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 pb-2 pt-3">
+        {/* Header doubles as the move handle */}
+        <div
+          className="flex shrink-0 cursor-move touch-none select-none items-center justify-between px-4 pb-2 pt-3"
+          onPointerDown={onDragStart}
+          onPointerMove={onDragMove}
+          onPointerUp={onDragEnd}
+        >
           <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
             <FaReceipt className="text-emerald-600" />
             Misc Expenses
@@ -190,6 +239,7 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
           <button
             type="button"
             onClick={onClose}
+            onPointerDown={(ev) => ev.stopPropagation()}
             aria-label="Close"
             className="flex h-8 w-8 items-center justify-center rounded-lg text-xl leading-none text-gray-400 hover:bg-gray-100"
           >
@@ -416,8 +466,19 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
             {saving ? "Saving…" : editingId ? "Update expense" : "Add expense"}
           </button>
         </div>
+
+        {/* Resize grip — drag the bottom-right corner */}
+        <div
+          onPointerDown={onResizeStart}
+          onPointerMove={onResizeMove}
+          onPointerUp={onResizeEnd}
+          className="absolute bottom-0 right-0 flex h-5 w-5 cursor-nwse-resize touch-none items-end justify-end p-1"
+          aria-label="Resize"
+        >
+          <span className="h-2.5 w-2.5 rounded-br-md border-b-2 border-r-2 border-gray-300" />
+        </div>
       </div>
-    </div>,
+    </>,
     document.body,
   );
 };
