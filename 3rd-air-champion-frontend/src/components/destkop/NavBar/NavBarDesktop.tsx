@@ -228,7 +228,7 @@ const NavBarDesktop = ({
           </button>
           <button
             type="button"
-            title="Availabilities"
+            title="Stats"
             className={`relative flex-1 text-white bg-emerald-600 px-1 py-1 text-xs sm:flex-none sm:px-2 rounded-md ${
               isAvailabilitiesModalOpen ? "drop-shadow-[0_4px_6px_rgba(59,130,246,0.5)]" : ""
             }`}
@@ -237,7 +237,7 @@ const NavBarDesktop = ({
               setIsAvailabilitiesModalOpen(!isAvailabilitiesModalOpen);
             }}
           >
-            Avail
+            Stats
             {availableNightsCount > 0 && (
               <span className="absolute -top-4 left-1/2 -translate-x-1/2 min-w-[20px] h-5 px-1 rounded-full bg-yellow-400 text-black text-[10px] font-bold flex items-center justify-center leading-none">
                 {availableNightsCount}

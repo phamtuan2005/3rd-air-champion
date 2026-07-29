@@ -1,19 +1,55 @@
-﻿import { isAfter, startOfToday, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
+﻿import { useEffect, useState } from "react";
+import { isAfter, startOfToday, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 import { format } from "date-fns-tz";
 import { dayType } from "../../../util/types/dayType";
 import { roomType } from "../../../util/types/roomType";
 import RoomBadge from "../../shared/RoomBadge";
+import { fetchAssignments } from "../../../util/cleanerOperations";
+import { fetchMiscExpenses, isExpenseInMonth } from "../../../util/miscOperations";
 
 interface AvailabilitiesModalProps {
   monthMap: Map<string, dayType>;
   rooms: roomType[];
   currentMonth: Date;
   airbnbName?: string;
+  hostId?: string;
+  token?: string;
 }
 
-const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName }: AvailabilitiesModalProps) => {
+const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId, token }: AvailabilitiesModalProps) => {
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const today = startOfToday();
+
+  // This month's cleaning cost (recorded hours × rate) and misc-expense total.
+  // Both are subtracted from the estimated gross to show a net figure.
+  const [cleaningFee, setCleaningFee] = useState(0);
+  const [miscFee, setMiscFee] = useState(0);
+
+  useEffect(() => {
+    if (!hostId || !token) return;
+    const start = format(startOfMonth(currentMonth), "yyyy-MM-dd", { timeZone });
+    const end = format(endOfMonth(currentMonth), "yyyy-MM-dd", { timeZone });
+    const monthKey = format(startOfMonth(currentMonth), "yyyy-MM", { timeZone });
+
+    fetchAssignments(hostId, start, end, token)
+      .then((assignments) =>
+        setCleaningFee(
+          assignments.reduce(
+            (sum, a) => sum + (a.hours != null && a.cleaner ? a.hours * a.cleaner.payRate : 0),
+            0,
+          ),
+        ),
+      )
+      .catch(() => setCleaningFee(0));
+
+    fetchMiscExpenses(hostId, token)
+      .then((items) =>
+        setMiscFee(
+          items.filter((e) => isExpenseInMonth(e, monthKey)).reduce((s, e) => s + e.amount, 0),
+        ),
+      )
+      .catch(() => setMiscFee(0));
+  }, [hostId, token, currentMonth, timeZone]);
 
   // All date keys in the current month (includes days with no bookings)
   const allMonthDateKeys = eachDayOfInterval({
@@ -80,6 +116,8 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName }: Avai
 
   const totalNights = stats.reduce((sum, s) => sum + s.unbookedNights, 0);
   const totalMonthProfit = stats.reduce((sum, s) => sum + s.estimatedProfit, 0);
+  const netProfit = totalMonthProfit - cleaningFee - miscFee;
+  const dollars = (n: number) => `$${Math.round(n).toLocaleString()}`;
 
   const monthLabel = currentMonth.toLocaleString("default", {
     month: "long",
@@ -152,6 +190,28 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName }: Avai
             </tr>
           </tfoot>
         </table>
+      )}
+
+      {/* Financial summary — gross Total (above) minus this month's costs → net */}
+      {stats.length > 0 && (
+        <div className="flex flex-col gap-1 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-gray-500">Cleaning fee</span>
+            <span className="font-medium text-rose-500">−{dollars(cleaningFee)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-gray-500">Misc fee</span>
+            <span className="font-medium text-rose-500">−{dollars(miscFee)}</span>
+          </div>
+          <div className="mt-0.5 flex items-center justify-between border-t border-gray-200 pt-1.5">
+            <span className="text-sm font-bold text-gray-800">Net profit</span>
+            <span
+              className={`text-sm font-bold ${netProfit >= 0 ? "text-emerald-600" : "text-rose-600"}`}
+            >
+              {dollars(netProfit)}
+            </span>
+          </div>
+        </div>
       )}
 
 <p className="text-[10px] text-gray-400">

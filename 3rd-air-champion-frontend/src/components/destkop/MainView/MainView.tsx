@@ -962,6 +962,8 @@ const MainView = ({
             rooms={rooms}
             currentMonth={currentMonth}
             airbnbName={airbnbName}
+            hostId={hostId}
+            token={token as string}
           />
         ) : isTodoModalOpen ? (
           <ToDoList
@@ -1115,6 +1117,8 @@ const MainView = ({
           rooms={rooms}
           currentMonth={currentMonth}
           airbnbName={airbnbName}
+          hostId={hostId}
+          token={token as string}
         />
       </MobilePanel>
 
