@@ -13,6 +13,7 @@ import { fetchMiscExpenses, isExpenseInMonth } from "../../../util/miscOperation
 // not color alone.
 const TREND_EMERALD = "#059669";
 const TREND_ROSE = "#e11d48";
+const TREND_ORANGE = "#eb6834"; // AirBnB-share bars — distinct from the money greens
 
 interface TrendRow {
   month: string; // yyyy-MM
@@ -32,21 +33,35 @@ const fmtShort = (n: number) => {
   if (a >= 1000) return `${s}$${(a / 1000).toFixed(1)}k`;
   return `${s}$${Math.round(a)}`;
 };
+const fmtPct = (n: number) => `${Math.round(n)}%`;
+const fmtPctFull = (n: number) => `${n.toFixed(1)}%`;
+
+interface BarRow {
+  month: string;
+  label: string;
+  longLabel: string;
+  value: number;
+}
 
 // Dependency-free SVG bar chart with a zero baseline (handles negatives), direct
-// value labels, and a native hover tooltip per bar.
+// value labels, and a native hover tooltip per bar. Unit-agnostic: pass fmt/fmtTip
+// for $ or %; pass axisMax to pin the scale (e.g. 100 for a percentage).
 const TrendBars = ({
   rows,
-  pick,
   colorFor,
+  fmt = fmtShort,
+  fmtTip = fmtFull,
+  axisMax,
 }: {
-  rows: TrendRow[];
-  pick: (r: TrendRow) => number;
+  rows: BarRow[];
   colorFor: (v: number) => string;
+  fmt?: (v: number) => string;
+  fmtTip?: (v: number) => string;
+  axisMax?: number;
 }) => {
-  const vals = rows.map(pick);
-  const maxV = Math.max(0, ...vals);
-  const minV = Math.min(0, ...vals);
+  const vals = rows.map((r) => r.value);
+  const maxV = axisMax ?? Math.max(0, ...vals);
+  const minV = axisMax != null ? 0 : Math.min(0, ...vals);
   const range = maxV - minV || 1;
   const W = 320;
   const H = 150;
@@ -62,14 +77,14 @@ const TrendBars = ({
     <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" style={{ display: "block" }}>
       <line x1={padX} x2={W - padX} y1={zeroY} y2={zeroY} stroke="#c3c2b7" strokeWidth="1" />
       {rows.map((r, i) => {
-        const v = pick(r);
+        const v = r.value;
         const x = padX + slot * i + (slot - bw) / 2;
         const h = (Math.abs(v) / range) * plotH;
         const y = v >= 0 ? zeroY - h : zeroY;
         return (
           <g key={r.month}>
             <rect x={x} y={y} width={bw} height={Math.max(h, 1)} rx="2.5" fill={colorFor(v)}>
-              <title>{`${r.longLabel}: ${fmtFull(v)}`}</title>
+              <title>{`${r.longLabel}: ${fmtTip(v)}`}</title>
             </rect>
             <text
               x={x + bw / 2}
@@ -79,7 +94,7 @@ const TrendBars = ({
               fontWeight="600"
               fill="#52514e"
             >
-              {fmtShort(v)}
+              {fmt(v)}
             </text>
             <text x={x + bw / 2} y={H - 6} textAnchor="middle" fontSize="9" fill="#898781">
               {r.label}
@@ -135,8 +150,14 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
       .catch(() => setMiscFee(0));
   }, [hostId, token, currentMonth, timeZone]);
 
-  // ── Trend tab: gross & net profit over the last 6 months ──────────────────
-  const [tab, setTab] = useState<"month" | "trend">("month");
+  // ── Trend tabs: profit & booking metrics over the last 6 months ───────────
+  const [tab, setTab] = useState<"month" | "profit" | "bookings">("month");
+
+  // The 6-month window (oldest → current), shared by both trend tabs.
+  const trendMonths = useMemo(
+    () => Array.from({ length: 6 }, (_, i) => startOfMonth(subMonths(currentMonth, 5 - i))),
+    [currentMonth],
+  );
 
   const feesTotal = (fees?: { amount: number }[]) =>
     (fees ?? []).reduce((s, f) => s + (f.amount || 0), 0);
@@ -171,17 +192,14 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
       setTrendData([]);
       return;
     }
-    const months = Array.from({ length: 6 }, (_, i) =>
-      startOfMonth(subMonths(currentMonth, 5 - i)),
-    );
-    const rangeStart = format(months[0], "yyyy-MM-dd", { timeZone });
-    const rangeEnd = format(endOfMonth(months[5]), "yyyy-MM-dd", { timeZone });
+    const rangeStart = format(trendMonths[0], "yyyy-MM-dd", { timeZone });
+    const rangeEnd = format(endOfMonth(trendMonths[5]), "yyyy-MM-dd", { timeZone });
     Promise.all([
       fetchAssignments(hostId, rangeStart, rangeEnd, token).catch(() => []),
       fetchMiscExpenses(hostId, token).catch(() => []),
     ]).then(([assigns, misc]) => {
       setTrendData(
-        months.map((mDate) => {
+        trendMonths.map((mDate) => {
           const mk = format(mDate, "yyyy-MM", { timeZone });
           const gross = grossByMonth.get(mk) ?? 0;
           const cleaning = assigns
@@ -202,7 +220,41 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
         }),
       );
     });
-  }, [hostId, token, currentMonth, timeZone, grossByMonth]);
+  }, [hostId, token, trendMonths, timeZone, grossByMonth]);
+
+  // Booking-rate (occupancy) and AirBnB-share per month, computed straight from
+  // monthMap — no fetch. Occupancy = booked ÷ available room-nights (blocked
+  // nights excluded as off-market); AirBnB share = AirBnB ÷ all booked nights.
+  const bookingTrend = useMemo(() => {
+    const active = rooms.filter((r) => r.active);
+    return trendMonths.map((mDate) => {
+      const days = eachDayOfInterval({ start: startOfMonth(mDate), end: endOfMonth(mDate) });
+      let available = 0;
+      let booked = 0;
+      let airbnb = 0;
+      for (const room of active) {
+        for (const dt of days) {
+          const dk = format(dt, "yyyy-MM-dd", { timeZone });
+          const d = monthMap.get(dk);
+          const blocked = d ? d.isBlocked || d.blockedRooms.some((r) => r?.id === room.id) : false;
+          if (blocked) continue;
+          available++;
+          const b = d?.bookings.find((x) => x.room?.id === room.id);
+          if (b) {
+            booked++;
+            if (b.guest.name === "AirBnB") airbnb++;
+          }
+        }
+      }
+      return {
+        month: format(mDate, "yyyy-MM", { timeZone }),
+        label: format(mDate, "MMM", { timeZone }),
+        longLabel: format(mDate, "MMM yyyy", { timeZone }),
+        occupancy: available ? (booked / available) * 100 : 0,
+        airbnbShare: booked ? (airbnb / booked) * 100 : 0,
+      };
+    });
+  }, [trendMonths, rooms, monthMap, timeZone]);
 
   // All date keys in the current month (includes days with no bookings)
   const allMonthDateKeys = eachDayOfInterval({
@@ -295,9 +347,15 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
         </span>
       </div>
 
-      {/* Tabs: this month's breakdown vs the multi-month trend */}
-      <div className="grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1">
-        {(["month", "trend"] as const).map((k) => (
+      {/* Tabs: this month's breakdown · profit trend · booking trend */}
+      <div className="grid grid-cols-3 gap-1 rounded-xl bg-gray-100 p-1">
+        {(
+          [
+            ["month", "This Month"],
+            ["profit", "Profit"],
+            ["bookings", "Bookings"],
+          ] as const
+        ).map(([k, label]) => (
           <button
             key={k}
             type="button"
@@ -306,7 +364,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
               tab === k ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
             }`}
           >
-            {k === "month" ? "This Month" : "Trend"}
+            {label}
           </button>
         ))}
       </div>
@@ -396,7 +454,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
         </>
       )}
 
-      {tab === "trend" &&
+      {tab === "profit" &&
         (trendData.length === 0 ? (
           <p className="py-8 text-center text-sm text-gray-400">Loading trend…</p>
         ) : (
@@ -406,7 +464,10 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
                 <span className="text-xs font-semibold text-gray-700">Gross profit</span>
                 <span className="text-[10px] text-gray-400">last 6 months</span>
               </div>
-              <TrendBars rows={trendData} pick={(r) => r.gross} colorFor={() => TREND_EMERALD} />
+              <TrendBars
+                rows={trendData.map((r) => ({ ...r, value: r.gross }))}
+                colorFor={() => TREND_EMERALD}
+              />
             </div>
             <div>
               <div className="mb-1 flex items-baseline justify-between">
@@ -414,8 +475,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
                 <span className="text-[10px] text-gray-400">gross − cleaning − misc</span>
               </div>
               <TrendBars
-                rows={trendData}
-                pick={(r) => r.net}
+                rows={trendData.map((r) => ({ ...r, value: r.net }))}
                 colorFor={(v) => (v >= 0 ? TREND_EMERALD : TREND_ROSE)}
               />
             </div>
@@ -425,6 +485,41 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
             </p>
           </div>
         ))}
+
+      {tab === "bookings" && (
+        <div className="flex flex-col gap-4">
+          <div>
+            <div className="mb-1 flex items-baseline justify-between">
+              <span className="text-xs font-semibold text-gray-700">Booking rate</span>
+              <span className="text-[10px] text-gray-400">occupancy, last 6 months</span>
+            </div>
+            <TrendBars
+              rows={bookingTrend.map((r) => ({ ...r, value: r.occupancy }))}
+              colorFor={() => TREND_EMERALD}
+              fmt={fmtPct}
+              fmtTip={fmtPctFull}
+              axisMax={100}
+            />
+          </div>
+          <div>
+            <div className="mb-1 flex items-baseline justify-between">
+              <span className="text-xs font-semibold text-gray-700">AirBnB share</span>
+              <span className="text-[10px] text-gray-400">% of booked nights via AirBnB</span>
+            </div>
+            <TrendBars
+              rows={bookingTrend.map((r) => ({ ...r, value: r.airbnbShare }))}
+              colorFor={() => TREND_ORANGE}
+              fmt={fmtPct}
+              fmtTip={fmtPctFull}
+              axisMax={100}
+            />
+          </div>
+          <p className="text-[10px] text-gray-400">
+            Booking rate = booked ÷ available room-nights (blocked nights excluded). AirBnB share =
+            AirBnB ÷ all booked nights. Current month still in progress.
+          </p>
+        </div>
+      )}
     </div>
   );
 };
