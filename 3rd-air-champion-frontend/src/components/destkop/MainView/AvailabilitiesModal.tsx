@@ -15,8 +15,8 @@ const TREND_BLUE = "#2563eb"; // Gross profit (revenue / top line)
 const TREND_EMERALD = "#059669"; // Net profit ≥ 0 (bottom line kept)
 const TREND_ROSE = "#e11d48"; // Net profit < 0 (a loss month)
 const TREND_ORANGE = "#eb6834"; // AirBnB-share bars — distinct from the money greens
-const TREND_AMBER = "#f59e0b"; // Cleaning fee (a cost)
-const TREND_VIOLET = "#8b5cf6"; // Misc fee (a cost)
+const TREND_AMBER = "#d97706"; // Cleaning fee (a cost) — validated pair w/ violet, ≥3:1
+const TREND_VIOLET = "#7c3aed"; // Misc fee (a cost)
 
 interface TrendRow {
   month: string; // yyyy-MM
@@ -106,6 +106,73 @@ const TrendBars = ({
         );
       })}
     </svg>
+  );
+};
+
+// Grouped bar chart — two bars per month (e.g. Cleaning vs Misc), all positive.
+// A legend names the series (required for >= 2), native hover tooltip per bar.
+const GroupedBars = ({
+  rows,
+  series,
+}: {
+  rows: { month: string; label: string; longLabel: string; values: number[] }[];
+  series: { name: string; color: string }[];
+}) => {
+  const maxV = Math.max(0, ...rows.flatMap((r) => r.values)) || 1;
+  const W = 320;
+  const H = 150;
+  const padX = 6;
+  const padTop = 14;
+  const padBottom = 20;
+  const plotH = H - padTop - padBottom;
+  const baseY = padTop + plotH;
+  const n = Math.max(rows.length, 1);
+  const slot = (W - padX * 2) / n;
+  const groupW = Math.min(38, slot * 0.66);
+  const gap = 3;
+  const bw = (groupW - gap * (series.length - 1)) / series.length;
+  return (
+    <>
+      <div className="mb-1 flex items-center gap-3">
+        {series.map((s) => (
+          <span key={s.name} className="flex items-center gap-1 text-[10px] text-gray-500">
+            <span className="h-2 w-2 rounded-sm" style={{ background: s.color }} />
+            {s.name}
+          </span>
+        ))}
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" style={{ display: "block" }}>
+        <line x1={padX} x2={W - padX} y1={baseY} y2={baseY} stroke="#c3c2b7" strokeWidth="1" />
+        {rows.map((r, i) => {
+          const gx = padX + slot * i + (slot - groupW) / 2;
+          return (
+            <g key={r.month}>
+              {series.map((s, j) => {
+                const v = r.values[j];
+                const h = (v / maxV) * plotH;
+                const x = gx + j * (bw + gap);
+                return (
+                  <rect
+                    key={s.name}
+                    x={x}
+                    y={baseY - h}
+                    width={bw}
+                    height={Math.max(h, 1)}
+                    rx="2"
+                    fill={s.color}
+                  >
+                    <title>{`${s.name} · ${r.longLabel}: ${fmtFull(v)}`}</title>
+                  </rect>
+                );
+              })}
+              <text x={gx + groupW / 2} y={H - 6} textAnchor="middle" fontSize="9" fill="#898781">
+                {r.label}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    </>
   );
 };
 
@@ -484,22 +551,20 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
             </div>
             <div>
               <div className="mb-1 flex items-baseline justify-between">
-                <span className="text-xs font-semibold text-gray-700">Cleaning fee</span>
-                <span className="text-[10px] text-gray-400">recorded hours × rate</span>
+                <span className="text-xs font-semibold text-gray-700">Costs</span>
+                <span className="text-[10px] text-gray-400">cleaning &amp; misc per month</span>
               </div>
-              <TrendBars
-                rows={trendData.map((r) => ({ ...r, value: r.cleaning }))}
-                colorFor={() => TREND_AMBER}
-              />
-            </div>
-            <div>
-              <div className="mb-1 flex items-baseline justify-between">
-                <span className="text-xs font-semibold text-gray-700">Misc fee</span>
-                <span className="text-[10px] text-gray-400">supplies · utilities · maintenance</span>
-              </div>
-              <TrendBars
-                rows={trendData.map((r) => ({ ...r, value: r.misc }))}
-                colorFor={() => TREND_VIOLET}
+              <GroupedBars
+                rows={trendData.map((r) => ({
+                  month: r.month,
+                  label: r.label,
+                  longLabel: r.longLabel,
+                  values: [r.cleaning, r.misc],
+                }))}
+                series={[
+                  { name: "Cleaning", color: TREND_AMBER },
+                  { name: "Misc", color: TREND_VIOLET },
+                ]}
               />
             </div>
             <p className="text-[10px] text-gray-400">
