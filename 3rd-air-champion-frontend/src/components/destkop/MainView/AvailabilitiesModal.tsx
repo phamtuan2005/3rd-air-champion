@@ -474,6 +474,16 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
             </div>
             <div>
               <div className="mb-1 flex items-baseline justify-between">
+                <span className="text-xs font-semibold text-gray-700">Net profit</span>
+                <span className="text-[10px] text-gray-400">gross − cleaning − misc</span>
+              </div>
+              <TrendBars
+                rows={trendData.map((r) => ({ ...r, value: r.net }))}
+                colorFor={(v) => (v >= 0 ? TREND_EMERALD : TREND_ROSE)}
+              />
+            </div>
+            <div>
+              <div className="mb-1 flex items-baseline justify-between">
                 <span className="text-xs font-semibold text-gray-700">Cleaning fee</span>
                 <span className="text-[10px] text-gray-400">recorded hours × rate</span>
               </div>
@@ -490,16 +500,6 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
               <TrendBars
                 rows={trendData.map((r) => ({ ...r, value: r.misc }))}
                 colorFor={() => TREND_VIOLET}
-              />
-            </div>
-            <div>
-              <div className="mb-1 flex items-baseline justify-between">
-                <span className="text-xs font-semibold text-gray-700">Net profit</span>
-                <span className="text-[10px] text-gray-400">gross − cleaning − misc</span>
-              </div>
-              <TrendBars
-                rows={trendData.map((r) => ({ ...r, value: r.net }))}
-                colorFor={(v) => (v >= 0 ? TREND_EMERALD : TREND_ROSE)}
               />
             </div>
             <p className="text-[10px] text-gray-400">
