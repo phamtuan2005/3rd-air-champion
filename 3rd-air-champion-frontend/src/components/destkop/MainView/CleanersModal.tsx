@@ -11,6 +11,7 @@ import {
   CleanerType,
   CleanerSummaryType,
   CleaningAssignmentType,
+  RateChange,
   assignCleaner,
   autoPlanCleanings,
   createCleaner,
@@ -309,6 +310,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
     name: "",
     phone: "",
     payRate: "",
+    rateHistory: [] as RateChange[],
     baselineHours: "",
     character: "",
     availableDays: [] as number[],
@@ -316,6 +318,14 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
     priority: 3,
     isOwner: false,
   });
+  // Draft for the "add a raise" row in the edit modal.
+  const [raiseDraft, setRaiseDraft] = useState({ rate: "", from: "" });
+  const addRaise = () => {
+    const rate = parseFloat(raiseDraft.rate);
+    if (!Number.isFinite(rate) || rate <= 0 || !raiseDraft.from) return;
+    setEdit((p) => ({ ...p, rateHistory: [...p.rateHistory, { rate, effectiveFrom: raiseDraft.from }] }));
+    setRaiseDraft({ rate: "", from: "" });
+  };
   const [hmDraft, setHmDraft] = useState<Record<string, { h: string; m: string }>>({});
   // Which already-recorded cleaner-day is currently open for correction
   const [editingDayKey, setEditingDayKey] = useState<string | null>(null);
@@ -699,6 +709,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
         name: edit.name.trim(),
         phone: edit.phone.trim(),
         payRate: parseFloat(edit.payRate) || 0,
+        rateHistory: edit.rateHistory,
         character: edit.character.trim(),
         availableDays: edit.availableDays,
         paused: edit.paused,
@@ -1298,10 +1309,12 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                   className={pillNeutral}
                   onClick={() => {
                     setEditingId(cleaner.id);
+                    setRaiseDraft({ rate: "", from: "" });
                     setEdit({
                       name: cleaner.name,
                       phone: cleaner.phone,
                       payRate: String(cleaner.payRate),
+                      rateHistory: cleaner.rateHistory ?? [],
                       character: cleaner.character ?? "",
                       availableDays: cleaner.availableDays ?? [],
                       paused: cleaner.paused ?? false,
@@ -2164,6 +2177,89 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                     onChange={(e) => setEdit((p) => ({ ...p, payRate: e.target.value }))}
                   />
                 </label>
+              </div>
+
+              {/* Rate changes — raise pay from a date WITHOUT re-pricing past work */}
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-2.5">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                    Rate changes
+                  </span>
+                  <span className="text-[11px] text-gray-500">
+                    now{" "}
+                    <b className="text-emerald-600">
+                      ${rateOn({ payRate: parseFloat(edit.payRate) || 0, rateHistory: edit.rateHistory }, todayKey)}
+                      /hr
+                    </b>
+                  </span>
+                </div>
+                {edit.rateHistory.length > 0 && (
+                  <ul className="mb-1.5 space-y-1">
+                    {[...edit.rateHistory]
+                      .sort((a, b) => (a.effectiveFrom < b.effectiveFrom ? -1 : 1))
+                      .map((h, i) => (
+                        <li
+                          key={`${h.effectiveFrom}-${i}`}
+                          className="flex items-center justify-between rounded-lg bg-white px-2 py-1 text-xs"
+                        >
+                          <span className="text-gray-700">
+                            ${h.rate}/hr from{" "}
+                            {format(new Date(`${h.effectiveFrom}T00:00:00`), "MMM d, yyyy")}
+                            {h.effectiveFrom > todayKey && (
+                              <span className="ml-1 text-[10px] font-semibold text-amber-600">
+                                upcoming
+                              </span>
+                            )}
+                          </span>
+                          <button
+                            type="button"
+                            aria-label="Remove rate change"
+                            className="text-gray-300 hover:text-rose-500"
+                            onClick={() =>
+                              setEdit((p) => ({
+                                ...p,
+                                rateHistory: p.rateHistory.filter(
+                                  (x) => !(x.rate === h.rate && x.effectiveFrom === h.effectiveFrom),
+                                ),
+                              }))
+                            }
+                          >
+                            &times;
+                          </button>
+                        </li>
+                      ))}
+                  </ul>
+                )}
+                <div className="flex items-end gap-1.5">
+                  <label className="flex flex-1 flex-col gap-0.5 text-[10px] uppercase tracking-wide text-gray-400">
+                    New $/hr
+                    <input
+                      className={inputCls}
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={raiseDraft.rate}
+                      onChange={(e) => setRaiseDraft((p) => ({ ...p, rate: e.target.value }))}
+                    />
+                  </label>
+                  <label className="flex flex-1 flex-col gap-0.5 text-[10px] uppercase tracking-wide text-gray-400">
+                    From
+                    <input
+                      className={inputCls}
+                      type="date"
+                      value={raiseDraft.from}
+                      onChange={(e) => setRaiseDraft((p) => ({ ...p, from: e.target.value }))}
+                    />
+                  </label>
+                  <button type="button" className={pillEmerald} onClick={addRaise}>
+                    Add
+                  </button>
+                </div>
+                <p className="mt-1 text-[10px] text-gray-400">
+                  Past cleanings keep their old rate; the new rate applies from the date you pick. (The
+                  $/hr field above is the base rate — changing it re-prices past work.)
+                </p>
               </div>
 
               <div>
