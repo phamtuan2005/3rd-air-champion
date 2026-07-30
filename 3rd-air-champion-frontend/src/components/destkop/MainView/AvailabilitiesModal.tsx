@@ -236,14 +236,19 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
         const roomBookings = day.bookings.filter((b) => b.room?.id === room.id);
         if (roomBookings.length > 0) bookedNights++;
         return total + roomBookings.reduce((sum, booking) => {
+            // Whole-stay fees (parking/cleaning/etc.) count once, on the start
+            // night — same as the main calendar's profit stat. Omitting them made
+            // this Total read low vs the calendar figure.
+            const fee = booking.startDate.split("T")[0] === dateKey ? feesTotal(booking.fees) : 0;
             if (booking.guest.name !== "AirBnB") {
               const guestPricing = booking.guest.pricing?.find((p) => p.room === booking.room?.id);
-              return sum + (guestPricing ? guestPricing.price : 0);
+              return sum + (guestPricing ? guestPricing.price : 0) + fee;
             } else {
-              if (booking.airbnbPrice && booking.duration) {
-                return sum + booking.airbnbPrice / booking.duration;
-              }
-              return sum;
+              const nightly =
+                booking.airbnbPrice && booking.duration
+                  ? booking.airbnbPrice / booking.duration
+                  : 0;
+              return sum + nightly + fee;
             }
           }, 0);
       }, 0);
