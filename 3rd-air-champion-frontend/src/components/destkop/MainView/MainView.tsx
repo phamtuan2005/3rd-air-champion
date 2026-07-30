@@ -1126,7 +1126,7 @@ const MainView = ({
       <MobilePanel
         isOpen={isAvailabilitiesModalOpen}
         onClose={() => setIsAvailabilitiesModalOpen(false)}
-        defaultHeightVh={72}
+        defaultHeightVh={80}
       >
         <AvailabilitiesModal
           monthMap={monthMap}

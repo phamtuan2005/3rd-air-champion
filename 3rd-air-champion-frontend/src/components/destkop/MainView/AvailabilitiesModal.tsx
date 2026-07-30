@@ -11,8 +11,9 @@ import { fetchMiscExpenses, isExpenseInMonth } from "../../../util/miscOperation
 // for a loss. A single measure per chart, so no categorical CVD pair — and the
 // Net chart encodes sign by bar direction (above/below zero) + a signed label,
 // not color alone.
-const TREND_EMERALD = "#059669";
-const TREND_ROSE = "#e11d48";
+const TREND_BLUE = "#2563eb"; // Gross profit (revenue / top line)
+const TREND_EMERALD = "#059669"; // Net profit ≥ 0 (bottom line kept)
+const TREND_ROSE = "#e11d48"; // Net profit < 0 (a loss month)
 const TREND_ORANGE = "#eb6834"; // AirBnB-share bars — distinct from the money greens
 
 interface TrendRow {
@@ -466,7 +467,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
               </div>
               <TrendBars
                 rows={trendData.map((r) => ({ ...r, value: r.gross }))}
-                colorFor={() => TREND_EMERALD}
+                colorFor={() => TREND_BLUE}
               />
             </div>
             <div>
