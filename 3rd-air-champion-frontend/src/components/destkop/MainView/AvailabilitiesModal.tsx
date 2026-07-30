@@ -122,7 +122,7 @@ const GroupedBars = ({
   const W = 320;
   const H = 150;
   const padX = 6;
-  const padTop = 14;
+  const padTop = 18;
   const padBottom = 20;
   const plotH = H - padTop - padBottom;
   const baseY = padTop + plotH;
@@ -152,17 +152,21 @@ const GroupedBars = ({
                 const h = (v / maxV) * plotH;
                 const x = gx + j * (bw + gap);
                 return (
-                  <rect
-                    key={s.name}
-                    x={x}
-                    y={baseY - h}
-                    width={bw}
-                    height={Math.max(h, 1)}
-                    rx="2"
-                    fill={s.color}
-                  >
-                    <title>{`${s.name} · ${r.longLabel}: ${fmtFull(v)}`}</title>
-                  </rect>
+                  <g key={s.name}>
+                    <rect x={x} y={baseY - h} width={bw} height={Math.max(h, 1)} rx="2" fill={s.color}>
+                      <title>{`${s.name} · ${r.longLabel}: ${fmtFull(v)}`}</title>
+                    </rect>
+                    <text
+                      x={x + bw / 2}
+                      y={baseY - h - 3}
+                      textAnchor="middle"
+                      fontSize="7.5"
+                      fontWeight="600"
+                      fill={s.color}
+                    >
+                      {fmtShort(v)}
+                    </text>
+                  </g>
                 );
               })}
               <text x={gx + groupW / 2} y={H - 6} textAnchor="middle" fontSize="9" fill="#898781">
