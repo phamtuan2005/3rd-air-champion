@@ -1,11 +1,94 @@
-﻿import { useEffect, useState } from "react";
-import { isAfter, startOfToday, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
+﻿import { useEffect, useMemo, useState } from "react";
+import { isAfter, startOfToday, startOfMonth, endOfMonth, eachDayOfInterval, subMonths } from "date-fns";
 import { format } from "date-fns-tz";
 import { dayType } from "../../../util/types/dayType";
 import { roomType } from "../../../util/types/roomType";
 import RoomBadge from "../../shared/RoomBadge";
 import { fetchAssignments } from "../../../util/cleanerOperations";
 import { fetchMiscExpenses, isExpenseInMonth } from "../../../util/miscOperations";
+
+// App money palette (matches the Total / Net badges): emerald for profit, rose
+// for a loss. A single measure per chart, so no categorical CVD pair — and the
+// Net chart encodes sign by bar direction (above/below zero) + a signed label,
+// not color alone.
+const TREND_EMERALD = "#059669";
+const TREND_ROSE = "#e11d48";
+
+interface TrendRow {
+  month: string; // yyyy-MM
+  label: string; // "Jul"
+  longLabel: string; // "Jul 2026"
+  gross: number;
+  cleaning: number;
+  misc: number;
+  net: number;
+}
+
+const fmtFull = (n: number) => `${n < 0 ? "−" : ""}$${Math.round(Math.abs(n)).toLocaleString()}`;
+const fmtShort = (n: number) => {
+  const a = Math.abs(n);
+  const s = n < 0 ? "−" : "";
+  if (a >= 1000) return `${s}$${(a / 1000).toFixed(a >= 10000 ? 0 : 1)}k`;
+  return `${s}$${Math.round(a)}`;
+};
+
+// Dependency-free SVG bar chart with a zero baseline (handles negatives), direct
+// value labels, and a native hover tooltip per bar.
+const TrendBars = ({
+  rows,
+  pick,
+  colorFor,
+}: {
+  rows: TrendRow[];
+  pick: (r: TrendRow) => number;
+  colorFor: (v: number) => string;
+}) => {
+  const vals = rows.map(pick);
+  const maxV = Math.max(0, ...vals);
+  const minV = Math.min(0, ...vals);
+  const range = maxV - minV || 1;
+  const W = 320;
+  const H = 150;
+  const padX = 6;
+  const padTop = 16;
+  const padBottom = 20;
+  const plotH = H - padTop - padBottom;
+  const n = Math.max(rows.length, 1);
+  const slot = (W - padX * 2) / n;
+  const bw = Math.min(30, slot * 0.62);
+  const zeroY = padTop + (maxV / range) * plotH;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" style={{ display: "block" }}>
+      <line x1={padX} x2={W - padX} y1={zeroY} y2={zeroY} stroke="#c3c2b7" strokeWidth="1" />
+      {rows.map((r, i) => {
+        const v = pick(r);
+        const x = padX + slot * i + (slot - bw) / 2;
+        const h = (Math.abs(v) / range) * plotH;
+        const y = v >= 0 ? zeroY - h : zeroY;
+        return (
+          <g key={r.month}>
+            <rect x={x} y={y} width={bw} height={Math.max(h, 1)} rx="2.5" fill={colorFor(v)}>
+              <title>{`${r.longLabel}: ${fmtFull(v)}`}</title>
+            </rect>
+            <text
+              x={x + bw / 2}
+              y={v >= 0 ? y - 3 : zeroY - 4}
+              textAnchor="middle"
+              fontSize="9"
+              fontWeight="600"
+              fill="#52514e"
+            >
+              {fmtShort(v)}
+            </text>
+            <text x={x + bw / 2} y={H - 6} textAnchor="middle" fontSize="9" fill="#898781">
+              {r.label}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+};
 
 interface AvailabilitiesModalProps {
   monthMap: Map<string, dayType>;
@@ -50,6 +133,75 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
       )
       .catch(() => setMiscFee(0));
   }, [hostId, token, currentMonth, timeZone]);
+
+  // ── Trend tab: gross & net profit over the last 6 months ──────────────────
+  const [tab, setTab] = useState<"month" | "trend">("month");
+
+  const feesTotal = (fees?: { amount: number }[]) =>
+    (fees ?? []).reduce((s, f) => s + (f.amount || 0), 0);
+
+  // Realized booking income bucketed by month, from the full calendar history in
+  // monthMap (same per-night formula as the calendar's profit stat).
+  const grossByMonth = useMemo(() => {
+    const m = new Map<string, number>();
+    const add = (k: string, v: number) => m.set(k, (m.get(k) ?? 0) + v);
+    for (const [dateKey, day] of monthMap) {
+      const mk = dateKey.slice(0, 7);
+      for (const b of day.bookings) {
+        if (!b.room) continue;
+        const roomId = b.room.id;
+        const isStart = b.startDate.split("T")[0] === dateKey;
+        if (b.guest.name !== "AirBnB") {
+          const gp = b.guest.pricing?.find((p) => p.room === roomId);
+          if (gp) add(mk, gp.price);
+          if (isStart) add(mk, feesTotal(b.fees));
+        } else {
+          if (b.airbnbPrice && b.duration) add(mk, b.airbnbPrice / b.duration);
+          if (isStart) add(mk, feesTotal(b.fees));
+        }
+      }
+    }
+    return m;
+  }, [monthMap]);
+
+  const [trendData, setTrendData] = useState<TrendRow[]>([]);
+  useEffect(() => {
+    if (!hostId || !token) {
+      setTrendData([]);
+      return;
+    }
+    const months = Array.from({ length: 6 }, (_, i) =>
+      startOfMonth(subMonths(currentMonth, 5 - i)),
+    );
+    const rangeStart = format(months[0], "yyyy-MM-dd", { timeZone });
+    const rangeEnd = format(endOfMonth(months[5]), "yyyy-MM-dd", { timeZone });
+    Promise.all([
+      fetchAssignments(hostId, rangeStart, rangeEnd, token).catch(() => []),
+      fetchMiscExpenses(hostId, token).catch(() => []),
+    ]).then(([assigns, misc]) => {
+      setTrendData(
+        months.map((mDate) => {
+          const mk = format(mDate, "yyyy-MM", { timeZone });
+          const gross = grossByMonth.get(mk) ?? 0;
+          const cleaning = assigns
+            .filter((a) => a.date.slice(0, 7) === mk && a.hours != null && a.cleaner)
+            .reduce((s, a) => s + a.hours! * a.cleaner!.payRate, 0);
+          const miscTotal = misc
+            .filter((e) => isExpenseInMonth(e, mk))
+            .reduce((s, e) => s + e.amount, 0);
+          return {
+            month: mk,
+            label: format(mDate, "MMM", { timeZone }),
+            longLabel: format(mDate, "MMM yyyy", { timeZone }),
+            gross,
+            cleaning,
+            misc: miscTotal,
+            net: gross - cleaning - miscTotal,
+          };
+        }),
+      );
+    });
+  }, [hostId, token, currentMonth, timeZone, grossByMonth]);
 
   // All date keys in the current month (includes days with no bookings)
   const allMonthDateKeys = eachDayOfInterval({
@@ -137,6 +289,24 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
         </span>
       </div>
 
+      {/* Tabs: this month's breakdown vs the multi-month trend */}
+      <div className="grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1">
+        {(["month", "trend"] as const).map((k) => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => setTab(k)}
+            className={`rounded-lg py-1.5 text-xs font-semibold transition-colors ${
+              tab === k ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+            }`}
+          >
+            {k === "month" ? "This Month" : "Trend"}
+          </button>
+        ))}
+      </div>
+
+      {tab === "month" && (
+        <>
       {stats.length === 0 ? (
         <p className="text-xs text-gray-500">No active rooms found.</p>
       ) : (
@@ -217,6 +387,38 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
 <p className="text-[10px] text-gray-400">
         Booked nights use actual pricing · unbooked nights use shrinkage-adjusted avg (blended toward default rate when sample is small)
       </p>
+        </>
+      )}
+
+      {tab === "trend" &&
+        (trendData.length === 0 ? (
+          <p className="py-8 text-center text-sm text-gray-400">Loading trend…</p>
+        ) : (
+          <div className="flex flex-col gap-4">
+            <div>
+              <div className="mb-1 flex items-baseline justify-between">
+                <span className="text-xs font-semibold text-gray-700">Gross profit</span>
+                <span className="text-[10px] text-gray-400">last 6 months</span>
+              </div>
+              <TrendBars rows={trendData} pick={(r) => r.gross} colorFor={() => TREND_EMERALD} />
+            </div>
+            <div>
+              <div className="mb-1 flex items-baseline justify-between">
+                <span className="text-xs font-semibold text-gray-700">Net profit</span>
+                <span className="text-[10px] text-gray-400">gross − cleaning − misc</span>
+              </div>
+              <TrendBars
+                rows={trendData}
+                pick={(r) => r.net}
+                colorFor={(v) => (v >= 0 ? TREND_EMERALD : TREND_ROSE)}
+              />
+            </div>
+            <p className="text-[10px] text-gray-400">
+              Gross = realized booking income. The current month is still in progress. Tap/hover a
+              bar for the exact amount.
+            </p>
+          </div>
+        ))}
     </div>
   );
 };
