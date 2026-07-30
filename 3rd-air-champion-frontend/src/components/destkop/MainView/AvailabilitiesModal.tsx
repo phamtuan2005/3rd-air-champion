@@ -28,7 +28,8 @@ const fmtFull = (n: number) => `${n < 0 ? "−" : ""}$${Math.round(Math.abs(n)).
 const fmtShort = (n: number) => {
   const a = Math.abs(n);
   const s = n < 0 ? "−" : "";
-  if (a >= 1000) return `${s}$${(a / 1000).toFixed(a >= 10000 ? 0 : 1)}k`;
+  // Always one decimal in the k-range so e.g. $10,333 reads "$10.3k", not "$10k".
+  if (a >= 1000) return `${s}$${(a / 1000).toFixed(1)}k`;
   return `${s}$${Math.round(a)}`;
 };
 
