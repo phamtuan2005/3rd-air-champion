@@ -26,8 +26,18 @@ const cleanerSchema = new mongoose.Schema(
     // The host themselves (owner labor). Owners are EXCLUDED from the auto-draft
     // — they exist to be spared, not maximized — and assigned by hand only.
     isOwner: { type: Boolean, default: false },
-    // Hourly rate in dollars — pay is computed from recorded hours, not per job
+    // Hourly rate in dollars — pay is computed from recorded hours, not per job.
+    // This is the BASE rate: the rate in effect before any scheduled change in
+    // rateHistory. A cleaning is always billed at the rate in effect ON ITS DATE
+    // (see rateOn), so a raise never re-prices past work.
     payRate: { type: Number, default: 0 },
+    // Scheduled rate changes: each { rate, effectiveFrom: "yyyy-MM-dd" } takes
+    // effect on that date. Dates before the earliest entry use the base payRate.
+    // e.g. a raise effective 8/1 = one entry { rate: new, effectiveFrom: "2026-08-01" }.
+    rateHistory: {
+      type: [{ rate: { type: Number, required: true }, effectiveFrom: { type: String, required: true } }],
+      default: [],
+    },
     // Hours worked before assignment tracking started, counted toward the
     // month in baselineMonth ("yyyy-MM") only — stale baselines don't leak
     // into later months.

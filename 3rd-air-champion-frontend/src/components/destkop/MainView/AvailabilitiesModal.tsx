@@ -4,7 +4,7 @@ import { format } from "date-fns-tz";
 import { dayType } from "../../../util/types/dayType";
 import { roomType } from "../../../util/types/roomType";
 import RoomBadge from "../../shared/RoomBadge";
-import { fetchAssignments } from "../../../util/cleanerOperations";
+import { fetchAssignments, rateOn } from "../../../util/cleanerOperations";
 import { fetchMiscExpenses, isExpenseInMonth } from "../../../util/miscOperations";
 
 // App money palette (matches the Total / Net badges): emerald for profit, rose
@@ -208,7 +208,8 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
       .then((assignments) =>
         setCleaningFee(
           assignments.reduce(
-            (sum, a) => sum + (a.hours != null && a.cleaner ? a.hours * a.cleaner.payRate : 0),
+            (sum, a) =>
+              sum + (a.hours != null && a.cleaner ? a.hours * rateOn(a.cleaner, a.date) : 0),
             0,
           ),
         ),
@@ -278,7 +279,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
           const gross = grossByMonth.get(mk) ?? 0;
           const cleaning = assigns
             .filter((a) => a.date.slice(0, 7) === mk && a.hours != null && a.cleaner)
-            .reduce((s, a) => s + a.hours! * a.cleaner!.payRate, 0);
+            .reduce((s, a) => s + a.hours! * rateOn(a.cleaner!, a.date), 0);
           const miscTotal = misc
             .filter((e) => isExpenseInMonth(e, mk))
             .reduce((s, e) => s + e.amount, 0);

@@ -21,6 +21,7 @@ import {
   fetchSentSchedules,
   recordScheduleSent,
   recordCleanerPayment,
+  rateOn,
   unassignCleaner,
   updateAssignmentHours,
   updateCleaner,
@@ -650,7 +651,11 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
   const monthlyPay = new Map<string, { name: string; hours: number; pay: number }>();
   cleaners.forEach((c) => {
     if (c.baselineMonth === monthKey && c.baselineHours > 0) {
-      monthlyPay.set(c.id, { name: c.name, hours: c.baselineHours, pay: c.baselineHours * c.payRate });
+      monthlyPay.set(c.id, {
+        name: c.name,
+        hours: c.baselineHours,
+        pay: c.baselineHours * rateOn(c, `${monthKey}-01`),
+      });
     }
   });
   assignments
@@ -658,7 +663,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
     .forEach((a) => {
       const entry = monthlyPay.get(a.cleaner!.id) ?? { name: a.cleaner!.name, hours: 0, pay: 0 };
       entry.hours += a.hours!;
-      entry.pay += a.hours! * a.cleaner!.payRate;
+      entry.pay += a.hours! * rateOn(a.cleaner!, a.date);
       monthlyPay.set(a.cleaner!.id, entry);
     });
 
@@ -908,14 +913,13 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
   const textPayment = (entry: CleanerSummaryType) => {
     const cleaner = cleaners.find((c) => c.id === entry.id);
     if (!cleaner?.phone) return;
-    const rate = cleaner.payRate;
     const days = cleanerDayHours(entry.id);
     const tip = parseFloat(tipDraft[entry.id]) || 0;
     const lines = days.map(
       ([date, hrs]) =>
-        `* ${format(new Date(date + "T00:00:00"), "EEE M/d")}: ${formatHrMin(hrs)} = $${(hrs * rate).toFixed(2)}`,
+        `* ${format(new Date(date + "T00:00:00"), "EEE M/d")}: ${formatHrMin(hrs)} = $${(hrs * rateOn(cleaner, date)).toFixed(2)}`,
     );
-    const subtotal = days.reduce((s, [, h]) => s + h * rate, 0);
+    const subtotal = days.reduce((s, [date, h]) => s + h * rateOn(cleaner, date), 0);
     const totalHrs = days.reduce((s, [, h]) => s + h, 0);
     const monthLabel = format(startOfToday(), "MMMM");
     const body = [
@@ -1262,7 +1266,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                   </p>
                   <p className="text-xs text-gray-500">
                     {cleaner.phone && <span>{formatPhone(cleaner.phone)} · </span>}
-                    <span className="font-bold text-emerald-600">${cleaner.payRate}/hr</span>
+                    <span className="font-bold text-emerald-600">${rateOn(cleaner, todayKey)}/hr</span>
                   </p>
                 </div>
                 {/* One home for every message we send a cleaner — schedule,
@@ -2267,9 +2271,9 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
         (() => {
           const entry = detailEntry;
           const cleaner = cleaners.find((c) => c.id === entry.id);
-          const rate = cleaner?.payRate ?? 0;
+          const dayRate = (d: string) => (cleaner ? rateOn(cleaner, d) : 0);
           const days = cleanerDayHours(entry.id);
-          const subtotal = days.reduce((s, [, h]) => s + h * rate, 0);
+          const subtotal = days.reduce((s, [date, h]) => s + h * dayRate(date), 0);
           const tip = parseFloat(tipDraft[entry.id]) || 0;
           return (
             <div
@@ -2341,7 +2345,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                           </span>
                           <span className="text-gray-500">{formatHrMin(hrs)}</span>
                           <span className="w-16 text-right font-semibold text-gray-800">
-                            ${(hrs * rate).toFixed(2)}
+                            ${(hrs * dayRate(date)).toFixed(2)}
                           </span>
                         </div>
                       ))
@@ -2504,7 +2508,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                   />
                   <span className="min-w-0 flex-1 truncate text-left">{cleaner.name}</span>
                   <span className={`text-xs ${isAssigned ? "text-gray-300" : "text-emerald-600"}`}>
-                    ${cleaner.payRate}/hr
+                    ${rateOn(cleaner, todayKey)}/hr
                   </span>
                   {isAssigned && <span className="text-xs font-bold">✓</span>}
                 </button>

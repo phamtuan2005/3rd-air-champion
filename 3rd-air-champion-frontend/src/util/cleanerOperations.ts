@@ -2,11 +2,17 @@ import axios from "axios";
 
 const BACKEND_ENDPOINT = import.meta.env.VITE_BACKEND_ENDPOINT || "";
 
+export interface RateChange {
+  rate: number;
+  effectiveFrom: string; // yyyy-MM-dd
+}
+
 export interface CleanerType {
   id: string;
   name: string;
   phone: string;
-  payRate: number; // $/hour
+  payRate: number; // $/hour — BASE rate (before any scheduled change)
+  rateHistory?: RateChange[]; // scheduled raises; rate on a date resolved by rateOn
   photo?: string; // explicit image (owner jpg / data URL); overrides the generated avatar
   character?: string; // free-text note the illustrated avatar is generated from
   availableDays?: number[]; // weekdays they can work (0=Sun…6=Sat); empty = infer from history
@@ -27,6 +33,25 @@ export interface CleaningAssignmentType {
 
 const auth = (token: string) => ({ headers: { Authorization: `Bearer ${token}` } });
 
+// The hourly rate in effect for a cleaner ON a given date (yyyy-MM-dd). Dates
+// before any scheduled change use the base payRate; each rateHistory entry takes
+// effect on its effectiveFrom. So a cleaning is billed at its historical rate —
+// a raise never re-prices past work. Pass today's date to get the current rate.
+export const rateOn = (
+  cleaner: { payRate: number; rateHistory?: RateChange[] },
+  dateStr: string,
+): number => {
+  let rate = cleaner.payRate ?? 0;
+  const hist = [...(cleaner.rateHistory ?? [])].sort((a, b) =>
+    a.effectiveFrom < b.effectiveFrom ? -1 : 1,
+  );
+  for (const h of hist) {
+    if (h.effectiveFrom <= dateStr) rate = h.rate;
+    else break;
+  }
+  return rate;
+};
+
 export const fetchCleaners = async (hostId: string, token: string): Promise<CleanerType[]> => {
   const response = await axios.get(`${BACKEND_ENDPOINT}/cleaner/list`, {
     params: { hostId },
@@ -36,7 +61,7 @@ export const fetchCleaners = async (hostId: string, token: string): Promise<Clea
 };
 
 export const createCleaner = async (
-  data: { host: string; name: string; phone: string; payRate: number; photo?: string; character?: string; availableDays?: number[]; priority?: number; isOwner?: boolean },
+  data: { host: string; name: string; phone: string; payRate: number; rateHistory?: RateChange[]; photo?: string; character?: string; availableDays?: number[]; priority?: number; isOwner?: boolean },
   token: string,
 ): Promise<CleanerType> => {
   const response = await axios.post(`${BACKEND_ENDPOINT}/cleaner/create`, data, auth(token));
@@ -49,6 +74,7 @@ export const updateCleaner = async (
     name?: string;
     phone?: string;
     payRate?: number;
+    rateHistory?: RateChange[];
     photo?: string;
     character?: string;
     availableDays?: number[];

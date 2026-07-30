@@ -1,5 +1,4 @@
 import express, { Request } from "express";
-import mongoose from "mongoose";
 import Cleaner from "../model/cleanerSchema";
 import CleaningAssignment from "../model/cleaningAssignmentSchema";
 import SentSchedule from "../model/sentScheduleSchema";
@@ -7,11 +6,28 @@ import SentSchedule from "../model/sentScheduleSchema";
 // All routes here are mounted behind the JWT middleware in server.ts.
 const router = express.Router();
 
+// The hourly rate in effect for a cleaner ON a given date (yyyy-MM-dd). Walk the
+// scheduled changes newest-applicable wins; dates before any change use the base
+// payRate. So a cleaning is always billed at its historical rate — a raise never
+// re-prices past work.
+const rateOn = (c: any, dateStr: string): number => {
+  let rate = c.payRate ?? 0;
+  const hist = [...(c.rateHistory ?? [])].sort((a, b) =>
+    a.effectiveFrom < b.effectiveFrom ? -1 : 1,
+  );
+  for (const h of hist) {
+    if (h.effectiveFrom <= dateStr) rate = h.rate;
+    else break;
+  }
+  return rate;
+};
+
 const serializeCleaner = (c: any) => ({
   id: c._id,
   name: c.name,
   phone: c.phone,
   payRate: c.payRate,
+  rateHistory: (c.rateHistory ?? []).map((h: any) => ({ rate: h.rate, effectiveFrom: h.effectiveFrom })),
   photo: c.photo ?? "",
   character: c.character ?? "",
   availableDays: c.availableDays ?? [],
@@ -44,7 +60,7 @@ router.get("/list", async (req: Request, res: any) => {
 });
 
 router.post("/create", async (req: Request, res: any) => {
-  const { host, name, phone, payRate, photo, character, availableDays, paused, priority, isOwner } =
+  const { host, name, phone, payRate, rateHistory, photo, character, availableDays, paused, priority, isOwner } =
     req.body;
   if (!host || !name) return res.status(400).json({ error: "host and name are required" });
   try {
@@ -53,6 +69,7 @@ router.post("/create", async (req: Request, res: any) => {
       name,
       phone: phone ?? "",
       payRate: payRate ?? 0,
+      rateHistory: Array.isArray(rateHistory) ? rateHistory : [],
       photo: photo ?? "",
       character: character ?? "",
       availableDays: Array.isArray(availableDays) ? availableDays : [],
@@ -68,7 +85,7 @@ router.post("/create", async (req: Request, res: any) => {
 
 router.patch("/update", async (req: Request, res: any) => {
   const {
-    id, name, phone, payRate, photo, character, availableDays, paused, priority, isOwner,
+    id, name, phone, payRate, rateHistory, photo, character, availableDays, paused, priority, isOwner,
     baselineHours, baselineMonth,
   } = req.body;
   if (!id) return res.status(400).json({ error: "id is required" });
@@ -77,6 +94,7 @@ router.patch("/update", async (req: Request, res: any) => {
     if (name !== undefined) update.name = name;
     if (phone !== undefined) update.phone = phone;
     if (payRate !== undefined) update.payRate = payRate;
+    if (rateHistory !== undefined) update.rateHistory = rateHistory;
     if (photo !== undefined) update.photo = photo;
     if (character !== undefined) update.character = character;
     if (availableDays !== undefined) update.availableDays = availableDays;
@@ -103,31 +121,43 @@ router.delete("/:id", async (req: Request, res: any) => {
   }
 });
 
-// All-time earnings ledger per cleaner: hours (recorded + baseline) × rate,
-// minus payments already made. Cleaners claim on different schedules, so the
-// owed balance must span months.
+// All-time earnings ledger per cleaner: Σ over recorded cleanings of
+// hours × (rate on that cleaning's DATE), plus baseline hours × baseline-month
+// rate, minus payments already made. Billing each cleaning at its historical
+// rate means a raise never re-prices past work. Cleaners claim on different
+// schedules, so the owed balance must span months.
 router.get("/summary", async (req: Request, res: any) => {
   const { hostId } = req.query;
   if (!hostId) return res.status(400).json({ error: "hostId is required" });
   try {
     const cleaners = await Cleaner.find({ host: hostId }).sort({ name: 1 });
-    const sums = await CleaningAssignment.aggregate([
-      {
-        $match: {
-          host: new mongoose.Types.ObjectId(hostId as string),
-          hours: { $ne: null },
-        },
-      },
-      { $group: { _id: "$cleaner", hours: { $sum: "$hours" } } },
-    ]);
-    const hoursByCleaner = new Map(sums.map((s) => [String(s._id), s.hours]));
+    const cleanerById = new Map(cleaners.map((c: any) => [String(c._id), c]));
+    const assigns = await CleaningAssignment.find({
+      host: hostId,
+      hours: { $ne: null },
+    }).select("cleaner date hours");
+
+    const agg = new Map<string, { hours: number; earned: number }>();
+    for (const a of assigns as any[]) {
+      const cid = String(a.cleaner);
+      const c = cleanerById.get(cid);
+      if (!c) continue;
+      const e = agg.get(cid) ?? { hours: 0, earned: 0 };
+      e.hours += a.hours;
+      e.earned += a.hours * rateOn(c, a.date);
+      agg.set(cid, e);
+    }
+
     res.status(200).json(
       cleaners.map((c: any) => {
-        const hours = (hoursByCleaner.get(String(c._id)) ?? 0) + (c.baselineHours ?? 0);
-        const earned = hours * (c.payRate ?? 0);
+        const a = agg.get(String(c._id)) ?? { hours: 0, earned: 0 };
+        const baseHrs = c.baselineHours ?? 0;
+        const baseDate = c.baselineMonth ? `${c.baselineMonth}-01` : new Date().toISOString().slice(0, 10);
+        const hours = a.hours + baseHrs;
+        const earned = a.earned + baseHrs * rateOn(c, baseDate);
         const paid = c.paidAmount ?? 0;
         return { id: c._id, name: c.name, hours, earned, paid, balance: earned - paid };
-      })
+      }),
     );
   } catch (error: any) {
     res.status(500).json({ error: error.message });
