@@ -15,6 +15,8 @@ const TREND_BLUE = "#2563eb"; // Gross profit (revenue / top line)
 const TREND_EMERALD = "#059669"; // Net profit ≥ 0 (bottom line kept)
 const TREND_ROSE = "#e11d48"; // Net profit < 0 (a loss month)
 const TREND_ORANGE = "#eb6834"; // AirBnB-share bars — distinct from the money greens
+const TREND_AMBER = "#f59e0b"; // Cleaning fee (a cost)
+const TREND_VIOLET = "#8b5cf6"; // Misc fee (a cost)
 
 interface TrendRow {
   month: string; // yyyy-MM
@@ -468,6 +470,26 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
               <TrendBars
                 rows={trendData.map((r) => ({ ...r, value: r.gross }))}
                 colorFor={() => TREND_BLUE}
+              />
+            </div>
+            <div>
+              <div className="mb-1 flex items-baseline justify-between">
+                <span className="text-xs font-semibold text-gray-700">Cleaning fee</span>
+                <span className="text-[10px] text-gray-400">recorded hours × rate</span>
+              </div>
+              <TrendBars
+                rows={trendData.map((r) => ({ ...r, value: r.cleaning }))}
+                colorFor={() => TREND_AMBER}
+              />
+            </div>
+            <div>
+              <div className="mb-1 flex items-baseline justify-between">
+                <span className="text-xs font-semibold text-gray-700">Misc fee</span>
+                <span className="text-[10px] text-gray-400">supplies · utilities · maintenance</span>
+              </div>
+              <TrendBars
+                rows={trendData.map((r) => ({ ...r, value: r.misc }))}
+                colorFor={() => TREND_VIOLET}
               />
             </div>
             <div>
