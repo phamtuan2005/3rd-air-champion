@@ -29,6 +29,7 @@ interface MyBookingsSheetProps {
   airbnbAddress?: string;
   initialPhone: string;
   initialName?: string;
+  focusKey?: string; // `${checkInDate}${roomId}` of a booking to scroll to + highlight
   rooms: roomType[];
   wishListDates?: Set<string>;
   onToggleWishDate?: (date: string) => void;
@@ -121,7 +122,7 @@ const statusLabel: Record<string, { label: string; color: string }> = {
   reserved:  { label: "Reserved",  color: "text-amber-700 bg-amber-100 border-amber-300" },
 };
 
-const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialPhone, initialName, rooms, wishListDates, onToggleWishDate, cancellationFullRefundDays, cancellationHalfRefundDays, houseRules, onClose, onPhoneConfirmed, onClear }: MyBookingsSheetProps) => {
+const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialPhone, initialName, focusKey, rooms, wishListDates, onToggleWishDate, cancellationFullRefundDays, cancellationHalfRefundDays, houseRules, onClose, onPhoneConfirmed, onClear }: MyBookingsSheetProps) => {
   const { theme } = useTiBookTheme();
   const activeRooms = rooms.filter((r) => r.active);
   const roomMap = new Map(rooms.map((r) => [r.id, r]));
@@ -217,6 +218,20 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
     handleSearch();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // When opened for a specific stay (from the calendar's "View full details"),
+  // scroll straight to that booking and pulse it — no hunting through the list.
+  const focusRowRef = useRef<HTMLDivElement>(null);
+  const [focusPulse, setFocusPulse] = useState(false);
+  useEffect(() => {
+    if (!focusKey || !bookings) return;
+    const t = setTimeout(() => {
+      focusRowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      setFocusPulse(true);
+      setTimeout(() => setFocusPulse(false), 2200);
+    }, 200);
+    return () => clearTimeout(t);
+  }, [bookings, focusKey]);
+
   const _now = new Date();
   const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-${String(_now.getDate()).padStart(2, "0")}`;
   const dateKey = (b: GuestBooking) => String(b.date).slice(0, 10);
@@ -285,8 +300,13 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
     const daysLeft     = differenceInCalendarDays(checkIn, parseISO(today));
     const isStayingNow = daysLeft < 0;
     const isToday      = daysLeft === 0;
+    const isFocus      = !!focusKey && dateKey(b) + b.room === focusKey;
     return (
-      <div key={dateKey(b) + b.room} className={`flex flex-col gap-2 py-3 border-b border-gray-100 last:border-0 ${isNext ? "pb-4" : ""} ${(isToday || isStayingNow) ? `-mx-4 px-4 rounded-2xl bg-amber-50 border border-amber-200 shadow-sm` : ""}`}>
+      <div
+        key={dateKey(b) + b.room}
+        ref={isFocus ? focusRowRef : undefined}
+        className={`flex flex-col gap-2 py-3 border-b border-gray-100 last:border-0 transition-shadow ${isNext ? "pb-4" : ""} ${(isToday || isStayingNow) ? `-mx-4 px-4 rounded-2xl bg-amber-50 border border-amber-200 shadow-sm` : ""} ${isFocus && focusPulse ? "-mx-4 rounded-2xl px-4 ring-2 ring-offset-2 ring-sky-400" : ""}`}
+      >
         {isStayingNow && (
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />

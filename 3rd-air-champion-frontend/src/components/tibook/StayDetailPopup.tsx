@@ -127,14 +127,21 @@ const StayDetailPopup = ({
             </a>
           )}
 
-          {/* Full details */}
-          <button
-            type="button"
-            onClick={onViewDetails}
-            className={`mt-3 w-full rounded-lg ${theme.btn} py-2.5 text-sm font-bold text-white`}
-          >
-            View full details
-          </button>
+          {/* Full details — only when the stay still lives in "Your Bookings"
+              (upcoming/active). A completed stay has no row there, so no button. */}
+          {!isPast ? (
+            <button
+              type="button"
+              onClick={onViewDetails}
+              className={`mt-3 w-full rounded-lg ${theme.btn} py-2.5 text-sm font-bold text-white`}
+            >
+              View full details
+            </button>
+          ) : (
+            <p className="mt-3 text-center text-[11px] text-gray-400">
+              This stay is complete — thank you for staying with us. 🏠
+            </p>
+          )}
         </div>
       </div>
     </div>

@@ -49,6 +49,7 @@ const TiBookInner = () => {
   const [guestBookings, setGuestBookings] = useState<GuestBooking[]>([]);
   const [reservedMap, setReservedMap] = useState<Map<string, Set<string>>>(new Map());
   const [myBookingsOpen, setMyBookingsOpen] = useState(false);
+  const [bookingsFocusKey, setBookingsFocusKey] = useState<string | null>(null);
   const [stayPopupId, setStayPopupId] = useState<string | null>(null);
   const cohostNames = (import.meta.env.VITE_TI_BOOK_COHOST_NAMES as string | undefined)
     ?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
@@ -271,7 +272,7 @@ const TiBookInner = () => {
         host={currentHost}
         cohostNames={cohostNames}
         isFullCalendar={isSelecting}
-        onMyBookings={() => setMyBookingsOpen((o) => !o)}
+        onMyBookings={() => { setBookingsFocusKey(null); setMyBookingsOpen((o) => !o); }}
       />
       {currentHost && !isSelecting && <HostProfileBanner host={currentHost} cohostNames={cohostNames} />}
       {rooms.length > 0 && (
@@ -345,10 +346,11 @@ const TiBookInner = () => {
           airbnbAddress={currentHost.airbnbAddress}
           initialPhone={guestPhone}
           initialName={guestName}
+          focusKey={bookingsFocusKey ?? undefined}
           rooms={rooms}
           wishListDates={wishListDates}
           onToggleWishDate={(date) => setWishListDates((prev) => { const next = new Set(prev); if (next.has(date)) next.delete(date); else next.add(date); return next; })}
-          onClose={() => setMyBookingsOpen(false)}
+          onClose={() => { setMyBookingsOpen(false); setBookingsFocusKey(null); }}
           onPhoneConfirmed={handlePhoneConfirmed}
           onClear={() => { setGuestPhone(""); setGuestName(""); setGuestBookings([]); setWishListDates(new Set()); setPersistedWishListDates(new Set()); setCartDates(new Map()); setSelectedRoomIds(null); localStorage.removeItem("tiBookGuestName"); }}
           cancellationFullRefundDays={currentHost.cancellationFullRefundDays}
@@ -409,7 +411,11 @@ const TiBookInner = () => {
             guests={b.numberOfGuests}
             address={currentHost.airbnbAddress}
             doorCode={currentHost.doorCode}
-            onViewDetails={() => { setStayPopupId(null); setMyBookingsOpen(true); }}
+            onViewDetails={() => {
+              setBookingsFocusKey(`${String(b.date).slice(0, 10)}${b.room}`);
+              setStayPopupId(null);
+              setMyBookingsOpen(true);
+            }}
             onClose={() => setStayPopupId(null)}
           />
         );
