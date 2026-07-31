@@ -234,8 +234,11 @@ const GuestCalendar = ({
     const isWishlisted = wishListDates?.has(dateKey) ?? false;
     const isNewWishList = newWishListDates?.has(dateKey) ?? false;
     const bars = stayBars.get(dateKey);
-    const hasStay = (!!bars?.pm || !!bars?.am) && !inCart;
-    const stayId = bars?.pm?.id ?? bars?.am?.id;
+    // Only an OCCUPIED night (a PM bar) is "your stay" for interaction — it opens
+    // the detail and isn't bookable. The AM checkout cap is a visual only: that
+    // night is free again, so the cell stays bookable for a fresh check-in.
+    const isStayNight = !!bars?.pm && !inCart;
+    const stayId = bars?.pm?.id;
 
     const numberClass = [
       "text-sm sm:text-xl leading-none select-none",
@@ -253,7 +256,7 @@ const GuestCalendar = ({
       isToday ? "react-calendar__custom_tile_today" : "",
       isOutside ? "opacity-20 pointer-events-none" : "",
       inCart ? "cursor-pointer" :
-      hasStay ? "cursor-pointer" :
+      isStayNight ? "cursor-pointer" :
       canBook ? `cursor-pointer ${theme.tileHover} ${theme.tileActive} transition-colors` :
       canWishList ? "cursor-pointer hover:bg-gray-100 transition-colors" : "cursor-default",
     ].join(" ");
@@ -263,9 +266,9 @@ const GuestCalendar = ({
         key={date.toISOString()}
         type="button"
         className={tileClass}
-        disabled={!canBook && !inCart && !canWishList && !hasStay}
+        disabled={!canBook && !inCart && !canWishList && !isStayNight}
         onClick={
-          hasStay && stayId ? () => onMyStayClick?.(stayId) :
+          isStayNight && stayId ? () => onMyStayClick?.(stayId) :
           canBook || inCart ? () => onDateClick?.(date) :
           canWishList ? () => onWishListClick!(date) :
           undefined
@@ -288,7 +291,7 @@ const GuestCalendar = ({
             {roomsLeft} left
           </span>
         )}
-        {!simplified && !inCart && !hasStay && (status === "full" || status === "blocked") && (
+        {!simplified && !inCart && !isStayNight && (status === "full" || status === "blocked") && (
           <div className="relative z-10 flex flex-col items-center gap-0.5">
             {/* Keep "sold out" visible even when wish-listed — the gray wish-list
                 overlay otherwise hides it and the date looks bookable again. */}
