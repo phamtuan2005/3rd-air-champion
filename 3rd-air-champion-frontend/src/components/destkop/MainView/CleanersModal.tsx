@@ -320,10 +320,20 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
   });
   // Draft for the "add a raise" row in the edit modal.
   const [raiseDraft, setRaiseDraft] = useState({ rate: "", from: "" });
+  // Rate changes save IMMEDIATELY (partial update, only rateHistory) — a raise is
+  // money and must never be lost to a forgotten Save. Other edit fields aren't
+  // touched by this write, so it's safe even mid-edit.
+  const persistRateHistory = (rateHistory: RateChange[]) => {
+    setEdit((p) => ({ ...p, rateHistory }));
+    if (!editingId) return;
+    updateCleaner({ id: editingId, rateHistory }, token)
+      .then((updated) => setCleaners((prev) => prev.map((c) => (c.id === editingId ? updated : c))))
+      .catch((err) => setError(err.response?.data?.error ?? "Could not save the rate change"));
+  };
   const addRaise = () => {
     const rate = parseFloat(raiseDraft.rate);
     if (!Number.isFinite(rate) || rate <= 0 || !raiseDraft.from) return;
-    setEdit((p) => ({ ...p, rateHistory: [...p.rateHistory, { rate, effectiveFrom: raiseDraft.from }] }));
+    persistRateHistory([...edit.rateHistory, { rate, effectiveFrom: raiseDraft.from }]);
     setRaiseDraft({ rate: "", from: "" });
   };
   const [hmDraft, setHmDraft] = useState<Record<string, { h: string; m: string }>>({});
@@ -2216,12 +2226,11 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                             aria-label="Remove rate change"
                             className="text-gray-300 hover:text-rose-500"
                             onClick={() =>
-                              setEdit((p) => ({
-                                ...p,
-                                rateHistory: p.rateHistory.filter(
+                              persistRateHistory(
+                                edit.rateHistory.filter(
                                   (x) => !(x.rate === h.rate && x.effectiveFrom === h.effectiveFrom),
                                 ),
-                              }))
+                              )
                             }
                           >
                             &times;
@@ -2257,8 +2266,9 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                   </button>
                 </div>
                 <p className="mt-1 text-[10px] text-gray-400">
-                  Past cleanings keep their old rate; the new rate applies from the date you pick. (The
-                  $/hr field above is the base rate — changing it re-prices past work.)
+                  Saved instantly — no need to press Save. Past cleanings keep their old rate; the new
+                  rate applies from the date you pick. (The $/hr field above is the base rate —
+                  changing it re-prices past work.)
                 </p>
               </div>
 
@@ -2344,17 +2354,21 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                 />
               </div>
             </div>
-            {/* Footer */}
-            <div className="flex items-center justify-end gap-2 border-t border-gray-100 p-3">
-              <button type="button" className={pillNeutral} onClick={() => setEditingId(null)}>
+            {/* Footer — prominent, full-width Save so it's never missed */}
+            <div className="flex shrink-0 items-center gap-2 border-t border-gray-200 bg-white p-3">
+              <button
+                type="button"
+                className="rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+                onClick={() => setEditingId(null)}
+              >
                 Cancel
               </button>
               <button
                 type="button"
-                className={pillDark}
+                className="flex-1 rounded-lg bg-emerald-600 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-emerald-700"
                 onClick={() => handleSaveEdit(editCleaner.id)}
               >
-                Save
+                Save changes
               </button>
             </div>
           </div>
