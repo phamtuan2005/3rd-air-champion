@@ -4,7 +4,8 @@ import { bookingType } from "../../../util/types/bookingType";
 import { addDays, startOfToday, format } from "date-fns";
 import { getRoomColor } from "../../../util/getRoomColor";
 import { DEFAULT_TEMPLATE, TEMPLATE_KEY, resolveTemplate } from "../../../util/reminderTemplate";
-import { cleaningTaskId, getCleaningCounts, getCleaningItems } from "../../../util/cleaningTasks";
+import { CLEANING_LOOKBACK_DAYS, cleaningTaskId, getCleaningCounts, getCleaningItems, CleaningItem } from "../../../util/cleaningTasks";
+import { fetchAssignments, CleaningAssignmentType, CleanerType } from "../../../util/cleanerOperations";
 
 interface ToDoListProps {
   monthMap: Map<string, dayType>;
@@ -12,11 +13,13 @@ interface ToDoListProps {
   airbnbName: string;
   airbnbAddress: string;
   houseRules?: string;
+  hostId?: string;
+  token?: string | null;
 }
 
 type TabKey = "reminders" | "cleaning";
 
-const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = "" }: ToDoListProps) => {
+const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = "", hostId, token }: ToDoListProps) => {
   // Reminders / Cleaning = today's actionable tasks.
   const [activeTab, setActiveTab] = useState<TabKey>("reminders");
 
@@ -73,6 +76,43 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
     [monthMap, completedTasks],
   );
   const cleaningCounts = getCleaningCounts(cleaningItems);
+
+  // Who's assigned to clean each dirty room. Assignments are keyed by the
+  // cleaning morning (= the checkout morning) + room, so we fetch over the same
+  // lookback the cleaning list uses and match on that key. Overdue rooms still
+  // resolve their cleaner this way.
+  const [assignments, setAssignments] = useState<CleaningAssignmentType[]>([]);
+  useEffect(() => {
+    if (!hostId || !token) return;
+    const today = startOfToday();
+    const start = format(addDays(today, -CLEANING_LOOKBACK_DAYS), "yyyy-MM-dd");
+    const end = format(today, "yyyy-MM-dd");
+    fetchAssignments(hostId, start, end, token)
+      .then(setAssignments)
+      .catch(() => setAssignments([]));
+  }, [hostId, token, monthMap]);
+
+  const cleanerFor = (item: CleaningItem): CleanerType | null => {
+    const roomId = item.booking.room?.id;
+    if (!roomId) return null;
+    const morningKey = format(addDays(new Date(item.checkoutKey + "T00:00:00"), 1), "yyyy-MM-dd");
+    return assignments.find((a) => a.date === morningKey && a.room?.id === roomId)?.cleaner ?? null;
+  };
+
+  // Text the assigned cleaner about this specific room, pre-filled with the room
+  // and the arrival deadline so a quick "are you set?" lands with context.
+  const textCleaner = (cleaner: CleanerType, item: CleaningItem) => {
+    if (!cleaner.phone) return;
+    const first = cleaner.name.split(" ")[0];
+    const room = item.booking.room?.name ?? "the room";
+    const when = item.mustCleanToday
+      ? " — a guest checks in TODAY"
+      : item.nextCheckInDate
+        ? ` — next check-in ${format(new Date(item.nextCheckInDate + "T00:00:00"), "MMM d")}`
+        : "";
+    const body = `Hi ${first}! About cleaning ${room}${when}. `;
+    window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(body)}`;
+  };
 
   useEffect(() => {
     localStorage.setItem("completedTasks", JSON.stringify(completedTasks));
@@ -245,6 +285,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
               const { booking, nextCheckIn, nextCheckInDate } = item;
               const taskId = cleaningTaskId(booking.endDate, booking.room?.id ?? "");
               const isCompleted = item.isCompleted;
+              const cleaner = cleanerFor(item);
 
               return (
                 <div
@@ -279,6 +320,24 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                         </span>
                       )}
                     </div>
+                    {/* Who's assigned to clean this room (from the Plan tab) — tap
+                        the name to text them about it. */}
+                    {cleaner ? (
+                      <button
+                        type="button"
+                        onClick={() => textCleaner(cleaner, item)}
+                        disabled={!cleaner.phone}
+                        className="mt-0.5 flex w-fit items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-semibold text-gray-700 no-underline hover:bg-gray-100 disabled:cursor-default disabled:opacity-60"
+                      >
+                        <span>🧹</span>
+                        <span>{cleaner.name}</span>
+                        {cleaner.phone && <span className="font-normal text-gray-400">· text ›</span>}
+                      </button>
+                    ) : (
+                      <span className="mt-0.5 flex w-fit items-center gap-1 text-xs text-gray-400 no-underline">
+                        🧹 No cleaner assigned
+                      </span>
+                    )}
                     {/* Scenario: turnover this morning vs sitting empty since an earlier checkout */}
                     {item.vacatedToday ? (
                       <p className="text-xs text-gray-500">Checked out this morning</p>

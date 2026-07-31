@@ -987,6 +987,8 @@ const MainView = ({
             airbnbName={airbnbName}
             airbnbAddress={airbnbAddress}
             houseRules={houseRules}
+            hostId={hostId}
+            token={token}
           />
         ) : isRequestManagerOpen ? (
           <BookingRequestManagerModal
@@ -1120,6 +1122,8 @@ const MainView = ({
           airbnbName={airbnbName}
           airbnbAddress={airbnbAddress}
           houseRules={houseRules}
+          hostId={hostId}
+          token={token}
         />
       </MobilePanel>
 
