@@ -100,18 +100,40 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
     return assignments.find((a) => a.date === morningKey && a.room?.id === roomId)?.cleaner ?? null;
   };
 
-  // Text the assigned cleaner about this specific room, pre-filled with the room
-  // and the arrival deadline so a quick "are you set?" lands with context.
-  const textCleaner = (cleaner: CleanerType, item: CleaningItem) => {
+  // Tapping a cleaner's name/avatar texts them their whole assignment for today
+  // — every room they're on that still needs cleaning, in the same urgency order
+  // the list uses (soonest check-ins first), with who's arriving into each.
+  const textCleanerSummary = (cleaner: CleanerType) => {
     if (!cleaner.phone) return;
     const first = cleaner.name.split(" ")[0];
-    const room = item.booking.room?.name ?? "the room";
-    const when = item.mustCleanToday
-      ? " — a guest checks in TODAY"
-      : item.nextCheckInDate
-        ? ` — next check-in ${format(new Date(item.nextCheckInDate + "T00:00:00"), "MMM d")}`
-        : "";
-    const body = `Hi ${first}! About cleaning ${room}${when}. `;
+    // cleaningItems is already sorted by urgency → this IS the suggested order.
+    const mine = cleaningItems.filter(
+      (it) => !it.isCompleted && cleanerFor(it)?.id === cleaner.id,
+    );
+    const dayLabel = format(startOfToday(), "EEE, MMM d");
+
+    let body: string;
+    if (mine.length === 0) {
+      body = `Hi ${first}! Looks like all your rooms for ${dayLabel} are done — thank you! 🙏`;
+    } else {
+      const lines = mine.map((it, i) => {
+        const room = it.booking.room?.name ?? "Room";
+        const n = it.nextCheckIn?.numberOfGuests;
+        const who = n ? ` (${n} guest${n === 1 ? "" : "s"})` : "";
+        const when = it.mustCleanToday
+          ? "guest arrives TODAY"
+          : it.nextCheckInDate
+            ? `next check-in ${format(new Date(it.nextCheckInDate + "T00:00:00"), "MMM d")}`
+            : "no upcoming check-in";
+        const early = it.nextCheckIn?.earlyCheckin ? " — EARLY check-in" : "";
+        return `${i + 1}. ${room} — ${when}${who}${early}`;
+      });
+      body =
+        `Hi ${first}! Cleaning for ${dayLabel} — ${mine.length} room${mine.length === 1 ? "" : "s"}, ` +
+        `in suggested order (soonest check-ins first):\n` +
+        lines.join("\n") +
+        `\n\nThank you! 🙏`;
+    }
     window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(body)}`;
   };
 
@@ -301,15 +323,24 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                     checked={isCompleted}
                     onChange={() => toggleTaskCompletion(taskId)}
                   />
-                  {/* Cleaner avatar — same treatment as the Cleaning modal. An
+                  {/* Cleaner avatar — same treatment as the Cleaning modal, and
+                      tappable: it texts them today's full cleaning list. An
                       unassigned room shows the amber "!" marker instead. */}
                   {cleaner ? (
-                    <CleanerAvatar
-                      name={cleaner.name}
-                      photo={cleaner.photo}
-                      character={cleaner.character}
-                      sizeClass="h-9 w-9"
-                    />
+                    <button
+                      type="button"
+                      onClick={() => textCleanerSummary(cleaner)}
+                      disabled={!cleaner.phone}
+                      title={cleaner.phone ? `Text ${cleaner.name.split(" ")[0]} today's cleaning list` : cleaner.name}
+                      className="shrink-0 rounded-full disabled:cursor-default"
+                    >
+                      <CleanerAvatar
+                        name={cleaner.name}
+                        photo={cleaner.photo}
+                        character={cleaner.character}
+                        sizeClass="h-9 w-9"
+                      />
+                    </button>
                   ) : (
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 text-sm font-bold text-amber-600">
                       !
@@ -320,18 +351,19 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                       isCompleted ? "text-gray-400 line-through" : ""
                     }`}
                   >
-                    {/* Cleaner name — tap to text them about this room */}
+                    {/* Cleaner name — tap it (or the avatar) to text them today's
+                        cleaning list. */}
                     {cleaner ? (
                       <button
                         type="button"
-                        onClick={() => textCleaner(cleaner, item)}
+                        onClick={() => textCleanerSummary(cleaner)}
                         disabled={!cleaner.phone}
-                        className="flex w-fit items-center gap-1.5 no-underline disabled:cursor-default"
+                        title={cleaner.phone ? `Text ${cleaner.name.split(" ")[0]} today's cleaning list` : cleaner.name}
+                        className="w-fit text-left no-underline disabled:cursor-default"
                       >
-                        <span className="text-sm font-bold text-gray-900">{cleaner.name}</span>
-                        {cleaner.phone && (
-                          <span className="text-xs font-semibold text-emerald-600">💬 text</span>
-                        )}
+                        <span className="text-sm font-bold text-gray-900 hover:underline">
+                          {cleaner.name}
+                        </span>
                       </button>
                     ) : (
                       <span className="text-sm font-bold text-amber-600">Unassigned</span>
