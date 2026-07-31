@@ -207,6 +207,16 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
     }
   };
 
+  // Recognized guest (phone already known) → pull their bookings the moment the
+  // sheet opens. Making them re-type nothing and press Search for data we already
+  // have felt dumb; just show their stays.
+  const didAutoSearchRef = useRef(false);
+  useEffect(() => {
+    if (didAutoSearchRef.current || !initialPhone.trim()) return;
+    didAutoSearchRef.current = true;
+    handleSearch();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const _now = new Date();
   const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-${String(_now.getDate()).padStart(2, "0")}`;
   const dateKey = (b: GuestBooking) => String(b.date).slice(0, 10);
@@ -397,7 +407,12 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
         </div>
 
         {/* Phone search (before recognition) / slim recognized bar (after) — one grid row either way */}
-        {bookings === null ? (
+        {bookings === null && loading ? (
+          <div className="flex items-center justify-center gap-2 px-4 pt-4 pb-3 text-sm text-gray-400">
+            <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-300 border-t-gray-500" />
+            Loading your bookings…
+          </div>
+        ) : bookings === null ? (
           <div>
             <div className="flex gap-2 px-4 pt-3 pb-2">
               <input
