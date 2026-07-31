@@ -15,6 +15,7 @@ import { fetchRooms } from "../util/roomOperations";
 import BookingRequestModal from "../components/tibook/BookingRequestModal";
 import RoomCards from "../components/tibook/RoomCards";
 import MyBookingsSheet, { GuestBooking } from "../components/tibook/MyBookingsSheet";
+import StayDetailPopup from "../components/tibook/StayDetailPopup";
 import { getGuestWishList } from "../util/wishListOperations";
 import { fetchBookingRequestsByHost, fetchCalendarBookingsByGuest } from "../util/bookingRequestOperations";
 
@@ -48,6 +49,7 @@ const TiBookInner = () => {
   const [guestBookings, setGuestBookings] = useState<GuestBooking[]>([]);
   const [reservedMap, setReservedMap] = useState<Map<string, Set<string>>>(new Map());
   const [myBookingsOpen, setMyBookingsOpen] = useState(false);
+  const [stayPopupId, setStayPopupId] = useState<string | null>(null);
   const cohostNames = (import.meta.env.VITE_TI_BOOK_COHOST_NAMES as string | undefined)
     ?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
 
@@ -161,6 +163,7 @@ const TiBookInner = () => {
         .map((b) => {
           const room = rooms.find((r) => r.id === b.room);
           return {
+            id: b.id,
             startKey: String(b.date).slice(0, 10),
             nights: b.duration,
             roomName: room?.name ?? "",
@@ -309,6 +312,7 @@ const TiBookInner = () => {
             onMonthChange={setCurrentMonth}
             onDateClick={toggleCartDate}
             onWishListClick={handleWishListClick}
+            onMyStayClick={setStayPopupId}
           />
         </div>
       ) : (
@@ -383,6 +387,29 @@ const TiBookInner = () => {
           }}
         />
       )}
+
+      {/* Tap a stay on the calendar → a light detail card for that stay */}
+      {stayPopupId && currentHost && (() => {
+        const b = guestBookings.find((x) => x.id === stayPopupId);
+        if (!b) return null;
+        const room = rooms.find((r) => r.id === b.room);
+        const checkIn = parseISO(String(b.date).slice(0, 10));
+        return (
+          <StayDetailPopup
+            roomName={room?.name ?? ""}
+            roomColor={room?.color}
+            roomCode={room?.roomCode}
+            checkIn={checkIn}
+            checkOut={addDays(checkIn, b.duration)}
+            nights={b.duration}
+            guests={b.numberOfGuests}
+            address={currentHost.airbnbAddress}
+            doorCode={currentHost.doorCode}
+            onViewDetails={() => { setStayPopupId(null); setMyBookingsOpen(true); }}
+            onClose={() => setStayPopupId(null)}
+          />
+        );
+      })()}
     </div>
   );
 };

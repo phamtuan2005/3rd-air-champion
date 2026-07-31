@@ -8,6 +8,7 @@ import { useTiBookTheme } from "../../../contexts/TiBookThemeContext";
 
 // A guest's own confirmed stay, drawn as a spanning bar (not a dot).
 export interface MyStay {
+  id: string; // booking id — tapping the span opens this stay's detail
   startKey: string; // yyyy-MM-dd check-in
   nights: number;
   roomName: string;
@@ -31,6 +32,7 @@ interface GuestCalendarProps {
   onMonthChange?: (month: Date) => void;
   onDateClick?: (date: Date) => void;
   onWishListClick?: (date: Date) => void;
+  onMyStayClick?: (bookingId: string) => void;
 }
 
 const NUM_ROWS = 6;
@@ -73,6 +75,7 @@ const GuestCalendar = ({
   onMonthChange,
   onDateClick,
   onWishListClick,
+  onMyStayClick,
 }: GuestCalendarProps) => {
   const { theme } = useTiBookTheme();
   const [months, setMonths] = useState<Date[]>([]);
@@ -98,8 +101,8 @@ const GuestCalendar = ({
     const map = new Map<
       string,
       {
-        pm?: { roomName: string; roomColor?: string; isStart: boolean };
-        am?: { roomName: string; roomColor?: string };
+        pm?: { id: string; roomName: string; roomColor?: string; isStart: boolean };
+        am?: { id: string; roomName: string; roomColor?: string };
       }
     >();
     (myStays ?? []).forEach((s) => {
@@ -107,10 +110,10 @@ const GuestCalendar = ({
       const start = parseISO(s.startKey);
       for (let i = 0; i < s.nights; i++) {
         const k = dk(addDays(start, i));
-        map.set(k, { ...map.get(k), pm: { roomName: s.roomName, roomColor: s.roomColor, isStart: i === 0 } });
+        map.set(k, { ...map.get(k), pm: { id: s.id, roomName: s.roomName, roomColor: s.roomColor, isStart: i === 0 } });
       }
       const co = dk(addDays(start, s.nights));
-      map.set(co, { ...map.get(co), am: { roomName: s.roomName, roomColor: s.roomColor } });
+      map.set(co, { ...map.get(co), am: { id: s.id, roomName: s.roomName, roomColor: s.roomColor } });
     });
     return map;
   }, [myStays]);
@@ -224,6 +227,7 @@ const GuestCalendar = ({
     const isNewWishList = newWishListDates?.has(dateKey) ?? false;
     const bars = stayBars.get(dateKey);
     const hasStay = (!!bars?.pm || !!bars?.am) && !inCart;
+    const stayId = bars?.pm?.id ?? bars?.am?.id;
 
     const numberClass = [
       "text-sm sm:text-xl leading-none select-none",
@@ -239,6 +243,7 @@ const GuestCalendar = ({
       isToday ? "react-calendar__custom_tile_today" : "",
       isOutside ? "opacity-20 pointer-events-none" : "",
       inCart ? "cursor-pointer" :
+      hasStay ? "cursor-pointer" :
       canBook ? `cursor-pointer ${theme.tileHover} ${theme.tileActive} transition-colors` :
       canWishList ? "cursor-pointer hover:bg-gray-100 transition-colors" : "cursor-default",
     ].join(" ");
@@ -248,8 +253,9 @@ const GuestCalendar = ({
         key={date.toISOString()}
         type="button"
         className={tileClass}
-        disabled={!canBook && !inCart && !canWishList}
+        disabled={!canBook && !inCart && !canWishList && !hasStay}
         onClick={
+          hasStay && stayId ? () => onMyStayClick?.(stayId) :
           canBook || inCart ? () => onDateClick?.(date) :
           canWishList ? () => onWishListClick!(date) :
           undefined
