@@ -163,7 +163,9 @@ const TiBookInner = () => {
         .map((b) => {
           const room = rooms.find((r) => r.id === b.room);
           return {
-            id: b.id,
+            // The backend reuses `id` across a room's stays, so identify a stay
+            // uniquely by check-in date + room instead.
+            id: `${String(b.date).slice(0, 10)}|${b.room}`,
             startKey: String(b.date).slice(0, 10),
             nights: b.duration,
             roomName: room?.name ?? "",
@@ -390,7 +392,9 @@ const TiBookInner = () => {
 
       {/* Tap a stay on the calendar → a light detail card for that stay */}
       {stayPopupId && currentHost && (() => {
-        const b = guestBookings.find((x) => x.id === stayPopupId);
+        const b = guestBookings.find(
+          (x) => `${String(x.date).slice(0, 10)}|${x.room}` === stayPopupId,
+        );
         if (!b) return null;
         const room = rooms.find((r) => r.id === b.room);
         const checkIn = parseISO(String(b.date).slice(0, 10));
