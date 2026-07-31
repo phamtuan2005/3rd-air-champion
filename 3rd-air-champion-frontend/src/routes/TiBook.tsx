@@ -16,6 +16,7 @@ import BookingRequestModal from "../components/tibook/BookingRequestModal";
 import RoomCards from "../components/tibook/RoomCards";
 import MyBookingsSheet, { GuestBooking } from "../components/tibook/MyBookingsSheet";
 import StayDetailPopup from "../components/tibook/StayDetailPopup";
+import RoomPickerPopup from "../components/tibook/RoomPickerPopup";
 import { getGuestWishList } from "../util/wishListOperations";
 import { fetchBookingRequestsByHost, fetchCalendarBookingsByGuest } from "../util/bookingRequestOperations";
 
@@ -51,6 +52,7 @@ const TiBookInner = () => {
   const [myBookingsOpen, setMyBookingsOpen] = useState(false);
   const [bookingsFocusKey, setBookingsFocusKey] = useState<string | null>(null);
   const [stayPopupId, setStayPopupId] = useState<string | null>(null);
+  const [roomPickerDate, setRoomPickerDate] = useState<Date | null>(null);
   const cohostNames = (import.meta.env.VITE_TI_BOOK_COHOST_NAMES as string | undefined)
     ?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
 
@@ -191,27 +193,54 @@ const TiBookInner = () => {
     setScrollToMonthTrigger({ month: new Date(d.getFullYear(), d.getMonth(), 1), seq: Date.now() });
   }, [myStays, isSelecting]);
 
+  const keyOfDate = (date: Date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+  // Rooms actually free on a given date, within the current room scope.
+  const availableRoomsForDate = (date: Date) => {
+    const key = keyOfDate(date);
+    const scopedRooms = rooms.filter((r) => r.active && (selectedRoomIds === null || selectedRoomIds.has(r.id)));
+    const day = monthMap.get(key);
+    const bookedIds = new Set<string>([
+      ...(day?.bookings.map((b) => b.room?.id).filter(Boolean) as string[] ?? []),
+      ...(reservedMap.get(key) ?? []),
+      ...((day?.blockedRooms?.map((r) => r?.id).filter(Boolean) as string[]) ?? []),
+    ]);
+    return scopedRooms.filter((r) => !bookedIds.has(r.id));
+  };
+
+  // Commit a date to the cart for a specific room, and lock the room filter to it
+  // so the rest of the stay is built in the same room and the picker doesn't
+  // re-ask on every tap.
+  const addCartDateForRoom = (date: Date, roomId: string) => {
+    setIsSelecting(true);
+    setSelectedRoomIds(new Set([roomId]));
+    setScrollToMonthTrigger({ month: new Date(date.getFullYear(), date.getMonth(), 1), seq: Date.now() });
+    setCartDates((prev) => new Map(prev).set(keyOfDate(date), roomId));
+    setRoomPickerDate(null);
+  };
+
   const toggleCartDate = (date: Date) => {
+    const key = keyOfDate(date);
+    // Tapping an already-selected date removes it.
+    if (cartDates.has(key)) {
+      setCartDates((prev) => {
+        const next = new Map(prev);
+        next.delete(key);
+        return next;
+      });
+      return;
+    }
     setIsSelecting(true);
     setScrollToMonthTrigger({ month: new Date(date.getFullYear(), date.getMonth(), 1), seq: Date.now() });
-    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-    let roomId: string | null = selectedRoomIds?.size === 1 ? Array.from(selectedRoomIds)[0] : null;
-    if (roomId === null) {
-      const scopedRooms = rooms.filter((r) => r.active && (selectedRoomIds === null || selectedRoomIds.has(r.id)));
-      const day = monthMap.get(key);
-      const bookedIds = new Set<string>([
-        ...(day?.bookings.map((b) => b.room?.id).filter(Boolean) as string[] ?? []),
-        ...(reservedMap.get(key) ?? []),
-        ...((day?.blockedRooms?.map((r) => r?.id).filter(Boolean) as string[]) ?? []),
-      ]);
-      const available = scopedRooms.filter((r) => !bookedIds.has(r.id));
-      if (available.length === 1) roomId = available[0].id;
+    // A room is already chosen (single-room filter) → add straight away.
+    if (selectedRoomIds?.size === 1) {
+      setCartDates((prev) => new Map(prev).set(key, Array.from(selectedRoomIds)[0]));
+      return;
     }
-    setCartDates((prev) => {
-      const next = new Map(prev);
-      if (next.has(key)) next.delete(key); else next.set(key, roomId);
-      return next;
-    });
+    // Otherwise open the picker to DISCLOSE which room(s) are free and let the
+    // guest choose — even for "1 left" it names the exact room before committing.
+    if (availableRoomsForDate(date).length > 0) setRoomPickerDate(date);
   };
 
   const handleWishListClick = (date: Date) => {
@@ -420,6 +449,16 @@ const TiBookInner = () => {
           />
         );
       })()}
+
+      {/* Tap an open date → pick the exact room right away (1-left names it) */}
+      {roomPickerDate && (
+        <RoomPickerPopup
+          date={roomPickerDate}
+          rooms={availableRoomsForDate(roomPickerDate)}
+          onPick={(roomId) => addCartDateForRoom(roomPickerDate, roomId)}
+          onClose={() => setRoomPickerDate(null)}
+        />
+      )}
     </div>
   );
 };
