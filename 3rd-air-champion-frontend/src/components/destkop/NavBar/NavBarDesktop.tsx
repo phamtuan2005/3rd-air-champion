@@ -152,7 +152,7 @@ const NavBarDesktop = ({
         {
           label: "Requests",
           desc: "Incoming booking requests and guest wish-lists.",
-          emoji: "💰",
+          emoji: "📩",
           hover: "hover:border-violet-300 hover:text-violet-600",
           badges: [
             { n: bookingRequestPendingCount, cls: YELLOW },
