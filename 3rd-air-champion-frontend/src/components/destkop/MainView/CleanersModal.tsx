@@ -336,6 +336,23 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
     persistRateHistory([...edit.rateHistory, { rate, effectiveFrom: raiseDraft.from }]);
     setRaiseDraft({ rate: "", from: "" });
   };
+  // Share the good news: a warm appreciation text announcing the new rate. Even a
+  // small raise, delivered with thanks, means a lot to a cleaner.
+  const textRaise = (name: string, phone: string, change: RateChange) => {
+    if (!phone) return;
+    const from = format(new Date(`${change.effectiveFrom}T00:00:00`), "MMMM d, yyyy");
+    const body = [
+      `Hi ${name}! 🎉`,
+      ``,
+      `Thank you so much for your wonderful work — your care and reliability mean a great deal to us and to our guests.`,
+      ``,
+      `As a token of our appreciation, your pay is going up to $${change.rate}/hr, effective ${from}. You've earned it.`,
+      ``,
+      `We're so grateful to have you on the team. Together, we work hard so our guests always feel comfortable — that is TT House's promise to every guest:`,
+      `"Your comfort. Our mission." 🏠 — Anh-Tuan`,
+    ].join("\n");
+    window.location.href = `sms:${phone}?&body=${encodeURIComponent(body)}`;
+  };
   const [hmDraft, setHmDraft] = useState<Record<string, { h: string; m: string }>>({});
   // Which already-recorded cleaner-day is currently open for correction
   const [editingDayKey, setEditingDayKey] = useState<string | null>(null);
@@ -2212,13 +2229,23 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                           key={`${h.effectiveFrom}-${i}`}
                           className="flex items-center justify-between rounded-lg bg-white px-2 py-1 text-xs"
                         >
-                          <span className="text-gray-700">
+                          <span className="min-w-0 text-gray-700">
                             ${h.rate}/hr from{" "}
                             {format(new Date(`${h.effectiveFrom}T00:00:00`), "MMM d, yyyy")}
                             {h.effectiveFrom > todayKey && (
                               <span className="ml-1 text-[10px] font-semibold text-amber-600">
                                 upcoming
                               </span>
+                            )}
+                            {editCleaner.phone && (
+                              <button
+                                type="button"
+                                className="ml-2 font-semibold text-emerald-600 hover:underline"
+                                onClick={() => textRaise(edit.name || editCleaner.name, editCleaner.phone, h)}
+                                title="Text the good news to the cleaner"
+                              >
+                                Text
+                              </button>
                             )}
                           </span>
                           <button
