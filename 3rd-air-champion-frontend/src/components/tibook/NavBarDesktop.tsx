@@ -17,6 +17,7 @@ interface NavBarDesktopProps {
   cohostNames?: string[];
   isFullCalendar?: boolean;
   onMyBookings?: () => void;
+  guestName?: string; // recognized guest → the "Your bookings" pill greets them by name
 }
 
 const MiniAvatar = ({ name }: { name: string }) => {
@@ -33,8 +34,9 @@ const MiniAvatar = ({ name }: { name: string }) => {
   );
 };
 
-const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false, onMyBookings }: NavBarDesktopProps) => {
+const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false, onMyBookings, guestName }: NavBarDesktopProps) => {
   const { theme, setTheme } = useTiBookTheme();
+  const guestFirstName = guestName?.trim().split(" ")[0];
 
   return (
     <nav className="px-3 flex items-center gap-2 w-full h-12 sm:h-16 bg-white drop-shadow-md z-50 shrink-0">
@@ -70,9 +72,25 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
           <button
             type="button"
             onClick={onMyBookings}
-            className="text-xs font-semibold text-gray-500 hover:text-gray-800 px-2 py-1 rounded-full border border-gray-200 hover:bg-gray-50 transition-colors whitespace-nowrap"
+            title="Your bookings"
+            className={`flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs font-semibold whitespace-nowrap transition-colors ${
+              guestFirstName
+                ? `${theme.textPrimary} border-gray-200 hover:bg-gray-50`
+                : "border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-800"
+            }`}
           >
-            Your bookings
+            {guestFirstName ? (
+              <>
+                <span
+                  className={`flex h-4 w-4 items-center justify-center rounded-full ${theme.btn} text-[9px] font-bold text-white`}
+                >
+                  {guestFirstName[0].toUpperCase()}
+                </span>
+                {guestFirstName}
+              </>
+            ) : (
+              "Your bookings"
+            )}
           </button>
         )}
         {onBack ? (

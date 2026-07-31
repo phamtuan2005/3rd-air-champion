@@ -349,6 +349,7 @@ const TiBookInner = () => {
         cohostNames={cohostNames}
         isFullCalendar={isSelecting}
         onMyBookings={() => { setBookingsFocusKey(null); setMyBookingsOpen((o) => !o); }}
+        guestName={guestBookings.find((b) => b.guestName)?.guestName ?? guestName}
       />
       {currentHost && !isSelecting && <HostProfileBanner host={currentHost} cohostNames={cohostNames} />}
       {rooms.length > 0 && (
