@@ -1734,7 +1734,12 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                     {/* One aligned row per cleaner (avatar + fixed-width name → chips line
                         up), unassigned rooms called out in amber at the bottom */}
                     <div className="divide-y divide-gray-100">
-                      {[...groups.values()].map(({ cleaner, entries }) => (
+                      {/* Cleaners in a stable A→Z order so each person sits in the
+                          same spot every day (the Map's insertion order followed
+                          the rooms, which shuffled day to day). */}
+                      {[...groups.values()]
+                        .sort((a, b) => a.cleaner.name.localeCompare(b.cleaner.name))
+                        .map(({ cleaner, entries }) => (
                         <div key={cleaner.id} className="flex items-center gap-2 px-3 py-1.5">
                           <div className="flex w-24 shrink-0 items-center gap-1.5">
                             <CleanerAvatar
