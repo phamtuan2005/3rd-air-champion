@@ -308,7 +308,7 @@ const NavBarDesktop = ({
                 type="button"
                 title={g.title}
                 onClick={() => setPickerGroup(key)}
-                className={`relative flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-semibold text-white whitespace-nowrap sm:flex-none sm:px-4 sm:text-sm ${g.btn} ${
+                className={`relative flex flex-1 max-w-[8rem] items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-semibold text-white whitespace-nowrap sm:max-w-none sm:flex-none sm:px-4 sm:text-sm ${g.btn} ${
                   g.active ? g.shadow : ""
                 }`}
               >
