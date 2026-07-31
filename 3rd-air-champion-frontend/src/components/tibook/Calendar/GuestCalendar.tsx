@@ -239,7 +239,9 @@ const GuestCalendar = ({
     ].join(" ");
 
     const tileClass = [
-      "border-r border-b border-gray-300 flex flex-col items-center justify-center gap-1 w-full h-full relative",
+      // Day number sits near the TOP of the cell (matches TiMag); the stay ribbon
+      // lives at the bottom.
+      "border-r border-b border-gray-300 flex flex-col items-center justify-start gap-0.5 pt-1 w-full h-full relative",
       isToday ? "react-calendar__custom_tile_today" : "",
       isOutside ? "opacity-20 pointer-events-none" : "",
       inCart ? "cursor-pointer" :
