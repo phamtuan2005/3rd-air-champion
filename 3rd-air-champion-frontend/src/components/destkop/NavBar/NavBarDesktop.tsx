@@ -1,6 +1,6 @@
 import { useContext, useState } from "react";
 import { createPortal } from "react-dom";
-import { FaBroom, FaReceipt } from "react-icons/fa";
+import { FaCalendarAlt, FaClipboardList, FaDollarSign } from "react-icons/fa";
 import ProfileDesktop from "./ProfileDesktop";
 import { FooterContext, GuestModeContext } from "../../../context";
 
@@ -92,9 +92,9 @@ const NavBarDesktop = ({
   const { currentGuest, currentAirBnBGuest, setCurrentGuest, setCurrentAirBnBGuest } = useContext(GuestModeContext)!;
   const { setIsFooterVisible } = useContext(FooterContext)!;
   const isGuestMode = !!(currentGuest || currentAirBnBGuest);
-  const [isBlockChooserOpen, setIsBlockChooserOpen] = useState(false);
-
-  const isBlockActive = isBlockAirBnBModalOpen || isBlockRoomsModalOpen;
+  // The toolbar groups seven actions under three category buttons; tapping one
+  // opens this picker. Keeps the bar from overflowing on a narrow phone.
+  const [pickerGroup, setPickerGroup] = useState<null | "calendar" | "tasks" | "money">(null);
 
   const closeAllPanels = () => {
     setIsTodoModalOpen(false);
@@ -102,6 +102,153 @@ const NavBarDesktop = ({
     setIsBlockAirBnBModalOpen(false);
     setIsBlockRoomsModalOpen(false);
     setIsRequestManagerOpen(false);
+  };
+
+  // A pickable action within a category. `badges` surface pending counts both on
+  // the category button (aggregated) and on the action card.
+  type PickAction = {
+    label: string;
+    desc: string;
+    emoji: string;
+    hover: string; // per-card hover accent (hardcoded so Tailwind keeps the class)
+    badges?: { n: number; cls: string }[];
+    run: () => void;
+  };
+
+  const YELLOW = "bg-yellow-400 text-black";
+  const GREEN = "bg-green-500 text-white";
+  const ROSE = "bg-rose-500 text-white";
+
+  const GROUPS: Record<
+    "calendar" | "tasks" | "money",
+    {
+      title: string;
+      icon: React.ReactNode;
+      btn: string; // button background
+      shadow: string; // active drop-shadow
+      active: boolean;
+      badges: { n: number; cls: string }[];
+      actions: PickAction[];
+    }
+  > = {
+    calendar: {
+      title: "Calendar",
+      icon: <FaCalendarAlt className="text-sm" />,
+      btn: "bg-blue-500",
+      shadow: "drop-shadow-[0_4px_6px_rgba(59,130,246,0.5)]",
+      active: isBookModalOpen || isRequestManagerOpen || isBlockAirBnBModalOpen || isBlockRoomsModalOpen,
+      badges: [
+        { n: bookingRequestPendingCount + airbnbPendingCount, cls: YELLOW },
+        { n: wishListAvailableCount, cls: GREEN },
+      ],
+      actions: [
+        {
+          label: "Book a stay",
+          desc: "Create a new direct booking on the calendar.",
+          emoji: "➕",
+          hover: "hover:border-blue-300 hover:text-blue-600",
+          run: () => setIsBookModalOpen(true),
+        },
+        {
+          label: "Requests",
+          desc: "Incoming booking requests and guest wish-lists.",
+          emoji: "💰",
+          hover: "hover:border-violet-300 hover:text-violet-600",
+          badges: [
+            { n: bookingRequestPendingCount, cls: YELLOW },
+            { n: wishListAvailableCount, cls: GREEN },
+          ],
+          run: () => {
+            closeAllPanels();
+            setIsRequestManagerOpen(true);
+          },
+        },
+        {
+          label: "Block AirBnB",
+          desc: "Mark non-AirBnB bookings as blocked on your AirBnB calendar.",
+          emoji: "🛑",
+          hover: "hover:border-rose-300 hover:text-rose-600",
+          badges: [{ n: airbnbPendingCount, cls: YELLOW }],
+          run: () => {
+            closeAllPanels();
+            setIsBlockAirBnBModalOpen(true);
+          },
+        },
+        {
+          label: "Block Rooms",
+          desc: "Reserve specific rooms for a date range so they can't be booked.",
+          emoji: "🔒",
+          hover: "hover:border-orange-300 hover:text-orange-600",
+          run: () => {
+            closeAllPanels();
+            setIsBlockRoomsModalOpen(true);
+          },
+        },
+      ],
+    },
+    tasks: {
+      title: "Tasks",
+      icon: <FaClipboardList className="text-sm" />,
+      btn: "bg-orange-500",
+      shadow: "drop-shadow-[0_4px_6px_rgba(249,115,22,0.5)]",
+      active: isTodoModalOpen || isCleanersOpen,
+      badges: [
+        { n: todoCleanCount + cleanTodoCount, cls: YELLOW },
+        { n: cleanUnassignedCount, cls: ROSE },
+      ],
+      actions: [
+        {
+          label: "To Do",
+          desc: "Today's guest reminders and cleaning checklist.",
+          emoji: "✅",
+          hover: "hover:border-gray-400 hover:text-gray-800",
+          badges: [{ n: todoCleanCount, cls: YELLOW }],
+          run: () => {
+            closeAllPanels();
+            setIsTodoModalOpen(true);
+          },
+        },
+        {
+          label: "Clean",
+          desc: "Cleaner schedule, recorded hours and pay.",
+          emoji: "🧹",
+          hover: "hover:border-orange-300 hover:text-orange-600",
+          badges: [
+            { n: cleanTodoCount, cls: YELLOW },
+            { n: cleanUnassignedCount, cls: ROSE },
+          ],
+          run: () => setIsCleanersOpen(true),
+        },
+      ],
+    },
+    money: {
+      title: "Money",
+      icon: <FaDollarSign className="text-sm" />,
+      btn: "bg-emerald-600",
+      shadow: "drop-shadow-[0_4px_6px_rgba(5,150,105,0.5)]",
+      active: isAvailabilitiesModalOpen || isMiscOpen,
+      badges: [{ n: availableNightsCount, cls: YELLOW }],
+      actions: [
+        {
+          label: "Stats",
+          desc: "Occupancy, profit and booking trends.",
+          emoji: "📊",
+          hover: "hover:border-emerald-300 hover:text-emerald-600",
+          badges: [{ n: availableNightsCount, cls: YELLOW }],
+          run: () => {
+            closeAllPanels();
+            setIsAvailabilitiesModalOpen(true);
+          },
+        },
+        {
+          label: "Misc",
+          desc: "House expenses — supplies, utilities, maintenance.",
+          emoji: "🧾",
+          hover: "hover:border-teal-300 hover:text-teal-600",
+          run: () => setIsMiscOpen(true),
+        },
+      ],
+    },
   };
 
   return (
@@ -152,235 +299,101 @@ const NavBarDesktop = ({
               <line x1="3" y1="10" x2="21" y2="10" />
             </svg>
           </button>
-        ) : <div className="flex w-full justify-center gap-1 sm:w-auto sm:gap-2 [&>button]:min-w-0">
-          <button
-            type="button"
-            className={`relative flex-1 text-white bg-black px-1 py-1 text-xs sm:flex-none sm:px-2 rounded-md whitespace-nowrap ${
-              isTodoModalOpen ? "drop-shadow-[0_4px_6px_rgba(59,130,246,0.5)]" : ""
-            }`}
-            onClick={() => {
-              closeAllPanels();
-              setIsTodoModalOpen(!isTodoModalOpen);
-            }}
-          >
-            To Do
-            {todoCleanCount > 0 && (
-              <span className="absolute -top-4 left-1/2 -translate-x-1/2 min-w-[20px] h-5 px-1 rounded-full bg-yellow-400 text-black text-[10px] font-bold flex items-center justify-center leading-none">
-                {todoCleanCount}
-              </span>
-            )}
-          </button>
-          <button
-            type="button"
-            title="Requests"
-            className={`relative flex flex-1 items-center justify-center gap-1 text-white bg-violet-600 px-1 py-1 text-xs sm:flex-none sm:w-[62px] rounded-md whitespace-nowrap ${
-              isRequestManagerOpen ? "drop-shadow-[0_4px_6px_rgba(124,58,237,0.5)]" : ""
-            }`}
-            onClick={() => {
-              closeAllPanels();
-              setIsRequestManagerOpen(!isRequestManagerOpen);
-            }}
-          >
-            {/* Gold $ coin — shiny gradient + dark rim so it reads on the amber button */}
-            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" aria-hidden="true">
-              <defs>
-                <linearGradient id="reqGold" x1="4" y1="3" x2="20" y2="21" gradientUnits="userSpaceOnUse">
-                  <stop offset="0" stopColor="#FEF3C7" />
-                  <stop offset="0.45" stopColor="#FBBF24" />
-                  <stop offset="1" stopColor="#D97706" />
-                </linearGradient>
-              </defs>
-              <circle cx="12" cy="12" r="10.4" fill="url(#reqGold)" stroke="#92400E" strokeWidth="1.3" />
-              <circle cx="12" cy="12" r="7.9" fill="none" stroke="#B45309" strokeWidth="0.8" opacity="0.55" />
-              <text
-                x="12"
-                y="12.2"
-                textAnchor="middle"
-                dominantBaseline="central"
-                fontFamily="Arial, Helvetica, sans-serif"
-                fontSize="13"
-                fontWeight="900"
-                fill="#fff"
+        ) : <div className="flex w-full justify-center gap-1.5 sm:w-auto sm:gap-2 [&>button]:min-w-0">
+          {(["calendar", "tasks", "money"] as const).map((key) => {
+            const g = GROUPS[key];
+            return (
+              <button
+                key={key}
+                type="button"
+                title={g.title}
+                onClick={() => setPickerGroup(key)}
+                className={`relative flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-semibold text-white whitespace-nowrap sm:flex-none sm:px-4 sm:text-sm ${g.btn} ${
+                  g.active ? g.shadow : ""
+                }`}
               >
-                $
-              </text>
-            </svg>
-            Reqs
-            {bookingRequestPendingCount > 0 && (
-              <span className="absolute -top-4 left-1/2 -translate-x-1/2 min-w-[20px] h-5 px-1 rounded-full bg-yellow-400 text-black text-[10px] font-bold flex items-center justify-center leading-none">
-                {bookingRequestPendingCount}
-              </span>
-            )}
-            {wishListAvailableCount > 0 && (
-              <span className="absolute -top-4 right-0 min-w-[18px] h-[18px] px-1 rounded-full bg-green-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
-                {wishListAvailableCount}
-              </span>
-            )}
-          </button>
-          <button
-            type="button"
-            className={`flex-1 text-white bg-blue-500 px-1 py-1 text-xs sm:flex-none sm:px-2 rounded-md ${
-              isBookModalOpen ? "drop-shadow-[0_4px_6px_rgba(59,130,246,0.5)]" : ""
-            }`}
-            onClick={() => setIsBookModalOpen(true)}
-          >
-            Book
-          </button>
-          <button
-            type="button"
-            title="Stats"
-            className={`relative flex-1 text-white bg-emerald-600 px-1 py-1 text-xs sm:flex-none sm:px-2 rounded-md ${
-              isAvailabilitiesModalOpen ? "drop-shadow-[0_4px_6px_rgba(59,130,246,0.5)]" : ""
-            }`}
-            onClick={() => {
-              closeAllPanels();
-              setIsAvailabilitiesModalOpen(!isAvailabilitiesModalOpen);
-            }}
-          >
-            Stats
-            {availableNightsCount > 0 && (
-              <span className="absolute -top-4 left-1/2 -translate-x-1/2 min-w-[20px] h-5 px-1 rounded-full bg-yellow-400 text-black text-[10px] font-bold flex items-center justify-center leading-none">
-                {availableNightsCount}
-              </span>
-            )}
-          </button>
-          <button
-            type="button"
-            className={`relative flex-1 text-white bg-rose-500 px-1 py-1 text-xs sm:flex-none sm:px-2 rounded-md whitespace-nowrap ${
-              isBlockActive ? "drop-shadow-[0_4px_6px_rgba(244,63,94,0.5)]" : ""
-            }`}
-            onClick={() => setIsBlockChooserOpen(true)}
-          >
-            Block
-            {airbnbPendingCount > 0 && (
-              <span className="absolute -top-4 left-1/2 -translate-x-1/2 min-w-[20px] h-5 px-1 rounded-full bg-yellow-400 text-black text-[10px] font-bold flex items-center justify-center leading-none">
-                {airbnbPendingCount}
-              </span>
-            )}
-          </button>
-          {/* Cleaners — broom icon + short "Clean" caption (<=5 chars), end of bar */}
-          <button
-            type="button"
-            aria-label="Clean"
-            title="Clean"
-            className={`relative flex flex-1 items-center justify-center gap-1 text-white bg-orange-500 px-1 py-1 text-xs sm:flex-none sm:w-[62px] rounded-md whitespace-nowrap ${
-              isCleanersOpen ? "drop-shadow-[0_4px_6px_rgba(249,115,22,0.5)]" : ""
-            }`}
-            onClick={() => setIsCleanersOpen((v) => !v)}
-          >
-            <FaBroom className="text-sm" />
-            Clean
-            {/* Two badges side by side at top-center, small gap between them.
-                Yellow = cleanings needing hours; Rose = unassigned upcoming. */}
-            {cleanTodoCount > 0 && (
-              <span className="absolute -top-4 right-1/2 mr-0.5 min-w-[20px] h-5 px-1 rounded-full bg-yellow-400 text-black text-[10px] font-bold flex items-center justify-center leading-none">
-                {cleanTodoCount}
-              </span>
-            )}
-            {cleanUnassignedCount > 0 && (
-              <span className="absolute -top-4 left-1/2 ml-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
-                {cleanUnassignedCount}
-              </span>
-            )}
-          </button>
-          {/* Misc — house expenses log (supplies, utilities, maintenance) */}
-          <button
-            type="button"
-            aria-label="Misc"
-            title="Misc expenses"
-            className={`relative flex flex-1 items-center justify-center gap-1 text-white bg-teal-600 px-1 py-1 text-xs sm:flex-none sm:w-[62px] rounded-md whitespace-nowrap ${
-              isMiscOpen ? "drop-shadow-[0_4px_6px_rgba(13,148,136,0.5)]" : ""
-            }`}
-            onClick={() => setIsMiscOpen((v) => !v)}
-          >
-            <FaReceipt className="text-sm" />
-            Misc
-          </button>
+                {g.icon}
+                {g.title}
+                {/* Aggregated pending badges so nothing hides behind the group */}
+                {g.badges[0]?.n > 0 && (
+                  <span className={`absolute -top-2 -right-1 min-w-[20px] h-5 px-1 rounded-full text-[10px] font-bold flex items-center justify-center leading-none ${g.badges[0].cls}`}>
+                    {g.badges[0].n}
+                  </span>
+                )}
+                {g.badges[1]?.n > 0 && (
+                  <span className={`absolute -top-2 -left-1 min-w-[18px] h-[18px] px-1 rounded-full text-[9px] font-bold flex items-center justify-center leading-none ${g.badges[1].cls}`}>
+                    {g.badges[1].n}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>}
       </div>
 
       {/* Spacer — balances the profile on the left so the title stays centered.
-          Desktop only: on mobile the button row needs this width, so it's hidden
-          there (the 7-button toolbar would otherwise overflow and widen the page). */}
+          Desktop only; hidden on mobile where the button row needs the width. */}
       <div className="hidden shrink-0 sm:block sm:h-[76px] sm:w-[76px]" aria-hidden="true" />
 
-      {/* Block chooser modal */}
-      {isBlockChooserOpen && createPortal(
+      {/* Category action picker — opened by a group button, lists that group's
+          actions as cards (same look as the old Block chooser). */}
+      {pickerGroup && createPortal(
         <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-[300]"
-          onClick={() => setIsBlockChooserOpen(false)}
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-[300] p-4"
+          onClick={() => setPickerGroup(null)}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h2 className="text-base font-bold text-gray-800">Block Dates</h2>
+              <h2 className="flex items-center gap-2 text-base font-bold text-gray-800">
+                <span className="text-gray-500">{GROUPS[pickerGroup].icon}</span>
+                {GROUPS[pickerGroup].title}
+              </h2>
               <button
                 className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
-                onClick={() => setIsBlockChooserOpen(false)}
+                onClick={() => setPickerGroup(null)}
               >
                 &times;
               </button>
             </div>
 
-            {/* Options */}
+            {/* Action cards */}
             <div className="p-4 flex flex-col gap-3">
-              {/* Block AirBnB card */}
-              <button
-                type="button"
-                className={`text-left w-full rounded-xl border-2 px-5 py-4 transition-all hover:shadow-md group ${
-                  isBlockAirBnBModalOpen
-                    ? "border-rose-400 bg-rose-50"
-                    : "border-gray-200 hover:border-rose-300 bg-white"
-                }`}
-                onClick={() => {
-                  closeAllPanels();
-                  setIsBlockAirBnBModalOpen(true);
-                  setIsBlockChooserOpen(false);
-                }}
-              >
-                <div className="flex items-center gap-3 mb-1.5">
-                  <span className="text-lg">🛑</span>
-                  <span className="font-bold text-sm text-gray-800 group-hover:text-rose-600">
-                    Block AirBnB
-                  </span>
-                  {airbnbPendingCount > 0 && (
-                    <span className="ml-auto min-w-[20px] h-5 px-1 rounded-full bg-yellow-400 text-black text-[10px] font-bold flex items-center justify-center leading-none">
-                      {airbnbPendingCount}
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-gray-500 leading-relaxed pl-8">
-                  Mark non-AirBnB bookings as blocked on your AirBnB calendar so guests cannot double-book those dates online.
-                </p>
-              </button>
-
-              {/* Block Rooms card */}
-              <button
-                type="button"
-                className={`text-left w-full rounded-xl border-2 px-5 py-4 transition-all hover:shadow-md group ${
-                  isBlockRoomsModalOpen
-                    ? "border-orange-400 bg-orange-50"
-                    : "border-gray-200 hover:border-orange-300 bg-white"
-                }`}
-                onClick={() => {
-                  closeAllPanels();
-                  setIsBlockRoomsModalOpen(true);
-                  setIsBlockChooserOpen(false);
-                }}
-              >
-                <div className="flex items-center gap-3 mb-1.5">
-                  <span className="text-lg">🔒</span>
-                  <span className="font-bold text-sm text-gray-800 group-hover:text-orange-600">
-                    Block Rooms
-                  </span>
-                </div>
-                <p className="text-xs text-gray-500 leading-relaxed pl-8">
-                  Reserve specific rooms for a date range — preventing any new bookings from being made for those rooms during that period.
-                </p>
-              </button>
+              {GROUPS[pickerGroup].actions.map((a) => (
+                <button
+                  key={a.label}
+                  type="button"
+                  className={`text-left w-full rounded-xl border-2 border-gray-200 bg-white px-5 py-4 transition-all hover:shadow-md ${a.hover}`}
+                  onClick={() => {
+                    setPickerGroup(null);
+                    a.run();
+                  }}
+                >
+                  <div className="flex items-center gap-3 mb-1">
+                    <span className="text-lg">{a.emoji}</span>
+                    <span className="font-bold text-sm text-gray-800">{a.label}</span>
+                    {a.badges && a.badges.some((b) => b.n > 0) && (
+                      <span className="ml-auto flex items-center gap-1">
+                        {a.badges.map(
+                          (b, i) =>
+                            b.n > 0 && (
+                              <span
+                                key={i}
+                                className={`min-w-[20px] h-5 px-1 rounded-full text-[10px] font-bold flex items-center justify-center leading-none ${b.cls}`}
+                              >
+                                {b.n}
+                              </span>
+                            ),
+                        )}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 leading-relaxed pl-9">{a.desc}</p>
+                </button>
+              ))}
             </div>
           </div>
         </div>,
