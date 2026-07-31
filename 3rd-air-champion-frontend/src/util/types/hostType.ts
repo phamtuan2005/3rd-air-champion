@@ -7,6 +7,7 @@ export interface hostType {
   name: string;
   cohosts?: string[];
   calendar: string;
+  phone?: string; // host contact number — guests text this to ask about a stay
   doorCode?: string;
   airbnbName?: string;
   airbnbAddress?: string;

@@ -12,6 +12,8 @@ interface StayDetailPopupProps {
   guests: number;
   address?: string;
   doorCode?: string;
+  hostPhone?: string; // guests text this to ask about changes / add a room
+  hostName?: string;
   onViewDetails: () => void;
   onClose: () => void;
 }
@@ -29,10 +31,23 @@ const StayDetailPopup = ({
   guests,
   address,
   doorCode,
+  hostPhone,
+  hostName,
   onViewDetails,
   onClose,
 }: StayDetailPopupProps) => {
   const { theme } = useTiBookTheme();
+
+  // One-tap text to the host, pre-filled with the stay so changes / "add a room"
+  // reach them personally with context (their preferred way to handle it).
+  const textHost = () => {
+    if (!hostPhone) return;
+    const who = (hostName ?? "").split(" ")[0] || "there";
+    const body =
+      `Hi ${who}! About my stay — ${roomName}, ${format(checkIn, "MMM d")} → ${format(checkOut, "MMM d")}. ` +
+      `I'd like to ask about `;
+    window.location.href = `sms:${hostPhone}?&body=${encodeURIComponent(body)}`;
+  };
   const today = startOfToday();
   const daysUntil = differenceInCalendarDays(checkIn, today);
   const isStaying = today >= checkIn && today < checkOut;
@@ -141,6 +156,18 @@ const StayDetailPopup = ({
             <p className="mt-3 text-center text-[11px] text-gray-400">
               This stay is complete — thank you for staying with us. 🏠
             </p>
+          )}
+
+          {/* Reach the host directly — add a room, more guests, or any change.
+              Pre-filled with the stay so they start with context. */}
+          {hostPhone && (
+            <button
+              type="button"
+              onClick={textHost}
+              className={`mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border ${theme.tagBorder} py-2 text-sm font-semibold ${theme.textPrimary} hover:bg-gray-50`}
+            >
+              💬 Text us about this stay
+            </button>
           )}
         </div>
       </div>

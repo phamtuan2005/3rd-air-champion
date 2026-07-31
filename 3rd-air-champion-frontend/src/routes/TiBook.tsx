@@ -456,6 +456,8 @@ const TiBookInner = () => {
             guests={b.numberOfGuests}
             address={currentHost.airbnbAddress}
             doorCode={currentHost.doorCode}
+            hostPhone={currentHost.phone}
+            hostName={currentHost.name}
             onViewDetails={() => {
               setBookingsFocusKey(`${String(b.date).slice(0, 10)}${b.room}`);
               setStayPopupId(null);
