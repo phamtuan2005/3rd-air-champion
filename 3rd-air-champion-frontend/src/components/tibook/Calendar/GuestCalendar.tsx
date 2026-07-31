@@ -296,7 +296,7 @@ const GuestCalendar = ({
         {bars?.am && !inCart && (
           <div
             className={`${getRoomColor(bars.am.roomName, bars.am.roomColor)} rounded-r-lg pointer-events-none`}
-            style={{ position: "absolute", top: "50%", bottom: "8%", left: "-1px", right: "80%" }}
+            style={{ position: "absolute", bottom: "5px", height: "20px", left: "-1px", right: "80%" }}
           />
         )}
         {bars?.pm && !inCart && (
@@ -304,8 +304,8 @@ const GuestCalendar = ({
             className={`${getRoomColor(bars.pm.roomName, bars.pm.roomColor)} pointer-events-none flex items-center overflow-hidden`}
             style={{
               position: "absolute",
-              top: "50%",
-              bottom: "8%",
+              bottom: "5px",
+              height: "20px",
               left: bars.pm.isStart ? "20%" : "-1px",
               right: "-1px",
               borderTopLeftRadius: bars.pm.isStart ? "0.5rem" : undefined,
@@ -313,7 +313,7 @@ const GuestCalendar = ({
             }}
           >
             {bars.pm.isStart && (
-              <span className="truncate px-1 text-[11px] font-bold leading-none text-black sm:text-sm">
+              <span className="truncate px-1 text-[11px] font-bold leading-none text-black sm:text-xs">
                 {bars.pm.roomName}
               </span>
             )}
