@@ -4,7 +4,7 @@ import { format } from "date-fns-tz";
 import { dayType } from "../../../util/types/dayType";
 import { roomType } from "../../../util/types/roomType";
 import RoomBadge from "../../shared/RoomBadge";
-import { fetchAssignments, rateOn } from "../../../util/cleanerOperations";
+import { fetchAssignments, fetchCleaners, rateOn, CleanerType } from "../../../util/cleanerOperations";
 import { fetchMiscExpenses, isExpenseInMonth } from "../../../util/miscOperations";
 
 // App money palette (matches the Total / Net badges): emerald for profit, rose
@@ -198,6 +198,29 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
   const [cleaningFee, setCleaningFee] = useState(0);
   const [miscFee, setMiscFee] = useState(0);
 
+  // The cleaner roster — needed for baseline hours (pre-tracking hours entered
+  // for a month), which the Pay tab counts toward that month's cost. Without it
+  // the Stats cleaning fee would be short by the baseline and disagree with Pay.
+  const [cleaners, setCleaners] = useState<CleanerType[]>([]);
+  useEffect(() => {
+    if (!hostId || !token) return;
+    fetchCleaners(hostId, token)
+      .then(setCleaners)
+      .catch(() => setCleaners([]));
+  }, [hostId, token]);
+
+  // Baseline pay for a given month (yyyy-MM) — Σ over cleaners whose baseline is
+  // anchored to that month, hours × the rate in effect that month. Mirrors the
+  // Pay tab exactly (CleanersModal.monthlyPay).
+  const baselineFeeFor = (monthKey: string) =>
+    cleaners.reduce(
+      (s, c) =>
+        c.baselineMonth === monthKey && c.baselineHours > 0
+          ? s + c.baselineHours * rateOn(c, `${monthKey}-01`)
+          : s,
+      0,
+    );
+
   useEffect(() => {
     if (!hostId || !token) return;
     const start = format(startOfMonth(currentMonth), "yyyy-MM-dd", { timeZone });
@@ -211,7 +234,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
             (sum, a) =>
               sum + (a.hours != null && a.cleaner ? a.hours * rateOn(a.cleaner, a.date) : 0),
             0,
-          ),
+          ) + baselineFeeFor(monthKey),
         ),
       )
       .catch(() => setCleaningFee(0));
@@ -223,7 +246,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
         ),
       )
       .catch(() => setMiscFee(0));
-  }, [hostId, token, currentMonth, timeZone]);
+  }, [hostId, token, currentMonth, timeZone, cleaners]);
 
   // ── Trend tabs: profit & booking metrics over the last 6 months ───────────
   const [tab, setTab] = useState<"month" | "profit" | "bookings">("month");
@@ -277,9 +300,11 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
         trendMonths.map((mDate) => {
           const mk = format(mDate, "yyyy-MM", { timeZone });
           const gross = grossByMonth.get(mk) ?? 0;
-          const cleaning = assigns
-            .filter((a) => a.date.slice(0, 7) === mk && a.hours != null && a.cleaner)
-            .reduce((s, a) => s + a.hours! * rateOn(a.cleaner!, a.date), 0);
+          const cleaning =
+            assigns
+              .filter((a) => a.date.slice(0, 7) === mk && a.hours != null && a.cleaner)
+              .reduce((s, a) => s + a.hours! * rateOn(a.cleaner!, a.date), 0) +
+            baselineFeeFor(mk);
           const miscTotal = misc
             .filter((e) => isExpenseInMonth(e, mk))
             .reduce((s, e) => s + e.amount, 0);
@@ -295,7 +320,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
         }),
       );
     });
-  }, [hostId, token, trendMonths, timeZone, grossByMonth]);
+  }, [hostId, token, trendMonths, timeZone, grossByMonth, cleaners]);
 
   // Booking-rate (occupancy) and AirBnB-share per month, computed straight from
   // monthMap — no fetch. Occupancy = booked ÷ available room-nights (blocked
