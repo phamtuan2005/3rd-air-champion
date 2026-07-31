@@ -281,8 +281,10 @@ const GuestCalendar = ({
           </span>
         )}
         {!simplified && !inCart && !hasStay && (status === "full" || status === "blocked") && (
-          <div className="flex flex-col items-center gap-0.5">
-            <span className="text-[9px] text-gray-300 leading-none">sold out</span>
+          <div className="relative z-10 flex flex-col items-center gap-0.5">
+            {/* Keep "sold out" visible even when wish-listed — the gray wish-list
+                overlay otherwise hides it and the date looks bookable again. */}
+            <span className="text-[9px] font-medium text-gray-500 leading-none">sold out</span>
             {canWishList && (
               <span
                 className="text-[11px] leading-none z-10 relative cursor-pointer"
