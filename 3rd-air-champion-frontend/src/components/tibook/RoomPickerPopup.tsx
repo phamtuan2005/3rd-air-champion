@@ -5,16 +5,18 @@ import RoomBadge from "../shared/RoomBadge";
 
 interface RoomPickerPopupProps {
   date: Date;
-  rooms: roomType[]; // rooms actually available on this date
+  rooms: roomType[]; // rooms actually available on this date (or across a range)
   onPick: (roomId: string) => void;
   onAny: () => void; // guest is flexible — let the host assign any available room
   onClose: () => void;
+  title?: string; // override "Pick your room" (e.g. "Book another room")
+  subtitle?: string; // override the date line (e.g. a range)
 }
 
 // Shown the moment a guest taps an open date: it discloses exactly which room(s)
 // are free that night and lets them pick right away — especially valuable when
 // only one is left.
-const RoomPickerPopup = ({ date, rooms, onPick, onAny, onClose }: RoomPickerPopupProps) => {
+const RoomPickerPopup = ({ date, rooms, onPick, onAny, onClose, title, subtitle }: RoomPickerPopupProps) => {
   const { theme } = useTiBookTheme();
   const only = rooms.length === 1;
 
@@ -27,9 +29,9 @@ const RoomPickerPopup = ({ date, rooms, onPick, onAny, onClose }: RoomPickerPopu
         <div className="flex items-center justify-between gap-2 px-4 pb-1 pt-3">
           <div className="min-w-0">
             <p className={`text-sm font-bold ${theme.textPrimary}`}>
-              {only ? "Only 1 room left" : "Pick your room"}
+              {title ?? (only ? "Only 1 room left" : "Pick your room")}
             </p>
-            <p className="text-xs text-gray-500">{format(date, "EEEE, MMM d")}</p>
+            <p className="text-xs text-gray-500">{subtitle ?? format(date, "EEEE, MMM d")}</p>
           </div>
           <button
             type="button"
@@ -42,6 +44,11 @@ const RoomPickerPopup = ({ date, rooms, onPick, onAny, onClose }: RoomPickerPopu
         </div>
 
         <div className="flex flex-col gap-1.5 px-4 pb-4 pt-1">
+          {rooms.length === 0 && (
+            <p className="py-3 text-center text-xs text-gray-400">
+              No other room is free for these dates.
+            </p>
+          )}
           {rooms.map((r) => (
             <button
               key={r.id}

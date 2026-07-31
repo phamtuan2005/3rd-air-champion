@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { addDays, parseISO, startOfToday } from "date-fns";
+import { addDays, format, parseISO, startOfToday } from "date-fns";
 import CalendarNavigator from "../components/tibook/Calendar/CalendarNavigatorDesktop";
 import NavBarDesktop from "../components/tibook/NavBarDesktop";
 import { TiBookThemeProvider, useTiBookTheme } from "../contexts/TiBookThemeContext";
@@ -53,6 +53,7 @@ const TiBookInner = () => {
   const [bookingsFocusKey, setBookingsFocusKey] = useState<string | null>(null);
   const [stayPopupId, setStayPopupId] = useState<string | null>(null);
   const [roomPickerDate, setRoomPickerDate] = useState<Date | null>(null);
+  const [bookAnother, setBookAnother] = useState<{ checkIn: Date; nights: number } | null>(null);
   const cohostNames = (import.meta.env.VITE_TI_BOOK_COHOST_NAMES as string | undefined)
     ?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
 
@@ -227,6 +228,36 @@ const TiBookInner = () => {
     setScrollToMonthTrigger({ month: new Date(date.getFullYear(), date.getMonth(), 1), seq: Date.now() });
     setCartDates((prev) => new Map(prev).set(keyOfDate(date), null));
     setRoomPickerDate(null);
+  };
+
+  // "Book another room" for an existing stay's exact dates: rooms free on EVERY
+  // night of the range (the guest's current room is booked those nights, so it's
+  // naturally excluded — they only see OTHER options).
+  const availableRoomsForRange = (checkIn: Date, nights: number) => {
+    const freeOn = (date: Date, r: roomType) => {
+      const key = keyOfDate(date);
+      const day = monthMap.get(key);
+      const bookedIds = new Set<string>([
+        ...(day?.bookings.map((b) => b.room?.id).filter(Boolean) as string[] ?? []),
+        ...(reservedMap.get(key) ?? []),
+        ...((day?.blockedRooms?.map((rm) => rm?.id).filter(Boolean) as string[]) ?? []),
+      ]);
+      return !bookedIds.has(r.id);
+    };
+    const nightsArr = Array.from({ length: nights }, (_, i) => addDays(checkIn, i));
+    return rooms.filter((r) => r.active && nightsArr.every((d) => freeOn(d, r)));
+  };
+
+  // Start a fresh selection over the whole range for the chosen room (or "any"),
+  // then the guest reviews and hits "Request a Booking".
+  const startRangeSelection = (checkIn: Date, nights: number, roomId: string | null) => {
+    setIsSelecting(true);
+    if (roomId) setSelectedRoomIds(new Set([roomId]));
+    setScrollToMonthTrigger({ month: new Date(checkIn.getFullYear(), checkIn.getMonth(), 1), seq: Date.now() });
+    const next = new Map<string, string | null>();
+    for (let i = 0; i < nights; i++) next.set(keyOfDate(addDays(checkIn, i)), roomId);
+    setCartDates(next);
+    setBookAnother(null);
   };
 
   const toggleCartDate = (date: Date) => {
@@ -463,7 +494,28 @@ const TiBookInner = () => {
               setStayPopupId(null);
               setMyBookingsOpen(true);
             }}
+            onBookAnother={() => {
+              setStayPopupId(null);
+              setBookAnother({ checkIn, nights: b.duration });
+            }}
             onClose={() => setStayPopupId(null)}
+          />
+        );
+      })()}
+
+      {/* Book another room for an existing stay's exact dates (e.g. parents) */}
+      {bookAnother && (() => {
+        const checkOut = addDays(bookAnother.checkIn, bookAnother.nights);
+        const subtitle = `${format(bookAnother.checkIn, "MMM d")} → ${format(checkOut, "MMM d")} · ${bookAnother.nights} night${bookAnother.nights === 1 ? "" : "s"}`;
+        return (
+          <RoomPickerPopup
+            date={bookAnother.checkIn}
+            rooms={availableRoomsForRange(bookAnother.checkIn, bookAnother.nights)}
+            title="Book another room"
+            subtitle={subtitle}
+            onPick={(roomId) => startRangeSelection(bookAnother.checkIn, bookAnother.nights, roomId)}
+            onAny={() => startRangeSelection(bookAnother.checkIn, bookAnother.nights, null)}
+            onClose={() => setBookAnother(null)}
           />
         );
       })()}

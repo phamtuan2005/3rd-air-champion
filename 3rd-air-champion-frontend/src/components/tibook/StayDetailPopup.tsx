@@ -15,6 +15,7 @@ interface StayDetailPopupProps {
   hostPhone?: string; // guests text this to ask about changes / add a room
   hostName?: string;
   onViewDetails: () => void;
+  onBookAnother?: () => void; // self-serve: request another room for the same dates
   onClose: () => void;
 }
 
@@ -34,17 +35,18 @@ const StayDetailPopup = ({
   hostPhone,
   hostName,
   onViewDetails,
+  onBookAnother,
   onClose,
 }: StayDetailPopupProps) => {
   const { theme } = useTiBookTheme();
+  const hostFirstName = (hostName ?? "").split(" ")[0] || "the host";
 
   // One-tap text to the host, pre-filled with the stay so changes / "add a room"
   // reach them personally with context (their preferred way to handle it).
   const textHost = () => {
     if (!hostPhone) return;
-    const who = (hostName ?? "").split(" ")[0] || "there";
     const body =
-      `Hi ${who}! About my stay — ${roomName}, ${format(checkIn, "MMM d")} → ${format(checkOut, "MMM d")}. ` +
+      `Hi ${hostFirstName}! About my stay — ${roomName}, ${format(checkIn, "MMM d")} → ${format(checkOut, "MMM d")}. ` +
       `I'd like to ask about `;
     window.location.href = `sms:${hostPhone}?&body=${encodeURIComponent(body)}`;
   };
@@ -158,15 +160,26 @@ const StayDetailPopup = ({
             </p>
           )}
 
-          {/* Reach the host directly — add a room, more guests, or any change.
-              Pre-filled with the stay so they start with context. */}
+          {/* Self-serve: request another room for these same dates (e.g. a room
+              for parents joining the trip). */}
+          {!isPast && onBookAnother && (
+            <button
+              type="button"
+              onClick={onBookAnother}
+              className={`mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border ${theme.tagBorder} py-2 text-sm font-semibold ${theme.textPrimary} hover:bg-gray-50`}
+            >
+              ➕ Book another room for these dates
+            </button>
+          )}
+
+          {/* Reach the host directly — any change, personally handled. */}
           {hostPhone && (
             <button
               type="button"
               onClick={textHost}
-              className={`mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border ${theme.tagBorder} py-2 text-sm font-semibold ${theme.textPrimary} hover:bg-gray-50`}
+              className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50"
             >
-              💬 Text us about this stay
+              💬 Text {hostFirstName} about this stay
             </button>
           )}
         </div>
