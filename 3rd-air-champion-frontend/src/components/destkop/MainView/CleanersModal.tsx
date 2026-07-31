@@ -7,6 +7,7 @@ import { getRoomColor } from "../../../util/getRoomColor";
 import { getCleaningForecast } from "../../../util/cleaningTasks";
 import { generateAvatar } from "../../../util/avatarGen";
 import CleanerAvatarBase from "../../shared/CleanerAvatar";
+import { CLEANER_SIGNOFF, TT_PROMISE_LINE } from "../../../util/cleanerMessage";
 import { formatPhone } from "../../../util/formatPhone";
 import {
   CleanerType,
@@ -342,7 +343,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
       `As a token of our appreciation, your pay is going up to $${change.rate}/hr, effective ${from}. You've earned it.`,
       ``,
       `We're so grateful to have you on the team. Together, we work hard so our guests always feel comfortable — that is TT House's promise to every guest:`,
-      `"Your comfort. Our mission." 🏠 — Anh-Tuan`,
+      TT_PROMISE_LINE,
     ].join("\n");
     window.location.href = `sms:${phone}?&body=${encodeURIComponent(body)}`;
   };
@@ -886,7 +887,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
         `* ${format(new Date(date + "T00:00:00"), "EEEE M/d")}: ${rooms.join(", ")}`,
     );
     const weekLabel = `${format(monday, "MMM d")} – ${format(addDays(monday, 6), "MMM d")}`;
-    const message = `Hi ${cleaner.name}, your cleaning schedule for ${weekLabel}:\n${lines.join("\n")}\n(numbers = guests arriving)\n\nThank you for your wonderful work! Together, we work hard so our guests always feel comfortable — that is TT House's promise to every guest:\n"Your comfort. Our mission." 🏠 — Anh-Tuan`;
+    const message = `Hi ${cleaner.name}, your cleaning schedule for ${weekLabel}:\n${lines.join("\n")}\n(numbers = guests arriving)\n\n${CLEANER_SIGNOFF}`;
     window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(message)}`;
     // Remember exactly what we sent (shared via backend) so later drift from the
     // live plan flags a re-send — for you and any cohost.
@@ -908,7 +909,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
   // host keeps in Settings → My AirBnB. Not tied to any week — sendable anytime.
   const textCleaningRules = (cleaner: CleanerType) => {
     if (!cleaner.phone || !cleaningRules.trim()) return;
-    const message = `Hi ${cleaner.name}, a quick cleaning reminder for TT House:\n\n${cleaningRules.trim()}\n\nThank you for keeping every room guest-ready — that is TT House's promise to every guest:\n"Your comfort. Our mission." 🏠 — Anh-Tuan`;
+    const message = `Hi ${cleaner.name}, a quick cleaning reminder for TT House:\n\n${cleaningRules.trim()}\n\nThank you for keeping every room guest-ready — that is TT House's promise to every guest:\n${TT_PROMISE_LINE}`;
     window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(message)}`;
   };
 
@@ -949,8 +950,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
       `Ready to pay whenever you'd like: $${Math.round(entry.balance).toLocaleString()}`,
       ...(tip > 0 ? [`(+ $${tip.toFixed(2)} tip at payout)`] : []),
       "",
-      `Thank you for your wonderful work! Together, we work hard so our guests always feel comfortable — that is TT House's promise to every guest:`,
-      `"Your comfort. Our mission." 🏠 — Anh-Tuan`,
+      CLEANER_SIGNOFF,
     ].join("\n");
     window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(body)}`;
   };

@@ -7,6 +7,7 @@ import { DEFAULT_TEMPLATE, TEMPLATE_KEY, resolveTemplate } from "../../../util/r
 import { CLEANING_LOOKBACK_DAYS, cleaningTaskId, getCleaningCounts, getCleaningItems, CleaningItem } from "../../../util/cleaningTasks";
 import { fetchAssignments, CleaningAssignmentType, CleanerType } from "../../../util/cleanerOperations";
 import CleanerAvatar from "../../shared/CleanerAvatar";
+import { CLEANER_SIGNOFF } from "../../../util/cleanerMessage";
 
 interface ToDoListProps {
   monthMap: Map<string, dayType>;
@@ -114,7 +115,9 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
 
     let body: string;
     if (mine.length === 0) {
-      body = `Hi ${first}! Looks like all your rooms for ${dayLabel} are done — thank you! 🙏`;
+      body =
+        `Hi ${first}! Looks like all your rooms for today (${dayLabel}) are done.\n\n` +
+        CLEANER_SIGNOFF;
     } else {
       const lines = mine.map((it, i) => {
         const room = it.booking.room?.name ?? "Room";
@@ -129,10 +132,10 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
         return `${i + 1}. ${room} — ${when}${who}${early}`;
       });
       body =
-        `Hi ${first}! Cleaning for ${dayLabel} — ${mine.length} room${mine.length === 1 ? "" : "s"}, ` +
+        `Hi ${first}! Cleaning for today (${dayLabel}) — ${mine.length} room${mine.length === 1 ? "" : "s"}, ` +
         `in suggested order (soonest check-ins first):\n` +
         lines.join("\n") +
-        `\n\nThank you! 🙏`;
+        `\n\n${CLEANER_SIGNOFF}`;
     }
     window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(body)}`;
   };
