@@ -1,9 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "../../../styles/calendarStyle.css";
-import { addDays, getDay, isBefore, isSameDay, isSameMonth, startOfToday } from "date-fns";
+import { addDays, getDay, isBefore, isSameDay, isSameMonth, parseISO, startOfToday } from "date-fns";
 import { dayType } from "../../../util/types/dayType";
 import { roomType } from "../../../util/types/roomType";
+import { getRoomColor } from "../../../util/getRoomColor";
 import { useTiBookTheme } from "../../../contexts/TiBookThemeContext";
+
+// A guest's own confirmed stay, drawn as a spanning bar (not a dot).
+export interface MyStay {
+  startKey: string; // yyyy-MM-dd check-in
+  nights: number;
+  roomName: string;
+  roomColor?: string;
+}
 
 interface GuestCalendarProps {
   currentMonth: Date;
@@ -14,6 +23,7 @@ interface GuestCalendarProps {
   wishListDates?: Set<string>;
   newWishListDates?: Set<string>;
   myBookingDates?: Set<string>;
+  myStays?: MyStay[];
   reservedMap?: Map<string, Set<string>>;
   scrollToTodayTrigger?: number;
   scrollToMonthTrigger?: { month: Date; seq: number };
@@ -55,7 +65,7 @@ const GuestCalendar = ({
   cartDates,
   wishListDates,
   newWishListDates,
-  myBookingDates,
+  myStays,
   reservedMap,
   scrollToTodayTrigger = 0,
   scrollToMonthTrigger,
@@ -77,6 +87,33 @@ const GuestCalendar = ({
     () => rooms.filter((r) => r.active && (selectedRoomIds === null || selectedRoomIds.has(r.id))),
     [rooms, selectedRoomIds],
   );
+
+  // The guest's own stays as bar segments per day: a PM segment on every night
+  // (check-in day starts at 20%), and an AM cap on the check-out morning — the
+  // same PM-checkin/AM-checkout geometry as the TiMag calendar, so a stay reads
+  // as a continuous colored ribbon instead of scattered dots.
+  const dk = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const stayBars = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        pm?: { roomName: string; roomColor?: string; isStart: boolean };
+        am?: { roomName: string; roomColor?: string };
+      }
+    >();
+    (myStays ?? []).forEach((s) => {
+      if (!s.nights || s.nights < 1) return;
+      const start = parseISO(s.startKey);
+      for (let i = 0; i < s.nights; i++) {
+        const k = dk(addDays(start, i));
+        map.set(k, { ...map.get(k), pm: { roomName: s.roomName, roomColor: s.roomColor, isStart: i === 0 } });
+      }
+      const co = dk(addDays(start, s.nights));
+      map.set(co, { ...map.get(co), am: { roomName: s.roomName, roomColor: s.roomColor } });
+    });
+    return map;
+  }, [myStays]);
 
   useEffect(() => {
     const now = new Date();
@@ -185,7 +222,8 @@ const GuestCalendar = ({
     const inCart = cartDates.has(dateKey);
     const isWishlisted = wishListDates?.has(dateKey) ?? false;
     const isNewWishList = newWishListDates?.has(dateKey) ?? false;
-    const isMyBooking = myBookingDates?.has(dateKey) ?? false;
+    const bars = stayBars.get(dateKey);
+    const hasStay = (!!bars?.pm || !!bars?.am) && !inCart;
 
     const numberClass = [
       "text-sm sm:text-xl leading-none select-none",
@@ -229,7 +267,7 @@ const GuestCalendar = ({
             {roomsLeft} left
           </span>
         )}
-        {!simplified && !inCart && (status === "full" || status === "blocked") && (
+        {!simplified && !inCart && !hasStay && (status === "full" || status === "blocked") && (
           <div className="flex flex-col items-center gap-0.5">
             <span className="text-[9px] text-gray-300 leading-none">sold out</span>
             {canWishList && (
@@ -246,8 +284,34 @@ const GuestCalendar = ({
         {inCart && (
           <span className="text-[9px] text-white/70 leading-none relative z-10">✓</span>
         )}
-        {isMyBooking && !inCart && (
-          <span className={`absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full ${theme.btn} opacity-80 pointer-events-none`} />
+        {/* The guest's own stay — a spanning ribbon (AM checkout cap + PM
+            check-in/continuing bar) that connects across cells, room-colored,
+            labelled with the room on the check-in day. */}
+        {bars?.am && !inCart && (
+          <div
+            className={`${getRoomColor(bars.am.roomName, bars.am.roomColor)} rounded-r-lg pointer-events-none`}
+            style={{ position: "absolute", top: "56%", bottom: "10%", left: "-1px", right: "80%" }}
+          />
+        )}
+        {bars?.pm && !inCart && (
+          <div
+            className={`${getRoomColor(bars.pm.roomName, bars.pm.roomColor)} pointer-events-none flex items-center overflow-hidden`}
+            style={{
+              position: "absolute",
+              top: "56%",
+              bottom: "10%",
+              left: bars.pm.isStart ? "20%" : "-1px",
+              right: "-1px",
+              borderTopLeftRadius: bars.pm.isStart ? "0.5rem" : undefined,
+              borderBottomLeftRadius: bars.pm.isStart ? "0.5rem" : undefined,
+            }}
+          >
+            {bars.pm.isStart && (
+              <span className="truncate px-1 text-[8px] font-bold leading-none text-black sm:text-[10px]">
+                {bars.pm.roomName}
+              </span>
+            )}
+          </div>
         )}
       </button>
     );

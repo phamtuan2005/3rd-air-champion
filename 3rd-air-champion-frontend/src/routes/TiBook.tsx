@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { addDays, parseISO } from "date-fns";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { addDays, parseISO, startOfToday } from "date-fns";
 import CalendarNavigator from "../components/tibook/Calendar/CalendarNavigatorDesktop";
 import NavBarDesktop from "../components/tibook/NavBarDesktop";
 import { TiBookThemeProvider, useTiBookTheme } from "../contexts/TiBookThemeContext";
@@ -152,6 +152,39 @@ const TiBookInner = () => {
     return dates;
   }, [guestBookings]);
 
+  // The guest's confirmed stays as spanning bars (room-coloured ribbons on the
+  // calendar), plus the nearest upcoming/current one to open the calendar on.
+  const myStays = useMemo(
+    () =>
+      guestBookings
+        .filter((b) => b.status === "confirmed")
+        .map((b) => {
+          const room = rooms.find((r) => r.id === b.room);
+          return {
+            startKey: String(b.date).slice(0, 10),
+            nights: b.duration,
+            roomName: room?.name ?? "",
+            roomColor: room?.color,
+          };
+        }),
+    [guestBookings, rooms],
+  );
+
+  // On open, a returning guest lands on their next stay (not a blank "today").
+  // Only once, and never while they're actively picking new dates.
+  const didNavToStayRef = useRef(false);
+  useEffect(() => {
+    if (didNavToStayRef.current || isSelecting) return;
+    const today = startOfToday();
+    const next = myStays
+      .filter((s) => addDays(parseISO(s.startKey), s.nights) > today) // checks out in the future
+      .sort((a, b) => (a.startKey < b.startKey ? -1 : 1))[0];
+    if (!next) return;
+    didNavToStayRef.current = true;
+    const d = parseISO(next.startKey);
+    setScrollToMonthTrigger({ month: new Date(d.getFullYear(), d.getMonth(), 1), seq: Date.now() });
+  }, [myStays, isSelecting]);
+
   const toggleCartDate = (date: Date) => {
     setIsSelecting(true);
     setScrollToMonthTrigger({ month: new Date(date.getFullYear(), date.getMonth(), 1), seq: Date.now() });
@@ -268,6 +301,7 @@ const TiBookInner = () => {
             wishListDates={wishListDates}
             newWishListDates={newWishListDates}
             myBookingDates={myBookingDates}
+            myStays={myStays}
             reservedMap={reservedMap}
             scrollToTodayTrigger={scrollToTodayTrigger}
             scrollToMonthTrigger={scrollToMonthTrigger ?? undefined}
