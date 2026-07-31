@@ -2239,11 +2239,11 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                       ))}
                   </ul>
                 )}
-                <div className="flex items-end gap-1.5">
-                  <label className="flex flex-1 flex-col gap-0.5 text-[10px] uppercase tracking-wide text-gray-400">
+                <div className="flex gap-1.5">
+                  <label className="flex min-w-0 flex-1 flex-col gap-0.5 text-[10px] uppercase tracking-wide text-gray-400">
                     New $/hr
                     <input
-                      className={inputCls}
+                      className={`${inputCls} w-full min-w-0`}
                       type="number"
                       min="0"
                       step="0.01"
@@ -2252,19 +2252,23 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                       onChange={(e) => setRaiseDraft((p) => ({ ...p, rate: e.target.value }))}
                     />
                   </label>
-                  <label className="flex flex-1 flex-col gap-0.5 text-[10px] uppercase tracking-wide text-gray-400">
+                  <label className="flex min-w-0 flex-1 flex-col gap-0.5 text-[10px] uppercase tracking-wide text-gray-400">
                     From
                     <input
-                      className={inputCls}
+                      className={`${inputCls} w-full min-w-0`}
                       type="date"
                       value={raiseDraft.from}
                       onChange={(e) => setRaiseDraft((p) => ({ ...p, from: e.target.value }))}
                     />
                   </label>
-                  <button type="button" className={pillEmerald} onClick={addRaise}>
-                    Add
-                  </button>
                 </div>
+                <button
+                  type="button"
+                  className="mt-1.5 w-full rounded-lg bg-emerald-600 py-2 text-xs font-semibold text-white hover:bg-emerald-700"
+                  onClick={addRaise}
+                >
+                  Add raise
+                </button>
                 <p className="mt-1 text-[10px] text-gray-400">
                   Saved instantly — no need to press Save. Past cleanings keep their old rate; the new
                   rate applies from the date you pick. (The $/hr field above is the base rate —
