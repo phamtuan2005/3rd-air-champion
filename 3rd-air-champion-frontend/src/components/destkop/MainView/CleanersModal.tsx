@@ -1718,7 +1718,16 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                         .sort((a, b) => a.cleaner.name.localeCompare(b.cleaner.name))
                         .map(({ cleaner, entries }) => (
                         <div key={cleaner.id} className="flex items-center gap-2 px-3 py-1.5">
-                          <div className="flex w-24 shrink-0 items-center gap-1.5">
+                          {/* Tap the cleaner (avatar or name) to text them this
+                              week's schedule — same send + drift-tracking as the
+                              Team Message menu. */}
+                          <button
+                            type="button"
+                            onClick={() => textSchedule(cleaner, startOfWeek(morning, { weekStartsOn: 1 }))}
+                            disabled={!cleaner.phone}
+                            title={cleaner.phone ? `Text ${cleaner.name.split(" ")[0]} this week's schedule` : cleaner.name}
+                            className="flex w-24 shrink-0 items-center gap-1.5 rounded-lg py-0.5 text-left transition-colors hover:bg-violet-50 disabled:cursor-default disabled:hover:bg-transparent"
+                          >
                             <CleanerAvatar
                               id={cleaner.id}
                               name={cleaner.name}
@@ -1728,7 +1737,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                             <span className="truncate text-xs font-semibold text-gray-700">
                               {cleaner.name.split(" ")[0]}
                             </span>
-                          </div>
+                          </button>
                           <div className="flex flex-1 flex-wrap items-center gap-1">
                             {entries.map(chip)}
                           </div>
