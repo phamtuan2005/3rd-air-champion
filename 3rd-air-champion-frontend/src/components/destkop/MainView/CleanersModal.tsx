@@ -925,7 +925,8 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
 
   // Texted progress statement (NOT a payout notice): this month's dates × hours
   // × rate so the cleaner can see their hours and earnings so far. Any tip is
-  // shown as an added bonus when present.
+  // FOLDED INTO the "ready to pay" lump sum (a cleaner should read one happy
+  // number, not add earnings + tip themselves) — the tip is just noted inline.
   const textPayment = (entry: CleanerSummaryType) => {
     const cleaner = cleaners.find((c) => c.id === entry.id);
     if (!cleaner?.phone) return;
@@ -947,8 +948,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
       "",
       // Running totals — the number a cleaner saving toward a target watches
       `Earned so far: $${Math.round(entry.earned).toLocaleString()} (${formatHrMin(entry.hours)})${entry.paid > 0 ? ` · Paid: $${Math.round(entry.paid).toLocaleString()}` : ""}`,
-      `Ready to pay whenever you'd like: $${Math.round(entry.balance).toLocaleString()}`,
-      ...(tip > 0 ? [`(+ $${tip.toFixed(2)} tip at payout)`] : []),
+      `Ready to pay whenever you'd like: $${Math.round(entry.balance + tip).toLocaleString()}${tip > 0 ? ` (includes a $${tip.toFixed(2)} tip 🎁)` : ""}`,
       "",
       CLEANER_SIGNOFF,
     ].join("\n");
