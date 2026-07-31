@@ -270,8 +270,13 @@ const GuestCalendar = ({
           <div className="absolute inset-1 rounded-lg bg-gray-200 pointer-events-none" />
         )}
         <span className={`${numberClass} relative z-10`}>{date.getDate()}</span>
-        {!simplified && !inCart && (status === "available" || status === "partial") && roomsLeft > 0 && (
-          <span className="text-[9px] font-semibold text-black leading-none">
+        {/* Availability stays visible whether or not the night is picked — it's
+            info the guest wants either way; a ✓ marks it selected. */}
+        {!simplified && (status === "available" || status === "partial") && roomsLeft > 0 && (
+          <span
+            className={`relative z-10 text-[9px] font-semibold leading-none ${inCart ? "text-white" : "text-black"}`}
+          >
+            {inCart ? "✓ " : ""}
             {roomsLeft} left
           </span>
         )}
@@ -288,9 +293,6 @@ const GuestCalendar = ({
               </span>
             )}
           </div>
-        )}
-        {inCart && (
-          <span className="text-[9px] text-white/70 leading-none relative z-10">✓</span>
         )}
         {/* The guest's own stay — a spanning ribbon (AM checkout cap + PM
             check-in/continuing bar) that connects across cells, room-colored,
