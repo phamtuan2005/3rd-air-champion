@@ -148,18 +148,26 @@ const GuestCalendar = ({
     }
   }, [scrollToTodayTrigger]);
 
+  // Apply a scroll-to-month request ONCE per trigger, but only once the calendar
+  // is actually ready (months built + a real height). Depending on months +
+  // containerHeight means a trigger that arrives before the calendar is laid out
+  // (e.g. a returning guest's bookings resolving fast) still lands when it's
+  // ready, instead of being silently dropped against a 0-height container.
+  const appliedTriggerSeq = useRef(0);
   useEffect(() => {
-    if (!scrollToMonthTrigger || !months.length || !scrollContainerRef.current) return;
+    if (!scrollToMonthTrigger || scrollToMonthTrigger.seq === appliedTriggerSeq.current) return;
+    const el = scrollContainerRef.current;
+    if (!el || !months.length || el.offsetHeight <= 0) return;
+    appliedTriggerSeq.current = scrollToMonthTrigger.seq;
     const today = new Date();
     const idx = Math.max(0,
       (scrollToMonthTrigger.month.getFullYear() - today.getFullYear()) * 12 +
       (scrollToMonthTrigger.month.getMonth() - today.getMonth())
     );
-    const h = scrollContainerRef.current.offsetHeight;
-    scrollContainerRef.current.scrollTop = idx * h;
+    el.scrollTop = idx * el.offsetHeight;
     visibleIndexRef.current = idx;
     setVisibleIndex(idx);
-  }, [scrollToMonthTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [scrollToMonthTrigger, months, containerHeight]);
 
   useEffect(() => {
     const el = scrollContainerRef.current;
