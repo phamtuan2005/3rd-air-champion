@@ -6,6 +6,7 @@ import { getRoomColor } from "../../../util/getRoomColor";
 import { DEFAULT_TEMPLATE, TEMPLATE_KEY, resolveTemplate } from "../../../util/reminderTemplate";
 import { CLEANING_LOOKBACK_DAYS, cleaningTaskId, getCleaningCounts, getCleaningItems, CleaningItem } from "../../../util/cleaningTasks";
 import { fetchAssignments, CleaningAssignmentType, CleanerType } from "../../../util/cleanerOperations";
+import CleanerAvatar from "../../shared/CleanerAvatar";
 
 interface ToDoListProps {
   monthMap: Map<string, dayType>;
@@ -290,22 +291,53 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
               return (
                 <div
                   key={`clean-${index}`}
-                  className={`mb-2 flex items-start gap-3 rounded-xl border border-gray-200 p-3 ${
+                  className={`mb-2 flex items-start gap-2.5 rounded-xl border border-gray-200 p-3 ${
                     isCompleted ? "bg-gray-50" : "bg-white"
                   }`}
                 >
                   <input
                     type="checkbox"
-                    className="mt-0.5 h-4 w-4 shrink-0 accent-black"
+                    className="mt-1 h-4 w-4 shrink-0 accent-black"
                     checked={isCompleted}
                     onChange={() => toggleTaskCompletion(taskId)}
                   />
+                  {/* Cleaner avatar — same treatment as the Cleaning modal. An
+                      unassigned room shows the amber "!" marker instead. */}
+                  {cleaner ? (
+                    <CleanerAvatar
+                      name={cleaner.name}
+                      photo={cleaner.photo}
+                      character={cleaner.character}
+                      sizeClass="h-9 w-9"
+                    />
+                  ) : (
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 text-sm font-bold text-amber-600">
+                      !
+                    </span>
+                  )}
                   <div
                     className={`flex min-w-0 flex-1 flex-col gap-0.5 ${
                       isCompleted ? "text-gray-400 line-through" : ""
                     }`}
                   >
-                    <div className="flex items-center gap-2">
+                    {/* Cleaner name — tap to text them about this room */}
+                    {cleaner ? (
+                      <button
+                        type="button"
+                        onClick={() => textCleaner(cleaner, item)}
+                        disabled={!cleaner.phone}
+                        className="flex w-fit items-center gap-1.5 no-underline disabled:cursor-default"
+                      >
+                        <span className="text-sm font-bold text-gray-900">{cleaner.name}</span>
+                        {cleaner.phone && (
+                          <span className="text-xs font-semibold text-emerald-600">💬 text</span>
+                        )}
+                      </button>
+                    ) : (
+                      <span className="text-sm font-bold text-amber-600">Unassigned</span>
+                    )}
+                    {/* Room + who's arriving into it */}
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <span
                         className={`${getRoomColor(booking.room.name, booking.room.color)} rounded-md px-2 py-0.5 text-xs font-bold ${
                           nextCheckIn?.guest.name === "AirBnB" ? "text-white" : "text-black"
@@ -313,30 +345,29 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                       >
                         {booking.room.name}
                       </span>
-                      {nextCheckIn && (
-                        <span className="text-xs text-gray-500">
-                          {nextCheckIn.numberOfGuests}{" "}
-                          {nextCheckIn.numberOfGuests === 1 ? "person" : "persons"}
+                      {nextCheckIn ? (
+                        <span className="text-xs text-gray-600">
+                          <span className="font-semibold text-gray-800">
+                            {nextCheckIn.guest.alias || nextCheckIn.alias || nextCheckIn.guest.name}
+                          </span>{" "}
+                          · {nextCheckIn.numberOfGuests}{" "}
+                          {nextCheckIn.numberOfGuests === 1 ? "guest" : "guests"}
                         </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">No upcoming check-in</span>
                       )}
                     </div>
-                    {/* Who's assigned to clean this room (from the Plan tab) — tap
-                        the name to text them about it. */}
-                    {cleaner ? (
-                      <button
-                        type="button"
-                        onClick={() => textCleaner(cleaner, item)}
-                        disabled={!cleaner.phone}
-                        className="mt-0.5 flex w-fit items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-semibold text-gray-700 no-underline hover:bg-gray-100 disabled:cursor-default disabled:opacity-60"
+                    {/* Arrival timing / urgency */}
+                    {nextCheckIn && nextCheckInDate && (
+                      <p
+                        className={`text-xs ${
+                          item.mustCleanToday ? "font-semibold text-red-500" : "text-gray-500"
+                        }`}
                       >
-                        <span>🧹</span>
-                        <span>{cleaner.name}</span>
-                        {cleaner.phone && <span className="font-normal text-gray-400">· text ›</span>}
-                      </button>
-                    ) : (
-                      <span className="mt-0.5 flex w-fit items-center gap-1 text-xs text-gray-400 no-underline">
-                        🧹 No cleaner assigned
-                      </span>
+                        {item.mustCleanToday
+                          ? "Checking in TODAY"
+                          : `Arrives ${format(new Date(nextCheckInDate + "T00:00:00"), "EEE M/d")}`}
+                      </p>
                     )}
                     {/* Scenario: turnover this morning vs sitting empty since an earlier checkout */}
                     {item.vacatedToday ? (
@@ -345,18 +376,6 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                       <p className="text-xs font-semibold text-amber-600">
                         Empty since {format(addDays(new Date(item.checkoutKey + "T00:00:00"), 1), "MM/dd")} — not cleaned yet
                       </p>
-                    )}
-                    {nextCheckIn && nextCheckInDate ? (
-                      <p
-                        className={`text-xs ${
-                          item.mustCleanToday ? "font-semibold text-red-500" : "text-gray-500"
-                        }`}
-                      >
-                        {nextCheckIn.guest.alias || nextCheckIn.alias || nextCheckIn.guest.name}{" "}
-                        checking in {item.mustCleanToday ? "TODAY" : `on ${format(new Date(nextCheckInDate + "T00:00:00"), "MM/dd")}`}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-gray-500">No upcoming check-in</p>
                     )}
                     {nextCheckIn?.earlyCheckin && (
                       <p className="text-xs font-semibold text-orange-500">

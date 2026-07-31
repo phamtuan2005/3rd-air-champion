@@ -6,6 +6,7 @@ import { dayType } from "../../../util/types/dayType";
 import { getRoomColor } from "../../../util/getRoomColor";
 import { getCleaningForecast } from "../../../util/cleaningTasks";
 import { generateAvatar } from "../../../util/avatarGen";
+import CleanerAvatarBase from "../../shared/CleanerAvatar";
 import { formatPhone } from "../../../util/formatPhone";
 import {
   CleanerType,
@@ -121,14 +122,6 @@ const AVATAR_COLORS = [
   "bg-rose-100 text-rose-700",
 ];
 // Solid variants of the same identity colors (Text buttons match avatars)
-
-const initials = (name: string) =>
-  name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
 
 // Decimal hours between two "HH:MM" clock times (2dp), or null if either is
 // missing/invalid or the leave time isn't after the arrival time. Cleaning is
@@ -436,18 +429,10 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
   const avatarClass = (id: string) =>
     AVATAR_COLORS[Math.max(0, cleaners.findIndex((c) => c.id === id)) % AVATAR_COLORS.length];
 
-  // The owner photos already shipped in the app — used automatically for these
-  // two, so they need no setup.
-  const builtInPhoto = (name: string) => {
-    const n = name.trim().toLowerCase();
-    if (n.startsWith("anh-tuan") || n.startsWith("anh tuan") || n === "tuan") return "Anh-Tuan.jpg";
-    if (n.startsWith("cindy")) return "Cindy.jpg";
-    return "";
-  };
-
   // One avatar for a team member everywhere: an explicit photo (owner jpg) wins,
   // else the illustrated avatar generated from their "character" note, else the
-  // colored initials fallback. Looks the person up in `cleaners` for freshness.
+  // colored initials fallback. Looks the person up in `cleaners` for freshness,
+  // then renders through the shared CleanerAvatar so it matches every other view.
   const CleanerAvatar = ({
     id,
     name,
@@ -460,23 +445,15 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
     textClass?: string;
   }) => {
     const c = cleaners.find((x) => x.id === id);
-    const photo = c?.photo || builtInPhoto(name);
-    if (photo)
-      return <img src={photo} alt={name} className={`${sizeClass} shrink-0 rounded-full object-cover`} />;
-    if (c?.character)
-      return (
-        <img
-          src={generateAvatar(name, c.character)}
-          alt={name}
-          className={`${sizeClass} shrink-0 rounded-full object-cover`}
-        />
-      );
     return (
-      <span
-        className={`flex ${sizeClass} shrink-0 items-center justify-center rounded-full font-bold ${textClass} ${avatarClass(id)}`}
-      >
-        {initials(name)}
-      </span>
+      <CleanerAvatarBase
+        name={name}
+        photo={c?.photo}
+        character={c?.character}
+        colorClass={avatarClass(id)}
+        sizeClass={sizeClass}
+        textClass={textClass}
+      />
     );
   };
 
