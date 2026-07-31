@@ -220,6 +220,15 @@ const TiBookInner = () => {
     setRoomPickerDate(null);
   };
 
+  // Flexible guest: no room preference (null) — the host assigns any free room.
+  // The filter is left untouched so the rest of the stay can also be added "any".
+  const addCartDateAny = (date: Date) => {
+    setIsSelecting(true);
+    setScrollToMonthTrigger({ month: new Date(date.getFullYear(), date.getMonth(), 1), seq: Date.now() });
+    setCartDates((prev) => new Map(prev).set(keyOfDate(date), null));
+    setRoomPickerDate(null);
+  };
+
   const toggleCartDate = (date: Date) => {
     const key = keyOfDate(date);
     // Tapping an already-selected date removes it.
@@ -238,8 +247,15 @@ const TiBookInner = () => {
       setCartDates((prev) => new Map(prev).set(key, Array.from(selectedRoomIds)[0]));
       return;
     }
+    // Already building an "Any room" stay (every picked date is room-less) → keep
+    // adding "any" without re-asking.
+    const vals = [...cartDates.values()];
+    if (vals.length > 0 && vals.every((v) => v === null)) {
+      setCartDates((prev) => new Map(prev).set(key, null));
+      return;
+    }
     // Otherwise open the picker to DISCLOSE which room(s) are free and let the
-    // guest choose — even for "1 left" it names the exact room before committing.
+    // guest choose (or "Any") — even for "1 left" it names the exact room.
     if (availableRoomsForDate(date).length > 0) setRoomPickerDate(date);
   };
 
@@ -456,6 +472,7 @@ const TiBookInner = () => {
           date={roomPickerDate}
           rooms={availableRoomsForDate(roomPickerDate)}
           onPick={(roomId) => addCartDateForRoom(roomPickerDate, roomId)}
+          onAny={() => addCartDateAny(roomPickerDate)}
           onClose={() => setRoomPickerDate(null)}
         />
       )}
