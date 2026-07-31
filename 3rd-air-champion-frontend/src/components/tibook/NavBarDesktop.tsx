@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import type { ThemeName } from "../../contexts/TiBookThemeContext";
 import type { hostType } from "../../util/types/hostType";
+import { getLoyaltyTier } from "./GuestLoyaltyBanner";
 
 const SWATCHES: { name: ThemeName; bg: string }[] = [
   { name: "green",  bg: "bg-green-500"  },
@@ -18,6 +19,7 @@ interface NavBarDesktopProps {
   isFullCalendar?: boolean;
   onMyBookings?: () => void;
   guestName?: string; // recognized guest → the "Your bookings" pill greets them by name
+  guestStays?: number; // total stays → loyalty tier badge on the pill
 }
 
 const MiniAvatar = ({ name }: { name: string }) => {
@@ -34,9 +36,10 @@ const MiniAvatar = ({ name }: { name: string }) => {
   );
 };
 
-const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false, onMyBookings, guestName }: NavBarDesktopProps) => {
+const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false, onMyBookings, guestName, guestStays }: NavBarDesktopProps) => {
   const { theme, setTheme } = useTiBookTheme();
   const guestFirstName = guestName?.trim().split(" ")[0];
+  const loyaltyTier = guestStays ? getLoyaltyTier(guestStays) : null;
 
   return (
     <nav className="px-3 flex items-center gap-2 w-full h-12 sm:h-16 bg-white drop-shadow-md z-50 shrink-0">
@@ -87,6 +90,14 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
                   {guestFirstName[0].toUpperCase()}
                 </span>
                 {guestFirstName}
+                {loyaltyTier && (
+                  <span
+                    className={`rounded-full border px-1.5 py-px text-[9px] font-bold leading-none ${loyaltyTier.color}`}
+                    title={loyaltyTier.label}
+                  >
+                    {loyaltyTier.label.split(" ")[0]}
+                  </span>
+                )}
               </>
             ) : (
               "Your bookings"
