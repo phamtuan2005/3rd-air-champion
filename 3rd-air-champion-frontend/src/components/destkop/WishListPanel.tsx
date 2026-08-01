@@ -63,16 +63,27 @@ const fmtTimestamp = (iso: string) => {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 };
 
-const isDateAvailable = (dateKey: string, monthMap: Map<string, dayType>, activeRooms: roomType[]): boolean => {
+// The active rooms actually FREE on a date (not booked, not per-room blocked, not
+// a fully-blocked day, not in the past). Naming these is what lets the wish-list
+// text tell the guest exactly which room is open on each date.
+const availableRoomsOn = (
+  dateKey: string,
+  monthMap: Map<string, dayType>,
+  activeRooms: roomType[],
+): roomType[] => {
   const today = startOfToday();
   const date = new Date(`${dateKey}T12:00:00`);
-  if (date < today) return false;
+  if (date < today) return [];
   const day = monthMap.get(dateKey);
-  if (!day) return true;
-  if (day.isBlocked) return false;
+  if (!day) return activeRooms; // no Day doc → nothing booked/blocked yet
+  if (day.isBlocked) return [];
   const bookedRoomIds = new Set(day.bookings.map((b) => b.room?.id).filter(Boolean));
-  return activeRooms.some((r) => !bookedRoomIds.has(r.id));
+  const blockedRoomIds = new Set((day.blockedRooms ?? []).map((r) => r?.id).filter(Boolean));
+  return activeRooms.filter((r) => !bookedRoomIds.has(r.id) && !blockedRoomIds.has(r.id));
 };
+
+const isDateAvailable = (dateKey: string, monthMap: Map<string, dayType>, activeRooms: roomType[]): boolean =>
+  availableRoomsOn(dateKey, monthMap, activeRooms).length > 0;
 
 const STATUS_CYCLE: WishListStatus[] = ["waiting", "notified", "booked"];
 
@@ -93,6 +104,7 @@ const SWIPE_THRESHOLD = 32;
 interface EntryRowProps {
   entry: WishListEntry;
   availableDates: string[];
+  roomsByDate: Record<string, string[]>; // open room names per available date
   fulfilledDates: string[];
   hasAvailable: boolean;
   allFulfilled: boolean;
@@ -102,7 +114,7 @@ interface EntryRowProps {
   onRemoveDate: (id: string, date: string) => void;
 }
 
-const EntryRow = ({ entry, availableDates, fulfilledDates, hasAvailable, allFulfilled, token, onStatusChange, onDelete, onRemoveDate }: EntryRowProps) => {
+const EntryRow = ({ entry, availableDates, roomsByDate, fulfilledDates, hasAvailable, allFulfilled, token, onStatusChange, onDelete, onRemoveDate }: EntryRowProps) => {
   const [offset, setOffset] = useState(0);
   // The tapped wish date. Opens the action menu; also earmarks which date a future
   // per-date "remove"/"remind" action would target (only whole-list delete for now).
@@ -117,13 +129,19 @@ const EntryRow = ({ entry, availableDates, fulfilledDates, hasAvailable, allFulf
   const fulfilledSet = new Set(fulfilledDates);
   const outstandingDates = [...entry.dates].filter((d) => !fulfilledSet.has(d)).sort();
   const sortedFulfilled = [...fulfilledDates].sort();
-  const dateLabels = [...availableDates].sort().map(fmtDate);
-  const datePhrase =
-    dateLabels.length === 1
-      ? dateLabels[0]
-      : dateLabels.slice(0, -1).join(", ") + " and " + dateLabels[dateLabels.length - 1];
+  // Name the OPEN ROOM(S) for each available date so the guest knows exactly what
+  // to request. Multiple free rooms are joined with "or" (their choice).
+  const roomsFor = (d: string) => {
+    const rms = roomsByDate[d] ?? [];
+    return rms.length ? rms.join(" or ") : "a room";
+  };
+  const availSorted = [...availableDates].sort();
   const smsBody = encodeURIComponent(
-    `Hello ${entry.guestName}, there is a good news: your wish date ${datePhrase} is now available. Please go ahead to submit the booking request ASAP. Thanks!`,
+    availSorted.length === 1
+      ? `Hello ${entry.guestName}, good news — your wish date ${fmtDate(availSorted[0])} is now available in ${roomsFor(availSorted[0])}. Please go ahead and submit the booking request ASAP. Thanks!`
+      : `Hello ${entry.guestName}, good news — these wish dates are now available:\n` +
+          availSorted.map((d) => `- ${fmtDate(d)}: ${roomsFor(d)}`).join("\n") +
+          `\nPlease go ahead and submit the booking request ASAP. Thanks!`,
   );
 
   const cycleStatus = () => {
@@ -236,6 +254,7 @@ const EntryRow = ({ entry, availableDates, fulfilledDates, hasAvailable, allFulf
               key={d}
               type="button"
               onClick={() => setMenuDate(d)}
+              title={availableSet.has(d) ? `Open: ${roomsFor(d)}` : "No room free yet"}
               className={
                 availableSet.has(d)
                   ? "bg-green-100 border border-green-400 text-green-700 text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap hover:brightness-95"
@@ -298,9 +317,14 @@ const WishListPanel = ({ token, entries, loading, monthMap, rooms, onStatusChang
     const fulfilledDates = entry.dates.filter((d) => guestBookedOn(d, entry.guestPhone, monthMap));
     const outstanding = entry.dates.filter((d) => !fulfilledDates.includes(d));
     const availableDates = outstanding.filter((d) => isDateAvailable(d, monthMap, activeRooms));
+    const roomsByDate: Record<string, string[]> = {};
+    availableDates.forEach((d) => {
+      roomsByDate[d] = availableRoomsOn(d, monthMap, activeRooms).map((r) => r.name);
+    });
     return {
       entry,
       availableDates,
+      roomsByDate,
       fulfilledDates,
       hasAvailable: availableDates.length > 0,
       // The guest already has a room for every date they wished for — nothing left to do.
@@ -338,11 +362,12 @@ const WishListPanel = ({ token, entries, loading, monthMap, rooms, onStatusChang
           Clear {bookedCount} booked
         </button>
       )}
-      {sorted.map(({ entry, availableDates, fulfilledDates, hasAvailable, allFulfilled }) => (
+      {sorted.map(({ entry, availableDates, roomsByDate, fulfilledDates, hasAvailable, allFulfilled }) => (
         <EntryRow
           key={entry.id}
           entry={entry}
           availableDates={availableDates}
+          roomsByDate={roomsByDate}
           fulfilledDates={fulfilledDates}
           hasAvailable={hasAvailable}
           allFulfilled={allFulfilled}
