@@ -17,6 +17,7 @@ import RoomCards from "../components/tibook/RoomCards";
 import MyBookingsSheet, { GuestBooking } from "../components/tibook/MyBookingsSheet";
 import StayDetailPopup from "../components/tibook/StayDetailPopup";
 import RoomPickerPopup from "../components/tibook/RoomPickerPopup";
+import ReservedHoldsPopup from "../components/tibook/ReservedHoldsPopup";
 import { getGuestWishList } from "../util/wishListOperations";
 import { fetchBookingRequestsByHost, fetchCalendarBookingsByGuest } from "../util/bookingRequestOperations";
 
@@ -52,6 +53,8 @@ const TiBookInner = () => {
   const [myBookingsOpen, setMyBookingsOpen] = useState(false);
   const [bookingsFocusKey, setBookingsFocusKey] = useState<string | null>(null);
   const [stayPopupId, setStayPopupId] = useState<string | null>(null);
+  const [reservedPopupOpen, setReservedPopupOpen] = useState(false);
+  const reservedAutoShownRef = useRef<string | null>(null);
   const [roomPickerDate, setRoomPickerDate] = useState<Date | null>(null);
   const [bookAnother, setBookAnother] = useState<{ checkIn: Date; nights: number } | null>(null);
   const cohostNames = (import.meta.env.VITE_TI_BOOK_COHOST_NAMES as string | undefined)
@@ -178,6 +181,44 @@ const TiBookInner = () => {
         }),
     [guestBookings, rooms],
   );
+
+  // Reserved (R) holds — rooms the host is holding for this guest that aren't paid
+  // yet. NOT drawn as confirmed stays (myStays filters "confirmed"); surfaced only
+  // in a gentle "please pay or it may be released" popup. Upcoming holds only.
+  const reservedStays = useMemo(
+    () =>
+      guestBookings
+        .filter((b) => b.status === "reserved")
+        .map((b) => {
+          const room = rooms.find((r) => r.id === b.room);
+          const checkIn = parseISO(String(b.date).slice(0, 10));
+          return {
+            roomName: room?.name ?? "Room",
+            roomColor: room?.color,
+            checkIn,
+            checkOut: addDays(checkIn, b.duration),
+            nights: b.duration,
+          };
+        })
+        .filter((h) => h.checkOut > startOfToday()),
+    [guestBookings, rooms],
+  );
+
+  // Auto-open the holds popup ONCE per session per unique set of holds (so it
+  // nudges without nagging on every navigation; a new hold re-triggers it). The
+  // amber banner stays available to reopen it anytime.
+  useEffect(() => {
+    if (reservedStays.length === 0) return;
+    const sig = reservedStays
+      .map((s) => `${s.roomName}|${format(s.checkIn, "yyyy-MM-dd")}`)
+      .sort()
+      .join(",");
+    if (reservedAutoShownRef.current === sig || sessionStorage.getItem("tiBookReservedSeen") === sig)
+      return;
+    reservedAutoShownRef.current = sig;
+    sessionStorage.setItem("tiBookReservedSeen", sig);
+    setReservedPopupOpen(true);
+  }, [reservedStays]);
 
   // On open, a returning guest lands on their next stay (not a blank "today").
   // Only once, and never while they're actively picking new dates.
@@ -350,7 +391,7 @@ const TiBookInner = () => {
         isFullCalendar={isSelecting}
         onMyBookings={() => { setBookingsFocusKey(null); setMyBookingsOpen((o) => !o); }}
         guestName={guestBookings.find((b) => b.guestName)?.guestName ?? guestName}
-        guestStays={guestBookings.length}
+        guestStays={guestBookings.filter((b) => b.status === "confirmed").length}
       />
       {currentHost && !isSelecting && <HostProfileBanner host={currentHost} cohostNames={cohostNames} />}
       {rooms.length > 0 && (
@@ -367,6 +408,16 @@ const TiBookInner = () => {
         onScrollToToday={() => setScrollToTodayTrigger((n) => n + 1)}
         onBookingRequest={() => openBookingModal(null)}
       />
+      {/* Gentle reminder that room(s) are being held pending payment */}
+      {reservedStays.length > 0 && !isSelecting && (
+        <button
+          type="button"
+          onClick={() => setReservedPopupOpen(true)}
+          className="flex shrink-0 items-center justify-center gap-1.5 border-y border-amber-200 bg-amber-50 px-4 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100"
+        >
+          ⏳ {reservedStays.length} room{reservedStays.length === 1 ? "" : "s"} held for you — tap to review &amp; pay
+        </button>
+      )}
       {isLoading ? (
         <div className="flex flex-col items-center justify-center flex-1">
           <p className="text-gray-400 text-sm">Loading...</p>
@@ -504,6 +555,16 @@ const TiBookInner = () => {
           />
         );
       })()}
+
+      {/* Rooms held for the guest, pending payment — gentle nudge to pay */}
+      {reservedPopupOpen && reservedStays.length > 0 && (
+        <ReservedHoldsPopup
+          holds={reservedStays}
+          hostName={currentHost?.name}
+          hostPhone={currentHost?.phone}
+          onClose={() => setReservedPopupOpen(false)}
+        />
+      )}
 
       {/* Book another room for an existing stay's exact dates (e.g. parents) */}
       {bookAnother && (() => {

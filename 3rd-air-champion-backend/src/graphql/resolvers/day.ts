@@ -122,50 +122,53 @@ export const dayResolvers = {
       const days = await Day.find({ calendar: calendarId, "bookings.guest": guest._id })
         .sort({ date: 1 });
 
-      // Collect one date entry per room per night
-      const roomMap = new Map<string, { dates: Date[]; meta: any }>();
+      // Collect this guest's nights per room, keeping each night's OWN reserved
+      // flag + meta. Reserved (R) nights ARE included now — but status is resolved
+      // PER STAY below (not once per room), so an unpaid hold is correctly labeled
+      // "reserved" and can never be mislabeled "confirmed" by a same-room stay.
+      type Night = { date: Date; reserved: boolean; meta: any };
+      const roomNights = new Map<string, Night[]>();
       for (const day of days) {
         for (const booking of day.bookings as any[]) {
           if (booking.guest?.toString() !== guest._id.toString()) continue;
-          // A reserved (R) night is an unpaid soft-hold — it must NEVER surface to
-          // the guest. Skip it entirely (not just relabel): the meta is keyed per
-          // room from the first night, so letting a reserved night in could also
-          // mislabel a same-room confirmed stay and leak the hold as "confirmed".
-          if (booking.reserved) continue;
           const roomId = booking.room?._id?.toString() ?? booking.room?.toString();
-          if (!roomMap.has(roomId)) {
-            roomMap.set(roomId, {
-              dates: [],
-              meta: {
-                id: booking._id.toString(),
-                numberOfGuests: booking.numberOfGuests ?? 1,
-                status: booking.reserved ? "reserved" : "confirmed",
-                createdAt: (day as any).createdAt?.toISOString() ?? day.date.toISOString(),
-                fees: (booking.fees ?? []).map((f: any) => ({
-                  label: f.label,
-                  amount: f.amount,
-                })),
-              },
-            });
-          }
-          roomMap.get(roomId)!.dates.push(day.date);
+          if (!roomNights.has(roomId)) roomNights.set(roomId, []);
+          roomNights.get(roomId)!.push({
+            date: day.date,
+            reserved: !!booking.reserved,
+            meta: {
+              id: booking._id.toString(),
+              numberOfGuests: booking.numberOfGuests ?? 1,
+              createdAt: (day as any).createdAt?.toISOString() ?? day.date.toISOString(),
+              fees: (booking.fees ?? []).map((f: any) => ({ label: f.label, amount: f.amount })),
+            },
+          });
         }
       }
 
-      // For each room, find consecutive date ranges — each range is one stay
+      // Split each room's nights into stays — a new stay starts on a date gap OR a
+      // change in reserved status, so every stay is homogeneous (all reserved or
+      // all confirmed) and carries its own start-night meta.
       const result: any[] = [];
-      for (const [roomId, { dates, meta }] of roomMap) {
+      for (const [roomId, nights] of roomNights) {
+        nights.sort((a, b) => a.date.getTime() - b.date.getTime());
         let i = 0;
-        while (i < dates.length) {
-          const checkIn = dates[i];
+        while (i < nights.length) {
+          const start = nights[i];
           let j = i;
-          while (j + 1 < dates.length && differenceInCalendarDays(dates[j + 1], dates[j]) === 1) j++;
+          while (
+            j + 1 < nights.length &&
+            differenceInCalendarDays(nights[j + 1].date, nights[j].date) === 1 &&
+            nights[j + 1].reserved === start.reserved
+          )
+            j++;
           result.push({
-            ...meta,
+            ...start.meta,
             guestName: guest.name,
-            date: checkIn.toISOString(),
+            date: start.date.toISOString(),
             room: roomId,
             duration: j - i + 1,
+            status: start.reserved ? "reserved" : "confirmed",
           });
           i = j + 1;
         }
