@@ -193,7 +193,13 @@ function App() {
                 setIsMiscOpen,
               }}
             >
-              <div className="grid grid-rows-[80px_1fr] h-screen lg:grid-rows-[120px_1fr]">
+              {/* Use the DYNAMIC viewport height on mobile: plain 100vh (h-screen)
+                  counts the area behind the browser's collapsible toolbars, so the
+                  calendar was measured taller than the visible screen and its last
+                  week row hid below the browser chrome. 100dvh tracks the actually
+                  visible height, so pagination fits the real screen. h-screen stays
+                  as the fallback for any browser without dvh support. */}
+              <div className="grid grid-rows-[80px_1fr] h-screen supports-[height:100dvh]:h-[100dvh] lg:grid-rows-[120px_1fr]">
                 {/* Navbar */}
                 <NavBarDesktop
                   handleLogout={() => setShowLogoutConfirm(true)}
