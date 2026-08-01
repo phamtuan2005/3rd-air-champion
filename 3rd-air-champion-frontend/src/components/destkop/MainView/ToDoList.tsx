@@ -102,6 +102,44 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
     return assignments.find((a) => a.date === morningKey && a.room?.id === roomId)?.cleaner ?? null;
   };
 
+  // Typical guest count per room, from the FULL booking history (the loaded
+  // calendar = the DB's Day records). Used to fill the cleaner's "for N guests"
+  // when a room has no upcoming guest yet, so a line is never a bare room name.
+  // Each stay counted once (by check-in date + room). Falls back per-room →
+  // overall average → 2 (a sensible default) so we ALWAYS give a number.
+  const roomAvgGuests = useMemo(() => {
+    const acc = new Map<string, { total: number; count: number; seen: Set<string> }>();
+    let grandTotal = 0;
+    let grandCount = 0;
+    monthMap.forEach((day) => {
+      day.bookings.forEach((b) => {
+        const roomId = b.room?.id;
+        if (!roomId) return;
+        const stayKey = `${String(b.startDate).slice(0, 10)}|${roomId}`;
+        let e = acc.get(roomId);
+        if (!e) {
+          e = { total: 0, count: 0, seen: new Set() };
+          acc.set(roomId, e);
+        }
+        if (e.seen.has(stayKey)) return;
+        e.seen.add(stayKey);
+        const g = b.numberOfGuests ?? 1;
+        e.total += g;
+        e.count += 1;
+        grandTotal += g;
+        grandCount += 1;
+      });
+    });
+    const perRoom = new Map<string, number>();
+    acc.forEach((e, id) => {
+      if (e.count > 0) perRoom.set(id, Math.max(1, Math.round(e.total / e.count)));
+    });
+    const overall = grandCount > 0 ? Math.max(1, Math.round(grandTotal / grandCount)) : 2;
+    const guestsFor = (roomId?: string) =>
+      (roomId ? perRoom.get(roomId) : undefined) ?? overall;
+    return { guestsFor };
+  }, [monthMap]);
+
   // Tapping a cleaner's name/avatar texts them their rooms to clean today — only
   // what THEY need: which room and for how many guests. The next guest's check-in
   // date is the owner's private info and is deliberately NOT included; the list is
@@ -122,9 +160,10 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
     } else {
       const lines = mine.map((it, i) => {
         const room = it.booking.room?.name ?? "Room";
-        const n = it.nextCheckIn?.numberOfGuests;
-        const who = n ? ` — for ${n} guest${n === 1 ? "" : "s"}` : "";
-        return `${i + 1}. ${room}${who}`;
+        // Exact count from the incoming guest when known; otherwise the room's
+        // typical occupancy from history — so the cleaner ALWAYS knows how many.
+        const n = it.nextCheckIn?.numberOfGuests ?? roomAvgGuests.guestsFor(it.booking.room?.id);
+        return `${i + 1}. ${room} — for ${n} guest${n === 1 ? "" : "s"}`;
       });
       body =
         `Hi ${first}! Cleaning for today (${dayLabel}) — ${mine.length} room${mine.length === 1 ? "" : "s"}:\n` +
