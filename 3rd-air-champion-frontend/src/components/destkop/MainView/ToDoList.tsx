@@ -166,7 +166,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
         return `${i + 1}. ${room} — for ${n} guest${n === 1 ? "" : "s"}`;
       });
       body =
-        `Hi ${first}! Cleaning for today (${dayLabel}) — ${mine.length} room${mine.length === 1 ? "" : "s"}:\n` +
+        `Hi ${first}! Cleaning for today (${dayLabel}) — ${mine.length} room${mine.length === 1 ? "" : "s"}, in suggested order:\n` +
         lines.join("\n") +
         `\n\n${cleanerSignoff(senderName)}`;
     }
