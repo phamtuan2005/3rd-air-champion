@@ -127,6 +127,11 @@ export const dayResolvers = {
       for (const day of days) {
         for (const booking of day.bookings as any[]) {
           if (booking.guest?.toString() !== guest._id.toString()) continue;
+          // A reserved (R) night is an unpaid soft-hold — it must NEVER surface to
+          // the guest. Skip it entirely (not just relabel): the meta is keyed per
+          // room from the first night, so letting a reserved night in could also
+          // mislabel a same-room confirmed stay and leak the hold as "confirmed".
+          if (booking.reserved) continue;
           const roomId = booking.room?._id?.toString() ?? booking.room?.toString();
           if (!roomMap.has(roomId)) {
             roomMap.set(roomId, {
