@@ -144,8 +144,14 @@ const CalendarGrid = ({
   const fitRows =
     containerHeight > 0 ? Math.max(Math.floor(containerHeight / minRowHeight), 1) : 5;
   const numRows = isNarrow && !guestLanes ? Math.min(fitRows, MAX_ROWS_NARROW) : fitRows;
-  const rowHeight =
-    containerHeight > 0 ? Math.floor(containerHeight / numRows) : minRowHeight;
+  // On a narrow phone, rows keep their NATURAL height (bars packed, no stretch)
+  // instead of dividing the screen among them — the calendar simply ends partway
+  // down with whitespace below the last week. Desktop still fills its column.
+  const rowHeight = isNarrow
+    ? minRowHeight
+    : containerHeight > 0
+      ? Math.floor(containerHeight / numRows)
+      : minRowHeight;
 
   // A month may span several pages; map each month to the index of its first page.
   const monthPageStarts = useMemo(() => {
@@ -762,7 +768,9 @@ const CalendarGrid = ({
                   display: "grid",
                   gridTemplateColumns: "repeat(7, 1fr)",
                   gridTemplateRows: `repeat(${numRows}, ${rowHeight}px)`,
-                  height: "100%",
+                  // Narrow: grid is exactly its rows tall, so it ends partway down
+                  // the page with whitespace below (no stretch). Desktop fills.
+                  height: isNarrow ? `${numRows * rowHeight}px` : "100%",
                   width: "100%",
                   borderTop: "1px solid #d1d5db",
                   borderLeft: "1px solid #d1d5db",
