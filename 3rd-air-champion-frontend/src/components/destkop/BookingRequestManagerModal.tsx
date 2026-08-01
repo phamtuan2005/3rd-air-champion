@@ -45,6 +45,23 @@ const resolveRequestOutcome = (
   return { type: "unfulfilled", inWishList };
 };
 
+// Does this request's booking still exist on the calendar? (matched by guest
+// phone on the check-in day). A CONFIRMED request whose booking is gone = it was
+// UNBOOKED after acceptance — surfaced as "Unbooked" with a Re-book action.
+const reqHasCalendarBooking = (
+  req: BookingRequest,
+  monthMap: Map<string, import("../../util/types/dayType").dayType>,
+): boolean => {
+  const phone = req.guestPhone.replace(/\D/g, "");
+  const day = monthMap.get(req.date.slice(0, 10));
+  return !!day?.bookings.find((b) => (b.guest?.phone ?? "").replace(/\D/g, "") === phone);
+};
+
+const isUnbookedRequest = (
+  req: BookingRequest,
+  monthMap: Map<string, import("../../util/types/dayType").dayType>,
+): boolean => req.status === "confirmed" && !reqHasCalendarBooking(req, monthMap);
+
 const formatPhone = (raw: string): string => {
   const digits = raw.replace(/\D/g, "");
   const local = digits.startsWith("84") ? "0" + digits.slice(2) : digits;
@@ -136,6 +153,7 @@ interface HistoryDetailSheetProps {
   matchGuest: (phone: string) => guestType | undefined;
   monthMap: Map<string, import("../../util/types/dayType").dayType>;
   onUnbookGroup?: (bookingIds: string[], requestIds: string[]) => void;
+  onRebookGroup?: (group: BookingRequest[]) => void;
   onClose: () => void;
 }
 
@@ -149,6 +167,7 @@ const HistoryDetailSheet = ({
   matchGuest,
   monthMap,
   onUnbookGroup,
+  onRebookGroup,
   onClose,
 }: HistoryDetailSheetProps) => {
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -230,6 +249,8 @@ const HistoryDetailSheet = ({
   const allConfirmed = group.every((r) => r.status === "confirmed");
   const allCancelled = group.every((r) => r.status === "cancelled");
   const overallStatus = allConfirmed ? "confirmed" : allCancelled ? "cancelled" : "mixed";
+  // Accepted, but the booking has since been removed from the calendar.
+  const allUnbooked = allConfirmed && group.every((r) => isUnbookedRequest(r, monthMap));
 
   return (
     <div
@@ -262,8 +283,8 @@ const HistoryDetailSheet = ({
               <p className="text-base font-bold text-gray-800">{displayName}</p>
               <p className="text-sm text-gray-400">{formatPhone(first.guestPhone)}</p>
             </div>
-            <span className={`text-sm font-semibold ${statusColor(overallStatus)}`}>
-              {statusLabel(overallStatus)}
+            <span className={`text-sm font-semibold ${allUnbooked ? "text-amber-600" : statusColor(overallStatus)}`}>
+              {allUnbooked ? "Unbooked" : statusLabel(overallStatus)}
             </span>
           </div>
 
@@ -316,8 +337,8 @@ const HistoryDetailSheet = ({
           </div>
         </div>
 
-        {/* Unbook footer — only for confirmed groups */}
-        {onUnbookGroup && group.some((r) => r.status === "confirmed") && (
+        {/* Unbook footer — for confirmed groups still on the calendar */}
+        {onUnbookGroup && group.some((r) => r.status === "confirmed") && !allUnbooked && (
           <div className="flex-shrink-0 px-5 py-3 border-t border-gray-100">
             <button
               type="button"
@@ -325,6 +346,23 @@ const HistoryDetailSheet = ({
               onClick={() => setShowUnbookConfirm(true)}
             >
               Unbook Guest
+            </button>
+          </div>
+        )}
+
+        {/* Re-book footer — the booking was unbooked; if the guest has now paid,
+            accept it again (re-opens the booking flow). */}
+        {onRebookGroup && allUnbooked && (
+          <div className="flex-shrink-0 px-5 py-3 border-t border-gray-100">
+            <p className="mb-2 text-center text-[11px] text-amber-600">
+              This booking was unbooked. Re-book it if the guest has paid.
+            </p>
+            <button
+              type="button"
+              className="w-full py-2.5 rounded-xl bg-green-500 text-white text-sm font-semibold hover:bg-green-600 active:bg-green-700 transition-colors"
+              onClick={() => onRebookGroup(group)}
+            >
+              Re-book Guest
             </button>
           </div>
         )}
@@ -437,9 +475,11 @@ const SwipeableHistoryGroupRow = ({
 
   const allConfirmed = group.every((r) => r.status === "confirmed");
   const allCancelled = group.every((r) => r.status === "cancelled");
-  const borderClass = allConfirmed ? "border-green-500" : allCancelled ? "border-red-400" : "border-gray-300";
-  const statusBadgeClass = allConfirmed ? "bg-green-100 text-green-700" : allCancelled ? "bg-red-100 text-red-500" : "bg-gray-100 text-gray-500";
-  const statusText = allConfirmed ? "Accepted" : allCancelled ? "Declined" : "Mixed";
+  // Accepted, but every booking has since been removed from the calendar.
+  const allUnbooked = allConfirmed && group.every((r) => isUnbookedRequest(r, monthMap));
+  const borderClass = allUnbooked ? "border-amber-400" : allConfirmed ? "border-green-500" : allCancelled ? "border-red-400" : "border-gray-300";
+  const statusBadgeClass = allUnbooked ? "bg-amber-100 text-amber-700" : allConfirmed ? "bg-green-100 text-green-700" : allCancelled ? "bg-red-100 text-red-500" : "bg-gray-100 text-gray-500";
+  const statusText = allUnbooked ? "Unbooked" : allConfirmed ? "Accepted" : allCancelled ? "Declined" : "Mixed";
 
   const latestUpdatedAt = group.reduce((max, r) => Math.max(max, Number(r.updatedAt)), 0);
   const fmtTimestamp = (ms: number) => {
@@ -550,7 +590,12 @@ const SwipeableHistoryGroupRow = ({
                   <RoomBadge room={{ name: outcome.roomName, color: outcome.roomColor }} rooms={activeRooms} />
                 </span>
               )}
-              {outcome.type === "unfulfilled" && outcome.inWishList && (
+              {outcome.type === "unfulfilled" && req.status === "confirmed" && (
+                <span className="ml-auto shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                  unbooked
+                </span>
+              )}
+              {outcome.type === "unfulfilled" && outcome.inWishList && req.status !== "confirmed" && (
                 <span className="ml-auto text-amber-400 text-xs">★</span>
               )}
               {outcome.type === "unfulfilled" && !outcome.inWishList && req.status === "cancelled" && (
@@ -1232,6 +1277,7 @@ const BookingRequestManagerModal = ({
           matchGuest={matchGuest}
           monthMap={monthMap}
           onUnbookGroup={handleUnbookGroup}
+          onRebookGroup={handleAcceptGroup}
           onClose={() => setSelectedHistoryGroup(null)}
         />
       )}
