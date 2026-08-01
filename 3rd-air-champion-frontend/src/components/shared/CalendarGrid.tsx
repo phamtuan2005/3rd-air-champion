@@ -137,18 +137,20 @@ const CalendarGrid = ({
 
   const maxRooms = guestLanes ? guestLanes.count : usedRooms.length;
   const minRowHeight = (maxRooms + 1) * SUBROW_HEIGHT;
-  // On a narrow phone (full-calendar mode only), cap weeks-per-page so each
+  // On a narrow phone (FULL-calendar mode only), cap weeks-per-page so each
   // week-row is taller and more legible — and the current week is far less likely
   // to sit crushed at the very bottom of a packed page. Desktop keeps the whole
-  // month, so the cap only kicks in below the `sm` breakpoint. And in single-guest
-  // mode (guestLanes) the rows are short lane-packed stays, so we WANT to show many
-  // weeks at once to see the whole span — no cap there. The cap value is
+  // month, so the cap only kicks in below the `sm` breakpoint. In the FILTERED
+  // views — single-guest (guestLanes) or single-room (selectedRoomName) — the rows
+  // are short (one lane/room), so we show the whole month on one page instead: no
+  // cap there, and the per-device setting doesn't apply. The cap value is
   // host-tunable per device (rowsPerPage), defaulting to 4.
+  const isFilteredView = !!guestLanes || !!selectedRoomName;
   const maxRowsNarrow = Math.max(1, rowsPerPage);
   const isNarrow = tileWidth != null && tileWidth * 7 < 640;
   const fitRows =
     containerHeight > 0 ? Math.max(Math.floor(containerHeight / minRowHeight), 1) : 5;
-  const numRows = isNarrow && !guestLanes ? Math.min(fitRows, maxRowsNarrow) : fitRows;
+  const numRows = isNarrow && !isFilteredView ? Math.min(fitRows, maxRowsNarrow) : fitRows;
   // On a narrow phone, rows keep their NATURAL height (bars packed, no stretch)
   // instead of dividing the screen among them — the calendar simply ends partway
   // down with whitespace below the last week. Desktop still fills its column.
