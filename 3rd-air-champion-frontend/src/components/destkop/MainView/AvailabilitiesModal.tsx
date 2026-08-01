@@ -44,6 +44,7 @@ interface BarRow {
   label: string;
   longLabel: string;
   value: number;
+  predicted?: number; // projected total (booked + expected open nights); drawn as a dashed cap when > value
 }
 
 // Dependency-free SVG bar chart with a zero baseline (handles negatives), direct
@@ -63,7 +64,9 @@ const TrendBars = ({
   axisMax?: number;
 }) => {
   const vals = rows.map((r) => r.value);
-  const maxV = axisMax ?? Math.max(0, ...vals);
+  // Predicted caps can sit above the bars, so include them when scaling.
+  const scaleVals = [...vals, ...rows.map((r) => r.predicted ?? r.value)];
+  const maxV = axisMax ?? Math.max(0, ...scaleVals);
   const minV = axisMax != null ? 0 : Math.min(0, ...vals);
   const range = maxV - minV || 1;
   const W = 320;
@@ -84,10 +87,25 @@ const TrendBars = ({
         const x = padX + slot * i + (slot - bw) / 2;
         const h = (Math.abs(v) / range) * plotH;
         const y = v >= 0 ? zeroY - h : zeroY;
+        // Projected total (this + future months): a dashed cap above the solid
+        // "booked" bar, with a faint fill for the expected-still-to-come portion.
+        const showPred = r.predicted != null && r.predicted > v + Math.max(1, range * 0.01);
+        const yPred = showPred ? zeroY - (r.predicted! / range) * plotH : 0;
         return (
           <g key={r.month}>
+            {showPred && (
+              <>
+                <rect x={x} y={yPred} width={bw} height={Math.max(0, y - yPred)} fill={colorFor(v)} opacity={0.13} />
+                <line x1={x - 2} x2={x + bw + 2} y1={yPred} y2={yPred} stroke={colorFor(v)} strokeWidth="1.5" strokeDasharray="3 2" />
+                {y - yPred > 11 && (
+                  <text x={x + bw / 2} y={yPred - 2.5} textAnchor="middle" fontSize="8" fill="#9aa0a6">
+                    {fmt(r.predicted!)}
+                  </text>
+                )}
+              </>
+            )}
             <rect x={x} y={y} width={bw} height={Math.max(h, 1)} rx="2.5" fill={colorFor(v)}>
-              <title>{`${r.longLabel}: ${fmtTip(v)}`}</title>
+              <title>{`${r.longLabel}: ${fmtTip(v)}${showPred ? ` · projected ${fmtTip(r.predicted!)}` : ""}`}</title>
             </rect>
             <text
               x={x + bw / 2}
@@ -283,6 +301,53 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
     }
     return m;
   }, [monthMap]);
+
+  // PREDICTED gross per month = booked income + projected income from the still-open
+  // FUTURE nights (per-room blended rate → room.price prior), same estimator as the
+  // This-Month "Estimated Total". Past months have no open future nights, so their
+  // prediction equals realized (no dashed cap). Present + future months project up.
+  const predictedByMonth = useMemo(() => {
+    const activeRooms = rooms.filter((r) => r.active);
+    const now = startOfToday();
+    const K = 5; // shrinkage prior strength toward room.price
+    const out = new Map<string, number>();
+    for (const mDate of trendMonths) {
+      const mk = format(mDate, "yyyy-MM", { timeZone });
+      const dateKeys = eachDayOfInterval({ start: startOfMonth(mDate), end: endOfMonth(mDate) }).map(
+        (d) => format(d, "yyyy-MM-dd", { timeZone }),
+      );
+      let potential = 0;
+      for (const room of activeRooms) {
+        let bookedNights = 0;
+        let bookedProfit = 0;
+        let openFutureNights = 0;
+        for (const dk of dateKeys) {
+          const day = monthMap.get(dk);
+          const roomBookings = day?.bookings.filter((b) => b.room?.id === room.id) ?? [];
+          if (roomBookings.length > 0) {
+            bookedNights++;
+            bookedProfit += roomBookings.reduce((sum, b) => {
+              const fee = b.startDate.split("T")[0] === dk ? feesTotal(b.fees) : 0;
+              if (b.guest.name !== "AirBnB") {
+                const gp = b.guest.pricing?.find((p) => p.room === b.room?.id);
+                return sum + (gp ? gp.price : 0) + fee;
+              }
+              const nightly = b.airbnbPrice && b.duration ? b.airbnbPrice / b.duration : 0;
+              return sum + nightly + fee;
+            }, 0);
+          } else {
+            const blocked = day ? day.isBlocked || day.blockedRooms.some((r) => r?.id === room.id) : false;
+            if (!blocked && new Date(`${dk}T12:00:00`) >= now) openFutureNights++;
+          }
+        }
+        const weight = bookedNights / (bookedNights + K);
+        const avgRate = weight * (bookedNights > 0 ? bookedProfit / bookedNights : 0) + (1 - weight) * room.price;
+        potential += openFutureNights * avgRate;
+      }
+      out.set(mk, (grossByMonth.get(mk) ?? 0) + potential);
+    }
+    return out;
+  }, [rooms, trendMonths, monthMap, timeZone, grossByMonth]);
 
   const [trendData, setTrendData] = useState<TrendRow[]>([]);
   useEffect(() => {
@@ -562,10 +627,10 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
             <div>
               <div className="mb-1 flex items-baseline justify-between">
                 <span className="text-xs font-semibold text-gray-700">Gross profit</span>
-                <span className="text-[10px] text-gray-400">last 6 months</span>
+                <span className="text-[10px] text-gray-400">booked ▪ · projected ┄</span>
               </div>
               <TrendBars
-                rows={trendData.map((r) => ({ ...r, value: r.gross }))}
+                rows={trendData.map((r) => ({ ...r, value: r.gross, predicted: predictedByMonth.get(r.month) }))}
                 colorFor={() => TREND_BLUE}
               />
             </div>
