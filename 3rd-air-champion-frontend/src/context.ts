@@ -22,6 +22,9 @@ interface AddPaneContextType {
   setIsCleanersOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isMiscOpen: boolean;
   setIsMiscOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  // Weeks-per-page on a narrow phone — a per-device setting tuned from the menu.
+  rowsPerPage: number;
+  setRowsPerPage: (n: number) => void;
 }
 
 interface FooterContextType {

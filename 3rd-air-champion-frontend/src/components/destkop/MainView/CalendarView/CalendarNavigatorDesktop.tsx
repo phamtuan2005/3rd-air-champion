@@ -33,8 +33,6 @@ interface CalendarNavigatorProps {
   setSelectedRoomName: React.Dispatch<React.SetStateAction<string | null>>;
   gapsMode: boolean;
   setGapsMode: React.Dispatch<React.SetStateAction<boolean>>;
-  rowsPerPage: number; // weeks-per-page on a narrow phone (host-tunable, per device)
-  onRowsPerPageChange: (n: number) => void;
 }
 
 const CalendarNavigator = ({
@@ -54,8 +52,6 @@ const CalendarNavigator = ({
   setSelectedRoomName,
   gapsMode,
   setGapsMode,
-  rowsPerPage,
-  onRowsPerPageChange,
 }: CalendarNavigatorProps) => {
   const { setIsFooterVisible } = useContext(FooterContext)!;
   const [showDetails, setShowDetails] = useState(false);
@@ -151,34 +147,6 @@ const CalendarNavigator = ({
               >
                 Gaps
               </button>
-              {/* Weeks-per-screen stepper — only affects the narrow-phone layout, so
-                  it's shown on phones only. Tunable per device, remembered locally. */}
-              <div
-                className="flex items-center rounded border border-gray-300 sm:hidden"
-                title="Weeks shown per screen — tune for your phone"
-              >
-                <button
-                  type="button"
-                  aria-label="Fewer weeks per screen"
-                  onClick={() => onRowsPerPageChange(rowsPerPage - 1)}
-                  disabled={rowsPerPage <= 2}
-                  className="px-1.5 text-sm leading-none text-gray-500 disabled:text-gray-300"
-                >
-                  −
-                </button>
-                <span className="min-w-[2.1rem] text-center text-[11px] font-semibold text-gray-600">
-                  {rowsPerPage} wk
-                </span>
-                <button
-                  type="button"
-                  aria-label="More weeks per screen"
-                  onClick={() => onRowsPerPageChange(rowsPerPage + 1)}
-                  disabled={rowsPerPage >= 8}
-                  className="px-1.5 text-sm leading-none text-gray-500 disabled:text-gray-300"
-                >
-                  +
-                </button>
-              </div>
             </div>
             {/* PROFIT */}
             <div className="basis-1/4 flex justify-end w-full text-2xl font-bold text-emerald-600 text-right leading-tight">

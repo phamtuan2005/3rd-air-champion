@@ -32,6 +32,17 @@ function App() {
   const [isManageGuestOpen, setIsManageGuestOpen] = useState(false);
   const [isCleanersOpen, setIsCleanersOpen] = useState(false);
   const [isMiscOpen, setIsMiscOpen] = useState(false);
+  // Weeks-per-page on a narrow phone — tuned from the menu, persisted per device
+  // so each phone/tablet remembers its own comfortable value (clamped 2–8).
+  const [rowsPerPage, setRowsPerPageState] = useState<number>(() => {
+    const v = parseInt(localStorage.getItem("calendarRowsPerPage") || "4", 10);
+    return Number.isFinite(v) && v >= 2 && v <= 8 ? v : 4;
+  });
+  const setRowsPerPage = (n: number) => {
+    const clamped = Math.min(8, Math.max(2, n));
+    setRowsPerPageState(clamped);
+    localStorage.setItem("calendarRowsPerPage", String(clamped));
+  };
 
   const [currentGuest, setCurrentGuest] = useState<string | null>(null);
   const [currentAirBnBGuest, setCurrentAirBnBGuest] = useState<string | null>(
@@ -191,6 +202,8 @@ function App() {
                 setIsCleanersOpen,
                 isMiscOpen,
                 setIsMiscOpen,
+                rowsPerPage,
+                setRowsPerPage,
               }}
             >
               {/* Use the DYNAMIC viewport height on mobile: plain 100vh (h-screen)
