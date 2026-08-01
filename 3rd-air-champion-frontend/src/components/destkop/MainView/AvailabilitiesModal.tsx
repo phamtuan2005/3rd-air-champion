@@ -95,8 +95,8 @@ const TrendBars = ({
           <g key={r.month}>
             {showPred && (
               <>
-                <rect x={x} y={yPred} width={bw} height={Math.max(0, y - yPred)} fill={colorFor(v)} opacity={0.13} />
-                <line x1={x - 2} x2={x + bw + 2} y1={yPred} y2={yPred} stroke={colorFor(v)} strokeWidth="1.5" strokeDasharray="3 2" />
+                <rect x={x} y={yPred} width={bw} height={Math.max(0, y - yPred)} fill={colorFor(r.predicted!)} opacity={0.13} />
+                <line x1={x - 2} x2={x + bw + 2} y1={yPred} y2={yPred} stroke={colorFor(r.predicted!)} strokeWidth="1.5" strokeDasharray="3 2" />
                 {y - yPred > 11 && (
                   <text x={x + bw / 2} y={yPred - 2.5} textAnchor="middle" fontSize="8" fill="#9aa0a6">
                     {fmt(r.predicted!)}
@@ -637,10 +637,15 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
             <div>
               <div className="mb-1 flex items-baseline justify-between">
                 <span className="text-xs font-semibold text-gray-700">Net profit</span>
-                <span className="text-[10px] text-gray-400">gross − cleaning − misc</span>
+                <span className="text-[10px] text-gray-400">booked ▪ · projected ┄</span>
               </div>
               <TrendBars
-                rows={trendData.map((r) => ({ ...r, value: r.net }))}
+                rows={trendData.map((r) => ({
+                  ...r,
+                  value: r.net,
+                  // Projected net = projected gross − this month's cleaning & misc.
+                  predicted: (predictedByMonth.get(r.month) ?? r.gross) - r.cleaning - r.misc,
+                }))}
                 colorFor={(v) => (v >= 0 ? TREND_EMERALD : TREND_ROSE)}
               />
             </div>
