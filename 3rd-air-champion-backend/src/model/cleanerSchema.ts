@@ -26,6 +26,13 @@ const cleanerSchema = new mongoose.Schema(
     // The host themselves (owner labor). Owners are EXCLUDED from the auto-draft
     // — they exist to be spared, not maximized — and assigned by hand only.
     isOwner: { type: Boolean, default: false },
+    // Host-tuned per-cleaner trip size for the auto-planner:
+    //   minRooms — the FEWEST rooms worth a trip; a cleaner who'd get fewer than
+    //     this is not brought in (e.g. "won't come for < 2"). Default 1 = no floor.
+    //   maxRooms — the MOST rooms they'll take in a day (e.g. "no more than 4").
+    //     0 = no explicit cap → the planner uses its history-derived ceiling.
+    minRooms: { type: Number, default: 1, min: 0 },
+    maxRooms: { type: Number, default: 0, min: 0 },
     // Hourly rate in dollars — pay is computed from recorded hours, not per job.
     // This is the BASE rate: the rate in effect before any scheduled change in
     // rateHistory. A cleaning is always billed at the rate in effect ON ITS DATE

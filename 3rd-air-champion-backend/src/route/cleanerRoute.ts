@@ -34,6 +34,8 @@ const serializeCleaner = (c: any) => ({
   paused: c.paused ?? false,
   priority: c.priority ?? 3,
   isOwner: c.isOwner ?? false,
+  minRooms: c.minRooms ?? 1,
+  maxRooms: c.maxRooms ?? 0,
   baselineHours: c.baselineHours ?? 0,
   baselineMonth: c.baselineMonth ?? "",
 });
@@ -60,7 +62,7 @@ router.get("/list", async (req: Request, res: any) => {
 });
 
 router.post("/create", async (req: Request, res: any) => {
-  const { host, name, phone, payRate, rateHistory, photo, character, availableDays, paused, priority, isOwner } =
+  const { host, name, phone, payRate, rateHistory, photo, character, availableDays, paused, priority, isOwner, minRooms, maxRooms } =
     req.body;
   if (!host || !name) return res.status(400).json({ error: "host and name are required" });
   try {
@@ -76,6 +78,8 @@ router.post("/create", async (req: Request, res: any) => {
       paused: !!paused,
       priority: typeof priority === "number" ? priority : 3,
       isOwner: !!isOwner,
+      minRooms: typeof minRooms === "number" ? minRooms : 1,
+      maxRooms: typeof maxRooms === "number" ? maxRooms : 0,
     });
     res.status(200).json(serializeCleaner(cleaner));
   } catch (error: any) {
@@ -86,7 +90,7 @@ router.post("/create", async (req: Request, res: any) => {
 router.patch("/update", async (req: Request, res: any) => {
   const {
     id, name, phone, payRate, rateHistory, photo, character, availableDays, paused, priority, isOwner,
-    baselineHours, baselineMonth,
+    minRooms, maxRooms, baselineHours, baselineMonth,
   } = req.body;
   if (!id) return res.status(400).json({ error: "id is required" });
   try {
@@ -101,6 +105,8 @@ router.patch("/update", async (req: Request, res: any) => {
     if (paused !== undefined) update.paused = paused;
     if (priority !== undefined) update.priority = priority;
     if (isOwner !== undefined) update.isOwner = isOwner;
+    if (minRooms !== undefined) update.minRooms = minRooms;
+    if (maxRooms !== undefined) update.maxRooms = maxRooms;
     if (baselineHours !== undefined) update.baselineHours = baselineHours;
     if (baselineMonth !== undefined) update.baselineMonth = baselineMonth;
     const cleaner = await Cleaner.findByIdAndUpdate(id, update, { new: true, runValidators: true });
@@ -293,6 +299,7 @@ router.post("/autoplan", async (req: Request, res: any) => {
 
     type Info = {
       ceiling: number;
+      minRooms: number; // fewest rooms worth a trip (host-tuned); below this we don't bring them in
       costPerRoom: number;
       aff: Map<string, number>;
       available: (w: number) => boolean;
@@ -322,10 +329,15 @@ router.post("/autoplan", async (req: Request, res: any) => {
       // Owners are last-resort reserve — keep their ceiling minimal (their
       // demonstrated max, or just 1 if they've never cleaned) so even when tapped
       // they take very little. Paid cleaners get the full window-based prior.
-      const ceiling = p.perDay.size ? revealed : reserve ? 1 : windowCap;
+      const derivedCeiling = p.perDay.size ? revealed : reserve ? 1 : windowCap;
+      // Host-tuned caps win over the derived guess: maxRooms > 0 sets an explicit
+      // ceiling ("no more than N"); minRooms sets the fewest rooms worth a trip.
+      const ceiling = c.maxRooms && c.maxRooms > 0 ? c.maxRooms : derivedCeiling;
+      const minRooms = Math.max(1, typeof c.minRooms === "number" ? c.minRooms : 1);
       const explicit: number[] = Array.isArray(c.availableDays) ? c.availableDays : [];
       info.set(id, {
         ceiling,
+        minRooms,
         costPerRoom: hpr * (c.payRate ?? 0),
         aff: p.aff,
         reserve,
@@ -398,7 +410,13 @@ router.post("/autoplan", async (req: Request, res: any) => {
       const crew = [...mustInclude];
       const capacity = () => crew.reduce((s, id) => s + info.get(id)!.ceiling, 0);
       let ei = 0;
-      while (capacity() < R && ei < extras.length) crew.push(extras[ei++]);
+      while (capacity() < R && ei < extras.length) {
+        const id = extras[ei++];
+        // Only bring a cleaner in if at least their minRooms are still uncovered —
+        // a sub-minimum trip isn't worth it ("won't come for < min"). Skipping them
+        // may leave rooms UNASSIGNED, which is the intended short-staffed signal.
+        if (R - capacity() >= info.get(id)!.minRooms) crew.push(id);
+      }
 
       // Distribute today's rooms across the crew, balanced by fill-ratio so no one
       // is overloaded, tie-broken by room affinity then lowest $/room.

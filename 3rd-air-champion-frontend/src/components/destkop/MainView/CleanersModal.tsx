@@ -311,6 +311,8 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
     paused: false,
     priority: 3,
     isOwner: false,
+    minRooms: "1",
+    maxRooms: "0",
   });
   // Draft for the "add a raise" row in the edit modal.
   const [raiseDraft, setRaiseDraft] = useState({ rate: "", from: "" });
@@ -720,6 +722,8 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
         paused: edit.paused,
         priority: edit.priority,
         isOwner: edit.isOwner,
+        minRooms: Math.max(0, parseInt(edit.minRooms, 10) || 0),
+        maxRooms: Math.max(0, parseInt(edit.maxRooms, 10) || 0),
         // Baseline is anchored to the month it was entered — it counts toward
         // this month's pay and expires on its own.
         baselineHours: parseFloat(edit.baselineHours) || 0,
@@ -1324,6 +1328,8 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                       paused: cleaner.paused ?? false,
                       priority: cleaner.priority ?? 3,
                       isOwner: cleaner.isOwner ?? false,
+                      minRooms: String(cleaner.minRooms ?? 1),
+                      maxRooms: String(cleaner.maxRooms ?? 0),
                       // Only surface a baseline that belongs to this month —
                       // an old month's baseline has already expired
                       baselineHours:
@@ -2333,6 +2339,42 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
                   value={edit.priority}
                   onChange={(v) => setEdit((p) => ({ ...p, priority: v }))}
                 />
+              </div>
+
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-xs text-gray-500">
+                  Rooms per trip
+                  <span className="block text-[10px] text-gray-400">
+                    min = won&apos;t come for fewer · max 0 = no cap
+                  </span>
+                </label>
+                <div className="flex items-center gap-1">
+                  <div className="flex flex-col items-center">
+                    <input
+                      type="number"
+                      min={0}
+                      inputMode="numeric"
+                      value={edit.minRooms}
+                      onChange={(e) => setEdit((p) => ({ ...p, minRooms: e.target.value }))}
+                      className="w-12 rounded-lg border border-gray-300 px-1 py-1 text-center text-sm"
+                      aria-label="Minimum rooms"
+                    />
+                    <span className="text-[9px] uppercase tracking-wide text-gray-400">min</span>
+                  </div>
+                  <span className="pb-3 text-gray-300">–</span>
+                  <div className="flex flex-col items-center">
+                    <input
+                      type="number"
+                      min={0}
+                      inputMode="numeric"
+                      value={edit.maxRooms}
+                      onChange={(e) => setEdit((p) => ({ ...p, maxRooms: e.target.value }))}
+                      className="w-12 rounded-lg border border-gray-300 px-1 py-1 text-center text-sm"
+                      aria-label="Maximum rooms"
+                    />
+                    <span className="text-[9px] uppercase tracking-wide text-gray-400">max</span>
+                  </div>
+                </div>
               </div>
 
               <div className="flex items-center justify-between gap-2">

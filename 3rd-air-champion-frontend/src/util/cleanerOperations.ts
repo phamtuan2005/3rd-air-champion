@@ -19,6 +19,8 @@ export interface CleanerType {
   paused?: boolean; // temporarily out (vacation/leave) — skipped by the auto-planner
   priority?: number; // favorability 1–5 (3 = normal); auto-planner prefers higher
   isOwner?: boolean; // the host themselves — auto-plan uses them only as last resort
+  minRooms?: number; // fewest rooms worth a trip (won't come for fewer); default 1
+  maxRooms?: number; // most rooms they'll take in a day; 0 = no cap (planner derives)
   baselineHours: number; // pre-tracking hours counted toward baselineMonth only
   baselineMonth: string; // "yyyy-MM"
 }
@@ -61,7 +63,7 @@ export const fetchCleaners = async (hostId: string, token: string): Promise<Clea
 };
 
 export const createCleaner = async (
-  data: { host: string; name: string; phone: string; payRate: number; rateHistory?: RateChange[]; photo?: string; character?: string; availableDays?: number[]; priority?: number; isOwner?: boolean },
+  data: { host: string; name: string; phone: string; payRate: number; rateHistory?: RateChange[]; photo?: string; character?: string; availableDays?: number[]; priority?: number; isOwner?: boolean; minRooms?: number; maxRooms?: number },
   token: string,
 ): Promise<CleanerType> => {
   const response = await axios.post(`${BACKEND_ENDPOINT}/cleaner/create`, data, auth(token));
@@ -81,6 +83,8 @@ export const updateCleaner = async (
     paused?: boolean;
     priority?: number;
     isOwner?: boolean;
+    minRooms?: number;
+    maxRooms?: number;
     baselineHours?: number;
     baselineMonth?: string;
   },
