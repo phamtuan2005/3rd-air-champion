@@ -654,8 +654,10 @@ router.post("/book/range", async (req: Request, res: any) => {
       res.status(200).json(result.data.bookDays);
     })
     .catch((error: any) => {
-      // Handle errors from the helper function
-      res.status(500).json({ error: error.message });
+      // Surface the REAL reason under `errors` (the key the client reads) instead of
+      // a swallowed generic — and log it so pm2 captures the actual cause.
+      console.error("[book/range] failed:", error?.message || error);
+      res.status(500).json({ errors: error?.message || "Booking failed. Please try again." });
     });
 });
 

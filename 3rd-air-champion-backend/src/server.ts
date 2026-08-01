@@ -68,6 +68,17 @@ const startServer = async () => {
       typeDefs,
       resolvers,
       plugins: [ApolloServerPluginDrainHttpServer({ httpServer })],
+      // Log the REAL error (message + stack) for every GraphQL failure so pm2
+      // captures resolver errors that otherwise only surface (possibly masked)
+      // in the client response. Client-facing shape is unchanged.
+      formatError: (formattedError, error) => {
+        console.error(
+          "[GraphQL error]",
+          formattedError.message,
+          (error as any)?.stack || (error as any)?.originalError?.stack || "",
+        );
+        return formattedError;
+      },
     });
 
     await server.start();
