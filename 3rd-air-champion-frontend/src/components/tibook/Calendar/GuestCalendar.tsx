@@ -390,7 +390,7 @@ const GuestCalendar = ({
           >
             {resBars.pm.isStart && (
               <span className="truncate px-1 text-[11px] font-bold leading-none text-black sm:text-xs">
-                ⏳ {resBars.pm.roomName}
+                {resBars.pm.roomName}
               </span>
             )}
           </div>
