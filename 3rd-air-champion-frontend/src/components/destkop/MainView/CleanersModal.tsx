@@ -2561,8 +2561,20 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                     </span>
                   </div>
 
-                  {/* Texting the earnings summary now lives in the Team tab's
-                      per-cleaner Message menu ("Earnings so far") */}
+                  {/* Text the payment/earnings statement right from the Pay detail
+                      (Cindy's ask) — also available in the Team Message menu. */}
+                  {(() => {
+                    const payCleaner = cleaners.find((c) => c.id === entry.id);
+                    return payCleaner?.phone ? (
+                      <button
+                        type="button"
+                        onClick={() => textPayment(entry)}
+                        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                      >
+                        💬 Text {payCleaner.name.split(" ")[0]} payment
+                      </button>
+                    ) : null;
+                  })()}
 
                   {/* Payout / Undo mistake */}
                   <div className="mt-4 border-t border-gray-100 pt-3">
