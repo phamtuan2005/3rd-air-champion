@@ -778,7 +778,12 @@ const CalendarGrid = ({
                       type="button"
                       className={classes.join(" ")}
                       onClick={() => handleTileClick(date)}
-                      style={{ "--max-rows": (maxRooms + 1).toString() } as React.CSSProperties}
+                      style={
+                        {
+                          "--max-rows": (maxRooms + 1).toString(),
+                          "--subrow-h": `${SUBROW_HEIGHT}px`,
+                        } as React.CSSProperties
+                      }
                     >
                       <abbr aria-label={date.toLocaleDateString()}>{date.getDate()}</abbr>
                       {content}

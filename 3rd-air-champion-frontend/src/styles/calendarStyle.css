@@ -73,10 +73,15 @@
   border-right-width: 1px;
   border-bottom-width: 1px;
   display: grid; /* corresponds to grid */
+  /* Fixed sub-row height (--subrow-h) so each room's color box keeps a constant
+     height instead of stretching to fill a tall row; any extra row space becomes
+     calm whitespace below (packed to the top). Falls back to 1fr for tiles that
+     don't set the var, preserving the old fill behavior. */
   grid-template-rows: repeat(
     var(--max-rows),
-    minmax(0, 1fr)
-  ); /* corresponds to grid-rows-4 */
+    var(--subrow-h, minmax(0, 1fr))
+  );
+  align-content: start;
   height: 100%; /* fills the CSS-grid cell controlled by the outer grid */
   width: 100%;
   max-width: 100%; /* corresponds to max-w-full */
