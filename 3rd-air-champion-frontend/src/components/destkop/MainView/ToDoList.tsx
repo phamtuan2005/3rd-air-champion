@@ -102,13 +102,13 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
     return assignments.find((a) => a.date === morningKey && a.room?.id === roomId)?.cleaner ?? null;
   };
 
-  // Tapping a cleaner's name/avatar texts them their whole assignment for today
-  // — every room they're on that still needs cleaning, in the same urgency order
-  // the list uses (soonest check-ins first), with who's arriving into each.
+  // Tapping a cleaner's name/avatar texts them their rooms to clean today — only
+  // what THEY need: which room and for how many guests. The next guest's check-in
+  // date is the owner's private info and is deliberately NOT included; the list is
+  // still in priority order (urgent first), just without revealing why.
   const textCleanerSummary = (cleaner: CleanerType) => {
     if (!cleaner.phone) return;
     const first = cleaner.name.split(" ")[0];
-    // cleaningItems is already sorted by urgency → this IS the suggested order.
     const mine = cleaningItems.filter(
       (it) => !it.isCompleted && cleanerFor(it)?.id === cleaner.id,
     );
@@ -123,18 +123,11 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
       const lines = mine.map((it, i) => {
         const room = it.booking.room?.name ?? "Room";
         const n = it.nextCheckIn?.numberOfGuests;
-        const who = n ? ` (${n} guest${n === 1 ? "" : "s"})` : "";
-        const when = it.mustCleanToday
-          ? "guest arrives TODAY"
-          : it.nextCheckInDate
-            ? `next check-in ${format(new Date(it.nextCheckInDate + "T00:00:00"), "MMM d")}`
-            : "no upcoming check-in";
-        const early = it.nextCheckIn?.earlyCheckin ? " — EARLY check-in" : "";
-        return `${i + 1}. ${room} — ${when}${who}${early}`;
+        const who = n ? ` — for ${n} guest${n === 1 ? "" : "s"}` : "";
+        return `${i + 1}. ${room}${who}`;
       });
       body =
-        `Hi ${first}! Cleaning for today (${dayLabel}) — ${mine.length} room${mine.length === 1 ? "" : "s"}, ` +
-        `in suggested order (soonest check-ins first):\n` +
+        `Hi ${first}! Cleaning for today (${dayLabel}) — ${mine.length} room${mine.length === 1 ? "" : "s"}:\n` +
         lines.join("\n") +
         `\n\n${cleanerSignoff(senderName)}`;
     }
