@@ -40,6 +40,11 @@ interface GuestCalendarProps {
 const NUM_ROWS = 6;
 const MONTHS_FORWARD = 36;
 
+// Amber diagonal hatch overlaid on a (R) hold's room color so it reads as
+// "pending / tentative", clearly different from a solid confirmed stay.
+const HOLD_HATCH =
+  "repeating-linear-gradient(45deg, rgba(217,119,6,0.62) 0 4px, rgba(255,255,255,0) 4px 9px)";
+
 const buildMonthCells = (month: Date): (Date | null)[] => {
   const cells: (Date | null)[] = Array(NUM_ROWS * 7).fill(null);
   const firstDay = new Date(month.getFullYear(), month.getMonth(), 1);
@@ -367,12 +372,13 @@ const GuestCalendar = ({
             )}
           </div>
         )}
-        {/* (R) HOLD — same ribbon geometry, but a dashed amber outline + ⏳ so it
-            clearly reads as "pending payment", not a confirmed stay. */}
+        {/* (R) HOLD — same ribbon geometry, but a dashed amber outline + amber
+            hatch fill + a ⏳ corner badge so it clearly reads as "pending", NOT a
+            confirmed stay, while the full room name stays readable. */}
         {resBars?.am && !inCart && (
           <div
             className={`${getRoomColor(resBars.am.roomName, resBars.am.roomColor)} rounded-r-lg border-y-2 border-dashed border-amber-500 pointer-events-none`}
-            style={{ position: "absolute", bottom: "5px", height: "20px", left: "-1px", right: "80%" }}
+            style={{ position: "absolute", bottom: "5px", height: "20px", left: "-1px", right: "80%", backgroundImage: HOLD_HATCH }}
           />
         )}
         {resBars?.pm && !inCart && (
@@ -386,6 +392,7 @@ const GuestCalendar = ({
               right: "-1px",
               borderTopLeftRadius: resBars.pm.isStart ? "0.5rem" : undefined,
               borderBottomLeftRadius: resBars.pm.isStart ? "0.5rem" : undefined,
+              backgroundImage: HOLD_HATCH,
             }}
           >
             {resBars.pm.isStart && (
@@ -394,6 +401,11 @@ const GuestCalendar = ({
               </span>
             )}
           </div>
+        )}
+        {/* Glass badge marking the hold's start — sits above the number, clear of
+            the ribbon so it doesn't crowd the room name. */}
+        {resBars?.pm?.isStart && !inCart && (
+          <span className="pointer-events-none absolute right-0.5 top-0.5 z-20 text-[11px] leading-none">⏳</span>
         )}
       </button>
     );
