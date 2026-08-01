@@ -133,15 +133,17 @@ const CalendarGrid = ({
 
   const maxRooms = guestLanes ? guestLanes.count : usedRooms.length;
   const minRowHeight = (maxRooms + 1) * SUBROW_HEIGHT;
-  // On a narrow phone, cap weeks-per-page so each week-row is taller and more
-  // legible — and the current week is far less likely to sit crushed at the very
-  // bottom of a packed page. Desktop is wide enough to keep the whole month, so
-  // the cap only kicks in below the `sm` breakpoint. Tune MAX_ROWS_NARROW (3–4).
+  // On a narrow phone (full-calendar mode only), cap weeks-per-page so each
+  // week-row is taller and more legible — and the current week is far less likely
+  // to sit crushed at the very bottom of a packed page. Desktop keeps the whole
+  // month, so the cap only kicks in below the `sm` breakpoint. And in single-guest
+  // mode (guestLanes) the rows are short lane-packed stays, so we WANT to show many
+  // weeks at once to see the whole span — no cap there. Tune MAX_ROWS_NARROW (3–4).
   const MAX_ROWS_NARROW = 4;
   const isNarrow = tileWidth != null && tileWidth * 7 < 640;
   const fitRows =
     containerHeight > 0 ? Math.max(Math.floor(containerHeight / minRowHeight), 1) : 5;
-  const numRows = isNarrow ? Math.min(fitRows, MAX_ROWS_NARROW) : fitRows;
+  const numRows = isNarrow && !guestLanes ? Math.min(fitRows, MAX_ROWS_NARROW) : fitRows;
   const rowHeight =
     containerHeight > 0 ? Math.floor(containerHeight / numRows) : minRowHeight;
 
