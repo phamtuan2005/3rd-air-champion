@@ -46,6 +46,7 @@ const CONTACT_OPEN_H = 116; // comfortable height showing the full info
 const CONTACT_MAX_H = 260;
 
 interface MainViewProps {
+  senderName: string; // who's logged in (Anh-Tuan or a cohost like Cindy) — signs cleaner texts
   calendarId: string;
   hostId: string;
   airbnbsync: { room: string; link: string }[] | undefined;
@@ -78,6 +79,7 @@ interface MainViewProps {
 }
 
 const MainView = ({
+  senderName,
   calendarId,
   hostId,
   airbnbsync,
@@ -992,6 +994,7 @@ const MainView = ({
             houseRules={houseRules}
             hostId={hostId}
             token={token}
+            senderName={senderName}
           />
         ) : isRequestManagerOpen ? (
           <BookingRequestManagerModal
@@ -1127,6 +1130,7 @@ const MainView = ({
           houseRules={houseRules}
           hostId={hostId}
           token={token}
+          senderName={senderName}
         />
       </MobilePanel>
 
@@ -1285,6 +1289,7 @@ const MainView = ({
           token={token as string}
           monthMap={monthMap}
           cleaningRules={cleaningRules}
+          senderName={senderName}
           onClose={() => setIsCleanersOpen(false)}
         />
       )}

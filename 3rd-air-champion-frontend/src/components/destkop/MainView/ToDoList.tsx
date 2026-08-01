@@ -7,7 +7,7 @@ import { DEFAULT_TEMPLATE, TEMPLATE_KEY, resolveTemplate } from "../../../util/r
 import { CLEANING_LOOKBACK_DAYS, cleaningTaskId, getCleaningCounts, getCleaningItems, CleaningItem } from "../../../util/cleaningTasks";
 import { fetchAssignments, CleaningAssignmentType, CleanerType } from "../../../util/cleanerOperations";
 import CleanerAvatar from "../../shared/CleanerAvatar";
-import { CLEANER_SIGNOFF } from "../../../util/cleanerMessage";
+import { cleanerSignoff } from "../../../util/cleanerMessage";
 
 interface ToDoListProps {
   monthMap: Map<string, dayType>;
@@ -17,11 +17,12 @@ interface ToDoListProps {
   houseRules?: string;
   hostId?: string;
   token?: string | null;
+  senderName?: string; // who's logged in — signs the cleaner text
 }
 
 type TabKey = "reminders" | "cleaning";
 
-const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = "", hostId, token }: ToDoListProps) => {
+const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = "", hostId, token, senderName }: ToDoListProps) => {
   // Reminders / Cleaning = today's actionable tasks.
   const [activeTab, setActiveTab] = useState<TabKey>("reminders");
 
@@ -117,7 +118,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
     if (mine.length === 0) {
       body =
         `Hi ${first}! Looks like all your rooms for today (${dayLabel}) are done.\n\n` +
-        CLEANER_SIGNOFF;
+        cleanerSignoff(senderName);
     } else {
       const lines = mine.map((it, i) => {
         const room = it.booking.room?.name ?? "Room";
@@ -135,7 +136,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
         `Hi ${first}! Cleaning for today (${dayLabel}) — ${mine.length} room${mine.length === 1 ? "" : "s"}, ` +
         `in suggested order (soonest check-ins first):\n` +
         lines.join("\n") +
-        `\n\n${CLEANER_SIGNOFF}`;
+        `\n\n${cleanerSignoff(senderName)}`;
     }
     window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(body)}`;
   };

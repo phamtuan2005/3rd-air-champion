@@ -7,7 +7,7 @@ import { getRoomColor } from "../../../util/getRoomColor";
 import { getCleaningForecast } from "../../../util/cleaningTasks";
 import { generateAvatar } from "../../../util/avatarGen";
 import CleanerAvatarBase from "../../shared/CleanerAvatar";
-import { CLEANER_SIGNOFF, TT_PROMISE_LINE } from "../../../util/cleanerMessage";
+import { cleanerSignoff, ttPromiseLine } from "../../../util/cleanerMessage";
 import { formatPhone } from "../../../util/formatPhone";
 import {
   CleanerType,
@@ -35,6 +35,7 @@ interface CleanersModalProps {
   token: string;
   monthMap: Map<string, dayType>; // for arriving-guest counts in the schedule SMS
   cleaningRules?: string; // host's private note to the cleaning team (texted, not shown to guests)
+  senderName?: string; // who's logged in (Anh-Tuan or a cohost like Cindy) — signs the texts
   onClose: () => void;
 }
 
@@ -206,7 +207,7 @@ const SectionHeader = ({
   </div>
 );
 
-const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }: CleanersModalProps) => {
+const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName, onClose }: CleanersModalProps) => {
   // Self-sufficient: fetches its own data so it can be opened from anywhere
   // (NavBar dropdown or the Upcoming assign popover).
   const [cleaners, setCleaners] = useState<CleanerType[]>([]);
@@ -345,7 +346,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
       `As a token of our appreciation, your pay is going up to $${change.rate}/hr, effective ${from}. You've earned it.`,
       ``,
       `We're so grateful to have you on the team. Together, we work hard so our guests always feel comfortable — that is TT House's promise to every guest:`,
-      TT_PROMISE_LINE,
+      ttPromiseLine(senderName),
     ].join("\n");
     window.location.href = `sms:${phone}?&body=${encodeURIComponent(body)}`;
   };
@@ -891,7 +892,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
         `* ${format(new Date(date + "T00:00:00"), "EEEE M/d")}: ${rooms.join(", ")}`,
     );
     const weekLabel = `${format(monday, "MMM d")} – ${format(addDays(monday, 6), "MMM d")}`;
-    const message = `Hi ${cleaner.name}, your cleaning schedule for ${weekLabel}:\n${lines.join("\n")}\n(numbers = guests arriving)\n\n${CLEANER_SIGNOFF}`;
+    const message = `Hi ${cleaner.name}, your cleaning schedule for ${weekLabel}:\n${lines.join("\n")}\n(numbers = guests arriving)\n\n${cleanerSignoff(senderName)}`;
     window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(message)}`;
     // Remember exactly what we sent (shared via backend) so later drift from the
     // live plan flags a re-send — for you and any cohost.
@@ -913,7 +914,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
   // host keeps in Settings → My AirBnB. Not tied to any week — sendable anytime.
   const textCleaningRules = (cleaner: CleanerType) => {
     if (!cleaner.phone || !cleaningRules.trim()) return;
-    const message = `Hi ${cleaner.name}, a quick cleaning reminder for TT House:\n\n${cleaningRules.trim()}\n\nThank you for keeping every room guest-ready — that is TT House's promise to every guest:\n${TT_PROMISE_LINE}`;
+    const message = `Hi ${cleaner.name}, a quick cleaning reminder for TT House:\n\n${cleaningRules.trim()}\n\nThank you for keeping every room guest-ready — that is TT House's promise to every guest:\n${ttPromiseLine(senderName)}`;
     window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(message)}`;
   };
 
@@ -954,7 +955,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", onClose }:
       `Earned so far: $${Math.round(entry.earned).toLocaleString()} (${formatHrMin(entry.hours)})${entry.paid > 0 ? ` · Paid: $${Math.round(entry.paid).toLocaleString()}` : ""}`,
       `Ready to pay whenever you'd like: $${Math.round(entry.balance + tip).toLocaleString()}${tip > 0 ? ` (includes a $${tip.toFixed(2)} tip 🎁)` : ""}`,
       "",
-      CLEANER_SIGNOFF,
+      cleanerSignoff(senderName),
     ].join("\n");
     window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(body)}`;
   };

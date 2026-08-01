@@ -255,6 +255,7 @@ function App() {
                 {/* Content */}
                 <div className="overflow-hidden grid grid-cols-5 grid-rows-1 min-h-0">
                   <MainView
+                    senderName={getCohostName() ?? host?.name ?? ""}
                     calendarId={host.calendar}
                     hostId={host.id}
                     airbnbsync={host.airbnbsync}
