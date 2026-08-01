@@ -152,6 +152,9 @@ const CalendarGrid = ({
     : containerHeight > 0
       ? Math.floor(containerHeight / numRows)
       : minRowHeight;
+  // A little breathing room between week-rows on the phone (uses some of the
+  // bottom whitespace); zero on desktop where rows fill the column edge-to-edge.
+  const rowGap = isNarrow ? 6 : 0;
 
   // A month may span several pages; map each month to the index of its first page.
   const monthPageStarts = useMemo(() => {
@@ -768,9 +771,10 @@ const CalendarGrid = ({
                   display: "grid",
                   gridTemplateColumns: "repeat(7, 1fr)",
                   gridTemplateRows: `repeat(${numRows}, ${rowHeight}px)`,
-                  // Narrow: grid is exactly its rows tall, so it ends partway down
-                  // the page with whitespace below (no stretch). Desktop fills.
-                  height: isNarrow ? `${numRows * rowHeight}px` : "100%",
+                  rowGap: `${rowGap}px`,
+                  // Narrow: grid is exactly its rows (+ gaps) tall, so it ends
+                  // partway down the page with whitespace below (no stretch).
+                  height: isNarrow ? `${numRows * rowHeight + (numRows - 1) * rowGap}px` : "100%",
                   width: "100%",
                   borderTop: "1px solid #d1d5db",
                   borderLeft: "1px solid #d1d5db",
