@@ -38,7 +38,7 @@ interface BookingModalProps {
   setShowAddPane: React.Dispatch<React.SetStateAction<"guest" | "room" | null>>;
   // Same confirmation template as the GuestView "Confirm Booking" button, but billed only
   // for the rows booked here.
-  buildConfirmationForBookings: (guestName: string, bookings: ConfirmationBooking[]) => string;
+  buildConfirmationForBookings: (guestName: string, bookings: ConfirmationBooking[], totalPaidAmount?: number) => string;
 }
 
 type FlatBooking = { room: string; date: Date; duration: number };
@@ -100,6 +100,9 @@ const BookingModal = ({
   const [reservedRows, setReservedRows] = useState<Set<number>>(
     new Set(Array.from({ length: initialRowCount }, (_, i) => i)),
   );
+  // Amount the guest has ALREADY paid (e.g. a firm/prepaid booking). Feeds the
+  // confirmation text's "Total paid" line so the "To pay" balance is what's left.
+  const [prepaidAmount, setPrepaidAmount] = useState("");
 
   const toggleReservedRow = (index: number) =>
     setReservedRows((prev) => {
@@ -180,9 +183,10 @@ const BookingModal = ({
   const bookedLineItems = successfulResults
     .map((r) => r.lineItem)
     .filter((li): li is ConfirmationBooking => Boolean(li));
+  const prepaid = Math.max(0, parseFloat(prepaidAmount) || 0);
   const confirmationText =
     guestPhone && bookedLineItems.length > 0
-      ? buildConfirmationForBookings(watchedGuestName, bookedLineItems)
+      ? buildConfirmationForBookings(watchedGuestName, bookedLineItems, prepaid)
       : "";
 
   const handleSendText = () => {
@@ -669,6 +673,27 @@ const BookingModal = ({
                   <p className="text-xs text-gray-500">
                     Sends to {watchedGuestName} at {guestPhone}
                   </p>
+                  {/* Already-prepaid amount (e.g. she paid before you unchecked soft
+                      hold). Shows as "Total paid"; the remainder becomes "To pay". */}
+                  <div className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                    <label htmlFor="prepaid" className="text-xs text-gray-600">
+                      Amount already prepaid
+                      <span className="block text-[10px] text-gray-400">leave 0 if nothing paid yet</span>
+                    </label>
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm font-semibold text-gray-500">$</span>
+                      <input
+                        id="prepaid"
+                        type="number"
+                        min={0}
+                        inputMode="decimal"
+                        value={prepaidAmount}
+                        onChange={(e) => setPrepaidAmount(e.target.value)}
+                        placeholder="0"
+                        className="w-20 rounded-lg border border-gray-300 px-2 py-1 text-right text-sm"
+                      />
+                    </div>
+                  </div>
                   <pre className="text-xs bg-gray-50 border border-gray-200 rounded-lg p-3 whitespace-pre-wrap font-sans text-gray-700">
                     {confirmationText}
                   </pre>

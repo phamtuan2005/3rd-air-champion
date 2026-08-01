@@ -240,6 +240,7 @@ export const useMessaging = ({
   const buildConfirmationForBookings = (
     guestName: string,
     bookings: ConfirmationBooking[],
+    totalPaidAmount = 0, // e.g. a firm/prepaid booking — shows "Total paid" + remaining "To pay"
   ): string => {
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const sorted = [...bookings].sort((a, b) =>
@@ -250,7 +251,7 @@ export const useMessaging = ({
     );
     const months = Array.from(monthKeys, (k) => toZonedTime(k, timeZone));
     const lineItems: ConfirmationLineItem[] = sorted.map((b) => ({ ...b, paidNights: 0 }));
-    return composeConfirmationText(guestName, monthHeader(months, "Your additional bookings"), lineItems, 0);
+    return composeConfirmationText(guestName, monthHeader(months, "Your additional bookings"), lineItems, totalPaidAmount);
   };
 
   const handleBookingConfirmation = (phone: string) => {
