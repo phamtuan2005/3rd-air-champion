@@ -191,8 +191,11 @@ const TiBookInner = () => {
         .filter((b) => b.status === "reserved")
         .map((b) => {
           const room = rooms.find((r) => r.id === b.room);
-          const checkIn = parseISO(String(b.date).slice(0, 10));
+          const startKey = String(b.date).slice(0, 10);
+          const checkIn = parseISO(startKey);
           return {
+            id: `${startKey}|${b.room}`,
+            startKey,
             roomName: room?.name ?? "Room",
             roomColor: room?.color,
             checkIn,
@@ -437,6 +440,7 @@ const TiBookInner = () => {
             newWishListDates={newWishListDates}
             myBookingDates={myBookingDates}
             myStays={myStays}
+            reservedStays={reservedStays}
             reservedMap={reservedMap}
             scrollToTodayTrigger={scrollToTodayTrigger}
             scrollToMonthTrigger={scrollToMonthTrigger ?? undefined}
@@ -445,6 +449,7 @@ const TiBookInner = () => {
             onDateClick={toggleCartDate}
             onWishListClick={handleWishListClick}
             onMyStayClick={setStayPopupId}
+            onReservedClick={() => setReservedPopupOpen(true)}
           />
         </div>
       ) : (

@@ -25,6 +25,7 @@ interface GuestCalendarProps {
   newWishListDates?: Set<string>;
   myBookingDates?: Set<string>;
   myStays?: MyStay[];
+  reservedStays?: MyStay[]; // (R) holds — drawn as a distinct "pending" ribbon
   reservedMap?: Map<string, Set<string>>;
   scrollToTodayTrigger?: number;
   scrollToMonthTrigger?: { month: Date; seq: number };
@@ -33,6 +34,7 @@ interface GuestCalendarProps {
   onDateClick?: (date: Date) => void;
   onWishListClick?: (date: Date) => void;
   onMyStayClick?: (bookingId: string) => void;
+  onReservedClick?: () => void; // tapping a held night opens the pay-reminder popup
 }
 
 const NUM_ROWS = 6;
@@ -68,6 +70,7 @@ const GuestCalendar = ({
   wishListDates,
   newWishListDates,
   myStays,
+  reservedStays,
   reservedMap,
   scrollToTodayTrigger = 0,
   scrollToMonthTrigger,
@@ -76,6 +79,7 @@ const GuestCalendar = ({
   onDateClick,
   onWishListClick,
   onMyStayClick,
+  onReservedClick,
 }: GuestCalendarProps) => {
   const { theme } = useTiBookTheme();
   const [months, setMonths] = useState<Date[]>([]);
@@ -117,6 +121,28 @@ const GuestCalendar = ({
     });
     return map;
   }, [myStays]);
+
+  // Same geometry for (R) HOLDS, drawn distinctly (see render) as "pending".
+  const reservedBars = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        pm?: { roomName: string; roomColor?: string; isStart: boolean };
+        am?: { roomName: string; roomColor?: string };
+      }
+    >();
+    (reservedStays ?? []).forEach((s) => {
+      if (!s.nights || s.nights < 1) return;
+      const start = parseISO(s.startKey);
+      for (let i = 0; i < s.nights; i++) {
+        const k = dk(addDays(start, i));
+        map.set(k, { ...map.get(k), pm: { roomName: s.roomName, roomColor: s.roomColor, isStart: i === 0 } });
+      }
+      const co = dk(addDays(start, s.nights));
+      map.set(co, { ...map.get(co), am: { roomName: s.roomName, roomColor: s.roomColor } });
+    });
+    return map;
+  }, [reservedStays]);
 
   useEffect(() => {
     const now = new Date();
@@ -239,6 +265,10 @@ const GuestCalendar = ({
     // night is free again, so the cell stays bookable for a fresh check-in.
     const isStayNight = !!bars?.pm && !inCart;
     const stayId = bars?.pm?.id;
+    // A held (R) night — occupied for this guest but unpaid. Tapping opens the pay
+    // reminder. Confirmed stays win if a date somehow has both.
+    const resBars = reservedBars.get(dateKey);
+    const isReservedNight = !!resBars?.pm && !inCart && !isStayNight;
 
     const numberClass = [
       "text-sm sm:text-xl leading-none select-none",
@@ -256,7 +286,7 @@ const GuestCalendar = ({
       isToday ? "react-calendar__custom_tile_today" : "",
       isOutside ? "opacity-20 pointer-events-none" : "",
       inCart ? "cursor-pointer" :
-      isStayNight ? "cursor-pointer" :
+      isStayNight || isReservedNight ? "cursor-pointer" :
       canBook ? `cursor-pointer ${theme.tileHover} ${theme.tileActive} transition-colors` :
       canWishList ? "cursor-pointer hover:bg-gray-100 transition-colors" : "cursor-default",
     ].join(" ");
@@ -266,9 +296,10 @@ const GuestCalendar = ({
         key={date.toISOString()}
         type="button"
         className={tileClass}
-        disabled={!canBook && !inCart && !canWishList && !isStayNight}
+        disabled={!canBook && !inCart && !canWishList && !isStayNight && !isReservedNight}
         onClick={
           isStayNight && stayId ? () => onMyStayClick?.(stayId) :
+          isReservedNight ? () => onReservedClick?.() :
           canBook || inCart ? () => onDateClick?.(date) :
           canWishList ? () => onWishListClick!(date) :
           undefined
@@ -332,6 +363,34 @@ const GuestCalendar = ({
             {bars.pm.isStart && (
               <span className="truncate px-1 text-[11px] font-bold leading-none text-black sm:text-xs">
                 {bars.pm.roomName}
+              </span>
+            )}
+          </div>
+        )}
+        {/* (R) HOLD — same ribbon geometry, but a dashed amber outline + ⏳ so it
+            clearly reads as "pending payment", not a confirmed stay. */}
+        {resBars?.am && !inCart && (
+          <div
+            className={`${getRoomColor(resBars.am.roomName, resBars.am.roomColor)} rounded-r-lg border-y-2 border-dashed border-amber-500 pointer-events-none`}
+            style={{ position: "absolute", bottom: "5px", height: "20px", left: "-1px", right: "80%" }}
+          />
+        )}
+        {resBars?.pm && !inCart && (
+          <div
+            className={`${getRoomColor(resBars.pm.roomName, resBars.pm.roomColor)} border-y-2 border-dashed border-amber-500 pointer-events-none flex items-center overflow-hidden`}
+            style={{
+              position: "absolute",
+              bottom: "5px",
+              height: "20px",
+              left: resBars.pm.isStart ? "20%" : "-1px",
+              right: "-1px",
+              borderTopLeftRadius: resBars.pm.isStart ? "0.5rem" : undefined,
+              borderBottomLeftRadius: resBars.pm.isStart ? "0.5rem" : undefined,
+            }}
+          >
+            {resBars.pm.isStart && (
+              <span className="truncate px-1 text-[11px] font-bold leading-none text-black sm:text-xs">
+                ⏳ {resBars.pm.roomName}
               </span>
             )}
           </div>
