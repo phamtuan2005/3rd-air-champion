@@ -200,6 +200,17 @@ const MainView = ({
   const [currentBookings, setCurrentBookings] = useState<bookingType[] | null>();
   const [selectedRoomName, setSelectedRoomName] = useState<string | null>(null);
   const [gapsMode, setGapsMode] = useState(false);
+  // Weeks-per-page on a narrow phone — tunable per device, persisted so each
+  // phone/tablet remembers its own comfortable value.
+  const [calendarRows, setCalendarRows] = useState<number>(() => {
+    const v = parseInt(localStorage.getItem("calendarRowsPerPage") || "4", 10);
+    return Number.isFinite(v) && v >= 2 && v <= 8 ? v : 4;
+  });
+  const updateCalendarRows = (n: number) => {
+    const clamped = Math.min(8, Math.max(2, n));
+    setCalendarRows(clamped);
+    localStorage.setItem("calendarRowsPerPage", String(clamped));
+  };
   const [editingRoomId, setEditingRoomId] = useState<string>("");
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
   const [scrollToTodayTrigger, setScrollToTodayTrigger] = useState(0);
@@ -755,6 +766,8 @@ const MainView = ({
               setSelectedRoomName={setSelectedRoomName}
               gapsMode={gapsMode}
               setGapsMode={setGapsMode}
+              rowsPerPage={calendarRows}
+              onRowsPerPageChange={updateCalendarRows}
             />
             <CustomCalendar
               currentGuest={currentGuest}
@@ -774,6 +787,7 @@ const MainView = ({
               scrollToTodayTrigger={scrollToTodayTrigger}
               gapsMode={gapsMode}
               onTodayInViewChange={setTodayInView}
+              rowsPerPage={calendarRows}
             />
             {/* Contact-info sheet — a draggable bottom sheet. Pull the grip up to
                 reveal the property/license details, tap or drag it down to minimize

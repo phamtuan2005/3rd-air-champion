@@ -27,6 +27,7 @@ interface CustomCalendarProps {
   setHoldDates: React.Dispatch<React.SetStateAction<Date[]>>;
   gapsMode?: boolean;
   onTodayInViewChange?: (inView: boolean) => void;
+  rowsPerPage?: number;
 }
 
 const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -49,6 +50,7 @@ const CustomCalendar = ({
   setHoldDates,
   gapsMode = false,
   onTodayInViewChange,
+  rowsPerPage,
 }: CustomCalendarProps) => {
   const [useMonthMap, setUseMonthMap] = useState<Map<string, dayType>>(monthMap);
 
@@ -174,6 +176,7 @@ const CustomCalendar = ({
       resolveBarLabel={resolveBarLabel}
       gapsMode={gapsMode}
       onTodayInViewChange={onTodayInViewChange}
+      rowsPerPage={rowsPerPage}
     />
   );
 };

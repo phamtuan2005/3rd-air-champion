@@ -40,6 +40,9 @@ interface CalendarGridProps {
   // Reports whether today's tile is on the currently visible page (a month can span
   // several pages, so "current month" no longer implies "today is on screen").
   onTodayInViewChange?: (inView: boolean) => void;
+  // Host-tunable cap on weeks-per-page for narrow phones (default 4). Stored
+  // per-device; only bites on narrow screens in full-calendar mode.
+  rowsPerPage?: number;
 }
 
 const SUBROW_HEIGHT = 20;
@@ -71,6 +74,7 @@ const CalendarGrid = ({
   resolveBarLabel,
   gapsMode = false,
   onTodayInViewChange,
+  rowsPerPage = 4,
 }: CalendarGridProps) => {
   const [months, setMonths] = useState<Date[]>([]);
   const [visibleIndex, setVisibleIndex] = useState<number>(monthsBack);
@@ -138,12 +142,13 @@ const CalendarGrid = ({
   // to sit crushed at the very bottom of a packed page. Desktop keeps the whole
   // month, so the cap only kicks in below the `sm` breakpoint. And in single-guest
   // mode (guestLanes) the rows are short lane-packed stays, so we WANT to show many
-  // weeks at once to see the whole span — no cap there. Tune MAX_ROWS_NARROW (3–4).
-  const MAX_ROWS_NARROW = 4;
+  // weeks at once to see the whole span — no cap there. The cap value is
+  // host-tunable per device (rowsPerPage), defaulting to 4.
+  const maxRowsNarrow = Math.max(1, rowsPerPage);
   const isNarrow = tileWidth != null && tileWidth * 7 < 640;
   const fitRows =
     containerHeight > 0 ? Math.max(Math.floor(containerHeight / minRowHeight), 1) : 5;
-  const numRows = isNarrow && !guestLanes ? Math.min(fitRows, MAX_ROWS_NARROW) : fitRows;
+  const numRows = isNarrow && !guestLanes ? Math.min(fitRows, maxRowsNarrow) : fitRows;
   // On a narrow phone, rows keep their NATURAL height (bars packed, no stretch)
   // instead of dividing the screen among them — the calendar simply ends partway
   // down with whitespace below the last week. Desktop still fills its column.
