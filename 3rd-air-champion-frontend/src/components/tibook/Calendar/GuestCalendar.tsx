@@ -349,7 +349,7 @@ const GuestCalendar = ({
         {bars?.am && !inCart && (
           <div
             className={`${getRoomColor(bars.am.roomName, bars.am.roomColor)} rounded-r-lg pointer-events-none`}
-            style={{ position: "absolute", bottom: "5px", height: "20px", left: "-1px", right: "80%" }}
+            style={{ position: "absolute", bottom: "5px", height: "26px", left: "-1px", right: "80%" }}
           />
         )}
         {bars?.pm && !inCart && (
@@ -358,7 +358,7 @@ const GuestCalendar = ({
             style={{
               position: "absolute",
               bottom: "5px",
-              height: "20px",
+              height: "26px",
               left: bars.pm.isStart ? "20%" : "-1px",
               right: "-1px",
               borderTopLeftRadius: bars.pm.isStart ? "0.5rem" : undefined,
@@ -366,7 +366,7 @@ const GuestCalendar = ({
             }}
           >
             {bars.pm.isStart && (
-              <span className="truncate px-1 text-[11px] font-bold leading-none text-black sm:text-xs">
+              <span className="truncate px-1 text-[13px] font-bold leading-none text-black sm:text-sm">
                 {bars.pm.roomName}
               </span>
             )}
@@ -378,7 +378,7 @@ const GuestCalendar = ({
         {resBars?.am && !inCart && (
           <div
             className={`${getRoomColor(resBars.am.roomName, resBars.am.roomColor)} rounded-r-lg border-y-2 border-dashed border-amber-500 pointer-events-none`}
-            style={{ position: "absolute", bottom: "5px", height: "20px", left: "-1px", right: "80%", backgroundImage: HOLD_HATCH }}
+            style={{ position: "absolute", bottom: "5px", height: "26px", left: "-1px", right: "80%", backgroundImage: HOLD_HATCH }}
           />
         )}
         {resBars?.pm && !inCart && (
@@ -387,7 +387,7 @@ const GuestCalendar = ({
             style={{
               position: "absolute",
               bottom: "5px",
-              height: "20px",
+              height: "26px",
               left: resBars.pm.isStart ? "20%" : "-1px",
               right: "-1px",
               borderTopLeftRadius: resBars.pm.isStart ? "0.5rem" : undefined,
@@ -396,7 +396,7 @@ const GuestCalendar = ({
             }}
           >
             {resBars.pm.isStart && (
-              <span className="truncate px-1 text-[11px] font-bold leading-none text-black sm:text-xs">
+              <span className="truncate px-1 text-[13px] font-bold leading-none text-black sm:text-sm">
                 {resBars.pm.roomName}
               </span>
             )}
