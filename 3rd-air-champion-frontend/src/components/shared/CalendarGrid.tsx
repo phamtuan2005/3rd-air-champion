@@ -45,7 +45,7 @@ interface CalendarGridProps {
   rowsPerPage?: number;
 }
 
-const SUBROW_HEIGHT = 20;
+const SUBROW_HEIGHT = 26; // color-box height per room row (was 20; +30% for legibility)
 
 // Key a grid cell by its LOCAL calendar day. date.toISOString() converts to UTC, which
 // shifts the day for east-of-UTC timezones and breaks monthMap lookups; local components
