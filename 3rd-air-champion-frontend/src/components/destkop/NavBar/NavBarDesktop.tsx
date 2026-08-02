@@ -211,7 +211,7 @@ const NavBarDesktop = ({
         {
           label: "Clean",
           desc: "Cleaner schedule, recorded hours and pay.",
-          emoji: "🧹",
+          emoji: "🧽",
           hover: "hover:border-orange-300 hover:text-orange-600",
           badges: [
             { n: cleanTodoCount, cls: YELLOW },
