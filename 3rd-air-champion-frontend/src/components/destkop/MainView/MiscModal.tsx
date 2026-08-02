@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { addMonths, format, subMonths } from "date-fns";
-import { FaReceipt, FaChevronLeft, FaChevronRight, FaTrash, FaPen } from "react-icons/fa";
+import { FaReceipt, FaChevronLeft, FaChevronRight, FaTrash, FaPlus } from "react-icons/fa";
 import {
   MiscExpenseType,
   createMiscExpense,
@@ -54,8 +54,7 @@ const emptyDraft = (monthDate: Date): Draft => ({
   note: "",
 });
 
-// The expense fields, shared by the Add form (bottom) and the inline row Editor,
-// so editing isn't just the add form relabeled — it lives on the item itself.
+// The expense fields, used by the focused editor for both Add and Edit.
 const ExpenseFields = ({
   draft,
   setDraft,
@@ -65,7 +64,7 @@ const ExpenseFields = ({
 }) => (
   <>
     {/* Category quick-pick */}
-    <div className="mb-2 grid grid-cols-4 gap-1">
+    <div className="mb-3 grid grid-cols-4 gap-1">
       {CATEGORIES.map((c) => (
         <button
           key={c}
@@ -80,7 +79,7 @@ const ExpenseFields = ({
       ))}
     </div>
 
-    <div className="mb-2 flex gap-2">
+    <div className="mb-3 flex gap-2">
       <div className="relative flex-1">
         <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-400">
           $
@@ -109,7 +108,7 @@ const ExpenseFields = ({
       placeholder={draft.category === "Other" ? "Describe it (e.g. HOA dues)" : "Label (e.g. paper towels)"}
       value={draft.label}
       onChange={(ev) => setDraft((d) => ({ ...d, label: ev.target.value }))}
-      className={`${inputCls} mb-2 w-full`}
+      className={`${inputCls} mb-3 w-full`}
     />
 
     {/* Recurring */}
@@ -197,10 +196,11 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Separate drafts: one for adding (bottom), one for the inline row editor.
-  const [addDraft, setAddDraft] = useState<Draft>(() => emptyDraft(monthDate));
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editDraft, setEditDraft] = useState<Draft>(() => emptyDraft(monthDate));
+  // Focused editor: opened by tapping a row (edit) or the + button (add).
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null); // null = adding
+  const [draft, setDraft] = useState<Draft>(() => emptyDraft(monthDate));
+  const editingExpense = editingId ? expenses.find((x) => x.id === editingId) ?? null : null;
 
   const reload = () => {
     setLoading(true);
@@ -234,9 +234,15 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
 
   const grandTotal = useMemo(() => monthItems.reduce((sum, e) => sum + e.amount, 0), [monthItems]);
 
-  const startEdit = (e: MiscExpenseType) => {
+  const openAdd = () => {
+    setEditingId(null);
+    setDraft(emptyDraft(monthDate));
+    setError("");
+    setEditorOpen(true);
+  };
+  const openEdit = (e: MiscExpenseType) => {
     setEditingId(e.id);
-    setEditDraft({
+    setDraft({
       category: e.category,
       label: e.label,
       amount: String(e.amount),
@@ -246,57 +252,52 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
       note: e.note,
     });
     setError("");
+    setEditorOpen(true);
   };
-  const cancelEdit = () => {
-    setEditingId(null);
+  const closeEditor = () => {
+    setEditorOpen(false);
     setError("");
   };
 
-  // Create (id null) or update (id) from a draft; returns whether it saved.
-  const persist = async (d: Draft, id: string | null): Promise<boolean> => {
-    const amount = parseFloat(d.amount);
+  const save = async () => {
+    const amount = parseFloat(draft.amount);
     if (!Number.isFinite(amount) || amount <= 0) {
       setError("Enter an amount greater than 0");
-      return false;
+      return;
     }
     setSaving(true);
     try {
       const payload = {
-        category: d.category,
-        label: d.label.trim(),
+        category: draft.category,
+        label: draft.label.trim(),
         amount,
-        date: d.date,
-        recurring: d.recurring,
-        endMonth: d.recurring ? d.endMonth : "",
-        note: d.note.trim(),
+        date: draft.date,
+        recurring: draft.recurring,
+        endMonth: draft.recurring ? draft.endMonth : "",
+        note: draft.note.trim(),
       };
-      if (id) await updateMiscExpense({ id, ...payload }, token);
+      if (editingId) await updateMiscExpense({ id: editingId, ...payload }, token);
       else await createMiscExpense({ host: hostId, ...payload }, token);
       setError("");
       reload();
-      return true;
+      setEditorOpen(false);
     } catch (err: any) {
       setError(err.response?.data?.error ?? "Could not save expense");
-      return false;
     } finally {
       setSaving(false);
     }
   };
 
-  const saveAdd = async () => {
-    if (await persist(addDraft, null)) setAddDraft(emptyDraft(monthDate));
-  };
-  const saveEdit = async () => {
-    if (editingId && (await persist(editDraft, editingId))) setEditingId(null);
-  };
-
-  const remove = async (e: MiscExpenseType) => {
-    const msg = e.recurring ? "Delete this recurring expense for ALL months?" : "Delete this expense?";
+  const removeCurrent = async () => {
+    if (!editingExpense) return;
+    const msg = editingExpense.recurring
+      ? "Delete this recurring expense for ALL months?"
+      : "Delete this expense?";
     if (!window.confirm(msg)) return;
     try {
-      await deleteMiscExpense(e.id, token);
-      if (editingId === e.id) cancelEdit();
+      await deleteMiscExpense(editingExpense.id, token);
       reload();
+      setEditorOpen(false);
     } catch (err: any) {
       setError(err.response?.data?.error ?? "Could not delete expense");
     }
@@ -380,103 +381,47 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
           </div>
         )}
 
-        {/* Expense list */}
+        {/* Expense list — tap any row to edit it */}
         <div className="min-h-0 flex-1 overflow-y-auto px-4">
           {loading ? (
             <div className="py-8 text-center text-sm text-gray-400">Loading…</div>
           ) : monthItems.length === 0 ? (
             <div className="py-8 text-center text-sm text-gray-400">
-              No expenses recorded for {format(monthDate, "MMMM")}. Add one below.
+              No expenses recorded for {format(monthDate, "MMMM")}. Tap + to add one.
             </div>
           ) : (
             <ul className="space-y-1.5 pb-2">
               {monthItems.map((e) => {
                 const style = CAT_STYLE[e.category] ?? CAT_STYLE.Other;
-
-                // Inline editor — the row itself becomes the form.
-                if (editingId === e.id) {
-                  return (
-                    <li
-                      key={e.id}
-                      className="rounded-xl border-2 border-emerald-300 bg-emerald-50/40 p-3"
-                    >
-                      <div className="mb-2 flex items-center justify-between">
-                        <span className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">
-                          Editing
-                        </span>
-                        <button
-                          type="button"
-                          onClick={cancelEdit}
-                          className="text-[11px] font-medium text-gray-400 hover:text-gray-600"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                      <ExpenseFields draft={editDraft} setDraft={setEditDraft} />
-                      {error && <div className="mt-2 text-xs font-medium text-rose-500">{error}</div>}
-                      <div className="mt-2 flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => remove(e)}
-                          className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-100"
-                        >
-                          <FaTrash size={11} />
-                          Delete
-                        </button>
-                        <button
-                          type="button"
-                          onClick={saveEdit}
-                          disabled={saving}
-                          className="flex-1 rounded-lg bg-gray-900 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                        >
-                          {saving ? "Saving…" : "Save changes"}
-                        </button>
-                      </div>
-                    </li>
-                  );
-                }
-
                 return (
-                  <li
-                    key={e.id}
-                    className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2"
-                  >
-                    <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${style.dot}`} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="truncate text-sm font-semibold text-gray-900">
-                          {e.label || e.category}
-                        </span>
-                        {e.recurring && (
-                          <span className="shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-700">
-                            Monthly
+                  <li key={e.id}>
+                    <button
+                      type="button"
+                      onClick={() => openEdit(e)}
+                      className="flex w-full items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-left transition-colors hover:border-gray-300 hover:bg-gray-50"
+                    >
+                      <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${style.dot}`} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate text-sm font-semibold text-gray-900">
+                            {e.label || e.category}
                           </span>
-                        )}
+                          {e.recurring && (
+                            <span className="shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-700">
+                              Monthly
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-gray-400">
+                          {e.category}
+                          {e.recurring
+                            ? ` · since ${format(new Date(`${e.date}T00:00:00`), "MMM yyyy")}`
+                            : ` · ${format(new Date(`${e.date}T00:00:00`), "MMM d")}`}
+                          {e.note ? ` · ${e.note}` : ""}
+                        </div>
                       </div>
-                      <div className="text-[11px] text-gray-400">
-                        {e.category}
-                        {e.recurring
-                          ? ` · since ${format(new Date(`${e.date}T00:00:00`), "MMM yyyy")}`
-                          : ` · ${format(new Date(`${e.date}T00:00:00`), "MMM d")}`}
-                        {e.note ? ` · ${e.note}` : ""}
-                      </div>
-                    </div>
-                    <span className="shrink-0 text-sm font-bold text-gray-900">${money(e.amount)}</span>
-                    <button
-                      type="button"
-                      onClick={() => startEdit(e)}
-                      className="shrink-0 p-1 text-gray-300 hover:text-gray-600"
-                      aria-label="Edit"
-                    >
-                      <FaPen size={12} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => remove(e)}
-                      className="shrink-0 p-1 text-gray-300 hover:text-rose-500"
-                      aria-label="Delete"
-                    >
-                      <FaTrash size={12} />
+                      <span className="shrink-0 text-sm font-bold text-gray-900">${money(e.amount)}</span>
+                      <span className="shrink-0 text-gray-300">›</span>
                     </button>
                   </li>
                 );
@@ -485,29 +430,69 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
           )}
         </div>
 
-        {/* Add form — always adds a NEW expense (editing happens inline above) */}
+        {/* Add button — opens the focused editor for a new expense */}
         <div className="shrink-0 border-t border-gray-200 bg-gray-50 px-4 py-3">
-          <div className="mb-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Add expense</span>
-          </div>
-          <ExpenseFields draft={addDraft} setDraft={setAddDraft} />
-          {error && !editingId && <div className="mt-2 text-xs font-medium text-rose-500">{error}</div>}
           <button
             type="button"
-            onClick={saveAdd}
-            disabled={saving}
-            className="mt-2 w-full rounded-lg bg-gray-900 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            onClick={openAdd}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-gray-900 py-2.5 text-sm font-semibold text-white hover:bg-black"
           >
-            {saving && !editingId ? "Saving…" : "Add expense"}
+            <FaPlus size={12} />
+            Add expense
           </button>
         </div>
+
+        {/* Focused editor — covers the panel; add or edit one expense */}
+        {editorOpen && (
+          <div className="absolute inset-0 z-20 flex flex-col bg-white">
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3">
+              <h3 className="text-base font-bold text-gray-900">
+                {editingId ? "Edit expense" : "Add expense"}
+              </h3>
+              <button
+                type="button"
+                onClick={closeEditor}
+                aria-label="Close"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-xl leading-none text-gray-400 hover:bg-gray-100"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+              <ExpenseFields draft={draft} setDraft={setDraft} />
+              {error && <div className="mt-3 text-xs font-medium text-rose-500">{error}</div>}
+            </div>
+
+            <div className="flex shrink-0 gap-2 border-t border-gray-100 px-4 py-3">
+              {editingId && (
+                <button
+                  type="button"
+                  onClick={removeCurrent}
+                  className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-100"
+                >
+                  <FaTrash size={11} />
+                  Delete
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={save}
+                disabled={saving}
+                className="flex-1 rounded-lg bg-gray-900 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {saving ? "Saving…" : editingId ? "Save changes" : "Add expense"}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Resize grip — drag the bottom-right corner */}
         <div
           onPointerDown={onResizeStart}
           onPointerMove={onResizeMove}
           onPointerUp={onResizeEnd}
-          className="absolute bottom-0 right-0 flex h-5 w-5 cursor-nwse-resize touch-none items-end justify-end p-1"
+          className="absolute bottom-0 right-0 z-30 flex h-5 w-5 cursor-nwse-resize touch-none items-end justify-end p-1"
           aria-label="Resize"
         >
           <span className="h-2.5 w-2.5 rounded-br-md border-b-2 border-r-2 border-gray-300" />
