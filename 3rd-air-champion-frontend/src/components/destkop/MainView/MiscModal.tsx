@@ -421,9 +421,10 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
   // Delete one expense (confirm first). Returns whether it was deleted — the
   // swipe row uses this to snap back when the user cancels.
   const removeExpense = async (e: MiscExpenseType): Promise<boolean> => {
+    const name = e.label || e.category;
     const msg = e.recurring
-      ? "Delete this recurring expense for ALL months?"
-      : "Delete this expense?";
+      ? `Are you sure you want to delete "${name}" for ALL months?`
+      : `Are you sure you want to delete "${name}"?`;
     if (!window.confirm(msg)) return false;
     try {
       await deleteMiscExpense(e.id, token);
