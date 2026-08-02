@@ -442,10 +442,31 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
           </button>
         </div>
 
-        {/* Focused editor — covers the panel; add or edit one expense */}
-        {editorOpen && (
-          <div className="absolute inset-0 z-20 flex flex-col bg-white">
-            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3">
+        {/* Resize grip — drag the bottom-right corner */}
+        <div
+          onPointerDown={onResizeStart}
+          onPointerMove={onResizeMove}
+          onPointerUp={onResizeEnd}
+          className="absolute bottom-0 right-0 z-30 flex h-5 w-5 cursor-nwse-resize touch-none items-end justify-end p-1"
+          aria-label="Resize"
+        >
+          <span className="h-2.5 w-2.5 rounded-br-md border-b-2 border-r-2 border-gray-300" />
+        </div>
+      </div>
+
+      {/* Focused editor — its own compact floating modal, sized for the short form */}
+      {editorOpen && (
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center p-4"
+          onClick={closeEditor}
+        >
+          <div className="absolute inset-0 bg-black/40" />
+          <div
+            className="relative flex w-full max-w-[380px] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+            onClick={(ev) => ev.stopPropagation()}
+          >
+            <div className="h-1.5 shrink-0 bg-gradient-to-r from-emerald-400 via-blue-400 to-violet-400" />
+            <div className="flex shrink-0 items-center justify-between px-4 pb-2 pt-3">
               <h3 className="text-base font-bold text-gray-900">
                 {editingId ? "Edit expense" : "Add expense"}
               </h3>
@@ -459,7 +480,7 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
               </button>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+            <div className="px-4 py-2">
               <ExpenseFields draft={draft} setDraft={setDraft} />
               {error && <div className="mt-3 text-xs font-medium text-rose-500">{error}</div>}
             </div>
@@ -485,19 +506,8 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
               </button>
             </div>
           </div>
-        )}
-
-        {/* Resize grip — drag the bottom-right corner */}
-        <div
-          onPointerDown={onResizeStart}
-          onPointerMove={onResizeMove}
-          onPointerUp={onResizeEnd}
-          className="absolute bottom-0 right-0 z-30 flex h-5 w-5 cursor-nwse-resize touch-none items-end justify-end p-1"
-          aria-label="Resize"
-        >
-          <span className="h-2.5 w-2.5 rounded-br-md border-b-2 border-r-2 border-gray-300" />
         </div>
-      </div>
+      )}
     </>,
     document.body,
   );
