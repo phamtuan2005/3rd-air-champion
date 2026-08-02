@@ -22,21 +22,9 @@ const CATEGORIES = ["Supplies", "Utilities", "Maintenance", "Other"] as const;
 type Cat = (typeof CATEGORIES)[number];
 
 const CAT_STYLE: Record<string, { badge: string; dot: string; pick: string }> = {
-  Supplies: {
-    badge: "bg-blue-100 text-blue-700",
-    dot: "bg-blue-500",
-    pick: "bg-blue-600 text-white",
-  },
-  Utilities: {
-    badge: "bg-amber-100 text-amber-700",
-    dot: "bg-amber-500",
-    pick: "bg-amber-500 text-white",
-  },
-  Maintenance: {
-    badge: "bg-violet-100 text-violet-700",
-    dot: "bg-violet-500",
-    pick: "bg-violet-600 text-white",
-  },
+  Supplies: { badge: "bg-blue-100 text-blue-700", dot: "bg-blue-500", pick: "bg-blue-600 text-white" },
+  Utilities: { badge: "bg-amber-100 text-amber-700", dot: "bg-amber-500", pick: "bg-amber-500 text-white" },
+  Maintenance: { badge: "bg-violet-100 text-violet-700", dot: "bg-violet-500", pick: "bg-violet-600 text-white" },
   Other: { badge: "bg-gray-100 text-gray-700", dot: "bg-gray-400", pick: "bg-gray-700 text-white" },
 };
 
@@ -46,7 +34,17 @@ const money = (n: number) =>
 const inputCls =
   "rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm focus:border-gray-400 focus:outline-none";
 
-const emptyDraft = (monthDate: Date) => ({
+interface Draft {
+  category: string;
+  label: string;
+  amount: string;
+  date: string;
+  recurring: boolean;
+  endMonth: string;
+  note: string;
+}
+
+const emptyDraft = (monthDate: Date): Draft => ({
   category: "Supplies" as Cat | string,
   label: "",
   amount: "",
@@ -55,6 +53,96 @@ const emptyDraft = (monthDate: Date) => ({
   endMonth: "",
   note: "",
 });
+
+// The expense fields, shared by the Add form (bottom) and the inline row Editor,
+// so editing isn't just the add form relabeled — it lives on the item itself.
+const ExpenseFields = ({
+  draft,
+  setDraft,
+}: {
+  draft: Draft;
+  setDraft: React.Dispatch<React.SetStateAction<Draft>>;
+}) => (
+  <>
+    {/* Category quick-pick */}
+    <div className="mb-2 grid grid-cols-4 gap-1">
+      {CATEGORIES.map((c) => (
+        <button
+          key={c}
+          type="button"
+          onClick={() => setDraft((d) => ({ ...d, category: c }))}
+          className={`rounded-lg py-1.5 text-xs font-semibold transition-colors ${
+            draft.category === c ? CAT_STYLE[c].pick : "border border-gray-200 bg-white text-gray-500"
+          }`}
+        >
+          {c}
+        </button>
+      ))}
+    </div>
+
+    <div className="mb-2 flex gap-2">
+      <div className="relative flex-1">
+        <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-400">
+          $
+        </span>
+        <input
+          type="number"
+          inputMode="decimal"
+          min="0"
+          step="0.01"
+          placeholder="0.00"
+          value={draft.amount}
+          onChange={(ev) => setDraft((d) => ({ ...d, amount: ev.target.value }))}
+          className={`${inputCls} w-full pl-6`}
+        />
+      </div>
+      <input
+        type="date"
+        value={draft.date}
+        onChange={(ev) => setDraft((d) => ({ ...d, date: ev.target.value }))}
+        className={`${inputCls} flex-1`}
+      />
+    </div>
+
+    <input
+      type="text"
+      placeholder={draft.category === "Other" ? "Describe it (e.g. HOA dues)" : "Label (e.g. paper towels)"}
+      value={draft.label}
+      onChange={(ev) => setDraft((d) => ({ ...d, label: ev.target.value }))}
+      className={`${inputCls} mb-2 w-full`}
+    />
+
+    {/* Recurring */}
+    <div className="flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        onClick={() => setDraft((d) => ({ ...d, recurring: !d.recurring }))}
+        className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold ${
+          draft.recurring ? "bg-emerald-600 text-white" : "border border-gray-200 bg-white text-gray-600"
+        }`}
+      >
+        <span
+          className={`h-3.5 w-3.5 rounded-full border-2 ${
+            draft.recurring ? "border-white bg-white/30" : "border-gray-300"
+          }`}
+        />
+        Repeats monthly
+      </button>
+      {draft.recurring && (
+        <label className="flex items-center gap-1 text-[11px] text-gray-500">
+          until
+          <input
+            type="month"
+            value={draft.endMonth}
+            onChange={(ev) => setDraft((d) => ({ ...d, endMonth: ev.target.value }))}
+            className={`${inputCls} py-1`}
+          />
+          <span className="text-gray-400">(blank = ongoing)</span>
+        </label>
+      )}
+    </div>
+  </>
+);
 
 const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => {
   const [monthDate, setMonthDate] = useState(() => currentMonth ?? new Date());
@@ -109,8 +197,10 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Separate drafts: one for adding (bottom), one for the inline row editor.
+  const [addDraft, setAddDraft] = useState<Draft>(() => emptyDraft(monthDate));
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState(() => emptyDraft(monthDate));
+  const [editDraft, setEditDraft] = useState<Draft>(() => emptyDraft(monthDate));
 
   const reload = () => {
     setLoading(true);
@@ -128,8 +218,6 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hostId, token]);
 
-  // Expenses that apply to the viewed month (one-offs in this month + recurring
-  // ones active this month), newest first.
   const monthItems = useMemo(
     () =>
       expenses
@@ -144,19 +232,11 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
     return totals;
   }, [monthItems]);
 
-  const grandTotal = useMemo(
-    () => monthItems.reduce((sum, e) => sum + e.amount, 0),
-    [monthItems],
-  );
-
-  const resetForm = () => {
-    setEditingId(null);
-    setDraft(emptyDraft(monthDate));
-  };
+  const grandTotal = useMemo(() => monthItems.reduce((sum, e) => sum + e.amount, 0), [monthItems]);
 
   const startEdit = (e: MiscExpenseType) => {
     setEditingId(e.id);
-    setDraft({
+    setEditDraft({
       category: e.category,
       label: e.label,
       amount: String(e.amount),
@@ -165,48 +245,57 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
       endMonth: e.endMonth,
       note: e.note,
     });
+    setError("");
+  };
+  const cancelEdit = () => {
+    setEditingId(null);
+    setError("");
   };
 
-  const save = async () => {
-    const amount = parseFloat(draft.amount);
+  // Create (id null) or update (id) from a draft; returns whether it saved.
+  const persist = async (d: Draft, id: string | null): Promise<boolean> => {
+    const amount = parseFloat(d.amount);
     if (!Number.isFinite(amount) || amount <= 0) {
       setError("Enter an amount greater than 0");
-      return;
+      return false;
     }
     setSaving(true);
     try {
       const payload = {
-        category: draft.category,
-        label: draft.label.trim(),
+        category: d.category,
+        label: d.label.trim(),
         amount,
-        date: draft.date,
-        recurring: draft.recurring,
-        endMonth: draft.recurring ? draft.endMonth : "",
-        note: draft.note.trim(),
+        date: d.date,
+        recurring: d.recurring,
+        endMonth: d.recurring ? d.endMonth : "",
+        note: d.note.trim(),
       };
-      if (editingId) {
-        await updateMiscExpense({ id: editingId, ...payload }, token);
-      } else {
-        await createMiscExpense({ host: hostId, ...payload }, token);
-      }
-      resetForm();
+      if (id) await updateMiscExpense({ id, ...payload }, token);
+      else await createMiscExpense({ host: hostId, ...payload }, token);
       setError("");
       reload();
+      return true;
     } catch (err: any) {
       setError(err.response?.data?.error ?? "Could not save expense");
+      return false;
     } finally {
       setSaving(false);
     }
   };
 
+  const saveAdd = async () => {
+    if (await persist(addDraft, null)) setAddDraft(emptyDraft(monthDate));
+  };
+  const saveEdit = async () => {
+    if (editingId && (await persist(editDraft, editingId))) setEditingId(null);
+  };
+
   const remove = async (e: MiscExpenseType) => {
-    const msg = e.recurring
-      ? "Delete this recurring expense for ALL months?"
-      : "Delete this expense?";
+    const msg = e.recurring ? "Delete this recurring expense for ALL months?" : "Delete this expense?";
     if (!window.confirm(msg)) return;
     try {
       await deleteMiscExpense(e.id, token);
-      if (editingId === e.id) resetForm();
+      if (editingId === e.id) cancelEdit();
       reload();
     } catch (err: any) {
       setError(err.response?.data?.error ?? "Could not delete expense");
@@ -271,9 +360,7 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
             </button>
           </div>
           <div className="text-right">
-            <div className="text-[10px] font-medium uppercase tracking-wide text-gray-400">
-              Month total
-            </div>
+            <div className="text-[10px] font-medium uppercase tracking-wide text-gray-400">Month total</div>
             <div className="text-lg font-bold text-gray-900">${money(grandTotal)}</div>
           </div>
         </div>
@@ -305,6 +392,50 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
             <ul className="space-y-1.5 pb-2">
               {monthItems.map((e) => {
                 const style = CAT_STYLE[e.category] ?? CAT_STYLE.Other;
+
+                // Inline editor — the row itself becomes the form.
+                if (editingId === e.id) {
+                  return (
+                    <li
+                      key={e.id}
+                      className="rounded-xl border-2 border-emerald-300 bg-emerald-50/40 p-3"
+                    >
+                      <div className="mb-2 flex items-center justify-between">
+                        <span className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">
+                          Editing
+                        </span>
+                        <button
+                          type="button"
+                          onClick={cancelEdit}
+                          className="text-[11px] font-medium text-gray-400 hover:text-gray-600"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                      <ExpenseFields draft={editDraft} setDraft={setEditDraft} />
+                      {error && <div className="mt-2 text-xs font-medium text-rose-500">{error}</div>}
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => remove(e)}
+                          className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-100"
+                        >
+                          <FaTrash size={11} />
+                          Delete
+                        </button>
+                        <button
+                          type="button"
+                          onClick={saveEdit}
+                          disabled={saving}
+                          className="flex-1 rounded-lg bg-gray-900 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                        >
+                          {saving ? "Saving…" : "Save changes"}
+                        </button>
+                      </div>
+                    </li>
+                  );
+                }
+
                 return (
                   <li
                     key={e.id}
@@ -330,9 +461,7 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
                         {e.note ? ` · ${e.note}` : ""}
                       </div>
                     </div>
-                    <span className="shrink-0 text-sm font-bold text-gray-900">
-                      ${money(e.amount)}
-                    </span>
+                    <span className="shrink-0 text-sm font-bold text-gray-900">${money(e.amount)}</span>
                     <button
                       type="button"
                       onClick={() => startEdit(e)}
@@ -356,114 +485,20 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
           )}
         </div>
 
-        {/* Entry form */}
+        {/* Add form — always adds a NEW expense (editing happens inline above) */}
         <div className="shrink-0 border-t border-gray-200 bg-gray-50 px-4 py-3">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-              {editingId ? "Edit expense" : "Add expense"}
-            </span>
-            {editingId && (
-              <button
-                type="button"
-                onClick={resetForm}
-                className="text-[11px] font-medium text-gray-400 hover:text-gray-600"
-              >
-                Cancel edit
-              </button>
-            )}
+          <div className="mb-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Add expense</span>
           </div>
-
-          {/* Category quick-pick */}
-          <div className="mb-2 grid grid-cols-4 gap-1">
-            {CATEGORIES.map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => setDraft((d) => ({ ...d, category: c }))}
-                className={`rounded-lg py-1.5 text-xs font-semibold transition-colors ${
-                  draft.category === c ? CAT_STYLE[c].pick : "bg-white text-gray-500 border border-gray-200"
-                }`}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
-
-          <div className="mb-2 flex gap-2">
-            <div className="relative flex-1">
-              <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-400">
-                $
-              </span>
-              <input
-                type="number"
-                inputMode="decimal"
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-                value={draft.amount}
-                onChange={(ev) => setDraft((d) => ({ ...d, amount: ev.target.value }))}
-                className={`${inputCls} w-full pl-6`}
-              />
-            </div>
-            <input
-              type="date"
-              value={draft.date}
-              onChange={(ev) => setDraft((d) => ({ ...d, date: ev.target.value }))}
-              className={`${inputCls} flex-1`}
-            />
-          </div>
-
-          <input
-            type="text"
-            placeholder={
-              draft.category === "Other" ? "Describe it (e.g. HOA dues)" : "Label (e.g. paper towels)"
-            }
-            value={draft.label}
-            onChange={(ev) => setDraft((d) => ({ ...d, label: ev.target.value }))}
-            className={`${inputCls} mb-2 w-full`}
-          />
-
-          {/* Recurring */}
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setDraft((d) => ({ ...d, recurring: !d.recurring }))}
-              className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold ${
-                draft.recurring
-                  ? "bg-emerald-600 text-white"
-                  : "border border-gray-200 bg-white text-gray-600"
-              }`}
-            >
-              <span
-                className={`h-3.5 w-3.5 rounded-full border-2 ${
-                  draft.recurring ? "border-white bg-white/30" : "border-gray-300"
-                }`}
-              />
-              Repeats monthly
-            </button>
-            {draft.recurring && (
-              <label className="flex items-center gap-1 text-[11px] text-gray-500">
-                until
-                <input
-                  type="month"
-                  value={draft.endMonth}
-                  onChange={(ev) => setDraft((d) => ({ ...d, endMonth: ev.target.value }))}
-                  className={`${inputCls} py-1`}
-                />
-                <span className="text-gray-400">(blank = ongoing)</span>
-              </label>
-            )}
-          </div>
-
-          {error && <div className="mb-2 text-xs font-medium text-rose-500">{error}</div>}
-
+          <ExpenseFields draft={addDraft} setDraft={setAddDraft} />
+          {error && !editingId && <div className="mt-2 text-xs font-medium text-rose-500">{error}</div>}
           <button
             type="button"
-            onClick={save}
+            onClick={saveAdd}
             disabled={saving}
-            className="w-full rounded-lg bg-gray-900 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            className="mt-2 w-full rounded-lg bg-gray-900 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
-            {saving ? "Saving…" : editingId ? "Update expense" : "Add expense"}
+            {saving && !editingId ? "Saving…" : "Add expense"}
           </button>
         </div>
 
