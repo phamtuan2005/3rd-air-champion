@@ -1,6 +1,7 @@
 import { useContext, useState } from "react";
 import { createPortal } from "react-dom";
 import { FaCalendarAlt, FaClipboardList, FaDollarSign } from "react-icons/fa";
+import { MdCleaningServices } from "react-icons/md";
 import ProfileDesktop from "./ProfileDesktop";
 import { FooterContext, GuestModeContext } from "../../../context";
 
@@ -109,7 +110,7 @@ const NavBarDesktop = ({
   type PickAction = {
     label: string;
     desc: string;
-    emoji: string;
+    emoji: React.ReactNode; // emoji string, or an icon component (e.g. Clean)
     hover: string; // per-card hover accent (hardcoded so Tailwind keeps the class)
     badges?: { n: number; cls: string }[];
     run: () => void;
@@ -211,7 +212,7 @@ const NavBarDesktop = ({
         {
           label: "Clean",
           desc: "Cleaner schedule, recorded hours and pay.",
-          emoji: "🧽",
+          emoji: <MdCleaningServices className="text-teal-600" />,
           hover: "hover:border-orange-300 hover:text-orange-600",
           badges: [
             { n: cleanTodoCount, cls: YELLOW },
