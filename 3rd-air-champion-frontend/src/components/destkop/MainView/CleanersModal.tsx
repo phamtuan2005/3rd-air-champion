@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { addDays, format, startOfToday, startOfWeek } from "date-fns";
 import { FaDollarSign, FaRegClock } from "react-icons/fa";
-import { TbVacuumCleaner } from "react-icons/tb";
+import { MdCleaningServices } from "react-icons/md";
 import { dayType } from "../../../util/types/dayType";
 import { getRoomColor } from "../../../util/getRoomColor";
 import { getCleaningForecast } from "../../../util/cleaningTasks";
@@ -1018,7 +1018,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
           onPointerUp={onDragEnd}
         >
           <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
-            <TbVacuumCleaner className="text-emerald-600" />
+            <MdCleaningServices className="text-emerald-600" />
             Clean
           </h2>
           <button
