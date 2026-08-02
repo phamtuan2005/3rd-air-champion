@@ -41,16 +41,18 @@ export const getCleaningItems = (
   const todayKey = dateKey(today);
   const yesterdayKey = dateKey(addDays(today, -1));
 
-  // Most recent checkout per room within the lookback window (soft holds excluded —
-  // a lapsed reservation never occupied the room). daysAgo = how many days back the
-  // stay's last night was (1 = last night, i.e. checkout this morning).
+  // Most recent checkout per room within the lookback window. Reserved (R) holds
+  // ARE included: a reserved booking occupies the room (pending payment), so when
+  // it checks out the room still needs cleaning. If a hold later lapses it's
+  // unbooked and drops out of monthMap, so the cleaning self-corrects. daysAgo =
+  // how many days back the stay's last night was (1 = last night = this morning).
   const latestCheckout = new Map<string, { booking: bookingType; checkoutKey: string; daysAgo: number }>();
   for (let i = 1; i <= CLEANING_LOOKBACK_DAYS; i++) {
     const key = dateKey(addDays(today, -i));
     const day = monthMap.get(key);
     if (!day) continue;
     for (const b of day.bookings) {
-      if (!b.room || b.reserved) continue;
+      if (!b.room) continue;
       if (b.endDate.split("T")[0] !== key) continue; // last night of the stay
       if (!latestCheckout.has(b.room.id))
         latestCheckout.set(b.room.id, { booking: b, checkoutKey: key, daysAgo: i });
@@ -225,11 +227,13 @@ export const getCleaningForecast = (
     const entries: ForecastEntry[] = [];
     const covered = new Set<string>(); // rooms already given an entry this morning
 
-    // 1. Confirmed checkouts. A missing prior-night Day doc just means nobody
+    // 1. Checkouts this morning. A missing prior-night Day doc just means nobody
     //    stayed — skip the checkout scan, but the gap loop below still runs.
+    //    Reserved (R) holds count: they occupy the room, so their checkout still
+    //    needs cleaning (a lapsed hold is unbooked and drops out on its own).
     if (lastNight) {
       for (const b of lastNight.bookings) {
-        if (!b.room || b.reserved) continue;
+        if (!b.room) continue;
         if (b.endDate.split("T")[0] !== lastNightKey) continue; // last night of the stay
         const sameDayCheckIn =
           monthMap
