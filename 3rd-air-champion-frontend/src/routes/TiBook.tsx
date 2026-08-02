@@ -295,12 +295,11 @@ const TiBookInner = () => {
     return scopedRooms.filter((r) => !bookedIds.has(r.id));
   };
 
-  // Commit a date to the cart for a specific room, and lock the room filter to it
-  // so the rest of the stay is built in the same room and the picker doesn't
-  // re-ask on every tap.
+  // Commit a date to the cart for a specific room. The choice is PER DATE only —
+  // it must NOT lock the global room filter, or every other date would be forced
+  // into this same room. Each new date re-asks so the guest can mix rooms.
   const addCartDateForRoom = (date: Date, roomId: string) => {
     expandCal();
-    setSelectedRoomIds(new Set([roomId]));
     setScrollToMonthTrigger({ month: new Date(date.getFullYear(), date.getMonth(), 1), seq: Date.now() });
     setCartDates((prev) => new Map(prev).set(keyOfDate(date), roomId));
     setRoomPickerDate(null);
