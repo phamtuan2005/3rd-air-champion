@@ -143,6 +143,108 @@ const ExpenseFields = ({
   </>
 );
 
+// One expense row. Tap to edit; swipe left past the threshold to delete.
+// Vertical drags fall through to the list's native scroll.
+const SwipeRow = ({
+  e,
+  onEdit,
+  onDelete,
+}: {
+  e: MiscExpenseType;
+  onEdit: () => void;
+  onDelete: () => Promise<boolean>;
+}) => {
+  const [tx, setTx] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const startRef = useRef<{ x: number; y: number } | null>(null);
+  const lockRef = useRef<null | "h" | "v">(null);
+  const movedRef = useRef(false);
+  const THRESH = -96; // slide at least this far left to trigger delete
+  const style = CAT_STYLE[e.category] ?? CAT_STYLE.Other;
+
+  const onPointerDown = (ev: React.PointerEvent) => {
+    startRef.current = { x: ev.clientX, y: ev.clientY };
+    lockRef.current = null;
+    movedRef.current = false;
+  };
+  const onPointerMove = (ev: React.PointerEvent) => {
+    const s = startRef.current;
+    if (!s) return;
+    const dx = ev.clientX - s.x;
+    const dy = ev.clientY - s.y;
+    if (lockRef.current === null) {
+      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+      lockRef.current = Math.abs(dx) > Math.abs(dy) ? "h" : "v";
+      if (lockRef.current === "h") {
+        (ev.currentTarget as HTMLElement).setPointerCapture(ev.pointerId);
+        setDragging(true);
+      }
+    }
+    if (lockRef.current !== "h") return;
+    movedRef.current = true;
+    setTx(Math.max(-140, Math.min(0, dx))); // left only
+  };
+  const onPointerUp = async () => {
+    startRef.current = null;
+    const wasHorizontal = lockRef.current === "h";
+    lockRef.current = null;
+    setDragging(false);
+    if (wasHorizontal && tx <= THRESH) {
+      setTx(-140);
+      const ok = await onDelete();
+      if (!ok) setTx(0); // canceled — snap back (deleted rows just unmount)
+    } else {
+      setTx(0);
+    }
+  };
+  const handleClick = () => {
+    if (movedRef.current) {
+      movedRef.current = false;
+      return; // it was a swipe, not a tap
+    }
+    onEdit();
+  };
+
+  return (
+    <li className="relative overflow-hidden rounded-xl">
+      {/* Delete affordance revealed under the row as it slides left */}
+      <div className="absolute inset-0 flex items-center justify-end rounded-xl bg-rose-500 pr-5">
+        <FaTrash className="text-white" size={14} />
+      </div>
+      <button
+        type="button"
+        onClick={handleClick}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        style={{ transform: `translateX(${tx}px)`, transition: dragging ? "none" : "transform 0.2s ease" }}
+        className="relative flex w-full touch-pan-y items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-left hover:border-gray-300 hover:bg-gray-50"
+      >
+        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${style.dot}`} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <span className="truncate text-sm font-semibold text-gray-900">{e.label || e.category}</span>
+            {e.recurring && (
+              <span className="shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-700">
+                Monthly
+              </span>
+            )}
+          </div>
+          <div className="text-[11px] text-gray-400">
+            {e.category}
+            {e.recurring
+              ? ` · since ${format(new Date(`${e.date}T00:00:00`), "MMM yyyy")}`
+              : ` · ${format(new Date(`${e.date}T00:00:00`), "MMM d")}`}
+            {e.note ? ` · ${e.note}` : ""}
+          </div>
+        </div>
+        <span className="shrink-0 text-sm font-bold text-gray-900">${money(e.amount)}</span>
+        <span className="shrink-0 text-gray-300">›</span>
+      </button>
+    </li>
+  );
+};
+
 const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => {
   const [monthDate, setMonthDate] = useState(() => currentMonth ?? new Date());
   const monthKey = format(monthDate, "yyyy-MM");
@@ -202,6 +304,32 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
   const [draft, setDraft] = useState<Draft>(() => emptyDraft(monthDate));
   const editingExpense = editingId ? expenses.find((x) => x.id === editingId) ?? null : null;
 
+  // The editor popup is its own draggable floating card.
+  const [editorPos, setEditorPos] = useState({ x: 0, y: 0 });
+  const editorDragRef = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
+  const centerEditor = () => {
+    const w = Math.min(380, window.innerWidth * 0.92);
+    setEditorPos({
+      x: Math.max(16, (window.innerWidth - w) / 2),
+      y: Math.max(24, window.innerHeight * 0.18),
+    });
+  };
+  const onEditorDragStart = (e: React.PointerEvent) => {
+    editorDragRef.current = { x: e.clientX, y: e.clientY, px: editorPos.x, py: editorPos.y };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const onEditorDragMove = (e: React.PointerEvent) => {
+    const d = editorDragRef.current;
+    if (!d) return;
+    setEditorPos({
+      x: Math.min(window.innerWidth - 60, Math.max(0, d.px + (e.clientX - d.x))),
+      y: Math.min(window.innerHeight - 40, Math.max(0, d.py + (e.clientY - d.y))),
+    });
+  };
+  const onEditorDragEnd = () => {
+    editorDragRef.current = null;
+  };
+
   const reload = () => {
     setLoading(true);
     fetchMiscExpenses(hostId, token)
@@ -238,6 +366,7 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
     setEditingId(null);
     setDraft(emptyDraft(monthDate));
     setError("");
+    centerEditor();
     setEditorOpen(true);
   };
   const openEdit = (e: MiscExpenseType) => {
@@ -252,6 +381,7 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
       note: e.note,
     });
     setError("");
+    centerEditor();
     setEditorOpen(true);
   };
   const closeEditor = () => {
@@ -288,19 +418,25 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
     }
   };
 
-  const removeCurrent = async () => {
-    if (!editingExpense) return;
-    const msg = editingExpense.recurring
+  // Delete one expense (confirm first). Returns whether it was deleted — the
+  // swipe row uses this to snap back when the user cancels.
+  const removeExpense = async (e: MiscExpenseType): Promise<boolean> => {
+    const msg = e.recurring
       ? "Delete this recurring expense for ALL months?"
       : "Delete this expense?";
-    if (!window.confirm(msg)) return;
+    if (!window.confirm(msg)) return false;
     try {
-      await deleteMiscExpense(editingExpense.id, token);
+      await deleteMiscExpense(e.id, token);
       reload();
-      setEditorOpen(false);
+      return true;
     } catch (err: any) {
       setError(err.response?.data?.error ?? "Could not delete expense");
+      return false;
     }
+  };
+
+  const removeCurrent = async () => {
+    if (editingExpense && (await removeExpense(editingExpense))) setEditorOpen(false);
   };
 
   return createPortal(
@@ -391,41 +527,14 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
             </div>
           ) : (
             <ul className="space-y-1.5 pb-2">
-              {monthItems.map((e) => {
-                const style = CAT_STYLE[e.category] ?? CAT_STYLE.Other;
-                return (
-                  <li key={e.id}>
-                    <button
-                      type="button"
-                      onClick={() => openEdit(e)}
-                      className="flex w-full items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-left transition-colors hover:border-gray-300 hover:bg-gray-50"
-                    >
-                      <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${style.dot}`} />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="truncate text-sm font-semibold text-gray-900">
-                            {e.label || e.category}
-                          </span>
-                          {e.recurring && (
-                            <span className="shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-700">
-                              Monthly
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[11px] text-gray-400">
-                          {e.category}
-                          {e.recurring
-                            ? ` · since ${format(new Date(`${e.date}T00:00:00`), "MMM yyyy")}`
-                            : ` · ${format(new Date(`${e.date}T00:00:00`), "MMM d")}`}
-                          {e.note ? ` · ${e.note}` : ""}
-                        </div>
-                      </div>
-                      <span className="shrink-0 text-sm font-bold text-gray-900">${money(e.amount)}</span>
-                      <span className="shrink-0 text-gray-300">›</span>
-                    </button>
-                  </li>
-                );
-              })}
+              {monthItems.map((e) => (
+                <SwipeRow
+                  key={e.id}
+                  e={e}
+                  onEdit={() => openEdit(e)}
+                  onDelete={() => removeExpense(e)}
+                />
+              ))}
             </ul>
           )}
         </div>
@@ -454,25 +563,29 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
         </div>
       </div>
 
-      {/* Focused editor — its own compact floating modal, sized for the short form */}
+      {/* Focused editor — a compact, draggable floating card sized for the short form */}
       {editorOpen && (
-        <div
-          className="fixed inset-0 z-[120] flex items-center justify-center p-4"
-          onClick={closeEditor}
-        >
-          <div className="absolute inset-0 bg-black/40" />
+        <>
+          <div className="fixed inset-0 z-[120] bg-black/40" onClick={closeEditor} />
           <div
-            className="relative flex w-full max-w-[380px] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
-            onClick={(ev) => ev.stopPropagation()}
+            className="fixed z-[121] flex w-[92vw] max-w-[380px] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+            style={{ left: editorPos.x, top: editorPos.y }}
           >
             <div className="h-1.5 shrink-0 bg-gradient-to-r from-emerald-400 via-blue-400 to-violet-400" />
-            <div className="flex shrink-0 items-center justify-between px-4 pb-2 pt-3">
+            {/* Header doubles as the move handle */}
+            <div
+              className="flex shrink-0 cursor-move touch-none select-none items-center justify-between px-4 pb-2 pt-3"
+              onPointerDown={onEditorDragStart}
+              onPointerMove={onEditorDragMove}
+              onPointerUp={onEditorDragEnd}
+            >
               <h3 className="text-base font-bold text-gray-900">
                 {editingId ? "Edit expense" : "Add expense"}
               </h3>
               <button
                 type="button"
                 onClick={closeEditor}
+                onPointerDown={(ev) => ev.stopPropagation()}
                 aria-label="Close"
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-xl leading-none text-gray-400 hover:bg-gray-100"
               >
@@ -506,7 +619,7 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
               </button>
             </div>
           </div>
-        </div>
+        </>
       )}
     </>,
     document.body,
