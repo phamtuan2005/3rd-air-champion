@@ -507,7 +507,7 @@ const CalendarGrid = ({
                     bottom: "1px",
                     left: "20%",
                     right: "-20%",
-                    fontSize: "0.65rem",
+                    fontSize: "0.8rem",
                     fontWeight: 700,
                     paddingLeft: "4px",
                   }}
@@ -521,7 +521,10 @@ const CalendarGrid = ({
       );
     }
 
-    const textSize = 0.65;
+    // Guest-name size inside booking bars. Bumped from 0.65 — 10px strained the
+    // eye reading who's in which room; multi-night bars have room to spare, only
+    // 1-night stays truncate a touch sooner.
+    const textSize = 0.8;
 
     return (
       <>
