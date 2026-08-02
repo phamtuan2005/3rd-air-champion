@@ -474,6 +474,17 @@ const TiBookInner = () => {
             >
               <span className="h-1.5 w-10 rounded-full bg-gray-300" />
             </div>
+            {/* Reduced room filter — kept visible once the calendar covers the
+                full room banner, so the guest can still scope rooms at full size. */}
+            {rooms.length > 0 && isSelecting && (
+              <RoomCards
+                rooms={rooms}
+                selectedRoomIds={selectedRoomIds}
+                onToggleRoom={handleToggleRoom}
+                onSelectAll={() => setSelectedRoomIds(null)}
+                compact
+              />
+            )}
             <CalendarNavigator
               currentMonth={currentMonth}
               onScrollToToday={() => setScrollToTodayTrigger((n) => n + 1)}
