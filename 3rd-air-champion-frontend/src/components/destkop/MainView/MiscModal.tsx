@@ -418,14 +418,25 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
     }
   };
 
-  // Delete one expense (confirm first). Returns whether it was deleted — the
-  // swipe row uses this to snap back when the user cancels.
+  // Styled confirm dialog (no native window.confirm). Promise-based so the swipe
+  // row and the editor's Delete button both await the user's choice.
+  const [confirmExpense, setConfirmExpense] = useState<MiscExpenseType | null>(null);
+  const confirmResolveRef = useRef<((v: boolean) => void) | null>(null);
+  const askDelete = (e: MiscExpenseType) =>
+    new Promise<boolean>((resolve) => {
+      confirmResolveRef.current = resolve;
+      setConfirmExpense(e);
+    });
+  const resolveConfirm = (v: boolean) => {
+    setConfirmExpense(null);
+    confirmResolveRef.current?.(v);
+    confirmResolveRef.current = null;
+  };
+
+  // Delete one expense (asks first). Returns whether it was deleted — the swipe
+  // row uses this to snap back when the user cancels.
   const removeExpense = async (e: MiscExpenseType): Promise<boolean> => {
-    const name = e.label || e.category;
-    const msg = e.recurring
-      ? `Are you sure you want to delete "${name}" for ALL months?`
-      : `Are you sure you want to delete "${name}"?`;
-    if (!window.confirm(msg)) return false;
+    if (!(await askDelete(e))) return false;
     try {
       await deleteMiscExpense(e.id, token);
       reload();
@@ -618,6 +629,50 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
               >
                 {saving ? "Saving…" : editingId ? "Save changes" : "Add expense"}
               </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Delete confirmation — styled dialog, the user's last chance to back out */}
+      {confirmExpense && (
+        <>
+          <div className="fixed inset-0 z-[130] bg-black/50" onClick={() => resolveConfirm(false)} />
+          <div className="pointer-events-none fixed inset-0 z-[131] flex items-center justify-center p-4">
+            <div className="pointer-events-auto w-full max-w-[340px] overflow-hidden rounded-2xl bg-white shadow-2xl">
+              <div className="flex flex-col items-center px-5 pb-4 pt-6 text-center">
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-rose-100">
+                  <FaTrash className="text-rose-500" size={18} />
+                </div>
+                <h3 className="text-base font-bold text-gray-900">Delete this expense?</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  <span className="font-semibold text-gray-700">
+                    {confirmExpense.label || confirmExpense.category}
+                  </span>{" "}
+                  · ${money(confirmExpense.amount)}
+                </p>
+                {confirmExpense.recurring && (
+                  <p className="mt-3 rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
+                    This recurring expense will be removed for ALL months.
+                  </p>
+                )}
+              </div>
+              <div className="flex gap-2 border-t border-gray-100 p-3">
+                <button
+                  type="button"
+                  onClick={() => resolveConfirm(false)}
+                  className="flex-1 rounded-lg bg-gray-100 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => resolveConfirm(true)}
+                  className="flex-1 rounded-lg bg-rose-600 py-2.5 text-sm font-bold text-white hover:bg-rose-700"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           </div>
         </>
