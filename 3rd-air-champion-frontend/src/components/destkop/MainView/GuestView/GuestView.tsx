@@ -23,6 +23,8 @@ interface GuestViewProps {
   }[];
   calendarId: string;
   token: string;
+  hostId?: string;
+  senderName?: string; // who's logged in — signs the cleaner text
   children: React.ReactNode;
   currentBookings: bookingType[];
   currentAirBnBGuest: string | null;
@@ -49,6 +51,8 @@ const GuestView = ({
   children,
   calendarId,
   token,
+  hostId,
+  senderName,
   currentBookings,
   currentAirBnBGuest,
   currentGuest,
@@ -174,7 +178,13 @@ const GuestView = ({
 
       {activeTab === "cleaning" &&
         (cleaningCount > 0 ? (
-          <RoomsToClean selectedDate={selectedDate} monthMap={monthMap} />
+          <RoomsToClean
+            selectedDate={selectedDate}
+            monthMap={monthMap}
+            hostId={hostId}
+            token={token}
+            senderName={senderName}
+          />
         ) : (
           <p className="py-6 text-center text-sm text-gray-400">
             No rooms to clean on this date
