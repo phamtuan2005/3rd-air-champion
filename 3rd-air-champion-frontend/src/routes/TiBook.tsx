@@ -43,7 +43,17 @@ const TiBookInner = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedRoomIds, setSelectedRoomIds] = useState<Set<string> | null>(null);
   const [cartDates, setCartDates] = useState<Map<string, string | null>>(new Map());
-  const [isSelecting, setIsSelecting] = useState(false);
+  // The calendar is a draggable panel: dragOffset is how far (px) it has been
+  // pulled up over the banner + room filter (0 = browse, headerH = full window).
+  // "Selecting" (interactive calendar) is derived — any real expansion counts.
+  const [dragOffset, setDragOffset] = useState(0);
+  const [headerH, setHeaderH] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const gripRef = useRef<{ y: number; start: number } | null>(null);
+  const isSelecting = dragOffset > 24;
+  const expandCal = () => setDragOffset(headerRef.current?.offsetHeight ?? headerH);
+  const collapseCal = () => setDragOffset(0);
   const [wishListDates, setWishListDates] = useState<Set<string>>(new Set());
   const [persistedWishListDates, setPersistedWishListDates] = useState<Set<string>>(new Set());
   const [guestPhone, setGuestPhone] = useState(() => localStorage.getItem("tiBookGuestPhone") ?? "");
@@ -120,9 +130,40 @@ const TiBookInner = () => {
       .finally(() => setIsLoading(false));
   }, [token]);
 
+  // Measure the header stack (banner + room filter) so the calendar can slide
+  // up over exactly its height and stop at full window. Keep a fully-open panel
+  // pinned open if the header height changes (e.g. banner image loads).
   useEffect(() => {
-    if (cartDates.size === 0 && wishListDates.size === 0) setIsSelecting(false);
-  }, [cartDates.size, wishListDates.size]);
+    const el = headerRef.current;
+    if (!el) return;
+    const measure = () => {
+      const nh = el.offsetHeight;
+      setHeaderH((prev) => {
+        setDragOffset((off) => (prev > 0 && off >= prev - 2 ? nh : Math.min(off, nh)));
+        return nh;
+      });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [currentHost, rooms.length]);
+
+  const onGripDown = (e: React.PointerEvent) => {
+    gripRef.current = { y: e.clientY, start: dragOffset };
+    setDragging(true);
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const onGripMove = (e: React.PointerEvent) => {
+    const g = gripRef.current;
+    if (!g) return;
+    const dy = g.y - e.clientY; // drag up => positive => expand
+    setDragOffset(Math.max(0, Math.min(headerH, g.start + dy)));
+  };
+  const onGripUp = () => {
+    gripRef.current = null;
+    setDragging(false);
+  };
 
   // Load wish list when phone + host are ready
   useEffect(() => {
@@ -258,7 +299,7 @@ const TiBookInner = () => {
   // so the rest of the stay is built in the same room and the picker doesn't
   // re-ask on every tap.
   const addCartDateForRoom = (date: Date, roomId: string) => {
-    setIsSelecting(true);
+    expandCal();
     setSelectedRoomIds(new Set([roomId]));
     setScrollToMonthTrigger({ month: new Date(date.getFullYear(), date.getMonth(), 1), seq: Date.now() });
     setCartDates((prev) => new Map(prev).set(keyOfDate(date), roomId));
@@ -268,7 +309,7 @@ const TiBookInner = () => {
   // Flexible guest: no room preference (null) — the host assigns any free room.
   // The filter is left untouched so the rest of the stay can also be added "any".
   const addCartDateAny = (date: Date) => {
-    setIsSelecting(true);
+    expandCal();
     setScrollToMonthTrigger({ month: new Date(date.getFullYear(), date.getMonth(), 1), seq: Date.now() });
     setCartDates((prev) => new Map(prev).set(keyOfDate(date), null));
     setRoomPickerDate(null);
@@ -295,7 +336,7 @@ const TiBookInner = () => {
   // Start a fresh selection over the whole range for the chosen room (or "any"),
   // then the guest reviews and hits "Request a Booking".
   const startRangeSelection = (checkIn: Date, nights: number, roomId: string | null) => {
-    setIsSelecting(true);
+    expandCal();
     if (roomId) setSelectedRoomIds(new Set([roomId]));
     setScrollToMonthTrigger({ month: new Date(checkIn.getFullYear(), checkIn.getMonth(), 1), seq: Date.now() });
     const next = new Map<string, string | null>();
@@ -315,7 +356,7 @@ const TiBookInner = () => {
       });
       return;
     }
-    setIsSelecting(true);
+    expandCal();
     setScrollToMonthTrigger({ month: new Date(date.getFullYear(), date.getMonth(), 1), seq: Date.now() });
     // A room is already chosen (single-room filter) → add straight away.
     if (selectedRoomIds?.size === 1) {
@@ -335,7 +376,7 @@ const TiBookInner = () => {
   };
 
   const handleWishListClick = (date: Date) => {
-    setIsSelecting(true);
+    expandCal();
     setScrollToMonthTrigger({ month: new Date(date.getFullYear(), date.getMonth(), 1), seq: Date.now() });
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
     setWishListDates((prev) => {
@@ -388,7 +429,7 @@ const TiBookInner = () => {
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       <NavBarDesktop
-        onBack={isSelecting ? () => setIsSelecting(false) : undefined}
+        onBack={isSelecting ? collapseCal : undefined}
         host={currentHost}
         cohostNames={cohostNames}
         isFullCalendar={isSelecting}
@@ -396,67 +437,89 @@ const TiBookInner = () => {
         guestName={guestBookings.find((b) => b.guestName)?.guestName ?? guestName}
         guestStays={guestBookings.filter((b) => b.status === "confirmed").length}
       />
-      {currentHost && !isSelecting && <HostProfileBanner host={currentHost} cohostNames={cohostNames} />}
-      {rooms.length > 0 && (
-        <RoomCards
-          rooms={rooms}
-          selectedRoomIds={selectedRoomIds}
-          onToggleRoom={handleToggleRoom}
-          onSelectAll={() => setSelectedRoomIds(null)}
-          compact={isSelecting}
-        />
-      )}
-      <CalendarNavigator
-        currentMonth={currentMonth}
-        onScrollToToday={() => setScrollToTodayTrigger((n) => n + 1)}
-        onBookingRequest={() => openBookingModal(null)}
-      />
-      {/* Gentle reminder that room(s) are being held pending payment */}
-      {reservedStays.length > 0 && !isSelecting && (
-        <button
-          type="button"
-          onClick={() => setReservedPopupOpen(true)}
-          className="flex shrink-0 items-center justify-center gap-1.5 border-y border-amber-200 bg-amber-50 px-4 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100"
-        >
-          ⏳ {reservedStays.length} room{reservedStays.length === 1 ? "" : "s"} held for you — tap to review &amp; pay
-        </button>
-      )}
-      {isLoading ? (
-        <div className="flex flex-col items-center justify-center flex-1">
-          <p className="text-gray-400 text-sm">Loading...</p>
+      <div className="relative flex flex-1 min-h-0 flex-col">
+        {/* Header stack — host banner + room filter. The calendar panel slides up
+            over these as the grip is dragged, until it fills the window. */}
+        <div ref={headerRef} className="shrink-0">
+          {currentHost && <HostProfileBanner host={currentHost} cohostNames={cohostNames} />}
+          {rooms.length > 0 && (
+            <RoomCards
+              rooms={rooms}
+              selectedRoomIds={selectedRoomIds}
+              onToggleRoom={handleToggleRoom}
+              onSelectAll={() => setSelectedRoomIds(null)}
+              compact={false}
+            />
+          )}
         </div>
-      ) : currentHost ? (
-        <div
-          className="flex-1 min-h-0 flex flex-col"
-          onPointerDown={(e) => { if (!(e.target as HTMLElement).closest("button")) setIsSelecting(true); }}
-        >
-          <GuestCalendar
-            currentMonth={currentMonth}
-            monthMap={monthMap}
-            rooms={rooms}
-            selectedRoomIds={selectedRoomIds}
-            cartDates={cartDates}
-            wishListDates={wishListDates}
-            newWishListDates={newWishListDates}
-            myBookingDates={myBookingDates}
-            myStays={myStays}
-            reservedStays={reservedStays}
-            reservedMap={reservedMap}
-            scrollToTodayTrigger={scrollToTodayTrigger}
-            scrollToMonthTrigger={scrollToMonthTrigger ?? undefined}
-            simplified={!isSelecting}
-            onMonthChange={setCurrentMonth}
-            onDateClick={toggleCartDate}
-            onWishListClick={handleWishListClick}
-            onMyStayClick={setStayPopupId}
-            onReservedClick={() => setReservedPopupOpen(true)}
-          />
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center flex-1">
-          <p className="text-gray-400 text-sm">No host selected</p>
-        </div>
-      )}
+
+        {isLoading ? (
+          <div className="flex flex-1 flex-col items-center justify-center">
+            <p className="text-gray-400 text-sm">Loading...</p>
+          </div>
+        ) : currentHost ? (
+          <div
+            className="relative z-10 flex flex-1 min-h-0 flex-col bg-white"
+            style={{
+              marginTop: -dragOffset,
+              transition: dragging ? "none" : "margin-top 0.25s ease",
+            }}
+          >
+            {/* Drag grip — pull up to grow the calendar over the banner & rooms
+                (all the way to full window), pull down to bring them back. */}
+            <div
+              className="flex shrink-0 cursor-ns-resize touch-none select-none items-center justify-center pb-1 pt-1.5"
+              onPointerDown={onGripDown}
+              onPointerMove={onGripMove}
+              onPointerUp={onGripUp}
+            >
+              <span className="h-1.5 w-10 rounded-full bg-gray-300" />
+            </div>
+            <CalendarNavigator
+              currentMonth={currentMonth}
+              onScrollToToday={() => setScrollToTodayTrigger((n) => n + 1)}
+              onBookingRequest={() => openBookingModal(null)}
+            />
+            {/* Gentle reminder that room(s) are being held pending payment */}
+            {reservedStays.length > 0 && !isSelecting && (
+              <button
+                type="button"
+                onClick={() => setReservedPopupOpen(true)}
+                className="flex shrink-0 items-center justify-center gap-1.5 border-y border-amber-200 bg-amber-50 px-4 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100"
+              >
+                ⏳ {reservedStays.length} room{reservedStays.length === 1 ? "" : "s"} held for you — tap to review &amp; pay
+              </button>
+            )}
+            <div className="flex flex-1 min-h-0 flex-col">
+              <GuestCalendar
+                currentMonth={currentMonth}
+                monthMap={monthMap}
+                rooms={rooms}
+                selectedRoomIds={selectedRoomIds}
+                cartDates={cartDates}
+                wishListDates={wishListDates}
+                newWishListDates={newWishListDates}
+                myBookingDates={myBookingDates}
+                myStays={myStays}
+                reservedStays={reservedStays}
+                reservedMap={reservedMap}
+                scrollToTodayTrigger={scrollToTodayTrigger}
+                scrollToMonthTrigger={scrollToMonthTrigger ?? undefined}
+                simplified={!isSelecting}
+                onMonthChange={setCurrentMonth}
+                onDateClick={toggleCartDate}
+                onWishListClick={handleWishListClick}
+                onMyStayClick={setStayPopupId}
+                onReservedClick={() => setReservedPopupOpen(true)}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-1 flex-col items-center justify-center">
+            <p className="text-gray-400 text-sm">No host selected</p>
+          </div>
+        )}
+      </div>
 
       {/* Floating bar — shown for cart dates, wish list dates, or both */}
       {hasSelection && (
