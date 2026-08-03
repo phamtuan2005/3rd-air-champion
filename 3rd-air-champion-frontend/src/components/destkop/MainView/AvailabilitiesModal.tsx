@@ -287,7 +287,6 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
       const mk = dateKey.slice(0, 7);
       for (const b of day.bookings) {
         if (!b.room) continue;
-        const roomId = b.room.id;
         const isStart = b.startDate.split("T")[0] === dateKey;
         if (b.guest.name !== "AirBnB") {
           add(mk, b.price ?? 0);
