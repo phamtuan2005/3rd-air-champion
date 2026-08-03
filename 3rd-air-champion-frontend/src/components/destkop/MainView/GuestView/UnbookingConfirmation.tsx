@@ -22,7 +22,7 @@ const refundFor = (
 ): { pct: number; amount: number } | null => {
   if (fullDays === undefined || halfDays === undefined) return null;
   const rate =
-    booking.guest.pricing?.find((p) => p.room === booking.room.id)?.price ?? booking.price;
+    booking.price ?? 0;
   const total = rate * booking.duration;
   const daysOut = differenceInCalendarDays(parseISO(booking.startDate.split("T")[0]), new Date());
   const pct = daysOut >= fullDays ? 100 : daysOut >= halfDays ? 50 : 0;

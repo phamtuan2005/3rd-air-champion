@@ -433,6 +433,16 @@ export const dayResolvers = {
       const notes = currentGuest?.name !== "AirBnB" ? currentGuest?.notes : "";
       const alias = currentGuest?.name !== "AirBnB" ? currentGuest?.alias : "";
 
+      // What this booking earns, frozen at creation. Use the guest's own rate for
+      // this room and fall back to the room base only when they have no entry.
+      // `??` not `||`, so a deliberate $0 (comped family stay) survives.
+      // Because every booking stores its own earning, changing a guest's rate
+      // later affects new bookings only — past ones keep what they earned.
+      const guestRate = currentGuest?.pricing?.find(
+        (p: any) => String(p.room) === String(room)
+      )?.price;
+      const stampedPrice = guestRate ?? roomPrice ?? 0;
+
       const bulkOperation = dates.map((bookingDate) => ({
         updateOne: {
           filter: { calendar, date: bookingDate },
@@ -444,7 +454,8 @@ export const dayResolvers = {
                 room,
                 notes,
                 alias,
-                price: roomPrice,
+                price: stampedPrice,
+                bookedOn: format(new Date(), "yyyy-MM-dd"),
                 duration,
                 numberOfGuests,
                 startDate: dates[0],
@@ -536,6 +547,7 @@ export const dayResolvers = {
                       guest,
                       room,
                       price: roomPrice,
+                      bookedOn: format(new Date(), "yyyy-MM-dd"),
                       description,
                       duration,
                       numberOfGuests: 1,

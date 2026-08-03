@@ -21,6 +21,9 @@ const daySchema = new mongoose.Schema(
         room: { type: mongoose.Schema.ObjectId, ref: "Room" },
         guest: { type: mongoose.Schema.ObjectId, ref: "Guest" },
         price: { type: Number, default: "0" },
+        // "yyyy-MM-dd" the booking was created. Set on bookings made from now on;
+        // bookings that predate this field simply have "".
+        bookedOn: { type: String, default: "" },
         airbnbPrice: { type: Number, default: 0 },
         // Per-stay extra charges (parking, cleaning, cancellation, etc.) for
         // direct guests — copied onto every night of the stay like airbnbPrice,

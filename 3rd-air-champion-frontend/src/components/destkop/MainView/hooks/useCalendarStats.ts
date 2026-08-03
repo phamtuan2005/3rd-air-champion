@@ -293,8 +293,10 @@ export const useCalendarStats = ({
           if (selectedRoomName && booking.room.name !== selectedRoomName) continue;
 
           if (booking.guest.name !== "AirBnB") {
-            const guestPricing = booking.guest.pricing?.find((p) => p.room === booking.room.id);
-            if (guestPricing) guestProfit += guestPricing.price;
+            // What this booking earned, stamped when it was made. Never the
+            // guest's current rate — that would re-report closed months at the
+            // new rate every time a rate changes.
+            guestProfit += booking.price ?? 0;
             // Whole-stay fees count once, on the stay's start night (this month).
             if (booking.startDate.split("T")[0] === dateKey)
               guestProfit += feesTotal(booking.fees);

@@ -57,9 +57,7 @@ const DetailsModal = ({
   };
   const stayCheckIn = parseLocalDate(booking.startDate);
   const stayCheckOut = addDays(stayCheckIn, booking.duration);
-  const nightRate = isAirBnB
-    ? 0
-    : (booking.guest.pricing?.find((p) => p.room === booking.room.id)?.price ?? booking.price);
+  const nightRate = isAirBnB ? 0 : (booking.price ?? 0);
   const feeSum = feesTotal(booking.fees);
   // Grand total: direct = nights × rate + fees; AirBnB = payout + on-site fees.
   const stayTotal = isAirBnB

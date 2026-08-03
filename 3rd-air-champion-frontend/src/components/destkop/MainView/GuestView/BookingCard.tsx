@@ -129,9 +129,7 @@ const BookingCard = ({
   const guestLabel = booking.guest.alias || booking.alias || booking.guest.name;
   const roomColor = getRoomColor(booking.room.name, booking.room.color);
 
-  const guestRate = isAirBnB
-    ? null
-    : (booking.guest.pricing?.find((p) => p.room === booking.room.id)?.price ?? booking.price);
+  const guestRate = isAirBnB ? null : (booking.price ?? 0);
   // Extra fees (parking, cleaning, on-site AirBnB charges, …) fold into the total
   const feeSum = feesTotal(booking.fees);
 

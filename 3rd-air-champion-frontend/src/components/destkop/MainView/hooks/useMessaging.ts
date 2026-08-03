@@ -69,8 +69,7 @@ export const useMessaging = ({
           total +
           matchingBookings.reduce((sum, booking) => {
             const pricePerNight =
-              booking.guest.pricing.find((p) => p.room === booking.room.id)?.price ||
-              booking.price;
+              booking.price ?? 0;
             return sum + pricePerNight * booking.duration + feesTotal(booking.fees);
           }, 0)
         );
@@ -207,7 +206,7 @@ export const useMessaging = ({
           guestName = booking.guest.name;
           const startDate = toZonedTime(booking.startDate.split("T")[0], timeZone);
           const pricePerNight =
-            booking.guest.pricing.find((p) => p.room === booking.room.id)?.price || booking.price;
+            booking.price ?? 0;
           const paidNights = Array.from({ length: booking.duration }, (_, i) => addDays(startDate, i))
             .filter((night) => paidDates.some((pd) => isSameDay(pd, night))).length;
           lineItems.push({
@@ -228,7 +227,7 @@ export const useMessaging = ({
       const booking = day.bookings.find((b) => b.guest.id === currentGuest && !b.reserved);
       if (!booking) return;
       const pricePerNight =
-        booking.guest.pricing.find((p) => p.room === booking.room.id)?.price || booking.price;
+        booking.price ?? 0;
       totalPaidAmount += pricePerNight;
     });
 

@@ -290,8 +290,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
         const roomId = b.room.id;
         const isStart = b.startDate.split("T")[0] === dateKey;
         if (b.guest.name !== "AirBnB") {
-          const gp = b.guest.pricing?.find((p) => p.room === roomId);
-          if (gp) add(mk, gp.price);
+          add(mk, b.price ?? 0);
           if (isStart) add(mk, feesTotal(b.fees));
         } else {
           if (b.airbnbPrice && b.duration) add(mk, b.airbnbPrice / b.duration);
@@ -329,8 +328,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
             bookedProfit += roomBookings.reduce((sum, b) => {
               const fee = b.startDate.split("T")[0] === dk ? feesTotal(b.fees) : 0;
               if (b.guest.name !== "AirBnB") {
-                const gp = b.guest.pricing?.find((p) => p.room === b.room?.id);
-                return sum + (gp ? gp.price : 0) + fee;
+                return sum + (b.price ?? 0) + fee;
               }
               const nightly = b.airbnbPrice && b.duration ? b.airbnbPrice / b.duration : 0;
               return sum + nightly + fee;
@@ -458,8 +456,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
             // this Total read low vs the calendar figure.
             const fee = booking.startDate.split("T")[0] === dateKey ? feesTotal(booking.fees) : 0;
             if (booking.guest.name !== "AirBnB") {
-              const guestPricing = booking.guest.pricing?.find((p) => p.room === booking.room?.id);
-              return sum + (guestPricing ? guestPricing.price : 0) + fee;
+              return sum + (booking.price ?? 0) + fee;
             } else {
               const nightly =
                 booking.airbnbPrice && booking.duration

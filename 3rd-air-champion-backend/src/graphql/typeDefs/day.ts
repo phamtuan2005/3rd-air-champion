@@ -17,6 +17,7 @@ export const dayDefs = gql`
     id: ID
     alias: String
     price: Float
+    bookedOn: String
     airbnbPrice: Float
     fees: [Fee]
     guest: Guest
