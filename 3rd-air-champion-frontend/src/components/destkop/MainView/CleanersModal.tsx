@@ -946,14 +946,15 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
     const totalHrs = days.reduce((s, [, h]) => s + h, 0);
     const monthLabel = format(startOfToday(), "MMMM");
     const body = [
-      `Hi ${cleaner.name}, here's your cleaning summary so far:`,
+      `Hi ${cleaner.name}, here's your cleaning summary:`,
       // Recent detail (this month's recorded days)
       ...(lines.length
         ? ["", `Your work this month (${monthLabel}) — ${formatHrMin(totalHrs)} = $${subtotal.toFixed(2)} gross:`, ...lines]
         : []),
       "",
-      // Running totals — the number a cleaner saving toward a target watches
-      `Earned so far: $${Math.round(entry.earned).toLocaleString()} (${formatHrMin(entry.hours)})${entry.paid > 0 ? ` · Paid: $${Math.round(entry.paid).toLocaleString()}` : ""}`,
+      // Lifetime "Earned so far" / "Paid" totals were removed deliberately: a
+      // cleaner reads them as competing claims about what they are owed. The
+      // only number that answers their actual question is the balance below.
       `Ready to pay whenever you'd like: $${Math.round(entry.balance + tip).toLocaleString()}${tip > 0 ? ` (includes a $${tip.toFixed(2)} tip 🎁)` : ""}`,
       "",
       cleanerSignoff(senderName),
