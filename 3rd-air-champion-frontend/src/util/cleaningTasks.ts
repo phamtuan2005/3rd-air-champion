@@ -220,7 +220,10 @@ export const getCleaningForecast = (
   };
 
   const out: CleaningForecastDay[] = [];
-  for (let d = 1; d <= horizon; d++) {
+  // Starts at TODAY (d = 0), not tomorrow. A cleaning that has to be re-arranged
+  // is almost always today's — if today has no row there is nothing to reassign.
+  // Future days are unaffected: today is an extra row, not a replacement.
+  for (let d = 0; d <= horizon; d++) {
     const morningKey = dateKey(addDays(today, d));
     const lastNightKey = dateKey(addDays(today, d - 1));
     const lastNight = monthMap.get(lastNightKey);
@@ -252,19 +255,25 @@ export const getCleaningForecast = (
 
     // 2. Probable gap turnovers — every empty, sellable night inside a bounded
     //    in-service gap likely sold last-minute and checks out this morning.
-    for (const roomId of roomIds) {
-      if (covered.has(roomId)) continue;
-      if (isOccupied(roomId, lastNightKey)) continue; // slept in → not a turnover
-      if (isBlockedNight(roomId, lastNightKey)) continue; // couldn't sell that night
-      const next = nextConfirmedArrival(roomId, d);
-      if (!next) continue; // open-ended vacancy → not a gap, don't forecast
-      entries.push({
-        checkoutBooking: next.arriving, // carries the room identity for the chip
-        sameDayCheckIn: next.offset === d ? next.arriving : null,
-        rebookOdds: occupancyOdds.get(roomId) ?? 1,
-        probable: true,
-      });
-      covered.add(roomId);
+    //    NOT for today (d === 0): last night has already happened, so an empty
+    //    night is a fact, not a guess. Forecasting a probable clean there would
+    //    put phantom rooms in the one list that has to be exact — the one you
+    //    are working from when re-arranging a cleaner at short notice.
+    if (d > 0) {
+      for (const roomId of roomIds) {
+        if (covered.has(roomId)) continue;
+        if (isOccupied(roomId, lastNightKey)) continue; // slept in → not a turnover
+        if (isBlockedNight(roomId, lastNightKey)) continue; // couldn't sell that night
+        const next = nextConfirmedArrival(roomId, d);
+        if (!next) continue; // open-ended vacancy → not a gap, don't forecast
+        entries.push({
+          checkoutBooking: next.arriving, // carries the room identity for the chip
+          sameDayCheckIn: next.offset === d ? next.arriving : null,
+          rebookOdds: occupancyOdds.get(roomId) ?? 1,
+          probable: true,
+        });
+        covered.add(roomId);
+      }
     }
 
     if (entries.length) out.push({ morningKey, entries });

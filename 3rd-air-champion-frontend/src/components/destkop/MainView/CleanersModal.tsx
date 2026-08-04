@@ -1581,12 +1581,12 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
           <>
           <SectionHeader
             icon={<FaRegClock className="text-violet-500" />}
-            title="Upcoming — next 7 mornings"
-            hint="Probable cleanings by day · tap a room to assign a cleaner"
+            title="Plan — today and the next 7 mornings"
+            hint="Cleanings by day · tap a room to assign or change a cleaner"
           />
           {cleaningForecast.length === 0 ? (
             <p className="mb-2 rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-center text-xs text-gray-400">
-              No checkouts in the next 7 days
+              No checkouts today or in the next 7 days
             </p>
           ) : (
             <>
