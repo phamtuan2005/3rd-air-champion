@@ -41,11 +41,11 @@ interface CleanersModalProps {
 }
 
 const inputCls =
-  "rounded-lg border border-gray-200 px-2 py-1.5 text-xs focus:border-gray-400 focus:outline-none";
-const pillDark = "rounded-lg bg-gray-900 px-2.5 py-1.5 text-xs font-semibold text-white";
+  "rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:border-gray-400 focus:outline-none";
+const pillDark = "rounded-lg bg-gray-900 px-2.5 py-1.5 text-sm font-semibold text-white";
 const pillNeutral =
-  "rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-700";
-const pillEmerald = "rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white";
+  "rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-700";
+const pillEmerald = "rounded-lg bg-emerald-600 px-2.5 py-1.5 text-sm font-semibold text-white";
 
 // Weekday toggles (0=Sun…6=Sat) for a cleaner's available days. Empty = the
 // auto-planner infers availability from history instead of enforcing it.
@@ -105,7 +105,7 @@ const DayPicker = ({ days, onChange }: { days: number[]; onChange: (d: number[])
           onClick={() =>
             onChange(on ? days.filter((d) => d !== i) : [...days, i].sort((a, b) => a - b))
           }
-          className={`h-7 w-7 rounded-full text-[11px] font-bold ${
+          className={`h-7 w-7 rounded-full text-[13px] font-bold ${
             on ? "bg-violet-600 text-white" : "bg-gray-100 text-gray-400 hover:bg-gray-200"
           }`}
         >
@@ -176,7 +176,7 @@ const HrMinInput = ({
       value={hm?.h ?? ""}
       onChange={(e) => onChange({ h: e.target.value, m: hm?.m ?? "" })}
     />
-    <span className="text-xs text-gray-500">hr</span>
+    <span className="text-sm text-gray-500">hr</span>
     <input
       className={`${inputCls} w-12`}
       type="number"
@@ -186,7 +186,7 @@ const HrMinInput = ({
       value={hm?.m ?? ""}
       onChange={(e) => onChange({ h: hm?.h ?? "", m: e.target.value })}
     />
-    <span className="text-xs text-gray-500">min</span>
+    <span className="text-sm text-gray-500">min</span>
   </div>
 );
 
@@ -204,7 +204,7 @@ const SectionHeader = ({
       {icon}
       {title}
     </h3>
-    {hint && <p className="mt-0.5 text-xs text-gray-400">{hint}</p>}
+    {hint && <p className="mt-0.5 text-sm text-gray-400">{hint}</p>}
   </div>
 );
 
@@ -442,7 +442,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
     id,
     name,
     sizeClass = "h-8 w-8",
-    textClass = "text-xs",
+    textClass = "text-sm",
   }: {
     id: string;
     name: string;
@@ -1044,14 +1044,14 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
             <button
               key={key}
               onClick={() => setActiveTab(key)}
-              className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition-colors ${
+              className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm font-semibold transition-colors ${
                 activeTab === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
               }`}
             >
               {label}
               {count > 0 && (
                 <span
-                  className={`min-w-[1.25rem] rounded-full px-1 py-0.5 text-center text-[10px] font-bold leading-none ${
+                  className={`min-w-[1.25rem] rounded-full px-1 py-0.5 text-center text-[12px] font-bold leading-none ${
                     activeTab === key ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-600"
                   }`}
                 >
@@ -1063,7 +1063,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-          {error && <p className="mb-2 text-xs font-semibold text-red-500">{error}</p>}
+          {error && <p className="mb-2 text-sm font-semibold text-red-500">{error}</p>}
 
           {/* Focused, single-cleaner message screen — takes over the whole Team
               panel so ONLY the chosen cleaner is on screen while you pick what to
@@ -1073,7 +1073,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
               <button
                 type="button"
                 onClick={() => setMsgMenuId(null)}
-                className="mb-3 flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-gray-700"
+                className="mb-3 flex items-center gap-1 text-sm font-semibold text-gray-500 hover:text-gray-700"
               >
                 ‹ Back to team
               </button>
@@ -1087,13 +1087,13 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                 />
                 <div className="min-w-0">
                   <p className="truncate text-base font-bold text-gray-900">{msgCleaner.name}</p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-sm text-gray-500">
                     {msgCleaner.phone ? formatPhone(msgCleaner.phone) : "No phone number"}
                   </p>
                 </div>
               </div>
 
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+              <p className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-gray-400">
                 Choose a message to send {msgCleaner.name.split(" ")[0]}
               </p>
 
@@ -1182,13 +1182,13 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                             <span className={`block text-sm font-semibold ${it.labelColor}`}>
                               {it.label}
                             </span>
-                            <span className="block truncate text-[11px] text-gray-400">
+                            <span className="block truncate text-[13px] text-gray-400">
                               {it.sub}
                             </span>
                           </span>
                         </span>
                         {!it.disabled && (
-                          <span className={`shrink-0 text-xs font-semibold ${it.accent}`}>
+                          <span className={`shrink-0 text-sm font-semibold ${it.accent}`}>
                             Text ›
                           </span>
                         )}
@@ -1216,7 +1216,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                 key={cleaner.id}
                 className="mb-2 flex items-center justify-between gap-2 rounded-xl border border-red-300 bg-red-50 p-2.5"
               >
-                <p className="min-w-0 flex-1 text-xs font-semibold text-red-700">
+                <p className="min-w-0 flex-1 text-sm font-semibold text-red-700">
                   Are you sure to remove {cleaner.name} from the team?
                 </p>
                 <button
@@ -1228,7 +1228,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                 </button>
                 <button
                   type="button"
-                  className="rounded-lg bg-red-600 px-2.5 py-1.5 text-xs font-bold text-white"
+                  className="rounded-lg bg-red-600 px-2.5 py-1.5 text-sm font-bold text-white"
                   onClick={() => handleDelete(cleaner)}
                 >
                   Remove
@@ -1239,7 +1239,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                 {/* Revealed by swiping the row to the left (iOS convention) */}
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 flex w-20 items-center justify-center bg-red-600 text-xs font-bold text-white"
+                  className="absolute inset-y-0 right-0 flex w-20 items-center justify-center bg-red-600 text-sm font-bold text-white"
                   onClick={() => {
                     setSwipeOpenId(null);
                     setConfirmRemoveId(cleaner.id);
@@ -1275,17 +1275,17 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                       </span>
                     )}
                     {cleaner.isOwner && (
-                      <span className="shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-700">
+                      <span className="shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[12px] font-bold uppercase text-emerald-700">
                         Owner
                       </span>
                     )}
                     {cleaner.paused && (
-                      <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-amber-700">
+                      <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[12px] font-bold uppercase text-amber-700">
                         On leave
                       </span>
                     )}
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-sm text-gray-500">
                     {cleaner.phone && <span>{formatPhone(cleaner.phone)} · </span>}
                     <span className="font-bold text-emerald-600">${rateOn(cleaner, todayKey)}/hr</span>
                   </p>
@@ -1399,9 +1399,9 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
               </div>
               {/* Available days — a hard constraint for the auto-planner when set */}
               <div className="mt-1.5 flex items-center justify-between gap-2">
-                <label className="text-xs text-gray-500">
+                <label className="text-sm text-gray-500">
                   Available days
-                  <span className="block text-[10px] text-gray-400">blank = auto from history</span>
+                  <span className="block text-[12px] text-gray-400">blank = auto from history</span>
                 </label>
                 <DayPicker
                   days={newCleaner.availableDays}
@@ -1410,9 +1410,9 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
               </div>
               {/* Priority — favored in auto-plan */}
               <div className="mt-1.5 flex items-center justify-between gap-2">
-                <label className="text-xs text-gray-500">
+                <label className="text-sm text-gray-500">
                   Priority
-                  <span className="block text-[10px] text-gray-400">favored in auto-plan · 3 = normal</span>
+                  <span className="block text-[12px] text-gray-400">favored in auto-plan · 3 = normal</span>
                 </label>
                 <StarPicker
                   value={newCleaner.priority}
@@ -1447,7 +1447,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                 key={off}
                 type="button"
                 onClick={() => setWeekOffset(off)}
-                className={`rounded-md py-1 text-[11px] font-semibold ${
+                className={`rounded-md py-1 text-[13px] font-semibold ${
                   weekOffset === off
                     ? off === 0
                       ? "bg-white text-blue-700 shadow-sm"
@@ -1489,7 +1489,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                 >
                   <div className="flex items-baseline gap-1.5">
                     <span
-                      className={`text-[11px] font-bold uppercase tracking-wide ${
+                      className={`text-[13px] font-bold uppercase tracking-wide ${
                         isToday ? "text-violet-500" : "text-gray-400"
                       }`}
                     >
@@ -1497,12 +1497,12 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                     </span>
                     <span className="text-sm font-bold text-gray-900">{format(dayDate, "MMM d")}</span>
                     {isToday && (
-                      <span className="rounded-full bg-violet-600 px-1.5 py-0.5 text-[9px] font-bold uppercase leading-none text-white">
+                      <span className="rounded-full bg-violet-600 px-1.5 py-0.5 text-[12px] font-bold uppercase leading-none text-white">
                         Today
                       </span>
                     )}
                   </div>
-                  <span className="text-xs font-semibold text-gray-400">
+                  <span className="text-sm font-semibold text-gray-400">
                     {dayAssignments.length
                       ? `${dayAssignments.length} room${dayAssignments.length === 1 ? "" : "s"}`
                       : "no cleanings"}
@@ -1531,9 +1531,9 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                             id={cleaner.id}
                             name={cleaner.name}
                             sizeClass="h-6 w-6"
-                            textClass="text-[10px]"
+                            textClass="text-[12px]"
                           />
-                          <span className="truncate text-xs font-semibold text-gray-700 underline decoration-dotted decoration-gray-300 underline-offset-2">
+                          <span className="truncate text-sm font-semibold text-gray-700 underline decoration-dotted decoration-gray-300 underline-offset-2">
                             {cleaner.name.split(" ")[0]}
                           </span>
                           {scheduleStatus(cleaner.id, weekMonday) === "changed" && (
@@ -1550,7 +1550,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                             return (
                               <span
                                 key={`${room.id}-${i}`}
-                                className={`${getRoomColor(room.name, roomColorById.get(room.id))} rounded-md px-2 py-1 text-[11px] font-semibold text-black shadow-sm`}
+                                className={`${getRoomColor(room.name, roomColorById.get(room.id))} rounded-md px-2 py-1 text-[13px] font-semibold text-black shadow-sm`}
                               >
                                 {room.name}
                                 {count ? ` (${count})` : ""}
@@ -1569,7 +1569,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
           {/* Texting a schedule now lives in the Team tab's per-cleaner Message
               menu (this week + next week offered by explicit dates), so every
               cleaner text — schedule, earnings, cleaning rules — has one home. */}
-          <p className="mt-2 text-center text-xs text-gray-400">
+          <p className="mt-2 text-center text-sm text-gray-400">
             {weekAssignments.length === 0
               ? "Assign rooms in the Plan tab — they land here by date"
               : "To text this schedule, open a cleaner's 💬 Message menu in the Team tab"}
@@ -1585,7 +1585,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
             hint="Cleanings by day · tap a room to assign or change a cleaner"
           />
           {cleaningForecast.length === 0 ? (
-            <p className="mb-2 rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-center text-xs text-gray-400">
+            <p className="mb-2 rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-center text-sm text-gray-400">
               No checkouts today or in the next 7 days
             </p>
           ) : (
@@ -1597,20 +1597,20 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                     return (
                       <span
                         key={name}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white py-0.5 pl-0.5 pr-2 text-xs font-semibold text-gray-700"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white py-0.5 pl-0.5 pr-2 text-sm font-semibold text-gray-700"
                       >
-                        {cl && <CleanerAvatar id={cl.id} name={name} sizeClass="h-5 w-5" textClass="text-[9px]" />}
+                        {cl && <CleanerAvatar id={cl.id} name={name} sizeClass="h-5 w-5" textClass="text-[11px]" />}
                         {name.split(" ")[0]}
-                        <span className="rounded-full bg-gray-900 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                        <span className="rounded-full bg-gray-900 px-1.5 py-0.5 text-[12px] font-bold leading-none text-white">
                           {count}
                         </span>
                       </span>
                     );
                   })}
                   {weekTotals.unassignedCount > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-sm font-semibold text-amber-700">
                       Unassigned
-                      <span className="rounded-full bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                      <span className="rounded-full bg-amber-600 px-1.5 py-0.5 text-[12px] font-bold leading-none text-white">
                         {weekTotals.unassignedCount}
                       </span>
                     </span>
@@ -1659,7 +1659,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                         sameDay: entry.sameDayCheckIn != null,
                       })
                     }
-                    className={`${getRoomColor(entry.checkoutBooking.room.name, entry.checkoutBooking.room.color)} rounded-md px-2 py-1 text-[11px] font-semibold text-black shadow-sm transition-transform hover:scale-105 ${
+                    className={`${getRoomColor(entry.checkoutBooking.room.name, entry.checkoutBooking.room.color)} rounded-md px-2 py-1 text-[13px] font-semibold text-black shadow-sm transition-transform hover:scale-105 ${
                       entry.probable
                         ? "outline-2 outline-dashed outline-red-500"
                         : entry.sameDayCheckIn
@@ -1694,7 +1694,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                     >
                       <div className="flex items-baseline gap-1.5">
                         <span
-                          className={`text-[11px] font-bold uppercase tracking-wide ${
+                          className={`text-[13px] font-bold uppercase tracking-wide ${
                             isToday ? "text-violet-500" : "text-gray-400"
                           }`}
                         >
@@ -1704,12 +1704,12 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                           {format(morning, "MMM d")}
                         </span>
                         {isToday && (
-                          <span className="rounded-full bg-violet-600 px-1.5 py-0.5 text-[9px] font-bold uppercase leading-none text-white">
+                          <span className="rounded-full bg-violet-600 px-1.5 py-0.5 text-[12px] font-bold uppercase leading-none text-white">
                             Today
                           </span>
                         )}
                       </div>
-                      <span className="text-xs font-semibold text-gray-400">
+                      <span className="text-sm font-semibold text-gray-400">
                         {day.entries.length} room{day.entries.length === 1 ? "" : "s"}
                         {unassigned.length > 0 && (
                           <span className="text-amber-600"> · {unassigned.length} to assign</span>
@@ -1740,9 +1740,9 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                               id={cleaner.id}
                               name={cleaner.name}
                               sizeClass="h-6 w-6"
-                              textClass="text-[10px]"
+                              textClass="text-[12px]"
                             />
-                            <span className="truncate text-xs font-semibold text-gray-700">
+                            <span className="truncate text-sm font-semibold text-gray-700">
                               {cleaner.name.split(" ")[0]}
                             </span>
                           </button>
@@ -1754,10 +1754,10 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                       {unassigned.length > 0 && (
                         <div className="flex items-center gap-2 bg-amber-50/50 px-3 py-1.5">
                           <div className="flex w-24 shrink-0 items-center gap-1.5">
-                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xs font-bold text-amber-600">
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-100 text-sm font-bold text-amber-600">
                               !
                             </span>
-                            <span className="truncate text-xs font-semibold text-amber-600">
+                            <span className="truncate text-sm font-semibold text-amber-600">
                               Unassigned
                             </span>
                           </div>
@@ -1771,7 +1771,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                 );
               })}
 
-              <p className="mb-1 mt-2 text-center text-xs text-gray-400">
+              <p className="mb-1 mt-2 text-center text-sm text-gray-400">
                 % = odds · <span className="font-semibold text-red-500">solid red</span> = confirmed
                 same-day check-in · <span className="font-semibold text-red-500">dashed red</span> =
                 empty night likely sells last-minute (odds shown) · tap to assign a cleaner
@@ -1790,7 +1790,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
             hint="Enter a daily total, or the arrival/leave times — pay is hours × rate"
           />
           {needHoursGroups.length === 0 ? (
-            <p className="mb-2 rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-center text-xs text-gray-400">
+            <p className="mb-2 rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-center text-sm text-gray-400">
               Nothing to record yet — cleanings appear here once their day arrives
             </p>
           ) : (
@@ -1803,12 +1803,12 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                   <CleanerAvatar id={group.cleaner.id} name={group.cleaner.name} />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-gray-900">{group.cleaner.name}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-sm text-gray-500">
                       {format(new Date(group.date + "T00:00:00"), "EEEE M/d")}
                     </p>
                   </div>
                   {/* How this cleaner reports: a decimal total, or come/leave times */}
-                  <div className="flex shrink-0 rounded-lg bg-gray-100 p-0.5 text-[10px] font-semibold">
+                  <div className="flex shrink-0 rounded-lg bg-gray-100 p-0.5 text-[12px] font-semibold">
                     {(["total", "inout"] as const).map((m) => (
                       <button
                         key={m}
@@ -1834,7 +1834,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                     />
                   ) : (
                     <>
-                      <label className="text-[10px] font-semibold text-gray-500">In</label>
+                      <label className="text-[12px] font-semibold text-gray-500">In</label>
                       <input
                         className={`${inputCls} w-[92px]`}
                         type="time"
@@ -1846,7 +1846,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                           }))
                         }
                       />
-                      <label className="text-[10px] font-semibold text-gray-500">Out</label>
+                      <label className="text-[12px] font-semibold text-gray-500">Out</label>
                       <input
                         className={`${inputCls} w-[92px]`}
                         type="time"
@@ -1859,7 +1859,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                         }
                       />
                       {hoursBetween(timeDraft[group.key]?.in, timeDraft[group.key]?.out) != null && (
-                        <span className="text-xs font-bold text-emerald-600">
+                        <span className="text-sm font-bold text-emerald-600">
                           = {formatHrMin(hoursBetween(timeDraft[group.key]?.in, timeDraft[group.key]?.out)!)}
                         </span>
                       )}
@@ -1879,7 +1879,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                   {group.assignments.map((a) => (
                     <span
                       key={a.id}
-                      className={`${getRoomColor(a.room?.name ?? "", a.room ? roomColorById.get(a.room.id) : undefined)} rounded px-1.5 py-0.5 text-[11px] font-semibold text-black`}
+                      className={`${getRoomColor(a.room?.name ?? "", a.room ? roomColorById.get(a.room.id) : undefined)} rounded px-1.5 py-0.5 text-[13px] font-semibold text-black`}
                     >
                       {a.room?.name}
                     </span>
@@ -1937,12 +1937,12 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                           <p className="truncate text-sm font-semibold text-gray-900">
                             {cleaner.name}
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-sm text-gray-500">
                             {days.length} day{days.length === 1 ? "" : "s"} ·{" "}
                             {formatHrMin(totalHours)}
                           </p>
                         </div>
-                        <span className="shrink-0 text-xs text-gray-400">{open ? "▲" : "▼"}</span>
+                        <span className="shrink-0 text-sm text-gray-400">{open ? "▲" : "▼"}</span>
                       </button>
                       {open && (
                         <div className="space-y-1.5 border-t border-gray-100 p-2">
@@ -1952,7 +1952,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                               className="flex items-center gap-2 rounded-lg bg-gray-50 p-2"
                             >
                               <div className="min-w-0 flex-1">
-                                <p className="truncate text-xs text-gray-600">
+                                <p className="truncate text-sm text-gray-600">
                                   {format(new Date(group.date + "T00:00:00"), "EEE M/d")} ·{" "}
                                   {group.assignments.map((a) => a.room?.name).join(", ")}
                                 </p>
@@ -2035,14 +2035,14 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                   {/* Hero number = this month's cleaning cost — the figure the
                       owners actually watch. Owed-now is the context line. */}
                   <div className="flex items-baseline justify-between">
-                    <p className="text-xs font-semibold text-emerald-700">
+                    <p className="text-sm font-semibold text-emerald-700">
                       Cleaning cost — {format(startOfToday(), "MMMM")}
                     </p>
                     <p className="text-2xl font-bold text-emerald-700">
                       ${Math.round(thisMonthCost).toLocaleString()}
                     </p>
                   </div>
-                  <p className="mt-0.5 text-xs text-emerald-600">
+                  <p className="mt-0.5 text-sm text-emerald-600">
                     {owingCount > 0
                       ? `$${Math.round(owed).toLocaleString()} owed now · ${owingCount} cleaner${owingCount === 1 ? "" : "s"} waiting`
                       : "all settled up 🎉"}
@@ -2051,7 +2051,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
               );
             })()}
           {summary.length === 0 ? (
-            <p className="mb-2 rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-center text-xs text-gray-400">
+            <p className="mb-2 rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-center text-sm text-gray-400">
               No earnings yet
             </p>
           ) : (
@@ -2085,7 +2085,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                       {entry.name}
                     </span>
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-sm text-gray-500">
                     {formatHrMin(entry.hours)} · earned ${Math.round(entry.earned).toLocaleString()} · paid $
                     {Math.round(entry.paid).toLocaleString()}
                   </p>
@@ -2112,7 +2112,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
             // noise in a monthly cost breakdown.
             const worked = [...monthlyPay.entries()].filter(([, e]) => e.hours > 0);
             return worked.length === 0 ? (
-              <p className="rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-center text-xs text-gray-400">
+              <p className="rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-center text-sm text-gray-400">
                 No hours recorded this month yet
               </p>
             ) : (
@@ -2125,7 +2125,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                     <CleanerAvatar id={id} name={entry.name} />
                     <p className="truncate text-sm font-semibold text-gray-900">{entry.name}</p>
                   </div>
-                  <p className="shrink-0 text-xs text-gray-500">
+                  <p className="shrink-0 text-sm text-gray-500">
                     {formatHrMin(entry.hours)} ·{" "}
                     <span className="text-sm font-bold text-emerald-600">
                       ${Math.round(entry.pay).toLocaleString()}
@@ -2163,7 +2163,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                 <h3 className="truncate text-lg font-bold text-gray-900">
                   {edit.name || editCleaner.name}
                 </h3>
-                <p className="text-xs text-gray-500">Edit team member</p>
+                <p className="text-sm text-gray-500">Edit team member</p>
               </div>
               <button
                 type="button"
@@ -2177,7 +2177,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
             {/* Body */}
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
               <div className="grid grid-cols-2 gap-2">
-                <label className="col-span-2 flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                <label className="col-span-2 flex flex-col gap-1 text-[13px] font-semibold uppercase tracking-wide text-gray-400">
                   Name
                   <input
                     className={inputCls}
@@ -2185,7 +2185,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                     onChange={(e) => setEdit((p) => ({ ...p, name: e.target.value }))}
                   />
                 </label>
-                <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                <label className="flex flex-col gap-1 text-[13px] font-semibold uppercase tracking-wide text-gray-400">
                   Phone
                   <input
                     className={inputCls}
@@ -2194,7 +2194,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                     onChange={(e) => setEdit((p) => ({ ...p, phone: e.target.value }))}
                   />
                 </label>
-                <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                <label className="flex flex-col gap-1 text-[13px] font-semibold uppercase tracking-wide text-gray-400">
                   $/hr
                   <input
                     className={inputCls}
@@ -2208,10 +2208,10 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
               {/* Rate changes — raise pay from a date WITHOUT re-pricing past work */}
               <div className="rounded-xl border border-gray-200 bg-gray-50 p-2.5">
                 <div className="mb-1.5 flex items-center justify-between">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                  <span className="text-[13px] font-semibold uppercase tracking-wide text-gray-400">
                     Rate changes
                   </span>
-                  <span className="text-[11px] text-gray-500">
+                  <span className="text-[13px] text-gray-500">
                     now{" "}
                     <b className="text-emerald-600">
                       ${rateOn({ payRate: parseFloat(edit.payRate) || 0, rateHistory: edit.rateHistory }, todayKey)}
@@ -2226,13 +2226,13 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                       .map((h, i) => (
                         <li
                           key={`${h.effectiveFrom}-${i}`}
-                          className="flex items-center justify-between rounded-lg bg-white px-2 py-1 text-xs"
+                          className="flex items-center justify-between rounded-lg bg-white px-2 py-1 text-sm"
                         >
                           <span className="min-w-0 text-gray-700">
                             ${h.rate}/hr from{" "}
                             {format(new Date(`${h.effectiveFrom}T00:00:00`), "MMM d, yyyy")}
                             {h.effectiveFrom > todayKey && (
-                              <span className="ml-1 text-[10px] font-semibold text-amber-600">
+                              <span className="ml-1 text-[12px] font-semibold text-amber-600">
                                 upcoming
                               </span>
                             )}
@@ -2266,7 +2266,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                   </ul>
                 )}
                 <div className="flex gap-1.5">
-                  <label className="flex min-w-0 flex-1 flex-col gap-0.5 text-[10px] uppercase tracking-wide text-gray-400">
+                  <label className="flex min-w-0 flex-1 flex-col gap-0.5 text-[12px] uppercase tracking-wide text-gray-400">
                     New $/hr
                     <input
                       className={`${inputCls} w-full min-w-0`}
@@ -2278,7 +2278,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                       onChange={(e) => setRaiseDraft((p) => ({ ...p, rate: e.target.value }))}
                     />
                   </label>
-                  <label className="flex min-w-0 flex-1 flex-col gap-0.5 text-[10px] uppercase tracking-wide text-gray-400">
+                  <label className="flex min-w-0 flex-1 flex-col gap-0.5 text-[12px] uppercase tracking-wide text-gray-400">
                     From
                     <input
                       className={`${inputCls} w-full min-w-0`}
@@ -2290,12 +2290,12 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                 </div>
                 <button
                   type="button"
-                  className="mt-1.5 w-full rounded-lg bg-emerald-600 py-2 text-xs font-semibold text-white hover:bg-emerald-700"
+                  className="mt-1.5 w-full rounded-lg bg-emerald-600 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
                   onClick={addRaise}
                 >
                   Add raise
                 </button>
-                <p className="mt-1 text-[10px] text-gray-400">
+                <p className="mt-1 text-[12px] text-gray-400">
                   Saved instantly — no need to press Save. Past cleanings keep their old rate; the new
                   rate applies from the date you pick. (The $/hr field above is the base rate —
                   changing it re-prices past work.)
@@ -2303,7 +2303,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
               </div>
 
               <div>
-                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                <p className="mb-1 text-[13px] font-semibold uppercase tracking-wide text-gray-400">
                   Avatar
                 </p>
                 <div className="flex items-center gap-2">
@@ -2322,9 +2322,9 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
               </div>
 
               <div className="flex items-center justify-between gap-2">
-                <label className="text-xs text-gray-500">
+                <label className="text-sm text-gray-500">
                   Available days
-                  <span className="block text-[10px] text-gray-400">blank = auto from history</span>
+                  <span className="block text-[12px] text-gray-400">blank = auto from history</span>
                 </label>
                 <DayPicker
                   days={edit.availableDays}
@@ -2333,9 +2333,9 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
               </div>
 
               <div className="flex items-center justify-between gap-2">
-                <label className="text-xs text-gray-500">
+                <label className="text-sm text-gray-500">
                   Priority
-                  <span className="block text-[10px] text-gray-400">favored in auto-plan · 3 = normal</span>
+                  <span className="block text-[12px] text-gray-400">favored in auto-plan · 3 = normal</span>
                 </label>
                 <StarPicker
                   value={edit.priority}
@@ -2344,9 +2344,9 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
               </div>
 
               <div className="flex items-center justify-between gap-2">
-                <label className="text-xs text-gray-500">
+                <label className="text-sm text-gray-500">
                   Rooms per trip
-                  <span className="block text-[10px] text-gray-400">
+                  <span className="block text-[12px] text-gray-400">
                     min = won&apos;t come for fewer · max 0 = no cap
                   </span>
                 </label>
@@ -2361,7 +2361,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                       className="w-12 rounded-lg border border-gray-300 px-1 py-1 text-center text-sm"
                       aria-label="Minimum rooms"
                     />
-                    <span className="text-[9px] uppercase tracking-wide text-gray-400">min</span>
+                    <span className="text-[12px] uppercase tracking-wide text-gray-400">min</span>
                   </div>
                   <span className="pb-3 text-gray-300">–</span>
                   <div className="flex flex-col items-center">
@@ -2374,15 +2374,15 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                       className="w-12 rounded-lg border border-gray-300 px-1 py-1 text-center text-sm"
                       aria-label="Maximum rooms"
                     />
-                    <span className="text-[9px] uppercase tracking-wide text-gray-400">max</span>
+                    <span className="text-[12px] uppercase tracking-wide text-gray-400">max</span>
                   </div>
                 </div>
               </div>
 
               <div className="flex items-center justify-between gap-2">
-                <label className="text-xs text-gray-500">
+                <label className="text-sm text-gray-500">
                   Owner
-                  <span className="block text-[10px] text-gray-400">
+                  <span className="block text-[12px] text-gray-400">
                     you / Cindy — auto-plan uses only as a last resort
                   </span>
                 </label>
@@ -2394,9 +2394,9 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
               </div>
 
               <div className="flex items-center justify-between gap-2">
-                <label className="text-xs text-gray-500">
+                <label className="text-sm text-gray-500">
                   On leave
-                  <span className="block text-[10px] text-gray-400">skip in auto-plan while away</span>
+                  <span className="block text-[12px] text-gray-400">skip in auto-plan while away</span>
                 </label>
                 <Toggle
                   on={edit.paused}
@@ -2406,7 +2406,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
               </div>
 
               <div className="flex items-center justify-between gap-2">
-                <label className="flex-1 text-xs text-gray-500">
+                <label className="flex-1 text-sm text-gray-500">
                   Baseline hrs already worked this month
                 </label>
                 <input
@@ -2471,7 +2471,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                     />
                     <div className="min-w-0">
                       <h3 className="truncate text-lg font-bold text-gray-900">{entry.name}</h3>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-sm text-gray-500">
                         {formatHrMin(entry.hours)} · earned ${Math.round(entry.earned).toLocaleString()} · paid $
                         {Math.round(entry.paid).toLocaleString()}
                       </p>
@@ -2488,7 +2488,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                 </div>
 
                 <div className="min-h-0 flex-1 overflow-y-auto p-4">
-                  {error && <p className="mb-2 text-xs font-semibold text-red-500">{error}</p>}
+                  {error && <p className="mb-2 text-sm font-semibold text-red-500">{error}</p>}
                   {/* Balance owed — with the reconciliation spelled out so it's
                       clear WHY it's less than the gross monthly hours below. */}
                   <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
@@ -2498,24 +2498,24 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                         ${Math.round(entry.balance).toLocaleString()}
                       </span>
                     </div>
-                    <p className="mt-0.5 text-[11px] text-emerald-600">
+                    <p className="mt-0.5 text-[13px] text-emerald-600">
                       all-time earned ${Math.round(entry.earned).toLocaleString()} − paid $
                       {Math.round(entry.paid).toLocaleString()}
                     </p>
                   </div>
 
                   {/* Hours by date — scrolls so a heavy month never runs long */}
-                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                  <p className="mb-1 text-[12px] font-semibold uppercase tracking-wide text-gray-400">
                     {format(startOfToday(), "MMMM")} — hours by date
                   </p>
                   <div className="max-h-48 overflow-y-auto rounded-lg bg-gray-50 p-2">
                     {days.length === 0 ? (
-                      <p className="py-1 text-center text-[11px] text-gray-400">
+                      <p className="py-1 text-center text-[13px] text-gray-400">
                         No recorded hours this month
                       </p>
                     ) : (
                       days.map(([date, hrs]) => (
-                        <div key={date} className="flex items-center gap-2 py-0.5 text-xs">
+                        <div key={date} className="flex items-center gap-2 py-0.5 text-sm">
                           <span className="flex-1 text-gray-600">
                             {format(new Date(date + "T00:00:00"), "EEE M/d")}
                           </span>
@@ -2527,15 +2527,15 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                       ))
                     )}
                   </div>
-                  <div className="mt-1 flex items-center justify-between px-1 text-[11px] text-gray-400">
+                  <div className="mt-1 flex items-center justify-between px-1 text-[13px] text-gray-400">
                     <span>This month's work (gross)</span>
                     <span className="font-semibold">${subtotal.toFixed(2)}</span>
                   </div>
-                  <div className="flex items-center justify-between px-1 text-[11px] text-gray-400">
+                  <div className="flex items-center justify-between px-1 text-[13px] text-gray-400">
                     <span>Paid so far (all-time)</span>
                     <span className="font-semibold">${entry.paid.toFixed(2)}</span>
                   </div>
-                  <p className="mt-0.5 px-1 text-[10px] text-gray-400">
+                  <p className="mt-0.5 px-1 text-[12px] text-gray-400">
                     A record of recent work — not the amount due. What you owe is the Balance owed above
                     (already net of everything you've paid).
                   </p>
@@ -2570,7 +2570,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                       <button
                         type="button"
                         onClick={() => textPayment(entry)}
-                        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
                       >
                         💬 Text {payCleaner.name.split(" ")[0]} payment
                       </button>
@@ -2593,7 +2593,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                             setPayMode(key);
                             setPayConfirmArmed(false);
                           }}
-                          className={`rounded-md py-1 text-[11px] font-semibold ${
+                          className={`rounded-md py-1 text-[13px] font-semibold ${
                             payMode === key
                               ? key === "undo"
                                 ? "bg-white text-red-600 shadow-sm"
@@ -2606,7 +2606,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                       ))}
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <label className="text-xs text-gray-500">
+                      <label className="text-sm text-gray-500">
                         {payMode === "payout" ? "Pay $" : "Undo $"}
                       </label>
                       <input
@@ -2624,7 +2624,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                         type="button"
                         className={
                           payConfirmArmed
-                            ? `flex-1 rounded-lg px-2.5 py-1.5 text-xs font-bold text-white ${
+                            ? `flex-1 rounded-lg px-2.5 py-1.5 text-sm font-bold text-white ${
                                 payMode === "undo" ? "bg-red-600" : "bg-emerald-700"
                               }`
                             : `flex-1 ${pillEmerald}`
@@ -2638,7 +2638,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                             : "Record undo"}
                       </button>
                     </div>
-                    <p className="mt-1 text-[10px] text-gray-400">
+                    <p className="mt-1 text-[12px] text-gray-400">
                       {payMode === "payout"
                         ? "Adds to this cleaner's paid total"
                         : "Subtracts a mis-recorded payout from the paid total"}
@@ -2661,7 +2661,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
             onClick={(e) => e.stopPropagation()}
           >
             <p className="text-sm font-bold text-gray-900">{assignTarget.roomName}</p>
-            <p className="mb-3 text-xs text-gray-500">
+            <p className="mb-3 text-sm text-gray-500">
               Cleaning {format(new Date(assignTarget.morningKey + "T00:00:00"), "EEE, MMM d")}
               {assignTarget.sameDay && (
                 <span className="font-semibold text-red-500"> · same-day check-in</span>
@@ -2692,13 +2692,13 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                     id={cleaner.id}
                     name={cleaner.name}
                     sizeClass="h-7 w-7"
-                    textClass="text-[11px]"
+                    textClass="text-[13px]"
                   />
                   <span className="min-w-0 flex-1 truncate text-left">{cleaner.name}</span>
-                  <span className={`text-xs ${isAssigned ? "text-gray-300" : "text-emerald-600"}`}>
+                  <span className={`text-sm ${isAssigned ? "text-gray-300" : "text-emerald-600"}`}>
                     ${rateOn(cleaner, todayKey)}/hr
                   </span>
-                  {isAssigned && <span className="text-xs font-bold">✓</span>}
+                  {isAssigned && <span className="text-sm font-bold">✓</span>}
                 </button>
               );
             })}
