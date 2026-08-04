@@ -955,7 +955,12 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
       // Lifetime "Earned so far" / "Paid" totals were removed deliberately: a
       // cleaner reads them as competing claims about what they are owed. The
       // only number that answers their actual question is the balance below.
-      `Ready to pay whenever you'd like: $${Math.round(entry.balance + tip).toLocaleString()}${tip > 0 ? ` (includes a $${tip.toFixed(2)} tip 🎁)` : ""}`,
+      // Cents, not rounded: the day rows and subtotal above are exact, so a
+      // rounded total here reads as an arithmetic error to the person checking it.
+      `Ready to pay whenever you'd like: $${(entry.balance + tip).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}${tip > 0 ? ` (includes a $${tip.toFixed(2)} tip 🎁)` : ""}`,
       "",
       cleanerSignoff(senderName),
     ].join("\n");
