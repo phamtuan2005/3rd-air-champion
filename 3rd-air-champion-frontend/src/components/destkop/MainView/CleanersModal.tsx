@@ -2438,6 +2438,12 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
                           ? ` · since ${format(new Date(entry.unpaidSince + "T00:00:00"), "MMM d")}`
                           : ""}
                       </>
+                    ) : entry.balance < -0.005 ? (
+                      // Paid more than earned — a tip or a rounded-up payout. Owed
+                      // is zero; showing a negative made it read like an error.
+                      <span className="text-blue-600">
+                        ${Math.abs(entry.balance).toFixed(2)} paid ahead
+                      </span>
                     ) : (
                       "All paid up"
                     )}
@@ -2448,7 +2454,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
                     entry.balance > 0.5 ? "text-emerald-600" : "text-gray-300"
                   }`}
                 >
-                  ${entry.balance.toFixed(2)}
+                  ${Math.max(0, entry.balance).toFixed(2)}
                 </span>
                 <span className="shrink-0 text-gray-300">›</span>
               </button>
@@ -2849,17 +2855,20 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-semibold text-emerald-700">Balance owed</span>
                       <span className="text-2xl font-bold text-emerald-700">
-                        ${entry.balance.toFixed(2)}
+                        ${Math.max(0, entry.balance).toFixed(2)}
                       </span>
                     </div>
                     {/* Says what the money BUYS, not a lifetime subtraction. The
                         old "all-time earned − paid" made the host reconcile two
                         large numbers to trust one small one. */}
                     <p className="mt-0.5 text-[13px] text-emerald-600">
-                      {formatHrMin(entry.unpaidHours ?? 0)} worked
-                      {entry.unpaidSince
-                        ? ` since ${format(new Date(entry.unpaidSince + "T00:00:00"), "MMM d")}`
-                        : ""}
+                      {entry.balance < -0.005
+                        ? `$${Math.abs(entry.balance).toFixed(2)} paid ahead — comes off their next cleaning`
+                        : `${formatHrMin(entry.unpaidHours ?? 0)} worked${
+                            entry.unpaidSince
+                              ? ` since ${format(new Date(entry.unpaidSince + "T00:00:00"), "MMM d")}`
+                              : ""
+                          }`}
                     </p>
                   </div>
 
