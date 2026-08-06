@@ -235,6 +235,8 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
   const [activeTab, setActiveTab] = useState<
     "roster" | "hours" | "pay" | "week" | "upcoming"
   >("pay");
+  // Hours tab: which cleaner-day has its "+ Room" picker open (group key)
+  const [addRoomFor, setAddRoomFor] = useState<string | null>(null);
   // Upcoming tab: tapping a forecast room chip opens this assign-cleaner popover
   const [assignTarget, setAssignTarget] = useState<{
     morningKey: string;
@@ -570,6 +572,40 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
       .catch((err) => console.error("Error removing assignment:", err));
   };
 
+  // ── Correcting what was actually cleaned ──
+  // The plan is not always what happened: an outage, a phone left at home, or a
+  // swap agreed in person means a cleaner did a room TiMag never assigned them.
+  // These edit the day's rooms straight from the Hours tab, where the host is
+  // already reconciling reality against the record.
+  const handleAddRoomToDay = (
+    group: { cleaner: CleanerType; date: string },
+    roomId: string,
+  ) => {
+    assignCleaner(
+      { host: hostId, date: group.date, room: roomId, cleaner: group.cleaner.id },
+      token,
+    )
+      .then((created) => {
+        // Assignments are unique per host+date+room, so this REPLACES any other
+        // cleaner holding that room that day — which is exactly the correction
+        // being made ("it was Maria on the King, not Ana").
+        setAssignments((prev) => [
+          ...prev.filter((a) => !(a.date === created.date && a.room?.id === created.room?.id)),
+          created,
+        ]);
+        setAddRoomFor(null);
+      })
+      .catch((err) => setError(err.response?.data?.error ?? "Could not add that room"));
+  };
+
+  const handleRemoveRoomFromDay = (date: string, roomId: string) => {
+    unassignCleaner({ host: hostId, date, room: roomId }, token)
+      .then(() =>
+        setAssignments((prev) => prev.filter((a) => !(a.date === date && a.room?.id === roomId))),
+      )
+      .catch((err) => setError(err.response?.data?.error ?? "Could not remove that room"));
+  };
+
   // Custom room colors live on booking.room in monthMap (assignments only
   // carry id+name) — recover them so Week chips match the Upcoming chips.
   const roomColorById = new Map<string, string>();
@@ -578,6 +614,24 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
       if (b.room?.id && b.room.color) roomColorById.set(b.room.id, b.room.color);
     }),
   );
+
+  // Every room the house has, for the Hours tab's add-a-room picker. Sourced
+  // from monthMap (which carries names) and topped up from assignments so a
+  // room with no bookings this month can still be corrected onto a day.
+  const allRooms = (() => {
+    const m = new Map<string, string>();
+    monthMap.forEach((day) =>
+      day.bookings.forEach((b) => {
+        if (b.room?.id && b.room.name) m.set(b.room.id, b.room.name);
+      }),
+    );
+    assignments.forEach((a) => {
+      if (a.room?.id && a.room.name) m.set(a.room.id, a.room.name);
+    });
+    return [...m.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((x, y) => x.name.localeCompare(y.name));
+  })();
 
   useEffect(() => {
     if (!hostId || !token) return;
@@ -1922,16 +1976,58 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                     Save
                   </button>
                 </div>
-                {/* Rooms cleaned that day, for context — the total covers them all */}
-                <div className="mt-1.5 flex flex-wrap gap-1">
+                {/* Rooms cleaned that day — editable, because the plan is not
+                    always what happened. The total hours cover them all. */}
+                <div className="mt-1.5 flex flex-wrap items-center gap-1">
                   {group.assignments.map((a) => (
                     <span
                       key={a.id}
-                      className={`${getRoomColor(a.room?.name ?? "", a.room ? roomColorById.get(a.room.id) : undefined)} rounded px-1.5 py-0.5 text-[13px] font-semibold text-black`}
+                      className={`${getRoomColor(a.room?.name ?? "", a.room ? roomColorById.get(a.room.id) : undefined)} inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[13px] font-semibold text-black`}
                     >
                       {a.room?.name}
+                      <button
+                        type="button"
+                        title={`${group.cleaner.name.split(" ")[0]} did not clean ${a.room?.name} — remove`}
+                        onClick={() => a.room && handleRemoveRoomFromDay(group.date, a.room.id)}
+                        className="-mr-0.5 flex h-4 w-4 items-center justify-center rounded-full text-black/50 transition-colors hover:bg-black/15 hover:text-black"
+                      >
+                        ×
+                      </button>
                     </span>
                   ))}
+                  {/* Add a room this cleaner actually did but was never assigned */}
+                  {(() => {
+                    const taken = new Set(group.assignments.map((a) => a.room?.id));
+                    const addable = allRooms.filter((r) => !taken.has(r.id));
+                    if (addable.length === 0) return null;
+                    const open = addRoomFor === group.key;
+                    return (
+                      <span className="relative inline-flex">
+                        <button
+                          type="button"
+                          onClick={() => setAddRoomFor(open ? null : group.key)}
+                          title="Add a room this cleaner actually cleaned"
+                          className="rounded border border-dashed border-gray-400 px-1.5 py-0.5 text-[13px] font-semibold text-gray-500 transition-colors hover:border-gray-600 hover:text-gray-800"
+                        >
+                          + Room
+                        </button>
+                        {open && (
+                          <span className="absolute left-0 top-full z-20 mt-1 flex w-max max-w-[220px] flex-wrap gap-1 rounded-lg border border-gray-200 bg-white p-1.5 shadow-lg">
+                            {addable.map((r) => (
+                              <button
+                                key={r.id}
+                                type="button"
+                                onClick={() => handleAddRoomToDay(group, r.id)}
+                                className={`${getRoomColor(r.name, roomColorById.get(r.id))} rounded px-1.5 py-0.5 text-[13px] font-semibold text-black shadow-sm transition-transform hover:scale-105`}
+                              >
+                                {r.name}
+                              </button>
+                            ))}
+                          </span>
+                        )}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
             ))
