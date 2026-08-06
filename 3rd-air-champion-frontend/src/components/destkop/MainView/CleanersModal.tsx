@@ -4,6 +4,7 @@ import { addDays, format, startOfToday, startOfWeek } from "date-fns";
 import { FaDollarSign, FaRedo, FaRegClock } from "react-icons/fa";
 import { MdCleaningServices } from "react-icons/md";
 import { dayType } from "../../../util/types/dayType";
+import { roomType } from "../../../util/types/roomType";
 import { getRoomColor } from "../../../util/getRoomColor";
 import { getCleaningForecast } from "../../../util/cleaningTasks";
 import { generateAvatar } from "../../../util/avatarGen";
@@ -35,6 +36,7 @@ interface CleanersModalProps {
   hostId: string;
   token: string;
   monthMap: Map<string, dayType>; // for arriving-guest counts in the schedule SMS
+  rooms: roomType[]; // the live roster — the only source carrying `active`
   cleaningRules?: string; // host's private note to the cleaning team (texted, not shown to guests)
   senderName?: string; // who's logged in (Anh-Tuan or a cohost like Cindy) — signs the texts
   onClose: () => void;
@@ -222,7 +224,7 @@ const ResendBadge = ({ className = "" }: { className?: string }) => (
   </span>
 );
 
-const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName, onClose }: CleanersModalProps) => {
+const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", senderName, onClose }: CleanersModalProps) => {
   // Self-sufficient: fetches its own data so it can be opened from anywhere
   // (NavBar dropdown or the Upcoming assign popover).
   const [cleaners, setCleaners] = useState<CleanerType[]>([]);
@@ -615,23 +617,15 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
     }),
   );
 
-  // Every room the house has, for the Hours tab's add-a-room picker. Sourced
-  // from monthMap (which carries names) and topped up from assignments so a
-  // room with no bookings this month can still be corrected onto a day.
-  const allRooms = (() => {
-    const m = new Map<string, string>();
-    monthMap.forEach((day) =>
-      day.bookings.forEach((b) => {
-        if (b.room?.id && b.room.name) m.set(b.room.id, b.room.name);
-      }),
-    );
-    assignments.forEach((a) => {
-      if (a.room?.id && a.room.name) m.set(a.room.id, a.room.name);
-    });
-    return [...m.entries()]
-      .map(([id, name]) => ({ id, name }))
-      .sort((x, y) => x.name.localeCompare(y.name));
-  })();
+  // Rooms offerable in the Hours tab's add-a-room picker. ACTIVE only: a retired
+  // room cannot have been cleaned, so offering it just invites a wrong record.
+  // Comes from the rooms prop because monthMap's booking.room has no `active`
+  // (the GraphQL selection stops at id/name/price/roomCode/color). Rooms already
+  // on a day still show their chip regardless, so an inactive one can be removed.
+  const addableRooms = rooms
+    .filter((r) => r.active)
+    .slice()
+    .sort((x, y) => x.name.localeCompare(y.name));
 
   useEffect(() => {
     if (!hostId || !token) return;
@@ -1998,7 +1992,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                   {/* Add a room this cleaner actually did but was never assigned */}
                   {(() => {
                     const taken = new Set(group.assignments.map((a) => a.room?.id));
-                    const addable = allRooms.filter((r) => !taken.has(r.id));
+                    const addable = addableRooms.filter((r) => !taken.has(r.id));
                     if (addable.length === 0) return null;
                     const open = addRoomFor === group.key;
                     return (
@@ -2012,18 +2006,29 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                           + Room
                         </button>
                         {open && (
-                          <span className="absolute left-0 top-full z-20 mt-1 flex w-max max-w-[220px] flex-wrap gap-1 rounded-lg border border-gray-200 bg-white p-1.5 shadow-lg">
-                            {addable.map((r) => (
-                              <button
-                                key={r.id}
-                                type="button"
-                                onClick={() => handleAddRoomToDay(group, r.id)}
-                                className={`${getRoomColor(r.name, roomColorById.get(r.id))} rounded px-1.5 py-0.5 text-[13px] font-semibold text-black shadow-sm transition-transform hover:scale-105`}
-                              >
-                                {r.name}
-                              </button>
-                            ))}
-                          </span>
+                          <>
+                            {/* Click-away catcher, so the list closes without a
+                                document listener fighting the button's onClick. */}
+                            <span
+                              className="fixed inset-0 z-10"
+                              onClick={() => setAddRoomFor(null)}
+                            />
+                            <span className="absolute left-0 top-full z-20 mt-1 flex w-44 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                              {addable.map((r) => (
+                                <button
+                                  key={r.id}
+                                  type="button"
+                                  onClick={() => handleAddRoomToDay(group, r.id)}
+                                  className="flex items-center gap-2 px-2.5 py-1.5 text-left text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-100"
+                                >
+                                  <span
+                                    className={`${getRoomColor(r.name, r.color)} h-3.5 w-3.5 shrink-0 rounded`}
+                                  />
+                                  {r.name}
+                                </button>
+                              ))}
+                            </span>
+                          </>
                         )}
                       </span>
                     );

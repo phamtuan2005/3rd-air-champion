@@ -1292,6 +1292,7 @@ const MainView = ({
           hostId={hostId}
           token={token as string}
           monthMap={monthMap}
+          rooms={rooms}
           cleaningRules={cleaningRules}
           senderName={senderName}
           onClose={() => setIsCleanersOpen(false)}
