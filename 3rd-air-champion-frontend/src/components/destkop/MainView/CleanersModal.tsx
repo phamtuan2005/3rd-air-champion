@@ -27,6 +27,7 @@ import {
   fetchSentSchedules,
   recordScheduleSent,
   recordCleanerPayment,
+  removeCleanerPayment,
   rateOn,
   unassignCleaner,
   updateAssignmentHours,
@@ -393,6 +394,8 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
   const [detailId, setDetailId] = useState<string | null>(null);
   const [tipDraft, setTipDraft] = useState<Record<string, string>>({});
   const [payDraft, setPayDraft] = useState("");
+  // Which logged payout is armed for removal (id) — removal takes two taps.
+  const [removeArmed, setRemoveArmed] = useState<string | null>(null);
   // Payout adds to paid, Undo subtracts — phone number pads have no minus key,
   // so direction is a toggle and the typed amount is always positive.
   const [payMode, setPayMode] = useState<"payout" | "undo">("payout");
@@ -1139,7 +1142,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
       return;
     }
     const signed = payMode === "undo" ? -amount : amount;
-    recordCleanerPayment(entry.id, signed, token)
+    recordCleanerPayment(entry.id, signed, token, todayKey)
       .then(() => {
         // Stay in the detail modal so the host sees the updated balance; just
         // reset the input and disarm the confirm.
@@ -1149,6 +1152,21 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
         reloadSummary();
       })
       .catch((err) => setError(err.response?.data?.error ?? "Could not record payment"));
+  };
+
+  // Remove one logged payout. Two taps, like recording one — this moves money.
+  const handleRemovePayment = (cleanerId: string, paymentId: string) => {
+    if (removeArmed !== paymentId) {
+      setRemoveArmed(paymentId);
+      return;
+    }
+    removeCleanerPayment(cleanerId, paymentId, token)
+      .then(() => {
+        setRemoveArmed(null);
+        setError("");
+        reloadSummary();
+      })
+      .catch((err) => setError(err.response?.data?.error ?? "Could not remove payment"));
   };
 
   // The cleaner whose focused pay detail modal is open (fresh from summary so
@@ -2950,6 +2968,59 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
                     <span>Paid so far (all-time)</span>
                     <span className="font-semibold">${entry.paid.toFixed(2)}</span>
                   </div>
+
+                  {/* Every payout itemised. A duplicate is obvious here in a way
+                      a single running total could never show, and one entry can
+                      be undone without guessing an offsetting amount. */}
+                  {((entry.payments?.length ?? 0) > 0 || (entry.openingPaid ?? 0) > 0.005) && (
+                    <div className="mt-2 rounded-xl border border-gray-200 p-2">
+                      <p className="mb-1 text-[12px] font-semibold uppercase tracking-wide text-gray-400">
+                        Payments
+                      </p>
+                      {(entry.payments ?? []).map((p) => (
+                        <div
+                          key={p.id}
+                          className="flex items-center gap-2 border-b border-gray-100 py-1 last:border-b-0"
+                        >
+                          <span className="w-20 shrink-0 text-[13px] text-gray-500">
+                            {format(new Date(p.paidOn + "T00:00:00"), "MMM d")}
+                          </span>
+                          <span
+                            className={`flex-1 text-sm font-semibold ${
+                              p.amount < 0 ? "text-red-600" : "text-gray-800"
+                            }`}
+                          >
+                            {p.amount < 0 ? "−" : ""}${Math.abs(p.amount).toFixed(2)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePayment(entry.id, p.id)}
+                            className={`shrink-0 rounded-md px-2 py-0.5 text-[12px] font-semibold transition-colors ${
+                              removeArmed === p.id
+                                ? "bg-red-600 text-white"
+                                : "text-gray-400 hover:text-red-600"
+                            }`}
+                          >
+                            {removeArmed === p.id ? "Confirm" : "Remove"}
+                          </button>
+                        </div>
+                      ))}
+                      {(entry.openingPaid ?? 0) > 0.005 && (
+                        <div className="flex items-center gap-2 py-1 text-gray-400">
+                          <span className="w-20 shrink-0 text-[13px]">earlier</span>
+                          <span className="flex-1 text-sm font-semibold">
+                            ${entry.openingPaid!.toFixed(2)}
+                          </span>
+                          <span
+                            className="shrink-0 text-[12px]"
+                            title="Paid before payouts were logged individually — cannot be removed one by one"
+                          >
+                            not itemised
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <p className="mt-0.5 px-1 text-[12px] text-gray-400">
                     A record of recent work — not the amount due. What you owe is the Balance owed above
                     (already net of everything you've paid).

@@ -197,6 +197,18 @@ router.get("/summary", async (req: Request, res: any) => {
           remainingPaid = 0;
         }
 
+        // Itemised payouts, newest first. Anything paid before logging existed
+        // shows as one opening figure rather than being invented as entries.
+        const payments = [...(c.payments ?? [])]
+          .map((p: any) => ({
+            id: String(p._id),
+            amount: p.amount,
+            paidOn: p.paidOn,
+            note: p.note ?? "",
+          }))
+          .sort((x, y) => (x.paidOn < y.paidOn ? 1 : -1));
+        const logged = payments.reduce((s: number, p: any) => s + p.amount, 0);
+
         return {
           id: c._id,
           name: c.name,
@@ -206,6 +218,8 @@ router.get("/summary", async (req: Request, res: any) => {
           balance: earned - paid,
           unpaidHours,
           unpaidSince,
+          payments,
+          openingPaid: Math.round((paid - logged) * 100) / 100,
         };
       }),
     );
@@ -217,13 +231,43 @@ router.get("/summary", async (req: Request, res: any) => {
 // Record a payout — adjusts the cleaner's running paid total. Negative
 // amounts correct a mis-recorded payout; the total never drops below zero.
 router.post("/pay", async (req: Request, res: any) => {
-  const { id, amount } = req.body;
+  const { id, amount, paidOn, note } = req.body;
   if (!id || typeof amount !== "number" || !isFinite(amount) || amount === 0)
     return res.status(400).json({ error: "id and a non-zero numeric amount are required" });
   try {
     const cleaner: any = await Cleaner.findById(id);
     if (!cleaner) return res.status(404).json({ error: "Cleaner not found" });
+    // Log the payout itself, not just its effect on the total — so a duplicate
+    // or a wrong figure can be seen and removed later rather than guessed at.
+    // paidOn comes from the client: the server runs UTC and would date an
+    // evening payout in California to the following day.
+    cleaner.payments.push({
+      amount,
+      paidOn: paidOn || new Date().toISOString().slice(0, 10),
+      note: note || "",
+    });
     cleaner.paidAmount = Math.max(0, (cleaner.paidAmount ?? 0) + amount);
+    await cleaner.save();
+    res.status(200).json({ id: cleaner._id, paid: cleaner.paidAmount });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Remove ONE logged payout. Undoing a specific mistake beats adding a negative
+// correction, which leaves both the error and the fix in the history.
+router.post("/pay/remove", async (req: Request, res: any) => {
+  const { id, paymentId } = req.body;
+  if (!id || !paymentId)
+    return res.status(400).json({ error: "id and paymentId are required" });
+  try {
+    const cleaner: any = await Cleaner.findById(id);
+    if (!cleaner) return res.status(404).json({ error: "Cleaner not found" });
+    const entry = cleaner.payments.id(paymentId);
+    if (!entry) return res.status(404).json({ error: "Payment not found" });
+    const amount = entry.amount;
+    entry.deleteOne();
+    cleaner.paidAmount = Math.max(0, (cleaner.paidAmount ?? 0) - amount);
     await cleaner.save();
     res.status(200).json({ id: cleaner._id, paid: cleaner.paidAmount });
   } catch (error: any) {

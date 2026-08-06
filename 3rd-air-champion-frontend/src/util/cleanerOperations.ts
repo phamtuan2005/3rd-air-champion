@@ -109,6 +109,10 @@ export interface CleanerSummaryType {
   // discuss. Lifetime totals answer a question nobody asked.
   unpaidHours?: number;
   unpaidSince?: string | null; // yyyy-MM-dd of the first unpaid day
+  // Itemised payouts, newest first, so a duplicate is visible and removable.
+  payments?: { id: string; amount: number; paidOn: string; note: string }[];
+  // Paid before logging existed — one opening figure, not individually undoable.
+  openingPaid?: number;
 }
 
 export const fetchCleanerSummary = async (
@@ -126,8 +130,19 @@ export const recordCleanerPayment = async (
   id: string,
   amount: number,
   token: string,
+  paidOn?: string, // host's LOCAL date — the server runs UTC and would misdate an evening payout
 ): Promise<void> => {
-  await axios.post(`${BACKEND_ENDPOINT}/cleaner/pay`, { id, amount }, auth(token));
+  await axios.post(`${BACKEND_ENDPOINT}/cleaner/pay`, { id, amount, paidOn }, auth(token));
+};
+
+// Undo one logged payout rather than posting an offsetting negative, which
+// would leave both the mistake and the correction in the history.
+export const removeCleanerPayment = async (
+  id: string,
+  paymentId: string,
+  token: string,
+): Promise<void> => {
+  await axios.post(`${BACKEND_ENDPOINT}/cleaner/pay/remove`, { id, paymentId }, auth(token));
 };
 
 export interface SentScheduleType {

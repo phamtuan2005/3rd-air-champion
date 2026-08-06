@@ -54,6 +54,23 @@ const cleanerSchema = new mongoose.Schema(
     // all-time earnings minus this. Cleaners claim on different schedules
     // (right away / bi-weekly / at a threshold), so owed must survive months.
     paidAmount: { type: Number, default: 0 },
+    // Every payout, itemised. paidAmount alone could not answer "what did I pay
+    // and when", so a double-tap or a mis-typed figure was invisible afterwards
+    // and could only be corrected by guessing an offsetting amount.
+    //
+    // paidAmount stays the authoritative total. Any part of it predating this
+    // log shows as an opening figure (paidAmount − Σ payments) — so no backfill
+    // is needed and nothing already recorded is lost.
+    payments: {
+      type: [
+        {
+          amount: { type: Number, required: true },
+          paidOn: { type: String, required: true }, // yyyy-MM-dd, host's local date
+          note: { type: String, default: "" },
+        },
+      ],
+      default: [],
+    },
   },
   { timestamps: true }
 );
