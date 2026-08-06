@@ -2145,17 +2145,16 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
                   ))}
                   {/* Add a room this cleaner actually did but was never assigned */}
                   {(() => {
+                    // This tab only ever records the PAST, where what checked out
+                    // is already known — so offer exactly those rooms. No forecast,
+                    // no probable turnovers, nothing to pick by mistake. The Plan
+                    // tab owns anything forward-looking.
                     const taken = new Set(group.assignments.map((a) => a.room?.id));
-                    const addable = addableRooms.filter((r) => !taken.has(r.id));
-                    if (addable.length === 0) return null;
-                    // Rooms that actually turned over come first. The rest are still
-                    // reachable — the whole reason for this tab is that TiMag's
-                    // record can be wrong, and a missing booking would otherwise
-                    // block a real cleaning — but they are separated and labelled
-                    // so one is never picked by accident.
                     const turnedOver = checkoutRoomsOn(group.date);
-                    const real = addable.filter((r) => turnedOver.has(r.id));
-                    const rest = addable.filter((r) => !turnedOver.has(r.id));
+                    const addable = addableRooms.filter(
+                      (r) => !taken.has(r.id) && turnedOver.has(r.id),
+                    );
+                    if (addable.length === 0) return null;
                     const open = addRoomFor === group.key;
                     return (
                       <span className="relative inline-flex">
@@ -2176,12 +2175,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
                               onClick={() => setAddRoomFor(null)}
                             />
                             <span className="absolute left-0 top-full z-20 mt-1 flex w-max flex-col overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-                              {real.length > 0 && (
-                                <span className="px-2 pb-0.5 pt-1 text-[12px] font-bold uppercase tracking-wide text-gray-400">
-                                  Checked out
-                                </span>
-                              )}
-                              {real.map((r) => (
+                              {addable.map((r) => (
                                 <button
                                   key={r.id}
                                   type="button"
@@ -2191,25 +2185,6 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
                                   {/* RoomBadge is the system-wide room chip — same
                                       colour box everywhere a room is named. `rooms`
                                       gives every badge one width so they align. */}
-                                  <RoomBadge room={r} rooms={addable} />
-                                </button>
-                              ))}
-                              {rest.length > 0 && (
-                                <span
-                                  className="mt-0.5 border-t border-gray-100 px-2 pb-0.5 pt-1 text-[12px] font-bold uppercase tracking-wide text-gray-400"
-                                  title="No checkout recorded that night — only add one of these if TiMag is missing the booking"
-                                >
-                                  No checkout
-                                </span>
-                              )}
-                              {rest.map((r) => (
-                                <button
-                                  key={r.id}
-                                  type="button"
-                                  onClick={() => handleAddRoomToDay(group, r.id)}
-                                  title="No checkout recorded that night — add only if a booking is missing"
-                                  className="px-2 py-1 text-left opacity-50 transition-opacity hover:bg-gray-100 hover:opacity-100"
-                                >
                                   <RoomBadge room={r} rooms={addable} />
                                 </button>
                               ))}
