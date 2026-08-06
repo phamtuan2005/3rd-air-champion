@@ -605,13 +605,21 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
       { host: hostId, date: group.date, room: roomId, cleaner: group.cleaner.id },
       token,
     )
-      .then((created) => {
+      .then(async (created) => {
         // Assignments are unique per host+date+room, so this REPLACES any other
         // cleaner holding that room that day — which is exactly the correction
         // being made ("it was Maria on the King, not Ana").
+        //
+        // If the day is already recorded, join it at 0 rather than null: the
+        // day's total already covers this room, and a stray null row makes the
+        // day read as pending and recorded at once.
+        let row = created;
+        if (recordedDayKeys.has(`${group.cleaner.id}|${group.date}`)) {
+          row = await updateAssignmentHours(created.id, 0, token).catch(() => created);
+        }
         setAssignments((prev) => [
-          ...prev.filter((a) => !(a.date === created.date && a.room?.id === created.room?.id)),
-          created,
+          ...prev.filter((a) => !(a.date === row.date && a.room?.id === row.room?.id)),
+          row,
         ]);
         setAddRoomFor(null);
       })
@@ -676,13 +684,27 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
 
   // Past (or today's) cleanings whose hours haven't been recorded yet — excluding
   // stale ones (a room a continuous stay absorbed still needs no cleaning).
+  // Cleaner-days that already carry a recorded total. A day's hours live on ONE
+  // of its rooms (the rest hold 0), so "recorded" is a property of the DAY, not
+  // of each row — a room added after the day was saved arrives with hours null
+  // and must not resurrect the day as pending.
+  const recordedDayKeys = new Set(
+    assignments
+      .filter((a) => a.hours != null && a.hours > 0 && a.cleaner)
+      .map((a) => `${a.cleaner!.id}|${a.date}`),
+  );
+
   const needHours = assignments.filter(
     (a) =>
       a.date <= todayKey &&
       a.hours == null &&
       a.cleaner &&
       a.room &&
-      !isStaleCleaning(a.room.id, a.date),
+      !isStaleCleaning(a.room.id, a.date) &&
+      // Without this the day showed as pending AND recorded at once, and saving
+      // the pending card wrote only the null rows — leaving the existing total
+      // in place and inflating the day's pay.
+      !recordedDayKeys.has(`${a.cleaner.id}|${a.date}`),
   );
 
   // A cleaner reports ONE daily total, not a figure per room — group the
@@ -859,6 +881,8 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
   // equals exactly what the cleaner reported, no per-room figure invented.
   const handleSaveDayHours = (group: {
     key: string;
+    cleaner?: CleanerType;
+    date?: string;
     assignments: CleaningAssignmentType[];
   }) => {
     // In–Out mode derives the total from the arrival/leave times; Total mode
@@ -877,8 +901,18 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
     // 0 = the cleaner didn't work that day: clear every room back to null so
     // the day returns to the amber pending card, rather than storing "0 hr".
     const clearing = hours === 0;
+    // Write across EVERY row this cleaner has that day, not just the ones the
+    // group happened to carry. A room added after the day was saved is not in
+    // the pending group, and skipping it left its old value behind — so the
+    // day's sum became "old total + new total" instead of the new total.
+    const dayRows =
+      group.cleaner && group.date
+        ? assignments.filter(
+            (a) => a.cleaner?.id === group.cleaner!.id && a.date === group.date && a.room,
+          )
+        : group.assignments;
     Promise.all(
-      group.assignments.map((a, i) =>
+      dayRows.map((a, i) =>
         updateAssignmentHours(a.id, clearing ? null : i === 0 ? hours : 0, token),
       ),
     )
