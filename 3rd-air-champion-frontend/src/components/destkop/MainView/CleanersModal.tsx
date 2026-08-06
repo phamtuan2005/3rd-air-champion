@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { addDays, format, startOfToday, startOfWeek } from "date-fns";
-import { FaDollarSign, FaRegClock } from "react-icons/fa";
+import { FaDollarSign, FaRedo, FaRegClock } from "react-icons/fa";
 import { MdCleaningServices } from "react-icons/md";
 import { dayType } from "../../../util/types/dayType";
 import { getRoomColor } from "../../../util/getRoomColor";
@@ -213,14 +213,12 @@ const SectionHeader = ({
 // halo, and appears everywhere the drift is actionable (Plan, Week, Team).
 const ResendBadge = ({ className = "" }: { className?: string }) => (
   <span
-    className={`inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-400 bg-amber-100 px-1.5 py-0.5 text-[12px] font-bold uppercase leading-none text-amber-800 shadow-sm ${className}`}
+    className={`relative inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-amber-400 bg-amber-100 text-amber-700 shadow-sm ${className}`}
     title="Schedule changed since you last texted it — tap the cleaner to re-send"
+    aria-label="Schedule changed — re-send"
   >
-    <span className="relative flex h-1.5 w-1.5">
-      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-500 opacity-75" />
-      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-amber-600" />
-    </span>
-    Re-send
+    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-60" />
+    <FaRedo className="relative text-[11px]" />
   </span>
 );
 
