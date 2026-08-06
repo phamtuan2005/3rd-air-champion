@@ -2438,13 +2438,10 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
                           ? ` · since ${format(new Date(entry.unpaidSince + "T00:00:00"), "MMM d")}`
                           : ""}
                       </>
-                    ) : entry.balance < -0.005 ? (
-                      // Paid more than earned — a tip or a rounded-up payout. Owed
-                      // is zero; showing a negative made it read like an error.
-                      <span className="text-blue-600">
-                        ${Math.abs(entry.balance).toFixed(2)} paid ahead
-                      </span>
                     ) : (
+                      // Nothing owed. Payments are never made in advance here, so
+                      // a balance at or below zero just means settled — no credit
+                      // to explain and no negative to show.
                       "All paid up"
                     )}
                   </p>
@@ -2862,13 +2859,13 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
                         old "all-time earned − paid" made the host reconcile two
                         large numbers to trust one small one. */}
                     <p className="mt-0.5 text-[13px] text-emerald-600">
-                      {entry.balance < -0.005
-                        ? `$${Math.abs(entry.balance).toFixed(2)} paid ahead — comes off their next cleaning`
-                        : `${formatHrMin(entry.unpaidHours ?? 0)} worked${
+                      {entry.balance > 0.5
+                        ? `${formatHrMin(entry.unpaidHours ?? 0)} worked${
                             entry.unpaidSince
                               ? ` since ${format(new Date(entry.unpaidSince + "T00:00:00"), "MMM d")}`
                               : ""
-                          }`}
+                          }`
+                        : "All paid up"}
                     </p>
                   </div>
 
