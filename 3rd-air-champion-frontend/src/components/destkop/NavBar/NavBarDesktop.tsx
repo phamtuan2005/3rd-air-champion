@@ -309,7 +309,7 @@ const NavBarDesktop = ({
                 type="button"
                 title={g.title}
                 onClick={() => setPickerGroup(key)}
-                className={`relative flex flex-1 max-w-[8rem] items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-semibold text-white whitespace-nowrap sm:max-w-none sm:flex-none sm:px-4 sm:text-sm ${g.btn} ${
+                className={`relative flex flex-1 max-w-[8rem] items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-semibold text-white whitespace-nowrap sm:max-w-none sm:flex-none sm:px-4 sm:text-base ${g.btn} ${
                   g.active ? g.shadow : ""
                 }`}
               >
@@ -317,12 +317,12 @@ const NavBarDesktop = ({
                 {g.title}
                 {/* Aggregated pending badges so nothing hides behind the group */}
                 {g.badges[0]?.n > 0 && (
-                  <span className={`absolute -top-2 right-2 min-w-[20px] h-5 px-1 rounded-full text-[10px] font-bold flex items-center justify-center leading-none ${g.badges[0].cls}`}>
+                  <span className={`absolute -top-2 right-2 min-w-[22px] h-[22px] px-1 rounded-full text-[12px] font-bold flex items-center justify-center leading-none ${g.badges[0].cls}`}>
                     {g.badges[0].n}
                   </span>
                 )}
                 {g.badges[1]?.n > 0 && (
-                  <span className={`absolute -top-2 left-2 min-w-[18px] h-[18px] px-1 rounded-full text-[9px] font-bold flex items-center justify-center leading-none ${g.badges[1].cls}`}>
+                  <span className={`absolute -top-2 left-2 min-w-[20px] h-[20px] px-1 rounded-full text-[11px] font-bold flex items-center justify-center leading-none ${g.badges[1].cls}`}>
                     {g.badges[1].n}
                   </span>
                 )}
