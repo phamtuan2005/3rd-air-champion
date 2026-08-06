@@ -999,7 +999,13 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
     // Label the range actually listed, not the calendar week — mid-week that is
     // today→Sunday, so the heading matches the days below it.
     const weekLabel = `${format(new Date(from + "T00:00:00"), "MMM d")} – ${format(addDays(monday, 6), "MMM d")}`;
-    const message = `Hi ${cleaner.name}, your cleaning schedule for ${weekLabel}:\n${lines.join("\n")}\n(numbers = guests arriving)\n\n${cleanerSignoff(senderName)}`;
+    // Say "updated" when this cleaner has already had a schedule for this week,
+    // so a second text is read as replacing the first rather than duplicating
+    // it — otherwise a cleaner may act on whichever they happen to scroll to.
+    const isResend = !!sentSchedules[sentKey(cleaner.id, monday)];
+    const message = isResend
+      ? `Hi ${cleaner.name}, here's your UPDATED cleaning schedule for ${weekLabel} — this replaces what I sent before:\n${lines.join("\n")}\n(numbers = guests arriving)\n\n${cleanerSignoff(senderName)}`
+      : `Hi ${cleaner.name}, your cleaning schedule for ${weekLabel}:\n${lines.join("\n")}\n(numbers = guests arriving)\n\n${cleanerSignoff(senderName)}`;
     window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(message)}`;
     // Remember exactly what we sent (shared via backend) so later drift from the
     // live plan flags a re-send — for you and any cohost.
