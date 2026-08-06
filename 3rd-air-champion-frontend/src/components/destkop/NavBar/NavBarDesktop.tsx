@@ -348,8 +348,8 @@ const NavBarDesktop = ({
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h2 className="flex items-center gap-2 text-base font-bold text-gray-800">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+              <h2 className="flex items-center gap-2 text-lg font-bold text-gray-800">
                 <span className="text-gray-500">{GROUPS[pickerGroup].icon}</span>
                 {GROUPS[pickerGroup].title}
               </h2>
@@ -362,20 +362,20 @@ const NavBarDesktop = ({
             </div>
 
             {/* Action cards */}
-            <div className="p-4 flex flex-col gap-3">
+            <div className="p-3 flex flex-col gap-2">
               {GROUPS[pickerGroup].actions.map((a) => (
                 <button
                   key={a.label}
                   type="button"
-                  className={`text-left w-full rounded-xl border-2 border-gray-200 bg-white px-5 py-4 transition-all hover:shadow-md ${a.hover}`}
+                  className={`text-left w-full rounded-xl border-2 border-gray-200 bg-white px-4 py-3 transition-all hover:shadow-md ${a.hover}`}
                   onClick={() => {
                     setPickerGroup(null);
                     a.run();
                   }}
                 >
-                  <div className="flex items-center gap-3 mb-1">
-                    <span className="text-lg">{a.emoji}</span>
-                    <span className="font-bold text-sm text-gray-800">{a.label}</span>
+                  <div className="flex items-center gap-2.5 mb-0.5">
+                    <span className="text-xl">{a.emoji}</span>
+                    <span className="font-bold text-base text-gray-800">{a.label}</span>
                     {a.badges && a.badges.some((b) => b.n > 0) && (
                       <span className="ml-auto flex items-center gap-1">
                         {a.badges.map(
@@ -383,7 +383,7 @@ const NavBarDesktop = ({
                             b.n > 0 && (
                               <span
                                 key={i}
-                                className={`min-w-[20px] h-5 px-1 rounded-full text-[10px] font-bold flex items-center justify-center leading-none ${b.cls}`}
+                                className={`min-w-[22px] h-[22px] px-1 rounded-full text-[12px] font-bold flex items-center justify-center leading-none ${b.cls}`}
                               >
                                 {b.n}
                               </span>
@@ -392,7 +392,7 @@ const NavBarDesktop = ({
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 leading-relaxed pl-9">{a.desc}</p>
+                  <p className="text-sm text-gray-500 leading-snug pl-[34px]">{a.desc}</p>
                 </button>
               ))}
             </div>
