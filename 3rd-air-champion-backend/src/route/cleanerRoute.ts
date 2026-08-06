@@ -144,25 +144,69 @@ router.get("/summary", async (req: Request, res: any) => {
     }).select("cleaner date hours");
 
     const agg = new Map<string, { hours: number; earned: number }>();
+    // Per-cleaner work, oldest first — needed to work out which days a running
+    // paidAmount has already covered (see unpaid calculation below).
+    const daysByCleaner = new Map<string, { date: string; hours: number; earned: number }[]>();
     for (const a of assigns as any[]) {
       const cid = String(a.cleaner);
       const c = cleanerById.get(cid);
       if (!c) continue;
+      const earned = a.hours * rateOn(c, a.date);
       const e = agg.get(cid) ?? { hours: 0, earned: 0 };
       e.hours += a.hours;
-      e.earned += a.hours * rateOn(c, a.date);
+      e.earned += earned;
       agg.set(cid, e);
+      const list = daysByCleaner.get(cid) ?? [];
+      list.push({ date: a.date, hours: a.hours, earned });
+      daysByCleaner.set(cid, list);
     }
 
     res.status(200).json(
       cleaners.map((c: any) => {
-        const a = agg.get(String(c._id)) ?? { hours: 0, earned: 0 };
+        const cid = String(c._id);
+        const a = agg.get(cid) ?? { hours: 0, earned: 0 };
         const baseHrs = c.baselineHours ?? 0;
         const baseDate = c.baselineMonth ? `${c.baselineMonth}-01` : new Date().toISOString().slice(0, 10);
         const hours = a.hours + baseHrs;
         const earned = a.earned + baseHrs * rateOn(c, baseDate);
         const paid = c.paidAmount ?? 0;
-        return { id: c._id, name: c.name, hours, earned, paid, balance: earned - paid };
+
+        // What the host actually needs when paying someone: the work NOT yet
+        // covered by payments. paidAmount is a running total with no dates, so
+        // recover the boundary by consuming days oldest-first until payments run
+        // out — everything after that is unpaid. A payment landing mid-day
+        // pro-rates that day's hours rather than dropping or double-counting it.
+        const timeline = [
+          ...(baseHrs > 0
+            ? [{ date: baseDate, hours: baseHrs, earned: baseHrs * rateOn(c, baseDate) }]
+            : []),
+          ...(daysByCleaner.get(cid) ?? []).sort((x, y) => x.date.localeCompare(y.date)),
+        ];
+        let remainingPaid = paid;
+        let unpaidHours = 0;
+        let unpaidSince: string | null = null;
+        for (const d of timeline) {
+          if (remainingPaid >= d.earned - 1e-9) {
+            remainingPaid -= d.earned; // fully covered by earlier payments
+            continue;
+          }
+          const uncovered = d.earned - Math.max(0, remainingPaid);
+          const fraction = d.earned > 0 ? uncovered / d.earned : 1;
+          unpaidHours += d.hours * fraction;
+          if (!unpaidSince) unpaidSince = d.date;
+          remainingPaid = 0;
+        }
+
+        return {
+          id: c._id,
+          name: c.name,
+          hours,
+          earned,
+          paid,
+          balance: earned - paid,
+          unpaidHours,
+          unpaidSince,
+        };
       }),
     );
   } catch (error: any) {

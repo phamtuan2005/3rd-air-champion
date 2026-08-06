@@ -105,6 +105,10 @@ export interface CleanerSummaryType {
   earned: number; // hours × rate
   paid: number; // running payouts
   balance: number; // earned − paid: what the host owes right now
+  // Work not yet covered by payments — what the host and cleaner actually
+  // discuss. Lifetime totals answer a question nobody asked.
+  unpaidHours?: number;
+  unpaidSince?: string | null; // yyyy-MM-dd of the first unpaid day
 }
 
 export const fetchCleanerSummary = async (

@@ -2421,9 +2421,20 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
                       {entry.name}
                     </span>
                   </p>
+                  {/* Only the work still owed for. Lifetime hours/earned/paid
+                      answered a question nobody asks at the moment of paying —
+                      and sat beside the balance as if competing with it. */}
                   <p className="text-sm text-gray-500">
-                    {formatHrMin(entry.hours)} · earned ${Math.round(entry.earned).toLocaleString()} · paid $
-                    {Math.round(entry.paid).toLocaleString()}
+                    {entry.balance > 0.5 ? (
+                      <>
+                        {formatHrMin(entry.unpaidHours ?? 0)} unpaid
+                        {entry.unpaidSince
+                          ? ` · since ${format(new Date(entry.unpaidSince + "T00:00:00"), "MMM d")}`
+                          : ""}
+                      </>
+                    ) : (
+                      "All paid up"
+                    )}
                   </p>
                 </div>
                 <span
@@ -2431,7 +2442,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
                     entry.balance > 0.5 ? "text-emerald-600" : "text-gray-300"
                   }`}
                 >
-                  ${Math.round(entry.balance).toLocaleString()}
+                  ${entry.balance.toFixed(2)}
                 </span>
                 <span className="shrink-0 text-gray-300">›</span>
               </button>
@@ -2808,8 +2819,9 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
                     <div className="min-w-0">
                       <h3 className="truncate text-lg font-bold text-gray-900">{entry.name}</h3>
                       <p className="text-sm text-gray-500">
-                        {formatHrMin(entry.hours)} · earned ${Math.round(entry.earned).toLocaleString()} · paid $
-                        {Math.round(entry.paid).toLocaleString()}
+                        {entry.balance > 0.5
+                          ? `${formatHrMin(entry.unpaidHours ?? 0)} unpaid`
+                          : "All paid up"}
                       </p>
                     </div>
                   </div>
@@ -2831,12 +2843,17 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-semibold text-emerald-700">Balance owed</span>
                       <span className="text-2xl font-bold text-emerald-700">
-                        ${Math.round(entry.balance).toLocaleString()}
+                        ${entry.balance.toFixed(2)}
                       </span>
                     </div>
+                    {/* Says what the money BUYS, not a lifetime subtraction. The
+                        old "all-time earned − paid" made the host reconcile two
+                        large numbers to trust one small one. */}
                     <p className="mt-0.5 text-[13px] text-emerald-600">
-                      all-time earned ${Math.round(entry.earned).toLocaleString()} − paid $
-                      {Math.round(entry.paid).toLocaleString()}
+                      {formatHrMin(entry.unpaidHours ?? 0)} worked
+                      {entry.unpaidSince
+                        ? ` since ${format(new Date(entry.unpaidSince + "T00:00:00"), "MMM d")}`
+                        : ""}
                     </p>
                   </div>
 
