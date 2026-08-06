@@ -860,13 +860,23 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
       .sort()
       .join("|");
   };
-  // "empty" (nothing to clean) | "unsent" | "sent" (matches) | "changed" (drifted)
+  // Only TODAY ONWARD counts as drift. A cleaning that already happened cannot be
+  // re-arranged, so re-texting a past day is meaningless — and a fully past week
+  // must never ask for one. Both sides are filtered at comparison time (rather
+  // than narrowing scheduleSignature itself) so schedules texted before this
+  // existed stay comparable: nothing stored in the backend needs migrating.
+  const upcomingOnly = (sig: string) =>
+    sig
+      .split("|")
+      .filter((part) => part && part.slice(0, 10) >= todayKey)
+      .join("|");
+  // "empty" (nothing upcoming) | "unsent" | "sent" (matches) | "changed" (drifted)
   const scheduleStatus = (cleanerId: string, monday: Date) => {
-    const sig = scheduleSignature(cleanerId, monday);
+    const sig = upcomingOnly(scheduleSignature(cleanerId, monday));
     if (!sig) return "empty" as const;
     const rec = sentSchedules[sentKey(cleanerId, monday)];
     if (!rec) return "unsent" as const;
-    return rec.signature === sig ? ("sent" as const) : ("changed" as const);
+    return upcomingOnly(rec.signature) === sig ? ("sent" as const) : ("changed" as const);
   };
   // Owed an updated text: a week already sent has since drifted from the plan.
   const cleanerNeedsResend = (cleanerId: string) =>
@@ -884,12 +894,16 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
     if (!cleaner.phone) return;
     const d0 = format(monday, "yyyy-MM-dd");
     const d6 = format(addDays(monday, 6), "yyyy-MM-dd");
+    // Never text a cleaner about days they have already worked. Sending mid-week
+    // used to restate Monday onward, which reads as a request to go back and
+    // clean the past; a fully past week now sends nothing at all.
+    const from = d0 > todayKey ? d0 : todayKey;
     const mine = assignments
       .filter(
         (a) =>
           a.cleaner?.id === cleaner.id &&
           a.room &&
-          a.date >= d0 &&
+          a.date >= from &&
           a.date <= d6 &&
           !isStaleCleaning(a.room.id, a.date),
       )
@@ -906,7 +920,9 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
       ([date, rooms]) =>
         `* ${format(new Date(date + "T00:00:00"), "EEEE M/d")}: ${rooms.join(", ")}`,
     );
-    const weekLabel = `${format(monday, "MMM d")} – ${format(addDays(monday, 6), "MMM d")}`;
+    // Label the range actually listed, not the calendar week — mid-week that is
+    // today→Sunday, so the heading matches the days below it.
+    const weekLabel = `${format(new Date(from + "T00:00:00"), "MMM d")} – ${format(addDays(monday, 6), "MMM d")}`;
     const message = `Hi ${cleaner.name}, your cleaning schedule for ${weekLabel}:\n${lines.join("\n")}\n(numbers = guests arriving)\n\n${cleanerSignoff(senderName)}`;
     window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(message)}`;
     // Remember exactly what we sent (shared via backend) so later drift from the
