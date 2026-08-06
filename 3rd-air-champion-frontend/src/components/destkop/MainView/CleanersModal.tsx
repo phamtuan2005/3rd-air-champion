@@ -242,6 +242,10 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
   const [addRoomFor, setAddRoomFor] = useState<string | null>(null);
   // Hours tab: which day has its "+ Cleaner" picker open (yyyy-MM-dd)
   const [addCleanerFor, setAddCleanerFor] = useState<string | null>(null);
+  // Hours tab: the "unplanned cleaning" composer, when open. Every other card on
+  // this tab is derived from an assignment, so a cleaning TiMag never knew about
+  // (outage, AWS down, a swap agreed by phone) has no way in without this.
+  const [unplanned, setUnplanned] = useState<{ date: string; cleanerId: string } | null>(null);
   // A second cleaner brought onto a day by hand. Assignments are per room, so a
   // cleaner with no rooms yet has nothing in the database to derive a card from
   // — this holds the empty card open until rooms are moved onto it.
@@ -1902,6 +1906,75 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
             title="Record hours"
             hint="Enter a daily total, or the arrival/leave times — pay is hours × rate"
           />
+          {/* Start a day from nothing. Every card below comes from an assignment,
+              so a cleaning that was never assigned — the outage case — would
+              otherwise leave a cleaner unpaid with no way to enter it. */}
+          {unplanned ? (
+            <div className="mb-2 rounded-xl border border-violet-200 bg-violet-50 p-2.5">
+              <p className="mb-1.5 text-sm font-bold text-gray-900">Cleaning that wasn't planned</p>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <input
+                  type="date"
+                  className={inputCls}
+                  value={unplanned.date}
+                  max={todayKey}
+                  onChange={(e) =>
+                    setUnplanned((p) => (p ? { ...p, date: e.target.value } : p))
+                  }
+                />
+                <select
+                  className={inputCls}
+                  value={unplanned.cleanerId}
+                  onChange={(e) =>
+                    setUnplanned((p) => (p ? { ...p, cleanerId: e.target.value } : p))
+                  }
+                >
+                  <option value="">Who cleaned?</option>
+                  {cleaners
+                    .filter((c) => !c.paused)
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                </select>
+                <button
+                  type="button"
+                  className={`${pillDark} ${!unplanned.cleanerId || !unplanned.date ? "opacity-40" : ""}`}
+                  disabled={!unplanned.cleanerId || !unplanned.date}
+                  onClick={() => {
+                    const { cleanerId, date } = unplanned;
+                    setExtraGroups((p) =>
+                      p.some((e) => e.cleanerId === cleanerId && e.date === date)
+                        ? p
+                        : [...p, { cleanerId, date }],
+                    );
+                    setUnplanned(null);
+                  }}
+                >
+                  Add
+                </button>
+                <button
+                  type="button"
+                  className={pillNeutral}
+                  onClick={() => setUnplanned(null)}
+                >
+                  Cancel
+                </button>
+              </div>
+              <p className="mt-1.5 text-[13px] text-gray-500">
+                Creates the day below — then add the rooms and the hours.
+              </p>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setUnplanned({ date: todayKey, cleanerId: "" })}
+              className="mb-2 w-full rounded-xl border border-dashed border-violet-300 py-2 text-sm font-semibold text-violet-700 transition-colors hover:border-violet-500 hover:bg-violet-50"
+            >
+              + Record a cleaning that wasn't planned
+            </button>
+          )}
           {needHoursGroups.length === 0 ? (
             <p className="mb-2 rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-center text-sm text-gray-400">
               Nothing to record yet — cleanings appear here once their day arrives
