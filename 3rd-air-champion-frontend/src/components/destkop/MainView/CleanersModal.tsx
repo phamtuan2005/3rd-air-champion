@@ -1907,18 +1907,69 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
               Nothing to record yet — cleanings appear here once their day arrives
             </p>
           ) : (
-            needHoursGroups.map((group) => (
+            // Grouped by DAY. "Who cleaned on this date" is one decision, so the
+            // day owns the heading and the + Add cleaner control — repeating that
+            // button on every cleaner's panel read as if it were per-cleaner, and
+            // the date was restated once per cleaner too.
+            [...new Set(needHoursGroups.map((g) => g.date))].map((date) => {
+              const dayGroups = needHoursGroups.filter((g) => g.date === date);
+              const onDate = new Set(dayGroups.map((g) => g.cleaner.id));
+              const addable = cleaners.filter((c) => !onDate.has(c.id) && !c.paused);
+              const pickerOpen = addCleanerFor === date;
+              return (
               <div
-                key={group.key}
+                key={date}
                 className="mb-2 rounded-xl border border-amber-200 bg-amber-50 p-2.5"
               >
+                <div className="mb-1.5 flex items-center gap-2 border-b border-amber-200/70 pb-1.5">
+                  <p className="flex-1 text-sm font-bold text-gray-900">
+                    {format(new Date(date + "T00:00:00"), "EEEE M/d")}
+                  </p>
+                  {addable.length > 0 && (
+                    <span className="relative inline-flex shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setAddCleanerFor(pickerOpen ? null : date)}
+                        className="text-[13px] font-semibold text-violet-700 transition-colors hover:text-violet-900"
+                      >
+                        + Add cleaner
+                      </button>
+                      {pickerOpen && (
+                        <>
+                          <span
+                            className="fixed inset-0 z-10"
+                            onClick={() => setAddCleanerFor(null)}
+                          />
+                          <span className="absolute right-0 top-full z-20 mt-1 flex w-max flex-col overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                            {addable.map((c) => (
+                              <button
+                                key={c.id}
+                                type="button"
+                                onClick={() => {
+                                  setExtraGroups((p) => [...p, { cleanerId: c.id, date }]);
+                                  setAddCleanerFor(null);
+                                }}
+                                className="flex items-center gap-2 px-2.5 py-1.5 text-left text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-100"
+                              >
+                                <CleanerAvatar id={c.id} name={c.name} sizeClass="h-5 w-5" textClass="text-[11px]" />
+                                {c.name}
+                              </button>
+                            ))}
+                          </span>
+                        </>
+                      )}
+                    </span>
+                  )}
+                </div>
+                {dayGroups.map((group) => (
+                <div
+                  key={group.key}
+                  className="border-t border-amber-200/60 pt-2 first:border-t-0 first:pt-0 [&+div]:mt-2"
+                >
                 <div className="flex items-center gap-2">
                   <CleanerAvatar id={group.cleaner.id} name={group.cleaner.name} />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-gray-900">{group.cleaner.name}</p>
-                    <p className="text-sm text-gray-500">
-                      {format(new Date(group.date + "T00:00:00"), "EEEE M/d")}
-                    </p>
                   </div>
                   {/* How this cleaner reports: a decimal total, or come/leave times */}
                   <div className="flex shrink-0 rounded-lg bg-gray-100 p-0.5 text-[12px] font-semibold">
@@ -2057,83 +2108,34 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
                     );
                   })()}
                 </div>
-                {/* Share a day between cleaners. One person is assigned every room
-                    by default, so without this there is no way to record that a
-                    second cleaner came in and split the work. */}
-                {(() => {
-                  const onDate = new Set(
-                    needHoursGroups.filter((g) => g.date === group.date).map((g) => g.cleaner.id),
-                  );
-                  const addable = cleaners.filter((c) => !onDate.has(c.id) && !c.paused);
-                  const open = addCleanerFor === group.key;
-                  const isEmpty = group.assignments.length === 0;
-                  return (
-                    <div className="mt-1.5 flex items-center gap-2 border-t border-amber-200/70 pt-1.5">
-                      {addable.length > 0 && (
-                        <span className="relative inline-flex">
-                          <button
-                            type="button"
-                            onClick={() => setAddCleanerFor(open ? null : group.key)}
-                            className="text-[13px] font-semibold text-violet-700 transition-colors hover:text-violet-900"
-                          >
-                            + Add cleaner
-                          </button>
-                          {open && (
-                            <>
-                              <span
-                                className="fixed inset-0 z-10"
-                                onClick={() => setAddCleanerFor(null)}
-                              />
-                              <span className="absolute bottom-full left-0 z-20 mb-1 flex w-max flex-col overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-                                {addable.map((c) => (
-                                  <button
-                                    key={c.id}
-                                    type="button"
-                                    onClick={() => {
-                                      setExtraGroups((p) => [
-                                        ...p,
-                                        { cleanerId: c.id, date: group.date },
-                                      ]);
-                                      setAddCleanerFor(null);
-                                    }}
-                                    className="flex items-center gap-2 px-2.5 py-1.5 text-left text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-100"
-                                  >
-                                    <CleanerAvatar id={c.id} name={c.name} sizeClass="h-5 w-5" textClass="text-[11px]" />
-                                    {c.name}
-                                  </button>
-                                ))}
-                              </span>
-                            </>
-                          )}
-                        </span>
-                      )}
-                      {isEmpty && (
-                        <>
-                          <span className="text-[13px] text-gray-500">
-                            Move a room across with <span className="font-semibold">+ Room</span>
-                          </span>
-                          <button
-                            type="button"
-                            title="Remove this cleaner from the day"
-                            onClick={() =>
-                              setExtraGroups((p) =>
-                                p.filter(
-                                  (e) =>
-                                    !(e.cleanerId === group.cleaner.id && e.date === group.date),
-                                ),
-                              )
-                            }
-                            className="ml-auto text-[13px] font-semibold text-gray-400 transition-colors hover:text-gray-700"
-                          >
-                            Remove
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  );
-                })()}
+                {/* A cleaner just added to the day has no rooms yet — say what to
+                    do next, and let a mis-pick be undone. */}
+                {group.assignments.length === 0 && (
+                  <div className="mt-1 flex items-center gap-2">
+                    <span className="text-[13px] text-gray-500">
+                      Move a room across with <span className="font-semibold">+ Room</span>
+                    </span>
+                    <button
+                      type="button"
+                      title="Remove this cleaner from the day"
+                      onClick={() =>
+                        setExtraGroups((p) =>
+                          p.filter(
+                            (e) => !(e.cleanerId === group.cleaner.id && e.date === group.date),
+                          ),
+                        )
+                      }
+                      className="ml-auto text-[13px] font-semibold text-gray-400 transition-colors hover:text-gray-700"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+                </div>
+                ))}
               </div>
-            ))
+              );
+            })
           )}
 
           {/* Already-recorded days — tap Edit to fix a mistyped total */}
