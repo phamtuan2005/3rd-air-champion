@@ -240,6 +240,12 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
   >("pay");
   // Hours tab: which cleaner-day has its "+ Room" picker open (group key)
   const [addRoomFor, setAddRoomFor] = useState<string | null>(null);
+  // Hours tab: which day has its "+ Cleaner" picker open (yyyy-MM-dd)
+  const [addCleanerFor, setAddCleanerFor] = useState<string | null>(null);
+  // A second cleaner brought onto a day by hand. Assignments are per room, so a
+  // cleaner with no rooms yet has nothing in the database to derive a card from
+  // — this holds the empty card open until rooms are moved onto it.
+  const [extraGroups, setExtraGroups] = useState<{ cleanerId: string; date: string }[]>([]);
   // Upcoming tab: tapping a forecast room chip opens this assign-cleaner popover
   const [assignTarget, setAssignTarget] = useState<{
     morningKey: string;
@@ -684,7 +690,17 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
         g.assignments.push(a);
         map.set(key, g);
       });
-    return [...map.values()];
+    // Hand-added second cleaners. Deduped: the moment one has a room it arrives
+    // through needHours like any other group, and this entry stops mattering.
+    extraGroups.forEach(({ cleanerId, date }) => {
+      const key = `${cleanerId}|${date}`;
+      if (map.has(key)) return;
+      const cleaner = cleaners.find((c) => c.id === cleanerId);
+      if (cleaner) map.set(key, { key, cleaner, date, assignments: [] });
+    });
+    return [...map.values()].sort(
+      (a, b) => a.date.localeCompare(b.date) || a.cleaner.name.localeCompare(b.cleaner.name),
+    );
   })();
 
   // Already-recorded cleaner-days this month — kept editable so a mistyped
@@ -1965,7 +1981,13 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
                   </div>
                   <button
                     type="button"
-                    className={pillDark}
+                    className={`${pillDark} ${group.assignments.length === 0 ? "opacity-40" : ""}`}
+                    disabled={group.assignments.length === 0}
+                    title={
+                      group.assignments.length === 0
+                        ? "Move at least one room onto this cleaner first"
+                        : "Save these hours"
+                    }
                     onClick={() => handleSaveDayHours(group)}
                   >
                     Save
@@ -2035,6 +2057,81 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
                     );
                   })()}
                 </div>
+                {/* Share a day between cleaners. One person is assigned every room
+                    by default, so without this there is no way to record that a
+                    second cleaner came in and split the work. */}
+                {(() => {
+                  const onDate = new Set(
+                    needHoursGroups.filter((g) => g.date === group.date).map((g) => g.cleaner.id),
+                  );
+                  const addable = cleaners.filter((c) => !onDate.has(c.id) && !c.paused);
+                  const open = addCleanerFor === group.key;
+                  const isEmpty = group.assignments.length === 0;
+                  return (
+                    <div className="mt-1.5 flex items-center gap-2 border-t border-amber-200/70 pt-1.5">
+                      {addable.length > 0 && (
+                        <span className="relative inline-flex">
+                          <button
+                            type="button"
+                            onClick={() => setAddCleanerFor(open ? null : group.key)}
+                            className="text-[13px] font-semibold text-violet-700 transition-colors hover:text-violet-900"
+                          >
+                            + Add cleaner
+                          </button>
+                          {open && (
+                            <>
+                              <span
+                                className="fixed inset-0 z-10"
+                                onClick={() => setAddCleanerFor(null)}
+                              />
+                              <span className="absolute bottom-full left-0 z-20 mb-1 flex w-max flex-col overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                                {addable.map((c) => (
+                                  <button
+                                    key={c.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setExtraGroups((p) => [
+                                        ...p,
+                                        { cleanerId: c.id, date: group.date },
+                                      ]);
+                                      setAddCleanerFor(null);
+                                    }}
+                                    className="flex items-center gap-2 px-2.5 py-1.5 text-left text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-100"
+                                  >
+                                    <CleanerAvatar id={c.id} name={c.name} sizeClass="h-5 w-5" textClass="text-[11px]" />
+                                    {c.name}
+                                  </button>
+                                ))}
+                              </span>
+                            </>
+                          )}
+                        </span>
+                      )}
+                      {isEmpty && (
+                        <>
+                          <span className="text-[13px] text-gray-500">
+                            Move a room across with <span className="font-semibold">+ Room</span>
+                          </span>
+                          <button
+                            type="button"
+                            title="Remove this cleaner from the day"
+                            onClick={() =>
+                              setExtraGroups((p) =>
+                                p.filter(
+                                  (e) =>
+                                    !(e.cleanerId === group.cleaner.id && e.date === group.date),
+                                ),
+                              )
+                            }
+                            className="ml-auto text-[13px] font-semibold text-gray-400 transition-colors hover:text-gray-700"
+                          >
+                            Remove
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             ))
           )}
