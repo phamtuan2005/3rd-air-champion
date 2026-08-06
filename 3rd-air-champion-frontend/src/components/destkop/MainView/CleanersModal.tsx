@@ -592,6 +592,16 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
   const checkoutRoomsOn = (day: string) =>
     new Set(getCheckoutsOn(monthMap, day).map((b) => b.room!.id));
 
+  // "This room definitely did NOT turn over that morning." Only answerable when
+  // the previous night is actually loaded — monthMap holds one month, so a July
+  // date viewed in August has no bookings to judge by, and absence of evidence
+  // must not delete a real cleaning from the list.
+  const knownNoCheckout = (day: string, roomId: string) => {
+    const prevNight = format(addDays(new Date(day + "T00:00:00"), -1), "yyyy-MM-dd");
+    if (!monthMap.has(prevNight)) return false; // can't tell — keep it
+    return !checkoutRoomsOn(day).has(roomId);
+  };
+
   // ── Correcting what was actually cleaned ──
   // The plan is not always what happened: an outage, a phone left at home, or a
   // swap agreed in person means a cleaner did a room TiMag never assigned them.
@@ -704,7 +714,13 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
       // Without this the day showed as pending AND recorded at once, and saving
       // the pending card wrote only the null rows — leaving the existing total
       // in place and inflating the day's pay.
-      !recordedDayKeys.has(`${a.cleaner.id}|${a.date}`),
+      !recordedDayKeys.has(`${a.cleaner.id}|${a.date}`) &&
+      // The auto-planner drafts PROBABLE gap turnovers. When the last-minute
+      // sale never happened the assignment survives with no checkout behind it,
+      // and asking the host to record hours for a cleaning that never occurred
+      // is how invented pay gets entered. Hidden, not deleted — if the booking
+      // shows up later the assignment reappears on its own.
+      !knownNoCheckout(a.date, a.room.id),
   );
 
   // A cleaner reports ONE daily total, not a figure per room — group the
