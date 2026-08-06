@@ -210,7 +210,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
   ];
 
   const emptyState = (message: string) => (
-    <div className="flex flex-1 items-center justify-center py-10 text-sm text-gray-400">
+    <div className="flex flex-1 items-center justify-center py-10 text-base text-gray-400">
       {message}
     </div>
   );
@@ -219,7 +219,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
     <div className="flex h-full flex-col overflow-y-auto px-3 pb-3">
       <div className="pb-2 pt-3 text-center">
         <h1 className="text-lg font-bold tracking-tight text-gray-900">To Do</h1>
-        <p className="text-xs text-gray-400">{format(startOfToday(), "EEEE, MMMM d, yyyy")}</p>
+        <p className="text-sm text-gray-400">{format(startOfToday(), "EEEE, MMMM d, yyyy")}</p>
       </div>
 
       <div className="mb-3 grid shrink-0 grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1">
@@ -227,14 +227,14 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
           <button
             key={key}
             onClick={() => setActiveTab(key)}
-            className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition-colors ${
+            className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm font-semibold transition-colors ${
               activeTab === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
             }`}
           >
             {label}
             {count > 0 && (
               <span
-                className={`min-w-[1.25rem] rounded-full px-1 py-0.5 text-center text-[10px] font-bold leading-none ${
+                className={`min-w-[1.25rem] rounded-full px-1 py-0.5 text-center text-[12px] font-bold leading-none ${
                   activeTab === key ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-600"
                 }`}
               >
@@ -248,7 +248,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
       {activeTab === "reminders" &&
         (reminderBookings.length > 0 ? (
           <>
-            <p className="mb-2 text-center text-xs text-gray-400">
+            <p className="mb-1.5 text-center text-sm text-gray-400">
               Guests checking in tomorrow ({format(addDays(startOfToday(), 1), "MMM d")})
             </p>
             {reminderBookings.map((booking, index) => {
@@ -264,7 +264,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
               return (
                 <div
                   key={`reminder-${index}`}
-                  className={`mb-2 flex items-center gap-3 rounded-xl border border-gray-200 p-3 ${
+                  className={`mb-1.5 flex items-center gap-2 rounded-xl border border-gray-200 p-2.5 ${
                     isCompleted ? "bg-gray-50" : "bg-white"
                   }`}
                 >
@@ -276,24 +276,24 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                   />
                   <div className="min-w-0 flex-1">
                     <p
-                      className={`truncate text-sm font-semibold ${
+                      className={`truncate text-base font-semibold ${
                         isCompleted ? "text-gray-400 line-through" : "text-gray-900"
                       }`}
                     >
                       {booking.guest.alias || booking.alias || booking.guest.name}
                     </p>
                     <span
-                      className={`${getRoomColor(booking.room.name, booking.room.color)} mt-0.5 inline-block rounded-md px-2 py-0.5 text-xs font-bold text-black`}
+                      className={`${getRoomColor(booking.room.name, booking.room.color)} mt-0.5 inline-block rounded-md px-2 py-0.5 text-sm font-bold text-black`}
                     >
                       {booking.room.name}
                     </span>
                     {isCompleted && (
-                      <p className="mt-0.5 text-xs text-gray-400">Sent on {task.date}</p>
+                      <p className="mt-0.5 text-sm text-gray-400">Sent on {task.date}</p>
                     )}
                   </div>
                   {!booking.description ? (
                     <button
-                      className="shrink-0 rounded-lg bg-gray-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
+                      className="shrink-0 rounded-lg bg-gray-900 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-40"
                       onClick={() => {
                         const phone = booking.guest.phone;
                         const startDate = format(addDays(startOfToday(), 1), "MMMM do");
@@ -308,7 +308,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                     </button>
                   ) : (
                     <button
-                      className="shrink-0 rounded-lg bg-gray-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
+                      className="shrink-0 rounded-lg bg-gray-900 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-40"
                       onClick={() => {
                         const url = booking.description.match(
                           /https:\/\/www\.airbnb\.com\/hosting\/reservations\/details\/\S+/,
@@ -336,7 +336,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
         (cleaningItems.length > 0 ? (
           <>
             {cleaningCounts.min !== cleaningCounts.max && (
-              <p className="mb-2 text-center text-xs text-gray-400">
+              <p className="mb-1.5 text-center text-sm text-gray-400">
                 min {cleaningCounts.min} before today&apos;s check-ins · max {cleaningCounts.max} total
               </p>
             )}
@@ -349,7 +349,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
               return (
                 <div
                   key={`clean-${index}`}
-                  className={`mb-2 flex items-start gap-2.5 rounded-xl border border-gray-200 p-3 ${
+                  className={`mb-1.5 flex items-start gap-2.5 rounded-xl border border-gray-200 p-2.5 ${
                     isCompleted ? "bg-gray-50" : "bg-white"
                   }`}
                 >
@@ -378,7 +378,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                       />
                     </button>
                   ) : (
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 text-sm font-bold text-amber-600">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 text-base font-bold text-amber-600">
                       !
                     </span>
                   )}
@@ -397,24 +397,24 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                         title={cleaner.phone ? `Text ${cleaner.name.split(" ")[0]} today's cleaning list` : cleaner.name}
                         className="w-fit text-left no-underline disabled:cursor-default"
                       >
-                        <span className="text-sm font-bold text-gray-900 hover:underline">
+                        <span className="text-base font-bold text-gray-900 hover:underline">
                           {cleaner.name}
                         </span>
                       </button>
                     ) : (
-                      <span className="text-sm font-bold text-amber-600">Unassigned</span>
+                      <span className="text-base font-bold text-amber-600">Unassigned</span>
                     )}
                     {/* Room + who's arriving into it */}
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span
-                        className={`${getRoomColor(booking.room.name, booking.room.color)} rounded-md px-2 py-0.5 text-xs font-bold ${
+                        className={`${getRoomColor(booking.room.name, booking.room.color)} rounded-md px-2 py-0.5 text-sm font-bold ${
                           nextCheckIn?.guest.name === "AirBnB" ? "text-white" : "text-black"
                         }`}
                       >
                         {booking.room.name}
                       </span>
                       {nextCheckIn ? (
-                        <span className="text-xs text-gray-600">
+                        <span className="text-sm text-gray-600">
                           <span className="font-semibold text-gray-800">
                             {nextCheckIn.guest.alias || nextCheckIn.alias || nextCheckIn.guest.name}
                           </span>{" "}
@@ -422,13 +422,13 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                           {nextCheckIn.numberOfGuests === 1 ? "guest" : "guests"}
                         </span>
                       ) : (
-                        <span className="text-xs text-gray-400">No upcoming check-in</span>
+                        <span className="text-sm text-gray-400">No upcoming check-in</span>
                       )}
                     </div>
                     {/* Arrival timing / urgency */}
                     {nextCheckIn && nextCheckInDate && (
                       <p
-                        className={`text-xs ${
+                        className={`text-sm ${
                           item.mustCleanToday ? "font-semibold text-red-500" : "text-gray-500"
                         }`}
                       >
@@ -439,19 +439,19 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                     )}
                     {/* Scenario: turnover this morning vs sitting empty since an earlier checkout */}
                     {item.vacatedToday ? (
-                      <p className="text-xs text-gray-500">Checked out this morning</p>
+                      <p className="text-sm text-gray-500">Checked out this morning</p>
                     ) : (
-                      <p className="text-xs font-semibold text-amber-600">
+                      <p className="text-sm font-semibold text-amber-600">
                         Empty since {format(addDays(new Date(item.checkoutKey + "T00:00:00"), 1), "MM/dd")} — not cleaned yet
                       </p>
                     )}
                     {nextCheckIn?.earlyCheckin && (
-                      <p className="text-xs font-semibold text-orange-500">
+                      <p className="text-sm font-semibold text-orange-500">
                         Early Check-in Requested
                       </p>
                     )}
                     {booking.lateCheckout && (
-                      <p className="text-xs font-semibold text-blue-500">
+                      <p className="text-sm font-semibold text-blue-500">
                         {booking.guest.name === "AirBnB"
                           ? booking.guest.alias || booking.alias || booking.guest.name
                           : booking.guest.name}{" "}
@@ -459,7 +459,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                       </p>
                     )}
                     {isCompleted && (
-                      <p className="text-xs text-gray-400">Cleaned on {item.completedDate}</p>
+                      <p className="text-sm text-gray-400">Cleaned on {item.completedDate}</p>
                     )}
                   </div>
                 </div>
