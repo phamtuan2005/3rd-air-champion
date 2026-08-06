@@ -186,6 +186,22 @@ const GAP_ARRIVAL_SCAN_DAYS = 60;
 //     just the one before the arrival: after a checkout the very next night is
 //     the highest-demand one to re-sell, so its morning-after needs cleaning too
 //     (e.g. a Sunday-night sale leaving Monday, well before Tuesday's arrival).
+// THE definition of "this room turned over on this morning": a stay whose LAST
+// night was the night before, so the guest left and the room needs cleaning.
+// Reserved (R) holds count — they occupy the room, so their checkout is real.
+//
+// Exported because more than one screen needs the same answer: the Plan tab
+// forecasts from it, and the Hours tab uses it to decide which rooms may
+// honestly be recorded as cleaned. Kept in one place so the two cannot drift.
+export const getCheckoutsOn = (monthMap: Map<string, dayType>, morningKey: string) => {
+  const lastNightKey = dateKey(addDays(new Date(morningKey + "T00:00:00"), -1));
+  const lastNight = monthMap.get(lastNightKey);
+  if (!lastNight) return [];
+  return lastNight.bookings.filter(
+    (b) => b.room && b.endDate.split("T")[0] === lastNightKey,
+  );
+};
+
 export const getCleaningForecast = (
   monthMap: Map<string, dayType>,
   horizon = 7,
@@ -226,7 +242,6 @@ export const getCleaningForecast = (
   for (let d = 0; d <= horizon; d++) {
     const morningKey = dateKey(addDays(today, d));
     const lastNightKey = dateKey(addDays(today, d - 1));
-    const lastNight = monthMap.get(lastNightKey);
     const entries: ForecastEntry[] = [];
     const covered = new Set<string>(); // rooms already given an entry this morning
 
@@ -234,23 +249,19 @@ export const getCleaningForecast = (
     //    stayed — skip the checkout scan, but the gap loop below still runs.
     //    Reserved (R) holds count: they occupy the room, so their checkout still
     //    needs cleaning (a lapsed hold is unbooked and drops out on its own).
-    if (lastNight) {
-      for (const b of lastNight.bookings) {
-        if (!b.room) continue;
-        if (b.endDate.split("T")[0] !== lastNightKey) continue; // last night of the stay
-        const sameDayCheckIn =
-          monthMap
-            .get(morningKey)
-            ?.bookings.find(
-              (n) => n.room?.id === b.room.id && n.startDate.split("T")[0] === morningKey,
-            ) ?? null;
-        entries.push({
-          checkoutBooking: b,
-          sameDayCheckIn,
-          rebookOdds: sameDayCheckIn ? 1 : occupancyOdds.get(b.room.id) ?? 1,
-        });
-        covered.add(b.room.id);
-      }
+    for (const b of getCheckoutsOn(monthMap, morningKey)) {
+      const sameDayCheckIn =
+        monthMap
+          .get(morningKey)
+          ?.bookings.find(
+            (n) => n.room?.id === b.room.id && n.startDate.split("T")[0] === morningKey,
+          ) ?? null;
+      entries.push({
+        checkoutBooking: b,
+        sameDayCheckIn,
+        rebookOdds: sameDayCheckIn ? 1 : occupancyOdds.get(b.room.id) ?? 1,
+      });
+      covered.add(b.room.id);
     }
 
     // 2. Probable gap turnovers — every empty, sellable night inside a bounded

@@ -7,7 +7,7 @@ import { dayType } from "../../../util/types/dayType";
 import { roomType } from "../../../util/types/roomType";
 import RoomBadge from "../../shared/RoomBadge";
 import { getRoomColor } from "../../../util/getRoomColor";
-import { getCleaningForecast } from "../../../util/cleaningTasks";
+import { getCheckoutsOn, getCleaningForecast } from "../../../util/cleaningTasks";
 import { generateAvatar } from "../../../util/avatarGen";
 import CleanerAvatarBase from "../../shared/CleanerAvatar";
 import { cleanerSignoff, ttPromiseLine } from "../../../util/cleanerMessage";
@@ -585,18 +585,12 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
       .catch((err) => console.error("Error removing assignment:", err));
   };
 
-  // Rooms that genuinely turned over on a given morning: a stay's LAST night was
-  // the night before, so the room was vacated and needed cleaning. Same rule the
-  // forecast uses for real (non-probable) cleanings. Anything outside this set
-  // had no checkout, and recording it would invent a cleaning — and the pay for it.
-  const checkoutRoomsOn = (dateKey: string) => {
-    const prevNight = format(addDays(new Date(dateKey + "T00:00:00"), -1), "yyyy-MM-dd");
-    const ids = new Set<string>();
-    monthMap.get(prevNight)?.bookings.forEach((b) => {
-      if (b.room && b.endDate.split("T")[0] === prevNight) ids.add(b.room.id);
-    });
-    return ids;
-  };
+  // Rooms that genuinely turned over on a morning. Uses getCheckoutsOn — the same
+  // function the Plan tab forecasts from — so the two screens can never disagree
+  // about what counted as a cleaning. Anything outside this set had no checkout,
+  // and recording it would invent a cleaning, and the pay that follows from it.
+  const checkoutRoomsOn = (day: string) =>
+    new Set(getCheckoutsOn(monthMap, day).map((b) => b.room!.id));
 
   // ── Correcting what was actually cleaned ──
   // The plan is not always what happened: an outage, a phone left at home, or a
