@@ -208,6 +208,22 @@ const SectionHeader = ({
   </div>
 );
 
+// "This cleaner was texted a schedule and it has since drifted." A bare dot was
+// too easy to miss on a dense day — this reads as a word, carries a pulsing
+// halo, and appears everywhere the drift is actionable (Plan, Week, Team).
+const ResendBadge = ({ className = "" }: { className?: string }) => (
+  <span
+    className={`inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-400 bg-amber-100 px-1.5 py-0.5 text-[12px] font-bold uppercase leading-none text-amber-800 shadow-sm ${className}`}
+    title="Schedule changed since you last texted it — tap the cleaner to re-send"
+  >
+    <span className="relative flex h-1.5 w-1.5">
+      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-500 opacity-75" />
+      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-amber-600" />
+    </span>
+    Re-send
+  </span>
+);
+
 const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName, onClose }: CleanersModalProps) => {
   // Self-sufficient: fetches its own data so it can be opened from anywhere
   // (NavBar dropdown or the Upcoming assign popover).
@@ -1301,7 +1317,11 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                     reads like TiMag is imposing something on the cleaner */}
                 <button
                   type="button"
-                  className={`relative ${pillNeutral} ${!cleaner.phone ? "opacity-40" : ""}`}
+                  className={`relative ${pillNeutral} ${!cleaner.phone ? "opacity-40" : ""} ${
+                    cleanerNeedsResend(cleaner.id)
+                      ? "border-amber-400 bg-amber-50 text-amber-800"
+                      : ""
+                  }`}
                   disabled={!cleaner.phone}
                   title={
                     cleanerNeedsResend(cleaner.id)
@@ -1317,7 +1337,10 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                 >
                   💬 Message
                   {cleanerNeedsResend(cleaner.id) && (
-                    <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-amber-500 ring-2 ring-white" />
+                    <span className="absolute -right-1.5 -top-1.5 flex h-3.5 w-3.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-500 opacity-75" />
+                      <span className="relative inline-flex h-3.5 w-3.5 rounded-full bg-amber-500 ring-2 ring-white" />
+                    </span>
                   )}
                 </button>
                 <button
@@ -1542,12 +1565,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                           <span className="truncate text-sm font-semibold text-gray-700 underline decoration-dotted decoration-gray-300 underline-offset-2">
                             {cleaner.name.split(" ")[0]}
                           </span>
-                          {scheduleStatus(cleaner.id, weekMonday) === "changed" && (
-                            <span
-                              className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500"
-                              title="changed since sent — re-send"
-                            />
-                          )}
+                          {scheduleStatus(cleaner.id, weekMonday) === "changed" && <ResendBadge />}
                         </button>
                         <div className="flex flex-1 flex-wrap items-center gap-1">
                           {rooms.map((room, i) => {
@@ -1753,6 +1771,12 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                             </span>
                           </button>
                           <div className="flex flex-1 flex-wrap items-center gap-1">
+                            {/* Drift is per WEEK, so it flags on every day of the
+                                affected week — each row is its own re-send tap. */}
+                            {scheduleStatus(
+                              cleaner.id,
+                              startOfWeek(morning, { weekStartsOn: 1 }),
+                            ) === "changed" && <ResendBadge />}
                             {entries.map(chip)}
                           </div>
                         </div>
