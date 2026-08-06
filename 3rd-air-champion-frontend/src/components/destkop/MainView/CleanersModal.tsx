@@ -5,6 +5,7 @@ import { FaDollarSign, FaRedo, FaRegClock } from "react-icons/fa";
 import { MdCleaningServices } from "react-icons/md";
 import { dayType } from "../../../util/types/dayType";
 import { roomType } from "../../../util/types/roomType";
+import RoomBadge from "../../shared/RoomBadge";
 import { getRoomColor } from "../../../util/getRoomColor";
 import { getCleaningForecast } from "../../../util/cleaningTasks";
 import { generateAvatar } from "../../../util/avatarGen";
@@ -2013,18 +2014,18 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
                               className="fixed inset-0 z-10"
                               onClick={() => setAddRoomFor(null)}
                             />
-                            <span className="absolute left-0 top-full z-20 mt-1 flex w-44 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                            <span className="absolute left-0 top-full z-20 mt-1 flex w-max flex-col overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
                               {addable.map((r) => (
                                 <button
                                   key={r.id}
                                   type="button"
                                   onClick={() => handleAddRoomToDay(group, r.id)}
-                                  className="flex items-center gap-2 px-2.5 py-1.5 text-left text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-100"
+                                  className="px-2 py-1 text-left transition-colors hover:bg-gray-100"
                                 >
-                                  <span
-                                    className={`${getRoomColor(r.name, r.color)} h-3.5 w-3.5 shrink-0 rounded`}
-                                  />
-                                  {r.name}
+                                  {/* RoomBadge is the system-wide room chip — same
+                                      colour box everywhere a room is named. `rooms`
+                                      gives every badge one width so they align. */}
+                                  <RoomBadge room={r} rooms={addable} />
                                 </button>
                               ))}
                             </span>
