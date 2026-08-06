@@ -1563,8 +1563,10 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                           <span className="truncate text-sm font-semibold text-gray-700 underline decoration-dotted decoration-gray-300 underline-offset-2">
                             {cleaner.name.split(" ")[0]}
                           </span>
-                          {scheduleStatus(cleaner.id, weekMonday) === "changed" && <ResendBadge />}
                         </button>
+                        {/* Drift flag lives at the ROW'S RIGHT EDGE, never beside the
+                            name — inside the fixed-width name button it stole space
+                            from the avatar and truncated the name. */}
                         <div className="flex flex-1 flex-wrap items-center gap-1">
                           {rooms.map((room, i) => {
                             // Same headcount the SMS carries — beds/towels to prep
@@ -1580,6 +1582,7 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                             );
                           })}
                         </div>
+                        {scheduleStatus(cleaner.id, weekMonday) === "changed" && <ResendBadge />}
                       </div>
                     ))}
                   </div>
@@ -1769,14 +1772,15 @@ const CleanersModal = ({ hostId, token, monthMap, cleaningRules = "", senderName
                             </span>
                           </button>
                           <div className="flex flex-1 flex-wrap items-center gap-1">
-                            {/* Drift is per WEEK, so it flags on every day of the
-                                affected week — each row is its own re-send tap. */}
-                            {scheduleStatus(
-                              cleaner.id,
-                              startOfWeek(morning, { weekStartsOn: 1 }),
-                            ) === "changed" && <ResendBadge />}
                             {entries.map(chip)}
                           </div>
+                          {/* Right edge, clear of the name and the room chips. Drift
+                              is per WEEK, so it flags on every day of the affected
+                              week — each row is its own re-send tap. */}
+                          {scheduleStatus(
+                            cleaner.id,
+                            startOfWeek(morning, { weekStartsOn: 1 }),
+                          ) === "changed" && <ResendBadge />}
                         </div>
                       ))}
                       {unassigned.length > 0 && (
