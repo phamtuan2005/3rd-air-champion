@@ -5,6 +5,8 @@ import { bookingType } from "../../../../util/types/bookingType";
 import { roomType } from "../../../../util/types/roomType";
 import { toZonedTime } from "date-fns-tz";
 import CalendarGrid from "../../../shared/CalendarGrid";
+import CleanerAvatar from "../../../shared/CleanerAvatar";
+import { CleanerType } from "../../../../util/cleanerOperations";
 
 interface CustomCalendarProps {
   currentMonth: Date;
@@ -28,7 +30,7 @@ interface CustomCalendarProps {
   gapsMode?: boolean;
   // Clean mode: label each stay with the cleaner who turns the room over after it
   cleanMode?: boolean;
-  cleanerByRoomMorning?: Map<string, string>; // "roomId|yyyy-MM-dd(checkout morning)" -> first name
+  cleanerByRoomMorning?: Map<string, CleanerType>;
   onCleanDayClick?: (date: Date) => void;
   onTodayInViewChange?: (inView: boolean) => void;
   rowsPerPage?: number;
@@ -165,6 +167,31 @@ const CustomCalendar = ({
     }
   };
 
+  // Whoever prepared this room for this guest: assignments are dated by the
+  // cleaning morning, which at near-full occupancy is the guest's arrival day.
+  const cleanerFor = (booking: bookingType) => {
+    const room = booking.room?.id;
+    if (!room || !booking.startDate) return undefined;
+    return cleanerByRoomMorning?.get(`${room}|${booking.startDate.split("T")[0]}`);
+  };
+
+  // Avatar inside the bar, so a cleaner is recognisable before the name is read
+  // — the bars are narrow and a first name truncates on short stays.
+  const resolveBarIcon = (booking: bookingType) => {
+    if (!cleanMode) return null;
+    const c = cleanerFor(booking);
+    if (!c) return null;
+    return (
+      <CleanerAvatar
+        name={c.name}
+        photo={c.photo}
+        character={c.character}
+        sizeClass="h-4 w-4"
+        textClass="text-[8px]"
+      />
+    );
+  };
+
   const resolveBarLabel = (booking: bookingType) => {
     // Clean mode: same bars, same geometry — the label becomes the cleaner who
     // prepared this room for this guest, looked up on the stay's START date.
@@ -177,12 +204,10 @@ const CustomCalendar = ({
     // At near-full occupancy a turnover is same-day: the outgoing guest's last
     // night is D-1, the cleaning is dated D, and the new guest arrives on D.
     if (cleanMode) {
-      const room = booking.room?.id;
-      if (!room || !booking.startDate) return "";
-      const morning = booking.startDate.split("T")[0];
+      const cleaner = cleanerFor(booking);
       // "·" rather than blank for an unassigned turnover, so a hole in the
       // cleaning plan reads as a hole instead of missing data.
-      return cleanerByRoomMorning?.get(`${room}|${morning}`) ?? "·";
+      return cleaner ? cleaner.name.trim().split(" ")[0] : "·";
     }
     if (booking.guest?.name === "AirBnB" && booking.alias) return `${booking.alias} (A)`;
     if (currentGuest) return booking.reserved ? `${booking.room?.name ?? ""} (R)` : (booking.room?.name ?? "");
@@ -205,6 +230,7 @@ const CustomCalendar = ({
       onDateClick={handleDateClick}
       onDoubleClick={handleDoubleClick}
       resolveBarLabel={resolveBarLabel}
+      resolveBarIcon={resolveBarIcon}
       gapsMode={gapsMode}
       onTodayInViewChange={onTodayInViewChange}
       rowsPerPage={rowsPerPage}

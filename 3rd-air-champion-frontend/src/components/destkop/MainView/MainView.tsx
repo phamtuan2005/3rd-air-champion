@@ -16,7 +16,7 @@ import { AddPaneContext, FooterContext, GuestModeContext, isSyncModalOpenContext
 import { formatPhone } from "../../../util/formatPhone";
 import DetailsModal from "./GuestView/DetailsModal";
 import { updateBookingGuest, updateBookingAirbnbPrice, updateBookingReserved, updateUnbookGuest } from "../../../util/bookingOperations";
-import { fetchAssignments, CleaningAssignmentType } from "../../../util/cleanerOperations";
+import { fetchAssignments, CleaningAssignmentType, CleanerType } from "../../../util/cleanerOperations";
 import { getCleaningForecast } from "../../../util/cleaningTasks";
 import UnbookingConfirmation from "./GuestView/UnbookingConfirmation";
 import ToDoList from "./ToDoList";
@@ -293,10 +293,12 @@ const MainView = ({
   // "Who turns this room over after this stay" — keyed by room + the CHECKOUT
   // MORNING, which is the night after the stay's last night. That is the date
   // assignments are stored against.
+  // Holds the whole cleaner, not just a name — the calendar draws their avatar
+  // beside the label, and that needs photo/character to resolve.
   const cleanerByRoomMorning = useMemo(() => {
-    const m = new Map<string, string>();
+    const m = new Map<string, CleanerType>();
     cleaningAssignments.forEach((a) => {
-      if (a.room && a.cleaner) m.set(`${a.room.id}|${a.date}`, a.cleaner.name.trim().split(" ")[0]);
+      if (a.room && a.cleaner) m.set(`${a.room.id}|${a.date}`, a.cleaner);
     });
     return m;
   }, [cleaningAssignments]);

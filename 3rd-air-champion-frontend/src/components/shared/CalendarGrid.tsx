@@ -36,6 +36,9 @@ interface CalendarGridProps {
   onDoubleClick?: (date: Date) => void;
   // TiMag: guest name; TiBook: room name
   resolveBarLabel?: (booking: bookingType) => string;
+  // Optional node drawn inside the bar before its label — TiMag's Clean mode
+  // uses it for the cleaner's avatar, so a bar is recognisable before it's read.
+  resolveBarIcon?: (booking: bookingType) => React.ReactNode;
   gapsMode?: boolean;
   // Reports whether today's tile is on the currently visible page (a month can span
   // several pages, so "current month" no longer implies "today is on screen").
@@ -72,6 +75,7 @@ const CalendarGrid = ({
   onDateClick,
   onDoubleClick,
   resolveBarLabel,
+  resolveBarIcon,
   gapsMode = false,
   onTodayInViewChange,
   rowsPerPage = 4,
@@ -640,6 +644,7 @@ const CalendarGrid = ({
                   $?
                 </span>
               )}
+              {resolveBarIcon?.(pmBooking!)}
               {pmBooking!.numberOfGuests > 1 ? `(${pmBooking!.numberOfGuests})` : ""}{" "}
               {pmName}
             </span>
