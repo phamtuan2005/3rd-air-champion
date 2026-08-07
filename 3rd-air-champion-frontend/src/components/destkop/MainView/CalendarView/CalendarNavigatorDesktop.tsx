@@ -252,7 +252,7 @@ const CalendarNavigator = ({
           (showDetails ? (
             <div
               onClick={() => setShowDetails(false)}
-              className="basis-2/3 flex h-full w-full justify-end items-center cursor-pointer space-x-2 text-[0.85rem] text-nowrap"
+              className="basis-2/3 flex h-full w-full justify-start items-center cursor-pointer space-x-2 text-[0.85rem] text-nowrap"
             >
               {occupancy.roomOccupancy
                 .filter((room) => room.name !== "Master") // Exclude "Master"
@@ -276,7 +276,7 @@ const CalendarNavigator = ({
             </div>
           ) : (
             <div
-              className="basis-2/3 flex h-full w-full justify-end items-center cursor-pointer space-x-2 text-[0.85rem] text-nowrap"
+              className="basis-2/3 flex h-full w-full justify-start items-center cursor-pointer space-x-2 text-[0.85rem] text-nowrap"
               onClick={() => setShowDetails(true)}
             >
               <span
