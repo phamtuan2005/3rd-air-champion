@@ -5,6 +5,7 @@ import { roomType } from "../../../util/types/roomType";
 import { CleaningAssignmentType } from "../../../util/cleanerOperations";
 import { getCheckoutsOn } from "../../../util/cleaningTasks";
 import RoomBadge from "../../shared/RoomBadge";
+import CleanerAvatar from "../../shared/CleanerAvatar";
 
 interface CleanDaySheetProps {
   dateKey: string; // yyyy-MM-dd — the cleaning MORNING
@@ -37,7 +38,14 @@ const CleanDaySheet = ({ dateKey, monthMap, assignments, rooms, onClose }: Clean
   // would read as though one room took the whole morning.
   const byCleaner = new Map<
     string,
-    { name: string; rooms: roomType[]; hours: number; recorded: boolean }
+    {
+      name: string;
+      photo?: string;
+      character?: string;
+      rooms: roomType[];
+      hours: number;
+      recorded: boolean;
+    }
   >();
   const assignedRoomIds = new Set<string>();
   forDate.forEach((a) => {
@@ -46,6 +54,8 @@ const CleanDaySheet = ({ dateKey, monthMap, assignments, rooms, onClose }: Clean
     const key = a.cleaner?.id ?? "none";
     const g = byCleaner.get(key) ?? {
       name: a.cleaner?.name?.trim() ?? "Unassigned",
+      photo: a.cleaner?.photo,
+      character: a.cleaner?.character,
       rooms: [],
       hours: 0,
       recorded: false,
@@ -113,8 +123,17 @@ const CleanDaySheet = ({ dateKey, monthMap, assignments, rooms, onClose }: Clean
                   key={g.name}
                   className="mb-2 rounded-xl border border-gray-200 p-2.5 last:mb-0"
                 >
-                  <div className="mb-1.5 flex items-center justify-between gap-2">
-                    <span className="text-base font-bold text-gray-900">{g.name}</span>
+                  <div className="mb-1.5 flex items-center gap-2">
+                    {/* Same avatar as the Cleaners modal and the calendar bars —
+                        a cleaner looks the same everywhere they appear. */}
+                    <CleanerAvatar
+                      name={g.name}
+                      photo={g.photo}
+                      character={g.character}
+                      sizeClass="h-8 w-8"
+                      textClass="text-sm"
+                    />
+                    <span className="flex-1 text-base font-bold text-gray-900">{g.name}</span>
                     <span
                       className={`text-sm font-semibold ${
                         g.recorded ? "text-emerald-600" : "text-gray-400"
