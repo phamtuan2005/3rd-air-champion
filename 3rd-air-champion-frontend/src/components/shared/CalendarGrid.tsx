@@ -664,6 +664,10 @@ const CalendarGrid = ({
             </span>
           ) : null;
 
+          // Resolved once: it both fills the no-PM-booking slot and suppresses
+          // the availability bar that would otherwise cover it.
+          const cleanSlot = !pmBooking ? renderEmptyCell?.(room, date) : null;
+
           return (
             <div
               key={room.name}
@@ -686,7 +690,7 @@ const CalendarGrid = ({
                   but no PM bar, so neither the empty-cell path nor the label on a
                   stay applies. Clean mode fills that slot — it is precisely the
                   "cleaned, then left empty" case. */}
-              {!pmBooking && renderEmptyCell?.(room, date)}
+              {cleanSlot}
               {pmBooking ? (
                 <div
                   className={`${pmColor} ${pmTextColor} flex items-center`}
@@ -717,7 +721,10 @@ const CalendarGrid = ({
                     ...hatchPhase(0.2 * (tileWidth ?? 0)),
                   }}
                 />
-              ) : !isBefore(date, startOfToday()) && !overrideRooms ? (
+              ) : !isBefore(date, startOfToday()) && !overrideRooms && !cleanSlot ? (
+                // The "available to sell" bar sits in the same slot as the clean
+                // label and is drawn after it, so it painted straight over the
+                // cleaner. In Clean mode the cleaner owns this space.
                 <div
                   className="react-calendar__opportunity_pm rounded-r-lg"
                   style={{
