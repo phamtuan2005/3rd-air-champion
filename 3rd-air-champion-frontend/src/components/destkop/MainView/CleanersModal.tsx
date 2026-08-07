@@ -2507,10 +2507,15 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
                           : ""}
                       </>
                     ) : (
-                      // Nothing owed. Payments are never made in advance here, so
-                      // a balance at or below zero just means settled — no credit
-                      // to explain and no negative to show.
-                      "All paid up"
+                      // Payments are never made in advance here, so paid exceeding
+                      // earned cannot be a credit — it can only mean hours were
+                      // never entered. Say how many, in hours, since that is the
+                      // thing to go and fix. "All paid up" hid a real discrepancy.
+                      entry.balance < -0.005 ? (
+                        <span className="text-amber-600">⚠ hours missing</span>
+                      ) : (
+                        "All paid up"
+                      )
                     )}
                   </p>
                 </div>
@@ -2933,7 +2938,13 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
                               ? ` since ${format(new Date(entry.unpaidSince + "T00:00:00"), "MMM d")}`
                               : ""
                           }`
-                        : "All paid up"}
+                        : entry.balance < -0.005
+                          ? // Paid exceeds recorded work, and payouts are never made in
+                            // advance — so hours are missing. The shortfall in dollars is
+                            // stated, not converted to hours: that would only give the
+                            // hours needed to reach zero, not the hours actually worked.
+                            `Paid $${Math.abs(entry.balance).toFixed(2)} beyond the hours on record — enter the missing cleanings in Record`
+                          : "All paid up"}
                     </p>
                   </div>
 
