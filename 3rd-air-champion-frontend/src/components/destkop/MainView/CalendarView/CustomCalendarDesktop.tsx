@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { addDays, format, isSameDay } from "date-fns";
+import { isSameDay } from "date-fns";
 import { dayType } from "../../../../util/types/dayType";
 import { bookingType } from "../../../../util/types/bookingType";
 import { roomType } from "../../../../util/types/roomType";
@@ -158,18 +158,22 @@ const CustomCalendar = ({
   };
 
   const resolveBarLabel = (booking: bookingType) => {
-    // Clean mode: same bars, same geometry — the label becomes whoever turns the
-    // room over AFTER this stay. Assignments are dated by the checkout morning,
-    // which is the day after the stay's last night.
+    // Clean mode: same bars, same geometry — the label becomes the cleaner who
+    // prepared this room for this guest, looked up on the stay's START date.
+    //
+    // The label is drawn once per stay, at its start, so it has to describe the
+    // day the bar begins. Keying it to the checkout instead named whoever cleans
+    // when the stay ENDS — days later, and nothing to do with the day you are
+    // looking at, which is why the calendar disagreed with the Plan tab.
+    //
+    // At near-full occupancy a turnover is same-day: the outgoing guest's last
+    // night is D-1, the cleaning is dated D, and the new guest arrives on D.
     if (cleanMode) {
       const room = booking.room?.id;
-      if (!room || !booking.endDate) return "";
-      const morning = format(
-        addDays(new Date(booking.endDate.split("T")[0] + "T00:00:00"), 1),
-        "yyyy-MM-dd",
-      );
-      // "·" rather than blank for an unassigned turnover, so a gap in the
-      // cleaning plan is visible instead of reading like a bar with no data.
+      if (!room || !booking.startDate) return "";
+      const morning = booking.startDate.split("T")[0];
+      // "·" rather than blank for an unassigned turnover, so a hole in the
+      // cleaning plan reads as a hole instead of missing data.
       return cleanerByRoomMorning?.get(`${room}|${morning}`) ?? "·";
     }
     if (booking.guest?.name === "AirBnB" && booking.alias) return `${booking.alias} (A)`;
