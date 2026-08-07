@@ -682,6 +682,11 @@ const CalendarGrid = ({
                   }}
                 />
               )}
+              {/* Checked out this morning and nobody moved in: there is an AM cap
+                  but no PM bar, so neither the empty-cell path nor the label on a
+                  stay applies. Clean mode fills that slot — it is precisely the
+                  "cleaned, then left empty" case. */}
+              {!pmBooking && renderEmptyCell?.(room, date)}
               {pmBooking ? (
                 <div
                   className={`${pmColor} ${pmTextColor} flex items-center`}
