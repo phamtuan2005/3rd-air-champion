@@ -301,20 +301,17 @@ const CalendarNavigator = ({
               >
                 {Math.round(occupancy.airbnbOccupancy)}% (A)booking
               </span>
-              {/* Total profit — between the AirBnB booking share and the AirBnB
-                  profit, so the pair reads as "of this total, this much is A".
-                  Keeps its old 2xl size: it is the headline number on the screen
-                  and must not read as smaller than the AirBnB slice of itself.
-                  leading-none so the taller type doesn't grow the row. */}
-              <span className="text-2xl font-bold leading-none text-emerald-600">
-                ${Math.round(profit.total).toLocaleString()}
-              </span>
             </div>
           ))}
-        {/* PROFIT */}
+        {/* PROFIT — total and the AirBnB share as one group, so the smaller
+            figure is read as a part of the larger rather than as a rival to it.
+            Total keeps its 2xl size; leading-none stops it growing the row. */}
         {!currentGuest && !currentAirBnBGuest && (
-          <div className="basis-1/3 flex justify-end items-center gap-1.5 w-full font-bold text-nowrap">
-            (A) ${Math.round(profit.airbnb).toLocaleString()}
+          <div className="basis-1/3 flex justify-end items-baseline gap-1.5 w-full font-bold text-nowrap">
+            <span className="text-2xl leading-none text-emerald-600">
+              ${Math.round(profit.total).toLocaleString()}
+            </span>
+            <span>(A) ${Math.round(profit.airbnb).toLocaleString()}</span>
           </div>
         )}
       </div>
