@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import { MdCleaningServices } from "react-icons/md";
 import { dayType } from "../../../util/types/dayType";
 import { roomType } from "../../../util/types/roomType";
 import { CleaningAssignmentType } from "../../../util/cleanerOperations";
@@ -84,8 +85,11 @@ const CleanDaySheet = ({ dateKey, monthMap, assignments, rooms, onClose }: Clean
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-          <h2 className="text-lg font-bold text-gray-900">
-            🧹 {format(new Date(dateKey + "T00:00:00"), "EEEE, MMM d")}
+          {/* Same icon the Tasks modal uses for Clean, so the two read as one
+              feature rather than two things about cleaning. */}
+          <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
+            <MdCleaningServices className="text-teal-600" />
+            {format(new Date(dateKey + "T00:00:00"), "EEEE, MMM d")}
           </h2>
           <button
             type="button"
