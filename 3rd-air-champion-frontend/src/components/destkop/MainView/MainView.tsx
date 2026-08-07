@@ -4,7 +4,7 @@ import CustomCalendar from "./CalendarView/CustomCalendarDesktop";
 import { dayType } from "../../../util/types/dayType";
 import BookingModal from "../BookingModal/BookingModal";
 import { bookingType } from "../../../util/types/bookingType";
-import { addDays, format, isWithinInterval, startOfToday } from "date-fns";
+import { addDays, endOfMonth, format, isWithinInterval, startOfMonth, startOfToday } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { roomType } from "../../../util/types/roomType";
 import { createRoom, deleteRoom, fetchRooms, updateRoom } from "../../../util/roomOperations";
@@ -16,7 +16,7 @@ import { AddPaneContext, FooterContext, GuestModeContext, isSyncModalOpenContext
 import { formatPhone } from "../../../util/formatPhone";
 import DetailsModal from "./GuestView/DetailsModal";
 import { updateBookingGuest, updateBookingAirbnbPrice, updateBookingReserved, updateUnbookGuest } from "../../../util/bookingOperations";
-import { fetchAssignments } from "../../../util/cleanerOperations";
+import { fetchAssignments, CleaningAssignmentType } from "../../../util/cleanerOperations";
 import { getCleaningForecast } from "../../../util/cleaningTasks";
 import UnbookingConfirmation from "./GuestView/UnbookingConfirmation";
 import ToDoList from "./ToDoList";
@@ -204,6 +204,10 @@ const MainView = ({
   const [currentBookings, setCurrentBookings] = useState<bookingType[] | null>();
   const [selectedRoomName, setSelectedRoomName] = useState<string | null>(null);
   const [gapsMode, setGapsMode] = useState(false);
+  // Calendar view mode: same bars and geometry, but each stay is labelled with
+  // the cleaner who turns that room over instead of the guest staying in it.
+  const [cleanMode, setCleanMode] = useState(false);
+  const [cleaningAssignments, setCleaningAssignments] = useState<CleaningAssignmentType[]>([]);
   const [editingRoomId, setEditingRoomId] = useState<string>("");
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
   const [scrollToTodayTrigger, setScrollToTodayTrigger] = useState(0);
@@ -270,6 +274,29 @@ const MainView = ({
     setAvailableNightsCount,
     setTodoCleanCount,
   });
+
+  // Cleaner labels for the calendar. Only fetched while Clean mode is on, and
+  // only around the month in view — the calendar browses 24 months back, and
+  // pulling every assignment to label one screen would be wasteful.
+  useEffect(() => {
+    if (!cleanMode || !hostId || !token) return;
+    const start = format(addDays(startOfMonth(currentMonth), -7), "yyyy-MM-dd");
+    const end = format(addDays(endOfMonth(currentMonth), 7), "yyyy-MM-dd");
+    fetchAssignments(hostId, start, end, token)
+      .then(setCleaningAssignments)
+      .catch(() => setCleaningAssignments([]));
+  }, [cleanMode, hostId, token, currentMonth]);
+
+  // "Who turns this room over after this stay" — keyed by room + the CHECKOUT
+  // MORNING, which is the night after the stay's last night. That is the date
+  // assignments are stored against.
+  const cleanerByRoomMorning = useMemo(() => {
+    const m = new Map<string, string>();
+    cleaningAssignments.forEach((a) => {
+      if (a.room && a.cleaner) m.set(`${a.room.id}|${a.date}`, a.cleaner.name.trim().split(" ")[0]);
+    });
+    return m;
+  }, [cleaningAssignments]);
 
   // Clean button badges, refetched when the Clean modal opens/closes:
   //  • cleanTodoCount       = finished cleanings (<= today) still needing hours
@@ -759,6 +786,8 @@ const MainView = ({
               setSelectedRoomName={setSelectedRoomName}
               gapsMode={gapsMode}
               setGapsMode={setGapsMode}
+              cleanMode={cleanMode}
+              setCleanMode={setCleanMode}
             />
             <CustomCalendar
               currentGuest={currentGuest}
@@ -777,6 +806,8 @@ const MainView = ({
               setHoldDates={setHoldDates}
               scrollToTodayTrigger={scrollToTodayTrigger}
               gapsMode={gapsMode}
+              cleanMode={cleanMode}
+              cleanerByRoomMorning={cleanerByRoomMorning}
               onTodayInViewChange={setTodayInView}
               rowsPerPage={rowsPerPage}
             />

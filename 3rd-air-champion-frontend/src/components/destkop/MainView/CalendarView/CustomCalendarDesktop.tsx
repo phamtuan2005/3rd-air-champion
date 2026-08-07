@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { isSameDay } from "date-fns";
+import { addDays, format, isSameDay } from "date-fns";
 import { dayType } from "../../../../util/types/dayType";
 import { bookingType } from "../../../../util/types/bookingType";
 import { roomType } from "../../../../util/types/roomType";
@@ -26,6 +26,9 @@ interface CustomCalendarProps {
   holdDates: Date[];
   setHoldDates: React.Dispatch<React.SetStateAction<Date[]>>;
   gapsMode?: boolean;
+  // Clean mode: label each stay with the cleaner who turns the room over after it
+  cleanMode?: boolean;
+  cleanerByRoomMorning?: Map<string, string>; // "roomId|yyyy-MM-dd(checkout morning)" -> first name
   onTodayInViewChange?: (inView: boolean) => void;
   rowsPerPage?: number;
 }
@@ -49,6 +52,8 @@ const CustomCalendar = ({
   holdDates,
   setHoldDates,
   gapsMode = false,
+  cleanMode = false,
+  cleanerByRoomMorning,
   onTodayInViewChange,
   rowsPerPage,
 }: CustomCalendarProps) => {
@@ -153,6 +158,20 @@ const CustomCalendar = ({
   };
 
   const resolveBarLabel = (booking: bookingType) => {
+    // Clean mode: same bars, same geometry — the label becomes whoever turns the
+    // room over AFTER this stay. Assignments are dated by the checkout morning,
+    // which is the day after the stay's last night.
+    if (cleanMode) {
+      const room = booking.room?.id;
+      if (!room || !booking.endDate) return "";
+      const morning = format(
+        addDays(new Date(booking.endDate.split("T")[0] + "T00:00:00"), 1),
+        "yyyy-MM-dd",
+      );
+      // "·" rather than blank for an unassigned turnover, so a gap in the
+      // cleaning plan is visible instead of reading like a bar with no data.
+      return cleanerByRoomMorning?.get(`${room}|${morning}`) ?? "·";
+    }
     if (booking.guest?.name === "AirBnB" && booking.alias) return `${booking.alias} (A)`;
     if (currentGuest) return booking.reserved ? `${booking.room?.name ?? ""} (R)` : (booking.room?.name ?? "");
     if (booking.reserved) return `${booking.guest.name} (R)`;

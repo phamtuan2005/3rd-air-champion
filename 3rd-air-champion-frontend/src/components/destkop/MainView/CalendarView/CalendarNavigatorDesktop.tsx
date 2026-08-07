@@ -33,6 +33,9 @@ interface CalendarNavigatorProps {
   setSelectedRoomName: React.Dispatch<React.SetStateAction<string | null>>;
   gapsMode: boolean;
   setGapsMode: React.Dispatch<React.SetStateAction<boolean>>;
+  // Clean mode: bars keep their geometry but name the cleaner, not the guest
+  cleanMode: boolean;
+  setCleanMode: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const CalendarNavigator = ({
@@ -52,6 +55,8 @@ const CalendarNavigator = ({
   setSelectedRoomName,
   gapsMode,
   setGapsMode,
+  cleanMode,
+  setCleanMode,
 }: CalendarNavigatorProps) => {
   const { setIsFooterVisible } = useContext(FooterContext)!;
   const [showDetails, setShowDetails] = useState(false);
@@ -139,13 +144,27 @@ const CalendarNavigator = ({
               <button
                 type="button"
                 onClick={() => setGapsMode((v) => !v)}
-                className={`text-xs px-2 py-0.5 rounded border transition-colors ${
+                className={`text-sm px-2 py-0.5 rounded border transition-colors ${
                   gapsMode
                     ? "bg-green-500 border-green-500 text-white"
                     : "border-gray-300 text-gray-400 hover:text-gray-600"
                 }`}
               >
                 Gaps
+              </button>
+              {/* Same calendar, cleaner names in place of guest names — so the
+                  cleaning plan is read where the bookings already are. */}
+              <button
+                type="button"
+                onClick={() => setCleanMode((v) => !v)}
+                title="Show who cleans each room after the stay"
+                className={`text-sm px-2 py-0.5 rounded border transition-colors ${
+                  cleanMode
+                    ? "bg-teal-600 border-teal-600 text-white"
+                    : "border-gray-300 text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                Clean
               </button>
             </div>
             {/* PROFIT */}
