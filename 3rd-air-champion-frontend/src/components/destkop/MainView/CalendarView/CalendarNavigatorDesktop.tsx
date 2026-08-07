@@ -152,7 +152,7 @@ const CalendarNavigator = ({
                   setCleanMode(v === "clean");
                 }}
                 title="What the calendar bars show"
-                className={`cursor-pointer rounded border px-2 py-0.5 text-sm font-semibold transition-colors ${
+                className={`w-[64px] cursor-pointer rounded border px-1 py-0.5 text-sm font-semibold transition-colors ${
                   cleanMode
                     ? "border-teal-600 bg-teal-600 text-white"
                     : gapsMode
@@ -160,9 +160,9 @@ const CalendarNavigator = ({
                       : "border-gray-300 text-gray-500 hover:text-gray-700"
                 }`}
               >
-                <option value="book">Guests</option>
+                <option value="book">Guest</option>
                 <option value="gaps">Gaps</option>
-                <option value="clean">Cleaners</option>
+                <option value="clean">Clean</option>
               </select>
             </div>
             {/* PROFIT */}
