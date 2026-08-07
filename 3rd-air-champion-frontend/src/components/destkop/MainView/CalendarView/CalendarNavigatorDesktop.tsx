@@ -165,10 +165,9 @@ const CalendarNavigator = ({
                 <option value="clean">Clean</option>
               </select>
             </div>
-            {/* PROFIT */}
-            <div className="basis-1/4 flex justify-end w-full text-2xl font-bold text-emerald-600 text-right leading-tight">
-              ${Math.round(profit.total).toLocaleString()}
-            </div>
+            {/* Total profit moved to the stats line below, where it sits beside
+                the AirBnB figures it should be read against. */}
+            <div className="basis-1/4" />
           </div>
         </>
       ) : currentGuest ? (
@@ -288,7 +287,7 @@ const CalendarNavigator = ({
                       : "text-green-500"
                 }`}
               >
-                {Math.round(occupancy.totalOccupancy)}% occupancy
+                {Math.round(occupancy.totalOccupancy)}% Occ.
               </span>
               <span
                 className={`underline ${
@@ -300,6 +299,11 @@ const CalendarNavigator = ({
                 }`}
               >
                 {Math.round(occupancy.airbnbOccupancy)}% (A)booking
+              </span>
+              {/* Total profit — between the AirBnB booking share and the AirBnB
+                  profit, so the pair reads as "of this total, this much is A". */}
+              <span className="font-bold text-emerald-600">
+                ${Math.round(profit.total).toLocaleString()}
               </span>
             </div>
           ))}
