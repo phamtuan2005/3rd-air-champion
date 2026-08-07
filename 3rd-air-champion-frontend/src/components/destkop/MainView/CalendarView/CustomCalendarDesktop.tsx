@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { isSameDay } from "date-fns";
+import { format, isSameDay } from "date-fns";
 import { dayType } from "../../../../util/types/dayType";
 import { bookingType } from "../../../../util/types/bookingType";
 import { roomType } from "../../../../util/types/roomType";
@@ -192,6 +192,30 @@ const CustomCalendar = ({
     );
   };
 
+  // A cleaning into an EMPTY room: the turnover happened, but no guest arrived
+  // to give it a bar. Without this the calendar silently dropped those, and
+  // disagreed with the Plan tab about who worked that morning.
+  const renderEmptyCell = (room: roomType, date: Date) => {
+    if (!cleanMode) return null;
+    const c = cleanerByRoomMorning?.get(`${room.id}|${format(date, "yyyy-MM-dd")}`);
+    if (!c) return null;
+    return (
+      <span
+        className="absolute inset-y-[1px] left-[20%] right-[-20%] flex items-center gap-0.5 overflow-hidden rounded-lg border border-dashed border-gray-400 bg-gray-50 pl-1 text-[0.8rem] font-bold text-gray-600"
+        title={`${c.name} cleaned ${room.name} — room stayed empty`}
+      >
+        <CleanerAvatar
+          name={c.name}
+          photo={c.photo}
+          character={c.character}
+          sizeClass="h-4 w-4"
+          textClass="text-[8px]"
+        />
+        {c.name.trim().split(" ")[0]}
+      </span>
+    );
+  };
+
   const resolveBarLabel = (booking: bookingType) => {
     // Clean mode: same bars, same geometry — the label becomes the cleaner who
     // prepared this room for this guest, looked up on the stay's START date.
@@ -231,6 +255,7 @@ const CustomCalendar = ({
       onDoubleClick={handleDoubleClick}
       resolveBarLabel={resolveBarLabel}
       resolveBarIcon={resolveBarIcon}
+      renderEmptyCell={renderEmptyCell}
       gapsMode={gapsMode}
       onTodayInViewChange={onTodayInViewChange}
       rowsPerPage={rowsPerPage}

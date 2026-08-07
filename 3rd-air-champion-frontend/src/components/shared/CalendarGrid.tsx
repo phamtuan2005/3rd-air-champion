@@ -39,6 +39,9 @@ interface CalendarGridProps {
   // Optional node drawn inside the bar before its label — TiMag's Clean mode
   // uses it for the cleaner's avatar, so a bar is recognisable before it's read.
   resolveBarIcon?: (booking: bookingType) => React.ReactNode;
+  // Content for a room/day with no booking at all. Clean mode marks cleanings
+  // that happened into an empty room; returning null keeps the cell as it was.
+  renderEmptyCell?: (room: roomType, date: Date) => React.ReactNode;
   gapsMode?: boolean;
   // Reports whether today's tile is on the currently visible page (a month can span
   // several pages, so "current month" no longer implies "today is on screen").
@@ -76,6 +79,7 @@ const CalendarGrid = ({
   onDoubleClick,
   resolveBarLabel,
   resolveBarIcon,
+  renderEmptyCell,
   gapsMode = false,
   onTodayInViewChange,
   rowsPerPage = 4,
@@ -543,6 +547,16 @@ const CalendarGrid = ({
             : false;
 
           if (!amBooking && !pmBooking) {
+            // A room can be cleaned and then sit empty — no booking to hang a
+            // label on. Clean mode uses this to mark those turnovers, so the
+            // calendar agrees with the Plan tab about who worked that morning.
+            const emptyContent = renderEmptyCell?.(room, date);
+            if (emptyContent)
+              return (
+                <div key={room.name} className="row-span-1 h-full relative">
+                  {emptyContent}
+                </div>
+              );
             if (overrideRooms && !isRoomBlocked) return <div key={room.name} className="row-span-1 h-full" />;
             const isFutureOrToday = !isBefore(date, startOfToday());
             if (isRoomBlocked) {
