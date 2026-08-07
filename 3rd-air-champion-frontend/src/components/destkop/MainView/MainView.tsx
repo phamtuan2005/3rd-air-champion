@@ -17,7 +17,7 @@ import { formatPhone } from "../../../util/formatPhone";
 import DetailsModal from "./GuestView/DetailsModal";
 import { updateBookingGuest, updateBookingAirbnbPrice, updateBookingReserved, updateUnbookGuest } from "../../../util/bookingOperations";
 import { fetchAssignments, CleaningAssignmentType, CleanerType } from "../../../util/cleanerOperations";
-import { getCleaningForecast } from "../../../util/cleaningTasks";
+import { getCleaningForecast, isStaleCleaning } from "../../../util/cleaningTasks";
 import UnbookingConfirmation from "./GuestView/UnbookingConfirmation";
 import ToDoList from "./ToDoList";
 import AvailabilitiesModal from "./AvailabilitiesModal";
@@ -317,15 +317,10 @@ const MainView = ({
     const monthStart = `${format(startOfToday(), "yyyy-MM")}-01`;
     const todayStr = format(startOfToday(), "yyyy-MM-dd");
     const end = format(addDays(startOfToday(), 7), "yyyy-MM-dd");
-    // A cleaning is "stale" if the room was occupied the night before and that
-    // booking doesn't check out that morning (a continuing multi-night stay
-    // absorbed the turnover — no clean is actually due). Mirror Clean → Hours
-    // so the badge counts the same cleaner-days it does, not orphaned ones.
-    const isStale = (roomId: string, morningKey: string) => {
-      const prevNight = format(addDays(new Date(morningKey + "T00:00:00"), -1), "yyyy-MM-dd");
-      const occupant = monthMap.get(prevNight)?.bookings.find((b) => b.room?.id === roomId);
-      return !!occupant && occupant.endDate.split("T")[0] !== prevNight;
-    };
+    // Shared with Clean → Hours and the calendar's day sheet, so the badge
+    // counts the same cleaner-days those show rather than orphaned ones.
+    const isStale = (roomId: string, morningKey: string) =>
+      isStaleCleaning(monthMap, roomId, morningKey);
     fetchAssignments(hostId, monthStart, end, token)
       .then((assigns) => {
         const days = new Set<string>();

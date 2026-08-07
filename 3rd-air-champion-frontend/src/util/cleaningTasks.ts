@@ -202,6 +202,24 @@ export const getCheckoutsOn = (monthMap: Map<string, dayType>, morningKey: strin
   );
 };
 
+// A cleaning is STALE when the room was occupied the night before and that stay
+// is NOT ending — a continuing multi-night stay absorbed the turnover, so no
+// clean is due even though an assignment exists. Self-heals: cancel the booking
+// and the assignment counts again.
+//
+// Exported because three screens must agree on it: the Plan tab hides stale
+// rows, the Clean badge counts around them, and the calendar's day sheet lists
+// what actually needs doing. Kept in one place so they cannot drift.
+export const isStaleCleaning = (
+  monthMap: Map<string, dayType>,
+  roomId: string,
+  morningKey: string,
+) => {
+  const prevNight = dateKey(addDays(new Date(morningKey + "T00:00:00"), -1));
+  const occupant = monthMap.get(prevNight)?.bookings.find((b) => b.room?.id === roomId);
+  return !!occupant && occupant.endDate.split("T")[0] !== prevNight;
+};
+
 export const getCleaningForecast = (
   monthMap: Map<string, dayType>,
   horizon = 7,

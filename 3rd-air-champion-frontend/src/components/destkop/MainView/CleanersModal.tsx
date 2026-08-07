@@ -7,7 +7,11 @@ import { dayType } from "../../../util/types/dayType";
 import { roomType } from "../../../util/types/roomType";
 import RoomBadge from "../../shared/RoomBadge";
 import { getRoomColor } from "../../../util/getRoomColor";
-import { getCheckoutsOn, getCleaningForecast } from "../../../util/cleaningTasks";
+import {
+  getCheckoutsOn,
+  getCleaningForecast,
+  isStaleCleaning as isStale,
+} from "../../../util/cleaningTasks";
 import { generateAvatar } from "../../../util/avatarGen";
 import CleanerAvatarBase from "../../shared/CleanerAvatar";
 import { cleanerSignoff, ttPromiseLine } from "../../../util/cleanerMessage";
@@ -424,11 +428,8 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
   // the prior night and is NOT leaving), there was no turnover — so an assignment
   // for it is STALE (e.g. a probable clean a later multi-night booking absorbed).
   // Self-heals: cancel the booking and the assignment shows again.
-  const isStaleCleaning = (roomId: string, morningKey: string) => {
-    const prevNight = format(addDays(new Date(morningKey + "T00:00:00"), -1), "yyyy-MM-dd");
-    const occupant = monthMap.get(prevNight)?.bookings.find((b) => b.room?.id === roomId);
-    return !!occupant && occupant.endDate.split("T")[0] !== prevNight;
-  };
+  const isStaleCleaning = (roomId: string, morningKey: string) =>
+    isStale(monthMap, roomId, morningKey);
   const weekAssignments = assignments.filter(
     (a) =>
       a.date >= weekDates[0] &&

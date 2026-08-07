@@ -3,7 +3,7 @@ import { MdCleaningServices } from "react-icons/md";
 import { dayType } from "../../../util/types/dayType";
 import { roomType } from "../../../util/types/roomType";
 import { CleaningAssignmentType } from "../../../util/cleanerOperations";
-import { getCheckoutsOn } from "../../../util/cleaningTasks";
+import { getCheckoutsOn, isStaleCleaning } from "../../../util/cleaningTasks";
 import RoomBadge from "../../shared/RoomBadge";
 import CleanerAvatar from "../../shared/CleanerAvatar";
 
@@ -39,7 +39,13 @@ const CleanDaySheet = ({
     .map((b) => b.room?.id)
     .filter((id): id is string => !!id);
 
-  const forDate = assignments.filter((a) => a.date === dateKey && a.room);
+  // Only cleanings that are actually due. An assignment can survive on a room
+  // that a continuing multi-night stay absorbed — no turnover happened, so the
+  // Plan tab hides it and this must too, or the calendar claims work the
+  // schedule doesn't. Same isStaleCleaning both screens use.
+  const forDate = assignments.filter(
+    (a) => a.date === dateKey && a.room && !isStaleCleaning(monthMap, a.room.id, dateKey),
+  );
 
   // Group by cleaner. A day's hours sit on ONE of its rooms with 0 on the rest,
   // so the total is summed per cleaner and shown once — never per room, which
