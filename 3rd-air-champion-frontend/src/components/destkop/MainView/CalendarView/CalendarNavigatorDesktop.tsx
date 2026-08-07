@@ -121,8 +121,9 @@ const CalendarNavigator = ({
       {!currentGuest && !currentAirBnBGuest ? (
         <>
           <div className="flex h-full w-full items-center text-nowrap gap-2">
-            {/* Room filter */}
-            <div className="basis-1/4 flex items-center">
+            {/* Room filter + view picker — the two controls that decide what the
+                calendar shows, side by side rather than at opposite ends. */}
+            <div className="basis-1/4 flex items-center gap-1.5">
               <RoomSingleSelect
                 rooms={rooms}
                 value={selectedRoomName}
@@ -135,12 +136,6 @@ const CalendarNavigator = ({
                   }
                 }}
               />
-            </div>
-            <div className="basis-1/2 flex justify-center items-center w-full gap-1 sm:gap-2">
-              <span className="font-bold text-base sm:text-xl text-gray-800">
-                {formattedDate}
-              </span>
-              {todayButton}
               {/* One view mode, not two independent flags. Gaps and Cleaners
                   each re-read the same calendar, so they were never meaningfully
                   combinable — a single picker says which lens is on. */}
@@ -152,7 +147,7 @@ const CalendarNavigator = ({
                   setCleanMode(v === "clean");
                 }}
                 title="What the calendar bars show"
-                className={`w-[64px] cursor-pointer rounded border px-1 py-0.5 text-sm font-semibold transition-colors ${
+                className={`w-[64px] shrink-0 cursor-pointer rounded border px-1 py-0.5 text-sm font-semibold transition-colors ${
                   cleanMode
                     ? "border-teal-600 bg-teal-600 text-white"
                     : gapsMode
@@ -164,6 +159,12 @@ const CalendarNavigator = ({
                 <option value="gaps">Gaps</option>
                 <option value="clean">Clean</option>
               </select>
+            </div>
+            <div className="basis-1/2 flex justify-center items-center w-full gap-1 sm:gap-2">
+              <span className="font-bold text-base sm:text-xl text-gray-800">
+                {formattedDate}
+              </span>
+              {todayButton}
             </div>
             {/* Total profit moved to the stats line below, where it sits beside
                 the AirBnB figures it should be read against. */}
@@ -301,8 +302,11 @@ const CalendarNavigator = ({
                 {Math.round(occupancy.airbnbOccupancy)}% (A)booking
               </span>
               {/* Total profit — between the AirBnB booking share and the AirBnB
-                  profit, so the pair reads as "of this total, this much is A". */}
-              <span className="font-bold text-emerald-600">
+                  profit, so the pair reads as "of this total, this much is A".
+                  Keeps its old 2xl size: it is the headline number on the screen
+                  and must not read as smaller than the AirBnB slice of itself.
+                  leading-none so the taller type doesn't grow the row. */}
+              <span className="text-2xl font-bold leading-none text-emerald-600">
                 ${Math.round(profit.total).toLocaleString()}
               </span>
             </div>
