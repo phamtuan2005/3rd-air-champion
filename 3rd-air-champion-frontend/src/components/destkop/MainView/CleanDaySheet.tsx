@@ -13,6 +13,7 @@ interface CleanDaySheetProps {
   assignments: CleaningAssignmentType[];
   rooms: roomType[];
   onClose: () => void;
+  onChangePlan: () => void; // opens the Cleaners modal on Plan
 }
 
 // What a day looks like through the cleaning lens. Opened by tapping a date
@@ -23,7 +24,14 @@ interface CleanDaySheetProps {
 // Read-only on purpose: the calendar reports the plan, the Cleaners modal owns
 // changing it. Unlike the Plan tab this works for ANY date, including past
 // months, which the Cleaners modal cannot currently reach.
-const CleanDaySheet = ({ dateKey, monthMap, assignments, rooms, onClose }: CleanDaySheetProps) => {
+const CleanDaySheet = ({
+  dateKey,
+  monthMap,
+  assignments,
+  rooms,
+  onClose,
+  onChangePlan,
+}: CleanDaySheetProps) => {
   const roomById = new Map(rooms.map((r) => [r.id, r]));
 
   // Rooms that genuinely turned over — the same rule the Plan tab forecasts from.
@@ -164,9 +172,18 @@ const CleanDaySheet = ({ dateKey, monthMap, assignments, rooms, onClose }: Clean
           )}
         </div>
 
-        <p className="border-t border-gray-100 px-4 py-2 text-center text-[13px] text-gray-400">
-          To change any of this, open Clean → Plan
-        </p>
+        {/* The sheet reports; the Plan tab owns changing it. A button beats a
+            sentence telling you where to go. */}
+        <div className="border-t border-gray-100 p-3">
+          <button
+            type="button"
+            onClick={onChangePlan}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-teal-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-teal-700"
+          >
+            <MdCleaningServices />
+            Change
+          </button>
+        </div>
       </div>
     </div>
   );

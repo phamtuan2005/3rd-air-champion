@@ -211,6 +211,10 @@ const MainView = ({
   const [cleaningAssignments, setCleaningAssignments] = useState<CleaningAssignmentType[]>([]);
   // Date whose cleaning sheet is open (yyyy-MM-dd), from tapping a day in Clean mode
   const [cleanDayKey, setCleanDayKey] = useState<string | null>(null);
+  // Set only when the Cleaners modal is opened with a destination in mind (the
+  // day sheet's Change button wants Plan); cleared on close so the next open
+  // goes back to choosing for itself.
+  const [cleanersInitialTab, setCleanersInitialTab] = useState<"upcoming" | undefined>(undefined);
   const [editingRoomId, setEditingRoomId] = useState<string>("");
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
   const [scrollToTodayTrigger, setScrollToTodayTrigger] = useState(0);
@@ -1330,9 +1334,13 @@ const MainView = ({
           token={token as string}
           monthMap={monthMap}
           rooms={rooms}
+          initialTab={cleanersInitialTab}
           cleaningRules={cleaningRules}
           senderName={senderName}
-          onClose={() => setIsCleanersOpen(false)}
+          onClose={() => {
+            setIsCleanersOpen(false);
+            setCleanersInitialTab(undefined);
+          }}
         />
       )}
       {isMiscOpen && (
@@ -1350,6 +1358,11 @@ const MainView = ({
           assignments={cleaningAssignments}
           rooms={rooms}
           onClose={() => setCleanDayKey(null)}
+          onChangePlan={() => {
+            setCleanDayKey(null);
+            setCleanersInitialTab("upcoming");
+            setIsCleanersOpen(true);
+          }}
         />
       )}
       {isManageGuestOpen && guests.length > 0 && (

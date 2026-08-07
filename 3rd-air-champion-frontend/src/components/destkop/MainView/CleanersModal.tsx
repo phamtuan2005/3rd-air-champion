@@ -39,6 +39,9 @@ interface CleanersModalProps {
   token: string;
   monthMap: Map<string, dayType>; // for arriving-guest counts in the schedule SMS
   rooms: roomType[]; // the live roster — the only source carrying `active`
+  // Tab to land on. Set when opened from somewhere with intent (the calendar's
+  // day sheet wants Plan); otherwise the modal picks for itself.
+  initialTab?: "roster" | "hours" | "pay" | "week" | "upcoming";
   cleaningRules?: string; // host's private note to the cleaning team (texted, not shown to guests)
   senderName?: string; // who's logged in (Anh-Tuan or a cohost like Cindy) — signs the texts
   onClose: () => void;
@@ -226,7 +229,7 @@ const ResendBadge = ({ className = "" }: { className?: string }) => (
   </span>
 );
 
-const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", senderName, onClose }: CleanersModalProps) => {
+const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRules = "", senderName, onClose }: CleanersModalProps) => {
   // Self-sufficient: fetches its own data so it can be opened from anywhere
   // (NavBar dropdown or the Upcoming assign popover).
   const [cleaners, setCleaners] = useState<CleanerType[]>([]);
@@ -238,7 +241,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
   // Pay / Hours / Week / Upcoming / Team tabs — everything in one scroll was overcrowded
   const [activeTab, setActiveTab] = useState<
     "roster" | "hours" | "pay" | "week" | "upcoming"
-  >("pay");
+  >(initialTab ?? "pay");
   // Hours tab: which cleaner-day has its "+ Room" picker open (group key)
   const [addRoomFor, setAddRoomFor] = useState<string | null>(null);
   // Hours tab: which day has its "+ Cleaner" picker open (yyyy-MM-dd)
@@ -790,7 +793,8 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, cleaningRules = "", sen
   // Once data arrives, land on Hours if recordings are waiting — the most
   // time-sensitive job in this modal. Never overrides a user-tapped tab.
   useEffect(() => {
-    if (autoTabDone.current || assignments.length === 0) return;
+    // An explicit initialTab is a deliberate destination — never override it.
+    if (initialTab || autoTabDone.current || assignments.length === 0) return;
     autoTabDone.current = true;
     if (needHours.length > 0) setActiveTab("hours");
     // eslint-disable-next-line react-hooks/exhaustive-deps
