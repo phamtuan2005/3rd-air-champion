@@ -30,6 +30,7 @@ import EditRoomModal from "../NavBar/DropDown/EditRoomModal";
 import ManageGuestModal from "../NavBar/DropDown/ManageGuestModal";
 import CleanersModal from "./CleanersModal";
 import MiscModal from "./MiscModal";
+import CleanDaySheet from "./CleanDaySheet";
 import { fetchBookingRequestsByHost, updateBookingRequestStatus } from "../../../util/bookingRequestOperations";
 import { getHostWishLists } from "../../../util/wishListOperations";
 import { useCalendarData } from "./hooks/useCalendarData";
@@ -208,6 +209,8 @@ const MainView = ({
   // the cleaner who turns that room over instead of the guest staying in it.
   const [cleanMode, setCleanMode] = useState(false);
   const [cleaningAssignments, setCleaningAssignments] = useState<CleaningAssignmentType[]>([]);
+  // Date whose cleaning sheet is open (yyyy-MM-dd), from tapping a day in Clean mode
+  const [cleanDayKey, setCleanDayKey] = useState<string | null>(null);
   const [editingRoomId, setEditingRoomId] = useState<string>("");
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
   const [scrollToTodayTrigger, setScrollToTodayTrigger] = useState(0);
@@ -808,6 +811,7 @@ const MainView = ({
               gapsMode={gapsMode}
               cleanMode={cleanMode}
               cleanerByRoomMorning={cleanerByRoomMorning}
+              onCleanDayClick={(date) => setCleanDayKey(format(date, "yyyy-MM-dd"))}
               onTodayInViewChange={setTodayInView}
               rowsPerPage={rowsPerPage}
             />
@@ -1335,6 +1339,15 @@ const MainView = ({
           token={token as string}
           currentMonth={currentMonth}
           onClose={() => setIsMiscOpen(false)}
+        />
+      )}
+      {cleanDayKey && (
+        <CleanDaySheet
+          dateKey={cleanDayKey}
+          monthMap={monthMap}
+          assignments={cleaningAssignments}
+          rooms={rooms}
+          onClose={() => setCleanDayKey(null)}
         />
       )}
       {isManageGuestOpen && guests.length > 0 && (

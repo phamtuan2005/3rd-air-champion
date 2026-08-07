@@ -29,6 +29,7 @@ interface CustomCalendarProps {
   // Clean mode: label each stay with the cleaner who turns the room over after it
   cleanMode?: boolean;
   cleanerByRoomMorning?: Map<string, string>; // "roomId|yyyy-MM-dd(checkout morning)" -> first name
+  onCleanDayClick?: (date: Date) => void;
   onTodayInViewChange?: (inView: boolean) => void;
   rowsPerPage?: number;
 }
@@ -54,6 +55,7 @@ const CustomCalendar = ({
   gapsMode = false,
   cleanMode = false,
   cleanerByRoomMorning,
+  onCleanDayClick,
   onTodayInViewChange,
   rowsPerPage,
 }: CustomCalendarProps) => {
@@ -119,6 +121,12 @@ const CustomCalendar = ({
   }, [currentGuest, currentAirBnBGuest]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDateClick = (date: Date) => {
+    // In Clean mode the tap answers the cleaning question, not the billing one —
+    // the guest panel belongs to the Guest view.
+    if (cleanMode && onCleanDayClick) {
+      onCleanDayClick(date);
+      return;
+    }
     setSelectedDate(date);
     setIsMobileModalOpen(true);
     const dateKey = date.toISOString().split("T")[0];
