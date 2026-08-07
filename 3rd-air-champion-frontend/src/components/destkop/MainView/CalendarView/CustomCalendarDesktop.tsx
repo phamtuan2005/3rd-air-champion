@@ -6,6 +6,7 @@ import { roomType } from "../../../../util/types/roomType";
 import { toZonedTime } from "date-fns-tz";
 import CalendarGrid from "../../../shared/CalendarGrid";
 import CleanerAvatar from "../../../shared/CleanerAvatar";
+import { getRoomColor } from "../../../../util/getRoomColor";
 import { CleanerType } from "../../../../util/cleanerOperations";
 
 interface CustomCalendarProps {
@@ -201,9 +202,13 @@ const CustomCalendar = ({
     if (!c) return null;
     return (
       <span
-        className="absolute inset-y-[1px] left-[20%] right-[-20%] flex items-center gap-0.5 overflow-hidden rounded-lg border border-dashed border-gray-400 bg-gray-50 pl-1 text-[0.8rem] font-bold text-gray-600"
+        className="absolute inset-y-[1px] left-[20%] right-[-20%] flex items-center gap-0.5 overflow-hidden rounded-lg border border-dashed border-gray-500 pl-1 text-[0.8rem] font-bold text-black"
         title={`${c.name} cleaned ${room.name} — room stayed empty`}
       >
+        {/* The room's own colour, faded, behind the label — the room stays
+            identifiable at a glance, while the wash plus the dashed edge still
+            reads as "cleaned, nobody in it" rather than an occupied night. */}
+        <span className={`${getRoomColor(room.name, room.color)} absolute inset-0 opacity-40`} />
         <CleanerAvatar
           name={c.name}
           photo={c.photo}
@@ -211,7 +216,7 @@ const CustomCalendar = ({
           sizeClass="h-4 w-4"
           textClass="text-[8px]"
         />
-        {c.name.trim().split(" ")[0]}
+        <span className="relative truncate">{c.name.trim().split(" ")[0]}</span>
       </span>
     );
   };
