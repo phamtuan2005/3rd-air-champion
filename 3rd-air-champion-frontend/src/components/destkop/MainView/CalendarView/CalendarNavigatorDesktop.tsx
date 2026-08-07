@@ -311,7 +311,8 @@ const CalendarNavigator = ({
             <span className="text-2xl leading-none text-emerald-600">
               ${Math.round(profit.total).toLocaleString()}
             </span>
-            <span>(A) ${Math.round(profit.airbnb).toLocaleString()}</span>
+            <span className="font-normal text-gray-300">·</span>
+            <span>${Math.round(profit.airbnb).toLocaleString()} (A)</span>
           </div>
         )}
       </div>
