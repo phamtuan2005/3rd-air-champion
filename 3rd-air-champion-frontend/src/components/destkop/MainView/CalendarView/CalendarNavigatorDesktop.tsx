@@ -141,31 +141,29 @@ const CalendarNavigator = ({
                 {formattedDate}
               </span>
               {todayButton}
-              <button
-                type="button"
-                onClick={() => setGapsMode((v) => !v)}
-                className={`text-sm px-2 py-0.5 rounded border transition-colors ${
-                  gapsMode
-                    ? "bg-green-500 border-green-500 text-white"
-                    : "border-gray-300 text-gray-400 hover:text-gray-600"
-                }`}
-              >
-                Gaps
-              </button>
-              {/* Same calendar, cleaner names in place of guest names — so the
-                  cleaning plan is read where the bookings already are. */}
-              <button
-                type="button"
-                onClick={() => setCleanMode((v) => !v)}
-                title="Show who cleans each room after the stay"
-                className={`text-sm px-2 py-0.5 rounded border transition-colors ${
+              {/* One view mode, not two independent flags. Gaps and Cleaners
+                  each re-read the same calendar, so they were never meaningfully
+                  combinable — a single picker says which lens is on. */}
+              <select
+                value={cleanMode ? "clean" : gapsMode ? "gaps" : "book"}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setGapsMode(v === "gaps");
+                  setCleanMode(v === "clean");
+                }}
+                title="What the calendar bars show"
+                className={`cursor-pointer rounded border px-2 py-0.5 text-sm font-semibold transition-colors ${
                   cleanMode
-                    ? "bg-teal-600 border-teal-600 text-white"
-                    : "border-gray-300 text-gray-400 hover:text-gray-600"
+                    ? "border-teal-600 bg-teal-600 text-white"
+                    : gapsMode
+                      ? "border-green-500 bg-green-500 text-white"
+                      : "border-gray-300 text-gray-500 hover:text-gray-700"
                 }`}
               >
-                Clean
-              </button>
+                <option value="book">Guests</option>
+                <option value="gaps">Gaps</option>
+                <option value="clean">Cleaners</option>
+              </select>
             </div>
             {/* PROFIT */}
             <div className="basis-1/4 flex justify-end w-full text-2xl font-bold text-emerald-600 text-right leading-tight">
