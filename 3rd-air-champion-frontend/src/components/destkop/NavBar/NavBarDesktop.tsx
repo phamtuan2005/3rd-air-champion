@@ -250,11 +250,12 @@ const NavBarDesktop = ({
       btn: "bg-emerald-600",
       shadow: "drop-shadow-[0_4px_6px_rgba(5,150,105,0.5)]",
       active: isAvailabilitiesModalOpen || isMiscOpen,
-      // Gold, middle: nights still sellable — money on the table. Red, left:
-      // how many house expenses are logged this month — a COUNT of items, not
-      // their total, since a dollar figure on a badge reads as money owed.
+      // Only two here, so they sit at the outer corners rather than crowding
+      // the middle: gold right for nights still sellable, red left for house
+      // expenses logged this month — a COUNT of items, not their total, since a
+      // dollar figure on a badge reads as money owed.
       badges: [
-        { n: availableNightsCount, cls: YELLOW, pos: "mid" },
+        { n: availableNightsCount, cls: YELLOW, pos: "right" },
         { n: miscCount, cls: ROSE, pos: "left" },
       ],
       actions: [
