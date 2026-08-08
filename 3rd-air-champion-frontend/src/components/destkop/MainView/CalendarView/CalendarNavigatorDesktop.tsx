@@ -3,7 +3,7 @@ import { useContext, useEffect, useState } from "react";
 import { dayType } from "../../../../util/types/dayType";
 import { roomType } from "../../../../util/types/roomType";
 import { toZonedTime } from "date-fns-tz/toZonedTime";
-import { FooterContext } from "../../../../context";
+import { AddPaneContext, FooterContext } from "../../../../context";
 import RoomSingleSelect from "./RoomSingleSelect";
 
 interface CalendarNavigatorProps {
@@ -59,6 +59,10 @@ const CalendarNavigator = ({
   setCleanMode,
 }: CalendarNavigatorProps) => {
   const { setIsFooterVisible } = useContext(FooterContext)!;
+  const { rowsPerPage, setRowsPerPage } = useContext(AddPaneContext) as {
+    rowsPerPage: number;
+    setRowsPerPage: React.Dispatch<React.SetStateAction<number>>;
+  };
   const [showDetails, setShowDetails] = useState(false);
   const [guestBill, setGuestBill] = useState<number | null>(null);
   const [airBnBGuestBill, setAirBnBGuestBill] = useState<number | null>(null);
@@ -165,6 +169,21 @@ const CalendarNavigator = ({
                 {formattedDate}
               </span>
               {todayButton}
+              {/* Weeks on screen. Lives here rather than in the menu because it
+                  changes what you are looking at — you want to see the calendar
+                  reflow as you pick. */}
+              <select
+                value={rowsPerPage}
+                onChange={(e) => setRowsPerPage(Number(e.target.value))}
+                title="Weeks visible per screen"
+                className="w-[52px] shrink-0 cursor-pointer rounded border border-gray-300 px-1 py-0.5 text-sm font-semibold text-gray-500 transition-colors hover:text-gray-700"
+              >
+                {[2, 3, 4, 5, 6, 7, 8].map((n) => (
+                  <option key={n} value={n}>
+                    {n}w
+                  </option>
+                ))}
+              </select>
             </div>
             {/* Total profit moved to the stats line below, where it sits beside
                 the AirBnB figures it should be read against. */}

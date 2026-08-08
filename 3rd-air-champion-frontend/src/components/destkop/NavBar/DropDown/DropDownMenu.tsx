@@ -1,6 +1,6 @@
 import { useContext } from "react";
 import { createPortal } from "react-dom";
-import { FaDoorOpen, FaSync, FaUser, FaEye, FaEyeSlash, FaCog } from "react-icons/fa";
+import { FaDoorOpen, FaSync, FaUser, FaEye, FaEyeSlash } from "react-icons/fa";
 import { TiUserAdd } from "react-icons/ti";
 import { MdOutlineMessage } from "react-icons/md";
 import { MdEditNote } from "react-icons/md";
@@ -30,7 +30,7 @@ const DropDownMenu = ({
   isFooterVisible,
   onToggleFooter,
 }: DropDownMenuProps) => {
-  const { setIsEditRoomOpen, rowsPerPage, setRowsPerPage } = useContext(AddPaneContext)!;
+  const { setIsEditRoomOpen } = useContext(AddPaneContext)!;
 
   const close = () => setIsDropdownOpen(false);
 
@@ -102,40 +102,9 @@ const DropDownMenu = ({
             <span>{isFooterVisible ? "Hide Contact Info" : "Show Contact Info"}</span>
           </li>
 
-          {/* Setting: weeks-per-screen on a phone — a per-device preference (not a
-              navigation item, so tapping the stepper doesn't close the menu). */}
-          <li className="flex items-center justify-between gap-3 px-4 py-3.5 border-b border-gray-100 text-base font-semibold text-gray-700">
-            <div className="flex items-center gap-3 min-w-0">
-              <FaCog className="text-lg flex-shrink-0" />
-              <div className="flex flex-col leading-tight">
-                <span>Weeks per screen</span>
-                <span className="text-[11px] font-normal text-gray-400">phone calendar density</span>
-              </div>
-            </div>
-            <div className="flex items-center rounded-lg border border-gray-300 flex-shrink-0">
-              <button
-                type="button"
-                aria-label="Fewer weeks per screen"
-                onClick={() => setRowsPerPage(rowsPerPage - 1)}
-                disabled={rowsPerPage <= 2}
-                className="px-2.5 py-1 text-lg leading-none text-gray-500 disabled:text-gray-300"
-              >
-                −
-              </button>
-              <span className="min-w-[1.5rem] text-center text-sm font-bold text-gray-700">
-                {rowsPerPage}
-              </span>
-              <button
-                type="button"
-                aria-label="More weeks per screen"
-                onClick={() => setRowsPerPage(rowsPerPage + 1)}
-                disabled={rowsPerPage >= 8}
-                className="px-2.5 py-1 text-lg leading-none text-gray-500 disabled:text-gray-300"
-              >
-                +
-              </button>
-            </div>
-          </li>
+          {/* Weeks-per-screen moved to the calendar header, beside Today — it
+              changes what you are looking at, so it belongs where you can see
+              the effect rather than buried in a menu you have to close first. */}
           <li
             className="flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 cursor-pointer text-base font-semibold text-red-500"
             onClick={close}
