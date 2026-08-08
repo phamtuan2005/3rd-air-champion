@@ -116,6 +116,9 @@ const NavBarDesktop = ({
     run: () => void;
   };
 
+  // Fixed corner per badge slot, so a given count always appears in the same
+  // place on the button and can be recognised without reading it.
+  const BADGE_POS = ["-top-2 right-2", "-top-2 left-2", "-bottom-2 right-2"];
   const YELLOW = "bg-yellow-400 text-black";
   const GREEN = "bg-green-500 text-white";
   const ROSE = "bg-rose-500 text-white";
@@ -138,9 +141,13 @@ const NavBarDesktop = ({
       btn: "bg-blue-500",
       shadow: "drop-shadow-[0_4px_6px_rgba(59,130,246,0.5)]",
       active: isBookModalOpen || isRequestManagerOpen || isBlockAirBnBModalOpen || isBlockRoomsModalOpen,
+      // Three separate counts, not a sum: requests and blocks are different
+      // jobs in different panels, and lumping them said only "something is
+      // waiting". Corner tells them apart where the colour doesn't.
       badges: [
-        { n: bookingRequestPendingCount + airbnbPendingCount, cls: YELLOW },
-        { n: wishListAvailableCount, cls: GREEN },
+        { n: bookingRequestPendingCount, cls: ROSE }, // top-right — Requests
+        { n: wishListAvailableCount, cls: GREEN }, // top-left  — Wish list
+        { n: airbnbPendingCount, cls: ROSE }, // bottom-right — Blocks
       ],
       actions: [
         {
@@ -319,16 +326,18 @@ const NavBarDesktop = ({
               >
                 {g.icon}
                 {g.title}
-                {/* Aggregated pending badges so nothing hides behind the group */}
-                {g.badges[0]?.n > 0 && (
-                  <span className={`absolute -top-2 right-2 min-w-[22px] h-[22px] px-1 rounded-full text-[12px] font-bold flex items-center justify-center leading-none ${g.badges[0].cls}`}>
-                    {g.badges[0].n}
-                  </span>
-                )}
-                {g.badges[1]?.n > 0 && (
-                  <span className={`absolute -top-2 left-2 min-w-[20px] h-[20px] px-1 rounded-full text-[11px] font-bold flex items-center justify-center leading-none ${g.badges[1].cls}`}>
-                    {g.badges[1].n}
-                  </span>
+                {/* One badge per thing waiting, in a fixed corner each — a group
+                    can carry three (Calendar: requests, wishes, blocks), and a
+                    corner is what tells them apart when two share a colour. */}
+                {g.badges.map((b, i) =>
+                  b?.n > 0 && BADGE_POS[i] ? (
+                    <span
+                      key={i}
+                      className={`absolute ${BADGE_POS[i]} min-w-[22px] h-[22px] px-1 rounded-full text-[12px] font-bold flex items-center justify-center leading-none ${b.cls}`}
+                    >
+                      {b.n}
+                    </span>
+                  ) : null,
                 )}
               </button>
             );
