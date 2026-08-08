@@ -125,10 +125,13 @@ const NavBarDesktop = ({
   // Position carries meaning alongside colour, and both are consistent across
   // every group: gold in the middle is money coming in, red on the right is
   // something blocked, green on the left is a guest wish waiting.
+  // -top-4 rather than -top-2: a 22px badge hanging only 8px above the edge
+  // covered half the button's label. This clears the text and still reads as
+  // attached to the button.
   const BADGE_POS = {
-    mid: "-top-2 left-1/2 -translate-x-1/2",
-    left: "-top-2 left-2",
-    right: "-top-2 right-2",
+    mid: "-top-4 left-1/2 -translate-x-1/2",
+    left: "-top-4 left-2",
+    right: "-top-4 right-2",
   } as const;
   const YELLOW = "bg-yellow-400 text-black";
   const GREEN = "bg-green-500 text-white";
