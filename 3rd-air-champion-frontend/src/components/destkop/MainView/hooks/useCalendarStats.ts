@@ -27,6 +27,11 @@ interface UseCalendarStatsParams {
   setAirbnbPendingCount: React.Dispatch<React.SetStateAction<number>>;
   setAvailableNightsCount: React.Dispatch<React.SetStateAction<number>>;
   setTodoCleanCount: React.Dispatch<React.SetStateAction<number>>;
+  // Bumped by MainView whenever a count may have changed. Needed because the
+  // to-do count reads COMPLETED TASKS FROM localStorage, which no React state
+  // observes — ticking one off would otherwise leave the badge unchanged until
+  // something else happened to move monthMap.
+  refreshKey?: number;
 }
 
 export const useCalendarStats = ({
@@ -39,6 +44,7 @@ export const useCalendarStats = ({
   setAirbnbPendingCount,
   setAvailableNightsCount,
   setTodoCleanCount,
+  refreshKey = 0,
 }: UseCalendarStatsParams) => {
   const [occupancy, setOccupancy] = useState<{
     totalOccupancy: number;
@@ -165,7 +171,7 @@ export const useCalendarStats = ({
     // that were never marked cleaned (the old yesterday-only count underestimated).
     const items = getCleaningItems(monthMap, getCompletedTasks());
     return getCleaningCounts(items).max;
-  }, [monthMap]);
+  }, [monthMap, refreshKey]);
 
   useEffect(() => {
     setTodoCleanCount(todoCleanCount);

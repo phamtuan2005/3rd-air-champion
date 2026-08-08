@@ -211,6 +211,21 @@ const MainView = ({
   const [cleaningAssignments, setCleaningAssignments] = useState<CleaningAssignmentType[]>([]);
   // Date whose cleaning sheet is open (yyyy-MM-dd), from tapping a day in Clean mode
   const [cleanDayKey, setCleanDayKey] = useState<string | null>(null);
+  // One refresh signal for every nav badge, so none of them needs a page reload.
+  // Bumps whenever a panel that can change a count opens or closes, and again on
+  // the 30s poll — so a change made by a cohost on another device lands too.
+  // Some counts can't be derived from monthMap alone: completed to-dos live in
+  // localStorage, and the wish list is its own fetch.
+  const [badgeTick, setBadgeTick] = useState(0);
+  useEffect(() => {
+    setBadgeTick((t) => t + 1);
+  }, [
+    isTodoModalOpen,
+    isCleanersOpen,
+    isMiscOpen,
+    isRequestManagerOpen,
+    isAvailabilitiesModalOpen,
+  ]);
   // Set only when the Cleaners modal is opened with a destination in mind (the
   // day sheet's Change button wants Plan); cleared on close so the next open
   // goes back to choosing for itself.
@@ -280,6 +295,7 @@ const MainView = ({
     setAirbnbPendingCount,
     setAvailableNightsCount,
     setTodoCleanCount,
+    refreshKey: badgeTick,
   });
 
   // Cleaner labels for the calendar. Only fetched while Clean mode is on, and
@@ -422,7 +438,12 @@ const MainView = ({
         })
         .catch(() => setBookingRequestPendingCount(0));
     fetchCount();
-    const interval = setInterval(fetchCount, 30_000);
+    // The same tick drives every other badge, so one timer keeps them all
+    // honest rather than each growing its own poll.
+    const interval = setInterval(() => {
+      fetchCount();
+      setBadgeTick((t) => t + 1);
+    }, 30_000);
     return () => clearInterval(interval);
   }, [hostId, token, isRequestManagerOpen, acceptCompletedTick, setBookingRequestPendingCount]);
 
@@ -431,7 +452,7 @@ const MainView = ({
     getHostWishLists(hostId, token)
       .then((entries) => setWishListAvailableCount(entries.filter((e) => e.dates.length > 0).length))
       .catch(() => setWishListAvailableCount(0));
-  }, [hostId, token, setWishListAvailableCount]);
+  }, [hostId, token, setWishListAvailableCount, badgeTick]);
 
   useEffect(() => {
     if (isTodoModalOpen) {
