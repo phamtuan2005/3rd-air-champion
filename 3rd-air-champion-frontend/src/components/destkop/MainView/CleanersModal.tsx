@@ -342,6 +342,9 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
   // Baseline hours as loaded into the edit form — compared on save to tell an
   // untouched baseline from one the host actually changed.
   const editOriginalBaseline = useRef<number>(0);
+  // The cleaner's BASE payRate as loaded. Never overwritten on save — a new
+  // figure becomes a dated change instead, so history cannot be re-priced.
+  const editOriginalRate = useRef<number>(0);
   const [edit, setEdit] = useState({
     name: "",
     phone: "",
@@ -855,13 +858,28 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
   };
 
   const handleSaveEdit = (id: string) => {
+    // A raise must never re-price work already done. rateOn falls back to the
+    // BASE payRate for any date before the earliest rateHistory entry, so
+    // editing the base rewrites every past cleaning. Instead, keep the base as
+    // it was and record the new figure as a change effective today — past work
+    // keeps the rate it was billed at, by construction.
+    const typedRate = parseFloat(edit.payRate) || 0;
+    const baseRate = editOriginalRate.current;
+    const rateChanged = typedRate !== baseRate;
+    const nextHistory = rateChanged
+      ? [
+          ...edit.rateHistory.filter((h) => h.effectiveFrom !== todayKey),
+          { rate: typedRate, effectiveFrom: todayKey },
+        ].sort((a, b) => (a.effectiveFrom < b.effectiveFrom ? -1 : 1))
+      : edit.rateHistory;
+
     updateCleaner(
       {
         id,
         name: edit.name.trim(),
         phone: edit.phone.trim(),
-        payRate: parseFloat(edit.payRate) || 0,
-        rateHistory: edit.rateHistory,
+        payRate: baseRate,
+        rateHistory: nextHistory,
         character: edit.character.trim(),
         availableDays: edit.availableDays,
         paused: edit.paused,
@@ -1551,6 +1569,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                       baselineMonth: cleaner.baselineMonth ?? "",
                     });
                     editOriginalBaseline.current = cleaner.baselineHours ?? 0;
+                    editOriginalRate.current = cleaner.payRate ?? 0;
                   }}
                 >
                   Edit
@@ -2652,6 +2671,15 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                   />
                 </label>
               </div>
+              {/* Says what saving a different figure actually does, so a raise is
+                  never mistaken for a correction of the existing rate. */}
+              {(parseFloat(edit.payRate) || 0) !== editOriginalRate.current && (
+                <p className="-mt-1 text-[13px] text-amber-700">
+                  Saves as a rate change from today (${editOriginalRate.current} → $
+                  {parseFloat(edit.payRate) || 0}/hr). Work already recorded keeps
+                  ${editOriginalRate.current}/hr.
+                </p>
+              )}
 
               {/* Rate changes — raise pay from a date WITHOUT re-pricing past work */}
               <div className="rounded-xl border border-gray-200 bg-gray-50 p-2.5">
