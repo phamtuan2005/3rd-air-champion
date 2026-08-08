@@ -26,6 +26,35 @@ export const getCompletedTasks = (): CompletedTasks =>
 
 export const cleaningTaskId = (endDate: string, roomId: string) => `clean-${endDate}-${roomId}`;
 
+// ── Guest reminders ─────────────────────────────────────────────────────────
+// Direct guests arriving TOMORROW, who each need a reminder text. Exported so
+// the To Do tab and the nav badge select the same bookings and mark them done
+// the same way — they were counting different things before.
+export const reminderTaskId = (
+  startDate: string,
+  endDate: string,
+  guestId: string,
+  roomId: string,
+) => `${startDate}-${endDate}-${guestId}-${roomId}`;
+
+export const getReminderBookings = (monthMap: Map<string, dayType>, tomorrowKey: string) => {
+  const day = monthMap.get(tomorrowKey);
+  if (!day || day.date.toString().split("T")[0] !== tomorrowKey) return [];
+  return day.bookings.filter(
+    (b) => b.room != null && b.guest?.name !== "AirBnB" && b.startDate === tomorrowKey,
+  );
+};
+
+// Of those, the ones still to send — what a badge should actually show.
+export const countPendingReminders = (
+  monthMap: Map<string, dayType>,
+  tomorrowKey: string,
+  completed: CompletedTasks,
+) =>
+  getReminderBookings(monthMap, tomorrowKey).filter(
+    (b) => !completed[reminderTaskId(b.startDate, b.endDate, b.guest.id, b.room!.id)]?.completed,
+  ).length;
+
 const dateKey = (d: Date) => d.toISOString().split("T")[0];
 
 // Every room that currently needs cleaning. A room is dirty when its most recent

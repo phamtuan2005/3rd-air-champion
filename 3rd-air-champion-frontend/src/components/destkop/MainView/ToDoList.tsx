@@ -4,7 +4,7 @@ import { bookingType } from "../../../util/types/bookingType";
 import { addDays, startOfToday, format } from "date-fns";
 import { getRoomColor } from "../../../util/getRoomColor";
 import { DEFAULT_TEMPLATE, TEMPLATE_KEY, resolveTemplate } from "../../../util/reminderTemplate";
-import { CLEANING_LOOKBACK_DAYS, cleaningTaskId, getCleaningCounts, getCleaningItems, CleaningItem } from "../../../util/cleaningTasks";
+import { CLEANING_LOOKBACK_DAYS, cleaningTaskId, getCleaningCounts, getCleaningItems, countPendingReminders, CleaningItem } from "../../../util/cleaningTasks";
 import { fetchAssignments, CleaningAssignmentType, CleanerType } from "../../../util/cleanerOperations";
 import CleanerAvatar from "../../shared/CleanerAvatar";
 import { cleanerSignoff } from "../../../util/cleanerMessage";
@@ -205,7 +205,13 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
   ) => `${startDate}-${endDate}-${guestId}-${roomId}`;
 
   const tabs: { key: TabKey; label: string; count: number }[] = [
-    { key: "reminders", label: "Reminders", count: reminderBookings.length },
+    // Reminders STILL TO SEND, not everyone arriving — matching the Cleaning tab
+    // beside it, which has always counted only what's outstanding.
+    {
+      key: "reminders",
+      label: "Reminders",
+      count: countPendingReminders(monthMap, tomorrowKey, completedTasks),
+    },
     { key: "cleaning", label: "Cleaning", count: cleaningCounts.max },
   ];
 

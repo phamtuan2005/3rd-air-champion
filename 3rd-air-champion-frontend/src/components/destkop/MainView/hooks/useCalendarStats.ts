@@ -15,7 +15,7 @@ import { toZonedTime } from "date-fns-tz";
 import { dayType } from "../../../../util/types/dayType";
 import { roomType } from "../../../../util/types/roomType";
 import { bookingType, feesTotal } from "../../../../util/types/bookingType";
-import { getCleaningCounts, getCleaningItems, getCompletedTasks } from "../../../../util/cleaningTasks";
+import { getCleaningCounts, getCleaningItems, getCompletedTasks, countPendingReminders } from "../../../../util/cleaningTasks";
 
 interface UseCalendarStatsParams {
   monthMap: Map<string, dayType>;
@@ -166,11 +166,18 @@ export const useCalendarStats = ({
   }, [availableNightsCount, setAvailableNightsCount]);
 
   const todoCleanCount = useMemo(() => {
-    // Shared with ToDoList so the badge and the list can never disagree. Counts ALL
-    // rooms currently needing cleaning: today's checkouts + rooms vacated earlier
-    // that were never marked cleaned (the old yesterday-only count underestimated).
-    const items = getCleaningItems(monthMap, getCompletedTasks());
-    return getCleaningCounts(items).max;
+    // Everything the To Do panel still has outstanding, so the badge matches
+    // what you find when you open it. Reminders were missing entirely: ticking
+    // one off could never move the badge because it only counted cleanings.
+    //
+    // Cleanings = today's checkouts + rooms vacated earlier never marked clean.
+    // Reminders = guests arriving tomorrow whose text hasn't gone yet.
+    const completed = getCompletedTasks();
+    const items = getCleaningItems(monthMap, completed);
+    const tomorrowKey = format(addDays(startOfToday(), 1), "yyyy-MM-dd");
+    return (
+      getCleaningCounts(items).max + countPendingReminders(monthMap, tomorrowKey, completed)
+    );
   }, [monthMap, refreshKey]);
 
   useEffect(() => {
