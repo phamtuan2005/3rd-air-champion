@@ -339,12 +339,19 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
   // Which cleaners' recorded-days accordions are expanded (Hours tab). Collapsed
   // by default so 5 cleaners × 15–20 records stays a short, scannable list.
   const [expandedRecord, setExpandedRecord] = useState<Set<string>>(new Set());
+  // Baseline hours as loaded into the edit form — compared on save to tell an
+  // untouched baseline from one the host actually changed.
+  const editOriginalBaseline = useRef<number>(0);
   const [edit, setEdit] = useState({
     name: "",
     phone: "",
     payRate: "",
     rateHistory: [] as RateChange[],
     baselineHours: "",
+    // The month the loaded baseline belongs to. Preserved on save unless the
+    // hours themselves change, so editing an unrelated field can't re-anchor a
+    // baseline to the current month.
+    baselineMonth: "",
     character: "",
     availableDays: [] as number[],
     paused: false,
@@ -862,10 +869,15 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
         isOwner: edit.isOwner,
         minRooms: Math.max(0, parseInt(edit.minRooms, 10) || 0),
         maxRooms: Math.max(0, parseInt(edit.maxRooms, 10) || 0),
-        // Baseline is anchored to the month it was entered — it counts toward
-        // this month's pay and expires on its own.
+        // Baseline is anchored to the month it was entered. Re-anchor ONLY when
+        // the hours actually change — otherwise editing a photo would move an
+        // older baseline into this month and distort this month's pay.
         baselineHours: parseFloat(edit.baselineHours) || 0,
-        baselineMonth: monthKey,
+        baselineMonth:
+          (parseFloat(edit.baselineHours) || 0) === (editOriginalBaseline.current ?? 0) &&
+          edit.baselineMonth
+            ? edit.baselineMonth
+            : monthKey,
       },
       token,
     )
@@ -1530,13 +1542,15 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                       isOwner: cleaner.isOwner ?? false,
                       minRooms: String(cleaner.minRooms ?? 1),
                       maxRooms: String(cleaner.maxRooms ?? 0),
-                      // Only surface a baseline that belongs to this month —
-                      // an old month's baseline has already expired
+                      // Load the REAL baseline whatever month it belongs to. It
+                      // counts toward earned regardless of month, so hiding an
+                      // older one made the form save 0 and silently delete money
+                      // the cleaner was owed.
                       baselineHours:
-                        cleaner.baselineMonth === monthKey && cleaner.baselineHours > 0
-                          ? String(cleaner.baselineHours)
-                          : "",
+                        cleaner.baselineHours > 0 ? String(cleaner.baselineHours) : "",
+                      baselineMonth: cleaner.baselineMonth ?? "",
                     });
+                    editOriginalBaseline.current = cleaner.baselineHours ?? 0;
                   }}
                 >
                   Edit
