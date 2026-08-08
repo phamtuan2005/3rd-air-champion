@@ -56,6 +56,7 @@ interface NavBarDesktopProps {
   setIsRequestManagerOpen: React.Dispatch<React.SetStateAction<boolean>>;
   bookingRequestPendingCount: number;
   wishListAvailableCount: number;
+  miscCount: number;
 }
 
 const NavBarDesktop = ({
@@ -89,6 +90,7 @@ const NavBarDesktop = ({
   setIsRequestManagerOpen,
   bookingRequestPendingCount,
   wishListAvailableCount,
+  miscCount,
 }: NavBarDesktopProps) => {
   const { currentGuest, currentAirBnBGuest, setCurrentGuest, setCurrentAirBnBGuest } = useContext(GuestModeContext)!;
   const { setIsFooterVisible } = useContext(FooterContext)!;
@@ -248,8 +250,13 @@ const NavBarDesktop = ({
       btn: "bg-emerald-600",
       shadow: "drop-shadow-[0_4px_6px_rgba(5,150,105,0.5)]",
       active: isAvailabilitiesModalOpen || isMiscOpen,
-      // Nights still sellable this month — money on the table, so gold, middle.
-      badges: [{ n: availableNightsCount, cls: YELLOW, pos: "mid" }],
+      // Gold, middle: nights still sellable — money on the table. Red, left:
+      // how many house expenses are logged this month — a COUNT of items, not
+      // their total, since a dollar figure on a badge reads as money owed.
+      badges: [
+        { n: availableNightsCount, cls: YELLOW, pos: "mid" },
+        { n: miscCount, cls: ROSE, pos: "left" },
+      ],
       actions: [
         {
           label: "Stats",
@@ -267,6 +274,7 @@ const NavBarDesktop = ({
           desc: "House expenses — supplies, utilities, maintenance.",
           emoji: "🧾",
           hover: "hover:border-teal-300 hover:text-teal-600",
+          badges: [{ n: miscCount, cls: ROSE }],
           run: () => setIsMiscOpen(true),
         },
       ],

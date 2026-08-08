@@ -70,6 +70,8 @@ function App() {
   const [cleanTodoCount, setCleanTodoCount] = useState(0);
   // Upcoming forecast cleanings with no cleaner assigned — 2nd Clean badge
   const [cleanUnassignedCount, setCleanUnassignedCount] = useState(0);
+  // House expenses logged for the month in view — the Misc badge on Money
+  const [miscCount, setMiscCount] = useState(0);
   const [isRequestManagerOpen, setIsRequestManagerOpen] = useState(false);
   const [bookingRequestPendingCount, setBookingRequestPendingCount] =
     useState(0);
@@ -247,6 +249,7 @@ function App() {
                   todoCleanCount={todoCleanCount}
                   cleanTodoCount={cleanTodoCount}
                   cleanUnassignedCount={cleanUnassignedCount}
+                  miscCount={miscCount}
                   isRequestManagerOpen={isRequestManagerOpen}
                   setIsRequestManagerOpen={setIsRequestManagerOpen}
                   bookingRequestPendingCount={bookingRequestPendingCount}
@@ -282,6 +285,7 @@ function App() {
                     setIsBlockRoomsModalOpen={setIsBlockRoomsModalOpen}
                     setAirbnbPendingCount={setAirbnbPendingCount}
                     setAvailableNightsCount={setAvailableNightsCount}
+                    setMiscCount={setMiscCount}
                     setTodoCleanCount={setTodoCleanCount}
                     setCleanTodoCount={setCleanTodoCount}
                     setCleanUnassignedCount={setCleanUnassignedCount}

@@ -33,6 +33,7 @@ import MiscModal from "./MiscModal";
 import CleanDaySheet from "./CleanDaySheet";
 import { fetchBookingRequestsByHost, updateBookingRequestStatus } from "../../../util/bookingRequestOperations";
 import { getHostWishLists } from "../../../util/wishListOperations";
+import { fetchMiscExpenses, isExpenseInMonth } from "../../../util/miscOperations";
 import { useCalendarData } from "./hooks/useCalendarData";
 import { useCalendarStats } from "./hooks/useCalendarStats";
 import { useMessaging } from "./hooks/useMessaging";
@@ -75,6 +76,7 @@ interface MainViewProps {
   setIsRequestManagerOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setBookingRequestPendingCount: React.Dispatch<React.SetStateAction<number>>;
   setWishListAvailableCount: React.Dispatch<React.SetStateAction<number>>;
+  setMiscCount: React.Dispatch<React.SetStateAction<number>>;
   cancellationFullRefundDays?: number;
   cancellationHalfRefundDays?: number;
 }
@@ -108,6 +110,7 @@ const MainView = ({
   setIsRequestManagerOpen,
   setBookingRequestPendingCount,
   setWishListAvailableCount,
+  setMiscCount,
   cancellationFullRefundDays,
   cancellationHalfRefundDays,
 }: MainViewProps) => {
@@ -446,6 +449,17 @@ const MainView = ({
     }, 30_000);
     return () => clearInterval(interval);
   }, [hostId, token, isRequestManagerOpen, acceptCompletedTick, setBookingRequestPendingCount]);
+
+  // How many house expenses are logged for the month in view — a COUNT of
+  // items, not their total: a badge showing dollars would read as money owed,
+  // and the amount already has a home in Stats.
+  useEffect(() => {
+    if (!hostId || !token) return;
+    const monthKey = format(currentMonth, "yyyy-MM");
+    fetchMiscExpenses(hostId, token)
+      .then((items) => setMiscCount(items.filter((e) => isExpenseInMonth(e, monthKey)).length))
+      .catch(() => setMiscCount(0));
+  }, [hostId, token, currentMonth, setMiscCount, badgeTick]);
 
   useEffect(() => {
     if (!token) return;
