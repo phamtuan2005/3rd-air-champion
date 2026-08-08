@@ -105,20 +105,29 @@ const NavBarDesktop = ({
     setIsRequestManagerOpen(false);
   };
 
+  // A pending count. `pos` places it on the category button; the action cards
+  // list their badges in a row, so it's ignored there.
+  type Badge = { n: number; cls: string; pos?: "mid" | "left" | "right" };
+
   // A pickable action within a category. `badges` surface pending counts both on
-  // the category button (aggregated) and on the action card.
+  // the category button and on the action card.
   type PickAction = {
     label: string;
     desc: string;
     emoji: React.ReactNode; // emoji string, or an icon component (e.g. Clean)
     hover: string; // per-card hover accent (hardcoded so Tailwind keeps the class)
-    badges?: { n: number; cls: string }[];
+    badges?: Badge[];
     run: () => void;
   };
 
-  // Fixed corner per badge slot, so a given count always appears in the same
-  // place on the button and can be recognised without reading it.
-  const BADGE_POS = ["-top-2 right-2", "-top-2 left-2", "-bottom-2 right-2"];
+  // Position carries meaning alongside colour, and both are consistent across
+  // every group: gold in the middle is money coming in, red on the right is
+  // something blocked, green on the left is a guest wish waiting.
+  const BADGE_POS = {
+    mid: "-top-2 left-1/2 -translate-x-1/2",
+    left: "-top-2 left-2",
+    right: "-top-2 right-2",
+  } as const;
   const YELLOW = "bg-yellow-400 text-black";
   const GREEN = "bg-green-500 text-white";
   const ROSE = "bg-rose-500 text-white";
@@ -131,7 +140,7 @@ const NavBarDesktop = ({
       btn: string; // button background
       shadow: string; // active drop-shadow
       active: boolean;
-      badges: { n: number; cls: string }[];
+      badges: Badge[];
       actions: PickAction[];
     }
   > = {
@@ -145,9 +154,9 @@ const NavBarDesktop = ({
       // jobs in different panels, and lumping them said only "something is
       // waiting". Corner tells them apart where the colour doesn't.
       badges: [
-        { n: bookingRequestPendingCount, cls: ROSE }, // top-right — Requests
-        { n: wishListAvailableCount, cls: GREEN }, // top-left  — Wish list
-        { n: airbnbPendingCount, cls: ROSE }, // bottom-right — Blocks
+        { n: bookingRequestPendingCount, cls: YELLOW, pos: "mid" }, // money coming
+        { n: wishListAvailableCount, cls: GREEN, pos: "left" }, // wishes waiting
+        { n: airbnbPendingCount, cls: ROSE, pos: "right" }, // blocks to push
       ],
       actions: [
         {
@@ -205,8 +214,8 @@ const NavBarDesktop = ({
       // with nobody on them). Lumped together you could not tell which panel
       // wanted you, which is the only thing the number is for.
       badges: [
-        { n: todoCleanCount, cls: YELLOW },
-        { n: cleanTodoCount + cleanUnassignedCount, cls: ROSE },
+        { n: todoCleanCount, cls: YELLOW, pos: "mid" },
+        { n: cleanTodoCount + cleanUnassignedCount, cls: ROSE, pos: "right" },
       ],
       actions: [
         {
@@ -239,7 +248,8 @@ const NavBarDesktop = ({
       btn: "bg-emerald-600",
       shadow: "drop-shadow-[0_4px_6px_rgba(5,150,105,0.5)]",
       active: isAvailabilitiesModalOpen || isMiscOpen,
-      badges: [{ n: availableNightsCount, cls: YELLOW }],
+      // Nights still sellable this month — money on the table, so gold, middle.
+      badges: [{ n: availableNightsCount, cls: YELLOW, pos: "mid" }],
       actions: [
         {
           label: "Stats",
@@ -330,10 +340,10 @@ const NavBarDesktop = ({
                     can carry three (Calendar: requests, wishes, blocks), and a
                     corner is what tells them apart when two share a colour. */}
                 {g.badges.map((b, i) =>
-                  b?.n > 0 && BADGE_POS[i] ? (
+                  b?.n > 0 ? (
                     <span
                       key={i}
-                      className={`absolute ${BADGE_POS[i]} min-w-[22px] h-[22px] px-1 rounded-full text-[12px] font-bold flex items-center justify-center leading-none ${b.cls}`}
+                      className={`absolute ${BADGE_POS[b.pos ?? "right"]} min-w-[22px] h-[22px] px-1 rounded-full text-[12px] font-bold flex items-center justify-center leading-none ${b.cls}`}
                     >
                       {b.n}
                     </span>
