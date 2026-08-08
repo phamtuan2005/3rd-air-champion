@@ -178,7 +178,7 @@ const CalendarNavigator = ({
                 title="Weeks visible per screen"
                 className="w-[52px] shrink-0 cursor-pointer rounded border border-gray-300 px-1 py-0.5 text-sm font-semibold text-gray-500 transition-colors hover:text-gray-700"
               >
-                {[2, 3, 4, 5, 6, 7, 8].map((n) => (
+                {[1, 2, 3, 4, 5].map((n) => (
                   <option key={n} value={n}>
                     {n}w
                   </option>
