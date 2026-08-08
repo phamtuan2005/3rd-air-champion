@@ -592,7 +592,25 @@ const CalendarGrid = ({
                 {isFutureOrToday && (
                   <div
                     className="react-calendar__opportunity_row absolute rounded-lg"
-                    style={{ top: "1px", bottom: "1px", left: "20%", right: "-20%" }}
+                    style={{
+                      top: "1px",
+                      bottom: "1px",
+                      left: "20%",
+                      right: "-20%",
+                      // Mid-run, the previous day's box already extends through
+                      // this edge, so a left border draws a vertical line across
+                      // what should read as one continuous free stretch. Only the
+                      // day that STARTS a run closes its left side — the right
+                      // border was dropped for the same reason. A week wrap does
+                      // start a run visually, so Sunday keeps its edge.
+                      ...(prevDayNoPm && !prevRoomBlocked && getDay(date) !== 0
+                        ? {
+                            borderLeft: "none",
+                            borderTopLeftRadius: 0,
+                            borderBottomLeftRadius: 0,
+                          }
+                        : {}),
+                    }}
                   />
                 )}
                 {isFutureOrToday && prevDayNoPm && !prevRoomBlocked && getDay(date) === 0 && (
