@@ -32,14 +32,20 @@ function App() {
   const [isManageGuestOpen, setIsManageGuestOpen] = useState(false);
   const [isCleanersOpen, setIsCleanersOpen] = useState(false);
   const [isMiscOpen, setIsMiscOpen] = useState(false);
-  // Weeks-per-page on a narrow phone — tuned from the menu, persisted per device
-  // so each phone/tablet remembers its own comfortable value (clamped 2–8).
+  // Weeks-per-page on a narrow phone — set from the calendar header, persisted
+  // per device so each phone/tablet keeps its own value. Clamped 1–6: 1 is a
+  // single-week view, and 6 is the most week-rows any month can span (31 days
+  // starting Saturday), so it means "the whole month, never split".
+  //
+  // A stored 7 or 8 from the old stepper clamps to 6 rather than being thrown
+  // away — same result, since anything at or above 6 was already a whole month.
+  const clampRows = (n: number) => Math.min(6, Math.max(1, n));
   const [rowsPerPage, setRowsPerPageState] = useState<number>(() => {
     const v = parseInt(localStorage.getItem("calendarRowsPerPage") || "4", 10);
-    return Number.isFinite(v) && v >= 2 && v <= 8 ? v : 4;
+    return Number.isFinite(v) ? clampRows(v) : 4;
   });
   const setRowsPerPage = (n: number) => {
-    const clamped = Math.min(8, Math.max(2, n));
+    const clamped = clampRows(n);
     setRowsPerPageState(clamped);
     localStorage.setItem("calendarRowsPerPage", String(clamped));
   };

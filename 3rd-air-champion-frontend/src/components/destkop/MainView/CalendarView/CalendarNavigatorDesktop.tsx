@@ -176,13 +176,17 @@ const CalendarNavigator = ({
                 value={rowsPerPage}
                 onChange={(e) => setRowsPerPage(Number(e.target.value))}
                 title="Weeks visible per screen"
-                className="w-[52px] shrink-0 cursor-pointer rounded border border-gray-300 px-1 py-0.5 text-sm font-semibold text-gray-500 transition-colors hover:text-gray-700"
+                className="w-[56px] shrink-0 cursor-pointer rounded border border-gray-300 px-1 py-0.5 text-sm font-semibold text-gray-500 transition-colors hover:text-gray-700"
               >
                 {[1, 2, 3, 4, 5].map((n) => (
                   <option key={n} value={n}>
                     {n}w
                   </option>
                 ))}
+                {/* A month spans at most 6 week-rows (31 days starting Saturday),
+                    so 6 is exactly "the whole month, never split across pages".
+                    7 and 8 were the same thing under a less honest name. */}
+                <option value={6}>1M</option>
               </select>
             </div>
             {/* Total profit moved to the stats line below, where it sits beside
