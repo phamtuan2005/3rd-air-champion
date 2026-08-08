@@ -193,9 +193,13 @@ const NavBarDesktop = ({
       btn: "bg-orange-500",
       shadow: "drop-shadow-[0_4px_6px_rgba(249,115,22,0.5)]",
       active: isTodoModalOpen || isCleanersOpen,
+      // One badge per action inside, rather than a single sum: yellow is To Do
+      // (reminders + rooms to clean), rose is Clean (hours to record + turnovers
+      // with nobody on them). Lumped together you could not tell which panel
+      // wanted you, which is the only thing the number is for.
       badges: [
-        { n: todoCleanCount + cleanTodoCount, cls: YELLOW },
-        { n: cleanUnassignedCount, cls: ROSE },
+        { n: todoCleanCount, cls: YELLOW },
+        { n: cleanTodoCount + cleanUnassignedCount, cls: ROSE },
       ],
       actions: [
         {
