@@ -205,9 +205,15 @@ interface AvailabilitiesModalProps {
   airbnbName?: string;
   hostId?: string;
   token?: string;
+  // On mobile this lives inside MobilePanel, which keeps its children MOUNTED
+  // and only slides them off screen — so without this the cleaning and misc
+  // figures were fetched once at page load and never again, and a change in
+  // Clean or Misc only appeared after reloading TiMag. Flipping to true on open
+  // re-runs the fetches.
+  isOpen?: boolean;
 }
 
-const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId, token }: AvailabilitiesModalProps) => {
+const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId, token, isOpen = true }: AvailabilitiesModalProps) => {
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const today = startOfToday();
 
@@ -225,7 +231,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
     fetchCleaners(hostId, token)
       .then(setCleaners)
       .catch(() => setCleaners([]));
-  }, [hostId, token]);
+  }, [hostId, token, isOpen]);
 
   // Baseline pay for a given month (yyyy-MM) — Σ over cleaners whose baseline is
   // anchored to that month, hours × the rate in effect that month. Mirrors the
@@ -264,7 +270,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
         ),
       )
       .catch(() => setMiscFee(0));
-  }, [hostId, token, currentMonth, timeZone, cleaners]);
+  }, [hostId, token, currentMonth, timeZone, cleaners, isOpen]);
 
   // ── Trend tabs: profit & booking metrics over the last 6 months ───────────
   const [tab, setTab] = useState<"month" | "profit" | "bookings">("month");
@@ -382,7 +388,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
         }),
       );
     });
-  }, [hostId, token, trendMonths, timeZone, grossByMonth, cleaners]);
+  }, [hostId, token, trendMonths, timeZone, grossByMonth, cleaners, isOpen]);
 
   // Booking-rate (occupancy) and AirBnB-share per month, computed straight from
   // monthMap — no fetch. Occupancy = booked ÷ available room-nights (blocked
