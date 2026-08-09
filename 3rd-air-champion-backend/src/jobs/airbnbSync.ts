@@ -277,19 +277,24 @@ export const runAirbnbSync = async (params: {
   );
 
   const today = startOfToday();
-  const todayBooking = Array.from(fetchedDatesMap).find(([, value]) => {
-    return (value as any).date === today.toISOString().split("T")[0];
-  })?.[1];
+  const todayKey = today.toISOString().split("T")[0];
 
-  const todayBookingMap = new Map();
-  if (todayBooking) {
-    Array.from({ length: (todayBooking as any).duration }, (_, i) => {
-      const date = addDays(toZonedTime((todayBooking as any).startDate, timeZone), i);
-      todayBookingMap.set(
-        `${date.toISOString().split("T")[0]}_${(todayBooking as any).room}`,
-        true
-      );
-    });
+  // Every stay in progress right now, across EVERY room.
+  //
+  // This used to be `.find()`, which returns a single booking — so on any given
+  // day exactly one room's in-progress stay was protected and the others were
+  // fair game for unbooking. That is how a live 2-night Queen stay lost its
+  // second night: the one booking `.find()` happened to return belonged to a
+  // different room. A guest is asleep in these rooms; none of them may be
+  // unbooked on the strength of a feed that momentarily disagrees.
+  const todayBookingMap = new Map<string, boolean>();
+  for (const [, value] of fetchedDatesMap) {
+    const stay = value as any;
+    if (stay.date !== todayKey) continue;
+    for (let i = 0; i < (stay.duration ?? 1); i++) {
+      const date = addDays(toZonedTime(stay.startDate, timeZone), i);
+      todayBookingMap.set(`${date.toISOString().split("T")[0]}_${stay.room}`, true);
+    }
   }
 
   const toUnbook = Array.from(fetchedDatesMap)
