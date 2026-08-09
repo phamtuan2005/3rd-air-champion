@@ -141,20 +141,32 @@ const DayProfit = ({ selectedDate, monthMap, rooms, hostId, token }: DayProfitPr
   const net = gross.total - cleaningFee - miscFee;
 
   // ── Still open ────────────────────────────────────────────────────────────
-  // Future dates only: a past open night earned nothing, and that is a fact,
-  // not a forecast. Deliberately kept OUT of net — net has to stay real money
-  // you can check against what actually landed.
+  // Future dates only: a past open night earned nothing, and that is a fact
+  // rather than a forecast, so there is nothing to project. Those dates show a
+  // single figure — the projected and realized numbers are the same thing.
   const openRooms = useMemo(() => {
     if (!isFuture) return [];
     return getOpenRoomProjections(monthMap, rooms, dateKey, getRoomWeekdayOdds(monthMap));
   }, [isFuture, monthMap, rooms, dateKey]);
   const expectedOpen = openRooms.reduce((s, o) => s + o.expected, 0);
-  const ceilingOpen = openRooms.reduce((s, o) => s + o.rate, 0);
+  const projectedOpen = openRooms.reduce((s, o) => s + o.rate, 0);
 
-  // Each headline carries two numbers: the realized figure (the pill — money
-  // that has actually landed, and what net is computed from) and, when the date
-  // still has rooms to sell, the same figure plus expected income from them.
+  // Headline = the PROJECTED figure, matching the Stats This Month tab.
+  //
+  // At this house's occupancy (99–100% across all five rooms since the remodel)
+  // an open night is not a gamble — it sells, so the projection is what actually
+  // lands at month end. That is why Stats leads with it, and this tab must lead
+  // with the same thing or the two screens teach different habits.
+  //
+  // Projected at FULL rate, not risk-adjusted, for the same reason Stats does:
+  // it keeps a day's figure summing exactly to This Month's Total. The measured
+  // odds stay visible per room, and a risk-adjusted total appears only if they
+  // ever fall far enough for the distinction to matter.
   const hasProjection = openRooms.length > 0;
+  const projectedGross = gross.total + projectedOpen;
+  const projectedNet = projectedGross - cleaningFee - miscFee;
+  // Only worth showing when demand is genuinely soft — otherwise it is noise.
+  const showRiskAdjusted = hasProjection && expectedOpen < projectedOpen * 0.95;
 
   // Shared so the Gross and Net amounts always render identical size — the same
   // guarantee the Stats modal makes for its Total and Net badges.
@@ -200,10 +212,10 @@ const DayProfit = ({ selectedDate, monthMap, rooms, hostId, token }: DayProfitPr
         <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-3 py-2">
           <span className="text-base font-bold text-gray-800">Gross profit</span>
           <div className="flex flex-col items-end gap-0.5">
-            <span className={`${bigAmountCls} bg-emerald-600`}>{money(gross.total)}</span>
+            <span className={`${bigAmountCls} bg-emerald-600`}>{money(projectedGross)}</span>
             {hasProjection && (
               <span className="text-xs font-semibold tabular-nums text-gray-400">
-                est. {money(gross.total + expectedOpen)}
+                booked {money(gross.total)}
               </span>
             )}
           </div>
@@ -241,8 +253,9 @@ const DayProfit = ({ selectedDate, monthMap, rooms, hostId, token }: DayProfitPr
 
         {/* Rooms still to sell, inside the Gross card but below a dashed rule —
             same subject (income for this date), different certainty. Their
-            value is NOT in the pill above: that figure is money that landed,
-            and net is computed from it. */}
+            value IS in the pill above — the pill is the projected figure, the
+            way Stats This Month reads. The "booked" line under it is what has
+            actually been sold so far. */}
         {openRooms.length > 0 && (
           <>
             <div className="flex items-center justify-between border-t border-dashed border-gray-300 bg-gray-50/70 px-3 py-1">
@@ -260,22 +273,25 @@ const DayProfit = ({ selectedDate, monthMap, rooms, hostId, token }: DayProfitPr
                     >
                       {o.room.name}
                     </span>
+                    {/* The measured odds this weekday sells. At 99–100% they
+                        simply confirm the projection; if they ever drop, the
+                        risk-adjusted total below appears on its own. */}
                     <span className="truncate text-xs text-gray-400">
-                      ~{dollars(o.rate)} × {Math.round(o.odds * 100)}%
+                      ~{dollars(o.rate)} · {Math.round(o.odds * 100)}% books
                     </span>
                   </div>
-                  <span className="shrink-0 text-sm font-medium tabular-nums text-gray-500">
-                    {money(o.expected)}
+                  <span className="shrink-0 text-sm font-medium tabular-nums text-emerald-600/70">
+                    {money(o.rate)}
                   </span>
                 </div>
               ))}
             </div>
             <div className="flex items-center justify-between border-t border-gray-100 px-3 py-1.5">
               <span className="text-xs text-gray-400">
-                Expected · if all sell {money(ceilingOpen)}
+                Projected{showRiskAdjusted && ` · at these odds ${money(expectedOpen)}`}
               </span>
-              <span className="shrink-0 text-sm font-semibold tabular-nums text-gray-500">
-                +{money(expectedOpen)}
+              <span className="shrink-0 text-sm font-semibold tabular-nums text-emerald-600/70">
+                +{money(projectedOpen)}
               </span>
             </div>
           </>
@@ -351,18 +367,21 @@ const DayProfit = ({ selectedDate, monthMap, rooms, hostId, token }: DayProfitPr
       {/* ── Bottom line ── */}
       <div
         className={`flex items-center justify-between rounded-xl border px-3 py-2.5 ${
-          net >= 0 ? "border-emerald-200 bg-emerald-50" : "border-rose-200 bg-rose-50"
+          projectedNet >= 0 ? "border-emerald-200 bg-emerald-50" : "border-rose-200 bg-rose-50"
         }`}
       >
         <span className="text-base font-bold text-gray-800">Net profit</span>
         <div className="flex flex-col items-end gap-0.5">
-          <span className={`${bigAmountCls} ${net >= 0 ? "bg-emerald-600" : "bg-rose-600"}`}>
-            {money(net)}
+          {/* Projected gross minus this day's costs — the same derivation Stats
+              This Month uses for its Net badge. */}
+          <span
+            className={`${bigAmountCls} ${projectedNet >= 0 ? "bg-emerald-600" : "bg-rose-600"}`}
+          >
+            {money(projectedNet)}
           </span>
-          {/* Same costs, plus what the open rooms are expected to bring in. */}
           {hasProjection && (
             <span className="text-xs font-semibold tabular-nums text-gray-500">
-              est. {money(net + expectedOpen)}
+              booked {money(net)}
             </span>
           )}
         </div>
