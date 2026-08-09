@@ -45,7 +45,15 @@ const money = (n: number) =>
 const DayProfit = ({ selectedDate, monthMap, rooms, hostId, token }: DayProfitProps) => {
   const dateKey = format(selectedDate, "yyyy-MM-dd");
   const monthKey = dateKey.slice(0, 7);
-  const isFuture = dateKey > format(startOfToday(), "yyyy-MM-dd");
+  // TONIGHT is still sellable, so today projects like any future date.
+  //
+  // This was future-ONLY, borrowed from the cleaning forecast where today is
+  // excluded because that morning's work depends on last night, which has
+  // already happened. A night is the opposite: today's night has not been slept
+  // yet and can still sell this evening. Excluding it meant the tab you land on
+  // by default — today — showed no open rooms and no estimate at all, and read
+  // as though the feature were missing.
+  const canProject = dateKey >= format(startOfToday(), "yyyy-MM-dd");
 
   const [assignments, setAssignments] = useState<CleaningAssignmentType[]>([]);
   const [expenses, setExpenses] = useState<MiscExpenseType[]>([]);
@@ -141,13 +149,13 @@ const DayProfit = ({ selectedDate, monthMap, rooms, hostId, token }: DayProfitPr
   const net = gross.total - cleaningFee - miscFee;
 
   // ── Still open ────────────────────────────────────────────────────────────
-  // Future dates only: a past open night earned nothing, and that is a fact
-  // rather than a forecast, so there is nothing to project. Those dates show a
-  // single figure — the projected and realized numbers are the same thing.
+  // Today and forward. A PAST open night earned nothing, and that is a fact
+  // rather than a forecast, so those dates show a single figure — projected and
+  // realized are the same thing there.
   const openRooms = useMemo(() => {
-    if (!isFuture) return [];
+    if (!canProject) return [];
     return getOpenRoomProjections(monthMap, rooms, dateKey, getRoomWeekdayOdds(monthMap));
-  }, [isFuture, monthMap, rooms, dateKey]);
+  }, [canProject, monthMap, rooms, dateKey]);
   const expectedOpen = openRooms.reduce((s, o) => s + o.expected, 0);
   const projectedOpen = openRooms.reduce((s, o) => s + o.rate, 0);
 

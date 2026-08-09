@@ -5,8 +5,15 @@ export const TEMPLATE_KEY = "reminderMessageTemplate";
 
 // {{itinerary}} expands to the room for a single-room stay, or a night-by-night
 // room breakdown when the guest's stay rolls across multiple rooms.
+//
+// {{houseRules}} belongs in the DEFAULT, not only in a saved template. The saved
+// one lives in this browser's localStorage, so clearing site data or opening
+// TiMag on another device falls back here — and a default without house rules
+// meant guests silently stopped being told them, with nothing to indicate the
+// message had changed. resolveTemplate drops the placeholder cleanly when no
+// rules are set, so carrying it costs nothing.
 export const DEFAULT_TEMPLATE =
-  "Hello {{name}}, I would like to remind you that you will stay at TT House for {{stayDuration}} ({{startDate}}).\n{{itinerary}}\nThe main entrance door code is {{doorCode}}. Many thanks for staying at TT House. I wish you a pleasant stay!";
+  "Hello {{name}}, I would like to remind you that you will stay at TT House for {{stayDuration}} ({{startDate}}).\n{{itinerary}}\nThe main entrance door code is {{doorCode}}. Many thanks for staying at TT House. I wish you a pleasant stay!\n{{houseRules}}";
 
 const parseLocal = (s: string) => new Date(s.split("T")[0] + "T00:00:00");
 
