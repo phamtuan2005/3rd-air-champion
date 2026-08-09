@@ -7,6 +7,7 @@ import { guestType } from "../../../../util/types/guestType";
 import { roomType } from "../../../../util/types/roomType";
 import React from "react";
 import RoomsToClean from "./RoomsToClean";
+import DayProfit from "./DayProfit";
 import BookingCard from "./BookingCard";
 import AvailableRoomsBar from "./AvailableRoomsBar";
 import GuestSearch from "./GuestSearch";
@@ -75,8 +76,9 @@ const GuestView = ({
   onRequestUnbook,
   onPricingEdit,
 }: GuestViewProps) => {
-  // Guests = bookings + booking actions; Cleaning = turnover rooms for this date.
-  const [activeTab, setActiveTab] = useState<"guests" | "cleaning">("guests");
+  // Guests = bookings + booking actions; Cleaning = turnover rooms for this
+  // date; Profit = that date's money, in and out.
+  const [activeTab, setActiveTab] = useState<"guests" | "cleaning" | "profit">("guests");
 
   // Filter out orphaned bookings with null room to prevent crashes
   currentBookings = currentBookings.filter((b) => b.room != null);
@@ -92,15 +94,18 @@ const GuestView = ({
     [monthMap, selectedDate],
   );
 
-  const tabs: { key: "guests" | "cleaning"; label: string; count: number }[] = [
+  // Profit carries no count — a badge there would read as a quantity of things
+  // to do. 0 hides it, same as an empty Cleaning day.
+  const tabs: { key: "guests" | "cleaning" | "profit"; label: string; count: number }[] = [
     { key: "guests", label: "Guests", count: sortedBookings.length },
     { key: "cleaning", label: "Cleaning", count: cleaningCount },
+    { key: "profit", label: "Profit", count: 0 },
   ];
 
   return (
     <div className="flex flex-col h-full overflow-y-scroll">
       <div className="px-2">
-      <div className="mb-3 mt-2 grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1">
+      <div className="mb-3 mt-2 grid grid-cols-3 gap-1 rounded-xl bg-gray-100 p-1">
         {tabs.map(({ key, label, count }) => (
           <button
             key={key}
@@ -188,6 +193,15 @@ const GuestView = ({
             No rooms to clean on this date
           </p>
         ))}
+
+      {activeTab === "profit" && (
+        <DayProfit
+          selectedDate={selectedDate}
+          monthMap={monthMap}
+          hostId={hostId}
+          token={token}
+        />
+      )}
       </div>
     </div>
   );

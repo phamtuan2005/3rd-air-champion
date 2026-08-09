@@ -6,6 +6,7 @@ import { roomType } from "../../../util/types/roomType";
 import RoomBadge from "../../shared/RoomBadge";
 import { fetchAssignments, fetchCleaners, rateOn, CleanerType } from "../../../util/cleanerOperations";
 import { fetchMiscExpenses, isExpenseInMonth } from "../../../util/miscOperations";
+import { bookingNightAmount } from "../../../util/profit";
 
 // App money palette (matches the Total / Net badges): emerald for profit, rose
 // for a loss. A single measure per chart, so no categorical CVD pair — and the
@@ -281,9 +282,6 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
     [currentMonth],
   );
 
-  const feesTotal = (fees?: { amount: number }[]) =>
-    (fees ?? []).reduce((s, f) => s + (f.amount || 0), 0);
-
   // Realized booking income bucketed by month, from the full calendar history in
   // monthMap (same per-night formula as the calendar's profit stat).
   const grossByMonth = useMemo(() => {
@@ -293,14 +291,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
       const mk = dateKey.slice(0, 7);
       for (const b of day.bookings) {
         if (!b.room) continue;
-        const isStart = b.startDate.split("T")[0] === dateKey;
-        if (b.guest.name !== "AirBnB") {
-          add(mk, b.price ?? 0);
-          if (isStart) add(mk, feesTotal(b.fees));
-        } else {
-          if (b.airbnbPrice && b.duration) add(mk, b.airbnbPrice / b.duration);
-          if (isStart) add(mk, feesTotal(b.fees));
-        }
+        add(mk, bookingNightAmount(b, dateKey));
       }
     }
     return m;
@@ -330,14 +321,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
           const roomBookings = day?.bookings.filter((b) => b.room?.id === room.id) ?? [];
           if (roomBookings.length > 0) {
             bookedNights++;
-            bookedProfit += roomBookings.reduce((sum, b) => {
-              const fee = b.startDate.split("T")[0] === dk ? feesTotal(b.fees) : 0;
-              if (b.guest.name !== "AirBnB") {
-                return sum + (b.price ?? 0) + fee;
-              }
-              const nightly = b.airbnbPrice && b.duration ? b.airbnbPrice / b.duration : 0;
-              return sum + nightly + fee;
-            }, 0);
+            bookedProfit += roomBookings.reduce((sum, b) => sum + bookingNightAmount(b, dk), 0);
           } else {
             const blocked = day ? day.isBlocked || day.blockedRooms.some((r) => r?.id === room.id) : false;
             if (!blocked && new Date(`${dk}T12:00:00`) >= now) openFutureNights++;
@@ -455,21 +439,9 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
         if (!day) return total;
         const roomBookings = day.bookings.filter((b) => b.room?.id === room.id);
         if (roomBookings.length > 0) bookedNights++;
-        return total + roomBookings.reduce((sum, booking) => {
-            // Whole-stay fees (parking/cleaning/etc.) count once, on the start
-            // night — same as the main calendar's profit stat. Omitting them made
-            // this Total read low vs the calendar figure.
-            const fee = booking.startDate.split("T")[0] === dateKey ? feesTotal(booking.fees) : 0;
-            if (booking.guest.name !== "AirBnB") {
-              return sum + (booking.price ?? 0) + fee;
-            } else {
-              const nightly =
-                booking.airbnbPrice && booking.duration
-                  ? booking.airbnbPrice / booking.duration
-                  : 0;
-              return sum + nightly + fee;
-            }
-          }, 0);
+        // Whole-stay fees count once, on the start night — the shared per-night
+        // formula handles it, so this can't drift from the calendar figure.
+        return total + roomBookings.reduce((sum, booking) => sum + bookingNightAmount(booking, dateKey), 0);
       }, 0);
 
       // Shrinkage estimator: blend sample avg toward room.price prior when sample is small

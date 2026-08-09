@@ -14,7 +14,8 @@ import {
 import { toZonedTime } from "date-fns-tz";
 import { dayType } from "../../../../util/types/dayType";
 import { roomType } from "../../../../util/types/roomType";
-import { bookingType, feesTotal } from "../../../../util/types/bookingType";
+import { bookingType } from "../../../../util/types/bookingType";
+import { bookingNightAmount } from "../../../../util/profit";
 import { getCleaningCounts, getCleaningItems, getCompletedTasks, countPendingReminders } from "../../../../util/cleaningTasks";
 
 interface UseCalendarStatsParams {
@@ -305,27 +306,11 @@ export const useCalendarStats = ({
           if (!booking.room) continue;
           if (selectedRoomName && booking.room.name !== selectedRoomName) continue;
 
-          if (booking.guest.name !== "AirBnB") {
-            // What this booking earned, stamped when it was made. Never the
-            // guest's current rate — that would re-report closed months at the
-            // new rate every time a rate changes.
-            guestProfit += booking.price ?? 0;
-            // Whole-stay fees count once, on the stay's start night (this month).
-            if (booking.startDate.split("T")[0] === dateKey)
-              guestProfit += feesTotal(booking.fees);
-          } else {
-            if (booking.airbnbPrice && booking.duration) {
-              const singleDayProfit = booking.airbnbPrice / booking.duration;
-              guestProfit += singleDayProfit;
-              airBnBProfit += singleDayProfit;
-            }
-            // On-site fees paid directly to the host count once, on check-in.
-            if (booking.startDate.split("T")[0] === dateKey) {
-              const feeSum = feesTotal(booking.fees);
-              guestProfit += feeSum;
-              airBnBProfit += feeSum;
-            }
-          }
+          // Shared per-night formula (rate stamped at booking time, whole-stay
+          // fees once on the start night) — see util/profit.
+          const amount = bookingNightAmount(booking, dateKey);
+          guestProfit += amount;
+          if (booking.guest.name === "AirBnB") airBnBProfit += amount;
         }
       }
     }
