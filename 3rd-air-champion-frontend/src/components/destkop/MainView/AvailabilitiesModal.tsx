@@ -624,8 +624,8 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-gray-500">Misc fee</span>
-            <span className="font-medium text-rose-500">−{dollars(miscFee)}</span>
+            <span className="text-sm font-bold text-gray-800">Misc fee</span>
+            <span className="shrink-0 text-xl font-bold tabular-nums text-rose-600">−{dollars(miscFee)}</span>
           </div>
           <div className="mt-0.5 flex items-center justify-between border-t border-gray-200 pt-2">
             <span className="text-base font-bold text-gray-800">Net profit</span>
