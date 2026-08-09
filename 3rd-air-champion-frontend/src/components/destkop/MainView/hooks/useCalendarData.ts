@@ -140,6 +140,14 @@ export const useCalendarData = ({
       requestBody.guest = airbnbGuest?.id;
     }
 
+    // Never post a half-built request. The API requires calendar, guest and
+    // data, and rejects the whole sync if any is missing — which is what a
+    // login-time call did while the guests query was still in flight.
+    if (!requestBody.calendar || !requestBody.guest || !requestBody.data?.length) {
+      setSyncStatus(null);
+      return;
+    }
+
     syncCalendars(
       requestBody as { calendar: string; guest: string; data: { room: string; link: string }[] },
       token,
@@ -281,12 +289,21 @@ export const useCalendarData = ({
     }
   }, [days]);
 
+  // The login sync waits for the data it needs instead of firing blind.
+  //
+  // The mount effect below raises this flag on the first render, long before
+  // the guests query resolves. Calling onSync there sent guest: undefined and
+  // the sync failed every single login — invisibly, since the failure only
+  // reached console.error. Holding the flag until the inputs exist means the
+  // sync runs as soon as guests and the calendar arrive, which is what the
+  // flag was always meant to express.
   useEffect(() => {
-    if (shouldCallOnSync) {
-      onSync();
-      setShouldCallOnSync(false);
-    }
-  }, [shouldCallOnSync]);
+    if (!shouldCallOnSync) return;
+    const airbnbGuest = guests.find((g) => g.name === "AirBnB");
+    if (!calendarId || !airbnbGuest) return; // not ready yet — try again on the next change
+    onSync();
+    setShouldCallOnSync(false);
+  }, [shouldCallOnSync, guests, calendarId]);
 
   useEffect(() => {
     const pending = localStorage.getItem("pendingSync");
