@@ -5,6 +5,7 @@ import { useNavigate } from "react-router";
 import NavBarDesktop from "./components/destkop/NavBar/NavBarDesktop";
 import MainView from "./components/destkop/MainView/MainView";
 import About from "./components/About";
+import { clearSession } from "./util/authSession";
 import {
   isSyncModalOpenContext,
   AddPaneContext,
@@ -159,7 +160,9 @@ function App() {
   }
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
+    // Clears the refresh token too — otherwise "log out" would leave behind the
+    // credential that silently signs you back in.
+    clearSession();
     setToken(null);
     setShowLogoutConfirm(false);
   };

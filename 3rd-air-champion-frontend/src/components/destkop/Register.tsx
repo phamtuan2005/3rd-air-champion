@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { SubmitHandler, useForm } from "react-hook-form";
 import { registerUser } from "../../util/authorizeUser";
+import { setSession } from "../../util/authSession";
 
 interface RegisterProps {
   setIsLogin: React.Dispatch<React.SetStateAction<boolean>>;
@@ -31,7 +32,7 @@ const Register = ({ setIsLogin }: RegisterProps) => {
     })
       .then((result) => {
         console.log("register success:", result.account);
-        localStorage.setItem("token", result.token);
+        setSession(result.token, result.refreshToken);
         setIsLoading(false);
         navigate("/");
       })

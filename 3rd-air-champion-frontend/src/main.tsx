@@ -6,6 +6,11 @@ import { BrowserRouter, Route, Routes } from "react-router";
 import Private from "./routes/Private.tsx";
 import Authorization from "./components/destkop/Authorization.tsx";
 import TiBook from "./routes/TiBook.tsx";
+import { installAuthInterceptors } from "./util/authSession.ts";
+
+// Before any component can fire a request: an expired access token is renewed
+// and the request retried, rather than failing into empty data.
+installAuthInterceptors();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

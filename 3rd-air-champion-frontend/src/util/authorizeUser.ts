@@ -14,8 +14,8 @@ export const authorizeUser = async ({
       password: password,
     })
     .then((result) => {
-      const { account, token } = result.data;
-      return { account, token };
+      const { account, token, refreshToken } = result.data;
+      return { account, token, refreshToken };
     })
     .catch((err) => {
       if (err.response && err.response.data && err.response.data.errors) {
@@ -42,8 +42,8 @@ export const registerUser = async ({
       password: password,
     })
     .then((result) => {
-      const { account, token } = result.data;
-      return { account, token };
+      const { account, token, refreshToken } = result.data;
+      return { account, token, refreshToken };
     })
     .catch((err) => {
       if (err.response && err.response.data && err.response.data.errors) {

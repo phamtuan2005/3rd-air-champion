@@ -2,6 +2,7 @@ import { useForm, SubmitHandler } from "react-hook-form";
 import { loginSchema, loginZodObject } from "./zodLogin";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { authorizeUser } from "../../util/authorizeUser";
+import { setSession } from "../../util/authSession";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 
@@ -26,7 +27,7 @@ const Login = ({ setIsLogin }: LoginProps) => {
     setIsLoading(true);
     authorizeUser({ email: data.email, password: data.password })
       .then((result) => {
-        localStorage.setItem("token", result.token);
+        setSession(result.token, result.refreshToken);
         localStorage.setItem("pendingSync", "true");
         setIsLoading(false);
         navigate("/");
