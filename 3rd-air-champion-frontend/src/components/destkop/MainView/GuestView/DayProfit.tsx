@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { format } from "date-fns";
+import { format, startOfToday } from "date-fns";
 import { dayType } from "../../../../util/types/dayType";
 import { getRoomColor } from "../../../../util/getRoomColor";
 import {
@@ -10,11 +10,20 @@ import {
   rateOn,
 } from "../../../../util/cleanerOperations";
 import { MiscExpenseType, fetchMiscExpenses } from "../../../../util/miscOperations";
-import { bookingNightAmount, getDayGross, miscExpensesOn, sumAmounts } from "../../../../util/profit";
+import { roomType } from "../../../../util/types/roomType";
+import {
+  bookingNightAmount,
+  getDayGross,
+  getOpenRoomProjections,
+  getRoomWeekdayOdds,
+  miscExpensesOn,
+  sumAmounts,
+} from "../../../../util/profit";
 
 interface DayProfitProps {
   selectedDate: Date;
   monthMap: Map<string, dayType>;
+  rooms: roomType[];
   hostId?: string;
   token?: string | null;
 }
@@ -33,9 +42,10 @@ const money = (n: number) =>
 // divided by its duration), recorded cleaning hours belong to their morning,
 // and a recurring bill lands on its own day of the month. So the days of a
 // month sum to that month's figures in Stats.
-const DayProfit = ({ selectedDate, monthMap, hostId, token }: DayProfitProps) => {
+const DayProfit = ({ selectedDate, monthMap, rooms, hostId, token }: DayProfitProps) => {
   const dateKey = format(selectedDate, "yyyy-MM-dd");
   const monthKey = dateKey.slice(0, 7);
+  const isFuture = dateKey > format(startOfToday(), "yyyy-MM-dd");
 
   const [assignments, setAssignments] = useState<CleaningAssignmentType[]>([]);
   const [expenses, setExpenses] = useState<MiscExpenseType[]>([]);
@@ -130,6 +140,17 @@ const DayProfit = ({ selectedDate, monthMap, hostId, token }: DayProfitProps) =>
 
   const net = gross.total - cleaningFee - miscFee;
 
+  // ── Still open ────────────────────────────────────────────────────────────
+  // Future dates only: a past open night earned nothing, and that is a fact,
+  // not a forecast. Deliberately kept OUT of net — net has to stay real money
+  // you can check against what actually landed.
+  const openRooms = useMemo(() => {
+    if (!isFuture) return [];
+    return getOpenRoomProjections(monthMap, rooms, dateKey, getRoomWeekdayOdds(monthMap));
+  }, [isFuture, monthMap, rooms, dateKey]);
+  const expectedOpen = openRooms.reduce((s, o) => s + o.expected, 0);
+  const ceilingOpen = openRooms.reduce((s, o) => s + o.rate, 0);
+
   // Shared so the Gross and Net amounts always render identical size — the same
   // guarantee the Stats modal makes for its Total and Net badges.
   const bigAmountCls =
@@ -196,7 +217,9 @@ const DayProfit = ({ selectedDate, monthMap, hostId, token }: DayProfitProps) =>
                     </span>
                   )}
                 </div>
-                <span className="shrink-0 text-sm font-medium tabular-nums text-gray-900">
+                {/* Money in is green everywhere on this tab — the room lines are
+                    the same income the Gross pill totals. */}
+                <span className="shrink-0 text-sm font-semibold tabular-nums text-emerald-600">
                   {money(l.amount)}
                 </span>
               </div>
@@ -206,14 +229,14 @@ const DayProfit = ({ selectedDate, monthMap, hostId, token }: DayProfitProps) =>
         {(gross.direct > 0 || gross.airbnb > 0) && (
           <div className="flex items-center justify-end gap-3 border-t border-gray-100 bg-gray-50 px-3 py-1.5 text-xs text-gray-500">
             <span>
-              Direct <span className="font-semibold text-gray-700">{money(gross.direct)}</span>
+              Direct <span className="font-semibold text-emerald-600">{money(gross.direct)}</span>
             </span>
             <span>
-              AirBnB <span className="font-semibold text-gray-700">{money(gross.airbnb)}</span>
+              AirBnB <span className="font-semibold text-emerald-600">{money(gross.airbnb)}</span>
             </span>
             {gross.fees > 0 && (
               <span>
-                Fees <span className="font-semibold text-gray-700">{money(gross.fees)}</span>
+                Fees <span className="font-semibold text-emerald-600">{money(gross.fees)}</span>
               </span>
             )}
           </div>
@@ -281,6 +304,53 @@ const DayProfit = ({ selectedDate, monthMap, hostId, token }: DayProfitProps) =>
           {money(net)}
         </span>
       </div>
+
+      {/* ── Still sellable ──
+          Below the bottom line and visually distinct (dashed, muted) because
+          this is opportunity, not money. Two figures answering two questions:
+          Expected is what to plan around; "if all sell" is the ceiling — and
+          the ceiling is exactly what the Stats This Month tab projects with,
+          from the same room estimator, so the screens stay reconcilable. */}
+      {openRooms.length > 0 && (
+        <div className="overflow-hidden rounded-xl border border-dashed border-gray-300 bg-white">
+          <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-3 py-1.5">
+            <span className="text-xs font-bold uppercase tracking-wide text-gray-500">
+              Still open · {openRooms.length} room{openRooms.length === 1 ? "" : "s"}
+            </span>
+            <span className="text-xs text-gray-400">{format(selectedDate, "EEEE")} odds</span>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {openRooms.map((o) => (
+              <div key={o.room.id} className="flex items-center justify-between gap-2 px-3 py-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span
+                    className={`${getRoomColor(o.room.name, o.room.color)} shrink-0 rounded-md px-2 py-0.5 text-xs font-bold text-black opacity-60`}
+                  >
+                    {o.room.name}
+                  </span>
+                  <span className="truncate text-xs text-gray-400">
+                    ~{dollars(o.rate)} × {Math.round(o.odds * 100)}%
+                  </span>
+                </div>
+                <span className="shrink-0 text-sm font-medium tabular-nums text-gray-500">
+                  {money(o.expected)}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50 px-3 py-2">
+            <div className="flex min-w-0 flex-col">
+              <span className="text-sm font-bold text-gray-700">Expected</span>
+              <span className="text-[11px] text-gray-400">
+                if all sell {money(ceilingOpen)} · not counted in net
+              </span>
+            </div>
+            <span className="shrink-0 text-base font-bold tabular-nums text-gray-500">
+              +{money(expectedOpen)}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Anything the net cannot honestly include, named rather than dropped. */}
       {(unrecordedCleanings > 0 || baselineThisMonth > 0) && (

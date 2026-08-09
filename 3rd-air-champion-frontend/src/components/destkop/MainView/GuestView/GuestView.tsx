@@ -198,6 +198,7 @@ const GuestView = ({
         <DayProfit
           selectedDate={selectedDate}
           monthMap={monthMap}
+          rooms={rooms}
           hostId={hostId}
           token={token}
         />

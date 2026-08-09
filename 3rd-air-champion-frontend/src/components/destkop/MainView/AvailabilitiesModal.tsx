@@ -1,12 +1,12 @@
 ﻿import { useEffect, useMemo, useState } from "react";
-import { isAfter, startOfToday, startOfMonth, endOfMonth, eachDayOfInterval, subMonths } from "date-fns";
+import { startOfToday, startOfMonth, endOfMonth, eachDayOfInterval, subMonths } from "date-fns";
 import { format } from "date-fns-tz";
 import { dayType } from "../../../util/types/dayType";
 import { roomType } from "../../../util/types/roomType";
 import RoomBadge from "../../shared/RoomBadge";
 import { fetchAssignments, fetchCleaners, rateOn, CleanerType } from "../../../util/cleanerOperations";
 import { fetchMiscExpenses, isExpenseInMonth } from "../../../util/miscOperations";
-import { bookingNightAmount } from "../../../util/profit";
+import { bookingNightAmount, getRoomMonthEstimates } from "../../../util/profit";
 
 // App money palette (matches the Total / Net badges): emerald for profit, rose
 // for a loss. A single measure per chart, so no categorical CVD pair — and the
@@ -408,56 +408,16 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
     });
   }, [trendMonths, rooms, monthMap, timeZone]);
 
-  // All date keys in the current month (includes days with no bookings)
-  const allMonthDateKeys = eachDayOfInterval({
-    start: startOfMonth(currentMonth),
-    end: endOfMonth(currentMonth),
-  }).map((date) => format(date, "yyyy-MM-dd", { timeZone }));
-
-  // Collect date keys that are in the current month and >= today, sorted chronologically
-  const eligibleDateKeys = allMonthDateKeys
-    .filter((dateKey) => {
-      const date = new Date(`${dateKey}T12:00:00`);
-      return isAfter(date, today) || date.toDateString() === today.toDateString();
-    })
-    .sort();
-
-  const stats = rooms
-    .filter((r) => r.active)
-    .map((room) => {
-      const unbookedDates: string[] = [];
-      for (const dateKey of eligibleDateKeys) {
-        const day = monthMap.get(dateKey);
-        const isBooked = day ? day.bookings.some((b) => b.room?.id === room.id) : false;
-        const isBlocked = day ? (day.isBlocked || day.blockedRooms.some((r) => r?.id === room.id)) : false;
-        if (!isBooked && !isBlocked) unbookedDates.push(dateKey);
-      }
-
-      let bookedNights = 0;
-      const bookedProfit = allMonthDateKeys.reduce((total, dateKey) => {
-        const day = monthMap.get(dateKey);
-        if (!day) return total;
-        const roomBookings = day.bookings.filter((b) => b.room?.id === room.id);
-        if (roomBookings.length > 0) bookedNights++;
-        // Whole-stay fees count once, on the start night — the shared per-night
-        // formula handles it, so this can't drift from the calendar figure.
-        return total + roomBookings.reduce((sum, booking) => sum + bookingNightAmount(booking, dateKey), 0);
-      }, 0);
-
-      // Shrinkage estimator: blend sample avg toward room.price prior when sample is small
-      const k = 5;
-      const weight = bookedNights / (bookedNights + k);
-      const avgNightlyRate = weight * (bookedNights > 0 ? bookedProfit / bookedNights : 0) + (1 - weight) * room.price;
-      const potentialProfit = unbookedDates.length * avgNightlyRate;
-      return {
-        room,
-        unbookedDates,
-        unbookedNights: unbookedDates.length,
-        potentialProfit,
-        bookedProfit,
-        estimatedProfit: bookedProfit + potentialProfit,
-      };
-    });
+  // Per-room booked + projected income. Shared with the day view's open-room
+  // projection so a room is worth the same per open night on both screens.
+  // From today onward is what's left to sell; a month entirely in the past has
+  // no eligible nights and so no potential, which falls out of the same filter.
+  const stats = getRoomMonthEstimates(
+    monthMap,
+    rooms,
+    format(startOfMonth(currentMonth), "yyyy-MM"),
+    format(today, "yyyy-MM-dd"),
+  );
 
   stats.sort((a, b) => a.unbookedNights - b.unbookedNights);
 
