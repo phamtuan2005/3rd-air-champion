@@ -35,7 +35,13 @@ export const refreshAccessToken = (): Promise<string> => {
   refreshInFlight = axios
     .post(`${BACKEND_ENDPOINT}/auth/refresh`, { refreshToken })
     .then((res) => {
-      const { token, refreshToken: rotated } = res.data;
+      const { token, refreshToken: rotated } = res.data ?? {};
+      // The refresh call is not immune to the CDN fallback either. Without this
+      // an HTML "200" would store `undefined` as the token and every later
+      // request would fail in a way that looks nothing like an expired session.
+      if (typeof token !== "string" || !token) {
+        throw new Error("Refresh returned no token");
+      }
       setSession(token, rotated ?? refreshToken);
       return token as string;
     })
@@ -58,6 +64,18 @@ const bearerOf = (config?: InternalAxiosRequestConfig | null): string => {
 
 type RetriableConfig = InternalAxiosRequestConfig & { __authRetried?: boolean };
 
+// CloudFront's SPA fallback rewrites 403/404 into "200 + index.html", and that
+// rule also covers /api/*. So a rejected token comes back as a successful HTML
+// page rather than a 403, the app stores markup where it expected JSON, and the
+// first `.filter` on it takes the whole screen down — a blank page with no clue
+// why.
+//
+// Treat an HTML body on an API call as the auth failure it really is. The
+// server-side fix is to stop applying that rule to /api/*, but this keeps the
+// app honest regardless of how the CDN is configured.
+const isHtmlBody = (data: unknown): boolean =>
+  typeof data === "string" && data.trimStart().toLowerCase().startsWith("<!doctype html");
+
 // Keeps a signed-in session alive without the user ever seeing it.
 //
 // Before this existed, the access token simply died after an hour and every
@@ -70,7 +88,22 @@ type RetriableConfig = InternalAxiosRequestConfig & { __authRetried?: boolean };
 // to login — which is the honest outcome, unlike silently showing zeros.
 export const installAuthInterceptors = () => {
   axios.interceptors.response.use(
-    (response) => response,
+    (response) => {
+      // A "successful" HTML response to an API call is a masked auth failure.
+      // Convert it into the 401 it should have been so the refresh-and-retry
+      // path below handles it, instead of letting markup reach React state.
+      if (isHtmlBody(response.data) && (response.config?.url ?? "").includes("/api/")) {
+        const masked = new AxiosError(
+          "Auth failure masked by the CDN's SPA fallback",
+          "ERR_MASKED_AUTH",
+          response.config,
+          response.request,
+          { ...response, status: 401 },
+        );
+        throw masked;
+      }
+      return response;
+    },
     async (error: AxiosError) => {
       const status = error.response?.status;
       const original = error.config as RetriableConfig | undefined;
