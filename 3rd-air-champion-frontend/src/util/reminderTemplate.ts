@@ -82,5 +82,14 @@ export const resolveTemplate = (
     message += `\n\nYour room changes during the stay:\n${itineraryLines(chain).join("\n")}`;
   }
 
+  // Same backward-compat for house rules. A template saved before the
+  // placeholder existed lives in that browser's localStorage and overrides the
+  // default forever, so fixing the default alone leaves every existing device
+  // silently sending reminders with no rules — and each phone would have to be
+  // reset by hand. Append them instead when the template has no placeholder.
+  if (houseRules.trim() && !template.includes("{{houseRules}}")) {
+    message += `\n\n${houseRules.trim()}`;
+  }
+
   return message;
 };
