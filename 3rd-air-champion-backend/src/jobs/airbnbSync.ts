@@ -111,7 +111,12 @@ export const runAirbnbSync = async (params: {
   calendar: string;
   guest: string;
   data: { room: string; link: string }[];
-}): Promise<{ reserved: any[]; blocked: Record<string, any[]> }> => {
+}): Promise<{
+  reserved: any[];
+  blocked: Record<string, any[]>;
+  // What this run changed, so an unattended schedule is auditable.
+  changes: { added: number; removed: number; addedKeys: string[] };
+}> => {
   const { calendar, guest, data: airbnbObjects } = params;
 
   const icsObjects = [];
@@ -274,5 +279,27 @@ export const runAirbnbSync = async (params: {
     return acc;
   }, {});
 
-  return { reserved: bookingResults, blocked: blockedData };
+  // What this run actually CHANGED, as opposed to what it re-asserted.
+  //
+  // `reserved` above is every future night in the feed — the sync re-books them
+  // all each time, so its length says nothing about whether anything moved. An
+  // unattended run every 30 minutes needs a signal you can audit: 47 quiet runs
+  // and one that added a booking should not look identical.
+  //
+  // Added = a night the feed reserves that the calendar did not already hold.
+  // Removed = `toUnbook`, the nights the feed dropped. Both use the shared
+  // `date_roomId` key, and both ignore the past, which the sync never touches.
+  const todayKey = startOfToday().toISOString().split("T")[0];
+  const addedKeys = Array.from(reservedDatesSet).filter(
+    (key) => !fetchedDatesMap.has(key) && (key as string).split("_")[0] >= todayKey,
+  );
+  const changes = {
+    added: addedKeys.length,
+    removed: toUnbook.length,
+    // Nights, not stays — one new 3-night booking reads as 3. Kept as raw keys
+    // so a caller can group them if it needs stay-level detail.
+    addedKeys,
+  };
+
+  return { reserved: bookingResults, blocked: blockedData, changes };
 };
