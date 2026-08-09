@@ -151,6 +151,11 @@ const DayProfit = ({ selectedDate, monthMap, rooms, hostId, token }: DayProfitPr
   const expectedOpen = openRooms.reduce((s, o) => s + o.expected, 0);
   const ceilingOpen = openRooms.reduce((s, o) => s + o.rate, 0);
 
+  // Each headline carries two numbers: the realized figure (the pill — money
+  // that has actually landed, and what net is computed from) and, when the date
+  // still has rooms to sell, the same figure plus expected income from them.
+  const hasProjection = openRooms.length > 0;
+
   // Shared so the Gross and Net amounts always render identical size — the same
   // guarantee the Stats modal makes for its Total and Net badges.
   const bigAmountCls =
@@ -194,9 +199,16 @@ const DayProfit = ({ selectedDate, monthMap, rooms, hostId, token }: DayProfitPr
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
         <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-3 py-2">
           <span className="text-base font-bold text-gray-800">Gross profit</span>
-          <span className={`${bigAmountCls} bg-emerald-600`}>{money(gross.total)}</span>
+          <div className="flex flex-col items-end gap-0.5">
+            <span className={`${bigAmountCls} bg-emerald-600`}>{money(gross.total)}</span>
+            {hasProjection && (
+              <span className="text-xs font-semibold tabular-nums text-gray-400">
+                est. {money(gross.total + expectedOpen)}
+              </span>
+            )}
+          </div>
         </div>
-        {roomLines.length === 0 ? (
+        {roomLines.length === 0 && openRooms.length === 0 ? (
           <p className="px-3 py-3 text-center text-sm text-gray-400">No income on this date</p>
         ) : (
           <div className="divide-y divide-gray-100">
@@ -226,6 +238,49 @@ const DayProfit = ({ selectedDate, monthMap, rooms, hostId, token }: DayProfitPr
             ))}
           </div>
         )}
+
+        {/* Rooms still to sell, inside the Gross card but below a dashed rule —
+            same subject (income for this date), different certainty. Their
+            value is NOT in the pill above: that figure is money that landed,
+            and net is computed from it. */}
+        {openRooms.length > 0 && (
+          <>
+            <div className="flex items-center justify-between border-t border-dashed border-gray-300 bg-gray-50/70 px-3 py-1">
+              <span className="text-[11px] font-bold uppercase tracking-wide text-gray-400">
+                Still open · {openRooms.length} room{openRooms.length === 1 ? "" : "s"}
+              </span>
+              <span className="text-[11px] text-gray-400">{format(selectedDate, "EEEE")} odds</span>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {openRooms.map((o) => (
+                <div key={o.room.id} className="flex items-center justify-between gap-2 px-3 py-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span
+                      className={`${getRoomColor(o.room.name, o.room.color)} shrink-0 rounded-md px-2 py-0.5 text-xs font-bold text-black opacity-60`}
+                    >
+                      {o.room.name}
+                    </span>
+                    <span className="truncate text-xs text-gray-400">
+                      ~{dollars(o.rate)} × {Math.round(o.odds * 100)}%
+                    </span>
+                  </div>
+                  <span className="shrink-0 text-sm font-medium tabular-nums text-gray-500">
+                    {money(o.expected)}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-between border-t border-gray-100 px-3 py-1.5">
+              <span className="text-xs text-gray-400">
+                Expected · if all sell {money(ceilingOpen)}
+              </span>
+              <span className="shrink-0 text-sm font-semibold tabular-nums text-gray-500">
+                +{money(expectedOpen)}
+              </span>
+            </div>
+          </>
+        )}
+
         {(gross.direct > 0 || gross.airbnb > 0) && (
           <div className="flex items-center justify-end gap-3 border-t border-gray-100 bg-gray-50 px-3 py-1.5 text-xs text-gray-500">
             <span>
@@ -300,57 +355,18 @@ const DayProfit = ({ selectedDate, monthMap, rooms, hostId, token }: DayProfitPr
         }`}
       >
         <span className="text-base font-bold text-gray-800">Net profit</span>
-        <span className={`${bigAmountCls} ${net >= 0 ? "bg-emerald-600" : "bg-rose-600"}`}>
-          {money(net)}
-        </span>
-      </div>
-
-      {/* ── Still sellable ──
-          Below the bottom line and visually distinct (dashed, muted) because
-          this is opportunity, not money. Two figures answering two questions:
-          Expected is what to plan around; "if all sell" is the ceiling — and
-          the ceiling is exactly what the Stats This Month tab projects with,
-          from the same room estimator, so the screens stay reconcilable. */}
-      {openRooms.length > 0 && (
-        <div className="overflow-hidden rounded-xl border border-dashed border-gray-300 bg-white">
-          <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-3 py-1.5">
-            <span className="text-xs font-bold uppercase tracking-wide text-gray-500">
-              Still open · {openRooms.length} room{openRooms.length === 1 ? "" : "s"}
+        <div className="flex flex-col items-end gap-0.5">
+          <span className={`${bigAmountCls} ${net >= 0 ? "bg-emerald-600" : "bg-rose-600"}`}>
+            {money(net)}
+          </span>
+          {/* Same costs, plus what the open rooms are expected to bring in. */}
+          {hasProjection && (
+            <span className="text-xs font-semibold tabular-nums text-gray-500">
+              est. {money(net + expectedOpen)}
             </span>
-            <span className="text-xs text-gray-400">{format(selectedDate, "EEEE")} odds</span>
-          </div>
-          <div className="divide-y divide-gray-100">
-            {openRooms.map((o) => (
-              <div key={o.room.id} className="flex items-center justify-between gap-2 px-3 py-2">
-                <div className="flex min-w-0 items-center gap-2">
-                  <span
-                    className={`${getRoomColor(o.room.name, o.room.color)} shrink-0 rounded-md px-2 py-0.5 text-xs font-bold text-black opacity-60`}
-                  >
-                    {o.room.name}
-                  </span>
-                  <span className="truncate text-xs text-gray-400">
-                    ~{dollars(o.rate)} × {Math.round(o.odds * 100)}%
-                  </span>
-                </div>
-                <span className="shrink-0 text-sm font-medium tabular-nums text-gray-500">
-                  {money(o.expected)}
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50 px-3 py-2">
-            <div className="flex min-w-0 flex-col">
-              <span className="text-sm font-bold text-gray-700">Expected</span>
-              <span className="text-[11px] text-gray-400">
-                if all sell {money(ceilingOpen)} · not counted in net
-              </span>
-            </div>
-            <span className="shrink-0 text-base font-bold tabular-nums text-gray-500">
-              +{money(expectedOpen)}
-            </span>
-          </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Anything the net cannot honestly include, named rather than dropped. */}
       {(unrecordedCleanings > 0 || baselineThisMonth > 0) && (
