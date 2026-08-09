@@ -171,6 +171,24 @@ const CalendarGrid = ({
   // bottom whitespace); zero on desktop where rows fill the column edge-to-edge.
   const rowGap = isNarrow ? 6 : 0;
 
+  // Which way pages advance.
+  //
+  // A page of three weeks or more reads as a document, and the hand reaches to
+  // scroll DOWN for the next chunk. A page of one or two weeks reads as a
+  // filmstrip, where the same hand expects to swipe SIDEWAYS -- scrolling down
+  // a two-week strip feels like something is missing below.
+  //
+  // Both axes are driven by native CSS scroll-snap rather than a custom touch
+  // handler, so momentum, snapping, trackpads and keyboards keep working, and
+  // nothing competes with the tap / double-tap gestures the tiles already own.
+  const horizontalPaging = numRows <= 2;
+  const pageSpan = (el: HTMLElement) => (horizontalPaging ? el.offsetWidth : el.offsetHeight);
+  const pageOffset = (el: HTMLElement) => (horizontalPaging ? el.scrollLeft : el.scrollTop);
+  const scrollToPage = (el: HTMLElement, index: number) => {
+    if (horizontalPaging) el.scrollLeft = index * pageSpan(el);
+    else el.scrollTop = index * pageSpan(el);
+  };
+
   // A month may span several pages; map each month to the index of its first page.
   const monthPageStarts = useMemo(() => {
     const map = new Map<string, number>();
@@ -213,7 +231,7 @@ const CalendarGrid = ({
   useLayoutEffect(() => {
     const el = scrollContainerRef.current;
     if (!el || pageLayouts.length === 0) return;
-    const h = el.offsetHeight;
+    const h = pageSpan(el);
     if (h === 0) return;
     // First positioning lands on the page that actually contains today; later runs
     // (resize / rooms changed) re-anchor to the visible month so we don't drift.
@@ -234,7 +252,7 @@ const CalendarGrid = ({
       idx = firstPageIndexOfMonth(visibleMonthRef.current);
     }
     const target = idx ?? 0;
-    el.scrollTop = target * h;
+    scrollToPage(el, target);
     visibleIndexRef.current = target;
     // Ignore scroll events briefly so the reflow's transient scroll can't override the anchor.
     suppressScrollUntilRef.current = performance.now() + 250;
@@ -252,8 +270,7 @@ const CalendarGrid = ({
     if (scrollToTodayTrigger > 0 && scrollContainerRef.current && pageLayouts.length > 0) {
       const today = new Date();
       const idx = pageIndexContainingDate(startOfToday()) ?? firstPageIndexOfMonth(today) ?? monthsBack;
-      const h = scrollContainerRef.current.offsetHeight;
-      scrollContainerRef.current.scrollTop = idx * h;
+      scrollToPage(scrollContainerRef.current, idx);
       visibleIndexRef.current = idx;
       visibleMonthRef.current = new Date(today.getFullYear(), today.getMonth(), 1);
       setVisibleIndex(idx);
@@ -340,11 +357,11 @@ const CalendarGrid = ({
     // stale scrollTop that would otherwise re-point the visible month to the wrong page.
     if (performance.now() < suppressScrollUntilRef.current) return;
     const el = e.target as HTMLElement;
-    const calendarHeight = el.offsetHeight;
-    const snappedIndex = Math.round(el.scrollTop / calendarHeight);
+    const calendarHeight = pageSpan(el);
+    const snappedIndex = Math.round(pageOffset(el) / calendarHeight);
 
     if (Math.abs(snappedIndex - visibleIndexRef.current) > 1) {
-      el.scrollTop = visibleIndexRef.current * calendarHeight;
+      scrollToPage(el, visibleIndexRef.current);
       return;
     }
 
@@ -830,7 +847,7 @@ const CalendarGrid = ({
   return (
     <div
       ref={scrollContainerRef}
-      className="flex-1 min-h-0 overflow-y-scroll snap-y snap-mandatory"
+      className={`flex-1 min-h-0 ${horizontalPaging ? "flex overflow-x-scroll overflow-y-hidden snap-x" : "overflow-y-scroll snap-y"} snap-mandatory`}
       onScroll={handleScroll}
     >
       {displayLayouts.map((layout, index) => {
@@ -838,7 +855,7 @@ const CalendarGrid = ({
         return (
           <div
             key={index}
-            className="snap-start h-full main-calendar-wrapper"
+            className={`snap-start h-full main-calendar-wrapper ${horizontalPaging ? "w-full shrink-0" : ""}`}
             ref={index === visibleIndex ? calendarWrapperRef : undefined}
           >
             {inWindow && layout.cells.length > 0 && (
