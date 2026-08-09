@@ -614,8 +614,9 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
                 Cleaning fee{cleaningOutlook && cleaningOutlook.count > 0 ? " (est.)" : ""}
               </span>
               {cleaningOutlook && cleaningOutlook.count > 0 && (
-                <span className="text-[11px] text-gray-500">
-                  {cleaningOutlook.count} still to clean · {dollars(cleaningFee)} recorded
+                <span className="text-xs text-gray-500">
+                  <span className="font-bold text-gray-800">{cleaningOutlook.count}</span> still to clean ·{" "}
+                  <span className="font-bold text-gray-800">{dollars(cleaningFee)}</span> recorded
                 </span>
               )}
             </div>
