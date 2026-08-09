@@ -99,7 +99,7 @@ const GuestView = ({
   const tabs: { key: "guests" | "cleaning" | "profit"; label: string; count: number }[] = [
     { key: "guests", label: "Guests", count: sortedBookings.length },
     { key: "cleaning", label: "Cleaning", count: cleaningCount },
-    { key: "profit", label: "Profit", count: 0 },
+    { key: "profit", label: "Daily Profit", count: 0 },
   ];
 
   return (
@@ -110,7 +110,9 @@ const GuestView = ({
           <button
             key={key}
             onClick={() => setActiveTab(key)}
-            className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition-colors ${
+            // nowrap: "Daily Profit" would otherwise wrap on a phone and leave
+            // that tab two lines tall next to "Guests".
+            className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg py-1.5 text-xs font-semibold transition-colors ${
               activeTab === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
             }`}
           >

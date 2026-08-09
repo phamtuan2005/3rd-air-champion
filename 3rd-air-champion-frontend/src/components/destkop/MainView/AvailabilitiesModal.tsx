@@ -451,15 +451,17 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
         {(
           [
             ["month", "This Month"],
-            ["profit", "Profit"],
-            ["bookings", "Bookings"],
+            ["profit", "Monthly Profit"],
+            ["bookings", "Monthly Bookings"],
           ] as const
         ).map(([k, label]) => (
           <button
             key={k}
             type="button"
             onClick={() => setTab(k)}
-            className={`rounded-lg py-1.5 text-xs font-semibold transition-colors ${
+            // nowrap: "Monthly Bookings" would otherwise wrap on a phone and
+            // leave this tab two lines tall next to "This Month".
+            className={`whitespace-nowrap rounded-lg py-1.5 text-[11px] font-semibold transition-colors ${
               tab === k ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
             }`}
           >
