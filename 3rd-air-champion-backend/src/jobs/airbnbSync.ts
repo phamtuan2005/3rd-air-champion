@@ -22,6 +22,7 @@ const fetchDayQuery = `
         id
         alias
         price
+        airbnbPrice
         notes
         guest {
           id
@@ -59,6 +60,19 @@ const unbookQuery = `
     unbookAirBnB(calendar: $calendar, guest: $guest, bookings: $bookings)
   }`;
 
+// Restoring what the feed cannot carry. AirBnB's iCal has no payout, alias,
+// note or guest count — those are typed in by hand — so a booking re-created
+// from the feed comes back blank. These put the values back afterwards.
+const restorePriceQuery = `
+  mutation UpdateBookingAirbnbPrice($_id: String!, $airbnbPrice: Float!) {
+    updateBookingAirbnbPrice(_id: $_id, airbnbPrice: $airbnbPrice) { id }
+  }`;
+
+const restoreDetailsQuery = `
+  mutation UpdateBookingGuest($_id: String!, $alias: String, $notes: String, $numberOfGuests: Int) {
+    updateBookingGuest(_id: $_id, alias: $alias, notes: $notes, numberOfGuests: $numberOfGuests) { id }
+  }`;
+
 const bookQuery = `
   mutation BookAirBnB($calendar: String!, $date: String!, $guest: String!, $description: String!, $room: String!, $duration: Int!) {
     bookAirBnB(calendar: $calendar, date: $date, guest: $guest, description: $description, room: $room, duration: $duration) {
@@ -71,6 +85,7 @@ const bookQuery = `
         id
         alias
         price
+        airbnbPrice
         notes
         guest {
           id
@@ -186,6 +201,55 @@ export const runAirbnbSync = async (params: {
     )
   );
 
+  // Everything a person typed in, captured BEFORE anything is deleted.
+  //
+  // The sync repairs a changed stay by unbooking it and re-booking from the
+  // feed. The feed knows dates and a description — nothing else. So payout,
+  // alias, notes and guest count were silently destroyed on every such repair,
+  // and there is no way to recover them from AirBnB. Snapshot them here, put
+  // them back after the re-book.
+  const preserved = new Map<
+    string,
+    {
+      airbnbPrice: number;
+      alias: string;
+      notes: string;
+      numberOfGuests: number;
+      description: string;
+    }
+  >();
+  for (const day of currentlyBookedDays) {
+    for (const b of day.bookings) {
+      if (b.guest?.id !== guest || !b.room) continue;
+      preserved.set(`${day.date}_${b.room.id}`, {
+        airbnbPrice: b.airbnbPrice ?? 0,
+        alias: b.alias ?? "",
+        notes: b.notes ?? "",
+        numberOfGuests: b.numberOfGuests ?? 0,
+        // Identifies WHICH reservation the values belong to. Date and room alone
+        // are not identity: if one guest cancels and another books the same room
+        // on the same night, restoring by date+room would move the first guest's
+        // payout onto the second — inventing money for a stay that never earned
+        // it. Only restore when the feed says it is the same reservation.
+        description: b.description ?? "",
+      });
+    }
+  }
+
+  // A room whose feed came back with zero reservations is far more likely to be
+  // a failed fetch, a rate-limit, or an error page that parsed to nothing than a
+  // genuine cancellation of every future stay. Unbooking on that basis would
+  // wipe the room's entire forward calendar, so refuse to treat silence as
+  // "everything is cancelled" while the room still holds bookings.
+  const roomsWithNoFeed = new Set(
+    finalResult.filter((r) => r.reserved.length === 0).map((r) => r.room),
+  );
+  if (roomsWithNoFeed.size) {
+    console.warn(
+      `[AirbnbSync] ${roomsWithNoFeed.size} room(s) returned an empty feed — skipping unbook for them`,
+    );
+  }
+
   const reservedDatesSet = new Set(
     finalResult.flatMap(({ room, reserved }) =>
       reserved.flatMap((booking) =>
@@ -233,6 +297,8 @@ export const runAirbnbSync = async (params: {
       const [date] = (key as string).split("_");
       if (isBefore(toZonedTime(date, timeZone), startOfToday())) return false;
       if (todayBookingMap.has(key as string)) return false;
+      // Empty feed for this room — treat as "unknown", never as "cancelled".
+      if (roomsWithNoFeed.has((value as any).room)) return false;
       if (!reservedDatesSet.has(key as string)) return true;
 
       const newMeta = newReservationMetaMap.get(key as string);
@@ -273,6 +339,53 @@ export const runAirbnbSync = async (params: {
         )
     )
   );
+
+  // Put the hand-entered values back onto anything the re-book recreated blank.
+  //
+  // Matched on date + room, the same identity the rest of the sync uses, since
+  // a re-created booking has a new _id. Both mutations spread across the whole
+  // stay, so one call per booking id is enough — hence the `restored` guard.
+  const restored = new Set<string>();
+  let restoredCount = 0;
+  for (const day of bookingResults) {
+    if (!day?.bookings) continue;
+    for (const b of day.bookings) {
+      if (b.guest?.id !== guest || !b.room || restored.has(b.id)) continue;
+      const prior = preserved.get(`${day.date}_${b.room.id}`);
+      if (!prior) continue;
+      // Same night, same room, but a different reservation — a cancellation
+      // replaced by someone else. Leave it blank for a human rather than
+      // attributing the previous guest's payout to this one.
+      if (prior.description !== (b.description ?? "")) continue;
+
+      const needsPrice = prior.airbnbPrice > 0 && !(b.airbnbPrice > 0);
+      const needsDetails =
+        (prior.alias && !b.alias) ||
+        (prior.notes && !b.notes) ||
+        (prior.numberOfGuests > 0 && !(b.numberOfGuests > 0));
+      if (!needsPrice && !needsDetails) continue;
+
+      restored.add(b.id);
+      restoredCount++;
+      if (needsPrice) {
+        const r: any = await sendGraphQLRequest(restorePriceQuery, {
+          _id: b.id,
+          airbnbPrice: prior.airbnbPrice,
+        });
+        if (r.errors) console.error(`[AirbnbSync] price restore failed for ${b.id}: ${r.errors[0].message}`);
+      }
+      if (needsDetails) {
+        const r: any = await sendGraphQLRequest(restoreDetailsQuery, {
+          _id: b.id,
+          alias: prior.alias || undefined,
+          notes: prior.notes || undefined,
+          numberOfGuests: prior.numberOfGuests > 0 ? prior.numberOfGuests : undefined,
+        });
+        if (r.errors) console.error(`[AirbnbSync] detail restore failed for ${b.id}: ${r.errors[0].message}`);
+      }
+    }
+  }
+  if (restoredCount) console.log(`[AirbnbSync] restored hand-entered values on ${restoredCount} booking(s)`);
 
   const blockedData = finalResult.reduce((acc: Record<string, any[]>, roomData) => {
     acc[roomData.room] = roomData.blocked;
