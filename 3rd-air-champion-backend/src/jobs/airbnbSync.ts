@@ -407,7 +407,6 @@ export const runAirbnbSync = async (params: {
   // Added = a night the feed reserves that the calendar did not already hold.
   // Removed = `toUnbook`, the nights the feed dropped. Both use the shared
   // `date_roomId` key, and both ignore the past, which the sync never touches.
-  const todayKey = startOfToday().toISOString().split("T")[0];
   const addedKeys = Array.from(reservedDatesSet).filter(
     (key) => !fetchedDatesMap.has(key) && (key as string).split("_")[0] >= todayKey,
   );
