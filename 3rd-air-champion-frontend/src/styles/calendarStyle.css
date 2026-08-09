@@ -101,10 +101,18 @@
 }
 
 /* Outside-month cells (previous/next month overflow days) — dimmed overlay */
+/* An absolutely-positioned child is laid out against the padding box, so inset:0
+   stops short of the tile's own 1px right/bottom border — leaving an undimmed
+   light-gray strip that reads as a vertical line crossing the shaded band.
+   Overhang by 1px on those two edges so consecutive outside cells shade
+   continuously, the same way booking bars overlap the day boundary. */
 .react-calendar__custom_tile_outside::before {
   content: "";
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: -1px;
+  bottom: -1px;
   background-color: rgba(0, 0, 0, 0.18);
   z-index: 5;
   pointer-events: none;

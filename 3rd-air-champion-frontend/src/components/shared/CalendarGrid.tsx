@@ -185,8 +185,13 @@ const CalendarGrid = ({
     monthPageStarts.get(`${d.getFullYear()}-${d.getMonth()}`) ?? null;
 
   // The page whose cells actually contain this date (today may sit on page 2/3 of its month).
+  // A date also appears as a neighbor-month filler on the adjacent month's page, so prefer
+  // the page that owns the date's month; only fall back to a filler occurrence.
   const pageIndexContainingDate = (d: Date) => {
-    const idx = pageLayouts.findIndex((l) => l.cells.some((c) => c && isSameDay(c, d)));
+    const has = (l: PageLayout) => l.cells.some((c) => c && isSameDay(c, d));
+    const owned = pageLayouts.findIndex((l) => isSameMonth(l.month, d) && has(l));
+    if (owned >= 0) return owned;
+    const idx = pageLayouts.findIndex(has);
     return idx >= 0 ? idx : null;
   };
 
@@ -302,6 +307,18 @@ const CalendarGrid = ({
           const startCol = getDay(monthStart);
           for (let i = 0; i < startCol; i++) {
             cells[i] = addDays(monthStart, i - startCol);
+          }
+        }
+
+        // Trailing neighbor-month days, mirroring the leading fill: only on the page
+        // that completes the month, and only out to the end of the week containing
+        // monthEnd. Whole rows past that week stay null so the page doesn't grow a
+        // spurious extra week of next month.
+        if (isAfter(cur, monthEnd)) {
+          const lastIdx = cellIdx - 1;
+          const trailing = 6 - (lastIdx % 7);
+          for (let i = 1; i <= trailing && lastIdx + i < totalCells; i++) {
+            cells[lastIdx + i] = addDays(monthEnd, i);
           }
         }
 
