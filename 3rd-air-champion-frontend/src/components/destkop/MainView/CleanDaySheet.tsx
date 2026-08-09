@@ -3,7 +3,7 @@ import { MdCleaningServices } from "react-icons/md";
 import { dayType } from "../../../util/types/dayType";
 import { roomType } from "../../../util/types/roomType";
 import { CleaningAssignmentType } from "../../../util/cleanerOperations";
-import { getCheckoutsOn, isStaleCleaning } from "../../../util/cleaningTasks";
+import { getCleaningEntriesFor, isStaleCleaning } from "../../../util/cleaningTasks";
 import RoomBadge from "../../shared/RoomBadge";
 import CleanerAvatar from "../../shared/CleanerAvatar";
 
@@ -34,9 +34,18 @@ const CleanDaySheet = ({
 }: CleanDaySheetProps) => {
   const roomById = new Map(rooms.map((r) => [r.id, r]));
 
-  // Rooms that genuinely turned over — the same rule the Plan tab forecasts from.
-  const turnedOver = getCheckoutsOn(monthMap, dateKey)
-    .map((b) => b.room?.id)
+  // Rooms this morning turns over — the same function the Plan tab and the
+  // booking list's Cleaning tab use, so all three agree on any given date.
+  // On a past or present morning this is checkouts alone; only a future
+  // morning can carry probable gap turnovers, which is what this sheet wants:
+  // history stays exact, the plan ahead shows the same rooms Plan does.
+  const probableRooms = new Set<string>();
+  const turnedOver = getCleaningEntriesFor(monthMap, dateKey)
+    .map((entry) => {
+      const id = entry.checkoutBooking.room?.id;
+      if (id && entry.probable) probableRooms.add(id);
+      return id;
+    })
     .filter((id): id is string => !!id);
 
   // Only cleanings that are actually due. An assignment can survive on a room
@@ -168,10 +177,23 @@ const CleanDaySheet = ({
                 <div className="rounded-xl border border-amber-300 bg-amber-50 p-2.5">
                   <p className="mb-1.5 text-base font-bold text-amber-700">⚠ No cleaner assigned</p>
                   <div className="flex flex-wrap gap-1">
+                    {/* Dashed outline = forecast, not a booked turnover — the same
+                        marking Plan and the Cleaning tab give a probable room. */}
                     {unassigned.map((r) => (
-                      <RoomBadge key={r.id} room={r} />
+                      <RoomBadge
+                        key={r.id}
+                        room={r}
+                        className={
+                          probableRooms.has(r.id) ? "outline-2 outline-dashed outline-red-500" : ""
+                        }
+                      />
                     ))}
                   </div>
+                  {unassigned.some((r) => probableRooms.has(r.id)) && (
+                    <p className="mt-1.5 text-xs text-amber-700">
+                      Dashed = likely, not yet booked
+                    </p>
+                  )}
                 </div>
               )}
             </>
