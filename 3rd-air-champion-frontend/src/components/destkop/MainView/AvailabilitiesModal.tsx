@@ -603,27 +603,25 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
       {stats.length > 0 && (
         <div className="flex flex-col gap-1 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs">
           {/* Cleaning is the one cost Cindy can change: she is the cleaner, and
-              decides from this tab whether to take more turnovers herself. The
-              recorded figure alone cannot answer that — on the 5th it reads near
-              zero however heavy the month ahead is. So lead with where the month
-              LANDS, and keep what has actually been paid beside it. */}
-          <div className="flex items-start justify-between">
+              decides from this tab whether to take more turnovers herself. So it
+              is sized to be read at a glance rather than hunted for — second
+              only to Net, which stays the largest figure on the card. The
+              recorded amount and the remaining count sit underneath: the
+              progress behind the number she is steering. */}
+          <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 flex-col">
-              <span className="text-gray-500">Cleaning fee</span>
+              <span className="text-sm font-bold text-gray-800">
+                Cleaning fee{cleaningOutlook && cleaningOutlook.count > 0 ? " (est.)" : ""}
+              </span>
               {cleaningOutlook && cleaningOutlook.count > 0 && (
-                <span className="text-[11px] text-gray-400">
-                  {cleaningOutlook.count} still to clean · recorded {dollars(cleaningFee)}
+                <span className="text-[11px] text-gray-500">
+                  {cleaningOutlook.count} still to clean · {dollars(cleaningFee)} recorded
                 </span>
               )}
             </div>
-            <div className="flex shrink-0 flex-col items-end">
-              <span className="font-medium text-rose-500">
-                −{dollars(cleaningOutlook ? estimatedCleaningFee : cleaningFee)}
-              </span>
-              {cleaningOutlook && cleaningOutlook.count > 0 && (
-                <span className="text-[11px] text-gray-400">est. month</span>
-              )}
-            </div>
+            <span className="shrink-0 text-xl font-bold tabular-nums text-rose-600">
+              −{dollars(cleaningOutlook ? estimatedCleaningFee : cleaningFee)}
+            </span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-gray-500">Misc fee</span>
