@@ -6,6 +6,7 @@ import { getRoomColor } from "../../../../util/getRoomColor";
 import { fetchAssignments, CleaningAssignmentType, CleanerType } from "../../../../util/cleanerOperations";
 import CleanerAvatar from "../../../shared/CleanerAvatar";
 import { cleanerSignoff } from "../../../../util/cleanerMessage";
+import { cleaningEntryTaskId, getCleaningEntriesFor } from "../../../../util/cleaningTasks";
 
 interface RoomsToCleanProps {
   selectedDate: Date;
@@ -17,8 +18,6 @@ interface RoomsToCleanProps {
 
 const dk = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-
-const cleaningTaskId = (endDate: string, roomId: string) => `clean-${endDate}-${roomId}`;
 
 // Mirrors the ToDo modal's Cleaning tab: one card per room to clean on this date,
 // leading with the assigned cleaner (avatar + name, tap to text), then the room
@@ -32,17 +31,27 @@ const RoomsToClean = ({ selectedDate, monthMap, hostId, token, senderName }: Roo
   }, [completedTasks]);
 
   const selKey = dk(selectedDate);
-  const yesterdayKey = dk(addDays(selectedDate, -1));
 
-  // Rooms to clean this morning = stays whose LAST night was yesterday (they
-  // check out today), plus the room's next check-in for setup context.
+  // Rooms to clean this morning, from the SAME determination the Cleaners modal's
+  // Plan tab forecasts from: confirmed checkouts (a stay's last night was
+  // yesterday) plus probable gap turnovers — a room with no booking on last night
+  // but a confirmed arrival ahead, which at this room's occupancy rate sells
+  // last-minute and checks out this morning. This tab used to list only the
+  // confirmed half, so it disagreed with Plan about the same date.
   const items = useMemo(() => {
-    const checkouts =
-      monthMap.get(yesterdayKey)?.bookings.filter(
-        (b) => b.room != null && b.endDate.split("T")[0] === yesterdayKey,
-      ) ?? [];
-    return checkouts
-      .map((booking) => {
+    return getCleaningEntriesFor(monthMap, selKey)
+      .map((entry) => {
+        const booking = entry.checkoutBooking;
+        // A probable entry's booking IS the arriving stay, so it needs no scan —
+        // and this stays exact even when the arrival is past the 30-day window.
+        if (entry.probable) {
+          return {
+            entry,
+            booking,
+            nextCheckIn: booking,
+            nextCheckInDate: booking.startDate.split("T")[0],
+          };
+        }
         let nextCheckIn: bookingType | null = null;
         let nextCheckInDate: string | null = null;
         for (let i = 0; i <= 30; i++) {
@@ -56,14 +65,16 @@ const RoomsToClean = ({ selectedDate, monthMap, hostId, token, senderName }: Roo
             break;
           }
         }
-        return { booking, nextCheckIn, nextCheckInDate };
+        return { entry, booking, nextCheckIn, nextCheckInDate };
       })
       .sort((a, b) => {
+        // Confirmed turnovers first — what is certainly due outranks a forecast.
+        if (!!a.entry.probable !== !!b.entry.probable) return a.entry.probable ? 1 : -1;
         const pri = (it: { nextCheckIn: bookingType | null; booking: bookingType }) =>
           it.nextCheckIn?.earlyCheckin ? 0 : it.booking.lateCheckout ? 2 : 1;
         return pri(a) - pri(b);
       });
-  }, [monthMap, yesterdayKey, selectedDate]);
+  }, [monthMap, selKey, selectedDate]);
 
   // Typical guest count per room (full history), to fill the cleaner text when a
   // room has no upcoming guest yet — same as the ToDo cleaning list.
@@ -128,7 +139,7 @@ const RoomsToClean = ({ selectedDate, monthMap, hostId, token, senderName }: Roo
     if (!cleaner.phone) return;
     const first = cleaner.name.split(" ")[0];
     const mine = items.filter((it) => {
-      const id = cleaningTaskId(it.booking.endDate, it.booking.room?.id ?? "");
+      const id = cleaningEntryTaskId(it.entry, selKey);
       return !completedTasks[id]?.completed && cleanerFor(it.booking.room?.id)?.id === cleaner.id;
     });
     const dayLabel = format(selectedDate, "EEE, MMM d");
@@ -139,7 +150,10 @@ const RoomsToClean = ({ selectedDate, monthMap, hostId, token, senderName }: Roo
       const lines = mine.map((it, i) => {
         const room = it.booking.room?.name ?? "Room";
         const n = it.nextCheckIn?.numberOfGuests ?? roomAvgGuests(it.booking.room?.id);
-        return `${i + 1}. ${room} — for ${n} guest${n === 1 ? "" : "s"}`;
+        // Forecast rooms are flagged in the text too — a cleaner planning their
+        // morning must know which of these is not yet a certainty.
+        const maybe = it.entry.probable ? " (likely — will confirm)" : "";
+        return `${i + 1}. ${room} — for ${n} guest${n === 1 ? "" : "s"}${maybe}`;
       });
       body =
         `Hi ${first}! Cleaning for ${dayLabel} — ${mine.length} room${mine.length === 1 ? "" : "s"}, in suggested order:\n` +
@@ -153,11 +167,12 @@ const RoomsToClean = ({ selectedDate, monthMap, hostId, token, senderName }: Roo
 
   return (
     <div className="flex flex-col px-2 pt-2">
-      {items.map(({ booking, nextCheckIn, nextCheckInDate }, index) => {
-        const taskId = cleaningTaskId(booking.endDate, booking.room?.id ?? "");
+      {items.map(({ entry, booking, nextCheckIn, nextCheckInDate }, index) => {
+        const taskId = cleaningEntryTaskId(entry, selKey);
         const isCompleted = completedTasks[taskId]?.completed ?? false;
         const cleaner = cleanerFor(booking.room?.id);
         const arrivesSameDay = nextCheckInDate === selKey;
+        const probable = !!entry.probable;
 
         return (
           <div
@@ -209,10 +224,13 @@ const RoomsToClean = ({ selectedDate, monthMap, hostId, token, senderName }: Roo
               )}
               {/* Room + who's arriving into it */}
               <div className="flex flex-wrap items-center gap-1.5">
+                {/* Dashed outline = forecast, the same marking the Plan tab
+                    gives a probable turnover, so one room reads the same on
+                    both screens. */}
                 <span
                   className={`${getRoomColor(booking.room.name, booking.room.color)} rounded-md px-2 py-0.5 text-xs font-bold ${
                     nextCheckIn?.guest.name === "AirBnB" ? "text-white" : "text-black"
-                  }`}
+                  } ${probable ? "outline-2 outline-dashed outline-red-500" : ""}`}
                 >
                   {booking.room.name}
                 </span>
@@ -228,6 +246,15 @@ const RoomsToClean = ({ selectedDate, monthMap, hostId, token, senderName }: Roo
                   <span className="text-xs text-gray-400">No upcoming check-in</span>
                 )}
               </div>
+              {/* No stay has vacated this room — the clean is forecast off the
+                  room's own occupancy rate. Say so plainly and show the odds,
+                  so a probable row is never mistaken for a booked turnover. */}
+              {probable && (
+                <p className="text-xs font-semibold text-red-500">
+                  Likely — last night is open and expected to sell (
+                  {Math.round(entry.rebookOdds * 100)}%)
+                </p>
+              )}
               {nextCheckIn && nextCheckInDate && (
                 <p className={`text-xs ${arrivesSameDay ? "font-semibold text-red-500" : "text-gray-500"}`}>
                   {arrivesSameDay
@@ -238,7 +265,9 @@ const RoomsToClean = ({ selectedDate, monthMap, hostId, token, senderName }: Roo
               {nextCheckIn?.earlyCheckin && (
                 <p className="text-xs font-semibold text-orange-500">Early Check-in Requested</p>
               )}
-              {booking.lateCheckout && (
+              {/* Only a real departing stay can have asked for a late checkout —
+                  on a probable row `booking` is the ARRIVING stay. */}
+              {!probable && booking.lateCheckout && (
                 <p className="text-xs font-semibold text-blue-500">
                   {booking.guest.name === "AirBnB"
                     ? booking.guest.alias || booking.alias || booking.guest.name

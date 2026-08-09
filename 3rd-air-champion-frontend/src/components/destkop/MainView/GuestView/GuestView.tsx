@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { addDays } from "date-fns";
+import { useMemo, useState } from "react";
+import { format } from "date-fns";
+import { getCleaningEntriesFor } from "../../../../util/cleaningTasks";
 import { bookingType } from "../../../../util/types/bookingType";
 import { dayType } from "../../../../util/types/dayType";
 import { guestType } from "../../../../util/types/guestType";
@@ -84,15 +85,12 @@ const GuestView = ({
     a.room.name.localeCompare(b.room.name),
   );
 
-  // Same rule as RoomsToClean: stays whose last night was yesterday check out
-  // this morning — counted here so the tab badge matches the tab content.
-  const yesterdayKey = addDays(selectedDate, -1).toISOString().split("T")[0];
-  const cleaningCount =
-    monthMap
-      .get(yesterdayKey)
-      ?.bookings.filter(
-        (b) => b.room != null && b.endDate.split("T")[0] === yesterdayKey,
-      ).length ?? 0;
+  // Same determination as RoomsToClean and the Cleaners modal's Plan tab —
+  // called, not re-derived, so the badge cannot disagree with the tab content.
+  const cleaningCount = useMemo(
+    () => getCleaningEntriesFor(monthMap, format(selectedDate, "yyyy-MM-dd")).length,
+    [monthMap, selectedDate],
+  );
 
   const tabs: { key: "guests" | "cleaning"; label: string; count: number }[] = [
     { key: "guests", label: "Guests", count: sortedBookings.length },
