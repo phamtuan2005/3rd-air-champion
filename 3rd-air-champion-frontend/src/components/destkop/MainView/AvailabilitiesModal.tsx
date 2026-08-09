@@ -4,9 +4,10 @@ import { format } from "date-fns-tz";
 import { dayType } from "../../../util/types/dayType";
 import { roomType } from "../../../util/types/roomType";
 import RoomBadge from "../../shared/RoomBadge";
-import { fetchAssignments, fetchCleaners, rateOn, CleanerType } from "../../../util/cleanerOperations";
+import { fetchAssignments, fetchCleaners, rateOn, CleanerType, CleaningAssignmentType } from "../../../util/cleanerOperations";
 import { fetchMiscExpenses, isExpenseInMonth } from "../../../util/miscOperations";
-import { bookingNightAmount, getRoomMonthEstimates } from "../../../util/profit";
+import { bookingNightAmount, getRoomMonthEstimates, monthDateKeys } from "../../../util/profit";
+import { getCleaningEntriesFor } from "../../../util/cleaningTasks";
 
 // App money palette (matches the Total / Net badges): emerald for profit, rose
 // for a loss. A single measure per chart, so no categorical CVD pair — and the
@@ -222,6 +223,10 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
   // Both are subtracted from the estimated gross to show a net figure.
   const [cleaningFee, setCleaningFee] = useState(0);
   const [miscFee, setMiscFee] = useState(0);
+  // This month's assignments, and a longer history used only to price cleanings
+  // that have not happened yet.
+  const [monthAssignments, setMonthAssignments] = useState<CleaningAssignmentType[]>([]);
+  const [historyAssignments, setHistoryAssignments] = useState<CleaningAssignmentType[]>([]);
 
   // The cleaner roster — needed for baseline hours (pre-tracking hours entered
   // for a month), which the Pay tab counts toward that month's cost. Without it
@@ -253,16 +258,23 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
     const monthKey = format(startOfMonth(currentMonth), "yyyy-MM", { timeZone });
 
     fetchAssignments(hostId, start, end, token)
-      .then((assignments) =>
+      .then((assignments) => {
+        // Kept, not just summed: the month's still-unworked assignments are what
+        // the cleaning outlook prices, and they carry the cleaner (hence the
+        // rate) even before any hours are recorded.
+        setMonthAssignments(assignments);
         setCleaningFee(
           assignments.reduce(
             (sum, a) =>
               sum + (a.hours != null && a.cleaner ? a.hours * rateOn(a.cleaner, a.date) : 0),
             0,
           ) + baselineFeeFor(monthKey),
-        ),
-      )
-      .catch(() => setCleaningFee(0));
+        );
+      })
+      .catch(() => {
+        setMonthAssignments([]);
+        setCleaningFee(0);
+      });
 
     fetchMiscExpenses(hostId, token)
       .then((items) =>
@@ -348,6 +360,9 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
       fetchAssignments(hostId, rangeStart, rangeEnd, token).catch(() => []),
       fetchMiscExpenses(hostId, token).catch(() => []),
     ]).then(([assigns, misc]) => {
+      // Six months of history is a far steadier basis for "what does a cleaning
+      // cost" than the handful recorded so far this month.
+      setHistoryAssignments(assigns);
       setTrendData(
         trendMonths.map((mDate) => {
           const mk = format(mDate, "yyyy-MM", { timeZone });
@@ -425,7 +440,62 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
 
   const totalNights = stats.reduce((sum, s) => sum + s.unbookedNights, 0);
   const totalMonthProfit = stats.reduce((sum, s) => sum + s.estimatedProfit, 0);
-  const netProfit = totalMonthProfit - cleaningFee - miscFee;
+
+  // ── Cleaning outlook: what the REST of this month will cost ────────────────
+  //
+  // Cindy is both cohost and cleaner, and decides from this tab whether to take
+  // more cleanings herself to hold the cost down. A recorded-only figure cannot
+  // answer that: on the 5th it reads near zero regardless of how heavy the month
+  // ahead is. She needs the month's landing cost, early enough to act on.
+  //
+  // It also fixes an inconsistency that flattered the month. Net already used
+  // PROJECTED gross but recorded-only cleaning, so income counted nights nobody
+  // had booked while cost ignored cleanings nobody had worked.
+  //
+  // A cleaning's price is hours x rate, and hours are only known once worked, so
+  // future ones are priced at the trailing average of what cleanings actually
+  // took. Where a cleaner is already assigned, their own rate is used; otherwise
+  // the average rate paid.
+  const cleaningNorms = useMemo(() => {
+    const worked = historyAssignments.filter((a) => a.hours != null && a.cleaner);
+    if (worked.length === 0) return null;
+    const hours = worked.reduce((s, a) => s + (a.hours ?? 0), 0) / worked.length;
+    const rate = worked.reduce((s, a) => s + rateOn(a.cleaner!, a.date), 0) / worked.length;
+    return { hours, rate, sample: worked.length };
+  }, [historyAssignments]);
+
+  // Cleanings still to come this month, and what they should cost. Uses the same
+  // determination the Plan tab and the Clean badge use, so the count here is the
+  // count you see there rather than a second opinion.
+  const cleaningOutlook = useMemo(() => {
+    if (!cleaningNorms) return null;
+    const todayKey = format(today, "yyyy-MM-dd", { timeZone });
+    const monthKey = format(startOfMonth(currentMonth), "yyyy-MM", { timeZone });
+    let cost = 0;
+    let count = 0;
+    for (const dateKey of monthDateKeys(monthKey)) {
+      if (dateKey < todayKey) continue; // already happened; recorded hours cover it
+      for (const entry of getCleaningEntriesFor(monthMap, dateKey)) {
+        const roomId = entry.checkoutBooking.room?.id;
+        if (!roomId) continue;
+        const assigned = monthAssignments.find(
+          (a) => a.date === dateKey && a.room?.id === roomId,
+        );
+        // Hours already recorded — it is in the actual figure, not the outlook.
+        if (assigned?.hours != null) continue;
+        count++;
+        cost +=
+          cleaningNorms.hours *
+          (assigned?.cleaner ? rateOn(assigned.cleaner, dateKey) : cleaningNorms.rate);
+      }
+    }
+    return { cost, count };
+  }, [cleaningNorms, monthAssignments, monthMap, currentMonth, timeZone, today]);
+
+  const estimatedCleaningFee = cleaningFee + (cleaningOutlook?.cost ?? 0);
+  // The month this modal is showing — the one the outlook was computed for.
+  const viewedMonthKey = format(startOfMonth(currentMonth), "yyyy-MM", { timeZone });
+  const netProfit = totalMonthProfit - estimatedCleaningFee - miscFee;
   const dollars = (n: number) => `$${Math.round(n).toLocaleString()}`;
   // Shared style so the Total and Net profit amounts always render identical size.
   const bigAmountCls = "inline-block rounded-lg px-3 py-1 text-2xl font-bold text-white";
@@ -532,9 +602,28 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
       {/* Financial summary — gross Total (above) minus this month's costs → net */}
       {stats.length > 0 && (
         <div className="flex flex-col gap-1 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-gray-500">Cleaning fee</span>
-            <span className="font-medium text-rose-500">−{dollars(cleaningFee)}</span>
+          {/* Cleaning is the one cost Cindy can change: she is the cleaner, and
+              decides from this tab whether to take more turnovers herself. The
+              recorded figure alone cannot answer that — on the 5th it reads near
+              zero however heavy the month ahead is. So lead with where the month
+              LANDS, and keep what has actually been paid beside it. */}
+          <div className="flex items-start justify-between">
+            <div className="flex min-w-0 flex-col">
+              <span className="text-gray-500">Cleaning fee</span>
+              {cleaningOutlook && cleaningOutlook.count > 0 && (
+                <span className="text-[11px] text-gray-400">
+                  {cleaningOutlook.count} still to clean · recorded {dollars(cleaningFee)}
+                </span>
+              )}
+            </div>
+            <div className="flex shrink-0 flex-col items-end">
+              <span className="font-medium text-rose-500">
+                −{dollars(cleaningOutlook ? estimatedCleaningFee : cleaningFee)}
+              </span>
+              {cleaningOutlook && cleaningOutlook.count > 0 && (
+                <span className="text-[11px] text-gray-400">est. month</span>
+              )}
+            </div>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-gray-500">Misc fee</span>
@@ -579,8 +668,13 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
                 rows={trendData.map((r) => ({
                   ...r,
                   value: r.net,
-                  // Projected net = projected gross − this month's cleaning & misc.
-                  predicted: (predictedByMonth.get(r.month) ?? r.gross) - r.cleaning - r.misc,
+                  // The viewed month nets projected income against PROJECTED
+                  // cleaning, matching This Month. Using recorded-only cleaning here
+                  // would show a rosier bottom line on the same month in two tabs.
+                  predicted:
+                    (predictedByMonth.get(r.month) ?? r.gross) -
+                    (r.month === viewedMonthKey ? estimatedCleaningFee : r.cleaning) -
+                    r.misc,
                 }))}
                 colorFor={(v) => (v >= 0 ? TREND_EMERALD : TREND_ROSE)}
               />
