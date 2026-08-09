@@ -130,6 +130,11 @@ const DayProfit = ({ selectedDate, monthMap, hostId, token }: DayProfitProps) =>
 
   const net = gross.total - cleaningFee - miscFee;
 
+  // Shared so the Gross and Net amounts always render identical size — the same
+  // guarantee the Stats modal makes for its Total and Net badges.
+  const bigAmountCls =
+    "inline-block rounded-lg px-3 py-1 text-xl font-bold tabular-nums text-white";
+
   if (loading) {
     return <p className="py-6 text-center text-sm text-gray-400">Loading…</p>;
   }
@@ -166,9 +171,9 @@ const DayProfit = ({ selectedDate, monthMap, hostId, token }: DayProfitProps) =>
     <div className="flex flex-col gap-2 px-2 pb-4 pt-2">
       {/* ── Money in ── */}
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-        <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-3 py-1.5">
-          <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Gross</span>
-          <span className="text-base font-bold text-gray-900 tabular-nums">{money(gross.total)}</span>
+        <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-3 py-2">
+          <span className="text-base font-bold text-gray-800">Gross profit</span>
+          <span className={`${bigAmountCls} bg-emerald-600`}>{money(gross.total)}</span>
         </div>
         {roomLines.length === 0 ? (
           <p className="px-3 py-3 text-center text-sm text-gray-400">No income on this date</p>
@@ -272,11 +277,7 @@ const DayProfit = ({ selectedDate, monthMap, hostId, token }: DayProfitProps) =>
         }`}
       >
         <span className="text-base font-bold text-gray-800">Net profit</span>
-        <span
-          className={`rounded-lg px-3 py-1 text-xl font-bold tabular-nums text-white ${
-            net >= 0 ? "bg-emerald-600" : "bg-rose-600"
-          }`}
-        >
+        <span className={`${bigAmountCls} ${net >= 0 ? "bg-emerald-600" : "bg-rose-600"}`}>
           {money(net)}
         </span>
       </div>
