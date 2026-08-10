@@ -352,44 +352,24 @@ const CalendarGrid = ({
     setPageLayouts(layouts);
   }, [months, numRows]);
 
-  // Swipe sideways to change page, in ADDITION to scrolling.
+  // Page with the CROSS-AXIS gesture, whichever way the pages are laid out.
   //
-  // At three or four weeks the page is normally tall enough that scrolling
-  // down reads naturally, but a filtered view packs into one or two lanes and
-  // leaves the page short — at which point the hand reaches sideways anyway.
-  // Supporting both means the calendar answers to whichever gesture you try
-  // rather than the one the row count happens to have chosen.
-  //
-  // Only in vertical mode: at one or two weeks the pages are already laid out
-  // horizontally and native scroll-snap owns the gesture, so adding this would
-  // advance two pages at once.
+  // Each mode has a native axis that scroll-snap owns: vertical mode scrolls
+  // down, horizontal mode swipes sideways. The other axis was dead. But the row
+  // count is a layout decision, not an instruction about how to navigate — at
+  // three weeks a filtered view packs into one or two lanes and the hand
+  // reaches sideways; at one week people still flick up for "next". So the free
+  // axis pages too, and the calendar answers to whichever gesture you try.
   const swipeRef = useRef<{ x: number; y: number; t: number } | null>(null);
+  const lastWheelRef = useRef(0);
 
-  const onTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (horizontalPaging) return;
-    const t = e.touches[0];
-    swipeRef.current = { x: t.clientX, y: t.clientY, t: performance.now() };
-  };
-
-  const onTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
-    const start = swipeRef.current;
-    swipeRef.current = null;
-    if (horizontalPaging || !start) return;
-    const t = e.changedTouches[0];
-    const dx = t.clientX - start.x;
-    const dy = t.clientY - start.y;
-    // Deliberately strict, so this can never be mistaken for the gestures the
-    // tiles already own: a tap barely moves, and a vertical scroll is
-    // y-dominant. Only a fast, clearly horizontal drag pages.
-    if (performance.now() - start.t > 600) return;
-    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 2) return;
+  // Move by one page and repeat the bookkeeping the scroll handler does —
+  // without it the month label and the Today button still describe the page you
+  // just left.
+  const goToPage = (next: number) => {
     const el = scrollContainerRef.current;
-    if (!el) return;
-    const next = visibleIndexRef.current + (dx < 0 ? 1 : -1);
-    if (next < 0 || next >= pageLayouts.length) return;
+    if (!el || next < 0 || next >= pageLayouts.length) return;
     scrollToPage(el, next);
-    // Same bookkeeping the scroll handler does, or the month label and the
-    // Today button would still describe the page you just left.
     const layout = pageLayouts[next];
     if (layout) {
       onMonthChange(layout.month);
@@ -399,6 +379,43 @@ const CalendarGrid = ({
     setVisibleIndex(next);
     // The programmatic scroll fires a scroll event carrying the old position.
     suppressScrollUntilRef.current = performance.now() + 250;
+  };
+
+  const onTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    const t = e.touches[0];
+    swipeRef.current = { x: t.clientX, y: t.clientY, t: performance.now() };
+  };
+
+  const onTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    const start = swipeRef.current;
+    swipeRef.current = null;
+    if (!start) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    // The axis scroll-snap does NOT own is the one that pages here.
+    const paging = horizontalPaging ? dy : dx;
+    const other = horizontalPaging ? dx : dy;
+    // Deliberately strict, because the tiles already own tap and double-tap and
+    // there is a draggable hold bar: a tap barely moves, and a scroll along the
+    // native axis is dominated by that axis. Only a fast, clearly cross-axis
+    // drag pages.
+    if (performance.now() - start.t > 600) return;
+    if (Math.abs(paging) < 60 || Math.abs(paging) < Math.abs(other) * 2) return;
+    // Content moving up or left means "next", in either layout.
+    goToPage(visibleIndexRef.current + (paging < 0 ? 1 : -1));
+  };
+
+  // Desktop equivalent for horizontal mode, where a wheel has nothing to scroll.
+  // Rate-limited: a trackpad emits a burst of small deltas per flick, which
+  // would otherwise skip several pages at once.
+  const onWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (!horizontalPaging) return;
+    if (Math.abs(e.deltaY) < 30) return;
+    const now = performance.now();
+    if (now - lastWheelRef.current < 400) return;
+    lastWheelRef.current = now;
+    goToPage(visibleIndexRef.current + (e.deltaY > 0 ? 1 : -1));
   };
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -900,6 +917,7 @@ const CalendarGrid = ({
       onScroll={handleScroll}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
+      onWheel={onWheel}
     >
       {displayLayouts.map((layout, index) => {
         const inWindow = Math.abs(index - visibleIndex) <= 1;
