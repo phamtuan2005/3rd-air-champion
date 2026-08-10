@@ -27,15 +27,16 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
   // Reminders / Cleaning = today's actionable tasks.
   const [activeTab, setActiveTab] = useState<TabKey>("reminders");
 
-  const [completedTasks, setCompletedTasks] = useState<
-    Record<string, { completed: boolean; date: string | null }>
-  >(() => JSON.parse(localStorage.getItem("completedTasks") || "{}"));
 
 
-  // Which reminders have already gone out, for the ACCOUNT rather than this
-  // browser. Cindy needs to see that Anh-Tuan already texted a guest; the old
-  // localStorage tick was invisible to her, so both of them saw outstanding
-  // work that was already done.
+  // Every To Do tick — reminders AND cleanings — for the ACCOUNT rather than
+  // this browser. Cindy needs to see that Anh-Tuan already texted a guest or
+  // cleaned a room; the old localStorage tick was invisible to her, so both of
+  // them saw outstanding work that was already done.
+  //
+  // Reminder ids and cleaning ids share this record but can never collide:
+  // cleanings are "clean-<date>-<room>", reminders are
+  // "<start>-<end>-<guest>-<room>".
   const [sentReminders, setSentReminders] = useState<
     Record<string, { sentBy: string; sentAt: string }>
   >({});
@@ -71,6 +72,19 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
       setSentReminders(previous);
     }
   };
+
+  // Cleaning items expect the completed-task shape; the shared record is the
+  // source of truth now, so derive it rather than keeping a second copy.
+  const doneAsCompleted = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(sentReminders).map(([id, r]) => [
+          id,
+          { completed: true, date: r.sentAt ? format(new Date(r.sentAt), "MMM d, yyyy") : null },
+        ]),
+      ),
+    [sentReminders],
+  );
   const tomorrowKey = addDays(startOfToday(), 1).toISOString().split("T")[0];
 
   // Guests checking in tomorrow who get a reminder SMS (AirBnB guests are
@@ -116,8 +130,8 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
   // All rooms needing cleaning: today's checkouts + rooms vacated earlier that were
   // never marked cleaned (the old logic assumed an empty room was never occupied).
   const cleaningItems = useMemo(
-    () => getCleaningItems(monthMap, completedTasks),
-    [monthMap, completedTasks],
+    () => getCleaningItems(monthMap, doneAsCompleted),
+    [monthMap, doneAsCompleted],
   );
   const cleaningCounts = getCleaningCounts(cleaningItems);
 
@@ -214,9 +228,6 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
     window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(body)}`;
   };
 
-  useEffect(() => {
-    localStorage.setItem("completedTasks", JSON.stringify(completedTasks));
-  }, [completedTasks]);
 
   // Once data arrives, open on the first tab that has work (Reminders →
   // Cleaning). Runs once; never overrides a tab the user tapped.
@@ -227,16 +238,6 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
     if (reminderBookings.length === 0 && cleaningItems.length > 0) setActiveTab("cleaning");
   }, [monthMap, reminderBookings, cleaningItems]);
 
-  const toggleTaskCompletion = (taskId: string) => {
-    const currentDate = format(startOfToday(), "MMM d, yyyy");
-    setCompletedTasks((prev) => ({
-      ...prev,
-      [taskId]: {
-        completed: !prev[taskId]?.completed,
-        date: !prev[taskId]?.completed ? currentDate : null,
-      },
-    }));
-  };
 
   const generateTaskId = (
     startDate: string,
@@ -415,7 +416,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                     type="checkbox"
                     className="mt-1 h-4 w-4 shrink-0 accent-black"
                     checked={isCompleted}
-                    onChange={() => toggleTaskCompletion(taskId)}
+                    onChange={() => setReminderSent(taskId, !isCompleted)}
                   />
                   {/* Cleaner avatar — same treatment as the Cleaning modal, and
                       tappable: it texts them today's full cleaning list. An

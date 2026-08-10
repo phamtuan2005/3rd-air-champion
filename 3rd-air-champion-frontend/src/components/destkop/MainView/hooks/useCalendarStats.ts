@@ -179,7 +179,12 @@ export const useCalendarStats = ({
     // Cleanings = today's checkouts + rooms vacated earlier never marked clean.
     // Reminders = guests arriving tomorrow whose text hasn't gone yet.
     const completed = getCompletedTasks();
-    const items = getCleaningItems(monthMap, completed);
+    // Cleanings tick server-side too now, so the badge must count the shared
+    // record or it reports work a cohost has already done.
+    const shared = Object.fromEntries(
+      sentReminderIds.map((id) => [id, { completed: true, date: null }]),
+    );
+    const items = getCleaningItems(monthMap, { ...completed, ...shared });
     const tomorrowKey = format(addDays(startOfToday(), 1), "yyyy-MM-dd");
     return (
       getCleaningCounts(items).max +

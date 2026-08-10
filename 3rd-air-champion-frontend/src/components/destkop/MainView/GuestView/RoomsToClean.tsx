@@ -7,6 +7,7 @@ import { fetchAssignments, CleaningAssignmentType, CleanerType } from "../../../
 import CleanerAvatar from "../../../shared/CleanerAvatar";
 import { cleanerSignoff } from "../../../../util/cleanerMessage";
 import { cleaningEntryTaskId, getCleaningEntriesFor } from "../../../../util/cleaningTasks";
+import { fetchSentReminders, markReminderSent, unmarkReminderSent } from "../../../../util/reminderOperations";
 
 interface RoomsToCleanProps {
   selectedDate: Date;
@@ -23,12 +24,19 @@ const dk = (d: Date) =>
 // leading with the assigned cleaner (avatar + name, tap to text), then the room
 // chip and the arriving guest. Reserved (R) holds are included (they occupy).
 const RoomsToClean = ({ selectedDate, monthMap, hostId, token, senderName }: RoomsToCleanProps) => {
-  const [completedTasks, setCompletedTasks] = useState<
-    Record<string, { completed: boolean; date: string | null }>
-  >(() => JSON.parse(localStorage.getItem("completedTasks") || "{}"));
+  // Cleaning ticks live on the server so both phones agree. Same record the
+  // To Do modal writes; cleaning ids cannot collide with reminder ids.
+  const [done, setDone] = useState<Record<string, { doneBy: string; at: string }>>({});
   useEffect(() => {
-    localStorage.setItem("completedTasks", JSON.stringify(completedTasks));
-  }, [completedTasks]);
+    if (!hostId || !token) return;
+    fetchSentReminders(hostId, token)
+      .then((rows) =>
+        setDone(
+          Object.fromEntries(rows.map((r) => [r.taskId, { doneBy: r.sentBy, at: r.sentAt }])),
+        ),
+      )
+      .catch(() => setDone({}));
+  }, [hostId, token]);
 
   const selKey = dk(selectedDate);
 
@@ -122,15 +130,23 @@ const RoomsToClean = ({ selectedDate, monthMap, hostId, token, senderName }: Roo
   const cleanerFor = (roomId?: string): CleanerType | null =>
     roomId ? assignments.find((a) => a.date === selKey && a.room?.id === roomId)?.cleaner ?? null : null;
 
-  const toggleTaskCompletion = (taskId: string) => {
-    const currentDate = format(selectedDate, "MMM d, yyyy");
-    setCompletedTasks((prev) => ({
-      ...prev,
-      [taskId]: {
-        completed: !prev[taskId]?.completed,
-        date: !prev[taskId]?.completed ? currentDate : null,
-      },
-    }));
+  // Shared with the To Do modal and every other device: whether a room has
+  // been cleaned is a fact about the house, not about this browser.
+  const setTaskDone = async (taskId: string, isDone: boolean) => {
+    const previous = done;
+    setDone((prev) => {
+      const next = { ...prev };
+      if (isDone) next[taskId] = { doneBy: senderName ?? "", at: new Date().toISOString() };
+      else delete next[taskId];
+      return next;
+    });
+    if (!hostId || !token) return;
+    try {
+      if (isDone) await markReminderSent({ host: hostId, taskId, sentBy: senderName ?? "" }, token);
+      else await unmarkReminderSent({ host: hostId, taskId }, token);
+    } catch {
+      setDone(previous);
+    }
   };
 
   // Tap a cleaner → text them their rooms for this date (room + guest count, in
@@ -140,7 +156,7 @@ const RoomsToClean = ({ selectedDate, monthMap, hostId, token, senderName }: Roo
     const first = cleaner.name.split(" ")[0];
     const mine = items.filter((it) => {
       const id = cleaningEntryTaskId(it.entry, selKey);
-      return !completedTasks[id]?.completed && cleanerFor(it.booking.room?.id)?.id === cleaner.id;
+      return !done[id] && cleanerFor(it.booking.room?.id)?.id === cleaner.id;
     });
     const dayLabel = format(selectedDate, "EEE, MMM d");
     let body: string;
@@ -169,7 +185,7 @@ const RoomsToClean = ({ selectedDate, monthMap, hostId, token, senderName }: Roo
     <div className="flex flex-col px-2 pt-2">
       {items.map(({ entry, booking, nextCheckIn, nextCheckInDate }, index) => {
         const taskId = cleaningEntryTaskId(entry, selKey);
-        const isCompleted = completedTasks[taskId]?.completed ?? false;
+        const isCompleted = !!done[taskId];
         const cleaner = cleanerFor(booking.room?.id);
         const arrivesSameDay = nextCheckInDate === selKey;
         const probable = !!entry.probable;
@@ -185,7 +201,7 @@ const RoomsToClean = ({ selectedDate, monthMap, hostId, token, senderName }: Roo
               type="checkbox"
               className="mt-1 h-4 w-4 shrink-0 accent-black"
               checked={isCompleted}
-              onChange={() => toggleTaskCompletion(taskId)}
+              onChange={() => setTaskDone(taskId, !isCompleted)}
             />
             {/* Cleaner avatar — tap to text them this date's cleaning list.
                 Unassigned rooms show the amber "!" marker. */}
@@ -276,7 +292,7 @@ const RoomsToClean = ({ selectedDate, monthMap, hostId, token, senderName }: Roo
                 </p>
               )}
               {isCompleted && (
-                <p className="text-xs text-gray-400">Cleaned on {completedTasks[taskId]?.date}</p>
+                <p className="text-xs text-gray-400">Cleaned{done[taskId]?.doneBy ? ` by ${done[taskId].doneBy}` : ""}</p>
               )}
             </div>
           </div>
