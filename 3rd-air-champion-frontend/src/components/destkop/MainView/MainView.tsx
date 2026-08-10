@@ -17,6 +17,7 @@ import { formatPhone } from "../../../util/formatPhone";
 import DetailsModal from "./GuestView/DetailsModal";
 import { updateBookingGuest, updateBookingAirbnbPrice, updateBookingReserved, updateUnbookGuest } from "../../../util/bookingOperations";
 import { fetchAssignments, CleaningAssignmentType, CleanerType } from "../../../util/cleanerOperations";
+import { fetchSentReminders } from "../../../util/reminderOperations";
 import { getCleaningForecast, isStaleCleaning } from "../../../util/cleaningTasks";
 import UnbookingConfirmation from "./GuestView/UnbookingConfirmation";
 import ToDoList from "./ToDoList";
@@ -288,6 +289,16 @@ const MainView = ({
     setShouldCallOnSync,
   });
 
+  // Reminders already texted, shared across the account so the badge does not
+  // count work a cohost has done. See util/reminderOperations.
+  const [sentReminderIds, setSentReminderIds] = useState<string[]>([]);
+  useEffect(() => {
+    if (!hostId || !token) return;
+    fetchSentReminders(hostId, token)
+      .then((rows) => setSentReminderIds(rows.map((r) => r.taskId)))
+      .catch(() => setSentReminderIds([]));
+  }, [hostId, token, badgeTick]);
+
   const { occupancy, profit } = useCalendarStats({
     monthMap,
     days,
@@ -299,6 +310,7 @@ const MainView = ({
     setAvailableNightsCount,
     setTodoCleanCount,
     refreshKey: badgeTick,
+    sentReminderIds,
   });
 
   // Cleaner labels for the calendar. Only fetched while Clean mode is on, and

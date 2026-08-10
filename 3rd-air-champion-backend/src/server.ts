@@ -20,6 +20,7 @@ import bookingRequestRoute from "./route/bookingRequestRoute";
 import wishListRoute from "./route/wishListRoute";
 import cleanerRoute from "./route/cleanerRoute";
 import miscRoute from "./route/miscRoute";
+import reminderRoute from "./route/reminderRoute";
 import { authenticateToken } from "./middleware/authenticateJWT";
 import cors from "cors";
 
@@ -118,6 +119,7 @@ const startServer = async () => {
     apiRouter.use("/airbnb", syncRoute);
     apiRouter.use("/cleaner", cleanerRoute);
     apiRouter.use("/misc", miscRoute);
+    apiRouter.use("/reminder", reminderRoute);
 
     app.use("/api", apiRouter);
 

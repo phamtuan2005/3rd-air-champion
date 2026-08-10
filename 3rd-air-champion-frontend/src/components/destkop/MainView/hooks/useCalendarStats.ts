@@ -33,6 +33,10 @@ interface UseCalendarStatsParams {
   // observes — ticking one off would otherwise leave the badge unchanged until
   // something else happened to move monthMap.
   refreshKey?: number;
+  // Reminders already sent, from the SERVER rather than this browser. Without
+  // it the nav badge counts work a cohost has already done and disagrees with
+  // the To Do tab beside it.
+  sentReminderIds?: string[];
 }
 
 export const useCalendarStats = ({
@@ -46,6 +50,7 @@ export const useCalendarStats = ({
   setAvailableNightsCount,
   setTodoCleanCount,
   refreshKey = 0,
+  sentReminderIds = [],
 }: UseCalendarStatsParams) => {
   const [occupancy, setOccupancy] = useState<{
     totalOccupancy: number;
@@ -177,9 +182,13 @@ export const useCalendarStats = ({
     const items = getCleaningItems(monthMap, completed);
     const tomorrowKey = format(addDays(startOfToday(), 1), "yyyy-MM-dd");
     return (
-      getCleaningCounts(items).max + countPendingReminders(monthMap, tomorrowKey, completed)
+      getCleaningCounts(items).max +
+      countPendingReminders(monthMap, tomorrowKey, {
+        ...completed,
+        ...Object.fromEntries(sentReminderIds.map((id) => [id, { completed: true, date: null }])),
+      })
     );
-  }, [monthMap, refreshKey]);
+  }, [monthMap, refreshKey, sentReminderIds]);
 
   useEffect(() => {
     setTodoCleanCount(todoCleanCount);

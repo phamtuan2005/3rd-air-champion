@@ -8,6 +8,7 @@ import { CLEANING_LOOKBACK_DAYS, cleaningTaskId, getCleaningCounts, getCleaningI
 import { fetchAssignments, CleaningAssignmentType, CleanerType } from "../../../util/cleanerOperations";
 import CleanerAvatar from "../../shared/CleanerAvatar";
 import { cleanerSignoff } from "../../../util/cleanerMessage";
+import { fetchSentReminders, markReminderSent, unmarkReminderSent } from "../../../util/reminderOperations";
 
 interface ToDoListProps {
   monthMap: Map<string, dayType>;
@@ -30,6 +31,46 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
     Record<string, { completed: boolean; date: string | null }>
   >(() => JSON.parse(localStorage.getItem("completedTasks") || "{}"));
 
+
+  // Which reminders have already gone out, for the ACCOUNT rather than this
+  // browser. Cindy needs to see that Anh-Tuan already texted a guest; the old
+  // localStorage tick was invisible to her, so both of them saw outstanding
+  // work that was already done.
+  const [sentReminders, setSentReminders] = useState<
+    Record<string, { sentBy: string; sentAt: string }>
+  >({});
+
+  useEffect(() => {
+    if (!hostId || !token) return;
+    fetchSentReminders(hostId, token)
+      .then((rows) =>
+        setSentReminders(
+          Object.fromEntries(
+            rows.map((r) => [r.taskId, { sentBy: r.sentBy, sentAt: r.sentAt }]),
+          ),
+        ),
+      )
+      .catch(() => setSentReminders({}));
+  }, [hostId, token]);
+
+  // Optimistic, but reverted if the server refuses — a tick that only exists on
+  // one screen is the exact problem this replaces.
+  const setReminderSent = async (taskId: string, sent: boolean) => {
+    const previous = sentReminders;
+    setSentReminders((prev) => {
+      const next = { ...prev };
+      if (sent) next[taskId] = { sentBy: senderName ?? "", sentAt: new Date().toISOString() };
+      else delete next[taskId];
+      return next;
+    });
+    if (!hostId || !token) return;
+    try {
+      if (sent) await markReminderSent({ host: hostId, taskId, sentBy: senderName ?? "" }, token);
+      else await unmarkReminderSent({ host: hostId, taskId }, token);
+    } catch {
+      setSentReminders(previous);
+    }
+  };
   const tomorrowKey = addDays(startOfToday(), 1).toISOString().split("T")[0];
 
   // Guests checking in tomorrow who get a reminder SMS (AirBnB guests are
@@ -210,7 +251,15 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
     {
       key: "reminders",
       label: "Reminders",
-      count: countPendingReminders(monthMap, tomorrowKey, completedTasks),
+      // Counted from the shared record, so the badge agrees with the ticks —
+      // countPendingReminders takes the completed-task shape, so adapt.
+      count: countPendingReminders(
+        monthMap,
+        tomorrowKey,
+        Object.fromEntries(
+          Object.keys(sentReminders).map((id) => [id, { completed: true, date: null }]),
+        ),
+      ),
     },
     { key: "cleaning", label: "Cleaning", count: cleaningCounts.max },
   ];
@@ -264,8 +313,8 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                 booking.guest.id,
                 booking.room.id,
               );
-              const task = completedTasks[taskId] || { completed: false, date: null };
-              const isCompleted = task.completed;
+              const sent = sentReminders[taskId];
+              const isCompleted = !!sent;
 
               return (
                 <div
@@ -278,7 +327,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                     type="checkbox"
                     className="h-4 w-4 shrink-0 accent-black"
                     checked={isCompleted}
-                    onChange={() => toggleTaskCompletion(taskId)}
+                    onChange={() => setReminderSent(taskId, !isCompleted)}
                   />
                   <div className="min-w-0 flex-1">
                     <p
@@ -294,7 +343,10 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                       {booking.room.name}
                     </span>
                     {isCompleted && (
-                      <p className="mt-0.5 text-sm text-gray-400">Sent on {task.date}</p>
+                      <p className="mt-0.5 text-sm text-gray-400">
+                        Sent{sent?.sentBy ? ` by ${sent.sentBy}` : ""}
+                        {sent?.sentAt ? ` on ${format(new Date(sent.sentAt), "MMM d")}` : ""}
+                      </p>
                     )}
                   </div>
                   {!booking.description ? (
@@ -306,7 +358,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                         const currentTemplate = localStorage.getItem(TEMPLATE_KEY) || DEFAULT_TEMPLATE;
                         const message = resolveTemplate(currentTemplate, buildStayChain(booking), startDate, doorCode, airbnbName, airbnbAddress, houseRules);
                         window.location.href = `sms:${phone}?&body=${encodeURIComponent(message)}`;
-                        toggleTaskCompletion(taskId);
+                        setReminderSent(taskId, true);
                       }}
                       disabled={isCompleted}
                     >
