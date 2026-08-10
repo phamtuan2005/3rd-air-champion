@@ -8,7 +8,12 @@ import DatePickerModal from "./DatePickerModal";
 import { SubmitHandler, useForm, useFieldArray, Controller, useWatch } from "react-hook-form";
 import { bookDaySchema, bookDaysZodObject } from "./zodBookDays";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { getAvailableRooms, postBooking } from "../../../util/bookingOperations";
+import {
+  getAvailableRooms,
+  postBooking,
+  updateBookingGuest,
+  updateBookingAirbnbPrice,
+} from "../../../util/bookingOperations";
 import { dayType } from "../../../util/types/dayType";
 import { format, addDays } from "date-fns";
 import { ANY_ROOM_SENTINEL } from "./zodBookDays";
@@ -103,6 +108,21 @@ const BookingModal = ({
   // Amount the guest has ALREADY paid (e.g. a firm/prepaid booking). Feeds the
   // confirmation text's "Total paid" line so the "To pay" balance is what's left.
   const [prepaidAmount, setPrepaidAmount] = useState("");
+
+  // ── AirBnB booking entered by hand ────────────────────────────────────────
+  // AirBnB never puts a last-minute reservation in the iCal export, so it has to
+  // be typed in. Until now that meant inventing a fake "returning guest" carrying
+  // the host's own phone number, which made real AirBnB revenue count as Direct
+  // everywhere and left the booking invisible to the sync.
+  //
+  // Instead, file it where every other AirBnB booking lives: under the one AirBnB
+  // guest, with the person's name in the booking alias and the payout in
+  // airbnbPrice. No new guest record, and it is automatically consistent with the
+  // rest of the app.
+  const airbnbGuest = useMemo(() => guests.find((g) => g.name === "AirBnB") ?? null, [guests]);
+  const [airbnbMode, setAirbnbMode] = useState(false);
+  const [airbnbAlias, setAirbnbAlias] = useState("");
+  const [airbnbPayout, setAirbnbPayout] = useState("");
 
   const toggleReservedRow = (index: number) =>
     setReservedRows((prev) => {
@@ -255,13 +275,29 @@ const BookingModal = ({
           calendar: calendarId,
           date: format(flat.date, "yyyy-MM-dd'T'HH:mm:ss"),
           guest: guestId,
-          isAirBnB: false,
+          isAirBnB: airbnbMode,
           numberOfGuests,
           room: roomId,
           duration: flat.duration,
         },
         token as string
       );
+
+      // The feed carries neither the guest's name nor the payout, so a
+      // hand-entered AirBnB booking sets them straight after it is created —
+      // the same two fields the sync preserves across a re-book.
+      if (airbnbMode) {
+        const created = days
+          .flatMap((d: dayType) => d.bookings)
+          .find((b: { id: string; room?: { id: string }; guest?: { id: string } }) => b.room?.id === roomId && b.guest?.id === guestId);
+        if (created) {
+          const alias = airbnbAlias.trim();
+          const payout = Number(airbnbPayout);
+          if (alias) await updateBookingGuest({ id: created.id, alias }, token as string);
+          if (payout > 0)
+            await updateBookingAirbnbPrice({ id: created.id, airbnbPrice: payout }, token as string);
+        }
+      }
       return {
         result: {
           label: `${dateLabel} · ${durationLabel}`,
@@ -326,7 +362,11 @@ const BookingModal = ({
     const guest = guests.find((g) => g.id === data.guest);
 
     for (const [rowIndex, booking] of data.bookings.entries()) {
-      const isReserved = reservedRows.has(rowIndex);
+      // An AirBnB booking is confirmed, never a pending hold — and the reserved
+      // path books through a different call that would skip the AirBnB handling
+      // entirely. Rows default to reserved, so without this the toggle would
+      // silently do nothing.
+      const isReserved = !airbnbMode && reservedRows.has(rowIndex);
       for (const room of booking.rooms) {
         if (isReserved && guest) {
           const { result, bookedDays } = await processReserved(
@@ -431,8 +471,70 @@ const BookingModal = ({
           <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-4">
             {/* ── Tab 1: Booking ─────────────────────────────────────────── */}
             <div className={activeTab === 1 ? "flex flex-col gap-4" : "hidden"}>
+            {/* AirBnB last-minute booking. Files under the one AirBnB guest
+                rather than inventing a stand-in guest, so the payout counts as
+                AirBnB everywhere and the sync recognises it. */}
+            {airbnbGuest && (
+              <label className="flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-rose-600"
+                  checked={airbnbMode}
+                  onChange={(e) => {
+                    const on = e.target.checked;
+                    setAirbnbMode(on);
+                    // The guest field still drives validation and the mutation;
+                    // in AirBnB mode it is fixed to the AirBnB guest.
+                    setValue("guest", on ? airbnbGuest.id : "", { shouldValidate: true });
+                    if (!on) {
+                      setAirbnbAlias("");
+                      setAirbnbPayout("");
+                    }
+                  }}
+                />
+                <span className="font-semibold text-rose-700">AirBnB booking</span>
+                <span className="text-xs text-rose-500">last-minute, not in the feed</span>
+              </label>
+            )}
+
+            {airbnbMode ? (
+              <div className="flex gap-4 items-start">
+                <div className="flex-1">
+                  <label htmlFor="airbnbAlias" className="block text-sm font-medium mb-1">
+                    Guest name
+                  </label>
+                  <input
+                    id="airbnbAlias"
+                    type="text"
+                    value={airbnbAlias}
+                    onChange={(e) => setAirbnbAlias(e.target.value)}
+                    placeholder="As shown on AirBnB"
+                    className="border border-gray-300 rounded px-2 py-1 w-full"
+                  />
+                </div>
+                <div className="w-36">
+                  <label htmlFor="airbnbPayout" className="block text-sm font-medium mb-1">
+                    Payout ($)
+                  </label>
+                  {/* The real payout, cents included — never rounded. */}
+                  <input
+                    id="airbnbPayout"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={airbnbPayout}
+                    onChange={(e) => setAirbnbPayout(e.target.value)}
+                    placeholder="0.00"
+                    className="border border-gray-300 rounded px-2 py-1 w-full"
+                  />
+                </div>
+              </div>
+            ) : null}
+
             {/* Guest + Number of Guests row */}
             <div className="flex gap-4 items-start">
+              {/* Fixed to the AirBnB guest in AirBnB mode, so the picker is hidden. */}
+              {!airbnbMode && (
               <div className="flex-1">
                 <GuestInput
                   guests={guests}
@@ -447,6 +549,7 @@ const BookingModal = ({
                   </span>
                 )}
               </div>
+              )}
               <div className="w-36">
                 <label
                   htmlFor="numberOfGuests"
