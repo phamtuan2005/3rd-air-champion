@@ -790,11 +790,16 @@ const MainView = ({
     for (const day of monthMap.values()) {
       for (const booking of day.bookings) {
         if (booking.guest?.name === "AirBnB" && !booking.airbnbPrice && !booking.airbnbBlocked && booking.startDate) {
-          const start = new Date(booking.startDate);
-          if (
-            start.getFullYear() === currentMonth.getFullYear() &&
-            start.getMonth() === currentMonth.getMonth()
-          ) {
+          // Compare the date STRING, never new Date(startDate).getMonth().
+          //
+          // startDate arrives as UTC midnight ("2026-09-01T00:00:00.000Z"),
+          // which west of Greenwich is the previous evening in local time. A
+          // Sept 1 check-in therefore reported getMonth() === August, so the
+          // modal ambushed the host on the wrong month naming a booking they
+          // could not find there. The yyyy-MM-dd prefix is what the rest of
+          // the app already treats as the date (see bookingNightAmount), so
+          // slicing it keeps this in step with the calendar and the money.
+          if (booking.startDate.slice(0, 7) === format(currentMonth, "yyyy-MM")) {
             const key = `${booking.startDate}_${booking.room?.id}`;
             if (!seen.has(key)) {
               seen.add(key);

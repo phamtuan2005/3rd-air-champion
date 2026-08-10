@@ -51,7 +51,10 @@ const Row = ({
   };
 
   const checkIn = (() => {
-    try { return format(parseISO(booking.startDate), "MMM d"); } catch { return booking.startDate; }
+    // Same UTC-midnight trap as the month filter: parseISO on the full
+    // timestamp lands the evening before in local time, so a Sept 1 check-in
+    // was labelled "Aug 31". Parse the date part alone.
+    try { return format(parseISO(booking.startDate.split("T")[0]), "MMM d"); } catch { return booking.startDate; }
   })();
 
   const airbnbUrl = extractAirbnbUrl(booking.description);
