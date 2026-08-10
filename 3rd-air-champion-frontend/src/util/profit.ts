@@ -273,3 +273,130 @@ export const getOpenRoomProjections = (
     })
     .sort((a, b) => b.expected - a.expected);
 };
+// ── Which nights of the week actually earn ──────────────────────────────────
+
+export interface WeekdayStat {
+  weekday: number; // 0 = Sunday, matching Date.getDay()
+  label: string; // "Fri"
+  dates: number; // calendar dates sampled
+  revenue: number; // total across those dates
+  roomNights: number; // room-nights sold
+  sellableRoomNights: number; // room-nights that COULD have sold
+  perNight: number; // revenue / dates — what one Friday earns across the house
+  rate: number; // revenue / roomNights — the price a sold room fetched
+  occupancy: number; // 0..1
+}
+
+export interface WeekdayBreakdown {
+  rows: WeekdayStat[]; // Monday-first
+  from: string;
+  to: string;
+  weeks: number;
+  revenue: number;
+}
+
+const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+// Fri and Sat are the weekend NIGHTS, not Sat and Sun.
+//
+// A guest who arrives Friday and leaves Sunday pays for Friday and Saturday
+// nights — Sunday is a checkout, and it sells like a weekday. Splitting on the
+// calendar weekend instead of the nights sold would move the weakest night of
+// the week into the "weekend" bucket and flatten the very gap being measured.
+export const WEEKEND_NIGHTS = [5, 6];
+
+// Revenue by day of week, over a whole number of past weeks.
+//
+// Answers "do weekdays earn less?" with three separate numbers, because the
+// interesting part is WHICH one differs. At the 99–100% occupancy this house
+// runs at, a gap cannot come from empty rooms, so it has to be rate — and that
+// is a pricing decision, not a demand problem. Reporting only total revenue
+// would hide which of the two is moving.
+//
+// The window is counted in WEEKS, never days or months: 26 weeks contains
+// exactly 26 of each weekday. A 6-month window would hold 27 Fridays and 25
+// Mondays and hand back that imbalance as a revenue difference.
+export const getWeekdayStats = (
+  monthMap: Map<string, dayType>,
+  rooms: roomType[],
+  weeks = 26,
+): WeekdayBreakdown => {
+  const activeRooms = rooms.filter((r) => r.active);
+  const empty: WeekdayBreakdown = { rows: [], from: "", to: "", weeks: 0, revenue: 0 };
+  if (activeRooms.length === 0) return empty;
+
+  // Yesterday backwards. Today is excluded because tonight can still sell, and
+  // a half-sold night dragged into the average would understate that weekday.
+  const end = addDays(startOfToday(), -1);
+  const keys: string[] = [];
+  for (let i = 0; i < weeks * 7; i++) keys.push(dk(addDays(end, -i)));
+
+  // Nothing before the first night the calendar knows about — an empty stretch
+  // predating the data would read as a run of $0 nights.
+  const earliest = [...monthMap.keys()].sort()[0];
+  const inRange = keys.filter((k) => !earliest || k >= earliest).sort();
+  if (inRange.length === 0) return empty;
+
+  const byWeekday = new Map<number, WeekdayStat>();
+  for (let d = 0; d < 7; d++) {
+    byWeekday.set(d, {
+      weekday: d,
+      label: WEEKDAY_LABELS[d],
+      dates: 0,
+      revenue: 0,
+      roomNights: 0,
+      sellableRoomNights: 0,
+      perNight: 0,
+      rate: 0,
+      occupancy: 0,
+    });
+  }
+
+  let revenue = 0;
+  for (const key of inRange) {
+    // Noon, not midnight: a date-only string parses as UTC and lands on the
+    // previous evening here, which would file every night under the wrong day
+    // of the week — the exact error this whole tab exists to measure.
+    const weekday = new Date(`${key}T12:00:00`).getDay();
+    const row = byWeekday.get(weekday)!;
+    const day = monthMap.get(key);
+
+    row.dates += 1;
+    for (const room of activeRooms) {
+      const sold = day?.bookings.filter((b) => b.room?.id === room.id) ?? [];
+      if (sold.length > 0) {
+        row.roomNights += 1;
+        row.sellableRoomNights += 1;
+        for (const b of sold) {
+          const amount = bookingNightAmount(b, key);
+          row.revenue += amount;
+          revenue += amount;
+        }
+      } else {
+        // A blocked room was never for sale, so counting it as an empty night
+        // would report a maintenance decision as weak demand.
+        const blocked = day ? day.isBlocked || day.blockedRooms.some((r) => r?.id === room.id) : false;
+        if (!blocked) row.sellableRoomNights += 1;
+      }
+    }
+  }
+
+  const rows = [...byWeekday.values()].map((r) => ({
+    ...r,
+    perNight: r.dates > 0 ? r.revenue / r.dates : 0,
+    rate: r.roomNights > 0 ? r.revenue / r.roomNights : 0,
+    occupancy: r.sellableRoomNights > 0 ? r.roomNights / r.sellableRoomNights : 0,
+  }));
+
+  // Monday-first: the week reads as five working nights then the weekend, so
+  // the shape being looked for is a block rather than two ends of a row.
+  const mondayFirst = [1, 2, 3, 4, 5, 6, 0].map((d) => rows.find((r) => r.weekday === d)!);
+
+  return {
+    rows: mondayFirst,
+    from: inRange[0],
+    to: inRange[inRange.length - 1],
+    weeks: Math.round(inRange.length / 7),
+    revenue,
+  };
+};
