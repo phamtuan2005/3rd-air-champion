@@ -53,6 +53,10 @@ const UnbookingConfirmation = ({
   // guest — the hold selection / card action is guest-scoped). "— Anh-Tuan"
   // keeps the personal sender name.
   const guest = bookings[0]?.guest;
+  // AirBnB guests are one shared placeholder record, not a person with a phone —
+  // AirBnB relays messages itself. Texting a cancellation only makes sense for a
+  // direct guest whose number you actually hold.
+  const isAirBnBGuest = guest?.name === "AirBnB";
   const textGuest = () => {
     if (!guest?.phone) return;
     const lines = bookings.map((b, i) => {
@@ -145,7 +149,8 @@ const UnbookingConfirmation = ({
           </div>
         )}
 
-        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+        <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t border-gray-100">
+          {!isAirBnBGuest && (
           <button
             type="button"
             onClick={textGuest}
@@ -154,6 +159,7 @@ const UnbookingConfirmation = ({
           >
             Text guest
           </button>
+          )}
           <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md text-sm font-semibold">
             Cancel
           </button>
