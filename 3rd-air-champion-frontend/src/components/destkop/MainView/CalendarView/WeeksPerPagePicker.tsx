@@ -9,21 +9,25 @@ import PickerModal, { PickerOption } from "../../../shared/PickerModal";
 // sideways, at three and up it scrolls down like a document. That is a real
 // difference in how the calendar feels, and it was undiscoverable.
 const OPTIONS: PickerOption<number>[] = [
+  // Colour runs airy -> dense as the page fills up, so the list reads as a
+  // scale rather than five identical rows. Green and teal are deliberately
+  // avoided: they already mean Gaps and Clean in the view picker beside this
+  // one, and reusing them here would imply a relationship that does not exist.
   {
     value: 1,
     label: "1 week",
     hint: "Biggest rows · swipe sideways",
     Icon: FaRegCalendarAlt,
-    accent: "bg-indigo-500",
-    rowActive: "bg-indigo-50 text-indigo-800",
+    accent: "bg-sky-500",
+    rowActive: "bg-sky-50 text-sky-800",
   },
   {
     value: 2,
     label: "2 weeks",
     hint: "Roomy · swipe sideways",
     Icon: FaRegCalendarAlt,
-    accent: "bg-indigo-500",
-    rowActive: "bg-indigo-50 text-indigo-800",
+    accent: "bg-blue-500",
+    rowActive: "bg-blue-50 text-blue-800",
   },
   {
     value: 3,
@@ -38,16 +42,16 @@ const OPTIONS: PickerOption<number>[] = [
     label: "4 weeks",
     hint: "Most of a month · scroll down",
     Icon: FaRegCalendarAlt,
-    accent: "bg-indigo-500",
-    rowActive: "bg-indigo-50 text-indigo-800",
+    accent: "bg-violet-500",
+    rowActive: "bg-violet-50 text-violet-800",
   },
   {
     value: 5,
     label: "5 weeks",
     hint: "A whole month at once · scroll down",
     Icon: FaRegCalendarAlt,
-    accent: "bg-indigo-500",
-    rowActive: "bg-indigo-50 text-indigo-800",
+    accent: "bg-fuchsia-600",
+    rowActive: "bg-fuchsia-50 text-fuchsia-800",
   },
 ];
 
