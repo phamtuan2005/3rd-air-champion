@@ -16,6 +16,9 @@ router.get("/list", async (req: Request, res: any) => {
   if (!hostId) return res.status(400).json({ error: "hostId is required" });
   try {
     const items = await SentReminder.find({ host: hostId });
+    // Temporary: which host is each device asking about? A cohost resolving to
+    // a different host id would silently read an empty set.
+    console.log(`[Reminder] list host=${hostId} -> ${items.length} record(s)`);
     res.status(200).json(items.map(serialize));
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -39,6 +42,7 @@ router.post("/mark", async (req: Request, res: any) => {
       taskId,
       sentBy: sentBy ?? "",
     });
+    console.log(`[Reminder] marked host=${host} taskId=${taskId} by=${sentBy}`);
     res.status(200).json(serialize(created));
   } catch (error: any) {
     // A concurrent mark loses the unique-index race; the outcome it wanted is
