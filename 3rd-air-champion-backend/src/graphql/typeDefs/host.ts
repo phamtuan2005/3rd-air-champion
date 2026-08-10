@@ -6,6 +6,14 @@ export const hostDefs = gql`
     link: String
   }
 
+  type AutoSyncRun {
+    at: String
+    added: Int
+    removed: Int
+    addedKeys: [String]
+    error: String
+  }
+
   type Host {
     id: ID!
     email: String!
@@ -13,6 +21,7 @@ export const hostDefs = gql`
     name: String!
     rooms: [ID]
     airbnbsync: [AirBnBSync]
+    lastAutoSync: AutoSyncRun
     calendar: ID
     guests: [ID]
     cohosts: [ID]

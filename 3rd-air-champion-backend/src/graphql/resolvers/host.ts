@@ -17,6 +17,7 @@ export const hostResolvers = {
         const mainHost = await Host.findById(MAIN_HOST_ID);
         if (mainHost) {
           hostData.airbnbsync = mainHost.airbnbsync;
+          (hostData as any).lastAutoSync = (mainHost as any).lastAutoSync;
         }
       }
 

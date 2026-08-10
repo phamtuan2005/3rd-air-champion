@@ -40,6 +40,13 @@ router.post("/get/one", async (req: Request, res: any) => {
                       room
                       link
                     }
+                    lastAutoSync {
+                      at
+                      added
+                      removed
+                      addedKeys
+                      error
+                    }
                     name
                     cohosts
                     calendar

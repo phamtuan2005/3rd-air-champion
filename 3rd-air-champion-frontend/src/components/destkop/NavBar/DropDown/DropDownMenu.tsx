@@ -6,6 +6,7 @@ import { MdOutlineMessage } from "react-icons/md";
 import { MdEditNote } from "react-icons/md";
 import { ImExit } from "react-icons/im";
 import AirBnBSyncButton from "./AirBnBSyncButton";
+import AutoSyncStatus from "./AutoSyncStatus";
 import LogoutButton from "./LogoutButton";
 import AddGuestButton from "./AddGuestButton";
 import ReminderTemplateButton from "./ReminderTemplateButton";
@@ -93,6 +94,14 @@ const DropDownMenu = ({
           >
             <FaSync className="text-lg flex-shrink-0" />
             <AirBnBSyncButton />
+          </li>
+          {/* Directly under the manual Sync button, because this is the moment
+              the question gets asked: you reach for Sync when you suspect
+              something has not arrived. Answering it here often means not
+              having to press the button at all.
+              Not a menu item — nothing to tap, so it must not look tappable. */}
+          <li className="px-4 py-3 border-b border-gray-100">
+            <AutoSyncStatus />
           </li>
           <li
             className="flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 cursor-pointer text-base font-semibold text-gray-700 border-b border-gray-100"

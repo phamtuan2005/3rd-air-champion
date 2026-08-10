@@ -27,6 +27,21 @@ const hostSchema = new mongoose.Schema(
         link: { type: String, default: "" },
       },
     ],
+    // What the last scheduled sync did, so the app can say so.
+    //
+    // The job used to leave no trace but a log line on the EC2 box, which
+    // survives neither a restart nor a pm2 flush. That made "is auto-sync
+    // working?" unanswerable from the phone, and the honest answer for months
+    // was "nobody knows" — the app syncs on every open, so a tick almost always
+    // finds nothing left to do and looks idle even when it is healthy.
+    lastAutoSync: {
+      at: { type: Date },
+      added: { type: Number, default: 0 },
+      removed: { type: Number, default: 0 },
+      addedKeys: [{ type: String }],
+      // Empty on success. A failing feed is the case worth surfacing loudest.
+      error: { type: String, default: "" },
+    },
     airbnbGuestId: { type: mongoose.Schema.ObjectId, ref: "Guest" },
     doorCode: { type: String, default: "" },
     airbnbName: { type: String, default: "" },

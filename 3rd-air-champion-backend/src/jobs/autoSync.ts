@@ -2,6 +2,31 @@ import Host from "../model/hostSchema";
 import Room from "../model/roomSchema";
 import { runAirbnbSync } from "./airbnbSync";
 
+// Leave a trace of every run on the host document.
+//
+// A log line on the EC2 box is not evidence anyone can reach: it does not
+// survive a restart or a pm2 flush, and reading it needs SSH. Stamping the run
+// here lets the app answer "when did this last run, and did it do anything?"
+// from a phone, which is the only place the question is ever actually asked.
+//
+// Written on EVERY outcome, failures included. A job that stops running and a
+// job that runs and finds nothing produce the same silence otherwise, and those
+// two need to look different — the first is broken, the second is healthy.
+const recordRun = async (
+  hostId: any,
+  run: { added: number; removed: number; addedKeys: string[]; error: string },
+) => {
+  try {
+    await Host.updateOne(
+      { _id: hostId },
+      { $set: { lastAutoSync: { at: new Date(), ...run } } },
+    );
+  } catch (err: any) {
+    // Never let bookkeeping break the sync that just succeeded.
+    console.error(`[AutoSync] could not record run for ${hostId}: ${err.message}`);
+  }
+};
+
 export const autoSyncAllHosts = async () => {
   const hosts = await Host.find({
     airbnbGuestId: { $exists: true, $ne: null },
@@ -48,6 +73,7 @@ export const autoSyncAllHosts = async () => {
 
       if (data.length === 0) {
         console.log(`${label}: no active rooms with an AirBnB iCal link, skipping.`);
+        await recordRun(host._id, { added: 0, removed: 0, addedKeys: [], error: "No AirBnB link on any active room" });
         continue;
       }
 
@@ -71,8 +97,11 @@ export const autoSyncAllHosts = async () => {
         // without reconstructing it from the calendar afterwards.
         if (changes.addedKeys.length) console.log(`${label}: added ${changes.addedKeys.join(", ")}`);
       }
+
+      await recordRun(host._id, { ...changes, error: "" });
     } catch (err: any) {
       console.error(`${label}: sync failed — ${err.message}`);
+      await recordRun(host._id, { added: 0, removed: 0, addedKeys: [], error: err.message });
     }
   }
 };

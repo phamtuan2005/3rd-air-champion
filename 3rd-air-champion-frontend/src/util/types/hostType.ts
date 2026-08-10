@@ -4,6 +4,15 @@ export interface hostType {
   email: string;
   rooms?: string[];
   airbnbsync?: { room: string; link: string }[];
+  // Stamped by the scheduled sync on every run, successes and failures alike,
+  // so the app can say when it last ran instead of nobody knowing.
+  lastAutoSync?: {
+    at?: string;
+    added?: number;
+    removed?: number;
+    addedKeys?: string[];
+    error?: string;
+  };
   name: string;
   cohosts?: string[];
   calendar: string;
