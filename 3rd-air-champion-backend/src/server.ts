@@ -132,6 +132,26 @@ const startServer = async () => {
     });
     console.log("[AutoSync] AirBnB sync scheduled every 30 minutes.");
 
+    // One run shortly after boot, on top of the schedule.
+    //
+    // The cron only starts counting from startup, so every deploy or crash left
+    // up to 30 minutes with nothing syncing — invisibly. On 2026-08-10 the
+    // backend restarted four times while chasing a booking that had not
+    // arrived, which is exactly when that blind window costs the most.
+    //
+    // It also makes a deploy self-verifying: the run stamps host.lastAutoSync,
+    // so the app reports within the minute instead of leaving the host watching
+    // a grey "waiting for the first run" card for half an hour.
+    //
+    // Delayed rather than immediate so a crash-looping process cannot hammer
+    // AirBnB's feeds on every restart, and so Mongo is connected first.
+    setTimeout(() => {
+      console.log("[AutoSync] Startup sync (closing the gap since last run)...");
+      autoSyncAllHosts().catch((err) =>
+        console.error("[AutoSync] Startup sync error:", err.message)
+      );
+    }, 60_000);
+
     console.log(`Express server ready at http://localhost:${PORT}/`);
 
     // Start the HTTP Server
