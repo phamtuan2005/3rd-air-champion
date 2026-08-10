@@ -5,6 +5,14 @@ import Room from "../../model/roomSchema";
 import { AIRBNB_SYNC_HOST_ID, MAIN_HOST_ID } from "../../util/hostRedirect";
 
 export const hostResolvers = {
+  // A GraphQL "String" has to mean a defined format, not whatever the runtime
+  // prints. Left to the default resolver a Date serialises as
+  // "Mon Aug 10 2026 23:31:00 GMT+0000 (Coordinated Universal Time)", which
+  // Chrome parses and Safari does not — and both hosts here are on iPhones. The
+  // client then read NaN minutes and reported a healthy job as silent.
+  AutoSyncRun: {
+    at: (parent: any) => (parent?.at ? new Date(parent.at).toISOString() : null),
+  },
   Query: {
     hosts: async () => {
       return await Host.find({ email: { $not: /tibook@mock.com/ } }).sort({ name: 1 });
