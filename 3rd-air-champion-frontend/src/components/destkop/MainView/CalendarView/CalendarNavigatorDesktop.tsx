@@ -1,4 +1,5 @@
 import CalendarModePicker from "./CalendarModePicker";
+import WeeksPerPagePicker from "./WeeksPerPagePicker";
 import { addDays, compareAsc, isSameDay, isSameMonth } from "date-fns";
 import { useContext, useEffect, useState } from "react";
 import { dayType } from "../../../../util/types/dayType";
@@ -160,22 +161,10 @@ const CalendarNavigator = ({
               {/* Weeks on screen. Lives here rather than in the menu because it
                   changes what you are looking at — you want to see the calendar
                   reflow as you pick. */}
-              <select
+              <WeeksPerPagePicker
                 value={rowsPerPage}
-                onChange={(e) => setRowsPerPage(Number(e.target.value))}
-                title="Weeks visible per screen"
-                className="w-[56px] shrink-0 cursor-pointer rounded border border-gray-300 px-1 py-0.5 text-sm font-semibold text-gray-500 transition-colors hover:text-gray-700"
-              >
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <option key={n} value={n}>
-                    {n}w
-                  </option>
-                ))}
-                {/* A month spans at most 6 week-rows (31 days starting Saturday),
-                    so 6 is exactly "the whole month, never split across pages".
-                    7 and 8 were the same thing under a less honest name. */}
-                <option value={6}>1M</option>
-              </select>
+                onChange={(v) => setRowsPerPage(v)}
+              />
             </div>
             {/* Total profit moved to the stats line below, where it sits beside
                 the AirBnB figures it should be read against. */}
