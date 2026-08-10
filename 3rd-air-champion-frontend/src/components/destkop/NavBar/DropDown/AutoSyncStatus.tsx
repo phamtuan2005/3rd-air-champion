@@ -100,14 +100,20 @@ const AutoSyncStatus = () => {
   const stale = mins === null || mins > STALE_MINUTES;
   const errored = !!run?.error;
 
-  // Three states worth distinguishing, and only three: it is running and fine,
-  // it is running and a feed is failing, or it has stopped. Anything subtler
-  // belongs in the log, not in a menu.
+  // Four states, and the fourth is the one that matters most for trust:
+  // "nothing has reported yet" is NOT the same as "it has gone quiet".
+  //
+  // Treating a missing timestamp as stale meant the very first look after a
+  // deploy showed an amber warning about a job that had not yet had a chance to
+  // run — crying wolf at exactly the moment the host is deciding whether to
+  // believe this readout at all. Grey says "no news", which is the truth.
   const tone = errored
     ? { dot: "bg-red-500", text: "text-red-700", label: "Auto-sync failing" }
-    : stale
-      ? { dot: "bg-amber-500", text: "text-amber-700", label: "Auto-sync silent" }
-      : { dot: "bg-green-500", text: "text-green-700", label: "Auto-sync running" };
+    : !at
+      ? { dot: "bg-gray-300", text: "text-gray-600", label: "Auto-sync not reported yet" }
+      : stale
+        ? { dot: "bg-amber-500", text: "text-amber-700", label: "Auto-sync silent" }
+        : { dot: "bg-green-500", text: "text-green-700", label: "Auto-sync running" };
 
   const adds = run?.addedKeys?.length ? describeAdds(run.addedKeys, roomNames) : [];
 
@@ -123,7 +129,7 @@ const AutoSyncStatus = () => {
 
       {!run || !at ? (
         <p className="mt-1 text-[11px] leading-tight text-gray-500">
-          No run recorded yet. The first one lands on the next half hour.
+          Waiting for the first run. Ticks land on the hour and half hour.
         </p>
       ) : errored ? (
         <p className="mt-1 text-[11px] leading-tight text-red-600">{run.error}</p>
