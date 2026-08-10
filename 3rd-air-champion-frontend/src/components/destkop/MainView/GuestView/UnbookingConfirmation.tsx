@@ -21,6 +21,11 @@ const refundFor = (
   halfDays?: number,
 ): { pct: number; amount: number } | null => {
   if (fullDays === undefined || halfDays === undefined) return null;
+  // AirBnB owns its own cancellations and refunds — you never refund an AirBnB
+  // guest directly. And booking.price on an AirBnB stay is the room default
+  // rate, not what the guest paid (that is airbnbPrice, the payout), so any
+  // figure computed from it would be doubly wrong. No policy applies.
+  if (booking.guest?.name === "AirBnB") return null;
   const rate =
     booking.price ?? 0;
   const total = rate * booking.duration;
