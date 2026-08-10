@@ -58,7 +58,21 @@ export const hostResolvers = {
       if (email) updateData.email = email;
       if (name) updateData.name = name;
       if (password) updateData.password = password;
-      if (airbnbsync) updateData.airbnbsync = JSON.parse(airbnbsync);
+      // One entry per room, enforced here rather than trusted from the client.
+      //
+      // The list is posted wholesale from a browser's localStorage, so any
+      // device still holding a stale copy re-uploads it — King accumulated
+      // three identical entries that way, and cleaning the collection by hand
+      // only lasted until the next Room Link modal opened. Later entries win,
+      // matching how autoSync reads the list.
+      if (airbnbsync) {
+        const parsed = JSON.parse(airbnbsync);
+        const byRoom = new Map<string, any>();
+        for (const entry of Array.isArray(parsed) ? parsed : []) {
+          if (entry?.room && entry?.link) byRoom.set(entry.room.toString(), entry);
+        }
+        updateData.airbnbsync = [...byRoom.values()];
+      }
       if (doorCode !== undefined) updateData.doorCode = doorCode;
       if (airbnbName !== undefined) updateData.airbnbName = airbnbName;
       if (airbnbAddress !== undefined) updateData.airbnbAddress = airbnbAddress;
