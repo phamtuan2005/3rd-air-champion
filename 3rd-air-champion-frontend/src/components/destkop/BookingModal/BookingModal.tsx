@@ -515,6 +515,9 @@ const BookingModal = ({
                 <div className="w-36">
                   <label htmlFor="airbnbPayout" className="block text-sm font-medium mb-1">
                     Payout ($)
+                    <span className="block text-[11px] font-normal text-gray-500">
+                      whole stay, not per night
+                    </span>
                   </label>
                   {/* The real payout, cents included — never rounded. */}
                   <input
