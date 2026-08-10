@@ -1,3 +1,4 @@
+import CalendarModePicker from "./CalendarModePicker";
 import { addDays, compareAsc, isSameDay, isSameMonth } from "date-fns";
 import { useContext, useEffect, useState } from "react";
 import { dayType } from "../../../../util/types/dayType";
@@ -143,26 +144,13 @@ const CalendarNavigator = ({
               {/* One view mode, not two independent flags. Gaps and Cleaners
                   each re-read the same calendar, so they were never meaningfully
                   combinable — a single picker says which lens is on. */}
-              <select
-                value={cleanMode ? "clean" : gapsMode ? "gaps" : "book"}
-                onChange={(e) => {
-                  const v = e.target.value;
+              <CalendarModePicker
+                mode={cleanMode ? "clean" : gapsMode ? "gaps" : "book"}
+                onChange={(v) => {
                   setGapsMode(v === "gaps");
                   setCleanMode(v === "clean");
                 }}
-                title="What the calendar bars show"
-                className={`w-[64px] shrink-0 cursor-pointer rounded border px-1 py-0.5 text-sm font-semibold transition-colors ${
-                  cleanMode
-                    ? "border-teal-600 bg-teal-600 text-white"
-                    : gapsMode
-                      ? "border-green-500 bg-green-500 text-white"
-                      : "border-gray-300 text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                <option value="book">Guest</option>
-                <option value="gaps">Gaps</option>
-                <option value="clean">Clean</option>
-              </select>
+              />
             </div>
             <div className="basis-1/2 flex justify-center items-center w-full gap-1 sm:gap-2">
               <span className="font-bold text-base sm:text-xl text-gray-800">
