@@ -196,6 +196,10 @@ export const runAirbnbSync = async (params: {
             startDate: booking.startDate,
             endDate: booking.endDate,
             duration: booking.duration,
+            // Feed bookings carry a "Reservation URL: ..." description; ones
+            // typed in by hand do not. That is what lets the unbook step tell
+            // them apart.
+            description: booking.description ?? "",
           },
         ])
     )
@@ -304,6 +308,18 @@ export const runAirbnbSync = async (params: {
       if (todayBookingMap.has(key as string)) return false;
       // Empty feed for this room — treat as "unknown", never as "cancelled".
       if (roomsWithNoFeed.has((value as any).room)) return false;
+
+      // Only ever remove bookings the FEED created.
+      //
+      // A last-minute booking never reaches the iCal export, so it is typed in
+      // by hand — and it lives under the same AirBnB guest as everything else.
+      // To this loop that is indistinguishable from a cancelled reservation:
+      // present in the calendar, absent from the feed. Without this, the first
+      // sync after entering one would delete it.
+      //
+      // Feed bookings carry a "Reservation URL: ..." description. Anything
+      // without one was not created here, so it is not ours to remove.
+      if (!String((value as any).description ?? "").startsWith("Reservation URL")) return false;
       if (!reservedDatesSet.has(key as string)) return true;
 
       const newMeta = newReservationMetaMap.get(key as string);
