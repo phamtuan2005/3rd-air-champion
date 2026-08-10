@@ -27,15 +27,29 @@ const RoomsToClean = ({ selectedDate, monthMap, hostId, token, senderName }: Roo
   // Cleaning ticks live on the server so both phones agree. Same record the
   // To Do modal writes; cleaning ids cannot collide with reminder ids.
   const [done, setDone] = useState<Record<string, { doneBy: string; at: string }>>({});
+  // Refetch whenever the app comes back to the foreground.
+  //
+  // MobilePanel never unmounts its children, so a mount-only fetch runs once
+  // for the life of the page: reopening the panel would show whatever was true
+  // when TiMag was first loaded. Cindy ticks something, Anh-Tuan picks up his
+  // phone, and without this he sees stale state until a full reload — which
+  // defeats the point of sharing the record at all.
   useEffect(() => {
     if (!hostId || !token) return;
-    fetchSentReminders(hostId, token)
-      .then((rows) =>
-        setDone(
-          Object.fromEntries(rows.map((r) => [r.taskId, { doneBy: r.sentBy, at: r.sentAt }])),
-        ),
-      )
-      .catch(() => setDone({}));
+    let live = true;
+    const load = () =>
+      fetchSentReminders(hostId, token)
+        .then((rows) => { if (live) setDone(Object.fromEntries(rows.map((r) => [r.taskId, { doneBy: r.sentBy, at: r.sentAt }]))); })
+        .catch(() => {});
+    load();
+    const onVisible = () => { if (document.visibilityState === "visible") load(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", load);
+    return () => {
+      live = false;
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", load);
+    };
   }, [hostId, token]);
 
   const selKey = dk(selectedDate);

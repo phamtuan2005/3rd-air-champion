@@ -41,17 +41,29 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
     Record<string, { sentBy: string; sentAt: string }>
   >({});
 
+  // Refetch whenever the app comes back to the foreground.
+  //
+  // MobilePanel never unmounts its children, so a mount-only fetch runs once
+  // for the life of the page: reopening the panel would show whatever was true
+  // when TiMag was first loaded. Cindy ticks something, Anh-Tuan picks up his
+  // phone, and without this he sees stale state until a full reload — which
+  // defeats the point of sharing the record at all.
   useEffect(() => {
     if (!hostId || !token) return;
-    fetchSentReminders(hostId, token)
-      .then((rows) =>
-        setSentReminders(
-          Object.fromEntries(
-            rows.map((r) => [r.taskId, { sentBy: r.sentBy, sentAt: r.sentAt }]),
-          ),
-        ),
-      )
-      .catch(() => setSentReminders({}));
+    let live = true;
+    const load = () =>
+      fetchSentReminders(hostId, token)
+        .then((rows) => { if (live) setSentReminders(Object.fromEntries(rows.map((r) => [r.taskId, { sentBy: r.sentBy, sentAt: r.sentAt }]))); })
+        .catch(() => {});
+    load();
+    const onVisible = () => { if (document.visibilityState === "visible") load(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", load);
+    return () => {
+      live = false;
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", load);
+    };
   }, [hostId, token]);
 
   // Optimistic, but reverted if the server refuses — a tick that only exists on

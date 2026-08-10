@@ -294,9 +294,22 @@ const MainView = ({
   const [sentReminderIds, setSentReminderIds] = useState<string[]>([]);
   useEffect(() => {
     if (!hostId || !token) return;
-    fetchSentReminders(hostId, token)
-      .then((rows) => setSentReminderIds(rows.map((r) => r.taskId)))
-      .catch(() => setSentReminderIds([]));
+    let live = true;
+    const load = () =>
+      fetchSentReminders(hostId, token)
+        .then((rows) => { if (live) setSentReminderIds(rows.map((r) => r.taskId)); })
+        .catch(() => {});
+    load();
+    // The badge has to move when the OTHER phone ticks something, so refresh on
+    // return-to-foreground rather than only on mount.
+    const onVisible = () => { if (document.visibilityState === "visible") load(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", load);
+    return () => {
+      live = false;
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", load);
+    };
   }, [hostId, token, badgeTick]);
 
   const { occupancy, profit } = useCalendarStats({
