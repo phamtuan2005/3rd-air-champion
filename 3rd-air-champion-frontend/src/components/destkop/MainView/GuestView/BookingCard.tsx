@@ -130,6 +130,12 @@ const BookingCard = ({
   const roomColor = getRoomColor(booking.room.name, booking.room.color);
 
   const guestRate = isAirBnB ? null : (booking.price ?? 0);
+  // A last-minute AirBnB stay is typed in by hand and never appears in the feed,
+  // so it carries no "Reservation URL" description. Feed bookings are owned by
+  // the sync and deliberately not deletable here; a hand-entered one has no such
+  // owner, so it must be removable — and "Open on Airbnb" is meaningless for it.
+  const isManualAirBnB =
+    isAirBnB && !String(booking.description || "").startsWith("Reservation URL");
   // Extra fees (parking, cleaning, on-site AirBnB charges, …) fold into the total
   const feeSum = feesTotal(booking.fees);
 
@@ -424,6 +430,15 @@ const BookingCard = ({
                         Unbook
                       </button>
                     </>
+                  ) : isManualAirBnB ? (
+                    <button
+                      type="button"
+                      className={rowDanger}
+                      onClick={() => closeThen(() => onRequestUnbook(booking))}
+                    >
+                      <FaRegTrashAlt size={14} className="shrink-0" />
+                      Unbook
+                    </button>
                   ) : (
                     <button
                       type="button"
