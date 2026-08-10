@@ -913,7 +913,7 @@ const CalendarGrid = ({
   return (
     <div
       ref={scrollContainerRef}
-      className={`flex-1 min-h-0 ${horizontalPaging ? "flex overflow-x-scroll overflow-y-hidden snap-x" : "overflow-y-scroll snap-y"} snap-mandatory`}
+      className={`flex-1 min-h-0 ${horizontalPaging ? "flex overflow-x-scroll overflow-y-hidden snap-x overscroll-contain touch-pan-x" : "overflow-y-scroll snap-y overscroll-y-contain"} snap-mandatory`}
       onScroll={handleScroll}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
