@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { MdCleaningServices } from "react-icons/md";
 import { FaUserFriends, FaDoorOpen, FaChevronDown, FaCheck } from "react-icons/fa";
 
@@ -58,6 +59,32 @@ interface CalendarModePickerProps {
 const CalendarModePicker = ({ mode, onChange }: CalendarModePickerProps) => {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  // Screen coordinates for the panel.
+  //
+  // The header sits inside containers that clip their overflow, so an
+  // absolutely-positioned panel was cut off with only the first row visible.
+  // Rendering into document.body escapes every clipping ancestor, but then the
+  // panel has to be placed from the trigger's own rect rather than inherited
+  // layout.
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!open || !btnRef.current) return;
+    const place = () => {
+      const r = btnRef.current!.getBoundingClientRect();
+      setPos({ top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) });
+    };
+    place();
+    // Reposition rather than drift: the header can move under the panel.
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open]);
   const current = MODES.find((m) => m.value === mode) ?? MODES[0];
 
   // Close on outside tap or Escape. The calendar beneath is the whole screen on
@@ -65,7 +92,9 @@ const CalendarModePicker = ({ mode, onChange }: CalendarModePickerProps) => {
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent | TouchEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      // The panel lives in a portal, so it is outside wrapRef — check both.
+      if (!wrapRef.current?.contains(t) && !panelRef.current?.contains(t)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
@@ -83,6 +112,7 @@ const CalendarModePicker = ({ mode, onChange }: CalendarModePickerProps) => {
   return (
     <div ref={wrapRef} className="relative shrink-0">
       <button
+        ref={btnRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         title="What the calendar bars show"
@@ -98,12 +128,14 @@ const CalendarModePicker = ({ mode, onChange }: CalendarModePickerProps) => {
         />
       </button>
 
-      {open && (
-        // Right-aligned: this sits near the right edge of a phone header, and a
-        // left-aligned panel would run off screen.
+      {open && pos && createPortal(
+        // Right-aligned to the trigger: it sits near the right edge of a phone
+        // header, so a left-aligned panel would run off screen.
         <div
+          ref={panelRef}
           role="listbox"
-          className="absolute right-0 z-50 mt-1 w-60 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg"
+          style={{ position: "fixed", top: pos.top, right: pos.right }}
+          className="z-[200] w-60 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg"
         >
           {MODES.map((m) => {
             const selected = m.value === mode;
@@ -134,7 +166,8 @@ const CalendarModePicker = ({ mode, onChange }: CalendarModePickerProps) => {
               </button>
             );
           })}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
