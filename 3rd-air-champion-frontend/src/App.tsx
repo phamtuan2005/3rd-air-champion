@@ -51,6 +51,20 @@ function App() {
     localStorage.setItem("calendarRowsPerPage", String(clamped));
   };
 
+  // Lane height in px. Clamped rather than trusted: it drives how many week-rows
+  // fit a page, so a bad stored value would leave the calendar unusable with no
+  // obvious way back.
+  const clampRowHeight = (n: number) => Math.min(48, Math.max(16, n));
+  const [rowHeight, setRowHeightState] = useState<number>(() => {
+    const v = parseInt(localStorage.getItem("calendarRowHeight") || "26", 10);
+    return Number.isFinite(v) ? clampRowHeight(v) : 26;
+  });
+  const setRowHeight = (n: number) => {
+    const clamped = clampRowHeight(n);
+    setRowHeightState(clamped);
+    localStorage.setItem("calendarRowHeight", String(clamped));
+  };
+
   const [currentGuest, setCurrentGuest] = useState<string | null>(null);
   const [currentAirBnBGuest, setCurrentAirBnBGuest] = useState<string | null>(
     null,
@@ -215,6 +229,8 @@ function App() {
                 setIsMiscOpen,
                 rowsPerPage,
                 setRowsPerPage,
+                rowHeight,
+                setRowHeight,
               }}
             >
               {/* Use the DYNAMIC viewport height on mobile: plain 100vh (h-screen)

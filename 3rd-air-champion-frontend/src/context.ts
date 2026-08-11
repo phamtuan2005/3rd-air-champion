@@ -25,6 +25,10 @@ interface AddPaneContextType {
   // Weeks-per-page on a narrow phone — a per-device setting tuned from the menu.
   rowsPerPage: number;
   setRowsPerPage: (n: number) => void;
+  // Height of one room's lane, in px. Per-device like rowsPerPage: the phone
+  // held at arm's length and the desktop monitor want different answers.
+  rowHeight: number;
+  setRowHeight: (n: number) => void;
 }
 
 interface FooterContextType {

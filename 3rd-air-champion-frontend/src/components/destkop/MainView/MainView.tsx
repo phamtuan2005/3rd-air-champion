@@ -139,6 +139,7 @@ const MainView = ({
     isMiscOpen: boolean;
     setIsMiscOpen: React.Dispatch<React.SetStateAction<boolean>>;
     rowsPerPage: number;
+    rowHeight: number;
   };
   const {
     showAddPane,
@@ -154,6 +155,7 @@ const MainView = ({
     isMiscOpen,
     setIsMiscOpen,
     rowsPerPage,
+    rowHeight,
   } = addPaneContext;
 
   const { currentGuest, setCurrentGuest, currentAirBnBGuest, setCurrentAirBnBGuest } =
@@ -880,6 +882,7 @@ const MainView = ({
               onCleanDayClick={(date) => setCleanDayKey(format(date, "yyyy-MM-dd"))}
               onTodayInViewChange={setTodayInView}
               rowsPerPage={rowsPerPage}
+              rowHeight={rowHeight}
             />
             {/* Contact-info sheet — a draggable bottom sheet. Pull the grip up to
                 reveal the property/license details, tap or drag it down to minimize

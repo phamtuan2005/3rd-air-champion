@@ -49,9 +49,21 @@ interface CalendarGridProps {
   // Host-tunable cap on weeks-per-page for narrow phones (default 4). Stored
   // per-device; only bites on narrow screens in full-calendar mode.
   rowsPerPage?: number;
+  // Height of one room's lane in px. The colour bar fills the lane and the
+  // guest name is sized from it, so this scales both together.
+  rowHeight?: number;
 }
 
+// Default lane height. Overridable per device via the rowHeight prop — this
+// stays the fallback for callers that do not set it (TiBook).
 const SUBROW_HEIGHT = 26; // color-box height per room row (was 20; +30% for legibility)
+
+// The guest name is sized FROM the lane height rather than set independently, so
+// a taller lane cannot leave a small name floating in whitespace. 0.8rem at the
+// 26px default is the ratio the calendar was tuned at; the clamp keeps the text
+// legible at the smallest lane and stops it outgrowing the tallest.
+const labelRemFor = (laneHeight: number) =>
+  Math.min(1.15, Math.max(0.62, (laneHeight / 26) * 0.8));
 
 // Key a grid cell by its LOCAL calendar day. date.toISOString() converts to UTC, which
 // shifts the day for east-of-UTC timezones and breaks monthMap lookups; local components
@@ -83,6 +95,7 @@ const CalendarGrid = ({
   gapsMode = false,
   onTodayInViewChange,
   rowsPerPage = 4,
+  rowHeight: laneHeight = SUBROW_HEIGHT,
 }: CalendarGridProps) => {
   const [months, setMonths] = useState<Date[]>([]);
   const [visibleIndex, setVisibleIndex] = useState<number>(monthsBack);
@@ -144,7 +157,7 @@ const CalendarGrid = ({
   }, [overrideRooms, monthMap]);
 
   const maxRooms = guestLanes ? guestLanes.count : usedRooms.length;
-  const minRowHeight = (maxRooms + 1) * SUBROW_HEIGHT;
+  const minRowHeight = (maxRooms + 1) * laneHeight;
   // On a narrow phone (FULL-calendar mode only), cap weeks-per-page so each
   // week-row is taller and more legible — and the current week is far less likely
   // to sit crushed at the very bottom of a packed page. Desktop keeps the whole
@@ -632,7 +645,7 @@ const CalendarGrid = ({
     // Guest-name size inside booking bars. Bumped from 0.65 — 10px strained the
     // eye reading who's in which room; multi-night bars have room to spare, only
     // 1-night stays truncate a touch sooner.
-    const textSize = 0.8;
+    const textSize = labelRemFor(laneHeight);
 
     return (
       <>
@@ -970,7 +983,7 @@ const CalendarGrid = ({
                       style={
                         {
                           "--max-rows": (maxRooms + 1).toString(),
-                          "--subrow-h": `${SUBROW_HEIGHT}px`,
+                          "--subrow-h": `${laneHeight}px`,
                         } as React.CSSProperties
                       }
                     >
