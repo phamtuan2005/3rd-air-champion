@@ -1,6 +1,5 @@
 import CalendarModePicker from "./CalendarModePicker";
 import WeeksPerPagePicker from "./WeeksPerPagePicker";
-import RowHeightPicker from "./RowHeightPicker";
 import { addDays, compareAsc, isSameDay, isSameMonth } from "date-fns";
 import { useContext, useEffect, useState } from "react";
 import { dayType } from "../../../../util/types/dayType";
@@ -62,11 +61,9 @@ const CalendarNavigator = ({
   setCleanMode,
 }: CalendarNavigatorProps) => {
   const { setIsFooterVisible } = useContext(FooterContext)!;
-  const { rowsPerPage, setRowsPerPage, rowHeight, setRowHeight } = useContext(AddPaneContext) as {
+  const { rowsPerPage, setRowsPerPage } = useContext(AddPaneContext) as {
     rowsPerPage: number;
     setRowsPerPage: React.Dispatch<React.SetStateAction<number>>;
-    rowHeight: number;
-    setRowHeight: (n: number) => void;
   };
   const [showDetails, setShowDetails] = useState(false);
   const [guestBill, setGuestBill] = useState<number | null>(null);
@@ -168,9 +165,6 @@ const CalendarNavigator = ({
                 value={rowsPerPage}
                 onChange={(v) => setRowsPerPage(v)}
               />
-              {/* Beside the weeks picker, because the two trade against each
-                  other: taller rows mean fewer weeks fit a page. */}
-              <RowHeightPicker value={rowHeight} onChange={(v) => setRowHeight(v)} />
             </div>
             {/* Total profit moved to the stats line below, where it sits beside
                 the AirBnB figures it should be read against. */}

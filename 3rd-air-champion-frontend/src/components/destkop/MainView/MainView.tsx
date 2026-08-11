@@ -140,6 +140,7 @@ const MainView = ({
     setIsMiscOpen: React.Dispatch<React.SetStateAction<boolean>>;
     rowsPerPage: number;
     rowHeight: number;
+    setRowHeight: (n: number) => void;
   };
   const {
     showAddPane,
@@ -156,6 +157,7 @@ const MainView = ({
     setIsMiscOpen,
     rowsPerPage,
     rowHeight,
+    setRowHeight,
   } = addPaneContext;
 
   const { currentGuest, setCurrentGuest, currentAirBnBGuest, setCurrentAirBnBGuest } =
@@ -883,6 +885,7 @@ const MainView = ({
               onTodayInViewChange={setTodayInView}
               rowsPerPage={rowsPerPage}
               rowHeight={rowHeight}
+              onRowHeightChange={setRowHeight}
             />
             {/* Contact-info sheet — a draggable bottom sheet. Pull the grip up to
                 reveal the property/license details, tap or drag it down to minimize

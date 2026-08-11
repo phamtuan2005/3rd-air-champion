@@ -52,6 +52,9 @@ interface CalendarGridProps {
   // Height of one room's lane in px. The colour bar fills the lane and the
   // guest name is sized from it, so this scales both together.
   rowHeight?: number;
+  // Supplied by TiMag only. Its presence is what puts the resize grip on the
+  // calendar — TiBook has no per-device lane setting and gets no grip.
+  onRowHeightChange?: (n: number) => void;
 }
 
 // Default lane height. Overridable per device via the rowHeight prop — this
@@ -96,6 +99,7 @@ const CalendarGrid = ({
   onTodayInViewChange,
   rowsPerPage = 4,
   rowHeight: laneHeight = SUBROW_HEIGHT,
+  onRowHeightChange,
 }: CalendarGridProps) => {
   const [months, setMonths] = useState<Date[]>([]);
   const [visibleIndex, setVisibleIndex] = useState<number>(monthsBack);
@@ -933,12 +937,51 @@ const CalendarGrid = ({
   const handleTileClick = (date: Date) =>
     onDoubleClick ? getDayContent(date) : onDateClick?.(date);
 
+  // Drag the grip to size the lanes. Continuous, not four preset steps: the
+  // right height depends on the phone, the eyesight and how far away it is
+  // being held, and none of that is knowable from here.
+  //
+  // The divisor is what makes it feel like resizing rather than nudging a
+  // number. A week-row is (rooms + 1) lanes tall, so dividing the drag by that
+  // makes the row under your finger grow exactly as far as you pull.
+  const resizeRef = useRef<{ y: number; lane: number } | null>(null);
+  // Last value pushed upward. A pointermove fires far more often than the lane
+  // actually changes — the drag is divided by six here — and every call
+  // re-renders the whole calendar, so repeats are dropped rather than sent.
+  const lastSentRef = useRef<number | null>(null);
+  const [resizing, setResizing] = useState(false);
+
+  const onGripDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    resizeRef.current = { y: e.clientY, lane: laneHeight };
+    lastSentRef.current = laneHeight;
+    setResizing(true);
+  };
+
+  const onGripMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const start = resizeRef.current;
+    if (!start || !onRowHeightChange) return;
+    const perWeekRow = Math.max(1, maxRooms + 1);
+    // Measured from where the drag STARTED, never accumulated per event, so
+    // overshooting a clamp and dragging back returns to where you expect.
+    const next = Math.round(start.lane + (e.clientY - start.y) / perWeekRow);
+    if (next === lastSentRef.current) return;
+    lastSentRef.current = next;
+    onRowHeightChange(next);
+  };
+
+  const endGrip = (e: React.PointerEvent<HTMLDivElement>) => {
+    resizeRef.current = null;
+    setResizing(false);
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+  };
+
   const displayLayouts =
     pageLayouts.length > 0
       ? pageLayouts
       : months.map((m) => ({ month: m, cells: [] as (Date | null)[] }));
 
-  return (
+  const grid = (
     <div
       ref={scrollContainerRef}
       className={`flex-1 min-h-0 ${horizontalPaging ? "flex overflow-x-scroll overflow-y-hidden snap-x overscroll-contain touch-pan-x" : "overflow-y-scroll snap-y overscroll-y-contain"} snap-mandatory`}
@@ -997,6 +1040,34 @@ const CalendarGrid = ({
           </div>
         );
       })}
+    </div>
+  );
+
+  // No setter, no grip — TiBook renders exactly what it always did, with no
+  // extra wrapper in its layout.
+  if (!onRowHeightChange) return grid;
+
+  return (
+    <div className="flex flex-1 min-h-0 flex-col">
+      {grid}
+      {/* The handle-bar idiom used elsewhere in TiMag: a grey pill, dragged
+          vertically, bottom edge anchored. touch-none so the drag resizes
+          instead of scrolling the page out from under it. */}
+      <div
+        className="flex shrink-0 cursor-ns-resize touch-none select-none items-center justify-center gap-2 py-1.5"
+        onPointerDown={onGripDown}
+        onPointerMove={onGripMove}
+        onPointerUp={endGrip}
+        onPointerCancel={endGrip}
+        title="Drag to resize rows"
+      >
+        <div className={`h-1 w-10 rounded-full transition-colors ${resizing ? "bg-gray-500" : "bg-gray-300"}`} />
+        {/* Only while dragging: a permanent number would be clutter, but mid-drag
+            it is the difference between aiming and guessing. */}
+        {resizing && (
+          <span className="text-[10px] font-semibold tabular-nums text-gray-500">{laneHeight}px</span>
+        )}
+      </div>
     </div>
   );
 };

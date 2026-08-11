@@ -36,6 +36,7 @@ interface CustomCalendarProps {
   onTodayInViewChange?: (inView: boolean) => void;
   rowsPerPage?: number;
   rowHeight?: number;
+  onRowHeightChange?: (n: number) => void;
 }
 
 const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -63,6 +64,7 @@ const CustomCalendar = ({
   onTodayInViewChange,
   rowsPerPage,
   rowHeight,
+  onRowHeightChange,
 }: CustomCalendarProps) => {
   const [useMonthMap, setUseMonthMap] = useState<Map<string, dayType>>(monthMap);
 
@@ -267,6 +269,7 @@ const CustomCalendar = ({
       onTodayInViewChange={onTodayInViewChange}
       rowsPerPage={rowsPerPage}
       rowHeight={rowHeight}
+      onRowHeightChange={onRowHeightChange}
     />
   );
 };
