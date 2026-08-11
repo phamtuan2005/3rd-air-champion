@@ -1,12 +1,12 @@
 ﻿import { useEffect, useMemo, useState } from "react";
-import { startOfToday, startOfMonth, endOfMonth, eachDayOfInterval, subMonths } from "date-fns";
+import { startOfToday, startOfMonth, endOfMonth, eachDayOfInterval, subMonths, startOfWeek, addDays, isSameMonth } from "date-fns";
 import { format } from "date-fns-tz";
 import { dayType } from "../../../util/types/dayType";
 import { roomType } from "../../../util/types/roomType";
 import RoomBadge from "../../shared/RoomBadge";
 import { fetchAssignments, fetchCleaners, rateOn, CleanerType, CleaningAssignmentType } from "../../../util/cleanerOperations";
 import { fetchMiscExpenses, isExpenseInMonth } from "../../../util/miscOperations";
-import { bookingNightAmount, getRoomMonthEstimates, monthDateKeys, getWeekdayStats, WEEKEND_NIGHTS } from "../../../util/profit";
+import { bookingNightAmount, getRoomMonthEstimates, monthDateKeys, getDayGross } from "../../../util/profit";
 import { getCleaningEntriesFor } from "../../../util/cleaningTasks";
 
 // App money palette (matches the Total / Net badges): emerald for profit, rose
@@ -500,38 +500,45 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
   // Shared style so the Total and Net profit amounts always render identical size.
   const bigAmountCls = "inline-block rounded-lg px-3 py-1 text-2xl font-bold text-white";
 
-  // Day-of-week earnings over the trailing 26 weeks. Independent of the month
-  // being viewed — a weekday pattern needs a long window, not one month.
-  const weekday = useMemo(() => getWeekdayStats(monthMap, rooms, 26), [monthMap, rooms]);
+  // One week at a time: what each day of THAT week actually earned.
+  //
+  // An average across many weeks answers a different question — it smooths
+  // away the week being looked at, which is the one with a slow Tuesday in it.
+  const [weekStart, setWeekStart] = useState<Date>(() =>
+    startOfWeek(isSameMonth(startOfToday(), currentMonth) ? startOfToday() : startOfMonth(currentMonth), {
+      weekStartsOn: 0,
+    }),
+  );
 
-  const weekdaySplit = useMemo(() => {
-    const rows = weekday.rows;
-    if (rows.length === 0) return null;
-    const weekendRows = rows.filter((r) => WEEKEND_NIGHTS.includes(r.weekday));
-    const weekRows = rows.filter((r) => !WEEKEND_NIGHTS.includes(r.weekday));
-    const mean = (xs: number[]) => (xs.length ? xs.reduce((p, c) => p + c, 0) / xs.length : 0);
-    const weekendPerNight = mean(weekendRows.map((r) => r.perNight));
-    const weekPerNight = mean(weekRows.map((r) => r.perNight));
-    const weekendRate = mean(weekendRows.filter((r) => r.rate > 0).map((r) => r.rate));
-    const weekRate = mean(weekRows.filter((r) => r.rate > 0).map((r) => r.rate));
-    const weekendOcc = mean(weekendRows.map((r) => r.occupancy));
-    const weekOcc = mean(weekRows.map((r) => r.occupancy));
-    const gap = weekendPerNight - weekPerNight;
-    return {
-      weekendPerNight,
-      weekPerNight,
-      weekendRate,
-      weekRate,
-      weekendOcc,
-      weekOcc,
-      gap,
-      pct: weekPerNight > 0 ? (gap / weekPerNight) * 100 : 0,
-      // Two weekend nights a week, so ~8.7 a month. What the gap is worth over
-      // a month is the figure that decides whether it is worth acting on — a
-      // few dollars a night sounds ignorable and may not be.
-      perMonth: gap * (52 / 12) * WEEKEND_NIGHTS.length,
-    };
-  }, [weekday]);
+  // Follow the calendar when the host changes month, landing on the current
+  // week if that month contains today and on its first week otherwise.
+  useEffect(() => {
+    setWeekStart(
+      startOfWeek(isSameMonth(startOfToday(), currentMonth) ? startOfToday() : startOfMonth(currentMonth), {
+        weekStartsOn: 0,
+      }),
+    );
+  }, [currentMonth]);
+
+  const weekDays = useMemo(() => {
+    const rows = Array.from({ length: 7 }, (_, i) => {
+      const date = addDays(weekStart, i);
+      const key = format(date, "yyyy-MM-dd", { timeZone });
+      const day = monthMap.get(key);
+      // The same per-night formula the Daily Profit tab uses, so a day here and
+      // a day there can never disagree.
+      const gross = getDayGross(day, key).total;
+      const roomsSold = day ? new Set(day.bookings.filter((x) => x.room).map((x) => x.room!.id)).size : 0;
+      return { date, key, label: format(date, "EEE", { timeZone }), dayNum: format(date, "d", { timeZone }), gross, roomsSold };
+    });
+    const total = rows.reduce((sum, r) => sum + r.gross, 0);
+    const earning = rows.filter((r) => r.gross > 0);
+    const best = earning.length ? earning.reduce((x, y) => (y.gross > x.gross ? y : x)) : null;
+    const worst = earning.length ? earning.reduce((x, y) => (y.gross < x.gross ? y : x)) : null;
+    return { rows, total, best, worst, any: earning.length > 0 };
+  }, [weekStart, monthMap, timeZone]);
+
+  const todayKey = format(startOfToday(), "yyyy-MM-dd", { timeZone });
 
   const monthLabel = currentMonth.toLocaleString("default", {
     month: "long",
@@ -556,7 +563,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
         {(
           [
             ["month", "This Month"],
-            ["weekday", "By Weekday"],
+            ["weekday", "Weekly"],
             ["profit", "Monthly Profit"],
             ["bookings", "Monthly Bookings"],
           ] as const
@@ -578,119 +585,80 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
 
       {tab === "weekday" && (
         <>
-          {weekday.rows.length === 0 || weekday.revenue === 0 ? (
-            <p className="rounded-xl border border-gray-200 p-4 text-xs text-gray-500">
-              Not enough history yet to compare days of the week.
-            </p>
-          ) : (
-            <>
-              {/* The verdict first. The host already suspects the answer; the
-                  job of this tab is to say by how much, not to leave them to
-                  infer it from a chart. */}
-              {weekdaySplit && (
-                <div className="rounded-xl border border-gray-200 p-3">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <h3 className="text-xs font-bold text-gray-700">Weekend vs weekday</h3>
-                    <span className="text-[10px] text-gray-400">
-                      {weekday.weeks} weeks to{" "}
-                      {format(new Date(`${weekday.to}T12:00:00`), "MMM d", { timeZone })}
+          {/* Week picker. Arrows rather than a date field: the question is
+              almost always "this week" or "the one before". */}
+          <div className="flex items-center justify-between gap-2 rounded-xl border border-gray-200 px-2 py-1.5">
+            <button
+              type="button"
+              onClick={() => setWeekStart((w) => addDays(w, -7))}
+              className="rounded-lg px-2 py-1 text-sm font-bold text-gray-500 hover:bg-gray-100"
+              aria-label="Previous week"
+            >
+              ‹
+            </button>
+            <span className="text-xs font-bold text-gray-700">
+              {format(weekStart, "MMM d", { timeZone })} – {format(addDays(weekStart, 6), "MMM d", { timeZone })}
+            </span>
+            <button
+              type="button"
+              onClick={() => setWeekStart((w) => addDays(w, 7))}
+              className="rounded-lg px-2 py-1 text-sm font-bold text-gray-500 hover:bg-gray-100"
+              aria-label="Next week"
+            >
+              ›
+            </button>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 p-3">
+            <div className="flex items-baseline justify-between gap-2">
+              <h3 className="text-xs font-bold text-gray-700">Profit by day</h3>
+              <span className="text-lg font-bold text-emerald-600">{dollars(weekDays.total)}</span>
+            </div>
+
+            <div className="mt-2 flex flex-col gap-1.5">
+              {weekDays.rows.map((r) => {
+                const max = Math.max(...weekDays.rows.map((x) => x.gross), 1);
+                const isToday = r.key === todayKey;
+                const isBest = weekDays.best?.key === r.key && weekDays.total > 0;
+                return (
+                  <div key={r.key} className="flex items-center gap-2">
+                    <span
+                      className={`w-14 shrink-0 text-[11px] font-semibold ${
+                        isToday ? "text-blue-600" : "text-gray-500"
+                      }`}
+                    >
+                      {r.label} {r.dayNum}
+                    </span>
+                    <div className="h-4 flex-1 overflow-hidden rounded bg-gray-100">
+                      <div
+                        className={`h-full rounded ${isBest ? "bg-emerald-600" : "bg-emerald-400"}`}
+                        style={{ width: `${(r.gross / max) * 100}%` }}
+                      />
+                    </div>
+                    <span className="w-12 shrink-0 text-right text-[11px] font-bold text-gray-800">
+                      {r.gross > 0 ? dollars(r.gross) : "—"}
+                    </span>
+                    <span className="w-8 shrink-0 text-right text-[10px] text-gray-400">
+                      {r.roomsSold > 0 ? `${r.roomsSold}rm` : ""}
                     </span>
                   </div>
+                );
+              })}
+            </div>
 
-                  <p className="mt-1 text-sm font-bold text-gray-900">
-                    {Math.abs(weekdaySplit.pct) < 3 ? (
-                      "Weekends and weekdays earn about the same"
-                    ) : (
-                      <>
-                        Fri–Sat earn{" "}
-                        <span className={weekdaySplit.gap > 0 ? "text-emerald-600" : "text-rose-600"}>
-                          {fmtPct(Math.abs(weekdaySplit.pct))} {weekdaySplit.gap > 0 ? "more" : "less"}
-                        </span>{" "}
-                        a night than Sun–Thu
-                      </>
-                    )}
-                  </p>
+            {weekDays.any && weekDays.best && weekDays.worst && weekDays.best.key !== weekDays.worst.key && (
+              <p className="mt-2 text-[11px] leading-tight text-gray-600">
+                Best {weekDays.best.label} {dollars(weekDays.best.gross)} · weakest {weekDays.worst.label}{" "}
+                {dollars(weekDays.worst.gross)} — a spread of {dollars(weekDays.best.gross - weekDays.worst.gross)}.
+              </p>
+            )}
 
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    <div className="rounded-lg bg-gray-50 p-2">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Sun–Thu</p>
-                      <p className="text-lg font-bold text-gray-900">{dollars(weekdaySplit.weekPerNight)}</p>
-                      <p className="text-[10px] text-gray-500">
-                        {dollars(weekdaySplit.weekRate)}/room · {fmtPct(weekdaySplit.weekOcc * 100)} full
-                      </p>
-                    </div>
-                    <div className="rounded-lg bg-emerald-50 p-2">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">Fri–Sat</p>
-                      <p className="text-lg font-bold text-emerald-700">{dollars(weekdaySplit.weekendPerNight)}</p>
-                      <p className="text-[10px] text-emerald-700">
-                        {dollars(weekdaySplit.weekendRate)}/room · {fmtPct(weekdaySplit.weekendOcc * 100)} full
-                      </p>
-                    </div>
-                  </div>
-
-                  {Math.abs(weekdaySplit.pct) >= 3 && (
-                    <p className="mt-2 text-[11px] leading-tight text-gray-600">
-                      {/* Naming the cause matters more than the size of the gap.
-                          At near-full occupancy a difference cannot come from
-                          empty rooms, so it is a price that was set — which is
-                          actionable in a way that "weak demand" is not. */}
-                      {weekdaySplit.weekOcc > 0.95 && weekdaySplit.weekendOcc > 0.95
-                        ? "Both run near full, so this is pricing rather than demand — weekday nights are simply sold cheaper."
-                        : weekdaySplit.weekendOcc - weekdaySplit.weekOcc > 0.05
-                          ? "Weekday nights sit empty more often — this gap is occupancy, not price."
-                          : "Rate and occupancy both contribute."}
-                    </p>
-                  )}
-
-                  <p className="mt-1 text-[11px] font-semibold text-gray-700">
-                    Worth about {dollars(Math.abs(weekdaySplit.perMonth))} a month.
-                  </p>
-                </div>
-              )}
-
-              {/* Per-day detail underneath, so the Fri/Sat split above can be
-                  checked rather than taken on trust — Sunday in particular
-                  tends to behave like a weekday, and that shows up here. */}
-              <div className="rounded-xl border border-gray-200 p-3">
-                <h3 className="text-xs font-bold text-gray-700">Every night of the week</h3>
-                <div className="mt-2 flex flex-col gap-1.5">
-                  {weekday.rows.map((r) => {
-                    const max = Math.max(...weekday.rows.map((x) => x.perNight), 1);
-                    const isWeekend = WEEKEND_NIGHTS.includes(r.weekday);
-                    return (
-                      <div key={r.weekday} className="flex items-center gap-2">
-                        <span
-                          className={`w-8 shrink-0 text-[11px] font-semibold ${
-                            isWeekend ? "text-emerald-700" : "text-gray-500"
-                          }`}
-                        >
-                          {r.label}
-                        </span>
-                        <div className="h-4 flex-1 overflow-hidden rounded bg-gray-100">
-                          <div
-                            className={`h-full rounded ${isWeekend ? "bg-emerald-500" : "bg-blue-500"}`}
-                            style={{ width: `${(r.perNight / max) * 100}%` }}
-                          />
-                        </div>
-                        <span className="w-12 shrink-0 text-right text-[11px] font-bold text-gray-800">
-                          {dollars(r.perNight)}
-                        </span>
-                        <span className="w-10 shrink-0 text-right text-[10px] text-gray-500">
-                          {fmtPct(r.occupancy * 100)}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-                {/* Legend below the data, per the panel convention. */}
-                <p className="mt-2 text-[10px] leading-tight text-gray-400">
-                  What the whole house earns on one night, and how full it was. Today and
-                  future dates are excluded, and a 26-week window holds exactly 26 of each
-                  weekday so no day is over-counted.
-                </p>
-              </div>
-            </>
-          )}
+            {/* Legend below the data, per the panel convention. */}
+            <p className="mt-1 text-[10px] leading-tight text-gray-400">
+              Each night's takings across the whole house, and how many rooms were sold.
+              Future nights show only what is already booked.
+            </p>
+          </div>
         </>
       )}
 
