@@ -941,9 +941,13 @@ const CalendarGrid = ({
   // right height depends on the phone, the eyesight and how far away it is
   // being held, and none of that is knowable from here.
   //
-  // The divisor is what makes it feel like resizing rather than nudging a
-  // number. A week-row is (rooms + 1) lanes tall, so dividing the drag by that
-  // makes the row under your finger grow exactly as far as you pull.
+  // The handle sits ON the lane's bottom edge, so the drag is 1:1: the edge
+  // goes exactly where the finger goes, like dragging a table row's border.
+  //
+  // The first attempt put the handle under the whole calendar and divided the
+  // drag by (rooms + 1) so the week-row tracked the hand. That is defensible
+  // geometry and unusable in practice — it took 60px of travel to gain 10px of
+  // lane, at the bottom of the screen where the paging swipe also lives.
   const resizeRef = useRef<{ y: number; lane: number } | null>(null);
   // Last value pushed upward. A pointermove fires far more often than the lane
   // actually changes — the drag is divided by six here — and every call
@@ -961,10 +965,9 @@ const CalendarGrid = ({
   const onGripMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const start = resizeRef.current;
     if (!start || !onRowHeightChange) return;
-    const perWeekRow = Math.max(1, maxRooms + 1);
     // Measured from where the drag STARTED, never accumulated per event, so
     // overshooting a clamp and dragging back returns to where you expect.
-    const next = Math.round(start.lane + (e.clientY - start.y) / perWeekRow);
+    const next = Math.round(start.lane + (e.clientY - start.y));
     if (next === lastSentRef.current) return;
     lastSentRef.current = next;
     onRowHeightChange(next);
@@ -995,9 +998,38 @@ const CalendarGrid = ({
         return (
           <div
             key={index}
-            className={`snap-start h-full main-calendar-wrapper ${horizontalPaging ? "w-full shrink-0" : ""}`}
+            className={`relative snap-start h-full main-calendar-wrapper ${horizontalPaging ? "w-full shrink-0" : ""}`}
             ref={index === visibleIndex ? calendarWrapperRef : undefined}
           >
+            {/* Row-resize handle, sitting on the bottom edge of the first room's
+                lane — the boundary it actually moves, so the drag is 1:1.
+                Only on the visible page, and only when a setter was supplied.
+                Deliberately small and hard against the left edge: a full-width
+                handle would swallow taps on the bookings it lies across. */}
+            {onRowHeightChange && index === visibleIndex && (
+              <div
+                className="absolute left-0.5 z-30 flex cursor-ns-resize touch-none select-none items-center gap-1"
+                style={{ top: `${laneHeight - 5}px`, height: "12px" }}
+                onPointerDown={onGripDown}
+                onPointerMove={onGripMove}
+                onPointerUp={endGrip}
+                onPointerCancel={endGrip}
+                title="Drag to resize rows"
+              >
+                <div
+                  className={`flex h-3 w-9 items-center justify-center rounded-full bg-white/95 shadow ring-1 transition-colors ${
+                    resizing ? "ring-gray-500" : "ring-gray-300"
+                  }`}
+                >
+                  <div className={`h-0.5 w-4 rounded-full ${resizing ? "bg-gray-600" : "bg-gray-400"}`} />
+                </div>
+                {resizing && (
+                  <span className="rounded bg-gray-800 px-1 py-0.5 text-[10px] font-semibold tabular-nums text-white">
+                    {laneHeight}px
+                  </span>
+                )}
+              </div>
+            )}
             {inWindow && layout.cells.length > 0 && (
               <div
                 style={{
@@ -1043,33 +1075,7 @@ const CalendarGrid = ({
     </div>
   );
 
-  // No setter, no grip — TiBook renders exactly what it always did, with no
-  // extra wrapper in its layout.
-  if (!onRowHeightChange) return grid;
-
-  return (
-    <div className="flex flex-1 min-h-0 flex-col">
-      {grid}
-      {/* The handle-bar idiom used elsewhere in TiMag: a grey pill, dragged
-          vertically, bottom edge anchored. touch-none so the drag resizes
-          instead of scrolling the page out from under it. */}
-      <div
-        className="flex shrink-0 cursor-ns-resize touch-none select-none items-center justify-center gap-2 py-1.5"
-        onPointerDown={onGripDown}
-        onPointerMove={onGripMove}
-        onPointerUp={endGrip}
-        onPointerCancel={endGrip}
-        title="Drag to resize rows"
-      >
-        <div className={`h-1 w-10 rounded-full transition-colors ${resizing ? "bg-gray-500" : "bg-gray-300"}`} />
-        {/* Only while dragging: a permanent number would be clutter, but mid-drag
-            it is the difference between aiming and guessing. */}
-        {resizing && (
-          <span className="text-[10px] font-semibold tabular-nums text-gray-500">{laneHeight}px</span>
-        )}
-      </div>
-    </div>
-  );
+  return grid;
 };
 
 export default CalendarGrid;
