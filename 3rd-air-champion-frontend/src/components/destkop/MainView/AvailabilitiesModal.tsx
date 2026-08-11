@@ -638,8 +638,9 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
                     <span className="w-12 shrink-0 text-right text-[11px] font-bold text-gray-800">
                       {r.gross > 0 ? dollars(r.gross) : "—"}
                     </span>
-                    <span className="w-8 shrink-0 text-right text-[10px] text-gray-400">
-                      {r.roomsSold > 0 ? `${r.roomsSold}rm` : ""}
+                    {/* Spelled out. "5rm" saved eight pixels and cost a question. */}
+                    <span className="w-14 shrink-0 text-right text-[10px] text-gray-400">
+                      {r.roomsSold > 0 ? `${r.roomsSold} room${r.roomsSold === 1 ? "" : "s"}` : ""}
                     </span>
                   </div>
                 );
