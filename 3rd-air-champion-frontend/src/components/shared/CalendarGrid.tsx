@@ -941,13 +941,18 @@ const CalendarGrid = ({
   // right height depends on the phone, the eyesight and how far away it is
   // being held, and none of that is knowable from here.
   //
-  // The handle sits ON the lane's bottom edge, so the drag is 1:1: the edge
-  // goes exactly where the finger goes, like dragging a table row's border.
+  // The handle sits under the LAST lane, so it is dragging the bottom of a
+  // stack of `maxRooms` lanes. Dividing the drag by that count is what keeps the
+  // handle under the finger: the boundary the host is pulling ends up exactly
+  // where they let go, which is the property that makes a drag handle feel like
+  // direct manipulation rather than a slider in disguise.
   //
-  // The first attempt put the handle under the whole calendar and divided the
-  // drag by (rooms + 1) so the week-row tracked the hand. That is defensible
-  // geometry and unusable in practice — it took 60px of travel to gain 10px of
-  // lane, at the bottom of the screen where the paging swipe also lives.
+  // Two earlier placements failed. Under the whole calendar it sat where the
+  // paging swipe lives. On the FIRST lane's edge the drag could be 1:1, but the
+  // handle had to hug the top-left corner to avoid covering bookings — an
+  // awkward reach, and still over the busiest row on the calendar. Below the
+  // last lane there is a spare grid row that is always empty, so the handle can
+  // sit centred, in the open, covering nothing.
   const resizeRef = useRef<{ y: number; lane: number } | null>(null);
   // Last value pushed upward. A pointermove fires far more often than the lane
   // actually changes — the drag is divided by six here — and every call
@@ -967,7 +972,8 @@ const CalendarGrid = ({
     if (!start || !onRowHeightChange) return;
     // Measured from where the drag STARTED, never accumulated per event, so
     // overshooting a clamp and dragging back returns to where you expect.
-    const next = Math.round(start.lane + (e.clientY - start.y));
+    const lanesAbove = Math.max(1, maxRooms);
+    const next = Math.round(start.lane + (e.clientY - start.y) / lanesAbove);
     if (next === lastSentRef.current) return;
     lastSentRef.current = next;
     onRowHeightChange(next);
@@ -1001,27 +1007,28 @@ const CalendarGrid = ({
             className={`relative snap-start h-full main-calendar-wrapper ${horizontalPaging ? "w-full shrink-0" : ""}`}
             ref={index === visibleIndex ? calendarWrapperRef : undefined}
           >
-            {/* Row-resize handle, sitting on the bottom edge of the first room's
-                lane — the boundary it actually moves, so the drag is 1:1.
-                Only on the visible page, and only when a setter was supplied.
-                Deliberately small and hard against the left edge: a full-width
-                handle would swallow taps on the bookings it lies across. */}
+            {/* Row-resize handle, in the spare grid row beneath the last lane.
+                That row is always empty, so the handle can be centred and
+                comfortably sized without covering a single booking. Only on the
+                visible page, and only when a setter was supplied. */}
             {onRowHeightChange && index === visibleIndex && (
               <div
-                className="absolute left-0.5 z-30 flex cursor-ns-resize touch-none select-none items-center gap-1"
-                style={{ top: `${laneHeight - 5}px`, height: "12px" }}
+                className="absolute left-1/2 z-30 flex -translate-x-1/2 cursor-ns-resize touch-none select-none items-center gap-1 px-3"
+                style={{ top: `${maxRooms * laneHeight + 2}px`, height: "16px" }}
                 onPointerDown={onGripDown}
                 onPointerMove={onGripMove}
                 onPointerUp={endGrip}
                 onPointerCancel={endGrip}
                 title="Drag to resize rows"
               >
+                {/* Wider than it looks tappable: the padding above extends the
+                    hit area into the empty row without enlarging the pill. */}
                 <div
-                  className={`flex h-3 w-9 items-center justify-center rounded-full bg-white/95 shadow ring-1 transition-colors ${
+                  className={`flex h-3.5 w-14 items-center justify-center rounded-full bg-white/95 shadow ring-1 transition-colors ${
                     resizing ? "ring-gray-500" : "ring-gray-300"
                   }`}
                 >
-                  <div className={`h-0.5 w-4 rounded-full ${resizing ? "bg-gray-600" : "bg-gray-400"}`} />
+                  <div className={`h-0.5 w-6 rounded-full ${resizing ? "bg-gray-600" : "bg-gray-400"}`} />
                 </div>
                 {resizing && (
                   <span className="rounded bg-gray-800 px-1 py-0.5 text-[10px] font-semibold tabular-nums text-white">
