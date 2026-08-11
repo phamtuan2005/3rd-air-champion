@@ -745,15 +745,30 @@ const CalendarGrid = ({
             ? (resolveBarLabel ? resolveBarLabel(pmBooking) : defaultLabel)
             : "";
 
+          // How many tiles the guest name may span.
+          //
+          // The label is drawn ONCE, on the stay first night, as an absolutely
+          // positioned span sized to cover the whole stay. So it must be clamped
+          // to the nights left in ITS OWN WEEK ROW: a wider span escapes the row
+          // and paints over whatever the browser lays out to the right.
+          //
+          // The old expression compared duration against the weekday index,
+          // which is not a quantity of remaining days. It truncated mid-week
+          // labels (a Monday 3-night stay got 2 tiles) and, worse, overflowed on
+          // Friday and Saturday starts, where duration - dayIndex went negative
+          // and fell through to the unclamped full duration.
+          //
+          // That overflow was invisible at 3+ weeks per page, where it is
+          // clipped. At 1-2 weeks the pages sit SIDE BY SIDE in a flex row, so a
+          // label running off the right of one page lands on the same row of the
+          // NEXT page: Armando starting Sat Aug 8 (last column of page 1, row 2)
+          // printed itself onto Aug 16 (first column of page 2, row 2), over the
+          // bar of the guest actually staying that night.
           let maxDuration = 1;
           if (pmBooking && pmIsStart) {
-            const dayIndex = getDay(date);
-            maxDuration = Math.max(
-              pmBooking.duration - dayIndex > 1
-                ? Math.min(pmBooking.duration, pmBooking.duration - dayIndex)
-                : pmBooking.duration,
-              1,
-            );
+            const daysLeftInWeek = 7 - getDay(date);
+            maxDuration = Math.max(Math.min(pmBooking.duration, daysLeftInWeek), 1);
+            // The month last day may be followed by cells this page does not draw.
             if (isSameDay(date, endOfMonth(date))) maxDuration = 1;
           }
 
