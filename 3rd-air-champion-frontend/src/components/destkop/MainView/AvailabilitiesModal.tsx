@@ -611,8 +611,19 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
 
           <div className="rounded-xl border border-gray-200 p-3">
             <div className="flex items-baseline justify-between gap-2">
-              <h3 className="text-xs font-bold text-gray-700">Profit by day</h3>
-              <span className="text-lg font-bold text-emerald-600">{dollars(weekDays.total)}</span>
+              {/* Two numbers, two labels. The heading describes the LIST below
+                  it; the big figure is the SUM of that list. Titled "Profit by
+                  day" with a week total beside it, the total read as a daily
+                  figure. And "Gross", not "Profit" — nothing is subtracted here,
+                  and the Daily Profit tab already calls this exact figure Gross.
+                  Two names for one number is how surfaces drift apart. */}
+              <h3 className="text-xs font-bold text-gray-700">Gross per night</h3>
+              <span className="flex items-baseline gap-1">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                  Week total
+                </span>
+                <span className="text-lg font-bold text-emerald-600">{dollars(weekDays.total)}</span>
+              </span>
             </div>
 
             <div className="mt-2 flex flex-col gap-1.5">
@@ -656,8 +667,9 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
 
             {/* Legend below the data, per the panel convention. */}
             <p className="mt-1 text-[10px] leading-tight text-gray-400">
-              Each night's takings across the whole house, and how many rooms were sold.
-              Future nights show only what is already booked.
+              What the whole house took on each night — room rates plus a stay's one-off fees
+              on its check-in night — before cleaning and misc costs. Future nights show only
+              what is already booked.
             </p>
           </div>
         </>
