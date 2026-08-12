@@ -572,12 +572,30 @@ const MainView = ({
   };
 
   const onUpdateGuestFromModal = (guest: guestType, onError: (msg: string) => void) => {
-    updateGuest(
-      { id: guest.id, name: guest.name, phone: guest.phone, email: guest.email, notes: guest.notes, returning: guest.returning },
-      token as string,
-    )
+    // Only the rates that actually changed. Posting every room on every save
+    // would write a $0 override onto rooms the host never touched, and some
+    // guests are on deliberate $0 rates — so a spurious zero is indistinguishable
+    // from an intended one after the fact.
+    const before = new Map(
+      (guests.find((g) => g.id === guest.id)?.pricing ?? []).map((p) => [p.room, p.price]),
+    );
+    const priceUpdates = (guest.pricing ?? [])
+      .filter((p) => before.get(p.room) !== p.price)
+      .map((p) => ({ guest: guest.id, room: p.room, price: p.price }));
+
+    Promise.all(priceUpdates.map((u) => updateGuestPricing(u, token as string)))
+      .then(() =>
+        updateGuest(
+          { id: guest.id, name: guest.name, phone: guest.phone, email: guest.email, notes: guest.notes, returning: guest.returning },
+          token as string,
+        ),
+      )
       .then((result) => {
-        setGuests((prev) => prev.map((g) => (g.id === guest.id ? { ...g, ...result } : g)));
+        setGuests((prev) =>
+          prev.map((g) =>
+            g.id === guest.id ? { ...g, ...result, pricing: guest.pricing ?? g.pricing } : g,
+          ),
+        );
         setIsManageGuestOpen(false);
       })
       .catch((err) => {
@@ -1436,6 +1454,7 @@ const MainView = ({
       {isManageGuestOpen && guests.length > 0 && (
         <ManageGuestModal
           guests={guests}
+          rooms={rooms}
           onClose={() => setIsManageGuestOpen(false)}
           onSave={onUpdateGuestFromModal}
           onAdd={onAddGuestFromModal}

@@ -4,6 +4,7 @@ import { useForm, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { guestType } from "../../../../util/types/guestType";
+import { roomType } from "../../../../util/types/roomType";
 
 const manageGuestSchema = z.object({
   name: z
@@ -24,6 +25,7 @@ type ManageGuestFormData = z.infer<typeof manageGuestSchema>;
 
 interface ManageGuestModalProps {
   guests: guestType[];
+  rooms: roomType[];
   onClose: () => void;
   onSave: (guest: guestType, onError: (msg: string) => void) => void;
   onAdd: (
@@ -41,6 +43,7 @@ interface ManageGuestModalProps {
 
 const ManageGuestModal = ({
   guests,
+  rooms,
   onClose,
   onSave,
   onAdd,
@@ -53,6 +56,25 @@ const ManageGuestModal = ({
   const [selectedGuestId, setSelectedGuestId] = useState<string>(
     selectableGuests[0]?.id ?? "",
   );
+  const activeRooms = [...rooms]
+    .filter((r) => r.active)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Per-room rates, held as STRINGS so "empty" and "0" stay different things.
+  //
+  // That distinction is the whole design here. An empty box means this guest has
+  // no override and pays the room's own rate. A typed 0 means comped — and there
+  // are real guests on deliberate $0 rates, so a blank must never be saved as
+  // zero, nor a zero quietly turned into the room rate.
+  const pricesFor = (guest?: guestType) => {
+    const out: Record<string, string> = {};
+    for (const room of rooms) {
+      const existing = guest?.pricing?.find((p) => p.room === room.id);
+      out[room.id] = existing ? String(existing.price) : "";
+    }
+    return out;
+  };
+
   const [errorMessage, setErrorMessage] = useState("");
   const [pendingConfirm, setPendingConfirm] =
     useState<ManageGuestFormData | null>(null);
@@ -61,6 +83,10 @@ const ManageGuestModal = ({
   const selectedGuest =
     selectableGuests.find((g) => g.id === selectedGuestId) ??
     selectableGuests[0];
+
+  const [prices, setPrices] = useState<Record<string, string>>(() =>
+    pricesFor(selectedGuest),
+  );
 
   const {
     register,
@@ -83,6 +109,7 @@ const ManageGuestModal = ({
     setPendingConfirm(null);
     setConfirmDelete(false);
     const guest = selectableGuests.find((g) => g.id === id);
+    setPrices(pricesFor(guest));
     if (guest) {
       reset({
         name: guest.name,
@@ -104,8 +131,18 @@ const ManageGuestModal = ({
       setPendingConfirm(cleaned);
       return;
     }
-    onSave({ ...selectedGuest, ...cleaned }, (msg) => setErrorMessage(msg));
+    onSave({ ...selectedGuest, ...cleaned, pricing: pricingFromInputs() }, (msg) =>
+      setErrorMessage(msg),
+    );
   };
+
+  // Only rooms with something typed in. A blank box is "no override", which is
+  // not the same as an override of zero and must not be sent as one.
+  const pricingFromInputs = () =>
+    activeRooms
+      .filter((room) => prices[room.id]?.trim() !== "" && prices[room.id] !== undefined)
+      .map((room) => ({ room: room.id, price: Number(prices[room.id]) }))
+      .filter((p) => Number.isFinite(p.price) && p.price >= 0);
 
   return createPortal(
     <div
@@ -204,6 +241,47 @@ const ManageGuestModal = ({
                   {...register("notes")}
                 />
               </div>
+
+              {activeRooms.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium">Room rates</label>
+                  <div className="mt-1 rounded-xl border border-gray-200 divide-y divide-gray-100">
+                    {activeRooms.map((room) => (
+                      <div key={room.id} className="flex items-center gap-2 px-2 py-1.5">
+                        <span
+                          className="h-4 w-1.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: room.color || "#9ca3af" }}
+                        />
+                        <span className="min-w-0 flex-1 truncate text-sm text-gray-700">
+                          {room.name}
+                        </span>
+                        <span className="text-sm text-gray-400">$</span>
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          inputMode="decimal"
+                          // The room's own rate as placeholder, so an empty box
+                          // reads as "pays the usual" rather than as missing data.
+                          placeholder={String(room.price ?? "")}
+                          value={prices[room.id] ?? ""}
+                          onChange={(e) =>
+                            setPrices((p) => ({ ...p, [room.id]: e.target.value }))
+                          }
+                          className="w-20 rounded border border-gray-300 px-2 py-1 text-right text-sm"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  {/* Says what the code actually does. There is no endpoint to
+                      delete a saved rate, so promising that a cleared box removes
+                      one would be a lie the host only discovers later. */}
+                  <p className="mt-1 text-[11px] leading-tight text-gray-400">
+                    Blank means this guest pays the room's usual rate. Enter 0 to comp a room.
+                    A saved rate can be changed, but not cleared.
+                  </p>
+                </div>
+              )}
 
               {errorMessage && (
                 <p className="text-red-500 text-sm">{errorMessage}</p>
