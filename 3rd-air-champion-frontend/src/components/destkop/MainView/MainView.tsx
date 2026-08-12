@@ -596,6 +596,24 @@ const MainView = ({
             g.id === guest.id ? { ...g, ...result, pricing: guest.pricing ?? g.pricing } : g,
           ),
         );
+
+        // Every booking carries its OWN copy of the guest, fetched with the
+        // calendar. Updating the guests list alone leaves those copies behind,
+        // so a changed avatar — or a renamed guest — kept showing the old value
+        // on the booking cards until the next full reload. Patch the embedded
+        // copies here; monthMap is rebuilt from days, so the calendar and the
+        // day list both catch up in the same render.
+        setDays((prev) =>
+          prev.map((d) => ({
+            ...d,
+            bookings: d.bookings.map((b) =>
+              b.guest?.id === guest.id
+                ? { ...b, guest: { ...b.guest, ...result, character: guest.character ?? "" } }
+                : b,
+            ),
+          })),
+        );
+
         setIsManageGuestOpen(false);
       })
       .catch((err) => {
