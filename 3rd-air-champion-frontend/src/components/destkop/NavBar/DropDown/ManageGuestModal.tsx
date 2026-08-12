@@ -3,8 +3,11 @@ import { createPortal } from "react-dom";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { FaChevronDown, FaUser } from "react-icons/fa";
 import { guestType } from "../../../../util/types/guestType";
 import { roomType } from "../../../../util/types/roomType";
+import RoomBadge from "../../../shared/RoomBadge";
+import PickerModal, { PickerOption } from "../../../shared/PickerModal";
 
 const manageGuestSchema = z.object({
   name: z
@@ -22,6 +25,18 @@ const manageGuestSchema = z.object({
 });
 
 type ManageGuestFormData = z.infer<typeof manageGuestSchema>;
+
+// One field style for the whole modal. Previously every input repeated its own
+// border and padding, which is how they drift apart.
+const FIELD =
+  "w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm focus:border-gray-400 focus:outline-none";
+const LABEL = "block text-xs font-semibold text-gray-600";
+
+const prettyPhone = (raw?: string) => {
+  const d = (raw ?? "").replace(/\D/g, "");
+  if (d.length === 10) return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+  return raw ?? "";
+};
 
 interface ManageGuestModalProps {
   guests: guestType[];
@@ -53,9 +68,6 @@ const ManageGuestModal = ({
     .filter((g) => g.name !== "AirBnB")
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const [selectedGuestId, setSelectedGuestId] = useState<string>(
-    selectableGuests[0]?.id ?? "",
-  );
   const activeRooms = [...rooms]
     .filter((r) => r.active)
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -75,10 +87,14 @@ const ManageGuestModal = ({
     return out;
   };
 
+  const [selectedGuestId, setSelectedGuestId] = useState<string>(
+    selectableGuests[0]?.id ?? "",
+  );
   const [errorMessage, setErrorMessage] = useState("");
   const [pendingConfirm, setPendingConfirm] =
     useState<ManageGuestFormData | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [guestPickerOpen, setGuestPickerOpen] = useState(false);
 
   const selectedGuest =
     selectableGuests.find((g) => g.id === selectedGuestId) ??
@@ -120,6 +136,14 @@ const ManageGuestModal = ({
     }
   };
 
+  // Only rooms with something typed in. A blank box is "no override", which is
+  // not the same as an override of zero and must not be sent as one.
+  const pricingFromInputs = () =>
+    activeRooms
+      .filter((room) => (prices[room.id] ?? "").trim() !== "")
+      .map((room) => ({ room: room.id, price: Number(prices[room.id]) }))
+      .filter((p) => Number.isFinite(p.price) && p.price >= 0);
+
   const onSubmit: SubmitHandler<ManageGuestFormData> = (data) => {
     if (!selectedGuest) return;
     setErrorMessage("");
@@ -136,55 +160,69 @@ const ManageGuestModal = ({
     );
   };
 
-  // Only rooms with something typed in. A blank box is "no override", which is
-  // not the same as an override of zero and must not be sent as one.
-  const pricingFromInputs = () =>
-    activeRooms
-      .filter((room) => prices[room.id]?.trim() !== "" && prices[room.id] !== undefined)
-      .map((room) => ({ room: room.id, price: Number(prices[room.id]) }))
-      .filter((p) => Number.isFinite(p.price) && p.price >= 0);
+  // The guest list as picker rows: name in bold, phone underneath. The phone is
+  // what separates two guests with the same first name, so it belongs in the
+  // list rather than only appearing after the choice is made.
+  const guestOptions: PickerOption<string>[] = selectableGuests.map((g) => ({
+    value: g.id,
+    label: g.name,
+    hint: prettyPhone(g.phone) || undefined,
+    Icon: FaUser,
+    accent: "bg-gray-400",
+    rowActive: "bg-gray-50 text-gray-900",
+  }));
 
   return createPortal(
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-lg p-4 w-full max-w-sm shadow-lg flex flex-col gap-3"
+        className="flex max-h-[88vh] w-full max-w-sm flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex flex-col items-center gap-1">
+        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+          <h2 className="text-base font-bold text-gray-900">Manage guest</h2>
           <button
+            type="button"
             onClick={onClose}
-            className="text-gray-500 font-bold text-[1.5rem] leading-none px-6 py-0.5 rounded hover:bg-gray-100"
+            className="rounded-lg px-2 text-xl leading-none text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            aria-label="Close"
           >
             &times;
           </button>
-          <h2 className="font-bold text-lg">Manage Guest</h2>
         </div>
 
         {selectableGuests.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-2">
+          <p className="px-4 py-6 text-center text-sm text-gray-500">
             No returning guests found.
           </p>
         ) : (
-          <>
-            {/* Guest selector */}
+          <div className="flex min-h-0 flex-col gap-3 overflow-y-auto p-4">
+            {/* Guest selector — a picker, not a native select, which opens the
+                OS wheel on a phone and looks nothing like the app. */}
             <div>
-              <label className="block text-sm font-medium mb-1">
-                Select Guest
-              </label>
-              <select
-                className="border border-gray-300 rounded px-2 py-1 w-full"
-                value={selectedGuestId}
-                onChange={(e) => handleGuestChange(e.target.value)}
+              <label className={LABEL}>Guest</label>
+              <button
+                type="button"
+                onClick={() => setGuestPickerOpen(true)}
+                className="mt-1 flex w-full items-center gap-2 rounded-lg border border-gray-300 px-2.5 py-1.5 text-left"
               >
-                {selectableGuests.map((guest) => (
-                  <option key={guest.id} value={guest.id}>
-                    {guest.name}
-                  </option>
-                ))}
-              </select>
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-400 text-white">
+                  <FaUser size={11} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold text-gray-900">
+                    {selectedGuest?.name}
+                  </span>
+                  {selectedGuest?.phone && (
+                    <span className="block text-[11px] leading-tight text-gray-500">
+                      {prettyPhone(selectedGuest.phone)}
+                    </span>
+                  )}
+                </span>
+                <FaChevronDown size={10} className="shrink-0 text-gray-400" />
+              </button>
             </div>
 
             <form
@@ -197,64 +235,42 @@ const ManageGuestModal = ({
               })}
             >
               <div>
-                <label className="block text-sm font-medium">Name</label>
-                <input
-                  type="text"
-                  className="border border-gray-300 rounded px-2 py-1 w-full"
-                  {...register("name")}
-                />
+                <label className={LABEL}>Name</label>
+                <input type="text" className={`mt-1 ${FIELD}`} {...register("name")} />
                 {errors.name && (
-                  <span className="text-red-500 text-sm">
-                    {errors.name.message}
-                  </span>
+                  <span className="text-xs text-red-500">{errors.name.message}</span>
                 )}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium">Phone</label>
-                <input
-                  type="tel"
-                  className="border border-gray-300 rounded px-2 py-1 w-full"
-                  {...register("phone")}
-                />
-                {errors.phone && (
-                  <span className="text-red-500 text-sm">
-                    {errors.phone.message}
-                  </span>
-                )}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className={LABEL}>Phone</label>
+                  <input type="tel" className={`mt-1 ${FIELD}`} {...register("phone")} />
+                  {errors.phone && (
+                    <span className="text-xs text-red-500">{errors.phone.message}</span>
+                  )}
+                </div>
+                <div>
+                  <label className={LABEL}>Email</label>
+                  <input type="email" className={`mt-1 ${FIELD}`} {...register("email")} />
+                </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium">Email</label>
-                <input
-                  type="email"
-                  className="border border-gray-300 rounded px-2 py-1 w-full"
-                  {...register("email")}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium">Notes</label>
-                <textarea
-                  className="border border-gray-300 rounded px-2 py-1 w-full"
-                  rows={2}
-                  {...register("notes")}
-                />
+                <label className={LABEL}>Notes</label>
+                <textarea className={`mt-1 ${FIELD}`} rows={2} {...register("notes")} />
               </div>
 
               {activeRooms.length > 0 && (
                 <div>
-                  <label className="block text-sm font-medium">Room rates</label>
-                  <div className="mt-1 rounded-xl border border-gray-200 divide-y divide-gray-100">
+                  <label className={LABEL}>Room rates</label>
+                  <div className="mt-1 divide-y divide-gray-100 rounded-xl border border-gray-200">
                     {activeRooms.map((room) => (
-                      <div key={room.id} className="flex items-center gap-2 px-2 py-1.5">
-                        <span
-                          className="h-4 w-1.5 shrink-0 rounded-full"
-                          style={{ backgroundColor: room.color || "#9ca3af" }}
-                        />
-                        <span className="min-w-0 flex-1 truncate text-sm text-gray-700">
-                          {room.name}
-                        </span>
+                      <div key={room.id} className="flex items-center gap-2 px-2.5 py-2">
+                        {/* The shared badge, so a room looks the same here as it
+                            does on the calendar, in bookings and in Stats. */}
+                        <RoomBadge room={room} rooms={activeRooms} />
+                        <span className="flex-1" />
                         <span className="text-sm text-gray-400">$</span>
                         <input
                           type="number"
@@ -268,7 +284,7 @@ const ManageGuestModal = ({
                           onChange={(e) =>
                             setPrices((p) => ({ ...p, [room.id]: e.target.value }))
                           }
-                          className="w-20 rounded border border-gray-300 px-2 py-1 text-right text-sm"
+                          className="w-20 rounded-lg border border-gray-300 px-2 py-1 text-right text-sm focus:border-gray-400 focus:outline-none"
                         />
                       </div>
                     ))}
@@ -277,24 +293,28 @@ const ManageGuestModal = ({
                       delete a saved rate, so promising that a cleared box removes
                       one would be a lie the host only discovers later. */}
                   <p className="mt-1 text-[11px] leading-tight text-gray-400">
-                    Blank means this guest pays the room's usual rate. Enter 0 to comp a room.
-                    A saved rate can be changed, but not cleared.
+                    Blank means this guest pays the room's usual rate. Enter 0 to comp a
+                    room. A saved rate can be changed, but not cleared.
                   </p>
                 </div>
               )}
 
               {errorMessage && (
-                <p className="text-red-500 text-sm">{errorMessage}</p>
+                <p className="rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-700">
+                  {errorMessage}
+                </p>
               )}
 
-              <div className="flex gap-2 justify-between">
+              <div className="flex items-center justify-between gap-2 pt-1">
+                {/* Destructive action kept quiet and apart from the everyday
+                    ones — it still arms a confirmation before anything happens. */}
                 <button
                   type="button"
                   onClick={() => {
                     setConfirmDelete(true);
                     setPendingConfirm(null);
                   }}
-                  className="px-3 py-1 bg-red-500 text-white text-sm rounded"
+                  className="rounded-lg px-2.5 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50"
                 >
                   Delete
                 </button>
@@ -302,13 +322,13 @@ const ManageGuestModal = ({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="px-3 py-1 bg-gray-400 text-white text-sm rounded"
+                    className="rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-semibold text-gray-700"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-3 py-1 bg-green-500 text-white text-sm rounded"
+                    className="rounded-lg bg-gray-900 px-4 py-1.5 text-sm font-semibold text-white"
                   >
                     Save
                   </button>
@@ -318,15 +338,15 @@ const ManageGuestModal = ({
 
             {/* Name mismatch confirmation */}
             {pendingConfirm && (
-              <div className="border border-yellow-400 bg-yellow-50 rounded p-3 flex flex-col gap-2">
-                <p className="text-sm font-medium text-yellow-800">
-                  "{pendingConfirm.name}" is not in your guest list. What would
-                  you like to do?
+              <div className="flex flex-col gap-2 rounded-xl border border-amber-300 bg-amber-50 p-3">
+                <p className="text-xs font-semibold text-amber-900">
+                  "{pendingConfirm.name}" is not in your guest list. What would you like
+                  to do?
                 </p>
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    className="flex-1 px-2 py-1 bg-blue-500 text-white text-sm rounded"
+                    className="flex-1 rounded-lg bg-blue-600 px-2 py-1.5 text-xs font-semibold text-white"
                     onClick={() => {
                       onAdd(
                         {
@@ -343,11 +363,11 @@ const ManageGuestModal = ({
                       );
                     }}
                   >
-                    Add New Guest
+                    Add new
                   </button>
                   <button
                     type="button"
-                    className="flex-1 px-2 py-1 bg-green-500 text-white text-sm rounded"
+                    className="flex-1 rounded-lg bg-gray-900 px-2 py-1.5 text-xs font-semibold text-white"
                     onClick={() => {
                       if (!selectedGuest) return;
                       onSave({ ...selectedGuest, ...pendingConfirm }, (msg) => {
@@ -356,11 +376,11 @@ const ManageGuestModal = ({
                       });
                     }}
                   >
-                    Rename Guest
+                    Rename
                   </button>
                   <button
                     type="button"
-                    className="px-2 py-1 bg-gray-300 text-gray-700 text-sm rounded"
+                    className="rounded-lg bg-white px-2 py-1.5 text-xs font-semibold text-gray-700 ring-1 ring-gray-300"
                     onClick={() => setPendingConfirm(null)}
                   >
                     Back
@@ -371,14 +391,14 @@ const ManageGuestModal = ({
 
             {/* Delete confirmation */}
             {confirmDelete && (
-              <div className="border border-red-400 bg-red-50 rounded p-3 flex flex-col gap-2">
-                <p className="text-sm font-medium text-red-800">
+              <div className="flex flex-col gap-2 rounded-xl border border-red-300 bg-red-50 p-3">
+                <p className="text-xs font-semibold text-red-900">
                   Delete "{selectedGuest?.name}"? This cannot be undone.
                 </p>
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    className="flex-1 px-2 py-1 bg-red-500 text-white text-sm rounded"
+                    className="flex-1 rounded-lg bg-red-600 px-2 py-1.5 text-xs font-semibold text-white"
                     onClick={() => {
                       if (!selectedGuest) return;
                       onDelete(selectedGuest.id, (msg) => {
@@ -387,11 +407,11 @@ const ManageGuestModal = ({
                       });
                     }}
                   >
-                    Yes, Delete
+                    Yes, delete
                   </button>
                   <button
                     type="button"
-                    className="flex-1 px-2 py-1 bg-gray-300 text-gray-700 text-sm rounded"
+                    className="flex-1 rounded-lg bg-white px-2 py-1.5 text-xs font-semibold text-gray-700 ring-1 ring-gray-300"
                     onClick={() => setConfirmDelete(false)}
                   >
                     Cancel
@@ -399,9 +419,19 @@ const ManageGuestModal = ({
                 </div>
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
+
+      <PickerModal
+        open={guestPickerOpen}
+        title="Choose guest"
+        subtitle={`${selectableGuests.length} returning guests`}
+        options={guestOptions}
+        value={selectedGuestId}
+        onChange={handleGuestChange}
+        onClose={() => setGuestPickerOpen(false)}
+      />
     </div>,
     document.body,
   );
