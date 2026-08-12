@@ -319,8 +319,13 @@ const ManageGuestModal = ({
                       <div key={room.id} className="flex items-center gap-2 px-2.5 py-2">
                         {/* The shared badge, so a room looks the same here as it
                             does on the calendar, in bookings and in Stats. */}
+                        {/* The rate sits right beside its room. A spacer used to
+                            push it to the far edge, leaving a gap wide enough to
+                            read a price against the wrong room — which on this
+                            form means charging the wrong rate. RoomBadge takes a
+                            fixed width from `rooms`, so the inputs still line up
+                            in a column without anything holding them apart. */}
                         <RoomBadge room={room} rooms={activeRooms} />
-                        <span className="flex-1" />
                         <span className="text-sm text-gray-400">$</span>
                         <input
                           type="number"
@@ -334,7 +339,7 @@ const ManageGuestModal = ({
                           onChange={(e) =>
                             setPrices((p) => ({ ...p, [room.id]: e.target.value }))
                           }
-                          className="w-20 rounded-lg border border-gray-300 px-2 py-1 text-right text-sm focus:border-gray-400 focus:outline-none"
+                          className="w-24 rounded-lg border border-gray-300 px-2 py-1 text-right text-sm focus:border-gray-400 focus:outline-none"
                         />
                       </div>
                     ))}
