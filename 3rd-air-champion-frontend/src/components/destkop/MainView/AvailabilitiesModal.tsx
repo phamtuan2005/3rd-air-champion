@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { startOfToday, startOfMonth, endOfMonth, eachDayOfInterval, subMonths, startOfWeek, addDays, isSameMonth } from "date-fns";
 import { format } from "date-fns-tz";
 import { dayType } from "../../../util/types/dayType";
@@ -540,6 +540,32 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
 
   const todayKey = format(startOfToday(), "yyyy-MM-dd", { timeZone });
 
+  // Swipe the bars to change week.
+  //
+  // Same direction as the calendar — content moving left means "next" — so the
+  // two surfaces never disagree about which way time runs. The arrows stay: this
+  // panel is used on a desktop too, and a swipe leaves no trace of existing.
+  const weekSwipeRef = useRef<{ x: number; y: number; t: number } | null>(null);
+
+  const onWeekTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    const t = e.touches[0];
+    weekSwipeRef.current = { x: t.clientX, y: t.clientY, t: performance.now() };
+  };
+
+  const onWeekTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    const start = weekSwipeRef.current;
+    weekSwipeRef.current = null;
+    if (!start) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    // The panel scrolls vertically, so a gesture only counts when it is clearly
+    // horizontal — otherwise scrolling past this card would jump the week.
+    if (performance.now() - start.t > 600) return;
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 2) return;
+    setWeekStart((w) => addDays(w, dx < 0 ? 7 : -7));
+  };
+
   const monthLabel = currentMonth.toLocaleString("default", {
     month: "long",
     year: "numeric",
@@ -609,7 +635,13 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
             </button>
           </div>
 
-          <div className="rounded-xl border border-gray-200 p-3">
+          {/* touch-pan-y: vertical scrolling stays the browser's; only the
+              horizontal gesture is claimed here. */}
+          <div
+            className="touch-pan-y rounded-xl border border-gray-200 p-3"
+            onTouchStart={onWeekTouchStart}
+            onTouchEnd={onWeekTouchEnd}
+          >
             <div className="flex items-baseline justify-between gap-2">
               {/* Two numbers, two labels. The heading describes the LIST below
                   it; the big figure is the SUM of that list. Titled "Profit by
@@ -669,7 +701,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
             <p className="mt-1 text-[10px] leading-tight text-gray-400">
               What the whole house took on each night — room rates plus a stay's one-off fees
               on its check-in night — before cleaning and misc costs. Future nights show only
-              what is already booked.
+              what is already booked. Swipe across the bars to change week.
             </p>
           </div>
         </>
