@@ -953,6 +953,35 @@ const CalendarGrid = ({
   // awkward reach, and still over the busiest row on the calendar. Below the
   // last lane there is a spare grid row that is always empty, so the handle can
   // sit centred, in the open, covering nothing.
+  // Where the grip sits, and how fast it responds — from one formula, so the
+  // two can never disagree.
+  //
+  // It hangs under the LAST lane of the LAST week row on the page: the bottom
+  // of everything, where no booking can be behind it. Its distance from the top
+  // of the page is therefore whole week-rows above it, plus the lanes of its own
+  // row.
+  //
+  // `lanesPerPx` is that distance differentiated with respect to lane height —
+  // how far the grip travels when a lane grows by one pixel. Dividing the drag
+  // by it is what keeps the grip under the finger: pull down 60px and the
+  // boundary lands 60px lower, whatever the room count or page shape. On a
+  // phone the week-rows are stacked lanes so they scale too; on desktop the rows
+  // stretch to fill the column and only the last row's lanes move.
+  const rowsAbove = Math.max(0, numRows - 1);
+  const gripTop = rowsAbove * (rowHeight + rowGap) + maxRooms * laneHeight + 2;
+  //
+  // Bounded, though. Exact tracking is only usable while the number stays small:
+  // at four weeks per page the grip is 23 lanes down, so the full 16-48px range
+  // would be 736px of drag — more than a screen. Past the cap the grip drifts
+  // ahead of the finger, which is the lesser evil: a handle that outruns the
+  // thumb still resizes, while one that needs three swipes does not. At one and
+  // two weeks — where this is actually used — the cap barely binds.
+  const GRIP_DIVISOR_CAP = 8;
+  const lanesPerPx = Math.min(
+    GRIP_DIVISOR_CAP,
+    isNarrow ? rowsAbove * (maxRooms + 1) + maxRooms : maxRooms,
+  );
+
   const resizeRef = useRef<{ y: number; lane: number } | null>(null);
   // Last value pushed upward. A pointermove fires far more often than the lane
   // actually changes — the drag is divided by six here — and every call
@@ -972,8 +1001,7 @@ const CalendarGrid = ({
     if (!start || !onRowHeightChange) return;
     // Measured from where the drag STARTED, never accumulated per event, so
     // overshooting a clamp and dragging back returns to where you expect.
-    const lanesAbove = Math.max(1, maxRooms);
-    const next = Math.round(start.lane + (e.clientY - start.y) / lanesAbove);
+    const next = Math.round(start.lane + (e.clientY - start.y) / Math.max(1, lanesPerPx));
     if (next === lastSentRef.current) return;
     lastSentRef.current = next;
     onRowHeightChange(next);
@@ -1007,14 +1035,15 @@ const CalendarGrid = ({
             className={`relative snap-start h-full main-calendar-wrapper ${horizontalPaging ? "w-full shrink-0" : ""}`}
             ref={index === visibleIndex ? calendarWrapperRef : undefined}
           >
-            {/* Row-resize handle, in the spare grid row beneath the last lane.
-                That row is always empty, so the handle can be centred and
-                comfortably sized without covering a single booking. Only on the
-                visible page, and only when a setter was supplied. */}
+            {/* Row-resize handle, hanging under the last lane of the last week
+                row — the bottom edge of everything on the page, so nothing the
+                host needs to read can ever be behind it. Centred, because a
+                corner is an awkward reach on a phone. Only on the visible page,
+                and only when a setter was supplied. */}
             {onRowHeightChange && index === visibleIndex && (
               <div
                 className="absolute left-1/2 z-30 flex -translate-x-1/2 cursor-ns-resize touch-none select-none items-center gap-1 px-3"
-                style={{ top: `${maxRooms * laneHeight + 2}px`, height: "16px" }}
+                style={{ top: `${gripTop}px`, height: "16px" }}
                 onPointerDown={onGripDown}
                 onPointerMove={onGripMove}
                 onPointerUp={endGrip}
