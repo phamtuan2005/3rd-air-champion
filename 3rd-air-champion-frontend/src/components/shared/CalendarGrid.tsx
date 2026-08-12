@@ -968,7 +968,13 @@ const CalendarGrid = ({
   // phone the week-rows are stacked lanes so they scale too; on desktop the rows
   // stretch to fill the column and only the last row's lanes move.
   const rowsAbove = Math.max(0, numRows - 1);
-  const gripTop = rowsAbove * (rowHeight + rowGap) + maxRooms * laneHeight + 2;
+  // Clear of the grid entirely, in the whitespace under it — not in the last
+  // rows spare lane, which still counts as inside the calendar. On a phone the
+  // grid ends partway down the page, so there is room below it; on desktop the
+  // rows stretch to fill the column, and min() keeps the grip just under the
+  // last lane rather than pushing it off the bottom of the container.
+  const lastRowSpan = Math.min(rowHeight, (maxRooms + 1) * laneHeight);
+  const gripTop = rowsAbove * (rowHeight + rowGap) + lastRowSpan + 4;
   //
   // Bounded, though. Exact tracking is only usable while the number stays small:
   // at four weeks per page the grip is 23 lanes down, so the full 16-48px range
@@ -979,7 +985,7 @@ const CalendarGrid = ({
   const GRIP_DIVISOR_CAP = 8;
   const lanesPerPx = Math.min(
     GRIP_DIVISOR_CAP,
-    isNarrow ? rowsAbove * (maxRooms + 1) + maxRooms : maxRooms,
+    isNarrow ? numRows * (maxRooms + 1) : maxRooms + 1,
   );
 
   const resizeRef = useRef<{ y: number; lane: number } | null>(null);
