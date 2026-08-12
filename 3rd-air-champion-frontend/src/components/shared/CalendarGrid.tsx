@@ -1049,7 +1049,11 @@ const CalendarGrid = ({
             {onRowHeightChange && index === visibleIndex && (
               <div
                 className="absolute left-1/2 z-30 flex -translate-x-1/2 cursor-ns-resize touch-none select-none items-center gap-1 px-3"
-                style={{ top: `${gripTop}px`, height: "16px" }}
+                // 44px of hit area — the platform minimum for a finger, and
+                // this one is dragged, not just tapped. The pill inside is
+                // smaller; the rest is invisible padding, which costs nothing
+                // here because it sits in whitespace below the grid.
+                style={{ top: `${gripTop}px`, height: "44px" }}
                 onPointerDown={onGripDown}
                 onPointerMove={onGripMove}
                 onPointerUp={endGrip}
@@ -1059,11 +1063,16 @@ const CalendarGrid = ({
                 {/* Wider than it looks tappable: the padding above extends the
                     hit area into the empty row without enlarging the pill. */}
                 <div
-                  className={`flex h-3.5 w-14 items-center justify-center rounded-full bg-white/95 shadow ring-1 transition-colors ${
-                    resizing ? "ring-gray-500" : "ring-gray-300"
+                  className={`flex h-6 w-20 items-center justify-center rounded-full bg-white shadow-md ring-1 transition-colors ${
+                    resizing ? "ring-gray-500 bg-gray-50" : "ring-gray-300"
                   }`}
                 >
-                  <div className={`h-0.5 w-6 rounded-full ${resizing ? "bg-gray-600" : "bg-gray-400"}`} />
+                  {/* Two bars, not one: a single line reads as a divider, a
+                      stack of two reads as something to grab. */}
+                  <div className="flex flex-col gap-1">
+                    <div className={`h-0.5 w-8 rounded-full ${resizing ? "bg-gray-600" : "bg-gray-400"}`} />
+                    <div className={`h-0.5 w-8 rounded-full ${resizing ? "bg-gray-600" : "bg-gray-400"}`} />
+                  </div>
                 </div>
                 {resizing && (
                   <span className="rounded bg-gray-800 px-1 py-0.5 text-[10px] font-semibold tabular-nums text-white">
