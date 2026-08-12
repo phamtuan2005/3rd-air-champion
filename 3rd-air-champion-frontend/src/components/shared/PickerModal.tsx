@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { FaCheck } from "react-icons/fa";
 
@@ -24,6 +24,10 @@ interface PickerModalProps<T extends string | number> {
   value: T;
   onChange: (value: T) => void;
   onClose: () => void;
+  // Opt-in: a filter box above the list. Worth it once the list outgrows a
+  // screen (the guest list), pure clutter on a list of four (weeks per page).
+  searchable?: boolean;
+  searchPlaceholder?: string;
 }
 
 // A centred choice modal for the calendar header controls.
@@ -41,7 +45,31 @@ const PickerModal = <T extends string | number>({
   value,
   onChange,
   onClose,
+  searchable = false,
+  searchPlaceholder = "Search",
 }: PickerModalProps<T>) => {
+  const [query, setQuery] = useState("");
+
+  // Matches the hint as well as the label, so a guest can be found by phone
+  // number — which is what tells two people with the same first name apart.
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return options;
+    const digits = q.replace(/\D/g, "");
+    return options.filter((o) => {
+      if (o.label.toLowerCase().includes(q)) return true;
+      const hint = (o.hint ?? "").toLowerCase();
+      if (hint.includes(q)) return true;
+      // Compare digits only, so "5551234" finds "(555) 123-4..." — nobody types
+      // the brackets they are searching for.
+      return digits.length >= 3 && hint.replace(/\D/g, "").includes(digits);
+    });
+  }, [options, query]);
+  // A stale query would silently hide most of the list next time it opens.
+  useEffect(() => {
+    if (!open) setQuery("");
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -69,8 +97,27 @@ const PickerModal = <T extends string | number>({
           {subtitle && <p className="mt-0.5 text-xs text-gray-500">{subtitle}</p>}
         </div>
 
+        {searchable && (
+          <div className="border-b border-gray-100 px-3 py-2">
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={searchPlaceholder}
+              // Not autofocused: on a phone the keyboard would cover the list
+              // the moment it opens, and most picks are near the top anyway.
+              className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm focus:border-gray-400 focus:outline-none"
+            />
+          </div>
+        )}
+
         <div className="max-h-[60vh] overflow-y-auto">
-          {options.map((o) => {
+          {visible.length === 0 && (
+            <p className="px-4 py-6 text-center text-xs text-gray-500">
+              Nothing matches "{query}".
+            </p>
+          )}
+          {visible.map((o) => {
             const selected = o.value === value;
             return (
               <button

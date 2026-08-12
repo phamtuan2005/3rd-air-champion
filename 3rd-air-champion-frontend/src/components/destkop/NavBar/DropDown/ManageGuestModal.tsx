@@ -98,6 +98,9 @@ const ManageGuestModal = ({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [guestPickerOpen, setGuestPickerOpen] = useState(false);
   const [character, setCharacter] = useState("");
+  // Closed by default. Eighteen faces is the largest thing on this form, and
+  // the form is mostly opened to fix a phone number or a rate, not a picture.
+  const [avatarOpen, setAvatarOpen] = useState(false);
 
   const selectedGuest =
     selectableGuests.find((g) => g.id === selectedGuestId) ??
@@ -136,6 +139,7 @@ const ManageGuestModal = ({
     const guest = selectableGuests.find((g) => g.id === id);
     setPrices(pricesFor(guest));
     setCharacter(guest?.character ?? "");
+    setAvatarOpen(false);
     if (guest) {
       reset({
         name: guest.name,
@@ -274,11 +278,36 @@ const ManageGuestModal = ({
 
               <div>
                 <label className={LABEL}>Avatar</label>
+                {/* What they look like now, and a way in. The grid itself stays
+                    shut until asked for. */}
+                <div className="mt-1 flex items-center gap-2 rounded-xl border border-gray-200 px-2.5 py-2">
+                  <CleanerAvatar
+                    name={selectedGuest?.name ?? ""}
+                    character={character}
+                    sizeClass="h-9 w-9"
+                  />
+                  <span className="flex-1 text-xs text-gray-500">
+                    {GUEST_AVATAR_PRESETS.find((p) => p.character === character)?.label ??
+                      "Custom"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setAvatarOpen((o) => !o)}
+                    className="rounded-lg bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700"
+                  >
+                    {avatarOpen ? "Done" : "Change"}
+                  </button>
+                </div>
+
                 {/* Every option drawn with THIS guest's name as the seed, so the
                     grid shows what they will actually look like rather than a
                     generic sample. Two guests picking the same look still get
                     different faces, because the name is part of the seed. */}
-                <div className="mt-1 grid grid-cols-6 gap-1.5 rounded-xl border border-gray-200 p-2">
+                <div
+                  className={`mt-1.5 grid-cols-6 gap-1.5 rounded-xl border border-gray-200 p-2 ${
+                    avatarOpen ? "grid" : "hidden"
+                  }`}
+                >
                   {GUEST_AVATAR_PRESETS.map((preset) => {
                     const selected = character === preset.character;
                     return (
@@ -300,10 +329,12 @@ const ManageGuestModal = ({
                     );
                   })}
                 </div>
-                <p className="mt-1 text-[11px] leading-tight text-gray-400">
-                  Drawn, not uploaded — nothing is stored but the choice. The first
-                  option returns to plain initials.
-                </p>
+                {avatarOpen && (
+                  <p className="mt-1 text-[11px] leading-tight text-gray-400">
+                    Drawn, not uploaded — nothing is stored but the choice. The first
+                    option returns to plain initials.
+                  </p>
+                )}
               </div>
 
               <div>
@@ -486,6 +517,8 @@ const ManageGuestModal = ({
         value={selectedGuestId}
         onChange={handleGuestChange}
         onClose={() => setGuestPickerOpen(false)}
+        searchable
+        searchPlaceholder="Search name or phone"
       />
     </div>,
     document.body,
