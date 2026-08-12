@@ -342,6 +342,16 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                     checked={isCompleted}
                     onChange={() => setReminderSent(taskId, !isCompleted)}
                   />
+                  {/* Seeded from the DISPLAYED name, so an AirBnB stay gets the
+                       real guest's initials from their alias rather than a
+                       meaningless "A". Every row then has one, which keeps the
+                       text aligned — a column of avatars with gaps in it reads
+                       as though the gaps mean something. */}
+                  <CleanerAvatar
+                    name={booking.guest.alias || booking.alias || booking.guest.name}
+                    character={booking.guest.character}
+                    sizeClass="h-9 w-9"
+                  />
                   <div className="min-w-0 flex-1">
                     <p
                       className={`truncate text-base font-semibold ${

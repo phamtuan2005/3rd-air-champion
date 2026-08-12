@@ -1,4 +1,5 @@
 import { getRoomColor } from "../../../../util/getRoomColor";
+import CleanerAvatar from "../../../shared/CleanerAvatar";
 import { bookingType, feesTotal } from "../../../../util/types/bookingType";
 import { useContext, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -183,6 +184,15 @@ const BookingCard = ({
 
       <div className="p-3 pl-5">
         <div className="flex items-start gap-2">
+          {/* Seeded from the displayed label, so AirBnB stays show the real
+              guest's initials from their alias. Drawn avatars only exist for
+              returning guests; everyone else falls back to initials, so the
+              column stays even. */}
+          <CleanerAvatar
+            name={guestLabel}
+            character={booking.guest.character}
+            sizeClass="h-9 w-9"
+          />
           {/* Tap the info area to open booking details (disabled for soft holds) */}
           <button
             type="button"

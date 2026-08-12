@@ -42,6 +42,7 @@ router.get("/get", async (req: Request, res: any) => {
                 numberOfGuests
                 returning
                 notes
+                character
                 host
                 pricing {
                   id
@@ -166,6 +167,7 @@ router.post("/get/host", async (req: Request, res: any) => {
                 numberOfGuests
                 returning
                 notes
+                character
                 host
                 pricing {
                   id
@@ -442,6 +444,7 @@ router.post("/block/room", async (req: Request, res: any) => {
             numberOfGuests
             returning
             notes
+            character
             host
             pricing { id price room }
           }
@@ -510,6 +513,7 @@ router.post("/unblock/room", async (req: Request, res: any) => {
             numberOfGuests
             returning
             notes
+            character
             host
             pricing { id price room }
           }
@@ -613,6 +617,7 @@ router.post("/book/range", async (req: Request, res: any) => {
                 numberOfGuests
                 returning
                 notes
+                character
                 host
                 pricing {
                   id
@@ -716,6 +721,7 @@ router.post("/update/booking/guest", async (req: Request, res: any) => {
                 numberOfGuests
                 returning
                 notes
+                character
                 host
                 pricing {
                   id
@@ -794,6 +800,7 @@ router.post("/update/booking/airbnb-price", async (req: Request, res: any) => {
                 numberOfGuests
                 returning
                 notes
+                character
                 host
                 pricing {
                   id
@@ -870,6 +877,7 @@ router.post("/update/booking/fees", async (req: Request, res: any) => {
                 numberOfGuests
                 returning
                 notes
+                character
                 host
                 pricing {
                   id
@@ -946,6 +954,7 @@ router.post("/update/unbook/guest", async (req: Request, res: any) => {
                 numberOfGuests
                 returning
                 notes
+                character
                 host
                 pricing {
                   id
@@ -1025,6 +1034,7 @@ router.post("/update/booking/airbnb-blocked", async (req: Request, res: any) => 
                 numberOfGuests
                 returning
                 notes
+                character
                 host
                 pricing {
                   id
@@ -1103,6 +1113,7 @@ router.post("/update/booking/reserved", async (req: Request, res: any) => {
                 numberOfGuests
                 returning
                 notes
+                character
                 host
                 pricing {
                   id
