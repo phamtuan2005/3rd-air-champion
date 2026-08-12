@@ -9,6 +9,7 @@ import { roomType } from "../../../../util/types/roomType";
 import RoomBadge from "../../../shared/RoomBadge";
 import PickerModal, { PickerOption } from "../../../shared/PickerModal";
 import CleanerAvatar from "../../../shared/CleanerAvatar";
+import { GUEST_AVATAR_PRESETS } from "../../../../util/guestAvatars";
 
 const manageGuestSchema = z.object({
   name: z
@@ -96,6 +97,7 @@ const ManageGuestModal = ({
     useState<ManageGuestFormData | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [guestPickerOpen, setGuestPickerOpen] = useState(false);
+  const [character, setCharacter] = useState("");
 
   const selectedGuest =
     selectableGuests.find((g) => g.id === selectedGuestId) ??
@@ -104,6 +106,12 @@ const ManageGuestModal = ({
   const [prices, setPrices] = useState<Record<string, string>>(() =>
     pricesFor(selectedGuest),
   );
+  // Seeded from the guest on first render; kept in step by handleGuestChange.
+  const [characterInit, setCharacterInit] = useState(false);
+  if (!characterInit && selectedGuest) {
+    setCharacter(selectedGuest.character ?? "");
+    setCharacterInit(true);
+  }
 
   const {
     register,
@@ -127,6 +135,7 @@ const ManageGuestModal = ({
     setConfirmDelete(false);
     const guest = selectableGuests.find((g) => g.id === id);
     setPrices(pricesFor(guest));
+    setCharacter(guest?.character ?? "");
     if (guest) {
       reset({
         name: guest.name,
@@ -156,8 +165,9 @@ const ManageGuestModal = ({
       setPendingConfirm(cleaned);
       return;
     }
-    onSave({ ...selectedGuest, ...cleaned, pricing: pricingFromInputs() }, (msg) =>
-      setErrorMessage(msg),
+    onSave(
+      { ...selectedGuest, ...cleaned, pricing: pricingFromInputs(), character },
+      (msg) => setErrorMessage(msg),
     );
   };
 
@@ -172,7 +182,7 @@ const ManageGuestModal = ({
     // so a person looks like a person everywhere in TiMag. Nothing to upload,
     // nothing stored: no photos on a disk whose filling up takes mongod with it,
     // and no guest faces held for a need that does not exist.
-    node: <CleanerAvatar name={g.name} sizeClass="h-8 w-8" />,
+    node: <CleanerAvatar name={g.name} character={g.character} sizeClass="h-8 w-8" />,
     rowActive: "bg-gray-50 text-gray-900",
   }));
 
@@ -212,7 +222,11 @@ const ManageGuestModal = ({
                 onClick={() => setGuestPickerOpen(true)}
                 className="mt-1 flex w-full items-center gap-2 rounded-lg border border-gray-300 px-2.5 py-1.5 text-left"
               >
-                <CleanerAvatar name={selectedGuest?.name ?? ""} sizeClass="h-8 w-8" />
+                <CleanerAvatar
+                  name={selectedGuest?.name ?? ""}
+                  character={character}
+                  sizeClass="h-8 w-8"
+                />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-semibold text-gray-900">
                     {selectedGuest?.name}
@@ -256,6 +270,40 @@ const ManageGuestModal = ({
                   <label className={LABEL}>Email</label>
                   <input type="email" className={`mt-1 ${FIELD}`} {...register("email")} />
                 </div>
+              </div>
+
+              <div>
+                <label className={LABEL}>Avatar</label>
+                {/* Every option drawn with THIS guest's name as the seed, so the
+                    grid shows what they will actually look like rather than a
+                    generic sample. Two guests picking the same look still get
+                    different faces, because the name is part of the seed. */}
+                <div className="mt-1 grid grid-cols-6 gap-1.5 rounded-xl border border-gray-200 p-2">
+                  {GUEST_AVATAR_PRESETS.map((preset) => {
+                    const selected = character === preset.character;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        title={preset.label}
+                        onClick={() => setCharacter(preset.character)}
+                        className={`flex items-center justify-center rounded-lg p-0.5 transition-all ${
+                          selected ? "ring-2 ring-gray-900" : "ring-1 ring-transparent hover:ring-gray-300"
+                        }`}
+                      >
+                        <CleanerAvatar
+                          name={selectedGuest?.name ?? ""}
+                          character={preset.character}
+                          sizeClass="h-9 w-9"
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-1 text-[11px] leading-tight text-gray-400">
+                  Drawn, not uploaded — nothing is stored but the choice. The first
+                  option returns to plain initials.
+                </p>
               </div>
 
               <div>

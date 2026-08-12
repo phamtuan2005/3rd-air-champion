@@ -57,7 +57,7 @@ export const guestResolvers = {
     },
     updateGuest: async (
       _: unknown,
-      { _id, name, email, phone, numberOfGuests, returning, notes }: any
+      { _id, name, email, phone, numberOfGuests, returning, notes, character }: any
     ) => {
       const updateData: {
         name?: string;
@@ -66,6 +66,7 @@ export const guestResolvers = {
         numberOfGuests?: number;
         returning?: boolean;
         notes?: string;
+        character?: string;
       } = {};
       if (name) updateData.name = name;
       if (email) updateData.email = email;
@@ -73,6 +74,10 @@ export const guestResolvers = {
       if (numberOfGuests) updateData.numberOfGuests = numberOfGuests;
       if (returning) updateData.returning = returning;
       if (notes) updateData.notes = notes;
+      // Compared against undefined, not truthiness: "" is how an avatar is
+      // cleared back to plain initials, and a falsy check would silently ignore
+      // exactly that.
+      if (character !== undefined) updateData.character = character;
 
       return await Guest.findByIdAndUpdate(_id, updateData, {
         new: true,

@@ -69,7 +69,7 @@ export const createGuest = async (
 };
 
 export const updateGuest = async (
-  guest: { id: string; name: string; phone: string; email?: string; notes?: string; returning?: boolean },
+  guest: { id: string; name: string; phone: string; email?: string; notes?: string; returning?: boolean; character?: string },
   token: string
 ) => {
   return axios

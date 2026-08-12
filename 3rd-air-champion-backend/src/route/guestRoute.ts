@@ -32,6 +32,7 @@ router.post("/create", async (req: Request, res: any) => {
             alias
             numberOfGuests
             notes
+            character
             name
             email
             returning
@@ -91,7 +92,7 @@ router.put("/update", async (req: Request, res: any) => {
   if (!("user" in req))
     return res.status(401).json({ error: "Invalid or expired token" });
 
-  const { id, name, email, phone, numberOfGuests, returning, notes } = req.body;
+  const { id, name, email, phone, numberOfGuests, returning, notes, character } = req.body;
 
   let variables: {
     name?: string;
@@ -100,6 +101,7 @@ router.put("/update", async (req: Request, res: any) => {
     numberOfGuests?: number;
     returning?: boolean;
     notes?: string;
+    character?: string;
   } = {};
 
   if (name) variables.name = name;
@@ -108,17 +110,20 @@ router.put("/update", async (req: Request, res: any) => {
   if (numberOfGuests) variables.numberOfGuests = numberOfGuests;
   if (typeof returning !== "undefined") variables.returning = returning;
   if (notes) variables.notes = notes;
+  if (typeof character !== "undefined") variables.character = character;
 
   (variables as any).id = id;
 
   const query = `
-        mutation UpdateGuest($id: String!, $name: String, $email: String, $phone: String, $numberOfGuests: Int, $returning: Boolean, $notes: String) {
-            updateGuest(_id: $id, name: $name, email: $email, phone: $phone, numberOfGuests: $numberOfGuests, returning: $returning, notes: $notes) {
+        mutation UpdateGuest($id: String!, $name: String, $email: String, $phone: String, $numberOfGuests: Int, $returning: Boolean, $notes: String, $character: String) {
+            updateGuest(_id: $id, name: $name, email: $email, phone: $phone, numberOfGuests: $numberOfGuests, returning: $returning, notes: $notes, character: $character) {
                 host
                 email
                 alias
                 name
                 notes
+                character
+                character
                 numberOfGuests
                 phone
                 returning
@@ -155,6 +160,7 @@ router.get("/get", async (req: Request, res: any) => {
             name
             alias
             notes
+            character
             numberOfGuests
             phone
             returning
@@ -194,6 +200,7 @@ router.post("/get/one", async (req: Request, res: any) => {
               name
               alias
               notes
+              character
               numberOfGuests
               phone
               returning
@@ -233,6 +240,7 @@ router.post("/update/pricing", async (req: Request, res: any) => {
           name
           alias
           notes
+          character
           numberOfGuests
           phone
           returning
@@ -272,6 +280,7 @@ router.post("/get/host", async (req: Request, res: any) => {
           name
           alias
           notes
+          character
           numberOfGuests
           phone
           returning

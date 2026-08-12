@@ -17,6 +17,7 @@ export const guestDefs = gql`
     numberOfGuests: Int
     returning: Boolean
     notes: String
+    character: String
     host: ID!
     createdAt: String
     updatedAt: String
@@ -50,6 +51,7 @@ export const guestDefs = gql`
       numberOfGuests: Int
       returning: Boolean
       notes: String
+      character: String
     ): Guest!
   }
 `;

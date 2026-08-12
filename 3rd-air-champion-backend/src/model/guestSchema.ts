@@ -21,6 +21,11 @@ const guestSchema = new mongoose.Schema(
     ],
     returning: { type: Boolean, required: true, default: false },
     notes: { type: String, default: "" },
+    // Short free-text note the illustrated avatar is generated from, the same
+    // field cleaners carry. Only the note is stored — the picture is derived
+    // deterministically from it plus the name, so nothing is uploaded and no
+    // image sits on a disk whose filling up takes mongod down with it.
+    character: { type: String, default: "" },
     host: { type: mongoose.Schema.ObjectId, ref: "Host", required: true },
   },
   { timestamps: true, optimisticConcurrency: true }

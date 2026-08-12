@@ -586,7 +586,7 @@ const MainView = ({
     Promise.all(priceUpdates.map((u) => updateGuestPricing(u, token as string)))
       .then(() =>
         updateGuest(
-          { id: guest.id, name: guest.name, phone: guest.phone, email: guest.email, notes: guest.notes, returning: guest.returning },
+          { id: guest.id, name: guest.name, phone: guest.phone, email: guest.email, notes: guest.notes, returning: guest.returning, character: guest.character ?? "" },
           token as string,
         ),
       )
