@@ -3,11 +3,12 @@ import { createPortal } from "react-dom";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { FaChevronDown, FaUser } from "react-icons/fa";
+import { FaChevronDown } from "react-icons/fa";
 import { guestType } from "../../../../util/types/guestType";
 import { roomType } from "../../../../util/types/roomType";
 import RoomBadge from "../../../shared/RoomBadge";
 import PickerModal, { PickerOption } from "../../../shared/PickerModal";
+import CleanerAvatar from "../../../shared/CleanerAvatar";
 
 const manageGuestSchema = z.object({
   name: z
@@ -167,8 +168,11 @@ const ManageGuestModal = ({
     value: g.id,
     label: g.name,
     hint: prettyPhone(g.phone) || undefined,
-    Icon: FaUser,
-    accent: "bg-gray-400",
+    // Initials in a stable per-name colour — the same avatar the cleaners get,
+    // so a person looks like a person everywhere in TiMag. Nothing to upload,
+    // nothing stored: no photos on a disk whose filling up takes mongod with it,
+    // and no guest faces held for a need that does not exist.
+    node: <CleanerAvatar name={g.name} sizeClass="h-8 w-8" />,
     rowActive: "bg-gray-50 text-gray-900",
   }));
 
@@ -208,9 +212,7 @@ const ManageGuestModal = ({
                 onClick={() => setGuestPickerOpen(true)}
                 className="mt-1 flex w-full items-center gap-2 rounded-lg border border-gray-300 px-2.5 py-1.5 text-left"
               >
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-400 text-white">
-                  <FaUser size={11} />
-                </span>
+                <CleanerAvatar name={selectedGuest?.name ?? ""} sizeClass="h-8 w-8" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-semibold text-gray-900">
                     {selectedGuest?.name}

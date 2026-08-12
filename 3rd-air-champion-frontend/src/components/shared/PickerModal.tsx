@@ -7,6 +7,9 @@ export interface PickerOption<T extends string | number> {
   label: string;
   hint?: string;
   Icon?: React.ComponentType<{ size?: number; className?: string }>;
+  // Drawn instead of the icon circle when the row has a richer identity than an
+  // icon can carry — a guest avatar, say. Icon stays for everything else.
+  node?: React.ReactNode;
   // Whole class strings, never interpolated fragments — Tailwind only ships
   // classes it can literally see.
   accent?: string; // e.g. "bg-teal-600"
@@ -81,7 +84,9 @@ const PickerModal = <T extends string | number>({
                   selected ? o.rowActive ?? "bg-gray-50 text-gray-900" : "text-gray-700 hover:bg-gray-50"
                 }`}
               >
-                {o.Icon && (
+                {o.node ? (
+                  <span className="shrink-0">{o.node}</span>
+                ) : o.Icon ? (
                   <span
                     className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white ${
                       o.accent ?? "bg-gray-400"
@@ -89,7 +94,7 @@ const PickerModal = <T extends string | number>({
                   >
                     <o.Icon size={14} />
                   </span>
-                )}
+                ) : null}
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-bold leading-tight">{o.label}</span>
                   {o.hint && (
