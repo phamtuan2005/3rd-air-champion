@@ -62,11 +62,22 @@ interface CalendarGridProps {
 const SUBROW_HEIGHT = 26; // color-box height per room row (was 20; +30% for legibility)
 
 // The guest name is sized FROM the lane height rather than set independently, so
-// a taller lane cannot leave a small name floating in whitespace. 0.8rem at the
-// 26px default is the ratio the calendar was tuned at; the clamp keeps the text
-// legible at the smallest lane and stops it outgrowing the tallest.
+// a taller lane cannot leave a small name floating in whitespace.
+//
+// Todays size is the FLOOR, not the midpoint. Scaling is one-way on purpose:
+// the grip exists to make names bigger, and nobody drags it hoping for smaller
+// ones. Below the 26px default the lane closes in around type that stays put;
+// above it, the two grow together.
 const labelRemFor = (laneHeight: number) =>
-  Math.min(1.15, Math.max(0.62, (laneHeight / 26) * 0.8));
+  Math.min(1.5, Math.max(0.8, (laneHeight / 26) * 0.8));
+
+// The date number lives in the tile grid first row, which is one lane tall, so
+// it has to scale with the lane too — otherwise a resized calendar ends up with
+// big guest names and a date stranded at its original size. Same ratio as the
+// CSS rule it overrides (0.9rem at the 26px default), so nothing moves until
+// the host actually drags the grip.
+const dateRemFor = (laneHeight: number) =>
+  Math.min(1.7, Math.max(0.9, (laneHeight / 26) * 0.9));
 
 // Key a grid cell by its LOCAL calendar day. date.toISOString() converts to UTC, which
 // shifts the day for east-of-UTC timezones and breaks monthMap lookups; local components
@@ -1113,7 +1124,12 @@ const CalendarGrid = ({
                         } as React.CSSProperties
                       }
                     >
-                      <abbr aria-label={date.toLocaleDateString()}>{date.getDate()}</abbr>
+                      <abbr
+                        aria-label={date.toLocaleDateString()}
+                        style={{ fontSize: `${dateRemFor(laneHeight)}rem` }}
+                      >
+                        {date.getDate()}
+                      </abbr>
                       {content}
                     </button>
                   );
