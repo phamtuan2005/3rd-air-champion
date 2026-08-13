@@ -370,8 +370,21 @@ const CalendarGrid = ({
 
   useEffect(() => {
     setLaneNudge(1);
-    const id = requestAnimationFrame(() => setLaneNudge(0));
-    return () => cancelAnimationFrame(id);
+    // Reverted after a PAINTED frame, not the next one.
+    //
+    // A single requestAnimationFrame revert lands in the same paint cycle, so
+    // the browser coalesces both changes and never draws the nudged state —
+    // which is exactly why the first attempt did nothing. Nested rAF guarantees
+    // the nudge is on screen for one frame before it goes back, which is what
+    // dragging the grip does by hand.
+    let inner = 0;
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(() => setLaneNudge(0));
+    });
+    return () => {
+      cancelAnimationFrame(outer);
+      if (inner) cancelAnimationFrame(inner);
+    };
   }, [visibleIndex]);
 
   useEffect(() => {
