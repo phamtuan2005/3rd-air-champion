@@ -353,33 +353,26 @@ const CalendarGrid = ({
     return () => cancelAnimationFrame(id);
   }, [visibleIndex]);
 
-  // Force the arriving page to redraw.
+  // Replicate the cure that is known to work: a real lane-height change.
   //
-  // The browser lays a page out correctly and then paints stale: bars show
-  // square corners and runs look broken until ANY style change, which is why
-  // dragging the row-height grip cured it every time. Proven by console: the
-  // computed styles of every bar are IDENTICAL before and after the grip is
-  // touched — same radius, same left, right and width. Nothing is wrong with
-  // what we asked for; the browser simply did not repaint it.
+  // Every bar arrives painted stale — square corners, broken runs — and the only
+  // thing that has ever fixed it is dragging the row-height grip. An opacity
+  // touch was tried and did not, so stop approximating and do what the grip
+  // does: change the lane height by a pixel for one frame, then put it back.
   //
-  // So ask for a repaint directly, on page arrival and on first mount. A hair of
-  // opacity for one frame, on one element, is the cheapest way: 0.999 is not a
-  // visible difference, and the reflow read flushes it before it is reverted.
-  //
-  // Two things were tried first and did nothing, recorded so they are not
-  // retried: promoting every page to its own layer up front (a layer that
-  // already exists does not repaint on arrival either), and blaming Safari (it
-  // reproduces on desktop Chrome).
+  // The nudge deliberately does NOT feed the layout maths (minRowHeight,
+  // numRows, rowHeight). Those decide how many week-rows fit a page, and moving
+  // them would rebuild pageLayouts and could jump the host to a different page
+  // mid-swipe. It feeds only what is painted: the sub-row height, the corner
+  // radius and the two text sizes.
+  const [laneNudge, setLaneNudge] = useState(0);
+  const paintLane = laneHeight + laneNudge;
+
   useEffect(() => {
-    const el = calendarWrapperRef.current;
-    if (!el) return;
-    el.style.opacity = "0.999";
-    void el.offsetHeight; // flush the change so the revert cannot coalesce with it
-    const id = requestAnimationFrame(() => {
-      el.style.opacity = "";
-    });
+    setLaneNudge(1);
+    const id = requestAnimationFrame(() => setLaneNudge(0));
     return () => cancelAnimationFrame(id);
-  }, [visibleIndex, laneHeight, numRows]);
+  }, [visibleIndex]);
 
   useEffect(() => {
     if (scrollToTodayTrigger > 0 && scrollContainerRef.current && pageLayouts.length > 0) {
@@ -587,8 +580,8 @@ const CalendarGrid = ({
     //
     // Size of the guest name, and the corner radius every bar shares — both
     // derived from the lane height so the calendar scales as one piece.
-    const textSize = labelRemFor(laneHeight);
-    const R = barRadiusFor(laneHeight);
+    const textSize = labelRemFor(paintLane);
+    const R = barRadiusFor(paintLane);
     const day = monthMap.get(localDateKey(date));
     const prevDay = monthMap.get(localDateKey(addDays(date, -1)));
 
@@ -1244,13 +1237,13 @@ const CalendarGrid = ({
                       style={
                         {
                           "--max-rows": (maxRooms + 1).toString(),
-                          "--subrow-h": `${laneHeight}px`,
+                          "--subrow-h": `${paintLane}px`,
                         } as React.CSSProperties
                       }
                     >
                       <abbr
                         aria-label={date.toLocaleDateString()}
-                        style={{ fontSize: `${dateRemFor(laneHeight)}rem` }}
+                        style={{ fontSize: `${dateRemFor(paintLane)}rem` }}
                       >
                         {date.getDate()}
                       </abbr>
