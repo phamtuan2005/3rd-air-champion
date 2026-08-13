@@ -1121,6 +1121,18 @@ const CalendarGrid = ({
           <div
             key={index}
             className={`relative snap-start h-full main-calendar-wrapper ${horizontalPaging ? "w-full shrink-0" : ""}`}
+            // Each page gets its own compositing layer.
+            //
+            // Bars are absolutely positioned with negative offsets and rounded
+            // corners inside a scroll-snap container. Arriving at a page, the
+            // browser was compositing paint it already had rather than redrawing
+            // it, so corners came back wrong until something forced a repaint —
+            // which is why nudging the row height "fixed" it: any style change
+            // does. Promoting the page makes it paint on its own terms.
+            //
+            // Only in-window pages exist at all (three at most), so this costs
+            // three layers, not one per month.
+            style={{ transform: "translateZ(0)" }}
             ref={index === visibleIndex ? calendarWrapperRef : undefined}
           >
             {/* Row-resize handle, hanging under the last lane of the last week
