@@ -213,6 +213,9 @@ const MainView = ({
   const [currentBookings, setCurrentBookings] = useState<bookingType[] | null>();
   const [selectedRoomName, setSelectedRoomName] = useState<string | null>(null);
   const [gapsMode, setGapsMode] = useState(false);
+  // Reserved lens: the same calendar, with everything that is actually paid for
+  // pushed into the background so the unpaid holds are all that stands out.
+  const [reservedMode, setReservedMode] = useState(false);
   // Calendar view mode: same bars and geometry, but each stay is labelled with
   // the cleaner who turns that room over instead of the guest staying in it.
   const [cleanMode, setCleanMode] = useState(false);
@@ -895,6 +898,8 @@ const MainView = ({
               setSelectedRoomName={setSelectedRoomName}
               gapsMode={gapsMode}
               setGapsMode={setGapsMode}
+              reservedMode={reservedMode}
+              setReservedMode={setReservedMode}
               cleanMode={cleanMode}
               setCleanMode={setCleanMode}
             />
@@ -922,6 +927,7 @@ const MainView = ({
               rowsPerPage={rowsPerPage}
               rowHeight={rowHeight}
               onRowHeightChange={setRowHeight}
+              reservedMode={reservedMode}
             />
             {/* Contact-info sheet — a draggable bottom sheet. Pull the grip up to
                 reveal the property/license details, tap or drag it down to minimize

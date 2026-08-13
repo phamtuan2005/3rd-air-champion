@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { MdCleaningServices } from "react-icons/md";
-import { FaUserFriends, FaDoorOpen, FaChevronDown } from "react-icons/fa";
+import { FaUserFriends, FaDoorOpen, FaChevronDown, FaHourglassHalf } from "react-icons/fa";
 import PickerModal, { PickerOption } from "../../../shared/PickerModal";
 
-export type CalendarMode = "book" | "gaps" | "clean";
+export type CalendarMode = "book" | "gaps" | "clean" | "reserved";
 
 // The three lenses the calendar can be read through. Each re-reads the same
 // month, so they were never combinable — one picker, one answer.
@@ -28,6 +28,15 @@ const MODES: (PickerOption<CalendarMode> & { trigger: string })[] = [
     accent: "bg-green-500",
     rowActive: "bg-green-50 text-green-800",
     trigger: "border-green-500 bg-green-500 text-white",
+  },
+  {
+    value: "reserved",
+    label: "Reserved",
+    hint: "Nights held but not yet paid",
+    Icon: FaHourglassHalf,
+    accent: "bg-amber-500",
+    rowActive: "bg-amber-50 text-amber-800",
+    trigger: "border-amber-500 bg-amber-500 text-white",
   },
   {
     value: "clean",

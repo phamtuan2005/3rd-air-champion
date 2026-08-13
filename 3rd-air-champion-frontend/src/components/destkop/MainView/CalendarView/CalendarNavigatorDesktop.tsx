@@ -34,6 +34,8 @@ interface CalendarNavigatorProps {
   setPaidDates: React.Dispatch<React.SetStateAction<Date[]>>;
   setSelectedRoomName: React.Dispatch<React.SetStateAction<string | null>>;
   gapsMode: boolean;
+  reservedMode: boolean;
+  setReservedMode: React.Dispatch<React.SetStateAction<boolean>>;
   setGapsMode: React.Dispatch<React.SetStateAction<boolean>>;
   // Clean mode: bars keep their geometry but name the cleaner, not the guest
   cleanMode: boolean;
@@ -56,6 +58,8 @@ const CalendarNavigator = ({
   setPaidDates,
   setSelectedRoomName,
   gapsMode,
+  reservedMode,
+  setReservedMode,
   setGapsMode,
   cleanMode,
   setCleanMode,
@@ -150,10 +154,15 @@ const CalendarNavigator = ({
                   each re-read the same calendar, so they were never meaningfully
                   combinable — a single picker says which lens is on. */}
               <CalendarModePicker
-                mode={cleanMode ? "clean" : gapsMode ? "gaps" : "book"}
+                mode={
+                  cleanMode ? "clean" : gapsMode ? "gaps" : reservedMode ? "reserved" : "book"
+                }
                 onChange={(v) => {
+                  // Every lens is set on every change, so switching away from one
+                  // cannot leave it quietly on underneath the new one.
                   setGapsMode(v === "gaps");
                   setCleanMode(v === "clean");
+                  setReservedMode(v === "reserved");
                 }}
               />
             </div>

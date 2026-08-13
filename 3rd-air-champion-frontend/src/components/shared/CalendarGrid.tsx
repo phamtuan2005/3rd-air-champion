@@ -55,6 +55,10 @@ interface CalendarGridProps {
   // Supplied by TiMag only. Its presence is what puts the resize grip on the
   // calendar — TiBook has no per-device lane setting and gets no grip.
   onRowHeightChange?: (n: number) => void;
+  // Returns true for a booking that should recede into the background. Its mere
+  // presence also means "a lens is on", which suppresses the availability bars —
+  // an open night is not what is being looked for.
+  dimBooking?: (booking: bookingType) => boolean;
 }
 
 // Default lane height. Overridable per device via the rowHeight prop — this
@@ -140,6 +144,7 @@ const CalendarGrid = ({
   rowsPerPage = 4,
   rowHeight: laneHeight = SUBROW_HEIGHT,
   onRowHeightChange,
+  dimBooking,
 }: CalendarGridProps) => {
   const [months, setMonths] = useState<Date[]>([]);
   const [visibleIndex, setVisibleIndex] = useState<number>(monthsBack);
@@ -793,18 +798,31 @@ const CalendarGrid = ({
             );
           }
 
-          const amColor = amBooking?.room?.name
-            ? getRoomColor(amBooking.room.name, amBooking.room.color)
-            : "";
+          // Grey, not faded: opacity over a coloured bar still reads as that
+          // colour, and the point is that these bars stop competing.
+          const DIM = "bg-gray-200";
+          const amDim = !!amBooking && !!dimBooking?.(amBooking);
+          const pmDim = !!pmBooking && !!dimBooking?.(pmBooking);
+
+          const amColor = amDim
+            ? DIM
+            : amBooking?.room?.name
+              ? getRoomColor(amBooking.room.name, amBooking.room.color)
+              : "";
           const amIsEnd = amBooking?.endDate
             ? cellKey === addDayKey(dayKey(amBooking.endDate), 1)
             : false;
           const pmIsStart = pmBooking?.startDate ? cellKey === dayKey(pmBooking.startDate) : false;
-          const pmColor = pmBooking?.room?.name
-            ? getRoomColor(pmBooking.room.name, pmBooking.room.color)
-            : "";
-          const pmTextColor =
-            pmBooking?.guest?.name === "AirBnB" ? "text-white" : "text-black font-bold";
+          const pmColor = pmDim
+            ? DIM
+            : pmBooking?.room?.name
+              ? getRoomColor(pmBooking.room.name, pmBooking.room.color)
+              : "";
+          const pmTextColor = pmDim
+            ? "text-gray-500"
+            : pmBooking?.guest?.name === "AirBnB"
+              ? "text-white"
+              : "text-black font-bold";
 
           const defaultLabel = pmBooking
             ? pmBooking.guest?.name === "AirBnB" && pmBooking.alias
@@ -879,14 +897,14 @@ const CalendarGrid = ({
             >
               {amBooking && (
                 <div
-                  className={`${amColor} ${amBooking.reserved ? HOLD_EDGE : ""}`}
+                  className={`${amColor} ${amBooking.reserved && !amDim ? HOLD_EDGE : ""}`}
                   style={{
                     position: "absolute",
                     top: "1px",
                     bottom: "1px",
                     left: "-1px",
                     right: amIsEnd ? "80%" : "-1px",
-                    backgroundImage: amBooking.reserved ? HOLD_HATCH : undefined,
+                    backgroundImage: amBooking.reserved && !amDim ? HOLD_HATCH : undefined,
                     // The checkout-morning cap is the only rounded end of an AM
                     // bar; mid-stay it must stay square so it butts against the
                     // night before without a seam.
@@ -903,7 +921,7 @@ const CalendarGrid = ({
               {pmBooking ? (
                 <div
                   className={`${pmColor} ${pmTextColor} ${
-                    pmBooking.reserved ? HOLD_EDGE : ""
+                    pmBooking.reserved && !pmDim ? HOLD_EDGE : ""
                   } flex items-center`}
                   style={{
                     position: "absolute",
@@ -912,7 +930,7 @@ const CalendarGrid = ({
                     left: pmIsStart ? "20%" : "-1px",
                     right: "-1px",
                     fontSize: `${textSize}rem`,
-                    backgroundImage: pmBooking.reserved ? HOLD_HATCH : undefined,
+                    backgroundImage: pmBooking.reserved && !pmDim ? HOLD_HATCH : undefined,
                     borderTopLeftRadius: pmIsStart ? R : undefined,
                     borderBottomLeftRadius: pmIsStart ? R : undefined,
                   }}
@@ -933,7 +951,7 @@ const CalendarGrid = ({
                     ...hatchPhase(0.2 * (tileWidth ?? 0)),
                   }}
                 />
-              ) : !isBefore(date, startOfToday()) && !overrideRooms && !cleanSlot ? (
+              ) : !isBefore(date, startOfToday()) && !overrideRooms && !cleanSlot && !dimBooking ? (
                 // The "available to sell" bar sits in the same slot as the clean
                 // label and is drawn after it, so it painted straight over the
                 // cleaner. In Clean mode the cleaner owns this space.

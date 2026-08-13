@@ -29,6 +29,7 @@ interface CustomCalendarProps {
   holdDates: Date[];
   setHoldDates: React.Dispatch<React.SetStateAction<Date[]>>;
   gapsMode?: boolean;
+  reservedMode?: boolean;
   // Clean mode: label each stay with the cleaner who turns the room over after it
   cleanMode?: boolean;
   cleanerByRoomMorning?: Map<string, CleanerType>;
@@ -58,6 +59,7 @@ const CustomCalendar = ({
   holdDates,
   setHoldDates,
   gapsMode = false,
+  reservedMode = false,
   cleanMode = false,
   cleanerByRoomMorning,
   onCleanDayClick,
@@ -272,6 +274,10 @@ const CustomCalendar = ({
       resolveBarIcon={resolveBarIcon}
       renderEmptyCell={renderEmptyCell}
       gapsMode={gapsMode}
+      // Muting rather than hiding: a held night means nothing without the stays
+      // around it. Hiding the paid bookings would leave holds floating in what
+      // looks like an empty month and invite double-booking the gap.
+      dimBooking={reservedMode ? (b) => !b.reserved : undefined}
       onTodayInViewChange={onTodayInViewChange}
       rowsPerPage={rowsPerPage}
       rowHeight={rowHeight}
