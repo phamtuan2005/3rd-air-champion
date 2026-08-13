@@ -951,7 +951,7 @@ const CalendarGrid = ({
                     ...hatchPhase(0.2 * (tileWidth ?? 0)),
                   }}
                 />
-              ) : !isBefore(date, startOfToday()) && !overrideRooms && !cleanSlot && !dimBooking ? (
+              ) : !isBefore(date, startOfToday()) && !overrideRooms && !cleanSlot ? (
                 // The "available to sell" bar sits in the same slot as the clean
                 // label and is drawn after it, so it painted straight over the
                 // cleaner. In Clean mode the cleaner owns this space.

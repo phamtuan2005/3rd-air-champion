@@ -277,6 +277,9 @@ const CustomCalendar = ({
       // Muting rather than hiding: a held night means nothing without the stays
       // around it. Hiding the paid bookings would leave holds floating in what
       // looks like an empty month and invite double-booking the gap.
+      //
+      // Availability bars stay on for the same reason — an open night beside a
+      // hold is exactly the context that makes the hold worth chasing.
       dimBooking={reservedMode ? (b) => !b.reserved : undefined}
       onTodayInViewChange={onTodayInViewChange}
       rowsPerPage={rowsPerPage}
