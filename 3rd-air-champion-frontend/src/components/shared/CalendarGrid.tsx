@@ -86,6 +86,19 @@ const labelRemFor = (laneHeight: number) =>
 // Capped at half the bar height, which is the point where opposite corners meet
 // — beyond that the radius is silently clamped by the browser anyway, and the
 // bar would stop having a straight edge to butt against the next night.
+// A held (R) night: room colour under a 45-degree amber hatch, with a dashed
+// amber edge. Lifted verbatim from TiBook's guest calendar so one stay looks the
+// same to the host and to the guest looking at their own booking.
+//
+// Pattern rather than a flat tint, because "held but unpaid" is a state, not
+// another room colour — hatching reads as provisional at a glance and survives
+// being seen next to any of the five room colours. The dashed edge is drawn
+// INSIDE the bar's box, so the shared PM-checkin / AM-checkout geometry is
+// untouched and no gaps open between nights.
+const HOLD_HATCH =
+  "repeating-linear-gradient(45deg, rgba(217,119,6,0.62) 0 4px, rgba(255,255,255,0) 4px 9px)";
+const HOLD_EDGE = "border-y-2 border-dashed border-amber-500";
+
 const RADIUS_RATIO = 8 / 26; // the tuned look at the default lane height
 const barRadiusFor = (laneHeight: number) => {
   const barHeight = Math.max(1, laneHeight - 2); // top/bottom inset 1px each
@@ -860,13 +873,14 @@ const CalendarGrid = ({
             >
               {amBooking && (
                 <div
-                  className={amColor}
+                  className={`${amColor} ${amBooking.reserved ? HOLD_EDGE : ""}`}
                   style={{
                     position: "absolute",
                     top: "1px",
                     bottom: "1px",
                     left: "-1px",
                     right: amIsEnd ? "80%" : "-1px",
+                    backgroundImage: amBooking.reserved ? HOLD_HATCH : undefined,
                     // The checkout-morning cap is the only rounded end of an AM
                     // bar; mid-stay it must stay square so it butts against the
                     // night before without a seam.
@@ -882,7 +896,9 @@ const CalendarGrid = ({
               {cleanSlot}
               {pmBooking ? (
                 <div
-                  className={`${pmColor} ${pmTextColor} flex items-center`}
+                  className={`${pmColor} ${pmTextColor} ${
+                    pmBooking.reserved ? HOLD_EDGE : ""
+                  } flex items-center`}
                   style={{
                     position: "absolute",
                     top: "1px",
@@ -890,6 +906,7 @@ const CalendarGrid = ({
                     left: pmIsStart ? "20%" : "-1px",
                     right: "-1px",
                     fontSize: `${textSize}rem`,
+                    backgroundImage: pmBooking.reserved ? HOLD_HATCH : undefined,
                     borderTopLeftRadius: pmIsStart ? R : undefined,
                     borderBottomLeftRadius: pmIsStart ? R : undefined,
                   }}
