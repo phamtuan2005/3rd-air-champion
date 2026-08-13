@@ -519,6 +519,18 @@ const CalendarGrid = ({
   };
 
   const getTileContent = (date: Date) => {
+    // Declared here, above EVERY branch — not beside the bars that use them.
+    //
+    // Gaps mode returns early, from a nested map(), and read both of these. With
+    // the declarations further down the function that is a temporal dead zone:
+    // the callback runs before the const is initialised, throws a ReferenceError
+    // and takes the whole calendar blank. TypeScript cannot see it, because from
+    // inside a closure it cannot prove when the callback runs.
+    //
+    // Size of the guest name, and the corner radius every bar shares — both
+    // derived from the lane height so the calendar scales as one piece.
+    const textSize = labelRemFor(laneHeight);
+    const R = barRadiusFor(laneHeight);
     const day = monthMap.get(localDateKey(date));
     const prevDay = monthMap.get(localDateKey(addDays(date, -1)));
 
@@ -690,12 +702,6 @@ const CalendarGrid = ({
     }
 
     // Guest-name size inside booking bars. Bumped from 0.65 — 10px strained the
-    // eye reading who's in which room; multi-night bars have room to spare, only
-    // 1-night stays truncate a touch sooner.
-    const textSize = labelRemFor(laneHeight);
-    // Resolved once per tile: every corner on this calendar is the same curve,
-    // and computing it in one place is what keeps that true.
-    const R = barRadiusFor(laneHeight);
 
     return (
       <>
