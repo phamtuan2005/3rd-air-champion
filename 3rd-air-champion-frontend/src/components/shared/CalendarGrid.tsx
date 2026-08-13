@@ -328,6 +328,59 @@ const CalendarGrid = ({
     onTodayInViewChange(cells.some((c) => c && isSameDay(c, startOfToday())));
   }, [visibleIndex, pageLayouts, onTodayInViewChange]);
 
+  // iOS Safari: nudge the page you land on into repainting.
+  //
+  // Safari updates the geometry of absolutely positioned children inside a
+  // scrolling container but does not always redraw their rounded clip, so every
+  // bar on an arriving page shows square corners. The radius is in the markup
+  // the whole time — dragging the row-height grip cured it, as ANY style change
+  // would. Verified desktop-only-clean on a current build; the phone is the one
+  // that needs this.
+  //
+  // A hair of opacity for a single frame is the cheapest thing that forces a
+  // repaint: one element, once per page change, and 0.999 is not a visible
+  // difference. Promoting every page to its own layer up front was tried first
+  // and did nothing — a layer that already exists does not repaint on arrival
+  // either, which is the whole problem.
+  useEffect(() => {
+    const el = calendarWrapperRef.current;
+    if (!el) return;
+    const previous = el.style.opacity;
+    el.style.opacity = "0.999";
+    const id = requestAnimationFrame(() => {
+      el.style.opacity = previous;
+    });
+    return () => cancelAnimationFrame(id);
+  }, [visibleIndex]);
+
+  // Force the arriving page to redraw.
+  //
+  // The browser lays a page out correctly and then paints stale: bars show
+  // square corners and runs look broken until ANY style change, which is why
+  // dragging the row-height grip cured it every time. Proven by console: the
+  // computed styles of every bar are IDENTICAL before and after the grip is
+  // touched — same radius, same left, right and width. Nothing is wrong with
+  // what we asked for; the browser simply did not repaint it.
+  //
+  // So ask for a repaint directly, on page arrival and on first mount. A hair of
+  // opacity for one frame, on one element, is the cheapest way: 0.999 is not a
+  // visible difference, and the reflow read flushes it before it is reverted.
+  //
+  // Two things were tried first and did nothing, recorded so they are not
+  // retried: promoting every page to its own layer up front (a layer that
+  // already exists does not repaint on arrival either), and blaming Safari (it
+  // reproduces on desktop Chrome).
+  useEffect(() => {
+    const el = calendarWrapperRef.current;
+    if (!el) return;
+    el.style.opacity = "0.999";
+    void el.offsetHeight; // flush the change so the revert cannot coalesce with it
+    const id = requestAnimationFrame(() => {
+      el.style.opacity = "";
+    });
+    return () => cancelAnimationFrame(id);
+  }, [visibleIndex, laneHeight, numRows]);
+
   useEffect(() => {
     if (scrollToTodayTrigger > 0 && scrollContainerRef.current && pageLayouts.length > 0) {
       const today = new Date();
