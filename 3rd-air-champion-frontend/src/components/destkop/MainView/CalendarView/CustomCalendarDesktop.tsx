@@ -243,8 +243,15 @@ const CustomCalendar = ({
       return cleaner ? cleaner.name.trim().split(" ")[0] : "·";
     }
     if (booking.guest?.name === "AirBnB" && booking.alias) return `${booking.alias} (A)`;
-    if (currentGuest) return booking.reserved ? `${booking.room?.name ?? ""} (R)` : (booking.room?.name ?? "");
-    if (booking.reserved) return `${booking.guest.name} (R)`;
+    // (R) leads, it does not trail.
+    //
+    // A bar is a width budget and long names truncate, so a marker at the end is
+    // the first thing lost — and this is the one that must not be: it says the
+    // night is held but unpaid. At the front it survives any truncation, and a
+    // column of holds lines up down the left edge where it can be scanned.
+    if (currentGuest)
+      return booking.reserved ? `(R) ${booking.room?.name ?? ""}` : (booking.room?.name ?? "");
+    if (booking.reserved) return `(R) ${booking.guest.name}`;
     return booking.guest?.name ?? "";
   };
 
