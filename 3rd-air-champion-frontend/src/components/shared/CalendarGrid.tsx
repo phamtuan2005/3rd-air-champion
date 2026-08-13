@@ -368,6 +368,36 @@ const CalendarGrid = ({
   const [laneNudge, setLaneNudge] = useState(0);
   const paintLane = laneHeight + laneNudge;
 
+  const nudgeTimerRef = useRef<number | null>(null);
+
+  const triggerRepaint = () => {
+    setLaneNudge(1);
+    // Reverted after a PAINTED frame, not the next one.
+    //
+    // A single requestAnimationFrame revert lands in the same paint cycle, so
+    // the browser coalesces both changes and never draws the nudged state —
+    // which is exactly why the first attempt did nothing.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => setLaneNudge(0));
+    });
+  };
+
+  // Fire once the scrolling STOPS, not on the page index changing.
+  //
+  // Hanging this off visibleIndex missed scrolling entirely: a scroll can settle
+  // on the same index, and one arriving inside the reflow-suppression window
+  // returns from handleScroll before the index is ever touched. Both leave the
+  // page painted stale. Scroll-settling is the event that actually matters, so
+  // that is what it listens to now.
+  const scheduleRepaint = () => {
+    if (nudgeTimerRef.current !== null) window.clearTimeout(nudgeTimerRef.current);
+    nudgeTimerRef.current = window.setTimeout(triggerRepaint, 120);
+  };
+
+  useEffect(() => () => {
+    if (nudgeTimerRef.current !== null) window.clearTimeout(nudgeTimerRef.current);
+  }, []);
+
   useEffect(() => {
     setLaneNudge(1);
     // Reverted after a PAINTED frame, not the next one.
@@ -540,6 +570,11 @@ const CalendarGrid = ({
   };
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    // Scheduled FIRST, before the suppression bail-out below returns. A stale
+    // scroll must not move the visible month, but it still leaves the page
+    // needing a repaint.
+    scheduleRepaint();
+
     // Skip scrolls fired by a layout reflow (the page count just changed) — they carry a
     // stale scrollTop that would otherwise re-point the visible month to the wrong page.
     if (performance.now() < suppressScrollUntilRef.current) return;
