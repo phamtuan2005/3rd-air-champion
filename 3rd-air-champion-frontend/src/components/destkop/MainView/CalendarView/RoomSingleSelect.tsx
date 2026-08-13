@@ -18,7 +18,9 @@ const RoomSingleSelect = ({ rooms, value, onChange }: RoomSingleSelectProps) => 
   const triggerContent = selectedRoom ? (
     <RoomBadge room={selectedRoom} rooms={activeRooms} />
   ) : (
-    <span className="italic text-gray-500 text-xs">All rooms</span>
+    // "Rooms" on the trigger, "All rooms" inside the list. The trigger names
+    // the control; the list item names what choosing it does.
+    <span className="italic text-gray-500 text-xs">Rooms</span>
   );
 
   const handleSelect = (roomName: string | null) => {
