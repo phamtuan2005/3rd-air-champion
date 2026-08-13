@@ -582,8 +582,18 @@ const CalendarGrid = ({
     const calendarHeight = pageSpan(el);
     const snappedIndex = Math.round(pageOffset(el) / calendarHeight);
 
+    // One page per gesture, however hard it was thrown.
+    //
+    // Momentum can carry a flick across several pages, which overshoots what was
+    // meant and leaves the host hunting for where they were. This used to snap
+    // all the way BACK to the current page, which is just as wrong in the other
+    // direction: a deliberate swipe did nothing.
+    //
+    // Now an overshoot is clamped to a single step in the direction travelled,
+    // so every gesture — long, short, fast, slow — advances exactly one page.
     if (Math.abs(snappedIndex - visibleIndexRef.current) > 1) {
-      scrollToPage(el, visibleIndexRef.current);
+      const direction = snappedIndex > visibleIndexRef.current ? 1 : -1;
+      goToPage(visibleIndexRef.current + direction);
       return;
     }
 
