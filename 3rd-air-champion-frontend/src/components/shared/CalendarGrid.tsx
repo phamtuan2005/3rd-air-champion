@@ -76,6 +76,22 @@ const labelRemFor = (laneHeight: number) =>
 // big guest names and a date stranded at its original size. Same ratio as the
 // CSS rule it overrides (0.9rem at the 26px default), so nothing moves until
 // the host actually drags the grip.
+// Corner radius of a booking bar, as a FRACTION of the lane it sits in.
+//
+// It was a fixed 0.5rem. A fixed radius on a growing bar is a different shape,
+// not the same shape larger: at 26px the corner is a third of the bar's height
+// and reads as a rounded capsule end; at 48px the same 8px is a sixth of it and
+// reads as a near-square block. Scaling keeps the silhouette the host learned.
+//
+// Capped at half the bar height, which is the point where opposite corners meet
+// — beyond that the radius is silently clamped by the browser anyway, and the
+// bar would stop having a straight edge to butt against the next night.
+const RADIUS_RATIO = 8 / 26; // the tuned look at the default lane height
+const barRadiusFor = (laneHeight: number) => {
+  const barHeight = Math.max(1, laneHeight - 2); // top/bottom inset 1px each
+  return `${Math.min(barHeight / 2, laneHeight * RADIUS_RATIO).toFixed(1)}px`;
+};
+
 const dateRemFor = (laneHeight: number) =>
   Math.min(1.7, Math.max(0.9, (laneHeight / 26) * 0.9));
 
@@ -630,20 +646,23 @@ const CalendarGrid = ({
                       bottom: "1px",
                       left: "-1px",
                       right: "80%",
-                      borderTopRightRadius: "0.5rem",
-                      borderBottomRightRadius: "0.5rem",
+                      borderTopRightRadius: R,
+                      borderBottomRightRadius: R,
                     }}
                   />
                 )}
                 <div
-                  className={`${roomColor} flex items-center overflow-hidden rounded-lg`}
+                  className={`${roomColor} flex items-center overflow-hidden`}
                   style={{
+                    borderRadius: R,
                     position: "absolute",
                     top: "1px",
                     bottom: "1px",
                     left: "20%",
                     right: "-20%",
-                    fontSize: "0.8rem",
+                    // Was a hardcoded 0.8rem — the one bar whose text did not
+                    // scale with the lane, left behind when the others did.
+                    fontSize: `${textSize}rem`,
                     fontWeight: 700,
                     paddingLeft: "4px",
                   }}
@@ -661,6 +680,9 @@ const CalendarGrid = ({
     // eye reading who's in which room; multi-night bars have room to spare, only
     // 1-night stays truncate a touch sooner.
     const textSize = labelRemFor(laneHeight);
+    // Resolved once per tile: every corner on this calendar is the same curve,
+    // and computing it in one place is what keeps that true.
+    const R = barRadiusFor(laneHeight);
 
     return (
       <>
@@ -697,8 +719,8 @@ const CalendarGrid = ({
                       bottom: "1px",
                       left: prevRoomBlocked ? "-1px" : "20%",
                       right: "-1px",
-                      borderTopLeftRadius: prevRoomBlocked ? undefined : "0.5rem",
-                      borderBottomLeftRadius: prevRoomBlocked ? undefined : "0.5rem",
+                      borderTopLeftRadius: prevRoomBlocked ? undefined : R,
+                      borderBottomLeftRadius: prevRoomBlocked ? undefined : R,
                       ...hatchPhase(prevRoomBlocked ? -1 : 0.2 * (tileWidth ?? 0)),
                     }}
                   />
@@ -714,13 +736,14 @@ const CalendarGrid = ({
                 {prevRoomBlocked && (
                   <div
                     className="react-calendar__room_blocked_bar absolute"
-                    style={{ top: "1px", bottom: "1px", left: "-1px", right: "80%", borderTopRightRadius: "0.5rem", borderBottomRightRadius: "0.5rem", ...hatchPhase(-1) }}
+                    style={{ top: "1px", bottom: "1px", left: "-1px", right: "80%", borderTopRightRadius: R, borderBottomRightRadius: R, ...hatchPhase(-1) }}
                   />
                 )}
                 {isFutureOrToday && (
                   <div
-                    className="react-calendar__opportunity_row absolute rounded-lg"
+                    className="react-calendar__opportunity_row absolute"
                     style={{
+                      borderRadius: R,
                       top: "1px",
                       bottom: "1px",
                       left: "20%",
@@ -744,7 +767,7 @@ const CalendarGrid = ({
                 {isFutureOrToday && prevDayNoPm && !prevRoomBlocked && getDay(date) === 0 && (
                   <div
                     className="react-calendar__opportunity_pm absolute"
-                    style={{ top: "1px", bottom: "1px", left: "-1px", right: "80%", borderTopRightRadius: "0.5rem", borderBottomRightRadius: "0.5rem" }}
+                    style={{ top: "1px", bottom: "1px", left: "-1px", right: "80%", borderTopRightRadius: R, borderBottomRightRadius: R }}
                   />
                 )}
               </div>
@@ -837,13 +860,18 @@ const CalendarGrid = ({
             >
               {amBooking && (
                 <div
-                  className={`${amColor} ${amIsEnd ? "rounded-r-lg" : ""}`}
+                  className={amColor}
                   style={{
                     position: "absolute",
                     top: "1px",
                     bottom: "1px",
                     left: "-1px",
                     right: amIsEnd ? "80%" : "-1px",
+                    // The checkout-morning cap is the only rounded end of an AM
+                    // bar; mid-stay it must stay square so it butts against the
+                    // night before without a seam.
+                    borderTopRightRadius: amIsEnd ? R : undefined,
+                    borderBottomRightRadius: amIsEnd ? R : undefined,
                   }}
                 />
               )}
@@ -862,8 +890,8 @@ const CalendarGrid = ({
                     left: pmIsStart ? "20%" : "-1px",
                     right: "-1px",
                     fontSize: `${textSize}rem`,
-                    borderTopLeftRadius: pmIsStart ? "0.5rem" : undefined,
-                    borderBottomLeftRadius: pmIsStart ? "0.5rem" : undefined,
+                    borderTopLeftRadius: pmIsStart ? R : undefined,
+                    borderBottomLeftRadius: pmIsStart ? R : undefined,
                   }}
                 >
                   {pmNameContent}
@@ -877,8 +905,8 @@ const CalendarGrid = ({
                     bottom: "1px",
                     left: "20%",
                     right: "-1px",
-                    borderTopLeftRadius: "0.5rem",
-                    borderBottomLeftRadius: "0.5rem",
+                    borderTopLeftRadius: R,
+                    borderBottomLeftRadius: R,
                     ...hatchPhase(0.2 * (tileWidth ?? 0)),
                   }}
                 />
@@ -887,15 +915,17 @@ const CalendarGrid = ({
                 // label and is drawn after it, so it painted straight over the
                 // cleaner. In Clean mode the cleaner owns this space.
                 <div
-                  className="react-calendar__opportunity_pm rounded-r-lg"
+                  className="react-calendar__opportunity_pm"
                   style={{
                     position: "absolute",
                     top: "1px",
                     bottom: "1px",
                     left: "20%",
                     right: "-20%",
-                    borderTopLeftRadius: "0.5rem",
-                    borderBottomLeftRadius: "0.5rem",
+                    borderTopLeftRadius: R,
+                    borderBottomLeftRadius: R,
+                    borderTopRightRadius: R,
+                    borderBottomRightRadius: R,
                   }}
                 />
               ) : null}
@@ -908,8 +938,8 @@ const CalendarGrid = ({
                     bottom: "1px",
                     left: "-1px",
                     right: "80%",
-                    borderTopRightRadius: "0.5rem",
-                    borderBottomRightRadius: "0.5rem",
+                    borderTopRightRadius: R,
+                    borderBottomRightRadius: R,
                     ...hatchPhase(-1),
                   }}
                 />
@@ -927,8 +957,8 @@ const CalendarGrid = ({
                       bottom: "1px",
                       left: "-1px",
                       right: "80%",
-                      borderTopRightRadius: "0.5rem",
-                      borderBottomRightRadius: "0.5rem",
+                      borderTopRightRadius: R,
+                      borderBottomRightRadius: R,
                     }}
                   />
                 )}
