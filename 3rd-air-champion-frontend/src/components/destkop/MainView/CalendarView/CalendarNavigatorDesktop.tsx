@@ -69,9 +69,13 @@ const CalendarNavigator = ({
   const [guestBill, setGuestBill] = useState<number | null>(null);
   const [airBnBGuestBill, setAirBnBGuestBill] = useState<number | null>(null);
 
+  // "Aug 2026", not "August 2026". The header also carries the room filter, the
+  // view picker, Today and the weeks control; September through December cost
+  // enough width to squeeze them on a phone, and nobody reads the month name to
+  // find out which month it is — they already know.
   const formattedDate = currentMonth.toLocaleDateString("en-US", {
     year: "numeric",
-    month: "long",
+    month: "short",
   });
   // Disable only when today is actually on screen. A month can span several pages, so
   // being in the current month no longer means today is visible — fall back to month
