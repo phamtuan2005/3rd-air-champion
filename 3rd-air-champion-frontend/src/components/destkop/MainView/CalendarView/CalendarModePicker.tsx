@@ -16,9 +16,11 @@ const MODES: (PickerOption<CalendarMode> & { trigger: string })[] = [
   // Guest was grey, which in every other part of the UI means disabled or
   // finished — a poor thing to say about the paying occupants of the house.
   // Emerald is the money colour already used for gross and net in Stats, and a
-  // full house is exactly what it stands for. The trigger keeps a white fill so
-  // the default view does not shout from the header all day; the outline and
-  // icon carry the colour.
+  // full house is exactly what it stands for.
+  //
+  // Filled, like every other mode. A white trigger was tried to keep the default
+  // view quiet, but it made the one lens the host lives in look like the only
+  // one not switched on — the same wrong signal the grey icon sent.
   {
     value: "book",
     label: "Guest",
@@ -26,7 +28,7 @@ const MODES: (PickerOption<CalendarMode> & { trigger: string })[] = [
     Icon: FaUserFriends,
     accent: "bg-emerald-600",
     rowActive: "bg-emerald-50 text-emerald-900",
-    trigger: "border-emerald-600 bg-white text-emerald-700",
+    trigger: "border-emerald-600 bg-emerald-600 text-white",
   },
   // Gaps was green, which reads as "good". An unsold night is the opposite: it
   // is revenue that will never be recovered, since a Tuesday cannot be sold on
