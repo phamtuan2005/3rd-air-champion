@@ -389,9 +389,25 @@ const CalendarGrid = ({
   // returns from handleScroll before the index is ever touched. Both leave the
   // page painted stale. Scroll-settling is the event that actually matters, so
   // that is what it listens to now.
-  const scheduleRepaint = () => {
+  const scheduleSettle = () => {
     if (nudgeTimerRef.current !== null) window.clearTimeout(nudgeTimerRef.current);
-    nudgeTimerRef.current = window.setTimeout(triggerRepaint, 120);
+    nudgeTimerRef.current = window.setTimeout(() => {
+      const el = scrollContainerRef.current;
+      const span = el ? pageSpan(el) : 0;
+      if (el && span > 0) {
+        const snapped = Math.round(pageOffset(el) / span);
+        const delta = snapped - visibleIndexRef.current;
+        // Belt and braces for browsers without scroll-snap-stop. Corrected only
+        // now that the scroll has STOPPED — doing it live is what threw the host
+        // "to nowhere": setting scrollLeft while a fling is still running gets
+        // overridden by the fling, and the two land between pages.
+        if (Math.abs(delta) > 1) {
+          goToPage(visibleIndexRef.current + (delta > 0 ? 1 : -1));
+          return; // that move repaints on its own
+        }
+      }
+      triggerRepaint();
+    }, 120);
   };
 
   useEffect(() => () => {
@@ -573,7 +589,7 @@ const CalendarGrid = ({
     // Scheduled FIRST, before the suppression bail-out below returns. A stale
     // scroll must not move the visible month, but it still leaves the page
     // needing a repaint.
-    scheduleRepaint();
+    scheduleSettle();
 
     // Skip scrolls fired by a layout reflow (the page count just changed) — they carry a
     // stale scrollTop that would otherwise re-point the visible month to the wrong page.
@@ -582,20 +598,9 @@ const CalendarGrid = ({
     const calendarHeight = pageSpan(el);
     const snappedIndex = Math.round(pageOffset(el) / calendarHeight);
 
-    // One page per gesture, however hard it was thrown.
-    //
-    // Momentum can carry a flick across several pages, which overshoots what was
-    // meant and leaves the host hunting for where they were. This used to snap
-    // all the way BACK to the current page, which is just as wrong in the other
-    // direction: a deliberate swipe did nothing.
-    //
-    // Now an overshoot is clamped to a single step in the direction travelled,
-    // so every gesture — long, short, fast, slow — advances exactly one page.
-    if (Math.abs(snappedIndex - visibleIndexRef.current) > 1) {
-      const direction = snappedIndex > visibleIndexRef.current ? 1 : -1;
-      goToPage(visibleIndexRef.current + direction);
-      return;
-    }
+    // No correction while the finger or the fling is still moving. One page per
+    // gesture is enforced natively by scroll-snap-stop, and reconciled after the
+    // scroll settles (scheduleSettle) for anything that slips past it.
 
     const layout = pageLayouts[snappedIndex];
     if (layout) {
@@ -1224,7 +1229,11 @@ const CalendarGrid = ({
         return (
           <div
             key={index}
-            className={`relative snap-start h-full main-calendar-wrapper ${horizontalPaging ? "w-full shrink-0" : ""}`}
+            // snap-always = scroll-snap-stop: always. The browser refuses to
+            // fly past a snap point, so one flick moves one page no matter how
+            // hard it is thrown — enforced by the scroller itself, which is the
+            // only thing that can do it without fighting the momentum.
+            className={`relative snap-always snap-start h-full main-calendar-wrapper ${horizontalPaging ? "w-full shrink-0" : ""}`}
             ref={index === visibleIndex ? calendarWrapperRef : undefined}
           >
             {/* Row-resize handle, hanging under the last lane of the last week
