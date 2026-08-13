@@ -52,7 +52,9 @@ const MODES: (PickerOption<CalendarMode> & { trigger: string })[] = [
   },
   {
     value: "clean",
-    label: "Clean",
+    // "Cleaner", not "Clean" — the lens labels each stay with the person who
+    // turns that room over, so it names a who, not a state of the room.
+    label: "Cleaner",
     hint: "Turnovers and who is on them",
     Icon: MdCleaningServices,
     accent: "bg-teal-600",
