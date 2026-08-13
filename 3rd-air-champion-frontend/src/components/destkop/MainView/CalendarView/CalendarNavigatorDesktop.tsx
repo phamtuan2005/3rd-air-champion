@@ -328,10 +328,17 @@ const CalendarNavigator = ({
           "Friday",
           "Saturday",
         ].map((day, index) => (
+          // no-underline is doing real work: every browser draws abbr[title]
+          // with a dotted underline, which showed up under each day as a broken
+          // line nobody chose. The title is kept — hovering still spells out
+          // "Wednesday" — but the decoration goes.
+          //
+          // Uppercase, tracked and muted so the row reads as a column heading
+          // rather than as content competing with the bookings below it.
           <abbr
             key={index}
             title={day}
-            className="text-base font-medium sm:text-lg md:text-xl"
+            className="text-xs font-bold uppercase tracking-wider text-gray-500 no-underline sm:text-sm"
           >
             {day.substring(0, 3)}
           </abbr>
