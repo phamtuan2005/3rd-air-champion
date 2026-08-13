@@ -449,6 +449,25 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
       !isStaleCleaning(a.room.id, a.date),
   );
 
+  // How many rooms each cleaner has this week — the same overview the Plan tab
+  // carries, so the two tabs answer the workload question the same way.
+  //
+  // Derived from weekAssignments, the exact list the day cards below render
+  // from, so the chips and the cards can never disagree — including about stale
+  // cleanings, which that list already drops.
+  //
+  // No "unassigned" chip here, unlike Plan. Plan forecasts rooms that WILL need
+  // cleaning and has a gap to fill; this tab shows what is actually booked in,
+  // where an unassigned room simply does not exist yet.
+  const weekTabTotals = (() => {
+    const totals = new Map<string, number>();
+    weekAssignments.forEach((a) => {
+      const name = a.cleaner!.name;
+      totals.set(name, (totals.get(name) ?? 0) + 1);
+    });
+    return [...totals.entries()].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]));
+  })();
+
   // Fixed Monday of this/next week. The Team-tab Message menu offers both
   // explicitly, so a schedule text never depends on which week the Week tab
   // happens to be showing — each item spells out its own dates.
@@ -1690,6 +1709,32 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
               </button>
             ))}
           </div>
+
+          {/* Workload at a glance, above the day-by-day breakdown — the same
+              chips as the Plan tab. Cindy cleans as well as co-hosts, so "how
+              many rooms am I down for this week" is asked before any individual
+              day is. */}
+          {weekTabTotals.length > 0 && (
+            <div className="mb-2 flex flex-wrap items-center justify-center gap-1.5">
+              {weekTabTotals.map(([name, count]) => {
+                const cl = cleaners.find((c) => c.name === name);
+                return (
+                  <span
+                    key={name}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white py-0.5 pl-0.5 pr-2 text-sm font-semibold text-gray-700"
+                  >
+                    {cl && (
+                      <CleanerAvatar id={cl.id} name={name} sizeClass="h-5 w-5" textClass="text-[11px]" />
+                    )}
+                    {name.split(" ")[0]}
+                    <span className="rounded-full bg-gray-900 px-1.5 py-0.5 text-[12px] font-bold leading-none text-white">
+                      {count}
+                    </span>
+                  </span>
+                );
+              })}
+            </div>
+          )}
 
           {weekDates.map((dateKey) => {
             const dayDate = new Date(dateKey + "T00:00:00");
