@@ -951,19 +951,22 @@ const CalendarGrid = ({
                       bottom: "1px",
                       left: "20%",
                       right: "-20%",
-                      // Mid-run, the previous day's box already extends through
-                      // this edge, so a left border draws a vertical line across
-                      // what should read as one continuous free stretch. Only the
-                      // day that STARTS a run closes its left side — the right
-                      // border was dropped for the same reason. A week wrap does
-                      // start a run visually, so Sunday keeps its edge.
-                      ...(prevDayNoPm && !prevRoomBlocked && getDay(date) !== 0
-                        ? {
-                            borderLeft: "none",
-                            borderTopLeftRadius: 0,
-                            borderBottomLeftRadius: 0,
-                          }
-                        : {}),
+                      // Every open night closes its own left side, so each one
+                      // carries the PM check-in arch.
+                      //
+                      // A multi-night gap used to be drawn as ONE continuous
+                      // stretch: mid-run nights had the left border and radii
+                      // stripped, on the reasoning that a vertical line would cut
+                      // across a single free run. But a gap is not one thing being
+                      // sold — it is two, or three, separately sellable nights, and
+                      // merging them hid how many were open. Arching each night
+                      // makes the count readable at a glance, the way Gaps mode
+                      // has always drawn them.
+                      //
+                      // The right side keeps no border (see the CSS): the previous
+                      // night's box already reaches this edge, so the single dashed
+                      // line at each boundary comes from THIS night's left border
+                      // and is never doubled.
                     }}
                   />
                 )}
