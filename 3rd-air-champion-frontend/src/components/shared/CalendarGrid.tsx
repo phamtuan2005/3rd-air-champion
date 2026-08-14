@@ -290,6 +290,41 @@ const CalendarGrid = ({
     setMonths(arr);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Survive a flip of the paging axis.
+  //
+  // numRows crossing 2 swaps the scroller from a horizontal flex filmstrip to a
+  // vertical stack, and filtering is what crosses it: a room or guest filter
+  // removes the narrow-screen cap AND shrinks minRowHeight to a couple of lanes,
+  // so numRows jumps from 2 to about 6. Only a phone is ever on the horizontal
+  // side of that boundary, which is why this was invisible on desktop.
+  //
+  // When overflow-x stops scrolling, the browser throws scrollLeft away and the
+  // element sits at offset 0 — and fires a scroll event saying so. handleScroll
+  // believed it: page 0 is 24 months back, so the visible month was silently
+  // re-pointed two years into the past, and the next re-layout anchored there.
+  // For a filtered room that month is empty, which is the blank calendar.
+  //
+  // suppressScrollUntilRef already guards reflow scrolls, but it was only ever
+  // armed after a scroll WE performed. A layout change that moves the offset by
+  // itself needs the same protection, so arm it here and re-place the page in
+  // the axis that now applies.
+  //
+  // useLayoutEffect: scroll events are dispatched after layout, so arming here
+  // beats the event the flip is about to produce. Declared BEFORE the anchor
+  // effect below so that when a single commit changes both, the anchor — which
+  // re-derives the page from the visible month — is the one that wins.
+  const prevHorizontalRef = useRef(horizontalPaging);
+  useLayoutEffect(() => {
+    if (prevHorizontalRef.current === horizontalPaging) return;
+    prevHorizontalRef.current = horizontalPaging;
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    // pageLayouts has not been rebuilt yet, so the page currently on screen is
+    // still the right index — it just has to be re-expressed in the new axis.
+    scrollToPage(el, visibleIndexRef.current);
+    suppressScrollUntilRef.current = performance.now() + 400;
+  }, [horizontalPaging]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Anchor to the visible month's first page whenever the page layout changes
   // (initial load, container resize, rooms added/removed). Because a month can now
   // own multiple pages, page indices shift when rows-per-page changes — re-deriving
@@ -628,6 +663,9 @@ const CalendarGrid = ({
     if (performance.now() < suppressScrollUntilRef.current) return;
     const el = e.target as HTMLElement;
     const calendarHeight = pageSpan(el);
+    // A collapsed scroller (mid-reflow, or the panel hidden) divides to NaN or
+    // Infinity, and Math.round of either indexes page 0 — the month 24 back.
+    if (calendarHeight <= 0) return;
     const snappedIndex = Math.round(pageOffset(el) / calendarHeight);
 
     // No correction while the finger or the fling is still moving. One page per
