@@ -59,6 +59,11 @@ interface CalendarGridProps {
   // presence also means "a lens is on", which suppresses the availability bars —
   // an open night is not what is being looked for.
   dimBooking?: (booking: bookingType) => boolean;
+  // A yyyy-MM-dd day to bring on screen — TiMag points this at the stay of the
+  // guest being filtered. A DATE, not a month, because a month does not fit on
+  // one page on a phone: naming the month there lands on its first page, which
+  // for a stay in the last week is a page the guest does not appear on.
+  revealDate?: string | null;
 }
 
 // Default lane height. Overridable per device via the rowHeight prop — this
@@ -145,6 +150,7 @@ const CalendarGrid = ({
   rowHeight: laneHeight = SUBROW_HEIGHT,
   onRowHeightChange,
   dimBooking,
+  revealDate = null,
 }: CalendarGridProps) => {
   const [months, setMonths] = useState<Date[]>([]);
   const [visibleIndex, setVisibleIndex] = useState<number>(monthsBack);
@@ -355,6 +361,39 @@ const CalendarGrid = ({
     suppressScrollUntilRef.current = performance.now() + 250;
     setVisibleIndex(idx);
   }, [currentMonth, pageLayouts]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Bring a specific DAY on screen, not just its month.
+  //
+  // Declared after the month-follow effect so it wins: a month is only enough
+  // when the month fits on one page. On a phone in a filtered view the lanes are
+  // short, fitRows lands around five, and a six-week month splits across two
+  // pages — so naming the month put the host on page one while the guest they
+  // filtered was on page two. Desktop fits the whole month on one page, which is
+  // why this only ever showed up on the phone.
+  //
+  // Re-asserted whenever pageLayouts change, because a page index means nothing
+  // across a re-layout: filtering collapses five room rows into one lane, which
+  // changes rows-per-page, the page count, and on a phone the paging axis too.
+  // While a filter is on, re-anchoring to its subject is the wanted behaviour.
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!revealDate || !el || pageLayouts.length === 0) return;
+    // Noon: far from both midnights, so no timezone or DST edge can move the day.
+    const idx = pageIndexContainingDate(new Date(`${revealDate}T12:00:00`));
+    if (idx == null) return;
+    scrollToPage(el, idx);
+    const layout = pageLayouts[idx];
+    if (layout) {
+      visibleMonthRef.current = layout.month;
+      // Keep the header on the month actually shown; without this the month
+      // label and the page disagree whenever the revealed day sits on a
+      // continuation page.
+      onMonthChange(layout.month);
+    }
+    visibleIndexRef.current = idx;
+    suppressScrollUntilRef.current = performance.now() + 250;
+    setVisibleIndex(idx);
+  }, [revealDate, pageLayouts]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Tell the parent whether today is on the visible page (drives the Today button).
   useEffect(() => {

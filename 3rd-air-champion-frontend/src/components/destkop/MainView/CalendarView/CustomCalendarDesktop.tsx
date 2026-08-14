@@ -66,6 +66,10 @@ const CustomCalendar = ({
   onRowHeightChange,
 }: CustomCalendarProps) => {
   const [useMonthMap, setUseMonthMap] = useState<Map<string, dayType>>(monthMap);
+  // The filtered guest's stay to bring on screen (yyyy-MM-dd), or null when no
+  // filter is on. Held as a string so an unchanged target cannot re-fire the
+  // scroll on every monthMap refresh the way a new Date object would.
+  const [revealDate, setRevealDate] = useState<string | null>(null);
 
   // Rooms visible in guest mode: only rooms that had bookings for this guest
   const overrideRooms = useMemo(() => {
@@ -143,7 +147,10 @@ const CustomCalendar = ({
   // so filtering someone who has already been and gone still lands on them
   // rather than on empty space.
   useEffect(() => {
-    if (!currentGuest && !currentAirBnBGuest) return;
+    if (!currentGuest && !currentAirBnBGuest) {
+      setRevealDate(null);
+      return;
+    }
 
     const todayKey = format(startOfToday(), "yyyy-MM-dd");
     const stayKeys: string[] = [];
@@ -160,8 +167,13 @@ const CustomCalendar = ({
     // no interval maths needed.
     const target = stayKeys.find((k) => k >= todayKey) ?? stayKeys[stayKeys.length - 1];
 
+    // The DAY, always — even when the right month is already on screen. A month
+    // can span two pages on a phone, so "already looking at the month" does not
+    // mean the stay is on the page in front of the host.
+    setRevealDate(target);
+
     const viewedMonth = format(currentMonth, "yyyy-MM");
-    if (target.slice(0, 7) === viewedMonth) return; // already looking at them
+    if (target.slice(0, 7) === viewedMonth) return; // month already correct
 
     const [y, m] = target.split("-").map(Number);
     setCurrentMonth(new Date(y, m - 1, 1));
@@ -315,6 +327,7 @@ const CustomCalendar = ({
       paidDates={paidDates}
       holdDates={holdDates}
       overrideRooms={overrideRooms}
+      revealDate={revealDate}
       onMonthChange={setCurrentMonth}
       onDateClick={handleDateClick}
       onDoubleClick={handleDoubleClick}
