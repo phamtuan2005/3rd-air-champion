@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { format, isSameDay } from "date-fns";
+import { format, isSameDay, startOfToday } from "date-fns";
 import { dayType } from "../../../../util/types/dayType";
 import { bookingType } from "../../../../util/types/bookingType";
 import { roomType } from "../../../../util/types/roomType";
@@ -120,6 +120,46 @@ const CustomCalendar = ({
     } else {
       setUseMonthMap(monthMap);
     }
+  }, [currentGuest, currentAirBnBGuest, monthMap]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Filtering a guest jumps the calendar to a month they actually stay in.
+  //
+  // Without this, filtering a guest with no booking in the month on screen
+  // produced a completely blank page: overrideRooms is built only from THIS
+  // month's bookings, so it comes back empty, the filtered monthMap has nothing
+  // for these dates, and every tile renders null. Nothing was broken — the
+  // calendar was faithfully showing "this guest is not here", in a way
+  // indistinguishable from a crash.
+  //
+  // Prefers their next stay from today, falling back to their most recent one,
+  // so filtering someone who has already been and gone still lands on them
+  // rather than on empty space.
+  useEffect(() => {
+    if (!currentGuest && !currentAirBnBGuest) return;
+
+    const todayKey = format(startOfToday(), "yyyy-MM-dd");
+    const stayKeys: string[] = [];
+    monthMap.forEach((dayEntry, dateStr) => {
+      const hit = dayEntry.bookings.some((b) =>
+        currentGuest ? b.guest?.id == currentGuest : b.alias === currentAirBnBGuest,
+      );
+      if (hit) stayKeys.push(dateStr);
+    });
+    if (stayKeys.length === 0) return;
+
+    stayKeys.sort();
+    // Sorted date strings, so the first one on or after today IS the next stay —
+    // no interval maths needed.
+    const target = stayKeys.find((k) => k >= todayKey) ?? stayKeys[stayKeys.length - 1];
+
+    const viewedMonth = format(currentMonth, "yyyy-MM");
+    if (target.slice(0, 7) === viewedMonth) return; // already looking at them
+
+    const [y, m] = target.split("-").map(Number);
+    setCurrentMonth(new Date(y, m - 1, 1));
+    // currentMonth is deliberately NOT a dependency: this should fire when the
+    // FILTER changes, not every time the host pages to another month, or they
+    // could never look at a month the guest is absent from.
   }, [currentGuest, currentAirBnBGuest, monthMap]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset modal / paid dates / hold selection when guest filter changes
