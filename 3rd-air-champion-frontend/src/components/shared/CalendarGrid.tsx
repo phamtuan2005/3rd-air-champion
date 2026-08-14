@@ -1134,8 +1134,13 @@ const CalendarGrid = ({
                 // The "available to sell" bar sits in the same slot as the clean
                 // label and is drawn after it, so it painted straight over the
                 // cleaner. In Clean mode the cleaner owns this space.
+                //
+                // _start carries the dashed left border. This bar begins at the
+                // PM check-in point of a checkout day, so it opens a run and
+                // takes the arch — the base class omits a left border for the
+                // week-wrap cap it shares.
                 <div
-                  className="react-calendar__opportunity_pm"
+                  className="react-calendar__opportunity_pm react-calendar__opportunity_pm_start"
                   style={{
                     position: "absolute",
                     top: "1px",

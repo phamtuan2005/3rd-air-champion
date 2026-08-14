@@ -204,7 +204,18 @@
   background-color: #fffbeb; /* amber-50 */
   border-top: 1px dashed #f59e0b;
   border-bottom: 1px dashed #f59e0b;
-  /* no left border — adjacent to the AM checkout bar; no right border — same reason as opportunity_row */
+  /* no left border — the week-wrap cap that also uses this class starts at the
+     grid line; no right border — same reason as opportunity_row */
+}
+
+/* The PM check-in edge of an availability run that begins at a checkout.
+   The class above is shared with the week-wrap cap, which wants no left edge,
+   so the arch is restored here rather than there. Without it the 20% start had
+   its corner radii set with no border to draw them: an open night began with a
+   flat invisible edge while every other bar on the calendar — including the
+   all-day-free opportunity_row beside it — starts with the rounded PM arch. */
+.react-calendar__opportunity_pm_start {
+  border-left: 1px dashed #f59e0b;
 }
 
 /* Base styles for tiles with bookings */
