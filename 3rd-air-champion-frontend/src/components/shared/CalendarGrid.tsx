@@ -164,6 +164,11 @@ const CalendarGrid = ({
   // Track the month currently in view (not just the page index) so we can re-anchor
   // to the same month when the page count changes — e.g. rooms added, container resized.
   const visibleMonthRef = useRef<Date>(currentMonth);
+  // A day on the page in view, kept alongside the month so a re-layout can
+  // restore the WEEK the host was reading and not just the month. Filtering
+  // changes the row count, which re-paginates every month; anchoring by month
+  // alone sent a host who was on week four back to week one.
+  const visibleDateRef = useRef<Date>(currentMonth);
   const didInitScrollRef = useRef(false);
   // While the layout reflows (rooms filtered, resized), the page count changes and the
   // browser fires transient scroll events from the old scrollTop. Ignore scroll handling
@@ -270,6 +275,17 @@ const CalendarGrid = ({
   const firstPageIndexOfMonth = (d: Date) =>
     monthPageStarts.get(`${d.getFullYear()}-${d.getMonth()}`) ?? null;
 
+  // A date that stands for a page, so the page can be found again after the
+  // layout changes and every index has moved.
+  //
+  // Prefers a day the page's own month owns: a month's first page also carries
+  // leading filler days from the month before, and anchoring to one of those
+  // would re-open the PREVIOUS month.
+  const anchorDateOf = (l: PageLayout): Date | null =>
+    l.cells.find((c): c is Date => !!c && isSameMonth(c, l.month)) ??
+    l.cells.find((c): c is Date => !!c) ??
+    null;
+
   // The page whose cells actually contain this date (today may sit on page 2/3 of its month).
   // A date also appears as a neighbor-month filler on the adjacent month's page, so prefer
   // the page that owns the date's month; only fall back to a filler occurrence.
@@ -325,10 +341,16 @@ const CalendarGrid = ({
     suppressScrollUntilRef.current = performance.now() + 400;
   }, [horizontalPaging]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Anchor to the visible month's first page whenever the page layout changes
-  // (initial load, container resize, rooms added/removed). Because a month can now
-  // own multiple pages, page indices shift when rows-per-page changes — re-deriving
-  // from the month keeps the same month on screen instead of drifting.
+  // Re-find the page in view whenever the page layout changes (initial load,
+  // container resize, rooms added/removed, a filter applied or cleared). Page
+  // indices are meaningless across a re-layout, so the page has to be re-derived
+  // from something stable.
+  //
+  // That something is a DAY, not the month. Re-deriving from the month alone put
+  // the host on the month's FIRST page, so clearing a guest filter from week four
+  // dropped them back to week one — the month was preserved and the week was
+  // thrown away. Filtering re-paginates every month (one lane instead of five
+  // room rows), which is exactly when this bites.
   // useLayoutEffect: re-anchor synchronously after the DOM mutates and BEFORE paint, so the
   // correct scrollTop is in place before the browser dispatches any reflow scroll event.
   useLayoutEffect(() => {
@@ -352,11 +374,20 @@ const CalendarGrid = ({
         : firstPageIndexOfMonth(anchor);
       didInitScrollRef.current = true;
     } else {
-      idx = firstPageIndexOfMonth(visibleMonthRef.current);
+      // The day first, so the WEEK survives; the month only as a fallback for a
+      // day that no longer has a page (outside the rendered window).
+      idx =
+        pageIndexContainingDate(visibleDateRef.current) ??
+        firstPageIndexOfMonth(visibleMonthRef.current);
     }
     const target = idx ?? 0;
     scrollToPage(el, target);
     visibleIndexRef.current = target;
+    const landed = pageLayouts[target];
+    if (landed) {
+      visibleMonthRef.current = landed.month;
+      visibleDateRef.current = anchorDateOf(landed) ?? visibleDateRef.current;
+    }
     // Ignore scroll events briefly so the reflow's transient scroll can't override the anchor.
     suppressScrollUntilRef.current = performance.now() + 250;
     setVisibleIndex(target);
@@ -391,6 +422,7 @@ const CalendarGrid = ({
     if (idx == null) return;
     scrollToPage(el, idx);
     visibleMonthRef.current = pageLayouts[idx].month;
+    visibleDateRef.current = anchorDateOf(pageLayouts[idx]) ?? visibleDateRef.current;
     visibleIndexRef.current = idx;
     // The programmatic scroll fires a scroll event carrying the old position.
     suppressScrollUntilRef.current = performance.now() + 250;
@@ -414,12 +446,15 @@ const CalendarGrid = ({
     const el = scrollContainerRef.current;
     if (!revealDate || !el || pageLayouts.length === 0) return;
     // Noon: far from both midnights, so no timezone or DST edge can move the day.
-    const idx = pageIndexContainingDate(new Date(`${revealDate}T12:00:00`));
+    const revealed = new Date(`${revealDate}T12:00:00`);
+    const idx = pageIndexContainingDate(revealed);
     if (idx == null) return;
     scrollToPage(el, idx);
     const layout = pageLayouts[idx];
     if (layout) {
       visibleMonthRef.current = layout.month;
+      // The revealed day itself, so a later re-layout keeps the stay on screen.
+      visibleDateRef.current = revealed;
       // Keep the header on the month actually shown; without this the month
       // label and the page disagree whenever the revealed day sits on a
       // continuation page.
@@ -507,6 +542,7 @@ const CalendarGrid = ({
       scrollToPage(scrollContainerRef.current, idx);
       visibleIndexRef.current = idx;
       visibleMonthRef.current = new Date(today.getFullYear(), today.getMonth(), 1);
+      visibleDateRef.current = startOfToday();
       setVisibleIndex(idx);
     }
   }, [scrollToTodayTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -608,6 +644,7 @@ const CalendarGrid = ({
     if (layout) {
       onMonthChange(layout.month);
       visibleMonthRef.current = layout.month;
+      visibleDateRef.current = anchorDateOf(layout) ?? visibleDateRef.current;
     }
     visibleIndexRef.current = next;
     setVisibleIndex(next);
@@ -676,6 +713,7 @@ const CalendarGrid = ({
     if (layout) {
       onMonthChange(layout.month);
       visibleMonthRef.current = layout.month;
+      visibleDateRef.current = anchorDateOf(layout) ?? visibleDateRef.current;
       setVisibleIndex(snappedIndex);
       visibleIndexRef.current = snappedIndex;
     }
