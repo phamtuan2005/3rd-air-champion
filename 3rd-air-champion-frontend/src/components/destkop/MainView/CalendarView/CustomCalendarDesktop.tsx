@@ -3,7 +3,6 @@ import { format, isSameDay, startOfToday } from "date-fns";
 import { dayType } from "../../../../util/types/dayType";
 import { bookingType } from "../../../../util/types/bookingType";
 import { roomType } from "../../../../util/types/roomType";
-import { toZonedTime } from "date-fns-tz";
 import CalendarGrid from "../../../shared/CalendarGrid";
 import CleanerAvatar from "../../../shared/CleanerAvatar";
 import { getRoomColor } from "../../../../util/getRoomColor";
@@ -40,8 +39,6 @@ interface CustomCalendarProps {
   onRowHeightChange?: (n: number) => void;
 }
 
-const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
 const CustomCalendar = ({
   currentMonth,
   currentAirBnBGuest,
@@ -74,11 +71,13 @@ const CustomCalendar = ({
   const overrideRooms = useMemo(() => {
     if (!currentGuest && !currentAirBnBGuest) return undefined;
     const roomMap = new Map<string, roomType>();
-    const monthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-    const monthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+    // "Is this key in the month on screen" is a yyyy-MM prefix test. It went
+    // through toZonedTime, which reads a bare yyyy-MM-dd as UTC midnight and
+    // hands back a local time hours EARLIER west of UTC — so the 1st of the
+    // month landed in the previous month and its rooms were dropped.
+    const viewedMonth = format(currentMonth, "yyyy-MM");
     monthMap.forEach((dayEntry, dateStr) => {
-      const date = toZonedTime(dateStr, timeZone);
-      if (date < monthStart || date > monthEnd) return;
+      if (dateStr.slice(0, 7) !== viewedMonth) return;
       dayEntry.bookings.forEach((booking) => {
         const matchesGuest = currentGuest
           ? booking.guest?.id == currentGuest
@@ -92,8 +91,14 @@ const CustomCalendar = ({
   }, [currentGuest, currentAirBnBGuest, monthMap, currentMonth, selectedRoomName]);
 
   // Filter monthMap to only this guest's bookings
+  //
+  // Guarded on the SOURCE map, not on the filtered one. Reading useMonthMap.size
+  // meant that filtering a guest with no stays at all emptied it, and the next
+  // guest picked after them failed the guard and fell through to the unfiltered
+  // map — the calendar then showed every guest's bookings packed into lanes
+  // built for one.
   useEffect(() => {
-    if (currentGuest && !currentAirBnBGuest && useMonthMap.size > 0) {
+    if (currentGuest && !currentAirBnBGuest && monthMap.size > 0) {
       const filteredMap = new Map<string, dayType>();
       const newPaidDates: Date[] = [];
       monthMap.forEach((dayEntry, date) => {
@@ -106,7 +111,7 @@ const CustomCalendar = ({
       });
       setPaidDates(newPaidDates);
       setUseMonthMap(filteredMap);
-    } else if (currentAirBnBGuest && useMonthMap.size > 0) {
+    } else if (currentAirBnBGuest && monthMap.size > 0) {
       const filteredMap = new Map<string, dayType>();
       monthMap.forEach((dayEntry, date) => {
         const airbnbBookings = dayEntry.bookings.filter(
@@ -115,8 +120,11 @@ const CustomCalendar = ({
         if (airbnbBookings.length > 0) {
           filteredMap.set(date, { ...dayEntry, bookings: airbnbBookings });
         }
-        setUseMonthMap(filteredMap);
       });
+      // Once, after the map is built — this ran inside the loop, so it published
+      // a partial map on every day and published nothing at all for an AirBnB
+      // guest whose filter produced no days.
+      setUseMonthMap(filteredMap);
     } else {
       setUseMonthMap(monthMap);
     }

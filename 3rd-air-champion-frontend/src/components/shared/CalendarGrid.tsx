@@ -321,6 +321,41 @@ const CalendarGrid = ({
     setVisibleIndex(target);
   }, [pageLayouts, containerHeight]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Follow the currentMonth prop when the PARENT moves it.
+  //
+  // The visible month is normally an output of this grid: you scroll, and
+  // onMonthChange reports where you landed. But it is also driven from outside —
+  // filtering a guest jumps to a month that guest actually stays in — and that
+  // set was silently dropped, because currentMonth was read once at mount to
+  // seed visibleMonthRef and never again. The grid stayed on the month it was
+  // already showing while the data around it was filtered down to a guest who is
+  // not there: every tile returned null and the whole calendar went blank.
+  //
+  // Nothing moves while the two agree, so this cannot fight scrolling: the
+  // scroll handler sets visibleMonthRef first and only then reports the same
+  // month upward. A month spanning several pages compares by month, not by page,
+  // so paging within it does not snap back to its first page either.
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el || pageLayouts.length === 0) return;
+    const shown = visibleMonthRef.current;
+    if (
+      shown.getFullYear() === currentMonth.getFullYear() &&
+      shown.getMonth() === currentMonth.getMonth()
+    )
+      return;
+    const idx = firstPageIndexOfMonth(currentMonth);
+    // Outside the rendered window (24 months back / 36 forward) — leave the grid
+    // where it is rather than scrolling somewhere arbitrary.
+    if (idx == null) return;
+    scrollToPage(el, idx);
+    visibleMonthRef.current = pageLayouts[idx].month;
+    visibleIndexRef.current = idx;
+    // The programmatic scroll fires a scroll event carrying the old position.
+    suppressScrollUntilRef.current = performance.now() + 250;
+    setVisibleIndex(idx);
+  }, [currentMonth, pageLayouts]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Tell the parent whether today is on the visible page (drives the Today button).
   useEffect(() => {
     if (!onTodayInViewChange) return;
