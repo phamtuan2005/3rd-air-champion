@@ -342,118 +342,54 @@ const CalendarGrid = ({
   // difference. Promoting every page to its own layer up front was tried first
   // and did nothing — a layer that already exists does not repaint on arrival
   // either, which is the whole problem.
-  useEffect(() => {
-    const el = calendarWrapperRef.current;
-    if (!el) return;
-    const previous = el.style.opacity;
-    el.style.opacity = "0.999";
-    const id = requestAnimationFrame(() => {
-      el.style.opacity = previous;
-    });
-    return () => cancelAnimationFrame(id);
-  }, [visibleIndex]);
+  // KNOWN, UNFIXED: bars paint stale on an arriving page.
+  //
+  // Corners come back square and availability runs look broken until anything
+  // forces a repaint. It is cosmetic and clears the moment the host touches the
+  // calendar. Established by `getComputedStyle`: every bar has an IDENTICAL
+  // radius, left, right and width before and after the cure, so the markup is
+  // correct and the browser simply does not redraw it. Reproduces in desktop
+  // Chrome as well as on the phone.
+  //
+  // A repaint nudge (a sub-pixel lane-height change on page arrival) DID fix it
+  // and was removed at the host's request: it flickered, and a workaround that
+  // trades one visible defect for another is not worth keeping. Three variants
+  // were tried — opacity touch, per-page compositing layer, lane-height nudge —
+  // and only the last worked, at that cost.
+  //
+  // The real fix is architectural. Every bar is drawn OUTSIDE its own grid cell
+  // (`left: -1px`, `right: -20%`) so a stay is N elements each bleeding into its
+  // neighbour. Elements living outside the box they belong to are exactly what a
+  // browser's repaint region misses — and it is the same design that let a guest
+  // label print onto the next page in 2w mode. Drawing a stay as ONE element
+  // spanning its columns would retire both bugs and the geometry rule every new
+  // bar has to be kept consistent with.
 
-  // Replicate the cure that is known to work: a real lane-height change.
+  // Reconcile the page AFTER scrolling stops.
   //
-  // Every bar arrives painted stale — square corners, broken runs — and the only
-  // thing that has ever fixed it is dragging the row-height grip. An opacity
-  // touch was tried and did not, so stop approximating and do what the grip
-  // does: change the lane height by a pixel for one frame, then put it back.
-  //
-  // The nudge deliberately does NOT feed the layout maths (minRowHeight,
-  // numRows, rowHeight). Those decide how many week-rows fit a page, and moving
-  // them would rebuild pageLayouts and could jump the host to a different page
-  // mid-swipe. It feeds only what is painted: the sub-row height, the corner
-  // radius and the two text sizes.
-  // Sub-pixel, and it must stay that way.
-  //
-  // A whole pixel per lane is six pixels of movement on a five-room house, which
-  // is a visible twitch on every page change. 0.05px still changes every derived
-  // style string — sub-row height, radius, both text sizes — so the browser
-  // still relayouts and repaints, but nothing moves anywhere the eye can follow.
-  const NUDGE_PX = 0.05;
-  const [laneNudge, setLaneNudge] = useState(0);
-  // Held while a nudge is in flight. Without it the nudge feeds itself: changing
-  // the sub-row height shifts layout, the container emits a scroll event, that
-  // schedules another settle, which nudges again — damping out after two or
-  // three rounds, which is exactly what the flicker was.
-  const nudgingRef = useRef(false);
-  const paintLane = laneHeight + laneNudge;
-
+  // One page per gesture is enforced natively by scroll-snap-stop; this is the
+  // fallback for browsers without it. Correcting mid-flight fought the momentum
+  // and landed the host between pages, so it waits for the scroll to settle.
   const nudgeTimerRef = useRef<number | null>(null);
 
-  const triggerRepaint = () => {
-    if (nudgingRef.current) return;
-    nudgingRef.current = true;
-    setLaneNudge(NUDGE_PX);
-    // Reverted after a PAINTED frame, not the next one.
-    //
-    // A single requestAnimationFrame revert lands in the same paint cycle, so
-    // the browser coalesces both changes and never draws the nudged state —
-    // which is exactly why the first attempt did nothing.
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setLaneNudge(0);
-        // Released a frame later still, so the scroll events caused by this
-        // nudge cannot schedule the next one.
-        requestAnimationFrame(() => {
-          nudgingRef.current = false;
-        });
-      });
-    });
-  };
-
-  // Fire once the scrolling STOPS, not on the page index changing.
-  //
-  // Hanging this off visibleIndex missed scrolling entirely: a scroll can settle
-  // on the same index, and one arriving inside the reflow-suppression window
-  // returns from handleScroll before the index is ever touched. Both leave the
-  // page painted stale. Scroll-settling is the event that actually matters, so
-  // that is what it listens to now.
   const scheduleSettle = () => {
     if (nudgeTimerRef.current !== null) window.clearTimeout(nudgeTimerRef.current);
     nudgeTimerRef.current = window.setTimeout(() => {
-      if (nudgingRef.current) return;
       const el = scrollContainerRef.current;
       const span = el ? pageSpan(el) : 0;
-      if (el && span > 0) {
-        const snapped = Math.round(pageOffset(el) / span);
-        const delta = snapped - visibleIndexRef.current;
-        // Belt and braces for browsers without scroll-snap-stop. Corrected only
-        // now that the scroll has STOPPED — doing it live is what threw the host
-        // "to nowhere": setting scrollLeft while a fling is still running gets
-        // overridden by the fling, and the two land between pages.
-        if (Math.abs(delta) > 1) {
-          goToPage(visibleIndexRef.current + (delta > 0 ? 1 : -1));
-          return; // that move repaints on its own
-        }
-      }
-      triggerRepaint();
+      if (!el || span <= 0) return;
+      const snapped = Math.round(pageOffset(el) / span);
+      const delta = snapped - visibleIndexRef.current;
+      if (Math.abs(delta) > 1) goToPage(visibleIndexRef.current + (delta > 0 ? 1 : -1));
     }, 120);
   };
 
-  useEffect(() => () => {
-    if (nudgeTimerRef.current !== null) window.clearTimeout(nudgeTimerRef.current);
-  }, []);
-
-  useEffect(() => {
-    setLaneNudge(1);
-    // Reverted after a PAINTED frame, not the next one.
-    //
-    // A single requestAnimationFrame revert lands in the same paint cycle, so
-    // the browser coalesces both changes and never draws the nudged state —
-    // which is exactly why the first attempt did nothing. Nested rAF guarantees
-    // the nudge is on screen for one frame before it goes back, which is what
-    // dragging the grip does by hand.
-    let inner = 0;
-    const outer = requestAnimationFrame(() => {
-      inner = requestAnimationFrame(() => setLaneNudge(0));
-    });
-    return () => {
-      cancelAnimationFrame(outer);
-      if (inner) cancelAnimationFrame(inner);
-    };
-  }, [visibleIndex]);
+  useEffect(
+    () => () => {
+      if (nudgeTimerRef.current !== null) window.clearTimeout(nudgeTimerRef.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (scrollToTodayTrigger > 0 && scrollContainerRef.current && pageLayouts.length > 0) {
@@ -665,8 +601,8 @@ const CalendarGrid = ({
     //
     // Size of the guest name, and the corner radius every bar shares — both
     // derived from the lane height so the calendar scales as one piece.
-    const textSize = labelRemFor(paintLane);
-    const R = barRadiusFor(paintLane);
+    const textSize = labelRemFor(laneHeight);
+    const R = barRadiusFor(laneHeight);
     const day = monthMap.get(localDateKey(date));
     const prevDay = monthMap.get(localDateKey(addDays(date, -1)));
 
@@ -1326,13 +1262,13 @@ const CalendarGrid = ({
                       style={
                         {
                           "--max-rows": (maxRooms + 1).toString(),
-                          "--subrow-h": `${paintLane}px`,
+                          "--subrow-h": `${laneHeight}px`,
                         } as React.CSSProperties
                       }
                     >
                       <abbr
                         aria-label={date.toLocaleDateString()}
-                        style={{ fontSize: `${dateRemFor(paintLane)}rem` }}
+                        style={{ fontSize: `${dateRemFor(laneHeight)}rem` }}
                       >
                         {date.getDate()}
                       </abbr>
