@@ -365,20 +365,41 @@ const CalendarGrid = ({
   // them would rebuild pageLayouts and could jump the host to a different page
   // mid-swipe. It feeds only what is painted: the sub-row height, the corner
   // radius and the two text sizes.
+  // Sub-pixel, and it must stay that way.
+  //
+  // A whole pixel per lane is six pixels of movement on a five-room house, which
+  // is a visible twitch on every page change. 0.05px still changes every derived
+  // style string — sub-row height, radius, both text sizes — so the browser
+  // still relayouts and repaints, but nothing moves anywhere the eye can follow.
+  const NUDGE_PX = 0.05;
   const [laneNudge, setLaneNudge] = useState(0);
+  // Held while a nudge is in flight. Without it the nudge feeds itself: changing
+  // the sub-row height shifts layout, the container emits a scroll event, that
+  // schedules another settle, which nudges again — damping out after two or
+  // three rounds, which is exactly what the flicker was.
+  const nudgingRef = useRef(false);
   const paintLane = laneHeight + laneNudge;
 
   const nudgeTimerRef = useRef<number | null>(null);
 
   const triggerRepaint = () => {
-    setLaneNudge(1);
+    if (nudgingRef.current) return;
+    nudgingRef.current = true;
+    setLaneNudge(NUDGE_PX);
     // Reverted after a PAINTED frame, not the next one.
     //
     // A single requestAnimationFrame revert lands in the same paint cycle, so
     // the browser coalesces both changes and never draws the nudged state —
     // which is exactly why the first attempt did nothing.
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => setLaneNudge(0));
+      requestAnimationFrame(() => {
+        setLaneNudge(0);
+        // Released a frame later still, so the scroll events caused by this
+        // nudge cannot schedule the next one.
+        requestAnimationFrame(() => {
+          nudgingRef.current = false;
+        });
+      });
     });
   };
 
@@ -392,6 +413,7 @@ const CalendarGrid = ({
   const scheduleSettle = () => {
     if (nudgeTimerRef.current !== null) window.clearTimeout(nudgeTimerRef.current);
     nudgeTimerRef.current = window.setTimeout(() => {
+      if (nudgingRef.current) return;
       const el = scrollContainerRef.current;
       const span = el ? pageSpan(el) : 0;
       if (el && span > 0) {
