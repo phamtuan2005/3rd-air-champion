@@ -310,45 +310,60 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
         {isStayingNow && (
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-[11px] font-bold text-amber-600 uppercase tracking-wide">Staying now</span>
+            <span className="text-xs font-bold text-amber-600 uppercase tracking-wide">Staying now</span>
           </div>
         )}
         {isToday && (
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-            <span className="text-[11px] font-bold text-amber-600 uppercase tracking-wide">Check-in today</span>
+            <span className="text-xs font-bold text-amber-600 uppercase tracking-wide">Check-in today</span>
           </div>
         )}
+        {/* The room and the status head the card on their own line. Everything
+            below qualifies those two, so nothing has to compete with them for
+            width — which is what forced the whole stack down to 11px before. */}
         <div className="flex items-start justify-between gap-3">
-          <div className="flex flex-col gap-0.5">
-            <RoomBadge room={room ?? { name: "Room" }} rooms={activeRooms} override={room ? undefined : "bg-gray-400"} />
-            <span className="text-xs text-gray-500">
-              {format(checkIn, "MMMM d")} – {format(checkOut, "MMMM d, yyyy")}
-              <span className="ml-1 text-gray-400">· {b.duration} night{b.duration !== 1 ? "s" : ""}</span>
-            </span>
-            {!isToday && !isStayingNow && (
-              <span className="text-[11px] font-semibold text-indigo-500 mt-0.5">
-                {daysLeft === 1 ? "Tomorrow!" : `in ${daysLeft} days`}
-              </span>
-            )}
-          {total !== undefined && (
-              <span className={`text-xs font-semibold ${theme.textPrimary}`}>
-                ${total}{" "}
-                <span className="font-normal text-gray-400">
-                  (${nightRate}/night{feeSum ? ` + $${feeSum} fees` : ""})
-                </span>
-              </span>
-            )}
-            {(b.fees?.length ?? 0) > 0 && (
-              <span className="text-[11px] text-gray-400">
-                {b.fees!.map((f) => `${f.label || "Fee"} $${f.amount}`).join(" · ")}
-              </span>
-            )}
-          </div>
-          <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${st.color} shrink-0`}>
+          <RoomBadge room={room ?? { name: "Room" }} rooms={activeRooms} override={room ? undefined : "bg-gray-400"} />
+          <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${st.color} shrink-0`}>
             {st.label}
           </span>
         </div>
+
+        {/* The nights, at a size that reads at arm's length. This is the fact a
+            guest opens the sheet to check; it was the same grey 12px as the
+            fee breakdown underneath it. */}
+        <div className="flex flex-col gap-1">
+          <span className="text-base font-semibold leading-snug text-gray-800">
+            {format(checkIn, "MMMM d")} – {format(checkOut, "MMMM d, yyyy")}
+          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-gray-500">
+              {b.duration} night{b.duration !== 1 ? "s" : ""}
+            </span>
+            {!isToday && !isStayingNow && (
+              <span className="rounded-full border border-indigo-100 bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-500">
+                {daysLeft === 1 ? "Tomorrow!" : `in ${daysLeft} days`}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Money on its own line, the largest thing on the card — the rule
+            TiMag's guest cards already follow. The rate and fees stay small
+            beside it: they explain the total, they are not the total. */}
+        {total !== undefined && (
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <span className={`text-2xl font-bold leading-none ${theme.textPrimary}`}>${total}</span>
+            <span className="text-xs text-gray-400">
+              ${nightRate}/night{feeSum ? ` + $${feeSum} fees` : ""}
+            </span>
+          </div>
+        )}
+        {(b.fees?.length ?? 0) > 0 && (
+          <span className="text-xs text-gray-400">
+            {b.fees!.map((f) => `${f.label || "Fee"} $${f.amount}`).join(" · ")}
+          </span>
+        )}
         {isNext && airbnbAddress && (
           <a
             href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(airbnbAddress)}`}
@@ -399,7 +414,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
   };
 
   return (
-    <div className={`fixed inset-0 z-50 ${isDragging ? "select-none" : ""}`}>
+    <div className={`tibook-type fixed inset-0 z-50 ${isDragging ? "select-none" : ""}`}>
       <div className="absolute inset-0 bg-black/30" onPointerDown={onClose} />
       <div
         className="absolute inset-x-0 bottom-0 bg-white rounded-t-2xl shadow-xl overflow-hidden"

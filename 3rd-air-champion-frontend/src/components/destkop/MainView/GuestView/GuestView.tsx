@@ -96,10 +96,13 @@ const GuestView = ({
 
   // Profit carries no count — a badge there would read as a quantity of things
   // to do. 0 hides it, same as an empty Cleaning day.
+  // Short labels: at the panel's larger type, three columns of "Cleaning" and
+  // "Daily Profit" no longer fit across a phone, and shrinking the type back
+  // defeats the point.
   const tabs: { key: "guests" | "cleaning" | "profit"; label: string; count: number }[] = [
     { key: "guests", label: "Guests", count: sortedBookings.length },
-    { key: "cleaning", label: "Cleaning", count: cleaningCount },
-    { key: "profit", label: "Daily Profit", count: 0 },
+    { key: "cleaning", label: "Clean", count: cleaningCount },
+    { key: "profit", label: "Profit", count: 0 },
   ];
 
   return (
@@ -112,14 +115,14 @@ const GuestView = ({
             onClick={() => setActiveTab(key)}
             // nowrap: "Daily Profit" would otherwise wrap on a phone and leave
             // that tab two lines tall next to "Guests".
-            className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg py-1.5 text-xs font-semibold transition-colors ${
+            className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg py-2.5 text-sm font-semibold transition-colors ${
               activeTab === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
             }`}
           >
             {label}
             {count > 0 && (
               <span
-                className={`min-w-[1.25rem] rounded-full px-1 py-0.5 text-center text-[10px] font-bold leading-none ${
+                className={`min-w-[1.25rem] rounded-full px-1 py-0.5 text-center text-xs font-bold leading-none ${
                   activeTab === key ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-600"
                 }`}
               >
@@ -145,7 +148,7 @@ const GuestView = ({
         }}
       />
       {sortedBookings.length === 0 && (
-        <p className="py-6 text-center text-sm text-gray-400">No bookings on this date</p>
+        <p className="py-8 text-center text-base text-gray-400">No bookings on this date</p>
       )}
       {sortedBookings.map((booking, index) => (
         <BookingCard
@@ -191,7 +194,7 @@ const GuestView = ({
             senderName={senderName}
           />
         ) : (
-          <p className="py-6 text-center text-sm text-gray-400">
+          <p className="py-8 text-center text-base text-gray-400">
             No rooms to clean on this date
           </p>
         ))}

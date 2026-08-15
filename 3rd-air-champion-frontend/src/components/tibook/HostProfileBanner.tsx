@@ -49,7 +49,7 @@ const HostProfileBanner = ({ host, cohostNames = [] }: HostProfileBannerProps) =
   const displayName = host.airbnbName || host.name;
 
   return (
-    <div className="bg-white border-b border-gray-100 shrink-0">
+    <div className="tibook-type bg-white border-b border-gray-100 shrink-0">
       {/* Collapsed summary row — always visible */}
       <button
         type="button"

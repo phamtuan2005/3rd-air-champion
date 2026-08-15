@@ -285,7 +285,7 @@ const BlockRoomsModal = ({
       {/* Calendar picker modal */}
       {isCalendarOpen && createPortal(
         <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-[400]"
+          className="modal-type fixed inset-0 bg-black/40 flex items-center justify-center z-[400]"
           onClick={() => setIsCalendarOpen(false)}
         >
           <div

@@ -1236,7 +1236,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
   return createPortal(
     <>
       <div
-        className="fixed z-[110] flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+        className="modal-type fixed z-[110] flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
         style={{ left: pos.x, top: pos.y, width: size.w, height: size.h }}
       >
         {/* Bright brand bar */}
@@ -2656,7 +2656,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
           the (now many) settings have room and there's no mixing people up. */}
       {editCleaner && (
         <div
-          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 p-4"
+          className="modal-type fixed inset-0 z-[120] flex items-center justify-center bg-black/40 p-4"
           onClick={() => setEditingId(null)}
         >
           <div
@@ -2974,7 +2974,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
           const tip = parseFloat(tipDraft[entry.id]) || 0;
           return (
             <div
-              className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 p-4"
+              className="modal-type fixed inset-0 z-[120] flex items-center justify-center bg-black/40 p-4"
               onClick={closeDetail}
             >
               <div
@@ -3242,7 +3242,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
       {/* Assign-cleaner popover for one room+morning (Plan tab) */}
       {assignTarget && (
         <div
-          className="fixed inset-0 z-[120] flex items-end justify-center bg-black/40 p-4 sm:items-center"
+          className="modal-type fixed inset-0 z-[120] flex items-end justify-center bg-black/40 p-4 sm:items-center"
           onClick={() => setAssignTarget(null)}
         >
           <div

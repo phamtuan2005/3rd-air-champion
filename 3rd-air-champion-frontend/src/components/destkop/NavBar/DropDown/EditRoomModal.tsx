@@ -148,7 +148,7 @@ const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave, onAdd, onDelete,
   ];
 
   return createPortal(
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50" onClick={onClose}>
+    <div className="modal-type fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50" onClick={onClose}>
       <div
         className="bg-white rounded-lg w-full max-w-sm shadow-lg flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}

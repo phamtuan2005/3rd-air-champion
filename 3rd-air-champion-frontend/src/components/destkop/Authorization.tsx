@@ -90,7 +90,7 @@ const Authorization = () => {
       {/* Login modal */}
       {showModal && createPortal(
         <div
-          className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center pt-10 px-4"
+          className="modal-type fixed inset-0 bg-black/50 z-50 flex items-start justify-center pt-10 px-4"
           onClick={() => setShowModal(false)}
         >
           <div

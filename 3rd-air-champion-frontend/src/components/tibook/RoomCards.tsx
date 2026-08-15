@@ -14,6 +14,11 @@ interface RoomCardsProps {
   onToggleRoom: (id: string) => void;
   onSelectAll: () => void;
   compact?: boolean;
+  // Supplied only where the guest is allowed to change the banner's size — the
+  // home header. Its presence is what puts the toggle on the banner; the
+  // reduced filter shown over a dragged-up calendar passes nothing and stays
+  // fixed, because there the calendar owns the height.
+  onToggleCompact?: () => void;
 }
 
 const RoomCard = ({
@@ -97,7 +102,7 @@ const RoomCard = ({
   );
 };
 
-const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact = false }: RoomCardsProps) => {
+const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact = false, onToggleCompact }: RoomCardsProps) => {
   const { theme } = useTiBookTheme();
   const [galleryRoom, setGalleryRoom] = useState<roomType | null>(null);
   const activeRooms = rooms.filter((r) => r.active).sort((a, b) => b.price - a.price);
@@ -132,14 +137,40 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
             </button>
           );
         })}
+        {/* The way back to the photos. A returning guest does not need them to
+            pick a date, but "I know the rooms" is not the same as "I never want
+            to see them again" — without this the gallery would be unreachable
+            for exactly the guests who book most often. */}
+        {onToggleCompact && (
+          <button
+            type="button"
+            onClick={onToggleCompact}
+            aria-label="Show room photos"
+            className="ml-auto flex-shrink-0 self-center px-2 text-xs font-semibold text-gray-400 hover:text-gray-600"
+          >
+            Photos ▾
+          </button>
+        )}
       </div>
     );
   }
 
   return (
     <>
-      <div className="px-3 py-1.5 border-b border-gray-100 bg-gray-50">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Our Rooms</p>
+      <div className="tibook-type px-3 py-1.5 border-b border-gray-100 bg-gray-50">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Our Rooms</p>
+          {onToggleCompact && (
+            <button
+              type="button"
+              onClick={onToggleCompact}
+              aria-label="Hide room photos"
+              className="shrink-0 text-xs font-semibold text-gray-400 hover:text-gray-600"
+            >
+              Hide ▴
+            </button>
+          )}
+        </div>
         <div className="flex gap-2 overflow-x-auto pb-1 items-center">
           <button
             type="button"

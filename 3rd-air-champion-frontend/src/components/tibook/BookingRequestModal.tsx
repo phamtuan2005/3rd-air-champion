@@ -3,7 +3,7 @@ import { useForm, SubmitHandler } from "react-hook-form";
 import { roomType } from "../../util/types/roomType";
 import { dayType } from "../../util/types/dayType";
 import { createBookingRequest, fetchBookingRequestsByGuest, fetchCalendarBookingsByGuest } from "../../util/bookingRequestOperations";
-import { formatCancellationPolicy } from "../../util/cancellationPolicy";
+import { cancellationHeadline, formatCancellationPolicy } from "../../util/cancellationPolicy";
 import { setGuestWishList } from "../../util/wishListOperations";
 import { getAvailableRooms } from "../../util/bookingOperations";
 import { fetchGuestByPhone } from "../../util/guestOperations";
@@ -128,6 +128,10 @@ const BookingRequestModal = ({
 }: BookingRequestModalProps) => {
   const { theme } = useTiBookTheme();
   const [step, setStep] = useState<1 | 2>(1);
+  // Open by default: a refund term the guest is agreeing to should be readable
+  // without a tap. The collapse is there to get it out of the way once read, not
+  // to keep it out of sight.
+  const [policyOpen, setPolicyOpen] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submittingRef = useRef(false);
   const [submitted, setSubmitted] = useState(false);
@@ -390,7 +394,7 @@ const BookingRequestModal = ({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50"
+      className="tibook-type tibook-type-lg fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50"
       onClick={onClose}
     >
       <div
@@ -415,8 +419,11 @@ const BookingRequestModal = ({
             {!submitted && <p className="text-xs text-gray-400">{stepHint}</p>}
           </div>
           <div className="flex items-center gap-3">
+            {/* whitespace-nowrap + shrink-0: the pill is four short words and must
+                stay one line. Once the type scale grew it, the flex parent was
+                free to squeeze it and it broke after "Step 2". */}
             {!submitted && (
-              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${theme.tagBg} ${theme.tagText}`}>
+              <span className={`shrink-0 whitespace-nowrap text-xs font-semibold px-2.5 py-1 rounded-full ${theme.tagBg} ${theme.tagText}`}>
                 Step {step} of 2
               </span>
             )}
@@ -888,20 +895,39 @@ const BookingRequestModal = ({
               {submitError && (
                 <p className="text-red-500 text-sm">Something went wrong — please try again.</p>
               )}
-            </div>
 
-            {cancellationFullRefundDays != null && cancellationHalfRefundDays != null && (
-              <div className="flex-shrink-0 px-4 pt-2 pb-1">
-                <div className={`flex items-start gap-2 px-3 py-2.5 rounded-xl border ${theme.tagBg} ${theme.tagBorder}`}>
-                  <svg className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${theme.textPrimary}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z" />
-                  </svg>
-                  <p className="text-[11px] text-gray-500 leading-relaxed">
-                    {formatCancellationPolicy(cancellationFullRefundDays, cancellationHalfRefundDays)}
-                  </p>
+              {/* Cancellation policy — in the scroll flow, and quiet.
+                  It was pinned between the form and the Send button, so it held
+                  fixed height on every screen and was the last thing read before
+                  committing: a wall of refund tiers sitting on top of the booking
+                  the guest actually came to make. Now it scrolls with the form
+                  and reads open, reassuring line first. Collapsing is the guest's
+                  choice once they have read it, never the default. */}
+              {cancellationFullRefundDays != null && cancellationHalfRefundDays != null && (
+                <div className="rounded-xl border border-gray-100 bg-gray-50">
+                  <button
+                    type="button"
+                    onClick={() => setPolicyOpen((o) => !o)}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left"
+                  >
+                    <svg className={`w-3.5 h-3.5 shrink-0 ${theme.textPrimary}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z" />
+                    </svg>
+                    <span className="flex-1 text-xs text-gray-500">
+                      {cancellationHeadline(cancellationFullRefundDays)}
+                    </span>
+                    <span className="shrink-0 whitespace-nowrap text-xs font-semibold text-gray-400">
+                      {policyOpen ? "Hide ▴" : "Details ▾"}
+                    </span>
+                  </button>
+                  {policyOpen && (
+                    <p className="px-3 pb-2.5 text-xs leading-relaxed text-gray-500">
+                      {formatCancellationPolicy(cancellationFullRefundDays, cancellationHalfRefundDays)}
+                    </p>
+                  )}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
             <div className="flex-shrink-0 border-t border-gray-100 px-4 py-3">
               <button

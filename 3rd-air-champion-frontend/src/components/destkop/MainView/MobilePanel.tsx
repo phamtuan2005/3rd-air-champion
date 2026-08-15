@@ -51,7 +51,7 @@ const MobilePanel = ({ isOpen, onClose, children, defaultHeightVh = DEFAULT_HEIG
 
   return (
     <div
-      className={`fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 z-50 flex flex-col sm:hidden transition-transform duration-300 ${
+      className={`modal-type fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 z-50 flex flex-col sm:hidden transition-transform duration-300 ${
         isOpen ? "translate-y-0" : "translate-y-full"
       }`}
       style={{ height: `${height}vh`, maxHeight: "calc(100dvh - 96px)" }}

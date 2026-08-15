@@ -245,6 +245,10 @@ const MainView = ({
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
   const [scrollToTodayTrigger, setScrollToTodayTrigger] = useState(0);
   const [todayInView, setTodayInView] = useState(true);
+  // The calendar page (a day on it) the host was reading. Held HERE, not in the
+  // grid: isCalendarLoading unmounts the grid on every booking change, so a ref
+  // down there dies with it and the week is thrown away.
+  const [calendarAnchorDate, setCalendarAnchorDate] = useState<string | null>(null);
   const [pendingAcceptRequestIds, setPendingAcceptRequestIds] = useState<string[]>([]);
   const [acceptCompletedTick, setAcceptCompletedTick] = useState(0);
   const [bookingPrefills, setBookingPrefills] = useState<Array<{
@@ -919,6 +923,8 @@ const MainView = ({
               holdDates={holdDates}
               setHoldDates={setHoldDates}
               scrollToTodayTrigger={scrollToTodayTrigger}
+              anchorDate={calendarAnchorDate}
+              onAnchorDateChange={setCalendarAnchorDate}
               gapsMode={gapsMode}
               cleanMode={cleanMode}
               cleanerByRoomMorning={cleanerByRoomMorning}
@@ -937,7 +943,7 @@ const MainView = ({
             {isFooterVisible && (licenseNumber || phone || contactEmail || airbnbName || airbnbAddress) && (
               <div
                 ref={contactSheetRef}
-                className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-300 rounded-t-2xl shadow-[0_-6px_16px_-6px_rgba(0,0,0,0.25)] flex flex-col overflow-hidden"
+                className="modal-type fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-300 rounded-t-2xl shadow-[0_-6px_16px_-6px_rgba(0,0,0,0.25)] flex flex-col overflow-hidden"
                 style={{
                   height: contactH,
                   maxHeight: "92vh",
@@ -1056,7 +1062,7 @@ const MainView = ({
             )}
             {showAddPane === "guest" && (
               <div
-                className="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center z-50"
+                className="modal-type fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center z-50"
                 onClick={() => setShowAddPane(null)}
               >
                 <div
@@ -1104,7 +1110,7 @@ const MainView = ({
       </div>
 
       {/* Desktop side panel */}
-      <div className="hidden bg-white border-l sm:flex sm:flex-col min-h-0">
+      <div className="modal-type hidden bg-white border-l sm:flex sm:flex-col min-h-0">
         {isBlockRoomsModalOpen ? (
           <BlockRoomsModal
             calendarId={calendarId}

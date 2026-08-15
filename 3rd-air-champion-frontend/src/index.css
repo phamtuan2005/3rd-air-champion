@@ -14,3 +14,120 @@
 body {
   margin: 0;
 }
+
+/*
+ * Modal / panel scale.
+ *
+ * Design rule for every TiMag modal: a modal is NOT a container to fit as many
+ * rows into as possible. Each item gets as much size as it needs to catch the
+ * eye; if that means fewer fit on screen, the host scrolls. Cindy reads these on
+ * a phone, next to a calendar whose own type is drag-scaled large.
+ *
+ * Two knobs, both leaning on how Tailwind v4 compiles its utilities:
+ *   --type-scale   `text-sm` → `font-size: var(--text-sm)`, so re-declaring the
+ *                  step variables scales all text beneath this wrapper. The
+ *                  built-in line heights are unitless ratios and follow on
+ *                  their own.
+ *   --space-scale  `p-4` → `padding: calc(var(--spacing) * 4)`, so re-declaring
+ *                  --spacing opens up every padding, margin, gap and box (and
+ *                  with them every tap target) in one go.
+ *
+ * No per-element edits, no specificity fight. Turn a knob here and every modal
+ * moves together.
+ */
+.modal-type,
+.tibook-type,
+.tibook-type-lg {
+  --spacing: calc(0.25rem * var(--space-scale));
+
+  --text-xs: calc(0.75rem * var(--type-scale));
+  --text-sm: calc(0.875rem * var(--type-scale));
+  --text-base: calc(1rem * var(--type-scale));
+  --text-lg: calc(1.125rem * var(--type-scale));
+  --text-xl: calc(1.25rem * var(--type-scale));
+  --text-2xl: calc(1.5rem * var(--type-scale));
+  --text-3xl: calc(1.875rem * var(--type-scale));
+}
+
+/* TiMag: the host, many times a day, beside a drag-scaled calendar. */
+.modal-type {
+  --type-scale: 1.25;
+  --space-scale: 1.25;
+}
+
+/*
+ * TiBook: the same rule, its own knob.
+ *
+ * A guest meets these screens once, on their own phone, with none of the
+ * host's familiarity to fall back on — so the type goes up with TiMag's. The
+ * spacing knob is turned less far, because TiBook's sheets sit over a calendar
+ * whose geometry they must not push around, and its cards are already generous.
+ */
+.tibook-type {
+  --type-scale: 1.2;
+  --space-scale: 1.12;
+}
+
+/*
+ * One step up, for the screens a guest fills in rather than glances at.
+ *
+ * Declared AFTER .tibook-type so that an element carrying both lands here —
+ * class order in the attribute is irrelevant, source order decides. Spacing is
+ * left at the TiBook value on purpose: this is about reading and typing, not
+ * about pushing the form taller than the phone.
+ */
+.tibook-type-lg {
+  --type-scale: 1.35;
+  --space-scale: 1.12;
+}
+
+/*
+ * Arbitrary sizes (`text-[11px]`) compile to a literal, not a variable, so they
+ * can't ride the block above and have to be restated. Same knob drives them.
+ */
+.modal-type .text-\[8px\],
+.tibook-type .text-\[8px\] {
+  font-size: calc(8px * var(--type-scale));
+}
+.modal-type .text-\[9px\],
+.tibook-type .text-\[9px\] {
+  font-size: calc(9px * var(--type-scale));
+}
+.modal-type .text-\[10px\],
+.tibook-type .text-\[10px\] {
+  font-size: calc(10px * var(--type-scale));
+}
+.modal-type .text-\[11px\],
+.tibook-type .text-\[11px\] {
+  font-size: calc(11px * var(--type-scale));
+}
+.modal-type .text-\[12px\],
+.tibook-type .text-\[12px\] {
+  font-size: calc(12px * var(--type-scale));
+}
+.modal-type .text-\[13px\],
+.tibook-type .text-\[13px\] {
+  font-size: calc(13px * var(--type-scale));
+}
+
+/*
+ * TiBook type floor: nothing below 12px, before scaling.
+ *
+ * Declared after the block above so it wins for the smallest steps. Those
+ * literals were picked for TiMag, where the host knows what every row says and
+ * a 10px label is a reminder. A guest reads TiBook once — their check-in code,
+ * their total, the house rules — on their own phone, often standing in a
+ * hallway, with nothing memorised. Scaling a 10px label to 12px still leaves it
+ * the smallest thing on a screen it may be the most important thing on, so the
+ * floor is lifted rather than merely multiplied.
+ */
+.tibook-type .text-\[8px\],
+.tibook-type .text-\[9px\],
+.tibook-type .text-\[10px\],
+.tibook-type .text-\[11px\],
+.tibook-type-lg .text-\[8px\],
+.tibook-type-lg .text-\[9px\],
+.tibook-type-lg .text-\[10px\],
+.tibook-type-lg .text-\[11px\] {
+  font-size: calc(12px * var(--type-scale));
+}

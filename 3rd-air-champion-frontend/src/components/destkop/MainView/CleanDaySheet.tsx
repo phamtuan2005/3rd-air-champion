@@ -110,7 +110,7 @@ const CleanDaySheet = ({
 
   return (
     <div
-      className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40 p-4"
+      className="modal-type fixed inset-0 z-[300] flex items-center justify-center bg-black/40 p-4"
       onClick={onClose}
     >
       <div

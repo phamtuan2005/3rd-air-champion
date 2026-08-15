@@ -84,7 +84,7 @@ const PickerModal = <T extends string | number>({
   return createPortal(
     // z above the mobile panels and the hold bar, which sit in the 60–300 range.
     <div
-      className="fixed inset-0 z-[400] flex items-center justify-center bg-black/40 p-4"
+      className="modal-type fixed inset-0 z-[400] flex items-center justify-center bg-black/40 p-4"
       onClick={onClose}
     >
       <div

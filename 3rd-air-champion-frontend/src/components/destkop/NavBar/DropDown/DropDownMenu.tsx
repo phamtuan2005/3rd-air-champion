@@ -36,7 +36,7 @@ const DropDownMenu = ({
 
   return createPortal(
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200]"
+      className="modal-type fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200]"
       onClick={close}
     >
       <div

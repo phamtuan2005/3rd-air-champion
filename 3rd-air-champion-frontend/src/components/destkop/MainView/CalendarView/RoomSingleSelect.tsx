@@ -31,7 +31,7 @@ const RoomSingleSelect = ({ rooms, value, onChange }: RoomSingleSelectProps) => 
   const modal = open
     ? createPortal(
         <div
-          className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-[300]"
+          className="modal-type fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-[300]"
           onClick={() => setOpen(false)}
         >
           <div

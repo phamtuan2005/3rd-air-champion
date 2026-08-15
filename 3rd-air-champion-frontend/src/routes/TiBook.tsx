@@ -59,6 +59,11 @@ const TiBookInner = () => {
   const [guestPhone, setGuestPhone] = useState(() => localStorage.getItem("tiBookGuestPhone") ?? "");
   const [guestName, setGuestName] = useState(() => localStorage.getItem("tiBookGuestName") ?? "");
   const [guestBookings, setGuestBookings] = useState<GuestBooking[]>([]);
+  // A guest we already recognise by name has seen the rooms — the photo banner
+  // is a first-visit pitch, and on their return it is just height taken from the
+  // calendar they came for. Opened by hand with "Photos ▾"; not persisted, so
+  // every visit starts on the calendar.
+  const [roomsExpanded, setRoomsExpanded] = useState(false);
   const [reservedMap, setReservedMap] = useState<Map<string, Set<string>>>(new Map());
   const [myBookingsOpen, setMyBookingsOpen] = useState(false);
   const [bookingsFocusKey, setBookingsFocusKey] = useState<string | null>(null);
@@ -425,6 +430,12 @@ const TiBookInner = () => {
     ? `${cartDates.size} date${cartDates.size > 1 ? "s" : ""} selected`
     : `★ ${newWishListDates.size} wish list date${newWishListDates.size > 1 ? "s" : ""}`;
 
+  // The same name the nav bar greets them by. Tying the two together means the
+  // banner can only shrink on a screen that already says who the guest is —
+  // a stranger is never quietly dropped into the reduced view.
+  const greetedName = guestBookings.find((b) => b.guestName)?.guestName ?? guestName;
+  const isReturningGuest = !!greetedName.trim();
+
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       <NavBarDesktop
@@ -433,7 +444,7 @@ const TiBookInner = () => {
         cohostNames={cohostNames}
         isFullCalendar={isSelecting}
         onMyBookings={() => { setBookingsFocusKey(null); setMyBookingsOpen((o) => !o); }}
-        guestName={guestBookings.find((b) => b.guestName)?.guestName ?? guestName}
+        guestName={greetedName}
         guestStays={guestBookings.filter((b) => b.status === "confirmed").length}
       />
       <div className="relative flex flex-1 min-h-0 flex-col">
@@ -447,7 +458,8 @@ const TiBookInner = () => {
               selectedRoomIds={selectedRoomIds}
               onToggleRoom={handleToggleRoom}
               onSelectAll={() => setSelectedRoomIds(null)}
-              compact={false}
+              compact={isReturningGuest && !roomsExpanded}
+              onToggleCompact={isReturningGuest ? () => setRoomsExpanded((o) => !o) : undefined}
             />
           )}
         </div>
@@ -532,8 +544,11 @@ const TiBookInner = () => {
       </div>
 
       {/* Floating bar — shown for cart dates, wish list dates, or both */}
+      {/* Same type step as the request modal this bar opens — it is the last
+          thing read before that modal and was the only TiBook surface left
+          outside the scale, so it sat at a bare 14px next to it. */}
       {hasSelection && (
-        <div className={`fixed bottom-0 inset-x-0 ${theme.btn} px-4 py-3 flex items-center justify-between z-40 shadow-lg`}>
+        <div className={`tibook-type tibook-type-lg fixed bottom-0 inset-x-0 ${theme.btn} px-4 py-3 flex items-center justify-between z-40 shadow-lg`}>
           <span className="text-white text-sm font-medium">{barLabel}</span>
           <button
             type="button"

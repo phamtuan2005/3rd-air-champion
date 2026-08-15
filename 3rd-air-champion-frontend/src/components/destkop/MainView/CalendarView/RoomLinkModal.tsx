@@ -70,7 +70,7 @@ const RoomLinkModal = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-500 bg-opacity-50 flex justify-center items-center z-30">
+    <div className="modal-type fixed inset-0 bg-gray-500 bg-opacity-50 flex justify-center items-center z-30">
       <div className="bg-white p-6 rounded shadow-lg w-96">
         <div className="flex justify-center mb-1">
           <button

@@ -457,7 +457,7 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
       <div className="fixed inset-0 z-[105] bg-black/40" onClick={onClose} />
       {/* Floating panel — drag the header to move, drag the corner grip to resize */}
       <div
-        className="fixed z-[110] flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+        className="modal-type fixed z-[110] flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
         style={{ left: pos.x, top: pos.y, width: size.w, height: size.h }}
       >
         {/* Brand bar */}
@@ -580,7 +580,7 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
         <>
           <div className="fixed inset-0 z-[120] bg-black/40" onClick={closeEditor} />
           <div
-            className="fixed z-[121] flex w-[92vw] max-w-[380px] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+            className="modal-type fixed z-[121] flex w-[92vw] max-w-[380px] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
             style={{ left: editorPos.x, top: editorPos.y }}
           >
             <div className="h-1.5 shrink-0 bg-gradient-to-r from-emerald-400 via-blue-400 to-violet-400" />
@@ -638,7 +638,7 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
       {confirmExpense && (
         <>
           <div className="fixed inset-0 z-[130] bg-black/50" onClick={() => resolveConfirm(false)} />
-          <div className="pointer-events-none fixed inset-0 z-[131] flex items-center justify-center p-4">
+          <div className="modal-type pointer-events-none fixed inset-0 z-[131] flex items-center justify-center p-4">
             <div className="pointer-events-auto w-full max-w-[340px] overflow-hidden rounded-2xl bg-white shadow-2xl">
               <div className="flex flex-col items-center px-5 pb-4 pt-6 text-center">
                 <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-rose-100">

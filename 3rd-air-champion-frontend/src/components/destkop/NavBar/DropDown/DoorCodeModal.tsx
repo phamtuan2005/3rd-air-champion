@@ -27,7 +27,7 @@ const DoorCodeModal = ({ currentDoorCode, onClose, onSaved }: DoorCodeModalProps
   };
 
   return createPortal(
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+    <div className="modal-type fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
       <div className="bg-white rounded-lg p-4 w-full max-w-sm shadow-lg flex flex-col gap-3">
         <div className="flex flex-col items-center gap-1">
           <button

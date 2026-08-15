@@ -15,7 +15,7 @@ const TemplatePickerModal = ({
 }: TemplatePickerModalProps) => {
   return createPortal(
     <div
-      className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50"
+      className="modal-type fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50"
       onClick={onClose}
     >
       <div

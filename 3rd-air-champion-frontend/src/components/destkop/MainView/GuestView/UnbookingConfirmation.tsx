@@ -94,7 +94,7 @@ const UnbookingConfirmation = ({
   };
 
   return (
-    <div className="fixed bottom-0 left-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center z-[70]">
+    <div className="modal-type fixed bottom-0 left-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center z-[70]">
       <div className="bg-white rounded-xl p-4 max-w-lg w-full shadow-lg max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between mb-2">
           <h1 className="text-lg font-bold text-gray-800">

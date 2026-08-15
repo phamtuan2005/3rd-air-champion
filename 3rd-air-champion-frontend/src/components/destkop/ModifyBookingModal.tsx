@@ -45,6 +45,7 @@ const ModifyBookingModal = ({
     defaultValues: {
       room: selectedModifyBooking.room.id,
       duration: selectedModifyBooking.duration,
+      numberOfGuests: selectedModifyBooking.numberOfGuests || 1,
     },
   });
 
@@ -136,7 +137,7 @@ const ModifyBookingModal = ({
           guest: selectedModifyBooking.guest.id,
           isAirBnB: false,
           duration,
-          numberOfGuests: selectedModifyBooking.numberOfGuests,
+          numberOfGuests: data.numberOfGuests,
           calendar: calendarId,
           ...(isReserved ? { reserved: true } : {}),
         },
@@ -151,7 +152,7 @@ const ModifyBookingModal = ({
 
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      className="modal-type fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
       onClick={() => setSelectedModifyBooking(null)}
     >
       <div
@@ -219,24 +220,39 @@ const ModifyBookingModal = ({
             </div>
           </div>
 
-          {/* Room */}
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Room</p>
-            <Controller
-              name="room"
-              control={control}
-              render={({ field }) => (
-                <RoomPickerDropdown
-                  rooms={rooms.filter((r) => r.active)}
-                  blockedRoomIds={unavailableRoomIds}
-                  value={field.value}
-                  onChange={field.onChange}
-                />
+          {/* Room + Guests */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Room</p>
+              <Controller
+                name="room"
+                control={control}
+                render={({ field }) => (
+                  <RoomPickerDropdown
+                    rooms={rooms.filter((r) => r.active)}
+                    blockedRoomIds={unavailableRoomIds}
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
+              {errors.room && (
+                <p className="text-red-500 text-xs mt-0.5">{errors.room.message}</p>
               )}
-            />
-            {errors.room && (
-              <p className="text-red-500 text-xs mt-0.5">{errors.room.message}</p>
-            )}
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Guests</p>
+              <input
+                type="number"
+                min={1}
+                step={1}
+                className="border border-gray-200 rounded-lg px-2 py-1.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+                {...register("numberOfGuests", { valueAsNumber: true })}
+              />
+              {errors.numberOfGuests && (
+                <p className="text-red-500 text-xs mt-0.5">{errors.numberOfGuests.message}</p>
+              )}
+            </div>
           </div>
 
           {bookingErrorMessage && (

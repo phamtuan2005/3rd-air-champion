@@ -12,7 +12,7 @@ const IcsModal = ({ icsModal, setIcsModal, airbnbName }: IcsModalProps) => {
 
   return createPortal(
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"
+      className="modal-type fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"
       onClick={() => setIcsModal(null)}
     >
       <div

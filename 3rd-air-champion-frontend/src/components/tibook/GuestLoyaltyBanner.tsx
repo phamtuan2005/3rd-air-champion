@@ -67,7 +67,7 @@ const GuestLoyaltyBanner = ({ firstName, totalStays, totalNights, memberSince }:
   const loyaltyTier = getLoyaltyTier(totalStays);
 
   return (
-    <div className={`px-4 py-3 rounded-2xl ${theme.tagBg} border ${theme.tagBorder}`}>
+    <div className={`tibook-type px-4 py-3 rounded-2xl ${theme.tagBg} border ${theme.tagBorder}`}>
       <div className="flex items-start justify-between gap-2">
         <p className={`text-sm font-bold ${theme.textPrimaryDark}`}>
           Hi {firstName}! Welcome back

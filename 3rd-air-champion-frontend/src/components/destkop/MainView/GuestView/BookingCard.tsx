@@ -35,10 +35,11 @@ interface BookingCardProps {
   onPricingEdit: (booking: bookingType) => void;
 }
 
-// Full-width action rows for the guest action palette (compact — it floats
-// over the calendar and must not cover it)
+// Full-width action rows for the guest action palette. It floats over the
+// calendar so it stays narrow, but each row is still a full-size target — the
+// host is tapping these one-handed.
 const rowBase =
-  "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold";
+  "flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-semibold";
 const rowPrimary = `${rowBase} bg-gray-900 text-white`;
 const rowNeutral = `${rowBase} border border-gray-200 bg-white text-gray-700`;
 const rowDanger = `${rowBase} border border-red-200 bg-red-50 text-red-600`;
@@ -64,7 +65,9 @@ const BookingCard = ({
   // guest. It must not block the calendar: after toggling the filter the host
   // taps calendar dates to mark which nights are paid.
   const [actionsOpen, setActionsOpen] = useState(false);
-  const DEFAULT_PALETTE_WIDTH = 212;
+  // Wide enough that "Filter on calendar" and its ON/OFF fit on one line at the
+  // panel's type size — still narrow enough to leave the calendar visible.
+  const DEFAULT_PALETTE_WIDTH = 300;
   const [palettePos, setPalettePos] = useState({ x: 16, y: 96 });
   // h === null → size to content; set once the user drags the resize grip
   const [paletteSize, setPaletteSize] = useState<{ w: number; h: number | null }>({
@@ -175,14 +178,14 @@ const BookingCard = ({
 
   return (
     <div
-      className={`relative mb-2 overflow-hidden rounded-xl border ${
+      className={`relative mb-3 overflow-hidden rounded-2xl border ${
         isReserved ? "border-amber-300 bg-amber-50" : "border-gray-200 bg-white"
       }`}
     >
       {/* Room identity as a color accent, not a button-look chip */}
       <div className={`absolute inset-y-0 left-0 w-3 ${roomColor}`} />
 
-      <div className="p-3 pl-5">
+      <div className="p-4 pl-6">
         <div className="flex items-start gap-2">
           {/* Seeded from the displayed label, so AirBnB stays show the real
               guest's initials from their alias. Drawn avatars only exist for
@@ -199,25 +202,27 @@ const BookingCard = ({
             onClick={() => !isReserved && setSelectedBooking(booking)}
             className="min-w-0 flex-1 text-left"
           >
-            <p className="flex items-center gap-2">
-              <span className="truncate text-base font-bold text-gray-900">
+            {/* The name wraps rather than truncates — a guest cut off mid-word
+                is the density habit this layout is moving away from. */}
+            <p className="flex flex-wrap items-center gap-2">
+              <span className="text-lg font-bold leading-tight text-gray-900">
                 {booking.numberOfGuests > 1 && `(${booking.numberOfGuests}) `}
                 {guestLabel}
               </span>
               {/* Booking source must be readable at first glance; direct guests
                   are already identified by their loyalty badges instead */}
               {isAirBnB && (
-                <span className="shrink-0 rounded-full bg-[#FF5A5F] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                <span className="shrink-0 rounded-full bg-[#FF5A5F] px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-white">
                   Airbnb
                 </span>
               )}
               {isReserved && (
-                <span className="shrink-0 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">
+                <span className="shrink-0 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-amber-700">
                   Reserved
                 </span>
               )}
             </p>
-            <p className="mt-0.5 text-xs text-gray-500">
+            <p className="mt-1 text-sm text-gray-500">
               {booking.room.name} · {dateRange}
               <span className="text-gray-400">
                 {" "}
@@ -226,39 +231,57 @@ const BookingCard = ({
             </p>
           </button>
 
+          {/* Single entry point for all per-guest actions */}
+          <button
+            type="button"
+            onClick={openActions}
+            aria-label="Guest actions"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-xl font-bold leading-none text-gray-600"
+          >
+            ⋯
+          </button>
+        </div>
+
+        {/* Money and loyalty share their own line. The price used to sit in the
+            header row, where it and the guest's name fought over the same
+            width and one of them always lost — the name to a truncation, the
+            price to a smaller size. On its own line it can be the biggest
+            thing on the card, which is what it deserves to be. */}
+        <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
           {/* Profit is the reward — big, green, whole dollars */}
           {isAirBnB
             ? (booking.airbnbPrice || feeSum) && (
                 <span
-                  className="shrink-0 text-lg font-bold text-emerald-600"
+                  className="text-2xl font-bold leading-none text-emerald-600"
                   title={feeSum ? `AirBnB $${Math.round(booking.airbnbPrice || 0)} + on-site $${feeSum}` : undefined}
                 >
                   ${Math.round((booking.airbnbPrice || 0) + feeSum).toLocaleString()}
                 </span>
               )
             : guestRate && (
-                <span
+                /* Editable, but not underlined. A dotted underline under a
+                   number reads as a flag on the number itself — money marked
+                   as provisional or disputed — which is the opposite of what
+                   this is: the guest's own agreed rate. The pencil chip says
+                   "you can change this" without saying anything about the
+                   figure, and a real button gets keyboard focus for free. */
+                <button
+                  type="button"
                   onClick={() => onPricingEdit(booking)}
-                  className="shrink-0 text-lg font-bold text-emerald-600 underline decoration-dotted"
+                  aria-label="Edit pricing"
+                  className="group -ml-1.5 inline-flex items-center gap-1.5 rounded-lg px-1.5 py-0.5 transition-colors hover:bg-emerald-50"
                   title={feeSum ? `Nights $${Math.round(guestRate * booking.duration)} + fees $${feeSum}` : undefined}
                 >
-                  ${Math.round(guestRate * booking.duration + feeSum).toLocaleString()}
-                </span>
+                  <span className="text-2xl font-bold leading-none text-emerald-600">
+                    ${Math.round(guestRate * booking.duration + feeSum).toLocaleString()}
+                  </span>
+                  <span className="text-xs leading-none text-emerald-300 transition-colors group-hover:text-emerald-500">
+                    ✎
+                  </span>
+                </button>
               )}
 
-          {/* Single entry point for all per-guest actions */}
-          <button
-            type="button"
-            onClick={openActions}
-            aria-label="Guest actions"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-lg font-bold leading-none text-gray-600"
-          >
-            ⋯
-          </button>
-        </div>
-
-        {/* Return-guest history / loyalty */}
-        <div className="mt-1.5">
+          {/* Return-guest history / loyalty */}
           {isAirBnB ? (
             <RebookCount booking={booking} airBnBBookingCount={airBnBBookingCount} />
           ) : (
@@ -270,14 +293,14 @@ const BookingCard = ({
                 : null;
               const loyaltyTier = getLoyaltyTier(count);
               return (
-                <div className="flex flex-wrap items-center gap-1">
-                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-600">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-sm font-semibold text-amber-600">
                     ↩ {count} {count === 1 ? "stay" : "stays"}
                     {since ? ` since ${since}` : ""}
                   </span>
                   {loyaltyTier && (
                     <span
-                      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${loyaltyTier.color}`}
+                      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${loyaltyTier.color}`}
                     >
                       {loyaltyTier.label}
                     </span>
@@ -290,7 +313,7 @@ const BookingCard = ({
 
         {/* Notes */}
         {(booking.guest.notes || booking.notes) && (
-          <p className="mt-1 text-xs italic text-gray-500">
+          <p className="mt-2 text-sm italic text-gray-500">
             {booking.guest.notes || booking.notes}
           </p>
         )}
@@ -304,7 +327,7 @@ const BookingCard = ({
         createPortal(
           <div
             ref={paletteRef}
-            className="fixed z-[100] flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+            className="modal-type fixed z-[100] flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
             style={{
               left: palettePos.x,
               top: palettePos.y,
@@ -322,14 +345,14 @@ const BookingCard = ({
                 >
                   <div className="min-w-0">
                     <p className="flex items-center gap-2">
-                      <span className="truncate text-sm font-bold text-gray-900">{guestLabel}</span>
+                      <span className="truncate text-base font-bold text-gray-900">{guestLabel}</span>
                       {isAirBnB && (
-                        <span className="shrink-0 rounded-full bg-[#FF5A5F] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                        <span className="shrink-0 rounded-full bg-[#FF5A5F] px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-white">
                           Airbnb
                         </span>
                       )}
                     </p>
-                    <p className="mt-0.5 text-[10px] text-gray-500">
+                    <p className="mt-0.5 text-xs text-gray-500">
                       {booking.room.name} · {dateRange} · {booking.duration}{" "}
                       {booking.duration > 1 ? "nights" : "night"}
                     </p>
@@ -338,13 +361,13 @@ const BookingCard = ({
                     type="button"
                     onClick={() => setActionsOpen(false)}
                     aria-label="Close"
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-lg leading-none text-gray-400"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xl leading-none text-gray-400"
                   >
                     &times;
                   </button>
                 </div>
 
-                <div className="mt-2 flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto">
+                <div className="mt-2 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
                   {/* Calendar filter — replaces the old per-card checkbox
                       (AirBnB stays are only filterable when they have an alias) */}
                   {(!isAirBnB || booking.alias !== "") && (
@@ -357,9 +380,9 @@ const BookingCard = ({
                           : "border-gray-200 bg-white text-gray-700"
                       }`}
                     >
-                      <FaFilter size={14} className="shrink-0" />
+                      <FaFilter size={16} className="shrink-0" />
                       <span className="flex-1">Filter on calendar</span>
-                      <span className="text-xs font-bold">{isFiltered ? "ON" : "OFF"}</span>
+                      <span className="text-sm font-bold">{isFiltered ? "ON" : "OFF"}</span>
                     </button>
                   )}
 
@@ -376,7 +399,7 @@ const BookingCard = ({
                           })
                         }
                       >
-                        <FaRegCalendarAlt size={14} className="shrink-0" />
+                        <FaRegCalendarAlt size={16} className="shrink-0" />
                         Modify Booking
                       </button>
                       {booking.guest.phone && (
@@ -391,7 +414,7 @@ const BookingCard = ({
                                 closeThen(() => handleBookingConfirmation(booking.guest.phone))
                               }
                             >
-                              <FaRegCheckCircle size={14} className="shrink-0" />
+                              <FaRegCheckCircle size={16} className="shrink-0" />
                               Send Confirmation
                             </button>
                           )}
@@ -404,7 +427,7 @@ const BookingCard = ({
                               )
                             }
                           >
-                            <FaRegCalendarPlus size={14} className="shrink-0" />
+                            <FaRegCalendarPlus size={16} className="shrink-0" />
                             Send Calendar Events
                           </button>
                           <button
@@ -416,7 +439,7 @@ const BookingCard = ({
                               })
                             }
                           >
-                            <FaRegCommentDots size={14} className="shrink-0" />
+                            <FaRegCommentDots size={16} className="shrink-0" />
                             Message Guest
                           </button>
                         </>
@@ -427,7 +450,7 @@ const BookingCard = ({
                           className={rowNeutral}
                           onClick={() => closeThen(() => onPricingEdit(booking))}
                         >
-                          <FaDollarSign size={14} className="shrink-0" />
+                          <FaDollarSign size={16} className="shrink-0" />
                           Edit Pricing
                         </button>
                       )}
@@ -436,7 +459,7 @@ const BookingCard = ({
                         className={rowDanger}
                         onClick={() => closeThen(() => onRequestUnbook(booking))}
                       >
-                        <FaRegTrashAlt size={14} className="shrink-0" />
+                        <FaRegTrashAlt size={16} className="shrink-0" />
                         Unbook
                       </button>
                     </>
@@ -446,7 +469,7 @@ const BookingCard = ({
                       className={rowDanger}
                       onClick={() => closeThen(() => onRequestUnbook(booking))}
                     >
-                      <FaRegTrashAlt size={14} className="shrink-0" />
+                      <FaRegTrashAlt size={16} className="shrink-0" />
                       Unbook
                     </button>
                   ) : (
@@ -466,7 +489,7 @@ const BookingCard = ({
                         })
                       }
                     >
-                      <FaAirbnb size={16} className="shrink-0" />
+                      <FaAirbnb size={18} className="shrink-0" />
                       Open on Airbnb
                     </button>
                   )}

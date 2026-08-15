@@ -624,7 +624,7 @@ const SwipeableHistoryGroupRow = ({
       {/* Delete confirmation overlay */}
       {confirming && (
         <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-30 px-6"
+          className="modal-type fixed inset-0 bg-black/40 flex items-center justify-center z-30 px-6"
           onClick={() => { setConfirming(false); setOffset(0); }}
           onTouchStart={(e) => e.stopPropagation()}
           onTouchMove={(e) => e.stopPropagation()}

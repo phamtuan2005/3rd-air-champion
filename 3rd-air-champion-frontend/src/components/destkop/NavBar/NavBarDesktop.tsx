@@ -375,7 +375,7 @@ const NavBarDesktop = ({
           actions as cards (same look as the old Block chooser). */}
       {pickerGroup && createPortal(
         <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-[300] p-4"
+          className="modal-type fixed inset-0 bg-black/40 flex items-center justify-center z-[300] p-4"
           onClick={() => setPickerGroup(null)}
         >
           <div

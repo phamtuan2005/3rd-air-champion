@@ -30,7 +30,7 @@ const RoomGalleryModal = ({ room, initialIndex = 0, onClose }: RoomGalleryModalP
 
   return createPortal(
     <div
-      className="fixed inset-0 bg-black bg-opacity-90 z-50 flex flex-col"
+      className="tibook-type fixed inset-0 bg-black bg-opacity-90 z-50 flex flex-col"
       onClick={onClose}
     >
       {/* Header */}

@@ -37,6 +37,8 @@ interface CustomCalendarProps {
   rowsPerPage?: number;
   rowHeight?: number;
   onRowHeightChange?: (n: number) => void;
+  anchorDate?: string | null;
+  onAnchorDateChange?: (key: string) => void;
 }
 
 const CustomCalendar = ({
@@ -64,6 +66,8 @@ const CustomCalendar = ({
   rowsPerPage,
   rowHeight,
   onRowHeightChange,
+  anchorDate,
+  onAnchorDateChange,
 }: CustomCalendarProps) => {
   const [useMonthMap, setUseMonthMap] = useState<Map<string, dayType>>(monthMap);
   // The filtered guest's stay to bring on screen (yyyy-MM-dd), or null when no
@@ -328,6 +332,8 @@ const CustomCalendar = ({
       holdDates={holdDates}
       overrideRooms={overrideRooms}
       revealDate={revealDate}
+      anchorDate={anchorDate}
+      onAnchorDateChange={onAnchorDateChange}
       onMonthChange={setCurrentMonth}
       onDateClick={handleDateClick}
       onDoubleClick={handleDoubleClick}

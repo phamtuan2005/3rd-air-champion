@@ -45,6 +45,62 @@ const MONTHS_FORWARD = 36;
 const HOLD_HATCH =
   "repeating-linear-gradient(45deg, rgba(217,119,6,0.62) 0 4px, rgba(255,255,255,0) 4px 9px)";
 
+// ── Type and bar geometry, derived from the tile height ──────────────────────
+//
+// Lifted from TiMag's CalendarGrid, which sizes a guest name and its bar's
+// corner radius FROM the lane they sit in rather than fixing both independently.
+// TiBook's calendar is drag-resizable up to the full window, but every size in
+// it was a literal tuned for the smallest state — so growing the calendar bought
+// empty space around 26px ribbons and 13px labels instead of a bigger calendar.
+//
+// REF_TILE is the height those literals were chosen at; every ratio below
+// reproduces them exactly there, so nothing moves until the guest drags.
+const REF_TILE = 80;
+
+// One knob over every piece of type in the calendar, on top of the ratios.
+//
+// The ratios alone only reproduce the old literals at REF_TILE — they fix the
+// empty space in a grown calendar but leave a normal-sized one reading exactly
+// as small as it did. This lifts the whole family: the guest is reading a room
+// name and a night count on their own phone, not a spreadsheet.
+//
+// Type only. The bar geometry keeps its own ratios so the ribbon stays a ribbon
+// and the PM-checkin / AM-checkout alignment is untouched.
+const TYPE_BOOST = 1.15;
+
+const clamp = (min: number, v: number, max: number) => Math.min(max, Math.max(min, v));
+
+// 26px at the reference tile. Capped, because past a point a ribbon stops
+// reading as a ribbon and the cell becomes a solid block of room colour.
+const barHeightFor = (tile: number) => Math.round(clamp(24, (tile / REF_TILE) * 26, 60));
+
+// The gap beneath the ribbon — 5px at the reference tile.
+const barBottomFor = (tile: number) => Math.round(clamp(4, (tile / REF_TILE) * 5, 12));
+
+// 0.5rem on a 26px bar, and never more than half the bar: past halfway the
+// opposite corners meet and the bar loses the straight edge it butts against the
+// next night with. Same rule, and the same reason, as TiMag's barRadiusFor.
+const barRadiusFor = (barHeight: number) =>
+  `${Math.min(barHeight / 2, barHeight * (8 / 26)).toFixed(1)}px`;
+
+// The room name is sized FROM its bar, not from the tile, so a taller ribbon can
+// never leave a small name floating in the middle of it. Was 13px in a 26px bar.
+const barLabelFor = (barHeight: number) =>
+  `${clamp(13, barHeight * 0.5 * TYPE_BOOST, 26).toFixed(1)}px`;
+
+// The day number — was 20px (`sm:text-xl`) at the reference tile.
+const dateFor = (tile: number) =>
+  `${clamp(16, (tile / REF_TILE) * 20 * TYPE_BOOST, 36).toFixed(1)}px`;
+
+// "3 left" / "sold out" — was 9px, the smallest type anywhere in TiBook and the
+// line that actually answers "can I book this night".
+const metaFor = (tile: number) =>
+  `${clamp(11, (tile / REF_TILE) * 9 * TYPE_BOOST, 19).toFixed(1)}px`;
+
+// The wish-list star and the ⏳ hold badge — was 11px.
+const glyphFor = (tile: number) =>
+  `${clamp(13, (tile / REF_TILE) * 11 * TYPE_BOOST, 24).toFixed(1)}px`;
+
 const buildMonthCells = (month: Date): (Date | null)[] => {
   const cells: (Date | null)[] = Array(NUM_ROWS * 7).fill(null);
   const firstDay = new Date(month.getFullYear(), month.getMonth(), 1);
@@ -93,7 +149,17 @@ const GuestCalendar = ({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const visibleIndexRef = useRef(0);
 
-  const rowHeight = containerHeight > 0 ? Math.floor(containerHeight / NUM_ROWS) : 80;
+  const rowHeight = containerHeight > 0 ? Math.floor(containerHeight / NUM_ROWS) : REF_TILE;
+
+  // Everything the tile draws, sized from the tile. Computed once per render
+  // rather than per cell — 42 cells a page, and none of them differ.
+  const barHeight = barHeightFor(rowHeight);
+  const barBottom = barBottomFor(rowHeight);
+  const barRadius = barRadiusFor(barHeight);
+  const barLabelSize = barLabelFor(barHeight);
+  const dateSize = dateFor(rowHeight);
+  const metaSize = metaFor(rowHeight);
+  const glyphSize = glyphFor(rowHeight);
 
   const scopedRooms = useMemo(
     () => rooms.filter((r) => r.active && (selectedRoomIds === null || selectedRoomIds.has(r.id))),
@@ -276,7 +342,8 @@ const GuestCalendar = ({
     const isReservedNight = !!resBars?.pm && !inCart && !isStayNight;
 
     const numberClass = [
-      "text-sm sm:text-xl leading-none select-none",
+      // No text-* size here: the size comes from the tile, via dateSize below.
+      "leading-none select-none",
       inCart ? "font-bold text-white" :
       isWishlisted ? "text-gray-500 line-through" :
       (status === "available" || status === "partial") ? `font-bold ${theme.textPrimary}` :
@@ -316,12 +383,15 @@ const GuestCalendar = ({
         {isNewWishList && !inCart && (
           <div className="absolute inset-1 rounded-lg bg-gray-200 pointer-events-none" />
         )}
-        <span className={`${numberClass} relative z-10`}>{date.getDate()}</span>
+        <span className={`${numberClass} relative z-10`} style={{ fontSize: dateSize }}>
+          {date.getDate()}
+        </span>
         {/* Availability stays visible whether or not the night is picked — it's
             info the guest wants either way; a ✓ marks it selected. */}
         {!simplified && (status === "available" || status === "partial") && roomsLeft > 0 && (
           <span
-            className={`relative z-10 text-[9px] font-semibold leading-none ${inCart ? "text-white" : "text-black"}`}
+            className={`relative z-10 font-semibold leading-none ${inCart ? "text-white" : "text-black"}`}
+            style={{ fontSize: metaSize }}
           >
             {inCart ? "✓ " : ""}
             {roomsLeft} left
@@ -331,10 +401,13 @@ const GuestCalendar = ({
           <div className="relative z-10 flex flex-col items-center gap-0.5">
             {/* Keep "sold out" visible even when wish-listed — the gray wish-list
                 overlay otherwise hides it and the date looks bookable again. */}
-            <span className="text-[9px] font-medium text-gray-500 leading-none">sold out</span>
+            <span className="font-medium text-gray-500 leading-none" style={{ fontSize: metaSize }}>
+              sold out
+            </span>
             {canWishList && (
               <span
-                className="text-[11px] leading-none z-10 relative cursor-pointer"
+                className="leading-none z-10 relative cursor-pointer"
+                style={{ fontSize: glyphSize }}
                 title={isWishlisted ? "Remove from wish list" : "Add to wish list"}
                 onClick={(e) => { e.stopPropagation(); onWishListClick!(date); }}
               >
@@ -348,8 +421,16 @@ const GuestCalendar = ({
             labelled with the room on the check-in day. */}
         {bars?.am && !inCart && (
           <div
-            className={`${getRoomColor(bars.am.roomName, bars.am.roomColor)} rounded-r-lg pointer-events-none`}
-            style={{ position: "absolute", bottom: "5px", height: "26px", left: "-1px", right: "80%" }}
+            className={`${getRoomColor(bars.am.roomName, bars.am.roomColor)} pointer-events-none`}
+            style={{
+              position: "absolute",
+              bottom: barBottom,
+              height: barHeight,
+              left: "-1px",
+              right: "80%",
+              borderTopRightRadius: barRadius,
+              borderBottomRightRadius: barRadius,
+            }}
           />
         )}
         {bars?.pm && !inCart && (
@@ -357,16 +438,19 @@ const GuestCalendar = ({
             className={`${getRoomColor(bars.pm.roomName, bars.pm.roomColor)} pointer-events-none flex items-center overflow-hidden`}
             style={{
               position: "absolute",
-              bottom: "5px",
-              height: "26px",
+              bottom: barBottom,
+              height: barHeight,
               left: bars.pm.isStart ? "20%" : "-1px",
               right: "-1px",
-              borderTopLeftRadius: bars.pm.isStart ? "0.5rem" : undefined,
-              borderBottomLeftRadius: bars.pm.isStart ? "0.5rem" : undefined,
+              borderTopLeftRadius: bars.pm.isStart ? barRadius : undefined,
+              borderBottomLeftRadius: bars.pm.isStart ? barRadius : undefined,
             }}
           >
             {bars.pm.isStart && (
-              <span className="truncate px-1 text-[13px] font-bold leading-none text-black sm:text-sm">
+              <span
+                className="truncate px-1 font-bold leading-none text-black"
+                style={{ fontSize: barLabelSize }}
+              >
                 {bars.pm.roomName}
               </span>
             )}
@@ -377,8 +461,17 @@ const GuestCalendar = ({
             confirmed stay, while the full room name stays readable. */}
         {resBars?.am && !inCart && (
           <div
-            className={`${getRoomColor(resBars.am.roomName, resBars.am.roomColor)} rounded-r-lg border-y-2 border-dashed border-amber-500 pointer-events-none`}
-            style={{ position: "absolute", bottom: "5px", height: "26px", left: "-1px", right: "80%", backgroundImage: HOLD_HATCH }}
+            className={`${getRoomColor(resBars.am.roomName, resBars.am.roomColor)} border-y-2 border-dashed border-amber-500 pointer-events-none`}
+            style={{
+              position: "absolute",
+              bottom: barBottom,
+              height: barHeight,
+              left: "-1px",
+              right: "80%",
+              borderTopRightRadius: barRadius,
+              borderBottomRightRadius: barRadius,
+              backgroundImage: HOLD_HATCH,
+            }}
           />
         )}
         {resBars?.pm && !inCart && (
@@ -386,17 +479,20 @@ const GuestCalendar = ({
             className={`${getRoomColor(resBars.pm.roomName, resBars.pm.roomColor)} border-y-2 border-dashed border-amber-500 pointer-events-none flex items-center overflow-hidden`}
             style={{
               position: "absolute",
-              bottom: "5px",
-              height: "26px",
+              bottom: barBottom,
+              height: barHeight,
               left: resBars.pm.isStart ? "20%" : "-1px",
               right: "-1px",
-              borderTopLeftRadius: resBars.pm.isStart ? "0.5rem" : undefined,
-              borderBottomLeftRadius: resBars.pm.isStart ? "0.5rem" : undefined,
+              borderTopLeftRadius: resBars.pm.isStart ? barRadius : undefined,
+              borderBottomLeftRadius: resBars.pm.isStart ? barRadius : undefined,
               backgroundImage: HOLD_HATCH,
             }}
           >
             {resBars.pm.isStart && (
-              <span className="truncate px-1 text-[13px] font-bold leading-none text-black sm:text-sm">
+              <span
+                className="truncate px-1 font-bold leading-none text-black"
+                style={{ fontSize: barLabelSize }}
+              >
                 {resBars.pm.roomName}
               </span>
             )}
@@ -405,7 +501,12 @@ const GuestCalendar = ({
         {/* Glass badge marking the hold's start — sits above the number, clear of
             the ribbon so it doesn't crowd the room name. */}
         {resBars?.pm?.isStart && !inCart && (
-          <span className="pointer-events-none absolute right-0.5 top-0.5 z-20 text-[11px] leading-none">⏳</span>
+          <span
+            className="pointer-events-none absolute right-0.5 top-0.5 z-20 leading-none"
+            style={{ fontSize: glyphSize }}
+          >
+            ⏳
+          </span>
         )}
       </button>
     );
