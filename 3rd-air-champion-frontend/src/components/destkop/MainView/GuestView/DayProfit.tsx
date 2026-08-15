@@ -99,6 +99,13 @@ const DayProfit = ({ selectedDate, monthMap, rooms, hostId, token }: DayProfitPr
         key: `${b.id}-${b.room.id}`,
         room: b.room,
         who: b.guest.alias || b.alias || b.guest.name,
+        // Same test the rest of GuestView uses (DetailsModal, BookingCard): the
+        // AirBnB guest is a real guest doc named "AirBnB", and every AirBnB stay
+        // hangs off it under its own alias. Without the tag those aliases are
+        // indistinguishable from direct guests on this tab, while the Gross
+        // summary below splits Direct from AirBnB — so the lines could not be
+        // read back to the split they add up to.
+        isAirBnB: b.guest.name === "AirBnB",
         amount: bookingNightAmount(b, dateKey),
         isStart: b.startDate.split("T")[0] === dateKey,
       }))
@@ -241,6 +248,11 @@ const DayProfit = ({ selectedDate, monthMap, rooms, hostId, token }: DayProfitPr
                     {l.room.name}
                   </span>
                   <span className="truncate text-sm text-gray-600">{l.who}</span>
+                  {l.isAirBnB && (
+                    <span className="shrink-0 rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rose-600">
+                      AirBnB
+                    </span>
+                  )}
                   {/* A stay's whole-stay fees land once, on its check-in date —
                       so a spike here has a visible reason. */}
                   {l.isStart && (
