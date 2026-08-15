@@ -362,9 +362,15 @@ export const cleaningEntryTaskId = (entry: ForecastEntry, morningKey: string) =>
     ? `clean-probable-${morningKey}-${entry.checkoutBooking.room.id}`
     : cleaningTaskId(entry.checkoutBooking.endDate, entry.checkoutBooking.room.id);
 
+// Mornings ahead of today the Plan tab forecasts. The window is today PLUS this
+// many, so 8 shows 9 days. Cindy plans a week at a time and needs to see past
+// the end of next week while she is still arranging it — at 7 the far edge kept
+// falling off the list on the day she was booking it.
+export const CLEANING_FORECAST_DAYS = 8;
+
 export const getCleaningForecast = (
   monthMap: Map<string, dayType>,
-  horizon = 7,
+  horizon = CLEANING_FORECAST_DAYS,
 ): CleaningForecastDay[] => {
   const today = startOfToday();
   const occupancyOdds = getRoomOccupancyOdds(monthMap);

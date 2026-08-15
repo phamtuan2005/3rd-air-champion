@@ -8,6 +8,7 @@ import { roomType } from "../../../util/types/roomType";
 import RoomBadge from "../../shared/RoomBadge";
 import { getRoomColor } from "../../../util/getRoomColor";
 import {
+  CLEANING_FORECAST_DAYS,
   getCheckoutsOn,
   getCleaningForecast,
   isStaleCleaning as isStale,
@@ -48,6 +49,10 @@ interface CleanersModalProps {
   initialTab?: "roster" | "hours" | "pay" | "week" | "upcoming";
   cleaningRules?: string; // host's private note to the cleaning team (texted, not shown to guests)
   senderName?: string; // who's logged in (Anh-Tuan or a cohost like Cindy) — signs the texts
+  // Mornings past today the Plan tab forecasts, owned and persisted by MainView
+  // so the Clean button's "unassigned" badge counts the same window.
+  planDays?: number;
+  onPlanDaysChange?: (n: number) => void;
   onClose: () => void;
 }
 
@@ -233,7 +238,7 @@ const ResendBadge = ({ className = "" }: { className?: string }) => (
   </span>
 );
 
-const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRules = "", senderName, onClose }: CleanersModalProps) => {
+const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRules = "", senderName, planDays = CLEANING_FORECAST_DAYS, onPlanDaysChange, onClose }: CleanersModalProps) => {
   // Self-sufficient: fetches its own data so it can be opened from anywhere
   // (NavBar dropdown or the Upcoming assign popover).
   const [cleaners, setCleaners] = useState<CleanerType[]>([]);
@@ -246,6 +251,13 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
   const [activeTab, setActiveTab] = useState<
     "roster" | "hours" | "pay" | "week" | "upcoming"
   >(initialTab ?? "pay");
+  // Once the tab strip can scroll, the selected tab is not necessarily in view —
+  // the day sheet's Change button opens straight onto Plan, the fourth of five.
+  // "nearest" so this nudges the strip only, never the modal behind it.
+  const activeTabRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    activeTabRef.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [activeTab]);
   // Hours tab: which cleaner-day has its "+ Room" picker open (group key)
   const [addRoomFor, setAddRoomFor] = useState<string | null>(null);
   // Hours tab: which day has its "+ Cleaner" picker open (yyyy-MM-dd)
@@ -527,9 +539,9 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
     );
   };
 
-  // Upcoming tab — the rolling 7-morning cleaning forecast (migrated from the
-  // ToDo modal). Assignments/cleaners/monthMap already live here.
-  const cleaningForecast = getCleaningForecast(monthMap);
+  // Upcoming tab — the rolling cleaning forecast over the host's own window
+  // (migrated from the ToDo modal). Assignments/cleaners/monthMap already live here.
+  const cleaningForecast = getCleaningForecast(monthMap, planDays);
   const forecastTotal = cleaningForecast.reduce((sum, d) => sum + d.entries.length, 0);
   const assignmentFor = (morningKey: string, roomId: string) =>
     assignments.find((a) => a.date === morningKey && a.room?.id === roomId);
@@ -1271,7 +1283,14 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
           </button>
         </div>
 
-        <div className="mx-4 mb-2 grid shrink-0 grid-cols-5 gap-1 rounded-xl bg-gray-100 p-1">
+        {/* Five tabs sized to their content, not to a fifth of the modal.
+            grid-cols-5 forced each tab into an equal column; once the modal type
+            scale grew the labels, "Hours" plus its count no longer fitted one on
+            a phone, and a button does not clip — so the label and badge spilled
+            across the tab beside it. flex-1 keeps them filling the width when
+            there is room, min-w-fit stops any tab shrinking below its own words,
+            and the strip scrolls when the sum no longer fits. */}
+        <div className="mx-4 mb-2 flex shrink-0 gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1">
           {(
             [
               { key: "pay", label: "Pay", count: summary.filter((s) => s.balance > 0.5).length },
@@ -1283,15 +1302,16 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
           ).map(({ key, label, count }) => (
             <button
               key={key}
+              ref={activeTab === key ? activeTabRef : undefined}
               onClick={() => setActiveTab(key)}
-              className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm font-semibold transition-colors ${
+              className={`flex min-w-fit flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-1.5 text-sm font-semibold transition-colors ${
                 activeTab === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
               }`}
             >
               {label}
               {count > 0 && (
                 <span
-                  className={`min-w-[1.25rem] rounded-full px-1 py-0.5 text-center text-[12px] font-bold leading-none ${
+                  className={`min-w-[1.25rem] shrink-0 rounded-full px-1 py-0.5 text-center text-[12px] font-bold leading-none ${
                     activeTab === key ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-600"
                   }`}
                 >
@@ -1530,12 +1550,17 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                     <span className="font-bold text-emerald-600">${rateOn(cleaner, todayKey)}/hr</span>
                   </p>
                 </div>
+                {/* Stacked, not side by side: two pills competing for the right
+                    edge squeezed the cleaner's name and phone into a narrow
+                    column. A column of equal-width buttons gives the name back
+                    the width, and the card is the thing being read. */}
+                <div className="flex shrink-0 flex-col gap-1.5">
                 {/* One home for every message we send a cleaner — schedule,
                     earnings, cleaning rules — so no single-purpose button ever
                     reads like TiMag is imposing something on the cleaner */}
                 <button
                   type="button"
-                  className={`relative ${pillNeutral} ${!cleaner.phone ? "opacity-40" : ""} ${
+                  className={`relative w-full ${pillNeutral} ${!cleaner.phone ? "opacity-40" : ""} ${
                     cleanerNeedsResend(cleaner.id)
                       ? "border-amber-400 bg-amber-50 text-amber-800"
                       : ""
@@ -1553,7 +1578,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                     setMsgMenuId(cleaner.id);
                   }}
                 >
-                  💬 Message
+                  💬
                   {cleanerNeedsResend(cleaner.id) && (
                     <span className="absolute -right-1.5 -top-1.5 flex h-3.5 w-3.5">
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-500 opacity-75" />
@@ -1563,7 +1588,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                 </button>
                 <button
                   type="button"
-                  className={pillNeutral}
+                  className={`w-full ${pillNeutral}`}
                   onClick={() => {
                     setEditingId(cleaner.id);
                     setRaiseDraft({ rate: "", from: "" });
@@ -1593,6 +1618,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                 >
                   Edit
                 </button>
+                </div>
                 </div>
               </div>
               )
@@ -1855,12 +1881,43 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
           <>
           <SectionHeader
             icon={<FaRegClock className="text-violet-500" />}
-            title="Plan — today and the next 7 mornings"
+            title={`Plan — today and the next ${planDays} morning${planDays === 1 ? "" : "s"}`}
             hint="Cleanings by day · tap a room to assign or change a cleaner"
           />
+          {/* How far ahead to plan, set here rather than baked in. How far Cindy
+              can usefully look changes with the season and with how full the
+              month is, and she is the one who knows — a fixed week was either
+              short of the stretch she was arranging or padded with days that
+              could still change. Remembered per device. */}
+          {onPlanDaysChange && (
+            <div className="mb-2 flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+              <span className="text-sm font-semibold text-gray-500">Show</span>
+              <button
+                type="button"
+                aria-label="Fewer days"
+                onClick={() => onPlanDaysChange(planDays - 1)}
+                disabled={planDays <= 1}
+                className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 bg-white text-lg font-bold leading-none text-gray-600 disabled:opacity-40"
+              >
+                −
+              </button>
+              <span className="min-w-[4.5rem] text-center text-sm font-bold text-gray-800">
+                {planDays + 1} days
+              </span>
+              <button
+                type="button"
+                aria-label="More days"
+                onClick={() => onPlanDaysChange(planDays + 1)}
+                disabled={planDays >= 30}
+                className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 bg-white text-lg font-bold leading-none text-gray-600 disabled:opacity-40"
+              >
+                +
+              </button>
+            </div>
+          )}
           {cleaningForecast.length === 0 ? (
             <p className="mb-2 rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-center text-sm text-gray-400">
-              No checkouts today or in the next 7 days
+              No checkouts today or in the next {planDays} days
             </p>
           ) : (
             <>

@@ -18,7 +18,7 @@ import DetailsModal from "./GuestView/DetailsModal";
 import { updateBookingGuest, updateBookingAirbnbPrice, updateBookingReserved, updateUnbookGuest } from "../../../util/bookingOperations";
 import { fetchAssignments, CleaningAssignmentType, CleanerType } from "../../../util/cleanerOperations";
 import { fetchSentReminders } from "../../../util/reminderOperations";
-import { getCleaningForecast, isStaleCleaning } from "../../../util/cleaningTasks";
+import { CLEANING_FORECAST_DAYS, getCleaningForecast, isStaleCleaning } from "../../../util/cleaningTasks";
 import UnbookingConfirmation from "./GuestView/UnbookingConfirmation";
 import ToDoList from "./ToDoList";
 import AvailabilitiesModal from "./AvailabilitiesModal";
@@ -249,6 +249,23 @@ const MainView = ({
   // grid: isCalendarLoading unmounts the grid on every booking change, so a ref
   // down there dies with it and the week is thrown away.
   const [calendarAnchorDate, setCalendarAnchorDate] = useState<string | null>(null);
+  // How many mornings past today the cleaning Plan forecasts, host-tunable from
+  // the Plan tab and remembered per device — the same shape as the calendar's
+  // row settings. It lives HERE rather than inside the modal because the Clean
+  // button's "unassigned" badge counts from the same forecast: owned by the
+  // modal, the badge would go on counting a different window than the tab shows.
+  // Clamped rather than trusted; a bad stored value would otherwise either empty
+  // the tab or walk the whole month map.
+  const clampPlanDays = (n: number) => Math.min(30, Math.max(1, n));
+  const [planDays, setPlanDaysState] = useState<number>(() => {
+    const v = parseInt(localStorage.getItem("cleanPlanDays") || String(CLEANING_FORECAST_DAYS), 10);
+    return Number.isFinite(v) ? clampPlanDays(v) : CLEANING_FORECAST_DAYS;
+  });
+  const setPlanDays = (n: number) => {
+    const clamped = clampPlanDays(n);
+    setPlanDaysState(clamped);
+    localStorage.setItem("cleanPlanDays", String(clamped));
+  };
   const [pendingAcceptRequestIds, setPendingAcceptRequestIds] = useState<string[]>([]);
   const [acceptCompletedTick, setAcceptCompletedTick] = useState(0);
   const [bookingPrefills, setBookingPrefills] = useState<Array<{
@@ -365,13 +382,14 @@ const MainView = ({
   // Clean button badges, refetched when the Clean modal opens/closes:
   //  • cleanTodoCount       = finished cleanings (<= today) still needing hours
   //                           logged (per cleaner-day, matches Clean → Hours)
-  //  • cleanUnassignedCount = upcoming forecast cleanings (next 7 days) with no
-  //                           cleaner assigned yet (matches Clean → Plan "Unassigned")
+  //  • cleanUnassignedCount = upcoming forecast cleanings (the Plan tab's own
+  //                           window, planDays) with no cleaner assigned yet
+  //                           (matches Clean → Plan "Unassigned")
   useEffect(() => {
     if (!hostId || !token) return;
     const monthStart = `${format(startOfToday(), "yyyy-MM")}-01`;
     const todayStr = format(startOfToday(), "yyyy-MM-dd");
-    const end = format(addDays(startOfToday(), 7), "yyyy-MM-dd");
+    const end = format(addDays(startOfToday(), planDays), "yyyy-MM-dd");
     // Shared with Clean → Hours and the calendar's day sheet, so the badge
     // counts the same cleaner-days those show rather than orphaned ones.
     const isStale = (roomId: string, morningKey: string) =>
@@ -392,7 +410,7 @@ const MainView = ({
         setCleanTodoCount(days.size);
 
         let unassigned = 0;
-        getCleaningForecast(monthMap).forEach((day) =>
+        getCleaningForecast(monthMap, planDays).forEach((day) =>
           day.entries.forEach((e) => {
             const has = assigns.some(
               (a) =>
@@ -410,7 +428,7 @@ const MainView = ({
         setCleanUnassignedCount(0);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hostId, token, isCleanersOpen, monthMap]);
+  }, [hostId, token, isCleanersOpen, monthMap, planDays]);
 
   // ── Messaging hook ────────────────────────────────────────────────────────
   const {
@@ -1453,6 +1471,8 @@ const MainView = ({
           initialTab={cleanersInitialTab}
           cleaningRules={cleaningRules}
           senderName={senderName}
+          planDays={planDays}
+          onPlanDaysChange={setPlanDays}
           onClose={() => {
             setIsCleanersOpen(false);
             setCleanersInitialTab(undefined);
