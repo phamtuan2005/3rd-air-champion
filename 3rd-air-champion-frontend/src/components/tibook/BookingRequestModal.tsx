@@ -26,6 +26,10 @@ interface BookingRequestModalProps {
   allWishListDates?: Set<string>;
   savedPhone?: string;
   savedName?: string;
+  // Whether the app already recognises this guest — the SAME value that greets
+  // them in the nav and shrinks the room banner, passed down rather than
+  // re-derived, so the three can never disagree about who is a stranger.
+  isReturningGuest?: boolean;
   onClose: () => void;
   onSuccess: () => void;
   onWishListSent?: (phone: string, name: string, newDates: string[]) => void;
@@ -117,6 +121,7 @@ const BookingRequestModal = ({
   allWishListDates,
   savedPhone = "",
   savedName = "",
+  isReturningGuest = false,
   onClose,
   onSuccess,
   onWishListSent,
@@ -387,9 +392,22 @@ const BookingRequestModal = ({
     }
   };
 
-  const stepLabel = step === 1 ? "Your Dates" : "About You";
+  // A guest whose name and number we already hold is not introducing themselves
+  // — step 2 is where they check the booking and send it. "About You" and "tell
+  // us about you" describe a form they have already filled in, on a screen that
+  // arrives pre-filled, which reads as though we have forgotten them.
+  // Requiring BOTH a saved name and a saved phone was too strict: the nav greets
+  // a guest whose name came from their fetched bookings, with no phone in local
+  // storage — so the header said "Eddie" while this button still asked him to
+  // tell us about himself. The parent's own recognition flag decides, with the
+  // local pair only as a fallback for a caller that does not pass it.
+  const isKnownGuest = isReturningGuest || !!savedName.trim() || !!savedPhone.trim();
+
+  const stepLabel = step === 1 ? "Your Dates" : isKnownGuest ? "Your Booking" : "About You";
   const stepHint = step === 1
     ? "Pick your dates — just one more step after this"
+    : isKnownGuest
+    ? "Check it over and send — we have the rest"
     : "Last step — fill in your info and you're done";
 
   return (
@@ -649,12 +667,12 @@ const BookingRequestModal = ({
                 className={`w-full ${theme.btn} ${theme.btnHover} ${theme.btnActive} text-white py-3 rounded-xl font-semibold transition-colors`}
                 onClick={handleNextStep}
               >
-                Next — Tell us about you →
+                {isKnownGuest ? "Next — Finalize your booking →" : "Next — Tell us about you →"}
               </button>
             </div>
           </div>
         ) : (
-          /* ── Step 2: About You ── */
+          /* ── Step 2: About You (new guest) / Your Booking (known guest) ── */
           <form className="flex flex-col flex-1 min-h-0" onSubmit={handleSubmit(onSubmit)}>
             <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
 

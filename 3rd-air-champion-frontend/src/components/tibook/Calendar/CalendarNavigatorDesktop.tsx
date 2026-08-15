@@ -43,7 +43,10 @@ const CalendarNavigator = ({
 
       <button
         type="button"
-        className={`w-full ${theme.btn} ${theme.btnHover} ${theme.btnActive} text-white py-2 rounded-xl text-sm font-semibold transition-colors mt-0.5`}
+        /* The app's primary action, and it was set at text-sm — smaller than the
+           month above it and smaller than the bar it leads to. Sized to match
+           that bar so the whole booking path reads at one size. */
+        className={`w-full ${theme.btn} ${theme.btnHover} ${theme.btnActive} text-white py-2.5 rounded-xl text-lg font-semibold transition-colors mt-0.5`}
         onClick={onBookingRequest}
       >
         Request a Booking

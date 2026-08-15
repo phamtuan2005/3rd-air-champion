@@ -595,6 +595,7 @@ const TiBookInner = () => {
           allWishListDates={wishListDates}
           savedPhone={guestPhone}
           savedName={guestName}
+          isReturningGuest={isReturningGuest}
           onClose={() => setIsBookingModalOpen(false)}
           onSuccess={() => setCartDates(new Map())}
           onRemoveCartRange={(keys) => setCartDates((prev) => { const next = new Map(prev); keys.forEach((k) => next.delete(k)); return next; })}

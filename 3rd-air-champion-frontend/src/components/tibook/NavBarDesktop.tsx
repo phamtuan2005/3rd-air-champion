@@ -76,7 +76,12 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
             type="button"
             onClick={onMyBookings}
             title="Your bookings"
-            className={`flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs font-semibold whitespace-nowrap transition-colors ${
+            /* Sized by hand rather than by the tibook-type scale: the nav has a
+               fixed h-12/h-16 and the scale moves --spacing, which would grow the
+               bar and take that height off the calendar. The guest's own name is
+               a greeting, so it reads at the same size as the house name it sits
+               beside instead of at badge size. */
+            className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-sm font-semibold whitespace-nowrap transition-colors ${
               guestFirstName
                 ? `${theme.textPrimary} border-gray-200 hover:bg-gray-50`
                 : "border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-800"
@@ -85,14 +90,14 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
             {guestFirstName ? (
               <>
                 <span
-                  className={`flex h-4 w-4 items-center justify-center rounded-full ${theme.btn} text-[9px] font-bold text-white`}
+                  className={`flex h-5 w-5 items-center justify-center rounded-full ${theme.btn} text-[11px] font-bold text-white`}
                 >
                   {guestFirstName[0].toUpperCase()}
                 </span>
                 {guestFirstName}
                 {loyaltyTier && (
                   <span
-                    className={`rounded-full border px-1.5 py-px text-[9px] font-bold leading-none ${loyaltyTier.color}`}
+                    className={`rounded-full border px-1.5 py-0.5 text-[11px] font-bold leading-none ${loyaltyTier.color}`}
                     title={loyaltyTier.label}
                   >
                     {loyaltyTier.label.split(" ")[0]}

@@ -88,9 +88,12 @@ const barRadiusFor = (barHeight: number) =>
 const barLabelFor = (barHeight: number) =>
   `${clamp(13, barHeight * 0.5 * TYPE_BOOST, 26).toFixed(1)}px`;
 
-// The day number — was 20px (`sm:text-xl`) at the reference tile.
+// The day number. Deliberately NOT boosted, and capped well below the others:
+// it is the least useful thing in the cell. What the guest is scanning for is
+// "3 left" and the room on their ribbon — a date they can find from its column.
+// Boosted, it became the loudest thing on a page it should stay quiet on.
 const dateFor = (tile: number) =>
-  `${clamp(16, (tile / REF_TILE) * 20 * TYPE_BOOST, 36).toFixed(1)}px`;
+  `${clamp(13, (tile / REF_TILE) * 16, 24).toFixed(1)}px`;
 
 // "3 left" / "sold out" — was 9px, the smallest type anywhere in TiBook and the
 // line that actually answers "can I book this night".
@@ -146,6 +149,9 @@ const GuestCalendar = ({
   const [months, setMonths] = useState<Date[]>([]);
   const [visibleIndex, setVisibleIndex] = useState(0);
   const [containerHeight, setContainerHeight] = useState(0);
+  // Grid is 7 equal columns, so a tile is a seventh of the scroller. Needed to
+  // size a room label that spans more than the cell it starts in.
+  const [tileWidth, setTileWidth] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const visibleIndexRef = useRef(0);
 
@@ -176,7 +182,7 @@ const GuestCalendar = ({
     const map = new Map<
       string,
       {
-        pm?: { id: string; roomName: string; roomColor?: string; isStart: boolean };
+        pm?: { id: string; roomName: string; roomColor?: string; isStart: boolean; nights: number };
         am?: { id: string; roomName: string; roomColor?: string };
       }
     >();
@@ -185,7 +191,7 @@ const GuestCalendar = ({
       const start = parseISO(s.startKey);
       for (let i = 0; i < s.nights; i++) {
         const k = dk(addDays(start, i));
-        map.set(k, { ...map.get(k), pm: { id: s.id, roomName: s.roomName, roomColor: s.roomColor, isStart: i === 0 } });
+        map.set(k, { ...map.get(k), pm: { id: s.id, roomName: s.roomName, roomColor: s.roomColor, isStart: i === 0, nights: s.nights } });
       }
       const co = dk(addDays(start, s.nights));
       map.set(co, { ...map.get(co), am: { id: s.id, roomName: s.roomName, roomColor: s.roomColor } });
@@ -198,7 +204,7 @@ const GuestCalendar = ({
     const map = new Map<
       string,
       {
-        pm?: { roomName: string; roomColor?: string; isStart: boolean };
+        pm?: { roomName: string; roomColor?: string; isStart: boolean; nights: number };
         am?: { roomName: string; roomColor?: string };
       }
     >();
@@ -207,7 +213,7 @@ const GuestCalendar = ({
       const start = parseISO(s.startKey);
       for (let i = 0; i < s.nights; i++) {
         const k = dk(addDays(start, i));
-        map.set(k, { ...map.get(k), pm: { roomName: s.roomName, roomColor: s.roomColor, isStart: i === 0 } });
+        map.set(k, { ...map.get(k), pm: { roomName: s.roomName, roomColor: s.roomColor, isStart: i === 0, nights: s.nights } });
       }
       const co = dk(addDays(start, s.nights));
       map.set(co, { ...map.get(co), am: { roomName: s.roomName, roomColor: s.roomColor } });
@@ -272,6 +278,7 @@ const GuestCalendar = ({
     const obs = new ResizeObserver(([entry]) => {
       const h = entry.contentRect.height;
       setContainerHeight(h);
+      setTileWidth(entry.contentRect.width / 7);
       if (h > 0) el.scrollTop = visibleIndexRef.current * h;
     });
     obs.observe(el);
@@ -341,6 +348,25 @@ const GuestCalendar = ({
     const resBars = reservedBars.get(dateKey);
     const isReservedNight = !!resBars?.pm && !inCart && !isStayNight;
 
+    // How wide a room name may run, in px.
+    //
+    // The ribbon's first night starts at 20% of its cell, so a 2-night "Queen"
+    // had ~80% of one tile to live in and truncated to "Qu…". The bar continues
+    // across the following cells, so the label may too — it is drawn once, on
+    // the first night, and simply allowed to overhang.
+    //
+    // Clamped to the nights left in THIS week row: a wider span escapes the row
+    // and paints over whatever the browser lays out to its right, which on the
+    // next row is a different week entirely. Same clamp, and the same reason, as
+    // TiMag's calendar labels.
+    const labelWidthFor = (nights: number) => {
+      if (!tileWidth) return undefined;
+      const nightsInRow = Math.max(1, Math.min(nights, 7 - getDay(date)));
+      // Less the 20% indent the first night starts at, and a little breathing
+      // room so the name never runs flush into the next stay's bar.
+      return tileWidth * nightsInRow - tileWidth * 0.2 - 8;
+    };
+
     const numberClass = [
       // No text-* size here: the size comes from the tile, via dateSize below.
       "leading-none select-none",
@@ -354,7 +380,10 @@ const GuestCalendar = ({
     const tileClass = [
       // Day number sits near the TOP of the cell (matches TiMag); the stay ribbon
       // lives at the bottom.
-      "border-r border-b border-gray-300 flex flex-col items-center justify-start gap-0.5 pt-1 w-full h-full relative",
+      // overflow-visible: a room name on a multi-night stay is drawn once, on the
+      // first night, and overhangs into the cells the ribbon continues through.
+      // A button does not reliably let its content escape without being told to.
+      "border-r border-b border-gray-300 flex flex-col items-center justify-start gap-0.5 pt-1 w-full h-full relative overflow-visible",
       isToday ? "react-calendar__custom_tile_today" : "",
       isOutside ? "opacity-20 pointer-events-none" : "",
       inCart ? "cursor-pointer" :
@@ -435,7 +464,7 @@ const GuestCalendar = ({
         )}
         {bars?.pm && !inCart && (
           <div
-            className={`${getRoomColor(bars.pm.roomName, bars.pm.roomColor)} pointer-events-none flex items-center overflow-hidden`}
+            className={`${getRoomColor(bars.pm.roomName, bars.pm.roomColor)} pointer-events-none flex items-center`}
             style={{
               position: "absolute",
               bottom: barBottom,
@@ -444,12 +473,15 @@ const GuestCalendar = ({
               right: "-1px",
               borderTopLeftRadius: bars.pm.isStart ? barRadius : undefined,
               borderBottomLeftRadius: bars.pm.isStart ? barRadius : undefined,
+              // Lifts the overhanging label above the following nights' bars,
+              // which are later siblings and would otherwise paint over it.
+              zIndex: bars.pm.isStart ? 10 : undefined,
             }}
           >
             {bars.pm.isStart && (
               <span
-                className="truncate px-1 font-bold leading-none text-black"
-                style={{ fontSize: barLabelSize }}
+                className="shrink-0 truncate px-1 font-bold leading-none text-black"
+                style={{ fontSize: barLabelSize, maxWidth: labelWidthFor(bars.pm.nights) }}
               >
                 {bars.pm.roomName}
               </span>
@@ -476,7 +508,7 @@ const GuestCalendar = ({
         )}
         {resBars?.pm && !inCart && (
           <div
-            className={`${getRoomColor(resBars.pm.roomName, resBars.pm.roomColor)} border-y-2 border-dashed border-amber-500 pointer-events-none flex items-center overflow-hidden`}
+            className={`${getRoomColor(resBars.pm.roomName, resBars.pm.roomColor)} border-y-2 border-dashed border-amber-500 pointer-events-none flex items-center`}
             style={{
               position: "absolute",
               bottom: barBottom,
@@ -486,12 +518,13 @@ const GuestCalendar = ({
               borderTopLeftRadius: resBars.pm.isStart ? barRadius : undefined,
               borderBottomLeftRadius: resBars.pm.isStart ? barRadius : undefined,
               backgroundImage: HOLD_HATCH,
+              zIndex: resBars.pm.isStart ? 10 : undefined,
             }}
           >
             {resBars.pm.isStart && (
               <span
-                className="truncate px-1 font-bold leading-none text-black"
-                style={{ fontSize: barLabelSize }}
+                className="shrink-0 truncate px-1 font-bold leading-none text-black"
+                style={{ fontSize: barLabelSize, maxWidth: labelWidthFor(resBars.pm.nights) }}
               >
                 {resBars.pm.roomName}
               </span>
