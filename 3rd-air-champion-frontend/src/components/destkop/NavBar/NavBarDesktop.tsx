@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { FaCalendarAlt, FaClipboardList, FaDollarSign } from "react-icons/fa";
 import { MdCleaningServices } from "react-icons/md";
 import ProfileDesktop from "./ProfileDesktop";
-import { FooterContext, GuestModeContext } from "../../../context";
+import { GuestModeContext } from "../../../context";
 
 interface AirBnBInfo {
   doorCode: string;
@@ -93,7 +93,6 @@ const NavBarDesktop = ({
   miscCount,
 }: NavBarDesktopProps) => {
   const { currentGuest, currentAirBnBGuest, setCurrentGuest, setCurrentAirBnBGuest } = useContext(GuestModeContext)!;
-  const { setIsFooterVisible } = useContext(FooterContext)!;
   const isGuestMode = !!(currentGuest || currentAirBnBGuest);
   // The toolbar groups seven actions under three category buttons; tapping one
   // opens this picker. Keeps the bar from overflowing on a narrow phone.
@@ -320,8 +319,9 @@ const NavBarDesktop = ({
             type="button"
             title="Back to full calendar"
             className="flex items-center gap-1.5 text-white bg-gray-700 hover:bg-gray-900 px-3 py-1.5 text-xs rounded-md transition-colors"
+            // Leaving guest mode clears the filter only. The contact sheet is
+            // on by default and is the host's own toggle to make.
             onClick={() => {
-              setIsFooterVisible(false);
               setCurrentGuest(null);
               setCurrentAirBnBGuest(null);
             }}

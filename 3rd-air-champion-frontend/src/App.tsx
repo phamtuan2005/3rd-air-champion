@@ -71,7 +71,11 @@ function App() {
   );
 
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [isFooterVisible, setIsFooterVisible] = useState(false);
+  // Contact info is on by default, on every calendar, filtered or not. It used
+  // to appear only once a guest or room filter was applied, which made the house
+  // phone and licence feel like something belonging to a filtered view rather
+  // than to the property. The dropdown's Show/Hide Contact Info still governs it.
+  const [isFooterVisible, setIsFooterVisible] = useState(true);
   const [isTodoModalOpen, setIsTodoModalOpen] = useState(true);
   const [isBookModalOpen, setIsBookModalOpen] = useState(false);
   const [isAvailabilitiesModalOpen, setIsAvailabilitiesModalOpen] =

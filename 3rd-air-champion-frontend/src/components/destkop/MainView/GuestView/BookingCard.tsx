@@ -4,9 +4,10 @@ import { bookingType, feesTotal } from "../../../../util/types/bookingType";
 import { useContext, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  FaAirbnb,
+  FaCalendarCheck,
   FaDollarSign,
   FaFilter,
+  FaRegCalendarCheck,
   FaRegCalendarAlt,
   FaRegCalendarPlus,
   FaRegCheckCircle,
@@ -140,6 +141,22 @@ const BookingCard = ({
   // owner, so it must be removable — and "Open on Airbnb" is meaningless for it.
   const isManualAirBnB =
     isAirBnB && !String(booking.description || "").startsWith("Reservation URL");
+  // A feed booking's palette held exactly two things: the calendar filter and
+  // "Open on Airbnb". Both now sit on the card itself — the Airbnb tag opens the
+  // reservation, and the slot the ⋯ used to occupy IS the filter — so the
+  // palette has nothing left to show and is not offered for these.
+  //
+  // Hand-entered stays keep it: their palette carries Unbook, which exists only
+  // there, because the sync owns feed bookings and they must not be deletable.
+  const isFeedAirBnB = isAirBnB && !isManualAirBnB;
+  const airbnbUrl =
+    String(booking.description || "").match(
+      /https:\/\/www\.airbnb\.com\/hosting\/reservations\/details\/\S+/,
+    )?.[0] ?? null;
+  const openOnAirbnb = () => {
+    if (airbnbUrl) window.open(airbnbUrl, "_blank", "noopener,noreferrer");
+    else alert("No valid URL found in the description.");
+  };
   // Extra fees (parking, cleaning, on-site AirBnB charges, …) fold into the total
   const feeSum = feesTotal(booking.fees);
 
@@ -196,11 +213,22 @@ const BookingCard = ({
             character={booking.guest.character}
             sizeClass="h-9 w-9"
           />
-          {/* Tap the info area to open booking details (disabled for soft holds) */}
-          <button
-            type="button"
+          {/* Tap the info area to open booking details (disabled for soft holds).
+              A div rather than a button because the Airbnb tag inside it is now
+              a button of its own, and nesting one button in another is invalid
+              HTML — browsers drop the inner one, which would have silently
+              killed the tap-to-open-Airbnb this change exists for. role/tabIndex
+              and the key handler keep it operable from the keyboard. */}
+          <div
+            role="button"
+            tabIndex={isReserved ? -1 : 0}
             onClick={() => !isReserved && setSelectedBooking(booking)}
-            className="min-w-0 flex-1 text-left"
+            onKeyDown={(e) => {
+              if (isReserved || (e.key !== "Enter" && e.key !== " ")) return;
+              e.preventDefault();
+              setSelectedBooking(booking);
+            }}
+            className={`min-w-0 flex-1 text-left ${isReserved ? "" : "cursor-pointer"}`}
           >
             {/* The name wraps rather than truncates — a guest cut off mid-word
                 is the density habit this layout is moving away from. */}
@@ -211,11 +239,27 @@ const BookingCard = ({
               </span>
               {/* Booking source must be readable at first glance; direct guests
                   are already identified by their loyalty badges instead */}
-              {isAirBnB && (
-                <span className="shrink-0 rounded-full bg-[#FF5A5F] px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-white">
-                  Airbnb
-                </span>
-              )}
+              {isAirBnB &&
+                (isFeedAirBnB ? (
+                  /* The tag IS the way to the reservation now. stopPropagation
+                     so it opens Airbnb instead of the details sheet behind it. */
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openOnAirbnb();
+                    }}
+                    title="Open this reservation on Airbnb"
+                    className="shrink-0 rounded-full bg-[#FF5A5F] px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-white transition hover:brightness-110 active:brightness-95"
+                  >
+                    Airbnb ↗
+                  </button>
+                ) : (
+                  /* Hand-entered: nothing to open, so it stays a plain label. */
+                  <span className="shrink-0 rounded-full bg-[#FF5A5F] px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-white">
+                    Airbnb
+                  </span>
+                ))}
               {isReserved && (
                 <span className="shrink-0 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-amber-700">
                   Reserved
@@ -229,17 +273,45 @@ const BookingCard = ({
                 · {booking.duration} {booking.duration > 1 ? "nights" : "night"}
               </span>
             </p>
-          </button>
+          </div>
 
-          {/* Single entry point for all per-guest actions */}
-          <button
-            type="button"
-            onClick={openActions}
-            aria-label="Guest actions"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-xl font-bold leading-none text-gray-600"
-          >
-            ⋯
-          </button>
+          {isFeedAirBnB ? (
+            /* The filter itself, not a menu holding it. A worded pill rather
+               than a funnel glyph: the palette row it replaced said "Filter on
+               calendar · ON", and a bare icon in a box made the card look like
+               it had grown a toolbar. Filled when ON, so the card says at a
+               glance which guest the calendar is showing. */
+            <button
+              type="button"
+              onClick={toggleFilter}
+              aria-pressed={isFiltered}
+              title={isFiltered ? "Stop filtering the calendar" : "Filter this guest on the calendar"}
+              className={`flex h-10 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold transition-colors ${
+                isFiltered
+                  ? "border-gray-900 bg-gray-900 text-white"
+                  : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              {/* Outline → solid carries the state alongside the fill, so the
+                  pill still reads as on/off in a glance or in grayscale. */}
+              {isFiltered ? (
+                <FaCalendarCheck size={14} className="shrink-0" />
+              ) : (
+                <FaRegCalendarCheck size={14} className="shrink-0" />
+              )}
+              {isFiltered ? "Filtering" : "Filter"}
+            </button>
+          ) : (
+            /* Single entry point for all per-guest actions */
+            <button
+              type="button"
+              onClick={openActions}
+              aria-label="Guest actions"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-xl font-bold leading-none text-gray-600"
+            >
+              ⋯
+            </button>
+          )}
         </div>
 
         {/* Money and loyalty share their own line. The price used to sit in the
@@ -463,35 +535,20 @@ const BookingCard = ({
                         Unbook
                       </button>
                     </>
-                  ) : isManualAirBnB ? (
-                    <button
-                      type="button"
-                      className={rowDanger}
-                      onClick={() => closeThen(() => onRequestUnbook(booking))}
-                    >
-                      <FaRegTrashAlt size={16} className="shrink-0" />
-                      Unbook
-                    </button>
                   ) : (
-                    <button
-                      type="button"
-                      className={rowPrimary}
-                      onClick={() =>
-                        closeThen(() => {
-                          const url = booking.description.match(
-                            /https:\/\/www\.airbnb\.com\/hosting\/reservations\/details\/\S+/,
-                          )?.[0];
-                          if (url) {
-                            window.open(url, "_blank", "noopener,noreferrer");
-                          } else {
-                            alert("No valid URL found in the description.");
-                          }
-                        })
-                      }
-                    >
-                      <FaAirbnb size={18} className="shrink-0" />
-                      Open on Airbnb
-                    </button>
+                    /* Only hand-entered stays open this palette now — a feed
+                       booking carries its two actions on the card — and Unbook
+                       is the whole reason it still exists for them. */
+                    isManualAirBnB && (
+                      <button
+                        type="button"
+                        className={rowDanger}
+                        onClick={() => closeThen(() => onRequestUnbook(booking))}
+                      >
+                        <FaRegTrashAlt size={16} className="shrink-0" />
+                        Unbook
+                      </button>
+                    )
                   )}
                 </div>
             </div>

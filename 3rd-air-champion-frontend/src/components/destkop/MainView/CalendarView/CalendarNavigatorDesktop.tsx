@@ -5,7 +5,7 @@ import { useContext, useEffect, useState } from "react";
 import { dayType } from "../../../../util/types/dayType";
 import { roomType } from "../../../../util/types/roomType";
 import { toZonedTime } from "date-fns-tz/toZonedTime";
-import { AddPaneContext, FooterContext } from "../../../../context";
+import { AddPaneContext } from "../../../../context";
 import RoomSingleSelect from "./RoomSingleSelect";
 
 interface CalendarNavigatorProps {
@@ -64,7 +64,6 @@ const CalendarNavigator = ({
   cleanMode,
   setCleanMode,
 }: CalendarNavigatorProps) => {
-  const { setIsFooterVisible } = useContext(FooterContext)!;
   const { rowsPerPage, setRowsPerPage } = useContext(AddPaneContext) as {
     rowsPerPage: number;
     setRowsPerPage: React.Dispatch<React.SetStateAction<number>>;
@@ -141,14 +140,10 @@ const CalendarNavigator = ({
               <RoomSingleSelect
                 rooms={rooms}
                 value={selectedRoomName}
-                onChange={(roomName) => {
-                  setSelectedRoomName(roomName);
-                  if (roomName) {
-                    setIsFooterVisible(true);
-                  } else if (!currentGuest && !currentAirBnBGuest) {
-                    setIsFooterVisible(false);
-                  }
-                }}
+                // Clearing a room filter no longer hides the contact sheet: it
+                // is on by default now, so hiding it here would take away
+                // something the host never asked this control to touch.
+                onChange={setSelectedRoomName}
               />
               {/* One view mode, not two independent flags. Gaps and Cleaners
                   each re-read the same calendar, so they were never meaningfully
