@@ -91,15 +91,29 @@ const TrendBars = ({
         const y = v >= 0 ? zeroY - h : zeroY;
         // Projected total (this + future months): a dashed cap above the solid
         // "booked" bar, with a faint fill for the expected-still-to-come portion.
-        const showPred = r.predicted != null && r.predicted > v + Math.max(1, range * 0.01);
+        //
+        // The old threshold hid the cap unless the projection beat booked by 1%
+        // of the whole axis — so a nearly-full month, where projected sits just
+        // above booked, lost its projection entirely. That is precisely the month
+        // the projection is most reassuring on, and it read as a missing feature.
+        // Now anything above booked draws; the floor only screens float noise and
+        // past months, where projected equals booked exactly.
+        const showPred = r.predicted != null && r.predicted - v > Math.max(0.5, range * 0.002);
         const yPred = showPred ? zeroY - (r.predicted! / range) * plotH : 0;
+        // With the cap that close to the bar top, the two value labels would sit
+        // on each other. The projected number keeps the space above the dashed
+        // line and the booked number moves inside its own bar, which is solid
+        // enough to read white — rather than one of them being dropped.
+        const gap = y - yPred;
+        const labelInside = showPred && gap <= 11 && h > 16;
+        const showPredLabel = showPred && (gap > 11 || labelInside);
         return (
           <g key={r.month}>
             {showPred && (
               <>
                 <rect x={x} y={yPred} width={bw} height={Math.max(0, y - yPred)} fill={colorFor(r.predicted!)} opacity={0.13} />
                 <line x1={x - 2} x2={x + bw + 2} y1={yPred} y2={yPred} stroke={colorFor(r.predicted!)} strokeWidth="1.5" strokeDasharray="3 2" />
-                {y - yPred > 11 && (
+                {showPredLabel && (
                   <text x={x + bw / 2} y={yPred - 2.5} textAnchor="middle" fontSize="8" fill="#9aa0a6">
                     {fmt(r.predicted!)}
                   </text>
@@ -111,11 +125,11 @@ const TrendBars = ({
             </rect>
             <text
               x={x + bw / 2}
-              y={v >= 0 ? y - 3 : zeroY - 4}
+              y={labelInside ? y + 11 : v >= 0 ? y - 3 : zeroY - 4}
               textAnchor="middle"
               fontSize="9"
               fontWeight="600"
-              fill="#52514e"
+              fill={labelInside ? "#ffffff" : "#52514e"}
             >
               {fmt(v)}
             </text>

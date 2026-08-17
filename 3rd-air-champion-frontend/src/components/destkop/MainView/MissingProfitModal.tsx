@@ -86,12 +86,14 @@ const Row = ({
       <div className="flex items-center gap-2">
         <label className="text-xs text-gray-500 w-14 shrink-0">Name</label>
         <div className="flex items-center gap-2 flex-1">
+          {/* A name, not a paragraph — it had the whole row and dwarfed the one
+              field this modal exists to collect. */}
           <input
             type="text"
             value={alias}
             onChange={(e) => setAlias(e.target.value)}
             placeholder="Guest name"
-            className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm flex-1 focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-300"
+            className="w-40 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-300"
           />
           {airbnbUrl && (
             <a
@@ -106,19 +108,21 @@ const Row = ({
         </div>
       </div>
 
-      {/* Guests + Profit row */}
+      {/* Guests + Profit row. Guests is one digit and takes a digit's width; the
+          profit field takes everything Save and the oversized picker were using,
+          because the missing payout is the whole reason this modal is open. */}
       <div className="flex items-center gap-2">
         <label className="text-xs text-gray-500 w-14 shrink-0">Guests</label>
         <select
           value={guests}
           onChange={(e) => setGuests(parseInt(e.target.value) || 1)}
-          className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm w-16 focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-300"
+          className="w-14 shrink-0 border border-gray-200 rounded-lg px-1.5 py-1.5 text-sm focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-300"
         >
           {[1,2,3,4].map((n) => (
             <option key={n} value={n}>{n}</option>
           ))}
         </select>
-        <label className="text-xs text-gray-500 ml-2 shrink-0">Profit</label>
+        <label className="text-xs text-gray-500 ml-1 shrink-0">Profit</label>
         <div className="relative flex-1">
           <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
           <input
@@ -131,15 +135,18 @@ const Row = ({
             className="border border-gray-200 rounded-lg pl-5 pr-2 py-1.5 w-full text-sm focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-300"
           />
         </div>
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={!profit || parseFloat(profit) <= 0}
-          className="px-3 py-1.5 bg-orange-400 hover:bg-orange-500 disabled:opacity-40 text-white text-xs font-semibold rounded-lg transition-colors shrink-0"
-        >
-          Save
-        </button>
       </div>
+
+      {/* Save on its own line — sharing the row with Profit made it a narrow
+          pill wedged against the field, and it is the commit for the whole row. */}
+      <button
+        type="button"
+        onClick={handleSave}
+        disabled={!profit || parseFloat(profit) <= 0}
+        className="w-full px-3 py-2 bg-orange-400 hover:bg-orange-500 disabled:opacity-40 text-white text-sm font-semibold rounded-lg transition-colors"
+      >
+        Save
+      </button>
     </div>
   );
 };
