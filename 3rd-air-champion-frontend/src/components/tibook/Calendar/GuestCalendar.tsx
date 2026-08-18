@@ -548,7 +548,11 @@ const GuestCalendar = ({
   return (
     <div
       ref={scrollContainerRef}
-      className="flex-1 min-h-0 overflow-y-scroll snap-y snap-mandatory"
+      // overscroll-contain: the page around this can now scroll on a short
+      // screen, and without this a swipe that reaches the first or last month
+      // would carry on into the page — paging the calendar would drag the whole
+      // layout about under the guest's thumb.
+      className="flex-1 min-h-0 overflow-y-scroll overscroll-contain snap-y snap-mandatory"
       onScroll={handleScroll}
     >
       {pageLayouts.map((layout, index) => {

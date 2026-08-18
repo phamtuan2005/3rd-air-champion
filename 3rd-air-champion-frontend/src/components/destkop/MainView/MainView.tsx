@@ -31,6 +31,7 @@ import EditRoomModal from "../NavBar/DropDown/EditRoomModal";
 import ManageGuestModal from "../NavBar/DropDown/ManageGuestModal";
 import CleanersModal from "./CleanersModal";
 import MiscModal from "./MiscModal";
+import DefaultRateGuestsModal from "./DefaultRateGuestsModal";
 import CleanDaySheet from "./CleanDaySheet";
 import { fetchBookingRequestsByHost, updateBookingRequestStatus } from "../../../util/bookingRequestOperations";
 import { getHostWishLists } from "../../../util/wishListOperations";
@@ -138,6 +139,8 @@ const MainView = ({
     setIsCleanersOpen: React.Dispatch<React.SetStateAction<boolean>>;
     isMiscOpen: boolean;
     setIsMiscOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    isRatesOpen: boolean;
+    setIsRatesOpen: React.Dispatch<React.SetStateAction<boolean>>;
     rowsPerPage: number;
     rowHeight: number;
     setRowHeight: (n: number) => void;
@@ -155,6 +158,8 @@ const MainView = ({
     setIsCleanersOpen,
     isMiscOpen,
     setIsMiscOpen,
+    isRatesOpen,
+    setIsRatesOpen,
     rowsPerPage,
     rowHeight,
     setRowHeight,
@@ -1485,6 +1490,33 @@ const MainView = ({
           token={token as string}
           currentMonth={currentMonth}
           onClose={() => setIsMiscOpen(false)}
+        />
+      )}
+      {isRatesOpen && (
+        <DefaultRateGuestsModal
+          guests={guests}
+          rooms={rooms}
+          monthMap={monthMap}
+          guestBookingCount={guestBookingCount}
+          token={token as string}
+          // Patch the guest in place rather than refetching: the row disappears
+          // the moment the rate lands, which is the confirmation.
+          onSaved={(guestId, roomId, price) =>
+            setGuests((prev) =>
+              prev.map((g) => {
+                if (g.id !== guestId) return g;
+                const pricing = g.pricing ?? [];
+                const has = pricing.some((p) => p.room === roomId);
+                return {
+                  ...g,
+                  pricing: has
+                    ? pricing.map((p) => (p.room === roomId ? { ...p, price } : p))
+                    : [...pricing, { room: roomId, price }],
+                };
+              }),
+            )
+          }
+          onClose={() => setIsRatesOpen(false)}
         />
       )}
       {cleanDayKey && (

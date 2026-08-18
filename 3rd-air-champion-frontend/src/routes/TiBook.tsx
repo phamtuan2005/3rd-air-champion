@@ -436,8 +436,14 @@ const TiBookInner = () => {
   const greetedName = guestBookings.find((b) => b.guestName)?.guestName ?? guestName;
   const isReturningGuest = !!greetedName.trim();
 
+  // DYNAMIC viewport height. Plain 100vh (h-screen) is the height the page would
+  // have with the browser chrome hidden, so on an iPhone the layout is taller
+  // than the screen actually showing it — the header stack fills what you can
+  // see and the calendar sits below the fold, looking like it never rendered.
+  // 100dvh tracks the visible height; h-screen stays as the fallback for
+  // anything without dvh. Same fix TiMag's root already carries.
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="flex h-screen flex-col overflow-hidden supports-[height:100dvh]:h-[100dvh]">
       <NavBarDesktop
         onBack={isSelecting ? collapseCal : undefined}
         host={currentHost}
@@ -447,7 +453,15 @@ const TiBookInner = () => {
         guestName={greetedName}
         guestStays={guestBookings.filter((b) => b.status === "confirmed").length}
       />
-      <div className="relative flex flex-1 min-h-0 flex-col">
+      {/* Scrolls when it has to.
+          The column was overflow-hidden at a fixed viewport height, which only
+          works if you assume the screen is tall enough for the header stack AND
+          a usable calendar. On a short phone the calendar was squeezed to a
+          sliver with no way to reach it — the layout had decided the device was
+          wrong. Now the calendar keeps a floor (below) and this container
+          scrolls if the sum no longer fits. On a normal phone nothing overflows,
+          so nothing scrolls and the behaviour is exactly as before. */}
+      <div className="relative flex flex-1 min-h-0 flex-col overflow-y-auto">
         {/* Header stack — host banner + room filter. The calendar panel slides up
             over these as the grip is dragged, until it fills the window. */}
         <div ref={headerRef} className="shrink-0">
@@ -512,7 +526,10 @@ const TiBookInner = () => {
                 ⏳ {reservedStays.length} room{reservedStays.length === 1 ? "" : "s"} held for you — tap to review &amp; pay
               </button>
             )}
-            <div className="flex flex-1 min-h-0 flex-col">
+            {/* The floor. Six week-rows at a tappable height: below this the
+                grid stops being a calendar, so instead of shrinking further it
+                keeps this height and the column above scrolls to reach it. */}
+            <div className="flex min-h-[17rem] flex-1 flex-col">
               <GuestCalendar
                 currentMonth={currentMonth}
                 monthMap={monthMap}
@@ -543,16 +560,20 @@ const TiBookInner = () => {
         )}
       </div>
 
-      {/* Floating bar — shown for cart dates, wish list dates, or both */}
-      {/* Same type step as the request modal this bar opens — it is the last
-          thing read before that modal and was the only TiBook surface left
-          outside the scale, so it sat at a bare 14px next to it. */}
+      {/* Selection bar — shown for cart dates, wish list dates, or both.
+          A ROW of the column, not a fixed overlay. Fixed, it sat on top of the
+          calendar and hid the last week or two — and on a short phone those are
+          exactly the nights being picked, so the bar covered the thing it was
+          reporting on. As a row it takes its own height and the calendar keeps
+          the rest.
+          Same type step as the request modal it opens, so the last thing read
+          before that modal is not smaller than what follows. */}
       {hasSelection && (
-        <div className={`tibook-type tibook-type-lg fixed bottom-0 inset-x-0 ${theme.btn} px-4 py-3 flex items-center justify-between z-40 shadow-lg`}>
-          <span className="text-white text-sm font-medium">{barLabel}</span>
+        <div className={`tibook-type tibook-type-lg shrink-0 ${theme.btn} px-4 py-2.5 flex items-center justify-between gap-3 z-40 shadow-lg`}>
+          <span className="min-w-0 text-white text-sm font-medium">{barLabel}</span>
           <button
             type="button"
-            className={`bg-white ${theme.reviewText} text-sm font-semibold px-4 py-1.5 rounded-full ${theme.tileActive}`}
+            className={`shrink-0 whitespace-nowrap bg-white ${theme.reviewText} text-sm font-semibold px-4 py-1.5 rounded-full ${theme.tileActive}`}
             onClick={() => openBookingModal(null)}
           >
             Review Request →

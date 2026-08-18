@@ -45,6 +45,10 @@ const HostAvatar = ({ name, profileUrl }: { name: string; profileUrl?: string })
 };
 
 const HostProfileBanner = ({ host, cohostNames = [] }: HostProfileBannerProps) => {
+  // Expanded on every screen. This was briefly collapsed on short phones, back
+  // when a short screen meant the calendar got squeezed to nothing with no way
+  // to reach it. The page scrolls now, so the height is no longer taken from the
+  // calendar — it is just further down, and the welcome gets to lead.
   const [expanded, setExpanded] = useState(true);
   const displayName = host.airbnbName || host.name;
 
@@ -92,12 +96,19 @@ const HostProfileBanner = ({ host, cohostNames = [] }: HostProfileBannerProps) =
       {/* Expanded detail panel */}
       {expanded && (
         <div className="px-4 pb-2 flex flex-col gap-1.5 border-t border-gray-100">
+          {/* One line that scrolls, not a block that grows.
+              Wrapping meant every highlight added cost a fraction of the
+              calendar below — seven of them took three lines. Swiping keeps the
+              banner a fixed height no matter how many there are, and highlights
+              are a strip to glance along rather than a list to read in full.
+              [&::-webkit-scrollbar]:hidden: iOS shows no bar anyway, and a
+              desktop one under a 20px pill row is thicker than the row. */}
           {host.highlights && host.highlights.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 pt-1.5">
+            <div className="flex gap-1.5 overflow-x-auto pt-1.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {host.highlights.map((h) => (
                 <span
                   key={h}
-                  className="text-[10px] text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full font-medium"
+                  className="shrink-0 whitespace-nowrap text-[10px] text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full font-medium"
                 >
                   {h}
                 </span>

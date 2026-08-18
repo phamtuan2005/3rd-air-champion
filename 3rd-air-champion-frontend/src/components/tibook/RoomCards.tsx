@@ -78,23 +78,26 @@ const RoomCard = ({
         )}
       </div>
 
+      {/* One row, not three. "tap to select" said the same thing on every card
+          and moved to the header once; "✓ selected" repeated the tick already
+          drawn on the photo and the border already around the card. Both were
+          costing a line of every card, and the cards sit above the calendar. */}
       <div
-        className="px-2 py-1.5 cursor-pointer active:bg-gray-50 flex flex-col gap-1"
+        className="px-2 py-1.5 cursor-pointer active:bg-gray-50 flex items-center gap-1"
         onClick={onSelect}
       >
-        <RoomBadge room={room} rooms={allRooms} className="self-start" />
-        <p className="text-[10px] text-gray-400 leading-none">
-          {selected ? "✓ selected" : "tap to select"}
-        </p>
+        <RoomBadge room={room} rooms={allRooms} className="min-w-0" />
         {room.airbnbUrl && (
           <a
             href={room.airbnbUrl}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className="text-[10px] text-rose-400 hover:text-rose-600 leading-none underline underline-offset-2 transition-colors"
+            title={`View ${room.name} on AirBnB`}
+            aria-label={`View ${room.name} on AirBnB`}
+            className="ml-auto flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-rose-200 text-[9px] font-bold leading-none text-[#FF5A5F] transition-colors hover:bg-rose-50"
           >
-            View on AirBnB
+            ↗
           </a>
         )}
       </div>
@@ -112,41 +115,46 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
 
   if (compact) {
     return (
-      <div className="px-3 py-1.5 border-b border-gray-100 bg-gray-50 flex gap-2 overflow-x-auto shrink-0">
-        <button
-          type="button"
-          onClick={onSelectAll}
-          className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-            isAll ? `${theme.btn} text-white shadow-sm` : "bg-white text-gray-500 border border-gray-200"
-          }`}
-        >
-          All
-        </button>
-        {activeRooms.map((room) => {
-          const selected = !isAll && (selectedRoomIds?.has(room.id) ?? false);
-          return (
-            <button
-              key={room.id}
-              type="button"
-              onClick={() => onToggleRoom(room.id)}
-              className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-semibold text-white transition-all ${getRoomColor(room.name, room.color)} ${
-                selected ? "ring-2 ring-offset-1 ring-gray-400 scale-105" : "opacity-75"
-              }`}
-            >
-              {room.name}
-            </button>
-          );
-        })}
-        {/* The way back to the photos. A returning guest does not need them to
-            pick a date, but "I know the rooms" is not the same as "I never want
-            to see them again" — without this the gallery would be unreachable
-            for exactly the guests who book most often. */}
+      <div className="flex shrink-0 items-center gap-2 border-b border-gray-100 bg-gray-50 px-3 py-1.5">
+        {/* The pills scroll; the button does NOT live among them.
+            It used to, with ml-auto — which does nothing once the pills overflow,
+            so with six rooms the only way to the photos sat off the right edge
+            where nobody would think to swipe for it. */}
+        <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <button
+            type="button"
+            onClick={onSelectAll}
+            className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+              isAll ? `${theme.btn} text-white shadow-sm` : "bg-white text-gray-500 border border-gray-200"
+            }`}
+          >
+            All
+          </button>
+          {activeRooms.map((room) => {
+            const selected = !isAll && (selectedRoomIds?.has(room.id) ?? false);
+            return (
+              <button
+                key={room.id}
+                type="button"
+                onClick={() => onToggleRoom(room.id)}
+                className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-semibold text-white transition-all ${getRoomColor(room.name, room.color)} ${
+                  selected ? "ring-2 ring-offset-1 ring-gray-400 scale-105" : "opacity-75"
+                }`}
+              >
+                {room.name}
+              </button>
+            );
+          })}
+        </div>
+        {/* A first-time guest has not seen the rooms at all, so this cannot be a
+            faint bit of text they have to notice — it is a real button, pinned
+            outside the scroller and always on screen. */}
         {onToggleCompact && (
           <button
             type="button"
             onClick={onToggleCompact}
             aria-label="Show room photos"
-            className="ml-auto flex-shrink-0 self-center px-2 text-xs font-semibold text-gray-400 hover:text-gray-600"
+            className="flex shrink-0 items-center gap-1 rounded-full border border-gray-300 bg-white px-2.5 py-1 text-xs font-semibold text-gray-600 shadow-sm transition-colors hover:bg-gray-50"
           >
             Photos ▾
           </button>
@@ -159,7 +167,16 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
     <>
       <div className="tibook-type px-3 py-1.5 border-b border-gray-100 bg-gray-50">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Our Rooms</p>
+          {/* The hint that used to repeat on every card, said once — and saying
+              which HALF of the card selects. The photo opens the gallery and the
+              name row selects the room, so "tap to select" pointed at the wrong
+              half for anyone who tried the picture first.
+              No truncate: an instruction that gets cut off is worse than one
+              that wraps on the narrowest phones. */}
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+            Our Rooms{" "}
+            <span className="font-medium normal-case">· tap on the room name to select</span>
+          </p>
           {onToggleCompact && (
             <button
               type="button"

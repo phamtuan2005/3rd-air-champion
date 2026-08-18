@@ -41,6 +41,8 @@ interface NavBarDesktopProps {
   setIsCleanersOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isMiscOpen: boolean;
   setIsMiscOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isRatesOpen: boolean;
+  setIsRatesOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isAvailabilitiesModalOpen: boolean;
   setIsAvailabilitiesModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isBlockAirBnBModalOpen: boolean;
@@ -75,6 +77,8 @@ const NavBarDesktop = ({
   setIsCleanersOpen,
   isMiscOpen,
   setIsMiscOpen,
+  isRatesOpen,
+  setIsRatesOpen,
   isAvailabilitiesModalOpen,
   setIsAvailabilitiesModalOpen,
   isBlockAirBnBModalOpen,
@@ -251,7 +255,7 @@ const NavBarDesktop = ({
       icon: <FaDollarSign className="text-sm" />,
       btn: "bg-emerald-600",
       shadow: "drop-shadow-[0_4px_6px_rgba(5,150,105,0.5)]",
-      active: isAvailabilitiesModalOpen || isMiscOpen,
+      active: isAvailabilitiesModalOpen || isMiscOpen || isRatesOpen,
       // Only two here, so they sit at the outer corners rather than crowding
       // the middle: gold right for nights still sellable, red left for house
       // expenses logged this month — a COUNT of items, not their total, since a
@@ -279,6 +283,13 @@ const NavBarDesktop = ({
           hover: "hover:border-teal-300 hover:text-teal-600",
           badges: [{ n: miscCount, cls: ROSE }],
           run: () => setIsMiscOpen(true),
+        },
+        {
+          label: "Rates",
+          desc: "Returning guests paying less than the room now charges.",
+          emoji: "💲",
+          hover: "hover:border-emerald-300 hover:text-emerald-600",
+          run: () => setIsRatesOpen(true),
         },
       ],
     },

@@ -33,6 +33,7 @@ function App() {
   const [isManageGuestOpen, setIsManageGuestOpen] = useState(false);
   const [isCleanersOpen, setIsCleanersOpen] = useState(false);
   const [isMiscOpen, setIsMiscOpen] = useState(false);
+  const [isRatesOpen, setIsRatesOpen] = useState(false);
   // Weeks-per-page on a narrow phone — set from the calendar header, persisted
   // per device so each phone/tablet keeps its own value. Clamped 1–6: 1 is a
   // single-week view, and 6 is the most week-rows any month can span (31 days
@@ -231,6 +232,8 @@ function App() {
                 setIsCleanersOpen,
                 isMiscOpen,
                 setIsMiscOpen,
+                isRatesOpen,
+                setIsRatesOpen,
                 rowsPerPage,
                 setRowsPerPage,
                 rowHeight,
@@ -261,6 +264,8 @@ function App() {
                   setIsCleanersOpen={setIsCleanersOpen}
                   isMiscOpen={isMiscOpen}
                   setIsMiscOpen={setIsMiscOpen}
+                  isRatesOpen={isRatesOpen}
+                  setIsRatesOpen={setIsRatesOpen}
                   isAvailabilitiesModalOpen={isAvailabilitiesModalOpen}
                   setIsAvailabilitiesModalOpen={setIsAvailabilitiesModalOpen}
                   isBlockAirBnBModalOpen={isBlockAirBnBModalOpen}
