@@ -47,6 +47,17 @@ const TiWork = () => {
   useEffect(() => {
     document.title = "TiWork";
   }, []);
+  // Point the installable app at TiWork's own manifest, and put it back on the
+  // way out — the same swap TiBook does, so a phone that installs from here
+  // pins TiWork rather than TiMag.
+  useEffect(() => {
+    const link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
+    const prev = link?.getAttribute("href") ?? null;
+    link?.setAttribute("href", "/tiworkmanifest.webmanifest");
+    return () => {
+      if (link && prev) link.setAttribute("href", prev);
+    };
+  }, []);
 
   const todayKey = format(startOfToday(), "yyyy-MM-dd");
 
@@ -165,8 +176,22 @@ const TiWork = () => {
     return (
       <div className="tibook-type flex min-h-[100dvh] flex-col items-center justify-center bg-gray-50 px-4">
         <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-          <h1 className="text-xl font-bold text-gray-900">TiWork</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <div className="flex items-center gap-3">
+            <img src="/TiMagLogo.svg" alt="TT House" className="h-10 w-10 shrink-0" />
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold leading-tight text-gray-900">TiWork</h1>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                TT House
+              </p>
+            </div>
+          </div>
+          {/* The house motto, in the same voice TiBook shows guests. The team
+              read this screen more often than any guest reads theirs, so it is
+              the one place the promise is worth repeating daily. */}
+          <p className="mt-3 border-l-2 border-amber-300 pl-2 text-sm font-semibold italic leading-tight text-amber-700">
+            Your comfort. Our mission.
+          </p>
+          <p className="mt-2.5 text-sm text-gray-500">
             Log your hours and tell us what you worked on.
           </p>
 
@@ -211,7 +236,8 @@ const TiWork = () => {
   // ── Signed in ─────────────────────────────────────────────────────────────
   return (
     <div className="tibook-type flex min-h-[100dvh] flex-col bg-gray-50">
-      <header className="flex shrink-0 items-center gap-2 border-b border-gray-200 bg-white px-4 py-3">
+      <header className="flex shrink-0 items-center gap-2.5 border-b border-gray-200 bg-white px-4 py-3">
+        <img src="/TiMagLogo.svg" alt="TT House" className="h-9 w-9 shrink-0" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-base font-bold text-gray-900">Hi {me.name.split(" ")[0]}</p>
           <p className="truncate text-xs text-gray-400">
@@ -375,6 +401,10 @@ const TiWork = () => {
             ))
           )}
         </div>
+
+        <p className="pb-6 text-center text-xs font-semibold italic text-amber-700/80">
+          Your comfort. Our mission.
+        </p>
       </div>
     </div>
   );

@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/TiMagLogo.svg" />
+    <link rel="icon" type="image/png" id="favicon" href="/timag-icon-192.png" />
     <link rel="manifest" id="pwa-manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" id="apple-touch-icon" href="/timag-icon-192.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -11,12 +11,29 @@
     <meta name="apple-mobile-web-app-title" id="app-title" content="TiMag" />
     <meta name="theme-color" id="theme-color" content="#4f46e5" />
     <script>
+      // Three apps, one build. The install icon, name and theme are chosen from
+      // the path BEFORE React boots, because the browser reads them at load —
+      // set later, the phone has already decided what to pin to the home screen.
+      //
+      // Table rather than an if per app: TiWork was added and inherited TiMag's
+      // logo simply because the old branch only knew about /book.
       (function () {
-        if (!window.location.pathname.startsWith('/book')) return;
-        document.getElementById('pwa-manifest').href = '/tibookmanifest.webmanifest';
-        document.getElementById('apple-touch-icon').href = '/tibook-icon-192.png';
-        document.getElementById('app-title').content = 'TiBook';
-        document.getElementById('theme-color').content = '#0d9488';
+        var APPS = {
+          '/book': { manifest: '/tibookmanifest.webmanifest', icon: '/tibook-icon-192.png', title: 'TiBook', theme: '#0d9488' },
+          '/work': { manifest: '/tiworkmanifest.webmanifest', icon: '/tiwork-icon-192.png', title: 'TiWork', theme: '#b45309' }
+        };
+        var path = window.location.pathname;
+        var app = Object.keys(APPS).filter(function (p) { return path.indexOf(p) === 0; })[0];
+        if (!app) return;
+        var cfg = APPS[app];
+        document.getElementById('pwa-manifest').href = cfg.manifest;
+        document.getElementById('apple-touch-icon').href = cfg.icon;
+        // The browser-tab icon too, not just the installed one — it was left on
+        // the TiMag mark for every app.
+        document.getElementById('favicon').href = cfg.icon;
+        document.getElementById('app-title').content = cfg.title;
+        document.getElementById('theme-color').content = cfg.theme;
+        document.title = cfg.title;
       })();
     </script>
     <title>TiMag</title>
