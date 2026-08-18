@@ -43,6 +43,8 @@ interface NavBarDesktopProps {
   setIsMiscOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isRatesOpen: boolean;
   setIsRatesOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isStaffingOpen: boolean;
+  setIsStaffingOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isAvailabilitiesModalOpen: boolean;
   setIsAvailabilitiesModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isBlockAirBnBModalOpen: boolean;
@@ -79,6 +81,8 @@ const NavBarDesktop = ({
   setIsMiscOpen,
   isRatesOpen,
   setIsRatesOpen,
+  isStaffingOpen,
+  setIsStaffingOpen,
   isAvailabilitiesModalOpen,
   setIsAvailabilitiesModalOpen,
   isBlockAirBnBModalOpen,
@@ -216,7 +220,7 @@ const NavBarDesktop = ({
       icon: <FaClipboardList className="text-sm" />,
       btn: "bg-orange-500",
       shadow: "drop-shadow-[0_4px_6px_rgba(249,115,22,0.5)]",
-      active: isTodoModalOpen || isCleanersOpen,
+      active: isTodoModalOpen || isCleanersOpen || isStaffingOpen,
       // One badge per action inside, rather than a single sum: yellow is To Do
       // (reminders + rooms to clean), rose is Clean (hours to record + turnovers
       // with nobody on them). Lumped together you could not tell which panel
@@ -247,6 +251,16 @@ const NavBarDesktop = ({
             { n: cleanUnassignedCount, cls: ROSE },
           ],
           run: () => setIsCleanersOpen(true),
+        },
+        {
+          label: "Staffing",
+          desc: "The people helping run the business, their pay and performance.",
+          emoji: "👤",
+          hover: "hover:border-indigo-300 hover:text-indigo-600",
+          run: () => {
+            closeAllPanels();
+            setIsStaffingOpen(true);
+          },
         },
       ],
     },

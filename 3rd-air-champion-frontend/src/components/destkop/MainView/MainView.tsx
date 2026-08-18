@@ -32,6 +32,7 @@ import ManageGuestModal from "../NavBar/DropDown/ManageGuestModal";
 import CleanersModal from "./CleanersModal";
 import MiscModal from "./MiscModal";
 import DefaultRateGuestsModal from "./DefaultRateGuestsModal";
+import StaffingModal from "./StaffingModal";
 import CleanDaySheet from "./CleanDaySheet";
 import { fetchBookingRequestsByHost, updateBookingRequestStatus } from "../../../util/bookingRequestOperations";
 import { getHostWishLists } from "../../../util/wishListOperations";
@@ -141,6 +142,8 @@ const MainView = ({
     setIsMiscOpen: React.Dispatch<React.SetStateAction<boolean>>;
     isRatesOpen: boolean;
     setIsRatesOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    isStaffingOpen: boolean;
+    setIsStaffingOpen: React.Dispatch<React.SetStateAction<boolean>>;
     rowsPerPage: number;
     rowHeight: number;
     setRowHeight: (n: number) => void;
@@ -160,6 +163,8 @@ const MainView = ({
     setIsMiscOpen,
     isRatesOpen,
     setIsRatesOpen,
+    isStaffingOpen,
+    setIsStaffingOpen,
     rowsPerPage,
     rowHeight,
     setRowHeight,
@@ -1517,6 +1522,13 @@ const MainView = ({
             )
           }
           onClose={() => setIsRatesOpen(false)}
+        />
+      )}
+      {isStaffingOpen && (
+        <StaffingModal
+          hostId={hostId}
+          token={token as string}
+          onClose={() => setIsStaffingOpen(false)}
         />
       )}
       {cleanDayKey && (
