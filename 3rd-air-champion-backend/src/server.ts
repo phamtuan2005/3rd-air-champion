@@ -21,6 +21,7 @@ import wishListRoute from "./route/wishListRoute";
 import cleanerRoute from "./route/cleanerRoute";
 import miscRoute from "./route/miscRoute";
 import staffRoute from "./route/staffRoute";
+import workRoute from "./route/workRoute";
 import reminderRoute from "./route/reminderRoute";
 import { authenticateToken } from "./middleware/authenticateJWT";
 import cors from "cors";
@@ -108,6 +109,9 @@ const startServer = async () => {
     apiRouter.use("/auth", authorizationRoute);
     apiRouter.use("/booking-request", bookingRequestRoute);
     apiRouter.use("/wish-list", wishListRoute);
+    // TiWork: staff have no TiMag login, so these sit outside the JWT gate and
+    // prove identity per request with phone + access code.
+    apiRouter.use("/work", workRoute);
 
     // Authenticate all paths from now on
     apiRouter.use(authenticateToken as any);

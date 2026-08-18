@@ -2,14 +2,17 @@ import { useEffect, useMemo, useState } from "react";
 import { format, parseISO, startOfToday } from "date-fns";
 import CleanerAvatar from "../../shared/CleanerAvatar";
 import {
+  HostWorkEntry,
   StaffType,
   addStaffReview,
   createStaff,
   deleteStaff,
   fetchStaff,
+  fetchWorkEntries,
   monthlyRunRate,
   payStaff,
   rateOn,
+  reviewWorkEntry,
   updateStaff,
 } from "../../../util/staffOperations";
 
@@ -32,6 +35,15 @@ const fmtDate = (key: string) => {
 
 const inputCls =
   "rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:border-gray-400 focus:outline-none";
+
+// Six characters, no 0/O or 1/I/L: this gets read off one screen and typed into
+// another, often by someone in another country on a phone keyboard.
+const newCode = () => {
+  const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  return Array.from({ length: 6 }, () =>
+    alphabet[Math.floor(Math.random() * alphabet.length)],
+  ).join("");
+};
 
 const Stars = ({ value }: { value: number }) => (
   <span className="shrink-0 text-sm leading-none text-amber-400" title={`${value} of 5`}>
@@ -56,6 +68,8 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
   const [adding, setAdding] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [tab, setTab] = useState<"team" | "hours">("team");
+  const [workEntries, setWorkEntries] = useState<HostWorkEntry[]>([]);
 
   const todayKey = format(startOfToday(), "yyyy-MM-dd");
 
@@ -76,6 +90,11 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
       .then(setStaff)
       .catch(() => setError("Could not load the team."))
       .finally(() => setLoading(false));
+    fetchWorkEntries(hostId, token)
+      .then(setWorkEntries)
+      .catch(() => {
+        /* hours are a separate concern; a failure here must not blank the team */
+      });
   }, [hostId, token]);
 
   const patch = (updated: StaffType) =>
@@ -116,7 +135,12 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
   const renderCard = (s: StaffType) => {
     const open = expandedId === s.id;
     const rate = rateOn(s, todayKey);
-    const owed = 0; // earnings need hours (TiWork); only payments are known today
+    // Earned from APPROVED hours only, each at the rate frozen when it was
+    // approved. A submitted entry is a claim, not yet money.
+    const earned = workEntries
+      .filter((w) => w.staffId === s.id && w.status === "approved")
+      .reduce((sum, w) => sum + w.hours * (w.approvedRate || 0), 0);
+    const owed = Math.max(0, earned - (s.paidAmount ?? 0));
     const latest = [...(s.reviews ?? [])].sort((a, b) => b.date.localeCompare(a.date))[0];
     const rd = reviewDraft[s.id] ?? { rating: "", note: "" };
 
@@ -208,6 +232,64 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
                   className={inputCls}
                 />
               </label>
+            </div>
+
+            {/* TiWork sign-in. Email carries the weight for anyone working from
+                abroad — the first hire is in Germany, where a US phone number is
+                not something she has. Either identifier works with the code. */}
+            <div className="flex flex-wrap items-end gap-2 rounded-lg border border-gray-100 bg-gray-50 p-2.5">
+              <label className="flex min-w-0 flex-1 flex-col gap-1">
+                <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  Email
+                </span>
+                <input
+                  type="email"
+                  placeholder="them@example.com"
+                  defaultValue={s.email}
+                  onBlur={(e) =>
+                    e.target.value !== s.email &&
+                    updateStaff({ id: s.id, email: e.target.value.trim() }, token)
+                      .then(patch)
+                      .catch(() => setError("Could not save the email."))
+                  }
+                  className={`${inputCls} w-full`}
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  TiWork code
+                </span>
+                <div className="flex items-center gap-1">
+                  <input
+                    placeholder="not set"
+                    defaultValue={s.accessCode}
+                    key={s.accessCode}
+                    onBlur={(e) =>
+                      e.target.value !== s.accessCode &&
+                      updateStaff({ id: s.id, accessCode: e.target.value.trim() }, token)
+                        .then(patch)
+                        .catch(() => setError("Could not save the code."))
+                    }
+                    className={`${inputCls} w-24 font-mono tracking-wider`}
+                  />
+                  <button
+                    type="button"
+                    title="Generate a new code — the old one stops working"
+                    onClick={() =>
+                      updateStaff({ id: s.id, accessCode: newCode() }, token)
+                        .then(patch)
+                        .catch(() => setError("Could not generate a code."))
+                    }
+                    className="shrink-0 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-500 hover:bg-gray-50"
+                  >
+                    ↻
+                  </button>
+                </div>
+              </label>
+              <p className="w-full text-[11px] leading-relaxed text-gray-400">
+                Send them the code however suits — WhatsApp, email, a call. Nothing here
+                sends it for you. Regenerating revokes the old one.
+              </p>
             </div>
 
             {/* Performance — a dated history, not a single score */}
@@ -313,7 +395,14 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
               >
                 Record pay
               </button>
-              {owed > 0 && <span className="text-sm text-rose-600">{money(owed)} owed</span>}
+              {earned > 0 && (
+                <span className="w-full text-xs text-gray-400">
+                  Earned {money(Math.round(earned * 100) / 100)} from approved hours
+                  {owed > 0 && (
+                    <span className="font-bold text-rose-600"> · {money(Math.round(owed * 100) / 100)} owed</span>
+                  )}
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-2 border-t border-gray-100 pt-2">
@@ -399,6 +488,104 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
 
         {error && <p className="shrink-0 px-4 pt-2 text-sm font-semibold text-red-500">{error}</p>}
 
+        {/* Two questions: who is on the team, and what have they claimed. */}
+        <div className="mx-4 mb-1 mt-2 flex shrink-0 gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1">
+          {(["team", "hours"] as const).map((k) => {
+            const pending = workEntries.filter((w) => w.status === "submitted").length;
+            return (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setTab(k)}
+                className={`flex min-w-fit flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-1.5 text-sm font-semibold transition-colors ${
+                  tab === k ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+                }`}
+              >
+                {k === "team" ? "Team" : "Hours"}
+                {k === "hours" && pending > 0 && (
+                  <span
+                    className={`min-w-[1.25rem] shrink-0 rounded-full px-1 py-0.5 text-center text-[12px] font-bold leading-none ${
+                      tab === k ? "bg-gray-900 text-white" : "bg-amber-200 text-amber-800"
+                    }`}
+                  >
+                    {pending}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {tab === "hours" ? (
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+            {/* The gate between what someone typed and what the business owes.
+                Nothing counts toward pay until it is approved here. */}
+            {workEntries.length === 0 ? (
+              <p className="py-8 text-center text-sm text-gray-400">
+                No hours submitted yet. They arrive here from TiWork.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2.5">
+                {workEntries.map((w) => (
+                  <div key={w.id} className="rounded-xl border border-gray-200 bg-white p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-bold text-gray-900">{w.staffName}</span>
+                      <span className="text-sm text-gray-500">{fmtDate(w.date)}</span>
+                      <span className="text-sm font-semibold text-gray-700">{w.hours}h</span>
+                      <span
+                        className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-bold ${
+                          w.status === "approved"
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                            : w.status === "rejected"
+                              ? "border-rose-200 bg-rose-50 text-rose-700"
+                              : "border-amber-200 bg-amber-50 text-amber-700"
+                        }`}
+                      >
+                        {w.status === "approved"
+                          ? `Approved · ${money(Math.round(w.hours * (w.approvedRate || 0) * 100) / 100)}`
+                          : w.status === "rejected"
+                            ? "Not counted"
+                            : "Waiting on you"}
+                      </span>
+                    </div>
+                    {w.report && (
+                      <p className="mt-1.5 whitespace-pre-line text-sm text-gray-600">{w.report}</p>
+                    )}
+                    {w.status === "submitted" && (
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            reviewWorkEntry(
+                              { id: w.id, status: "approved", reviewedOn: todayKey },
+                              token,
+                            )
+                              .then(() => fetchWorkEntries(hostId, token).then(setWorkEntries))
+                              .catch(() => setError("Could not approve that."))
+                          }
+                          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            reviewWorkEntry({ id: w.id, status: "rejected" }, token)
+                              .then(() => fetchWorkEntries(hostId, token).then(setWorkEntries))
+                              .catch(() => setError("Could not decline that."))
+                          }
+                          className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600"
+                        >
+                          Decline
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
           {/* Operating cost. Biweekly salaries are known now; hourly cost is
               rate × hours and hours arrive from TiWork, so those are named
@@ -532,9 +719,12 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
             </div>
           )}
         </div>
+        )}
 
         <p className="shrink-0 border-t border-gray-100 px-4 py-2 text-[11px] leading-relaxed text-gray-400">
-          Hours and work reports will come from TiWork, where each person enters their own.
+          {tab === "hours"
+            ? "Only approved hours count toward pay. Nothing here is computed from a claim."
+            : "Hours and work reports arrive from TiWork, where each person enters their own."}
         </p>
       </div>
     </div>

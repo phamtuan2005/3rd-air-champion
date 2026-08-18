@@ -28,6 +28,7 @@ export interface StaffType {
   hiredOn: string; // yyyy-MM-dd
   endedOn: string; // "" while still with us
   payType: PayType;
+  accessCode: string; // TiWork sign-in secret; "" = they cannot sign in yet
   payRate: number; // per hour, or per two-week period
   rateHistory: { rate: number; effectiveFrom: string }[];
   reviews: StaffReviewType[];
@@ -78,6 +79,7 @@ export const updateStaff = async (
     payType?: PayType;
     payRate?: number;
     rateHistory?: { rate: number; effectiveFrom: string }[];
+    accessCode?: string;
     note?: string;
   },
   token: string,
@@ -151,3 +153,52 @@ export const monthlyRunRate = (staff: StaffType[], todayKey: string) => {
   }
   return { biweeklyMonthly, hourly };
 };
+
+// ── Work entries, host side ────────────────────────────────────────────────
+
+export interface HostWorkEntry {
+  id: string;
+  staffId: string;
+  staffName: string;
+  staffTitle: string;
+  date: string;
+  hours: number;
+  report: string;
+  status: "submitted" | "approved" | "rejected";
+  approvedRate: number;
+  approvedOn: string;
+  hostNote: string;
+}
+
+export const fetchWorkEntries = async (
+  hostId: string,
+  token: string,
+  status?: "submitted" | "approved" | "rejected",
+): Promise<HostWorkEntry[]> => {
+  const res = await axios.get(`${BACKEND_ENDPOINT}/staff/hours`, {
+    params: { hostId, ...(status ? { status } : {}) },
+    ...auth(token),
+  });
+  return res.data;
+};
+
+export const reviewWorkEntry = async (
+  data: {
+    id: string;
+    status: "approved" | "rejected" | "submitted";
+    hostNote?: string;
+    reviewedOn?: string;
+  },
+  token: string,
+) => {
+  const res = await axios.patch(`${BACKEND_ENDPOINT}/staff/hours/review`, data, auth(token));
+  return res.data;
+};
+
+// What approved hours have earned, at the rate frozen when each was approved.
+// Only approved entries count: a submitted one is a claim, and a rejected one
+// was seen and declined.
+export const approvedEarnings = (entries: HostWorkEntry[]) =>
+  entries
+    .filter((e) => e.status === "approved")
+    .reduce((sum, e) => sum + e.hours * (e.approvedRate || 0), 0);

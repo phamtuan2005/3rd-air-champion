@@ -5,6 +5,7 @@ import App from "./App.tsx";
 import { BrowserRouter, Route, Routes } from "react-router";
 import Private from "./routes/Private.tsx";
 import Authorization from "./components/destkop/Authorization.tsx";
+import TiWork from "./routes/TiWork";
 import TiBook from "./routes/TiBook.tsx";
 import { installAuthInterceptors } from "./util/authSession.ts";
 
@@ -26,6 +27,7 @@ createRoot(document.getElementById("root")!).render(
         />
         <Route path="/login" element={<Authorization />} />
         <Route path="/book" element={<TiBook />} />
+        <Route path="/work" element={<TiWork />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,

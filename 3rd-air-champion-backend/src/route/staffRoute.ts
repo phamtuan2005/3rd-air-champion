@@ -1,5 +1,6 @@
 import express, { Request } from "express";
 import Staff from "../model/staffSchema";
+import WorkEntry from "../model/workEntrySchema";
 
 // All routes here are mounted behind the JWT middleware in server.ts.
 // REST rather than GraphQL, matching /cleaner and /misc.
@@ -26,6 +27,7 @@ const serialize = (s: any) => ({
     rating: r.rating,
     note: r.note ?? "",
   })),
+  accessCode: s.accessCode ?? "",
   paidAmount: s.paidAmount ?? 0,
   payments: (s.payments ?? []).map((p: any) => ({
     id: p._id,
@@ -87,6 +89,7 @@ router.patch("/update", async (req: Request, res: any) => {
     payType,
     payRate,
     rateHistory,
+    accessCode,
     note,
   } = req.body;
   if (!id) return res.status(400).json({ error: "id is required" });
@@ -99,6 +102,7 @@ router.patch("/update", async (req: Request, res: any) => {
     if (character !== undefined) update.character = character;
     if (hiredOn !== undefined) update.hiredOn = hiredOn;
     if (endedOn !== undefined) update.endedOn = endedOn;
+    if (accessCode !== undefined) update.accessCode = accessCode;
     if (payType !== undefined) update.payType = payType === "biweekly" ? "biweekly" : "hourly";
     if (payRate !== undefined) update.payRate = payRate;
     if (rateHistory !== undefined) update.rateHistory = rateHistory;
@@ -166,6 +170,72 @@ router.post("/pay", async (req: Request, res: any) => {
     );
     if (!item) return res.status(404).json({ error: "Staff member not found" });
     res.status(200).json(serialize(item));
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ── Work entries, host side ────────────────────────────────────────────────
+//
+// Hours arrive from TiWork as claims. Nothing here is computed from them until
+// the host approves, so this is the gate between what someone typed and what
+// the business owes.
+router.get("/hours", async (req: Request, res: any) => {
+  const { hostId, status } = req.query;
+  if (!hostId) return res.status(400).json({ error: "hostId is required" });
+  try {
+    const filter: Record<string, unknown> = { host: hostId };
+    if (status) filter.status = status;
+    const entries = await WorkEntry.find(filter)
+      .populate("staff", "name title")
+      .sort({ date: -1 });
+    res.status(200).json(
+      entries.map((e: any) => ({
+        id: e._id,
+        staffId: e.staff?._id ?? e.staff,
+        staffName: e.staff?.name ?? "",
+        staffTitle: e.staff?.title ?? "",
+        date: e.date,
+        hours: e.hours,
+        report: e.report ?? "",
+        status: e.status,
+        approvedRate: e.approvedRate ?? 0,
+        approvedOn: e.approvedOn ?? "",
+        hostNote: e.hostNote ?? "",
+      })),
+    );
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.patch("/hours/review", async (req: Request, res: any) => {
+  const { id, status, hostNote, reviewedOn } = req.body;
+  if (!id || !["approved", "rejected", "submitted"].includes(status))
+    return res.status(400).json({ error: "id and a valid status are required" });
+  try {
+    const entry: any = await WorkEntry.findById(id);
+    if (!entry) return res.status(404).json({ error: "Entry not found" });
+
+    if (status === "approved") {
+      // Freeze the rate in force ON THE DAY WORKED, not today's. A raise must
+      // never re-price work already done — the same rule cleaners follow — and
+      // approving late must not pay yesterday at tomorrow's rate.
+      const staff: any = await Staff.findById(entry.staff);
+      const history = [...(staff?.rateHistory ?? [])]
+        .filter((r: any) => r.effectiveFrom <= entry.date)
+        .sort((a: any, b: any) => a.effectiveFrom.localeCompare(b.effectiveFrom));
+      entry.approvedRate =
+        history.length > 0 ? history[history.length - 1].rate : (staff?.payRate ?? 0);
+      entry.approvedOn = reviewedOn ?? "";
+    } else {
+      entry.approvedRate = 0;
+      entry.approvedOn = "";
+    }
+    entry.status = status;
+    if (hostNote !== undefined) entry.hostNote = hostNote;
+    await entry.save();
+    res.status(200).json({ ok: true, id: entry._id, status: entry.status });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

@@ -69,10 +69,27 @@ const staffSchema = new mongoose.Schema(
       ],
       default: [],
     },
+    // TiWork sign-in: they enter their phone plus this code. A shared secret
+    // rather than a real login — but a phone number is not a secret, and these
+    // entries become money owed, so something the host issues and can change is
+    // the floor. Empty = they cannot sign in yet.
+    accessCode: { type: String, default: "" },
     note: { type: String, default: "" },
   },
   { timestamps: true }
 );
+
+// Sign-in looks people up by phone. Not unique: a staff member could share a
+// household number, and the code is what actually distinguishes them.
+staffSchema.index({ phone: 1 });
+
+// Deleting someone removes their work entries — an entry without a person is
+// unreadable and would break populate on the host's review queue.
+staffSchema.post("findOneAndDelete", async function (doc) {
+  if (doc) {
+    await mongoose.model("WorkEntry").deleteMany({ staff: doc._id });
+  }
+});
 
 staffSchema.index({ host: 1, name: 1 }, { unique: true });
 
