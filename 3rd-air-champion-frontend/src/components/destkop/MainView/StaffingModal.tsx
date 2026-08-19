@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { format, parseISO, startOfToday } from "date-fns";
 import CleanerAvatar from "../../shared/CleanerAvatar";
+import { GUEST_AVATAR_PRESETS } from "../../../util/guestAvatars";
 import {
   CleanerType,
   fetchCleaners,
@@ -75,6 +76,9 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [tab, setTab] = useState<"team" | "hours">("team");
+  // Which person's face grid is open. One at a time: eighteen options is the
+  // largest thing on the card, and the card is mostly opened to fix a rate.
+  const [avatarFor, setAvatarFor] = useState<string | null>(null);
   const [workEntries, setWorkEntries] = useState<HostWorkEntry[]>([]);
   // Cleaners are staff too — they are paid by this business and log hours in the
   // same TiWork. They keep their own record because every CleaningAssignment
@@ -250,6 +254,60 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
                   className={inputCls}
                 />
               </label>
+            </div>
+
+            {/* The face. Same eighteen presets Manage Guests offers, drawn with
+                THIS person's name as the seed so the grid shows what they will
+                actually look like — two people picking the same look still get
+                different faces. Nothing is uploaded; only the choice is stored. */}
+            <div className="rounded-lg border border-gray-100 bg-gray-50 p-2.5">
+              <div className="flex items-center gap-2">
+                <CleanerAvatar name={s.name} character={s.character} sizeClass="h-9 w-9" />
+                <span className="flex-1 text-xs text-gray-500">
+                  {GUEST_AVATAR_PRESETS.find((pr) => pr.character === s.character)?.label ??
+                    (s.character ? "Custom" : "Plain initials")}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setAvatarFor(avatarFor === s.id ? null : s.id)}
+                  className="rounded-lg bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700"
+                >
+                  {avatarFor === s.id ? "Done" : "Change"}
+                </button>
+              </div>
+              {avatarFor === s.id && (
+                <>
+                  <div className="mt-1.5 grid grid-cols-6 gap-1.5 rounded-xl border border-gray-200 bg-white p-2">
+                    {GUEST_AVATAR_PRESETS.map((preset) => (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        title={preset.label}
+                        onClick={() =>
+                          updateStaff({ id: s.id, character: preset.character }, token)
+                            .then(patch)
+                            .catch(() => setError("Could not save the avatar."))
+                        }
+                        className={`flex items-center justify-center rounded-lg p-0.5 transition-all ${
+                          s.character === preset.character
+                            ? "ring-2 ring-gray-900"
+                            : "ring-1 ring-transparent hover:ring-gray-300"
+                        }`}
+                      >
+                        <CleanerAvatar
+                          name={s.name}
+                          character={preset.character}
+                          sizeClass="h-9 w-9"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-[11px] leading-tight text-gray-400">
+                    Drawn, not uploaded — nothing is stored but the choice. The first option
+                    returns to plain initials. They see this in TiWork.
+                  </p>
+                </>
+              )}
             </div>
 
             {/* TiWork sign-in. Email carries the weight for anyone working from
