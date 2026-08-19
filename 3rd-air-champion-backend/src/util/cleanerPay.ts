@@ -29,8 +29,16 @@ export const computeCleanerPay = (
   cleaner: any,
   worked: { date: string; hours: number }[],
 ) => {
-  const days: WorkedDay[] = worked
-    .map((w) => ({ date: w.date, hours: w.hours, earned: w.hours * rateOn(cleaner, w.date) }))
+  // Summed per DATE before anything else. A cleaner-day is recorded as the whole
+  // total on that morning's first room and 0 on the rest, so one row per
+  // assignment lists a real figure followed by a string of 0m / $0.00 lines for
+  // the same day — and the payment walk below would consume those empty rows as
+  // if they were separate days of work.
+  const byDate = new Map<string, number>();
+  for (const w of worked) byDate.set(w.date, (byDate.get(w.date) ?? 0) + w.hours);
+
+  const days: WorkedDay[] = [...byDate.entries()]
+    .map(([date, hours]) => ({ date, hours, earned: hours * rateOn(cleaner, date) }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
   let hours = days.reduce((s, d) => s + d.hours, 0);
