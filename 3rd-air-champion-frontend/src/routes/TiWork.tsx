@@ -601,7 +601,11 @@ const TiWork = () => {
             Deliberately the same layout and the same words: the two of them read
             these numbers to each other, and a figure that looks different on the
             two screens turns a two-minute conversation into an argument. */}
-        {view === "pay" && pay && (
+        {view === "pay" && pay && (() => {
+          const days = pay.days ?? [];
+          const payments = pay.payments ?? [];
+          const opening = pay.openingPaid ?? 0;
+          return (
           <div className="rounded-2xl border border-gray-200 bg-white p-3">
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
               <div className="flex items-center justify-between gap-2">
@@ -619,7 +623,7 @@ const TiWork = () => {
                   sentence the host reads. */}
               <p className="mt-0.5 text-[13px] text-emerald-600">
                 {pay.owed > 0.5
-                  ? `${formatHrMin(pay.unpaidHours)} worked${
+                  ? `${formatHrMin(pay.unpaidHours ?? 0)} worked${
                       pay.unpaidSince
                         ? ` since ${format(parseISO(pay.unpaidSince), "MMM d")}`
                         : ""
@@ -647,12 +651,12 @@ const TiWork = () => {
               </span>
             </div>
             <div className="max-h-48 overflow-y-auto rounded-lg bg-gray-50 p-2">
-              {pay.days.length === 0 ? (
+              {days.length === 0 ? (
                 <p className="py-1 text-center text-[13px] text-gray-400">
                   No recorded hours this month
                 </p>
               ) : (
-                pay.days.map((d) => (
+                days.map((d) => (
                   <div key={d.date} className="flex items-center gap-2 py-0.5 text-sm">
                     <span className="flex-1 text-gray-600">
                       {format(parseISO(d.date), "EEE M/d")}
@@ -667,20 +671,20 @@ const TiWork = () => {
             </div>
             <div className="mt-1 flex items-center justify-between px-1 text-[13px] text-gray-400">
               <span>This month's work (gross)</span>
-              <span className="font-semibold">${pay.monthGross.toFixed(2)}</span>
+              <span className="font-semibold">${(pay.monthGross ?? 0).toFixed(2)}</span>
             </div>
             <div className="flex items-center justify-between px-1 text-[13px] text-gray-400">
               <span>{pay.year} so far</span>
-              <span className="font-semibold">${pay.earned.toFixed(2)}</span>
+              <span className="font-semibold">${(pay.earned ?? 0).toFixed(2)}</span>
             </div>
 
-            {(pay.payments.length > 0 || pay.openingPaid > 0.005) && (
+            {(payments.length > 0 || opening > 0.005) && (
               <>
                 <p className="mb-1 mt-3 text-[12px] font-semibold uppercase tracking-wide text-gray-400">
                   Payments
                 </p>
                 <div className="max-h-40 overflow-y-auto rounded-lg bg-gray-50 p-2">
-                  {pay.payments.map((pmt) => (
+                  {payments.map((pmt) => (
                     <div key={pmt.id} className="flex items-center gap-2 py-0.5 text-sm">
                       <span className="flex-1 text-gray-600">
                         {format(parseISO(pmt.paidOn), "EEE M/d")}
@@ -696,12 +700,12 @@ const TiWork = () => {
                   {/* Paid before itemised records began. Shown rather than
                       dropped: without it the payments listed add up to less than
                       what was really paid, and the balance looks wrong. */}
-                  {pay.openingPaid > 0.005 && (
+                  {opening > 0.005 && (
                     <div className="flex items-center gap-2 py-0.5 text-sm">
                       <span className="flex-1 text-gray-500">earlier</span>
                       <span className="text-xs text-gray-400">not itemised</span>
                       <span className="w-20 text-right font-semibold text-gray-500">
-                        ${pay.openingPaid.toFixed(2)}
+                        ${opening.toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -714,7 +718,8 @@ const TiWork = () => {
               figure above, already net of everything paid.
             </p>
           </div>
-        )}
+          );
+        })()}
 
         {/* Office staff only. A cleaner's hours attach to a day the business
             scheduled, in the list above — a free date box would let a cleaning

@@ -321,23 +321,39 @@ router.post("/pay-summary", async (req: Request, res: any) => {
       .reduce((sum: number, p: any) => sum + (p.amount ?? 0), 0);
 
     if (who.kind === "staff") {
-      // Office staff earn from approved entries, each already carrying the rate
-      // frozen when it was approved.
-      const entries = await WorkEntry.find({ staff: who.doc._id, status: "approved" });
-      const earnedAllTime = entries.reduce(
-        (sum: number, e: any) => sum + e.hours * (e.approvedRate || 0),
-        0,
+      // Same shape as a cleaner's, or the screen that renders it breaks on the
+      // fields that are missing — which is exactly what happened.
+      const entries = await WorkEntry.find({ staff: who.doc._id, status: "approved" }).select(
+        "date hours approvedRate",
       );
-      const ofYear = entries.filter((e: any) => String(e.date).startsWith(year));
+      const pay = computeCleanerPay(
+        who.doc,
+        (entries as any[]).map((e) => ({
+          date: e.date,
+          hours: e.hours,
+          earned: e.hours * (e.approvedRate || 0),
+        })),
+      );
+      const month = new Date().toISOString().slice(0, 7);
+      const monthDays = pay.days.filter((d) => d.date.startsWith(month));
       return res.status(200).json({
-        owed: Math.max(0, earnedAllTime - (who.doc.paidAmount ?? 0)),
         year,
-        hours: ofYear.reduce((sum: number, e: any) => sum + e.hours, 0),
-        earned: ofYear.reduce(
-          (sum: number, e: any) => sum + e.hours * (e.approvedRate || 0),
-          0,
-        ),
-        paid: paidThisYear,
+        owed: Math.max(0, pay.balance),
+        unpaidHours: pay.unpaidHours,
+        unpaidSince: pay.unpaidSince,
+        monthLabel: month,
+        days: monthDays,
+        monthGross: monthDays.reduce((sum, d) => sum + d.earned, 0),
+        paid: pay.paid,
+        openingPaid: pay.openingPaid,
+        payments: pay.payments,
+        hours: pay.days
+          .filter((d) => d.date.startsWith(year))
+          .reduce((sum, d) => sum + d.hours, 0),
+        earned: pay.days
+          .filter((d) => d.date.startsWith(year))
+          .reduce((sum, d) => sum + d.earned, 0),
+        paidThisYear,
       });
     }
 
