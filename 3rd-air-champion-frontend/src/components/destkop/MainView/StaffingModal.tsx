@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { format, parseISO, startOfToday } from "date-fns";
 import CleanerAvatar from "../../shared/CleanerAvatar";
 import { GUEST_AVATAR_PRESETS } from "../../../util/guestAvatars";
+import { formatHrMin } from "../../../util/hoursFormat";
 import {
   CleanerType,
   fetchCleaners,
@@ -612,7 +613,7 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
                           {w.roomName}
                         </span>
                       )}
-                      <span className="text-sm font-semibold text-gray-700">{w.hours}h</span>
+                      <span className="text-sm font-semibold text-gray-700">{formatHrMin(w.hours)}</span>
                       <span
                         className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-bold ${
                           w.status === "approved"
