@@ -413,7 +413,7 @@ const TiWork = () => {
                 three tabs a sliver of a phone screen to fit in, so they either
                 truncated or scrolled — and the title has nothing to gain from
                 the space it was taking from them. */}
-            <p className="mb-1.5 text-sm font-bold text-gray-800">Your cleanings</p>
+            <p className="mb-1.5 text-lg font-bold text-gray-800">Your cleanings</p>
             <div className="mb-2">
               <div className="flex gap-1 overflow-x-auto rounded-lg bg-gray-100 p-0.5">
                 {(["tolog", "done", "upcoming"] as const).map((k) => {
@@ -486,7 +486,7 @@ const TiWork = () => {
                       }
                     >
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-sm font-semibold text-gray-800">
+                        <span className="text-base font-semibold text-gray-800">
                           {fmtDay(sh.date)}
                         </span>
                         {/* Every room in that visit. The hours are for the trip,
@@ -503,7 +503,7 @@ const TiWork = () => {
                       <div className="flex flex-wrap items-center gap-2">
                         {claim ? (
                           <span
-                            className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${STATUS_STYLE[claim.status]}`}
+                            className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${STATUS_STYLE[claim.status]}`}
                           >
                             {formatHrMin(claim.hours)} · {STATUS_LABEL[claim.status]}
                           </span>
@@ -511,11 +511,11 @@ const TiWork = () => {
                           /* Already entered by Anh-Tuan in TiMag. Shown, not
                              editable: two people typing the same day is how the
                              two screens end up disagreeing. */
-                          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
+                          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
                             {formatHrMin(sh.recordedHours)} · recorded
                           </span>
                         ) : upcoming ? (
-                          <span className="text-xs italic text-gray-400">planned</span>
+                          <span className="text-sm italic text-gray-400">planned</span>
                         ) : (
                           <>
                             {/* Hours and minutes, never a decimal. Nobody
