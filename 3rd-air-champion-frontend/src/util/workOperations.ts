@@ -105,7 +105,7 @@ export const fetchMyPay = async (creds: WorkCreds): Promise<PaySummary> => {
 
 export const addMyEntry = async (
   creds: WorkCreds,
-  entry: { date: string; hours: number; report: string },
+  entry: { date: string; hours: number; report: string; rooms?: string[] },
 ): Promise<WorkEntryType> => {
   try {
     const res = await axios.post(`${BACKEND_ENDPOINT}/work/entry`, { ...creds, ...entry });

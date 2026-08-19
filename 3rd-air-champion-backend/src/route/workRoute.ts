@@ -63,6 +63,7 @@ const serializeEntry = (e: any) => ({
   approvedRate: e.approvedRate ?? 0,
   approvedOn: e.approvedOn ?? "",
   hostNote: e.hostNote ?? "",
+  rooms: e.rooms ?? [],
 });
 
 // Resolve a caller from credentials. Returns null rather than throwing so every
@@ -128,7 +129,7 @@ router.post("/entries", async (req: Request, res: any) => {
 });
 
 router.post("/entry", async (req: Request, res: any) => {
-  const { identifier, code, date, hours, report } = req.body;
+  const { identifier, code, date, hours, report, rooms } = req.body;
   if (!date || hours == null)
     return res.status(400).json({ error: "date and hours are required" });
   try {
@@ -137,27 +138,18 @@ router.post("/entry", async (req: Request, res: any) => {
     if (who.kind === "staff" && who.doc.hiredOn && date < who.doc.hiredOn)
       return res.status(400).json({ error: "That day is before your start date." });
 
-    // A cleaner claims a DAY, not a room — they clean several rooms in one visit
-    // and are paid for the visit. The day must be one they were actually given,
-    // checked server-side: the date arrives from the browser, and an unassigned
-    // one would be hours nobody scheduled.
-    if (who.kind === "cleaner") {
-      const mine = await CleaningAssignment.countDocuments({
-        cleaner: who.doc._id,
-        date,
-      });
-      if (mine === 0)
-        return res.status(400).json({
-          error: "You weren't scheduled that day — ask Anh-Tuan to add it first.",
-        });
-    }
-
+    // A cleaner claims a DAY, not a room — several rooms in one visit, paid for
+    // the visit. The day need NOT be one the planner drafted: a draft is a guess
+    // about the future, and this is a statement about the past. Which rooms is
+    // only asked for when nothing was scheduled, because otherwise the
+    // assignments already say.
     const entry = await WorkEntry.create({
       host: who.doc.host,
       ...(who.kind === "staff" ? { staff: who.doc._id } : { cleaner: who.doc._id }),
       date,
       hours,
       report: report ?? "",
+      ...(who.kind === "cleaner" && Array.isArray(rooms) ? { rooms } : {}),
     });
     res.status(200).json(serializeEntry(entry));
   } catch (error: any) {
@@ -232,10 +224,15 @@ router.post("/schedule", async (req: Request, res: any) => {
       .populate("room", "name color")
       .sort({ date: 1 });
 
-    // Grouped into DAYS, which is the unit a cleaner is paid in. The Clean panel
-    // records one total per cleaner-day and spreads it across that day's rooms
-    // (whole total on the first, 0 on the rest), so a per-room figure here would
-    // be a number the host never entered.
+    // Grouped into DAYS, the unit a cleaner is paid in. The Clean panel records
+    // one total per cleaner-day and spreads it across that day's rooms (whole
+    // total on the first, 0 on the rest), so a per-room figure here would be a
+    // number the host never entered.
+    //
+    // For PAST days only those with hours survive the filter below. An
+    // assignment is the planner's guess about a morning; hours are the record
+    // that someone turned up. Henry was drafted onto the Cozy room for a day he
+    // never came, and showing the draft told him he had cleaned it.
     const byDate = new Map<string, any>();
     for (const a of assignments as any[]) {
       const g = byDate.get(a.date) ?? { date: a.date, rooms: [], recordedHours: 0, hasHours: false };
@@ -253,8 +250,11 @@ router.post("/schedule", async (req: Request, res: any) => {
     });
     const byDay = new Map(claims.map((c: any) => [c.date, c]));
 
+    const todayKey = new Date().toISOString().slice(0, 10);
     res.status(200).json(
-      [...byDate.values()].map((g: any) => {
+      [...byDate.values()]
+        .filter((g: any) => g.date > todayKey || g.hasHours || byDay.has(g.date))
+        .map((g: any) => {
         const claim = byDay.get(g.date);
         return {
           date: g.date,
@@ -313,9 +313,23 @@ router.post("/pay-summary", async (req: Request, res: any) => {
 
     let hours = 0;
     let earned = 0;
+    const datesFromAssignments = new Set<string>();
     for (const a of assigns as any[]) {
       hours += a.hours;
       earned += a.hours * rateOnDate(who.doc, a.date);
+      datesFromAssignments.add(a.date);
+    }
+    // Approved days the planner never drafted. Their hours live on the entry
+    // because there was no assignment to write them to, and leaving them out
+    // would tell a cleaner an approved visit earned nothing.
+    const orphans = await WorkEntry.find({
+      cleaner: who.doc._id,
+      status: "approved",
+    }).select("date hours");
+    for (const e of orphans as any[]) {
+      if (datesFromAssignments.has(e.date)) continue;
+      hours += e.hours;
+      earned += e.hours * rateOnDate(who.doc, e.date);
     }
     // Work done before assignment tracking began, priced at its own month's rate.
     const baseHrs = who.doc.baselineHours ?? 0;

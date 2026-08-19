@@ -21,6 +21,11 @@ const workEntrySchema = new mongoose.Schema(
     hours: { type: Number, required: true },
     // The brief: what they actually did. Free text, deliberately short-form.
     report: { type: String, default: "" },
+    // Rooms a cleaner says they did. Only used when no assignment exists for the
+    // day — the planner never drafted it, or the host never got to it — so the
+    // work would otherwise have no record of WHAT was cleaned. When assignments
+    // do exist they are the authority and this stays empty.
+    rooms: { type: [String], default: [] },
     // submitted → the staff member's claim, awaiting the host
     // approved  → counts toward pay
     // rejected  → seen and declined; kept, not deleted, so the person can see

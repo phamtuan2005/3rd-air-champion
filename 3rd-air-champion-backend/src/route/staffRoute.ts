@@ -202,7 +202,9 @@ router.get("/hours", async (req: Request, res: any) => {
         staffId: String(e.cleaner?._id ?? e.cleaner ?? e.staff?._id ?? e.staff ?? ""),
         staffName: e.cleaner?.name ?? e.staff?.name ?? "",
         staffTitle: e.cleaner ? "Cleaner" : (e.staff?.title ?? ""),
-        roomName: "",
+        // Rooms the cleaner named for a day nothing was scheduled; empty when
+        // assignments already say which rooms the visit covered.
+        roomName: (e.rooms ?? []).join(", "),
         date: e.date,
         hours: e.hours,
         report: e.report ?? "",

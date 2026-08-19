@@ -87,13 +87,19 @@ const TiWork = () => {
   // Two different questions, two orders. "What have I done and did it go in"
   // reads backwards from today; "what am I doing next" reads forwards. One list
   // in one order answers whichever question it was not sorted for.
-  const [shiftTab, setShiftTab] = useState<"tolog" | "done" | "upcoming">("tolog");
+  const [shiftTab, setShiftTab] = useState<"done" | "upcoming">("done");
   const [pay, setPay] = useState<PaySummary | null>(null);
+  // How far back the history reaches. Not all time by default: someone two years
+  // in would load hundreds of rows to check last week. Not three weeks either —
+  // this is the tab people check their pay against, and a pay cycle is longer
+  // than that. Eight weeks covers a couple of cycles, and "Show earlier" widens
+  // it a season at a time for anyone reconciling further back.
+  const [daysBack, setDaysBack] = useState(56);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const [form, setForm] = useState({ identifier: "", code: "" });
-  const [draft, setDraft] = useState({ date: todayKey, h: "", m: "", report: "" });
+  const [draft, setDraft] = useState({ date: todayKey, h: "", m: "", report: "", rooms: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
   // True when a code that USED to work has just been rejected — almost always
   // because the host regenerated it. Worth distinguishing: to someone who has
@@ -152,15 +158,22 @@ const TiWork = () => {
     setForm({ identifier: "", code: "" });
   };
 
-  // Three weeks back, two ahead: far enough to catch up on last week and see
-  // what is coming, without a year of history to scroll past.
-  const loadSchedule = (c: WorkCreds) =>
+  // Two weeks ahead is all the plan worth showing; the past reaches back as far
+  // as daysBack, which the guest can widen.
+  const loadSchedule = (c: WorkCreds, back: number = daysBack) =>
     fetchMySchedule(c, {
-      from: format(addDays(startOfToday(), -21), "yyyy-MM-dd"),
+      from: format(addDays(startOfToday(), -back), "yyyy-MM-dd"),
       to: format(addDays(startOfToday(), 14), "yyyy-MM-dd"),
     })
       .then(setShifts)
       .catch(() => {});
+
+  const showEarlier = () => {
+    if (!creds) return;
+    const next = daysBack + 120;
+    setDaysBack(next);
+    loadSchedule(creds, next);
+  };
 
   const reload = (c: WorkCreds) =>
     Promise.all([
@@ -196,10 +209,20 @@ const TiWork = () => {
     setError("");
     const action = editingId
       ? editMyEntry(creds, { id: editingId, date: draft.date, hours, report: draft.report })
-      : addMyEntry(creds, { date: draft.date, hours, report: draft.report });
+      : addMyEntry(creds, {
+          date: draft.date,
+          hours,
+          report: draft.report,
+          // Only meaningful for a cleaner logging a day nothing was scheduled
+          // for; when assignments exist they already say which rooms.
+          rooms: draft.rooms
+            .split(",")
+            .map((r) => r.trim())
+            .filter(Boolean),
+        });
     action
       .then(() => {
-        setDraft({ date: todayKey, h: "", m: "", report: "" });
+        setDraft({ date: todayKey, h: "", m: "", report: "", rooms: "" });
         setEditingId(null);
         return reload(creds);
       })
@@ -218,23 +241,12 @@ const TiWork = () => {
   // claimed by the cleaner. A past assignment with neither is a plan that may
   // never have taken place: Henry was scheduled for the Cozy room on a day he
   // never came, and calling that "done" told him he had cleaned it.
-  const happened = (sh: WorkShift) => sh.recordedHours != null || sh.claim != null;
-
+  // The past is real work only — the server sends back nothing else. An
+  // assignment is the planner's guess about a morning; hours are the record that
+  // someone turned up, so a day with neither recorded nor claimed hours never
+  // reaches here. The future is still the plan, which is what a plan is for.
   const shiftsDone = useMemo(
-    () =>
-      shifts
-        .filter((sh) => sh.date <= todayKey && happened(sh))
-        .sort((a, b) => b.date.localeCompare(a.date)),
-    [shifts, todayKey],
-  );
-  // Scheduled, the day has gone, and nothing has been logged. Either it happened
-  // and the hours are owed, or it did not — only the cleaner knows which, which
-  // is exactly why this is a list to act on rather than a claim about the past.
-  const shiftsToLog = useMemo(
-    () =>
-      shifts
-        .filter((sh) => sh.date <= todayKey && !happened(sh))
-        .sort((a, b) => b.date.localeCompare(a.date)),
+    () => shifts.filter((sh) => sh.date <= todayKey).sort((a, b) => b.date.localeCompare(a.date)),
     [shifts, todayKey],
   );
   const shiftsUpcoming = useMemo(
@@ -242,8 +254,8 @@ const TiWork = () => {
     [shifts, todayKey],
   );
 
-  const shiftsFor = (tab: "tolog" | "done" | "upcoming") =>
-    tab === "done" ? shiftsDone : tab === "upcoming" ? shiftsUpcoming : shiftsToLog;
+  const shiftsFor = (tab: "done" | "upcoming") =>
+    tab === "done" ? shiftsDone : shiftsUpcoming;
 
   // This month, split by what has actually been settled. "Waiting" is deliberately
   // shown apart from "approved": telling someone they have earned money that has
@@ -378,7 +390,7 @@ const TiWork = () => {
             <div className="mb-2 flex items-center gap-2">
               <p className="text-sm font-bold text-gray-800">Your cleanings</p>
               <div className="ml-auto flex gap-1 overflow-x-auto rounded-lg bg-gray-100 p-0.5">
-                {(["tolog", "done", "upcoming"] as const).map((k) => {
+                {(["done", "upcoming"] as const).map((k) => {
                   const n = shiftsFor(k).length;
                   return (
                     <button
@@ -389,15 +401,9 @@ const TiWork = () => {
                         shiftTab === k ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
                       }`}
                     >
-                      {k === "tolog" ? "To log" : k === "done" ? "Done" : "Upcoming"}
+                      {k === "done" ? "Done" : "Upcoming"}
                       {n > 0 && (
-                        <span
-                          className={`rounded-full px-1.5 text-[11px] font-bold ${
-                            k === "tolog"
-                              ? "bg-amber-200 text-amber-800"
-                              : "bg-gray-200 text-gray-600"
-                          }`}
-                        >
+                        <span className="rounded-full bg-gray-200 px-1.5 text-[11px] font-bold text-gray-600">
                           {n}
                         </span>
                       )}
@@ -408,11 +414,9 @@ const TiWork = () => {
             </div>
             {shiftsFor(shiftTab).length === 0 ? (
               <p className="py-3 text-center text-sm text-gray-400">
-                {shiftTab === "tolog"
-                  ? "Nothing waiting — every visit has its hours in."
-                  : shiftTab === "done"
-                    ? "No cleanings recorded in the last few weeks."
-                    : "Nothing scheduled yet — Anh-Tuan will add them."}
+                {shiftTab === "done"
+                  ? "No cleanings recorded in the last few weeks."
+                  : "Nothing scheduled yet — Anh-Tuan will add them."}
               </p>
             ) : (
               <div className="flex flex-col gap-2">
@@ -508,11 +512,6 @@ const TiWork = () => {
                             </button>
                           </>
                         )}
-                        {shiftTab === "tolog" && (
-                          <span className="text-xs text-gray-400">
-                            If you didn't work this day, leave it — Anh-Tuan will clear it.
-                          </span>
-                        )}
                         {claim?.hostNote && (
                           <span className="w-full text-xs text-gray-500">
                             Note from Anh-Tuan: {claim.hostNote}
@@ -523,6 +522,15 @@ const TiWork = () => {
                   );
                 })}
               </div>
+            )}
+            {shiftTab === "done" && shiftsDone.length > 0 && (
+              <button
+                type="button"
+                onClick={showEarlier}
+                className="mt-2 w-full rounded-xl border border-dashed border-gray-300 py-2 text-xs font-semibold text-gray-500 hover:bg-gray-50"
+              >
+                Show earlier — currently the last {Math.round(daysBack / 7)} weeks
+              </button>
             )}
           </div>
         )}
@@ -566,12 +574,13 @@ const TiWork = () => {
           </div>
         )}
 
-        {/* Add / edit — office staff log a day; a cleaner's hours belong to a
-            turnover above, so this form would be a second, conflicting path. */}
-        {me.kind === "staff" && (
+        {/* Log a day. For a cleaner this is how a visit nobody scheduled gets
+            recorded — the planner's draft is not proof of work, so the only way
+            an unplanned morning becomes real is if the person who did it says
+            so. */}
         <div className="rounded-2xl border border-gray-200 bg-white p-3">
           <p className="mb-2 text-sm font-bold text-gray-800">
-            {editingId ? "Edit this day" : "Log a day"}
+            {editingId ? "Edit this day" : me.kind === "cleaner" ? "Log a visit" : "Log a day"}
           </p>
           <div className="flex flex-wrap items-end gap-2">
             <label className="flex flex-col gap-1">
@@ -615,9 +624,21 @@ const TiWork = () => {
               </div>
             </label>
           </div>
+          {me.kind === "cleaner" && !editingId && (
+            <input
+              placeholder="Which rooms? e.g. Queen, Cozy"
+              value={draft.rooms}
+              onChange={(e) => setDraft((d) => ({ ...d, rooms: e.target.value }))}
+              className="mt-2 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-gray-400 focus:outline-none"
+            />
+          )}
           <textarea
             rows={3}
-            placeholder="What did you work on? A couple of lines is plenty."
+            placeholder={
+              me.kind === "cleaner"
+                ? "Anything worth mentioning? Optional."
+                : "What did you work on? A couple of lines is plenty."
+            }
             value={draft.report}
             onChange={(e) => setDraft((d) => ({ ...d, report: e.target.value }))}
             className="mt-2 w-full resize-y rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-gray-400 focus:outline-none"
@@ -629,7 +650,7 @@ const TiWork = () => {
                 type="button"
                 onClick={() => {
                   setEditingId(null);
-                  setDraft({ date: todayKey, h: "", m: "", report: "" });
+                  setDraft({ date: todayKey, h: "", m: "", report: "", rooms: "" });
                 }}
                 className="rounded-xl px-3 py-2 text-sm font-semibold text-gray-500"
               >
@@ -645,7 +666,6 @@ const TiWork = () => {
             </button>
           </div>
         </div>
-        )}
 
         {/* History */}
         <div className="flex flex-col gap-2 pb-6">
@@ -692,7 +712,7 @@ const TiWork = () => {
                       onClick={() => {
                         setEditingId(e.id);
                         const hm = decimalToHm(e.hours);
-                        setDraft({ date: e.date, h: hm.h, m: hm.m, report: e.report });
+                        setDraft({ date: e.date, h: hm.h, m: hm.m, report: e.report, rooms: "" });
                         window.scrollTo({ top: 0, behavior: "smooth" });
                       }}
                       className="text-xs font-semibold text-gray-500 hover:text-gray-700"
