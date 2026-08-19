@@ -252,12 +252,15 @@ const TiWork = () => {
   // cleaner can put hours against — a claim has to name a day the business
   // scheduled, so there is no way to invent one. Leaving one alone is how you
   // say it never happened.
+  // Two weeks, then it is dropped. An unlogged day is usually a plan that came
+  // to nothing; keeping it forever means every cleaner accumulates phantoms.
+  const logCutoff = format(addDays(startOfToday(), -14), "yyyy-MM-dd");
   const shiftsToLog = useMemo(
     () =>
       shifts
-        .filter((sh) => sh.date <= todayKey && !happened(sh))
+        .filter((sh) => sh.date <= todayKey && sh.date >= logCutoff && !happened(sh))
         .sort((a, b) => b.date.localeCompare(a.date)),
-    [shifts, todayKey],
+    [shifts, todayKey, logCutoff],
   );
   const shiftsUpcoming = useMemo(
     () => shifts.filter((sh) => sh.date > todayKey).sort((a, b) => a.date.localeCompare(b.date)),

@@ -739,6 +739,44 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
       .map((a) => `${a.cleaner!.id}|${a.date}`),
   );
 
+  // Drop assignments the plan has outlived.
+  //
+  // Auto-plan writes a forecast as a real assignment. When the forecast turns
+  // out wrong — the guest never checked out, so no turnover was needed — the row
+  // is left behind with no hours, and every screen has to remember to filter it
+  // out. TiMag did; TiWork did not, and told Henry he had cleaned a room on a
+  // morning nobody cleaned anything.
+  //
+  // Filtering it in five places is how it leaked in the first place. Deleting it
+  // once removes it everywhere, including from anyone reading the database
+  // directly. Only ever removes an unworked past morning that is provably
+  // needless — anything with hours is real work and is never touched.
+  const reapedRef = useRef(false);
+  useEffect(() => {
+    if (reapedRef.current || assignments.length === 0 || monthMap.size === 0) return;
+    reapedRef.current = true;
+    const stale = assignments.filter(
+      (a) =>
+        a.date <= todayKey &&
+        a.hours == null &&
+        a.room &&
+        a.cleaner &&
+        isStaleCleaning(a.room.id, a.date),
+    );
+    if (stale.length === 0) return;
+    Promise.all(
+      stale.map((a) =>
+        unassignCleaner({ host: hostId, date: a.date, room: a.room!.id }, token).catch(
+          () => {},
+        ),
+      ),
+    ).then(() =>
+      setAssignments((prev) =>
+        prev.filter((a) => !stale.some((x) => x.date === a.date && x.room?.id === a.room?.id)),
+      ),
+    );
+  }, [assignments, monthMap, todayKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const needHours = assignments.filter(
     (a) =>
       a.date <= todayKey &&
