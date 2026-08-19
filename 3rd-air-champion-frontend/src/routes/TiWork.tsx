@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { addDays, format, parseISO, startOfToday } from "date-fns";
+import CleanerAvatar from "../components/shared/CleanerAvatar";
 import RoomBadge from "../components/shared/RoomBadge";
 import { decimalToHm, formatHrMin, hmToDecimal } from "../util/hoursFormat";
 import {
@@ -342,7 +343,15 @@ const TiWork = () => {
   return (
     <div className="tibook-type flex min-h-[100dvh] flex-col bg-gray-50">
       <header className="flex shrink-0 items-center gap-2.5 border-b border-gray-200 bg-white px-4 py-3">
-        <img src="/TiMagLogo.svg" alt="TT House" className="h-9 w-9 shrink-0" />
+        {/* Their own face, the one the host picked for them in TiMag — the same
+            avatar on both screens, so the person and the record are visibly the
+            same person. */}
+        <CleanerAvatar
+          name={me.name}
+          character={me.character}
+          photo={me.photo}
+          sizeClass="h-10 w-10"
+        />
         <div className="min-w-0 flex-1">
           <p className="truncate text-base font-bold text-gray-900">Hi {me.name.split(" ")[0]}</p>
           <p className="truncate text-xs text-gray-400">
@@ -541,63 +550,109 @@ const TiWork = () => {
           </div>
         )}
 
-        {/* Pay — the question anyone doing this work actually has, answered with
-            the same arithmetic the host's Pay tab uses, so the two never quote
-            different numbers in the same conversation. */}
-        {(pay || me.paidAmount > 0 || me.payments.length > 0) && (
+        {/* Pay — the host's Pay tab, from the worker's side.
+            Deliberately the same layout and the same words: the two of them read
+            these numbers to each other, and a figure that looks different on the
+            two screens turns a two-minute conversation into an argument. */}
+        {pay && (
           <div className="rounded-2xl border border-gray-200 bg-white p-3">
-            {pay && (
-              <>
-                {/* The two halves of a payslip. What is coming now is the
-                    question someone opens this to answer; the year to date is
-                    the one they need at tax time. A lifetime total is neither —
-                    it answers no question the worker has, and reads as the
-                    business tallying what it has spent on them. */}
-                <div className="mb-2 rounded-xl bg-amber-50 px-3 py-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-700/70">
-                    Still to come
-                  </p>
-                  <p className="text-2xl font-bold leading-none text-amber-700">
-                    {money(Math.round(pay.owed * 100) / 100)}
-                  </p>
-                </div>
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold text-emerald-700">Balance owed</span>
+                <span className="text-2xl font-bold text-emerald-700">
+                  ${pay.owed.toFixed(2)}
+                </span>
+              </div>
+              {/* What the money BUYS, not a lifetime subtraction — the same
+                  sentence the host reads. */}
+              <p className="mt-0.5 text-[13px] text-emerald-600">
+                {pay.owed > 0.5
+                  ? `${formatHrMin(pay.unpaidHours)} worked${
+                      pay.unpaidSince
+                        ? ` since ${format(parseISO(pay.unpaidSince), "MMM d")}`
+                        : ""
+                    }`
+                  : "All paid up"}
+              </p>
+            </div>
 
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                  {pay.year} to date
+            <p className="mb-1 mt-3 text-[12px] font-semibold uppercase tracking-wide text-gray-400">
+              {(() => {
+                try {
+                  return format(parseISO(pay.monthLabel + "-01"), "MMMM");
+                } catch {
+                  return pay.monthLabel;
+                }
+              })()}{" "}
+              — hours by date
+            </p>
+            <div className="max-h-48 overflow-y-auto rounded-lg bg-gray-50 p-2">
+              {pay.days.length === 0 ? (
+                <p className="py-1 text-center text-[13px] text-gray-400">
+                  No recorded hours this month
                 </p>
-                <div className="mb-2 mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                  <span className="text-sm text-gray-500">
-                    Earned{" "}
-                    <span className="text-lg font-bold text-gray-900">
-                      {money(Math.round(pay.earned * 100) / 100)}
+              ) : (
+                pay.days.map((d) => (
+                  <div key={d.date} className="flex items-center gap-2 py-0.5 text-sm">
+                    <span className="flex-1 text-gray-600">
+                      {format(parseISO(d.date), "EEE M/d")}
                     </span>
-                  </span>
-                  <span className="text-sm text-gray-500">{formatHrMin(pay.hours)} worked</span>
-                  <span className="text-sm text-gray-500">
-                    Paid{" "}
-                    <span className="font-bold text-emerald-600">
-                      {money(Math.round(pay.paid * 100) / 100)}
+                    <span className="text-gray-500">{formatHrMin(d.hours)}</span>
+                    <span className="w-16 text-right font-semibold text-gray-800">
+                      ${d.earned.toFixed(2)}
                     </span>
-                  </span>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="mt-1 flex items-center justify-between px-1 text-[13px] text-gray-400">
+              <span>This month's work (gross)</span>
+              <span className="font-semibold">${pay.monthGross.toFixed(2)}</span>
+            </div>
+            <div className="flex items-center justify-between px-1 text-[13px] text-gray-400">
+              <span>{pay.year} so far</span>
+              <span className="font-semibold">${pay.earned.toFixed(2)}</span>
+            </div>
+
+            {(pay.payments.length > 0 || pay.openingPaid > 0.005) && (
+              <>
+                <p className="mb-1 mt-3 text-[12px] font-semibold uppercase tracking-wide text-gray-400">
+                  Payments
+                </p>
+                <div className="max-h-40 overflow-y-auto rounded-lg bg-gray-50 p-2">
+                  {pay.payments.map((pmt) => (
+                    <div key={pmt.id} className="flex items-center gap-2 py-0.5 text-sm">
+                      <span className="flex-1 text-gray-600">
+                        {format(parseISO(pmt.paidOn), "EEE M/d")}
+                      </span>
+                      {pmt.note && (
+                        <span className="truncate text-xs text-gray-400">{pmt.note}</span>
+                      )}
+                      <span className="w-20 text-right font-semibold text-emerald-600">
+                        ${pmt.amount.toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                  {/* Paid before itemised records began. Shown rather than
+                      dropped: without it the payments listed add up to less than
+                      what was really paid, and the balance looks wrong. */}
+                  {pay.openingPaid > 0.005 && (
+                    <div className="flex items-center gap-2 py-0.5 text-sm">
+                      <span className="flex-1 text-gray-500">earlier</span>
+                      <span className="text-xs text-gray-400">not itemised</span>
+                      <span className="w-20 text-right font-semibold text-gray-500">
+                        ${pay.openingPaid.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </>
             )}
-            {me.payments.length > 0 && (
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                Recent payments
-              </p>
-            )}
-            {me.payments.length > 0 && (
-              <div className="mt-1.5 flex flex-col gap-1">
-                {me.payments.slice(0, 6).map((p, i) => (
-                  <div key={i} className="flex items-center gap-2 text-sm">
-                    <span className="text-gray-500">{fmtDay(p.paidOn)}</span>
-                    <span className="font-semibold text-gray-800">{money(p.amount)}</span>
-                    {p.note && <span className="truncate text-xs text-gray-400">{p.note}</span>}
-                  </div>
-                ))}
-              </div>
-            )}
+
+            <p className="mt-2 text-[11px] leading-relaxed text-gray-400">
+              A record of your work — not the amount due. What's coming is the Balance owed
+              above, already net of everything paid.
+            </p>
           </div>
         )}
 

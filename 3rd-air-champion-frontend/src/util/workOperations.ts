@@ -14,6 +14,8 @@ export interface WorkMe {
   hiredOn: string;
   payType: "hourly" | "biweekly";
   payRate: number;
+  character: string; // the illustrated avatar the host assigned
+  photo: string;
   paidAmount: number;
   payments: { amount: number; paidOn: string; note: string }[];
   host: string;
@@ -87,14 +89,21 @@ export const fetchMySchedule = async (
   }
 };
 
-// Figures for the CURRENT YEAR, except `owed` — a balance is cumulative by
-// nature, being whatever has not been settled yet.
+// The same shape the host's Pay tab works from, for one person.
 export interface PaySummary {
   year: string;
-  hours: number;
-  earned: number;
-  paid: number;
   owed: number;
+  unpaidHours: number;
+  unpaidSince: string | null;
+  monthLabel: string; // yyyy-MM
+  days: { date: string; hours: number; earned: number }[];
+  monthGross: number;
+  paid: number; // all-time, the basis of the balance
+  openingPaid: number; // paid before itemised records began
+  payments: { id: string; amount: number; paidOn: string; note: string }[];
+  hours: number; // year to date
+  earned: number; // year to date
+  paidThisYear: number;
 }
 
 export const fetchMyPay = async (creds: WorkCreds): Promise<PaySummary> => {

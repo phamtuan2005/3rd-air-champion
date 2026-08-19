@@ -4,6 +4,7 @@ import Cleaner from "../model/cleanerSchema";
 import CleaningAssignment from "../model/cleaningAssignmentSchema";
 import WorkEntry from "../model/workEntrySchema";
 import { findAssignments } from "../util/assignmentQuery";
+import { computeCleanerPay } from "../util/cleanerPay";
 
 // TiWork — the staff-facing app. Mounted PUBLIC, before the JWT middleware:
 // staff have no TiMag login, the same way guests have none for TiBook.
@@ -48,6 +49,11 @@ const serializeWorker = (w: any, kind: "staff" | "cleaner") => ({
   payType: kind === "cleaner" ? "hourly" : (w.payType ?? "hourly"),
   // The rate is theirs to see — it is what they are owed per hour.
   payRate: rateOnDate(w, new Date().toISOString().slice(0, 10)),
+  // The face the host picked for them in TiMag. `character` is the short note
+  // the illustration is generated from; `photo` is an explicit image where one
+  // was set. Sending both means TiWork draws the same person the host sees.
+  character: w.character ?? "",
+  photo: w.photo ?? "",
   paidAmount: w.paidAmount ?? 0,
   payments: (w.payments ?? [])
     .map((p: any) => ({ amount: p.amount, paidOn: p.paidOn, note: p.note ?? "" }))
@@ -341,48 +347,48 @@ router.post("/pay-summary", async (req: Request, res: any) => {
       hours: { $ne: null },
     }).select("date hours");
 
-    // Lifetime feeds the BALANCE; the year is what gets reported.
-    let earnedAllTime = 0;
-    let hours = 0;
-    let earned = 0;
-    const datesFromAssignments = new Set<string>();
-    const add = (dateKey: string, hrs: number) => {
-      const value = hrs * rateOnDate(who.doc, dateKey);
-      earnedAllTime += value;
-      if (String(dateKey).startsWith(year)) {
-        hours += hrs;
-        earned += value;
-      }
-    };
-    for (const a of assigns as any[]) {
-      add(a.date, a.hours);
-      datesFromAssignments.add(a.date);
-    }
-    // Approved days the planner never drafted. Their hours live on the entry
-    // because there was no assignment to write them to, and leaving them out
-    // would tell a cleaner an approved visit earned nothing.
-    const orphans = await WorkEntry.find({
-      cleaner: who.doc._id,
-      status: "approved",
-    }).select("date hours");
-    for (const e of orphans as any[]) {
-      if (datesFromAssignments.has(e.date)) continue;
-      add(e.date, e.hours);
-    }
-    // Work done before assignment tracking began, priced at its own month's rate.
-    const baseHrs = who.doc.baselineHours ?? 0;
-    if (baseHrs > 0) {
-      const baseDate = who.doc.baselineMonth
-        ? `${who.doc.baselineMonth}-01`
-        : new Date().toISOString().slice(0, 10);
-      add(baseDate, baseHrs);
-    }
+    // The very same computation the host's Pay tab runs.
+    const pay = computeCleanerPay(
+      who.doc,
+      (assigns as any[]).map((a) => ({ date: a.date, hours: a.hours })),
+    );
+
+    // Days the planner never drafted, approved through TiWork. Their hours live
+    // on the entry because there was no assignment to write them to.
+    const orphanDates = new Set((assigns as any[]).map((a) => a.date));
+    const orphans = (
+      await WorkEntry.find({ cleaner: who.doc._id, status: "approved" }).select("date hours")
+    ).filter((e: any) => !orphanDates.has(e.date));
+
+    const month = new Date().toISOString().slice(0, 7);
+    const monthDays = [...pay.days, ...orphans.map((e: any) => ({
+      date: e.date,
+      hours: e.hours,
+      earned: e.hours * rateOnDate(who.doc, e.date),
+    }))]
+      .filter((d) => d.date.startsWith(month))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
     res.status(200).json({
-      owed: Math.max(0, earnedAllTime - (who.doc.paidAmount ?? 0)),
       year,
-      hours,
-      earned,
-      paid: paidThisYear,
+      owed: Math.max(0, pay.balance),
+      unpaidHours: pay.unpaidHours,
+      unpaidSince: pay.unpaidSince,
+      // The month, broken out the way the host's Pay tab breaks it out.
+      monthLabel: month,
+      days: monthDays,
+      monthGross: monthDays.reduce((sum, d) => sum + d.earned, 0),
+      paid: pay.paid,
+      openingPaid: pay.openingPaid,
+      payments: pay.payments,
+      // Year to date, for the half of a payslip that is not the balance.
+      hours: pay.days
+        .filter((d) => d.date.startsWith(year))
+        .reduce((sum, d) => sum + d.hours, 0),
+      earned: pay.days
+        .filter((d) => d.date.startsWith(year))
+        .reduce((sum, d) => sum + d.earned, 0),
+      paidThisYear,
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

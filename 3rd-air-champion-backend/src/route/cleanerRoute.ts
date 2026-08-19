@@ -2,26 +2,14 @@ import express, { Request } from "express";
 import Cleaner from "../model/cleanerSchema";
 import CleaningAssignment from "../model/cleaningAssignmentSchema";
 import { findAssignments } from "../util/assignmentQuery";
+import { computeCleanerPay, rateOn } from "../util/cleanerPay";
 import SentSchedule from "../model/sentScheduleSchema";
 
 // All routes here are mounted behind the JWT middleware in server.ts.
 const router = express.Router();
 
-// The hourly rate in effect for a cleaner ON a given date (yyyy-MM-dd). Walk the
-// scheduled changes newest-applicable wins; dates before any change use the base
-// payRate. So a cleaning is always billed at its historical rate — a raise never
-// re-prices past work.
-const rateOn = (c: any, dateStr: string): number => {
-  let rate = c.payRate ?? 0;
-  const hist = [...(c.rateHistory ?? [])].sort((a, b) =>
-    a.effectiveFrom < b.effectiveFrom ? -1 : 1,
-  );
-  for (const h of hist) {
-    if (h.effectiveFrom <= dateStr) rate = h.rate;
-    else break;
-  }
-  return rate;
-};
+// Rate resolution and the balance walk live in util/cleanerPay, shared with
+// TiWork — the worker and the host must never be quoted different figures.
 
 const serializeCleaner = (c: any) => ({
   id: c._id,
@@ -148,83 +136,30 @@ router.get("/summary", async (req: Request, res: any) => {
       hours: { $ne: null },
     }).select("cleaner date hours");
 
-    const agg = new Map<string, { hours: number; earned: number }>();
-    // Per-cleaner work, oldest first — needed to work out which days a running
-    // paidAmount has already covered (see unpaid calculation below).
-    const daysByCleaner = new Map<string, { date: string; hours: number; earned: number }[]>();
+    // Group the work per cleaner; the arithmetic itself is shared.
+    const workedBy = new Map<string, { date: string; hours: number }[]>();
     for (const a of assigns as any[]) {
       const cid = String(a.cleaner);
-      const c = cleanerById.get(cid);
-      if (!c) continue;
-      const earned = a.hours * rateOn(c, a.date);
-      const e = agg.get(cid) ?? { hours: 0, earned: 0 };
-      e.hours += a.hours;
-      e.earned += earned;
-      agg.set(cid, e);
-      const list = daysByCleaner.get(cid) ?? [];
-      list.push({ date: a.date, hours: a.hours, earned });
-      daysByCleaner.set(cid, list);
+      if (!cleanerById.has(cid)) continue;
+      const list = workedBy.get(cid) ?? [];
+      list.push({ date: a.date, hours: a.hours });
+      workedBy.set(cid, list);
     }
 
     res.status(200).json(
       cleaners.map((c: any) => {
-        const cid = String(c._id);
-        const a = agg.get(cid) ?? { hours: 0, earned: 0 };
-        const baseHrs = c.baselineHours ?? 0;
-        const baseDate = c.baselineMonth ? `${c.baselineMonth}-01` : new Date().toISOString().slice(0, 10);
-        const hours = a.hours + baseHrs;
-        const earned = a.earned + baseHrs * rateOn(c, baseDate);
-        const paid = c.paidAmount ?? 0;
-
-        // What the host actually needs when paying someone: the work NOT yet
-        // covered by payments. paidAmount is a running total with no dates, so
-        // recover the boundary by consuming days oldest-first until payments run
-        // out — everything after that is unpaid. A payment landing mid-day
-        // pro-rates that day's hours rather than dropping or double-counting it.
-        const timeline = [
-          ...(baseHrs > 0
-            ? [{ date: baseDate, hours: baseHrs, earned: baseHrs * rateOn(c, baseDate) }]
-            : []),
-          ...(daysByCleaner.get(cid) ?? []).sort((x, y) => x.date.localeCompare(y.date)),
-        ];
-        let remainingPaid = paid;
-        let unpaidHours = 0;
-        let unpaidSince: string | null = null;
-        for (const d of timeline) {
-          if (remainingPaid >= d.earned - 1e-9) {
-            remainingPaid -= d.earned; // fully covered by earlier payments
-            continue;
-          }
-          const uncovered = d.earned - Math.max(0, remainingPaid);
-          const fraction = d.earned > 0 ? uncovered / d.earned : 1;
-          unpaidHours += d.hours * fraction;
-          if (!unpaidSince) unpaidSince = d.date;
-          remainingPaid = 0;
-        }
-
-        // Itemised payouts, newest first. Anything paid before logging existed
-        // shows as one opening figure rather than being invented as entries.
-        const payments = [...(c.payments ?? [])]
-          .map((p: any) => ({
-            id: String(p._id),
-            amount: p.amount,
-            paidOn: p.paidOn,
-            note: p.note ?? "",
-          }))
-          .sort((x, y) => (x.paidOn < y.paidOn ? 1 : -1));
-        const logged = payments.reduce((s: number, p: any) => s + p.amount, 0);
-
+        const pay = computeCleanerPay(c, workedBy.get(String(c._id)) ?? []);
         return {
           id: c._id,
           name: c.name,
-          hours,
-          earned,
-          paid,
-          balance: earned - paid,
-          unpaidHours,
-          unpaidSince,
-          payments,
-          openingPaid: Math.round((paid - logged) * 100) / 100,
+          hours: pay.hours,
+          earned: pay.earned,
+          paid: pay.paid,
+          balance: pay.balance,
+          unpaidHours: pay.unpaidHours,
+          unpaidSince: pay.unpaidSince,
+          payments: pay.payments,
+          openingPaid: pay.openingPaid,
         };
       }),
     );
