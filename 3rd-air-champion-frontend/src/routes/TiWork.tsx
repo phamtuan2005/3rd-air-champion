@@ -406,9 +406,13 @@ const TiWork = () => {
             afterwards. */}
         {view === "work" && me.kind === "cleaner" && (
           <div className="rounded-2xl border border-gray-200 bg-white p-3">
-            <div className="mb-2 flex items-center gap-2">
-              <p className="text-sm font-bold text-gray-800">Your cleanings</p>
-              <div className="ml-auto flex gap-1 overflow-x-auto rounded-lg bg-gray-100 p-0.5">
+            {/* Title on its own line, tabs on the next. Sharing one row left the
+                three tabs a sliver of a phone screen to fit in, so they either
+                truncated or scrolled — and the title has nothing to gain from
+                the space it was taking from them. */}
+            <p className="mb-1.5 text-sm font-bold text-gray-800">Your cleanings</p>
+            <div className="mb-2">
+              <div className="flex gap-1 overflow-x-auto rounded-lg bg-gray-100 p-0.5">
                 {(["tolog", "done", "upcoming"] as const).map((k) => {
                   const n = shiftsFor(k).length;
                   return (
