@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { addDays, format, parseISO, startOfToday } from "date-fns";
+import RoomBadge from "../components/shared/RoomBadge";
 import {
   WorkCreds,
   WorkEntryType,
@@ -392,14 +393,14 @@ const TiWork = () => {
                           {fmtDay(sh.date)}
                         </span>
                         {/* Every room in that visit. The hours are for the trip,
-                            not for any one room. */}
+                            not for any one room.
+
+                            RoomBadge, not a chip of our own: a room is the same
+                            colour everywhere in TiMag and TiBook, and a cleaner
+                            who reads "Queen" as yellow on the calendar should
+                            not meet a grey one here. */}
                         {sh.rooms.map((r, i) => (
-                          <span
-                            key={`${r.name}-${i}`}
-                            className="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-700"
-                          >
-                            {r.name}
-                          </span>
+                          <RoomBadge key={`${r.name}-${i}`} room={{ name: r.name, color: r.color }} />
                         ))}
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
