@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { format, parseISO, startOfToday } from "date-fns";
 import CleanerAvatar from "../../shared/CleanerAvatar";
-import { CleanerType, fetchCleaners, updateCleaner } from "../../../util/cleanerOperations";
+import {
+  CleanerType,
+  fetchCleaners,
+  rateOn as cleanerRateOn,
+  updateCleaner,
+} from "../../../util/cleanerOperations";
 import {
   HostWorkEntry,
   StaffType,
@@ -671,8 +676,13 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
                             <span className="text-gray-400"> · paid in Clean</span>
                           </p>
                         </div>
+                        {/* The rate in force TODAY, not the base one. payRate is
+                            what they started on; a raise lives in rateHistory,
+                            so showing payRate reported the old figure for
+                            everyone who has ever had one. Same resolver the
+                            Clean panel uses, so the two agree. */}
                         <p className="shrink-0 text-sm font-bold text-emerald-600">
-                          {money(c.payRate)}
+                          {money(cleanerRateOn(c, todayKey))}
                           <span className="font-normal text-gray-400">/hr</span>
                         </p>
                       </div>
