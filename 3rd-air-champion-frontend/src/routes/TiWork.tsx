@@ -366,10 +366,7 @@ const TiWork = () => {
         />
         <div className="min-w-0 flex-1">
           <p className="truncate text-base font-bold text-gray-900">Hi {me.name.split(" ")[0]}</p>
-          <p className="truncate text-xs text-gray-400">
-            {me.title || "Team"}
-            {me.payType === "hourly" && ` · ${money(me.payRate)}/hr`}
-          </p>
+          <p className="truncate text-xs text-gray-400">{me.title || "Team"}</p>
         </div>
         <button
           type="button"
@@ -631,16 +628,24 @@ const TiWork = () => {
               </p>
             </div>
 
-            <p className="mb-1 mt-3 text-[12px] font-semibold uppercase tracking-wide text-gray-400">
-              {(() => {
-                try {
-                  return format(parseISO(pay.monthLabel + "-01"), "MMMM");
-                } catch {
-                  return pay.monthLabel;
-                }
-              })()}{" "}
-              — hours by date
-            </p>
+            {/* Beside the hours it prices, not in the greeting at the top: a
+                rate only means something next to the work it is multiplied by. */}
+            <div className="mb-1 mt-3 flex items-baseline justify-between gap-2">
+              <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-400">
+                {(() => {
+                  try {
+                    return format(parseISO(pay.monthLabel + "-01"), "MMMM");
+                  } catch {
+                    return pay.monthLabel;
+                  }
+                })()}{" "}
+                — hours by date
+              </p>
+              <span className="shrink-0 text-[13px] text-gray-500">
+                <span className="font-bold text-gray-800">{money(me.payRate)}</span>
+                {me.payType === "hourly" ? "/hr" : "/2wk"}
+              </span>
+            </div>
             <div className="max-h-48 overflow-y-auto rounded-lg bg-gray-50 p-2">
               {pay.days.length === 0 ? (
                 <p className="py-1 text-center text-[13px] text-gray-400">
