@@ -556,9 +556,24 @@ const TiWork = () => {
                 )}
               </div>
             )}
+            {/* This year leads; the lifetime total stays, quietly, because it is
+                what owed is computed from and hiding it would make the balance
+                unexplainable. A number climbing toward five figures answers no
+                question anybody has — "what have I been paid lately" does. */}
             <p className="text-sm font-bold text-gray-800">
-              Paid to date{" "}
-              <span className="text-emerald-600">{money(me.paidAmount)}</span>
+              Paid in {todayKey.slice(0, 4)}{" "}
+              <span className="text-emerald-600">
+                {money(
+                  Math.round(
+                    me.payments
+                      .filter((p) => p.paidOn.startsWith(todayKey.slice(0, 4)))
+                      .reduce((sum, p) => sum + p.amount, 0) * 100,
+                  ) / 100,
+                )}
+              </span>
+              <span className="ml-2 font-normal text-gray-400">
+                · {money(me.paidAmount)} all time
+              </span>
             </p>
             {me.payments.length > 0 && (
               <div className="mt-1.5 flex flex-col gap-1">
