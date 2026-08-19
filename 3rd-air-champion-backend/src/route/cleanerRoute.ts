@@ -1,6 +1,7 @@
 import express, { Request } from "express";
 import Cleaner from "../model/cleanerSchema";
 import CleaningAssignment from "../model/cleaningAssignmentSchema";
+import { findAssignments } from "../util/assignmentQuery";
 import SentSchedule from "../model/sentScheduleSchema";
 
 // All routes here are mounted behind the JWT middleware in server.ts.
@@ -287,13 +288,11 @@ router.get("/assignments", async (req: Request, res: any) => {
   if (!hostId || !start || !end)
     return res.status(400).json({ error: "hostId, start, and end are required" });
   try {
-    const assignments = await CleaningAssignment.find({
+    const assignments = await findAssignments({
       host: hostId,
-      date: { $gte: start, $lte: end },
-    })
-      .populate("room", "name")
-      .populate("cleaner")
-      .sort({ date: 1 });
+      start: String(start),
+      end: String(end),
+    });
     res.status(200).json(assignments.map(serializeAssignment));
   } catch (error: any) {
     res.status(500).json({ error: error.message });

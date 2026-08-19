@@ -3,6 +3,7 @@ import Staff from "../model/staffSchema";
 import Cleaner from "../model/cleanerSchema";
 import CleaningAssignment from "../model/cleaningAssignmentSchema";
 import WorkEntry from "../model/workEntrySchema";
+import { findAssignments } from "../util/assignmentQuery";
 
 // TiWork — the staff-facing app. Mounted PUBLIC, before the JWT middleware:
 // staff have no TiMag login, the same way guests have none for TiBook.
@@ -144,6 +145,7 @@ router.post("/entry", async (req: Request, res: any) => {
     // Otherwise a cleaning could be invented that never appeared on any rota.
     if (who.kind === "cleaner") {
       const scheduled = await CleaningAssignment.countDocuments({
+        host: who.doc.host,
         cleaner: who.doc._id,
         date,
       });
@@ -225,13 +227,16 @@ router.post("/schedule", async (req: Request, res: any) => {
     if (!who) return res.status(401).json({ error: "Not signed in." });
     if (who.kind !== "cleaner") return res.status(200).json([]);
 
-    const filter: Record<string, unknown> = { cleaner: who.doc._id };
-    if (from || to) {
-      filter.date = { ...(from ? { $gte: from } : {}), ...(to ? { $lte: to } : {}) };
-    }
-    const assignments = await CleaningAssignment.find(filter)
-      .populate("room", "name color")
-      .sort({ date: 1 });
+    // The SAME query TiMag's calendar and Clean panel run — host-scoped and all.
+    // TiWork's own version omitted `host`, so it read across every host document
+    // in the database and told Henry he had cleaned a room the calendar had
+    // given to Cindy. One implementation now, so the two cannot disagree.
+    const assignments = await findAssignments({
+      host: who.doc.host,
+      cleaner: who.doc._id,
+      start: String(from ?? "0000-01-01"),
+      end: String(to ?? "9999-12-31"),
+    });
 
     // Grouped into DAYS, the unit a cleaner is paid in. The Clean panel records
     // one total per cleaner-day and spreads it across that day's rooms (whole
@@ -331,6 +336,7 @@ router.post("/pay-summary", async (req: Request, res: any) => {
     }
 
     const assigns = await CleaningAssignment.find({
+      host: who.doc.host,
       cleaner: who.doc._id,
       hours: { $ne: null },
     }).select("date hours");
