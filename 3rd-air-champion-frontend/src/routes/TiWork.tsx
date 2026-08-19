@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { addDays, format, parseISO, startOfToday } from "date-fns";
-import { FaRegCalendarCheck, FaRegMoneyBillAlt } from "react-icons/fa";
+import {
+  FaRegCalendarAlt,
+  FaRegCalendarCheck,
+  FaRegCheckCircle,
+  FaRegClock,
+  FaRegMoneyBillAlt,
+} from "react-icons/fa";
 import CleanerAvatar from "../components/shared/CleanerAvatar";
 import RoomBadge from "../components/shared/RoomBadge";
 import { decimalToHm, formatHrMin, hmToDecimal } from "../util/hoursFormat";
@@ -424,6 +430,15 @@ const TiWork = () => {
                         shiftTab === k ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
                       }`}
                     >
+                      {/* Waiting on you, already settled, not yet certain —
+                          the shapes carry the same three states the words do. */}
+                      {k === "tolog" ? (
+                        <FaRegClock size={12} className="shrink-0" />
+                      ) : k === "done" ? (
+                        <FaRegCheckCircle size={12} className="shrink-0" />
+                      ) : (
+                        <FaRegCalendarAlt size={12} className="shrink-0" />
+                      )}
                       {k === "tolog" ? "To log" : k === "done" ? "Done" : "Planned"}
                       {n > 0 && (
                         <span
