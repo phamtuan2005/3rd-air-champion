@@ -558,7 +558,12 @@ const TiWork = () => {
           <div className="rounded-2xl border border-gray-200 bg-white p-3">
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-semibold text-emerald-700">Balance owed</span>
+                {/* "Owed" says nothing about direction — on the host's screen
+                    it means "I owe them", and read from this side it can mean
+                    the opposite. "Earned" would collide with the two earnings
+                    figures below; what is distinct about this number is that it
+                    has not been paid yet. */}
+                <span className="text-sm font-semibold text-emerald-700">To be paid to you</span>
                 <span className="text-2xl font-bold text-emerald-700">
                   ${pay.owed.toFixed(2)}
                 </span>
@@ -650,8 +655,8 @@ const TiWork = () => {
             )}
 
             <p className="mt-2 text-[11px] leading-relaxed text-gray-400">
-              A record of your work — not the amount due. What's coming is the Balance owed
-              above, already net of everything paid.
+              A record of your work — not the amount due. What's coming to you is the
+              figure above, already net of everything paid.
             </p>
           </div>
         )}
