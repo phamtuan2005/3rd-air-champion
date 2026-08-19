@@ -380,7 +380,7 @@ const TiWork = () => {
                         shiftTab === k ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
                       }`}
                     >
-                      {k === "tolog" ? "To log" : k === "done" ? "Done" : "Upcoming"}
+                      {k === "tolog" ? "To log" : k === "done" ? "Done" : "Planned"}
                       {n > 0 && (
                         <span
                           className={`rounded-full px-1.5 text-[11px] font-bold ${
@@ -403,17 +403,31 @@ const TiWork = () => {
                   ? "Nothing waiting — every visit has its hours in."
                   : shiftTab === "done"
                     ? "No cleanings recorded in the last few weeks."
-                    : "Nothing scheduled yet — Anh-Tuan will add them."}
+                    : "No plan yet — Anh-Tuan will share one."}
               </p>
             ) : (
               <div className="flex flex-col gap-2">
+                {/* Said before the rows, not after: a cleaner who reads these as
+                    fixed will not expect the change when it comes. Cindy or
+                    Anh-Tuan rearrange the week and share it later, so this is a
+                    plan being shown, not a commitment being made. */}
+                {shiftTab === "upcoming" && (
+                  <p className="rounded-lg border border-dashed border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs leading-relaxed text-amber-800">
+                    A plan, not a promise — it can still change. Anh-Tuan or Cindy will let
+                    you know if it does.
+                  </p>
+                )}
                 {shiftsFor(shiftTab).map((sh) => {
                   const claim = sh.claim;
                   const upcoming = sh.date > todayKey;
                   return (
                     <div
                       key={sh.date}
-                      className="flex flex-col gap-1.5 border-b border-gray-100 pb-2 last:border-0 last:pb-0"
+                      className={
+                        upcoming
+                          ? "flex flex-col gap-1.5 rounded-lg border border-dashed border-gray-300 bg-gray-50/60 px-2 py-1.5"
+                          : "flex flex-col gap-1.5 border-b border-gray-100 pb-2 last:border-0 last:pb-0"
+                      }
                     >
                       <div className="flex flex-wrap items-center gap-1.5">
                         <span className="text-sm font-semibold text-gray-800">
@@ -445,7 +459,7 @@ const TiWork = () => {
                             {formatHrMin(sh.recordedHours)} · recorded
                           </span>
                         ) : upcoming ? (
-                          <span className="text-xs text-gray-400">coming up</span>
+                          <span className="text-xs italic text-gray-400">planned</span>
                         ) : (
                           <>
                             {/* Hours and minutes, never a decimal. Nobody
