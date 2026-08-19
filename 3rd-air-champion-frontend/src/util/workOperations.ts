@@ -19,12 +19,12 @@ export interface WorkMe {
   host: string;
 }
 
-// One turnover on a cleaner's rota, with whatever they have claimed for it.
+// One VISIT on a cleaner's rota — a day and the rooms done that day. Hours are
+// claimed per visit, not per room: several rooms are cleaned in one trip and the
+// business pays for the trip.
 export interface WorkShift {
-  id: string;
   date: string;
-  roomName: string;
-  roomColor: string;
+  rooms: { name: string; color: string }[];
   recordedHours: number | null;
   claim: {
     id: string;
@@ -87,9 +87,25 @@ export const fetchMySchedule = async (
   }
 };
 
+export interface PaySummary {
+  hours: number;
+  earned: number;
+  paid: number;
+  owed: number;
+}
+
+export const fetchMyPay = async (creds: WorkCreds): Promise<PaySummary> => {
+  try {
+    const res = await axios.post(`${BACKEND_ENDPOINT}/work/pay-summary`, creds);
+    return res.data;
+  } catch (err) {
+    throw unwrap(err, "Could not load your pay.");
+  }
+};
+
 export const addMyEntry = async (
   creds: WorkCreds,
-  entry: { date: string; hours: number; report: string; assignmentId?: string },
+  entry: { date: string; hours: number; report: string },
 ): Promise<WorkEntryType> => {
   try {
     const res = await axios.post(`${BACKEND_ENDPOINT}/work/entry`, { ...creds, ...entry });

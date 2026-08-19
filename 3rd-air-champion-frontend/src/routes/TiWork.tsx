@@ -3,12 +3,14 @@ import { addDays, format, parseISO, startOfToday } from "date-fns";
 import {
   WorkCreds,
   WorkEntryType,
+  PaySummary,
   WorkMe,
   WorkShift,
   addMyEntry,
   deleteMyEntry,
   editMyEntry,
   fetchMyEntries,
+  fetchMyPay,
   fetchMySchedule,
   workSignIn,
 } from "../util/workOperations";
@@ -84,6 +86,7 @@ const TiWork = () => {
   // reads backwards from today; "what am I doing next" reads forwards. One list
   // in one order answers whichever question it was not sorted for.
   const [shiftTab, setShiftTab] = useState<"done" | "upcoming">("done");
+  const [pay, setPay] = useState<PaySummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -161,24 +164,20 @@ const TiWork = () => {
     Promise.all([
       fetchMyEntries(c).then(setEntries).catch(() => {}),
       loadSchedule(c),
+      fetchMyPay(c).then(setPay).catch(() => {}),
     ]);
 
   const submitShift = (shift: WorkShift) => {
     if (!creds) return;
-    const hours = parseFloat(shiftDraft[shift.id] ?? "");
+    const hours = parseFloat(shiftDraft[shift.date] ?? "");
     if (!Number.isFinite(hours) || hours <= 0) {
       setError("How many hours? A number above zero.");
       return;
     }
     setError("");
-    addMyEntry(creds, {
-      date: shift.date,
-      hours,
-      report: "",
-      assignmentId: shift.id,
-    })
+    addMyEntry(creds, { date: shift.date, hours, report: "" })
       .then(() => {
-        setShiftDraft((d) => ({ ...d, [shift.id]: "" }));
+        setShiftDraft((d) => ({ ...d, [shift.date]: "" }));
         return reload(creds);
       })
       .catch((msg) => setError(String(msg)));
@@ -385,52 +384,70 @@ const TiWork = () => {
                   const upcoming = sh.date > todayKey;
                   return (
                     <div
-                      key={sh.id}
-                      className="flex flex-wrap items-center gap-2 border-b border-gray-100 pb-2 last:border-0 last:pb-0"
+                      key={sh.date}
+                      className="flex flex-col gap-1.5 border-b border-gray-100 pb-2 last:border-0 last:pb-0"
                     >
-                      <span className="text-sm font-semibold text-gray-800">
-                        {fmtDay(sh.date)}
-                      </span>
-                      <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-700">
-                        {sh.roomName}
-                      </span>
-                      {claim ? (
-                        <span
-                          className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${STATUS_STYLE[claim.status]}`}
-                        >
-                          {claim.hours}h · {STATUS_LABEL[claim.status]}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-sm font-semibold text-gray-800">
+                          {fmtDay(sh.date)}
                         </span>
-                      ) : upcoming ? (
-                        <span className="text-xs text-gray-400">coming up</span>
-                      ) : (
-                        <>
-                          <input
-                            type="number"
-                            inputMode="decimal"
-                            min={0}
-                            step={0.25}
-                            placeholder="hrs"
-                            value={shiftDraft[sh.id] ?? ""}
-                            onChange={(e) =>
-                              setShiftDraft((d) => ({ ...d, [sh.id]: e.target.value }))
-                            }
-                            className="w-20 rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:border-gray-400 focus:outline-none"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => submitShift(sh)}
-                            disabled={!shiftDraft[sh.id]}
-                            className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+                        {/* Every room in that visit. The hours are for the trip,
+                            not for any one room. */}
+                        {sh.rooms.map((r, i) => (
+                          <span
+                            key={`${r.name}-${i}`}
+                            className="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-700"
                           >
-                            Send
-                          </button>
-                        </>
-                      )}
-                      {claim?.hostNote && (
-                        <span className="w-full text-xs text-gray-500">
-                          Note from Anh-Tuan: {claim.hostNote}
-                        </span>
-                      )}
+                            {r.name}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {claim ? (
+                          <span
+                            className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${STATUS_STYLE[claim.status]}`}
+                          >
+                            {claim.hours}h · {STATUS_LABEL[claim.status]}
+                          </span>
+                        ) : sh.recordedHours != null ? (
+                          /* Already entered by Anh-Tuan in TiMag. Shown, not
+                             editable: two people typing the same day is how the
+                             two screens end up disagreeing. */
+                          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
+                            {sh.recordedHours}h · recorded
+                          </span>
+                        ) : upcoming ? (
+                          <span className="text-xs text-gray-400">coming up</span>
+                        ) : (
+                          <>
+                            <input
+                              type="number"
+                              inputMode="decimal"
+                              min={0}
+                              step={0.25}
+                              placeholder="hours for the visit"
+                              value={shiftDraft[sh.date] ?? ""}
+                              onChange={(e) =>
+                                setShiftDraft((d) => ({ ...d, [sh.date]: e.target.value }))
+                              }
+                              className="w-40 rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:border-gray-400 focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => submitShift(sh)}
+                              disabled={!shiftDraft[sh.date]}
+                              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+                            >
+                              Send
+                            </button>
+                          </>
+                        )}
+                        {claim?.hostNote && (
+                          <span className="w-full text-xs text-gray-500">
+                            Note from Anh-Tuan: {claim.hostNote}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -439,9 +456,29 @@ const TiWork = () => {
           </div>
         )}
 
-        {/* Paid to date — the question anyone doing this work actually has. */}
-        {(me.paidAmount > 0 || me.payments.length > 0) && (
+        {/* Pay — the question anyone doing this work actually has, answered with
+            the same arithmetic the host's Pay tab uses, so the two never quote
+            different numbers in the same conversation. */}
+        {(pay || me.paidAmount > 0 || me.payments.length > 0) && (
           <div className="rounded-2xl border border-gray-200 bg-white p-3">
+            {pay && (
+              <div className="mb-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                <span className="text-sm text-gray-500">
+                  Earned{" "}
+                  <span className="text-lg font-bold text-gray-900">
+                    {money(Math.round(pay.earned * 100) / 100)}
+                  </span>
+                </span>
+                <span className="text-sm text-gray-500">
+                  {Math.round(pay.hours * 100) / 100}h worked
+                </span>
+                {pay.owed > 0.005 && (
+                  <span className="ml-auto rounded-full bg-amber-50 px-2.5 py-0.5 text-sm font-bold text-amber-700">
+                    {money(Math.round(pay.owed * 100) / 100)} owed
+                  </span>
+                )}
+              </div>
+            )}
             <p className="text-sm font-bold text-gray-800">
               Paid to date{" "}
               <span className="text-emerald-600">{money(me.paidAmount)}</span>

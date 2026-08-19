@@ -191,7 +191,6 @@ router.get("/hours", async (req: Request, res: any) => {
     const entries = await WorkEntry.find(filter)
       .populate("staff", "name title")
       .populate("cleaner", "name")
-      .populate({ path: "assignment", populate: { path: "room", select: "name" } })
       .sort({ date: -1 });
     res.status(200).json(
       entries.map((e: any) => ({
@@ -203,7 +202,7 @@ router.get("/hours", async (req: Request, res: any) => {
         staffId: String(e.cleaner?._id ?? e.cleaner ?? e.staff?._id ?? e.staff ?? ""),
         staffName: e.cleaner?.name ?? e.staff?.name ?? "",
         staffTitle: e.cleaner ? "Cleaner" : (e.staff?.title ?? ""),
-        roomName: e.assignment?.room?.name ?? "",
+        roomName: "",
         date: e.date,
         hours: e.hours,
         report: e.report ?? "",
@@ -240,20 +239,34 @@ router.patch("/hours/review", async (req: Request, res: any) => {
         history.length > 0 ? history[history.length - 1].rate : (worker?.payRate ?? 0);
       entry.approvedOn = reviewedOn ?? "";
 
-      // A cleaner's approved hours belong ON THE ASSIGNMENT. That is where the
-      // Clean panel, the pay summary and every hours report already read from —
-      // leaving them only on the entry would have TiWork and Clean disagree
-      // about the same morning.
-      if (entry.assignment) {
-        await CleaningAssignment.findByIdAndUpdate(entry.assignment, { hours: entry.hours });
+      // A cleaner's approved hours belong ON THE ASSIGNMENTS, in the shape the
+      // rest of the app already reads: the whole day's total on that day's FIRST
+      // room and 0 on the rest, so summing a cleaner-day gives the total. That is
+      // exactly what the Clean panel writes, and the pay summary, the hours
+      // report and the profit figures all sum assignments to get there. Writing
+      // the total onto every room instead would multiply the day's pay by the
+      // number of rooms cleaned.
+      if (entry.cleaner) {
+        const days = await CleaningAssignment.find({
+          cleaner: entry.cleaner,
+          date: entry.date,
+        }).sort({ _id: 1 });
+        for (let i = 0; i < days.length; i++) {
+          await CleaningAssignment.findByIdAndUpdate(days[i]._id, {
+            hours: i === 0 ? entry.hours : 0,
+          });
+        }
       }
     } else {
       entry.approvedRate = 0;
       entry.approvedOn = "";
-      // Declining takes the hours back off the assignment, so a rejected claim
-      // does not keep quietly earning in the Clean panel.
-      if (entry.assignment) {
-        await CleaningAssignment.findByIdAndUpdate(entry.assignment, { hours: null });
+      // Declining clears the whole day, so a rejected claim does not keep
+      // quietly earning in the Clean panel.
+      if (entry.cleaner) {
+        await CleaningAssignment.updateMany(
+          { cleaner: entry.cleaner, date: entry.date },
+          { hours: null },
+        );
       }
     }
     entry.status = status;

@@ -14,15 +14,7 @@ const workEntrySchema = new mongoose.Schema(
     // are paid from.
     staff: { type: mongoose.Schema.ObjectId, ref: "Staff", default: null },
     cleaner: { type: mongoose.Schema.ObjectId, ref: "Cleaner", default: null },
-    // Set when a cleaner logs against a specific turnover. On approval the hours
-    // are copied onto the assignment itself, because that is where the Clean
-    // panel and every pay calculation already read them from — leaving them only
-    // here would make TiWork and Clean disagree about the same morning.
-    assignment: {
-      type: mongoose.Schema.ObjectId,
-      ref: "CleaningAssignment",
-      default: null,
-    },
+
     // yyyy-MM-dd — the day worked, not the day submitted. Someone catching up on
     // Friday still logs Tuesday's hours against Tuesday.
     date: { type: String, required: true },
@@ -54,11 +46,14 @@ const workEntrySchema = new mongoose.Schema(
 workEntrySchema.index({ host: 1, status: 1, date: -1 });
 workEntrySchema.index({ staff: 1, date: -1 });
 workEntrySchema.index({ cleaner: 1, date: -1 });
-// One claim per turnover: re-submitting the same morning edits it rather than
-// stacking a second set of hours the host would have to notice and reject.
+// One claim per cleaner per DAY. Hours are not tracked per room: a cleaner does
+// several rooms in one visit and is paid for the visit, which is why the Clean
+// panel records a cleaner-day and puts the whole total on the day's first
+// assignment with 0 on the rest. Re-submitting a day therefore edits that day's
+// claim rather than stacking a second one.
 workEntrySchema.index(
-  { assignment: 1 },
-  { unique: true, partialFilterExpression: { assignment: { $type: "objectId" } } },
+  { cleaner: 1, date: 1 },
+  { unique: true, partialFilterExpression: { cleaner: { $type: "objectId" } } },
 );
 
 workEntrySchema.pre("validate", function (next) {

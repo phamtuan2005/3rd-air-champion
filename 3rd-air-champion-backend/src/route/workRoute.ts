@@ -63,7 +63,6 @@ const serializeEntry = (e: any) => ({
   approvedRate: e.approvedRate ?? 0,
   approvedOn: e.approvedOn ?? "",
   hostNote: e.hostNote ?? "",
-  assignmentId: e.assignment ?? null,
 });
 
 // Resolve a caller from credentials. Returns null rather than throwing so every
@@ -129,7 +128,7 @@ router.post("/entries", async (req: Request, res: any) => {
 });
 
 router.post("/entry", async (req: Request, res: any) => {
-  const { identifier, code, date, hours, report, assignmentId } = req.body;
+  const { identifier, code, date, hours, report } = req.body;
   if (!date || hours == null)
     return res.status(400).json({ error: "date and hours are required" });
   try {
@@ -138,22 +137,24 @@ router.post("/entry", async (req: Request, res: any) => {
     if (who.kind === "staff" && who.doc.hiredOn && date < who.doc.hiredOn)
       return res.status(400).json({ error: "That day is before your start date." });
 
-    // A cleaner logs against a specific turnover. Verified server-side that the
-    // assignment is theirs: the id arrives from the browser, and one belonging
-    // to a colleague would otherwise book hours against their name.
-    let assignment = null;
+    // A cleaner claims a DAY, not a room — they clean several rooms in one visit
+    // and are paid for the visit. The day must be one they were actually given,
+    // checked server-side: the date arrives from the browser, and an unassigned
+    // one would be hours nobody scheduled.
     if (who.kind === "cleaner") {
-      if (!assignmentId)
-        return res.status(400).json({ error: "Pick which cleaning these hours were for." });
-      assignment = await CleaningAssignment.findById(assignmentId);
-      if (!assignment || String(assignment.cleaner) !== String(who.doc._id))
-        return res.status(404).json({ error: "That cleaning isn't yours." });
+      const mine = await CleaningAssignment.countDocuments({
+        cleaner: who.doc._id,
+        date,
+      });
+      if (mine === 0)
+        return res.status(400).json({
+          error: "You weren't scheduled that day — ask Anh-Tuan to add it first.",
+        });
     }
 
     const entry = await WorkEntry.create({
       host: who.doc.host,
       ...(who.kind === "staff" ? { staff: who.doc._id } : { cleaner: who.doc._id }),
-      ...(assignment ? { assignment: assignment._id } : {}),
       date,
       hours,
       report: report ?? "",
@@ -231,24 +232,35 @@ router.post("/schedule", async (req: Request, res: any) => {
       .populate("room", "name color")
       .sort({ date: 1 });
 
-    // Their claims for those turnovers, so each row can say whether hours are
-    // already in and where they stand.
+    // Grouped into DAYS, which is the unit a cleaner is paid in. The Clean panel
+    // records one total per cleaner-day and spreads it across that day's rooms
+    // (whole total on the first, 0 on the rest), so a per-room figure here would
+    // be a number the host never entered.
+    const byDate = new Map<string, any>();
+    for (const a of assignments as any[]) {
+      const g = byDate.get(a.date) ?? { date: a.date, rooms: [], recordedHours: 0, hasHours: false };
+      g.rooms.push({ name: a.room?.name ?? "", color: a.room?.color ?? "" });
+      if (a.hours != null) {
+        g.recordedHours += a.hours;
+        g.hasHours = true;
+      }
+      byDate.set(a.date, g);
+    }
+
     const claims = await WorkEntry.find({
       cleaner: who.doc._id,
-      assignment: { $in: assignments.map((a: any) => a._id) },
+      date: { $in: [...byDate.keys()] },
     });
-    const byAssignment = new Map(claims.map((c: any) => [String(c.assignment), c]));
+    const byDay = new Map(claims.map((c: any) => [c.date, c]));
 
     res.status(200).json(
-      assignments.map((a: any) => {
-        const claim = byAssignment.get(String(a._id));
+      [...byDate.values()].map((g: any) => {
+        const claim = byDay.get(g.date);
         return {
-          id: a._id,
-          date: a.date,
-          roomName: a.room?.name ?? "",
-          roomColor: a.room?.color ?? "",
-          // What the host has on record for this morning.
-          recordedHours: a.hours ?? null,
+          date: g.date,
+          rooms: g.rooms,
+          // What the host has on record for the whole visit.
+          recordedHours: g.hasHours ? g.recordedHours : null,
           claim: claim
             ? {
                 id: claim._id,
@@ -261,6 +273,61 @@ router.post("/schedule", async (req: Request, res: any) => {
         };
       }),
     );
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// What they have earned, been paid and are owed — the Pay tab's answer, for one
+// person and from their side.
+//
+// Billed at the rate in force on each cleaning's OWN DATE, and including the
+// baseline hours from before tracking began, because that is exactly how the
+// host's summary computes it. Any other arithmetic here would have TiWork and
+// the Clean panel quote different numbers to the two people in the same
+// conversation.
+router.post("/pay-summary", async (req: Request, res: any) => {
+  try {
+    const who = await authenticate(req.body?.identifier, req.body?.code);
+    if (!who) return res.status(401).json({ error: "Not signed in." });
+
+    if (who.kind === "staff") {
+      // Office staff earn from approved entries, each already carrying the rate
+      // frozen when it was approved.
+      const entries = await WorkEntry.find({ staff: who.doc._id, status: "approved" });
+      const earned = entries.reduce(
+        (sum: number, e: any) => sum + e.hours * (e.approvedRate || 0),
+        0,
+      );
+      const hours = entries.reduce((sum: number, e: any) => sum + e.hours, 0);
+      const paid = who.doc.paidAmount ?? 0;
+      return res
+        .status(200)
+        .json({ hours, earned, paid, owed: Math.max(0, earned - paid) });
+    }
+
+    const assigns = await CleaningAssignment.find({
+      cleaner: who.doc._id,
+      hours: { $ne: null },
+    }).select("date hours");
+
+    let hours = 0;
+    let earned = 0;
+    for (const a of assigns as any[]) {
+      hours += a.hours;
+      earned += a.hours * rateOnDate(who.doc, a.date);
+    }
+    // Work done before assignment tracking began, priced at its own month's rate.
+    const baseHrs = who.doc.baselineHours ?? 0;
+    if (baseHrs > 0) {
+      const baseDate = who.doc.baselineMonth
+        ? `${who.doc.baselineMonth}-01`
+        : new Date().toISOString().slice(0, 10);
+      hours += baseHrs;
+      earned += baseHrs * rateOnDate(who.doc, baseDate);
+    }
+    const paid = who.doc.paidAmount ?? 0;
+    res.status(200).json({ hours, earned, paid, owed: Math.max(0, earned - paid) });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
