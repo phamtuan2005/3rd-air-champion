@@ -468,7 +468,7 @@ const TiWork = () => {
                     Anh-Tuan rearrange the week and share it later, so this is a
                     plan being shown, not a commitment being made. */}
                 {shiftTab === "upcoming" && (
-                  <p className="rounded-lg border border-dashed border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs leading-relaxed text-amber-800">
+                  <p className="rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium leading-relaxed text-amber-800">
                     A plan, not a promise — it can still change. Anh-Tuan or Cindy will let
                     you know if it does.
                   </p>
@@ -570,7 +570,7 @@ const TiWork = () => {
                           </>
                         )}
                         {shiftTab === "tolog" && (
-                          <span className="w-full text-xs text-gray-400">
+                          <span className="w-full text-sm text-gray-500">
                             Didn't work this day? Leave it — Anh-Tuan will clear it.
                           </span>
                         )}
