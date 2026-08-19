@@ -7,6 +7,7 @@ import { dayType } from "../../../util/types/dayType";
 import { roomType } from "../../../util/types/roomType";
 import RoomBadge from "../../shared/RoomBadge";
 import { getRoomColor } from "../../../util/getRoomColor";
+import { decimalToHm, formatHrMin, hmToDecimal } from "../../../util/hoursFormat";
 import {
   CLEANING_FORECAST_DAYS,
   getCheckoutsOn,
@@ -155,22 +156,8 @@ const hoursBetween = (inStr?: string, outStr?: string): number | null => {
   return Math.round((mins / 60) * 100) / 100;
 };
 
-// People report time as hours + minutes, not decimals. These convert between
-// the human "3h 15m" and the decimal hours the backend stores.
-const hmToDecimal = (h?: string, m?: string) =>
-  (parseFloat(h ?? "") || 0) + (parseFloat(m ?? "") || 0) / 60;
-const decimalToHm = (dec: number) => {
-  const total = Math.round(dec * 60);
-  return { h: String(Math.floor(total / 60)), m: String(total % 60) };
-};
-const formatHrMin = (dec: number) => {
-  const total = Math.round(dec * 60);
-  const h = Math.floor(total / 60);
-  const m = total % 60;
-  if (h && m) return `${h}h ${m}m`;
-  if (h) return `${h}h`;
-  return `${m}m`;
-};
+// People report time as hours + minutes, not decimals. Shared with TiWork so a
+// figure cannot render one way here and another there — see util/hoursFormat.
 
 // Two small inputs (hours + minutes) — the natural way to record worked time.
 const HrMinInput = ({

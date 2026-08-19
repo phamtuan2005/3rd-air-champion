@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { addDays, format, parseISO, startOfToday } from "date-fns";
 import RoomBadge from "../components/shared/RoomBadge";
+import { decimalToHm, formatHrMin, hmToDecimal } from "../util/hoursFormat";
 import {
   WorkCreds,
   WorkEntryType,
@@ -82,17 +83,17 @@ const TiWork = () => {
   const [shifts, setShifts] = useState<WorkShift[]>([]);
   // Per-shift hour boxes, so a cleaner can fill in several turnovers before
   // sending any of them.
-  const [shiftDraft, setShiftDraft] = useState<Record<string, string>>({});
+  const [shiftDraft, setShiftDraft] = useState<Record<string, { h: string; m: string }>>({});
   // Two different questions, two orders. "What have I done and did it go in"
   // reads backwards from today; "what am I doing next" reads forwards. One list
   // in one order answers whichever question it was not sorted for.
-  const [shiftTab, setShiftTab] = useState<"done" | "upcoming">("done");
+  const [shiftTab, setShiftTab] = useState<"tolog" | "done" | "upcoming">("tolog");
   const [pay, setPay] = useState<PaySummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const [form, setForm] = useState({ identifier: "", code: "" });
-  const [draft, setDraft] = useState({ date: todayKey, hours: "", report: "" });
+  const [draft, setDraft] = useState({ date: todayKey, h: "", m: "", report: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
   // True when a code that USED to work has just been rejected — almost always
   // because the host regenerated it. Worth distinguishing: to someone who has
@@ -170,7 +171,8 @@ const TiWork = () => {
 
   const submitShift = (shift: WorkShift) => {
     if (!creds) return;
-    const hours = parseFloat(shiftDraft[shift.date] ?? "");
+    const hm = shiftDraft[shift.date] ?? { h: "", m: "" };
+    const hours = hmToDecimal(hm.h, hm.m);
     if (!Number.isFinite(hours) || hours <= 0) {
       setError("How many hours? A number above zero.");
       return;
@@ -178,7 +180,7 @@ const TiWork = () => {
     setError("");
     addMyEntry(creds, { date: shift.date, hours, report: "" })
       .then(() => {
-        setShiftDraft((d) => ({ ...d, [shift.date]: "" }));
+        setShiftDraft((d) => ({ ...d, [shift.date]: { h: "", m: "" } }));
         return reload(creds);
       })
       .catch((msg) => setError(String(msg)));
@@ -186,7 +188,7 @@ const TiWork = () => {
 
   const submit = () => {
     if (!creds) return;
-    const hours = parseFloat(draft.hours);
+    const hours = hmToDecimal(draft.h, draft.m);
     if (!Number.isFinite(hours) || hours <= 0) {
       setError("How many hours? A number above zero.");
       return;
@@ -197,7 +199,7 @@ const TiWork = () => {
       : addMyEntry(creds, { date: draft.date, hours, report: draft.report });
     action
       .then(() => {
-        setDraft({ date: todayKey, hours: "", report: "" });
+        setDraft({ date: todayKey, h: "", m: "", report: "" });
         setEditingId(null);
         return reload(creds);
       })
@@ -211,14 +213,37 @@ const TiWork = () => {
       .catch((msg) => setError(String(msg)));
   };
 
+  // "Done" must mean it HAPPENED, not that the date has passed. A visit is only
+  // evidence of work once there are hours against it — recorded by the host or
+  // claimed by the cleaner. A past assignment with neither is a plan that may
+  // never have taken place: Henry was scheduled for the Cozy room on a day he
+  // never came, and calling that "done" told him he had cleaned it.
+  const happened = (sh: WorkShift) => sh.recordedHours != null || sh.claim != null;
+
   const shiftsDone = useMemo(
-    () => shifts.filter((sh) => sh.date <= todayKey).sort((a, b) => b.date.localeCompare(a.date)),
+    () =>
+      shifts
+        .filter((sh) => sh.date <= todayKey && happened(sh))
+        .sort((a, b) => b.date.localeCompare(a.date)),
+    [shifts, todayKey],
+  );
+  // Scheduled, the day has gone, and nothing has been logged. Either it happened
+  // and the hours are owed, or it did not — only the cleaner knows which, which
+  // is exactly why this is a list to act on rather than a claim about the past.
+  const shiftsToLog = useMemo(
+    () =>
+      shifts
+        .filter((sh) => sh.date <= todayKey && !happened(sh))
+        .sort((a, b) => b.date.localeCompare(a.date)),
     [shifts, todayKey],
   );
   const shiftsUpcoming = useMemo(
     () => shifts.filter((sh) => sh.date > todayKey).sort((a, b) => a.date.localeCompare(b.date)),
     [shifts, todayKey],
   );
+
+  const shiftsFor = (tab: "tolog" | "done" | "upcoming") =>
+    tab === "done" ? shiftsDone : tab === "upcoming" ? shiftsUpcoming : shiftsToLog;
 
   // This month, split by what has actually been settled. "Waiting" is deliberately
   // shown apart from "approved": telling someone they have earned money that has
@@ -331,7 +356,7 @@ const TiWork = () => {
             This month
           </p>
           <p className="mt-1 text-2xl font-bold leading-none text-emerald-600">
-            {totals.approvedHours}h
+            {formatHrMin(totals.approvedHours)}
             {me.payType === "hourly" && totals.approvedPay > 0 && (
               <span className="ml-2 text-base font-semibold text-gray-500">
                 {money(Math.round(totals.approvedPay * 100) / 100)}
@@ -340,7 +365,7 @@ const TiWork = () => {
           </p>
           <p className="mt-1 text-xs text-gray-400">
             approved
-            {totals.waitingHours > 0 && ` · ${totals.waitingHours}h still waiting`}
+            {totals.waitingHours > 0 && ` · ${formatHrMin(totals.waitingHours)} still waiting`}
           </p>
         </div>
 
@@ -352,35 +377,46 @@ const TiWork = () => {
           <div className="rounded-2xl border border-gray-200 bg-white p-3">
             <div className="mb-2 flex items-center gap-2">
               <p className="text-sm font-bold text-gray-800">Your cleanings</p>
-              <div className="ml-auto flex gap-1 rounded-lg bg-gray-100 p-0.5">
-                {(["done", "upcoming"] as const).map((k) => (
-                  <button
-                    key={k}
-                    type="button"
-                    onClick={() => setShiftTab(k)}
-                    className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
-                      shiftTab === k ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
-                    }`}
-                  >
-                    {k === "done" ? "Done" : "Upcoming"}
-                    {k === "upcoming" && shiftsUpcoming.length > 0 && (
-                      <span className="rounded-full bg-gray-200 px-1.5 text-[11px] font-bold text-gray-600">
-                        {shiftsUpcoming.length}
-                      </span>
-                    )}
-                  </button>
-                ))}
+              <div className="ml-auto flex gap-1 overflow-x-auto rounded-lg bg-gray-100 p-0.5">
+                {(["tolog", "done", "upcoming"] as const).map((k) => {
+                  const n = shiftsFor(k).length;
+                  return (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => setShiftTab(k)}
+                      className={`flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
+                        shiftTab === k ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+                      }`}
+                    >
+                      {k === "tolog" ? "To log" : k === "done" ? "Done" : "Upcoming"}
+                      {n > 0 && (
+                        <span
+                          className={`rounded-full px-1.5 text-[11px] font-bold ${
+                            k === "tolog"
+                              ? "bg-amber-200 text-amber-800"
+                              : "bg-gray-200 text-gray-600"
+                          }`}
+                        >
+                          {n}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-            {(shiftTab === "done" ? shiftsDone : shiftsUpcoming).length === 0 ? (
+            {shiftsFor(shiftTab).length === 0 ? (
               <p className="py-3 text-center text-sm text-gray-400">
-                {shiftTab === "done"
-                  ? "No cleanings in the last few weeks."
-                  : "Nothing scheduled yet — Anh-Tuan will add them."}
+                {shiftTab === "tolog"
+                  ? "Nothing waiting — every visit has its hours in."
+                  : shiftTab === "done"
+                    ? "No cleanings recorded in the last few weeks."
+                    : "Nothing scheduled yet — Anh-Tuan will add them."}
               </p>
             ) : (
               <div className="flex flex-col gap-2">
-                {(shiftTab === "done" ? shiftsDone : shiftsUpcoming).map((sh) => {
+                {shiftsFor(shiftTab).map((sh) => {
                   const claim = sh.claim;
                   const upcoming = sh.date > todayKey;
                   return (
@@ -408,40 +444,74 @@ const TiWork = () => {
                           <span
                             className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${STATUS_STYLE[claim.status]}`}
                           >
-                            {claim.hours}h · {STATUS_LABEL[claim.status]}
+                            {formatHrMin(claim.hours)} · {STATUS_LABEL[claim.status]}
                           </span>
                         ) : sh.recordedHours != null ? (
                           /* Already entered by Anh-Tuan in TiMag. Shown, not
                              editable: two people typing the same day is how the
                              two screens end up disagreeing. */
                           <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
-                            {sh.recordedHours}h · recorded
+                            {formatHrMin(sh.recordedHours)} · recorded
                           </span>
                         ) : upcoming ? (
                           <span className="text-xs text-gray-400">coming up</span>
                         ) : (
                           <>
+                            {/* Hours and minutes, never a decimal. Nobody
+                                works 1.58 hours. */}
                             <input
                               type="number"
-                              inputMode="decimal"
+                              inputMode="numeric"
                               min={0}
-                              step={0.25}
-                              placeholder="hours for the visit"
-                              value={shiftDraft[sh.date] ?? ""}
-                              onChange={(e) =>
-                                setShiftDraft((d) => ({ ...d, [sh.date]: e.target.value }))
+                              placeholder="hrs"
+                              value={(shiftDraft[sh.date] ?? { h: "", m: "" }).h}
+                              onChange={(ev) =>
+                                setShiftDraft((d) => ({
+                                  ...d,
+                                  [sh.date]: {
+                                    ...(d[sh.date] ?? { h: "", m: "" }),
+                                    h: ev.target.value,
+                                  },
+                                }))
                               }
-                              className="w-40 rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:border-gray-400 focus:outline-none"
+                              className="w-16 rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:border-gray-400 focus:outline-none"
                             />
+                            <span className="text-sm text-gray-400">h</span>
+                            <input
+                              type="number"
+                              inputMode="numeric"
+                              min={0}
+                              max={59}
+                              placeholder="min"
+                              value={(shiftDraft[sh.date] ?? { h: "", m: "" }).m}
+                              onChange={(ev) =>
+                                setShiftDraft((d) => ({
+                                  ...d,
+                                  [sh.date]: {
+                                    ...(d[sh.date] ?? { h: "", m: "" }),
+                                    m: ev.target.value,
+                                  },
+                                }))
+                              }
+                              className="w-16 rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:border-gray-400 focus:outline-none"
+                            />
+                            <span className="text-sm text-gray-400">m</span>
                             <button
                               type="button"
                               onClick={() => submitShift(sh)}
-                              disabled={!shiftDraft[sh.date]}
+                              disabled={
+                                !(shiftDraft[sh.date]?.h || shiftDraft[sh.date]?.m)
+                              }
                               className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
                             >
                               Send
                             </button>
                           </>
+                        )}
+                        {shiftTab === "tolog" && (
+                          <span className="text-xs text-gray-400">
+                            If you didn't work this day, leave it — Anh-Tuan will clear it.
+                          </span>
                         )}
                         {claim?.hostNote && (
                           <span className="w-full text-xs text-gray-500">
@@ -470,9 +540,7 @@ const TiWork = () => {
                     {money(Math.round(pay.earned * 100) / 100)}
                   </span>
                 </span>
-                <span className="text-sm text-gray-500">
-                  {Math.round(pay.hours * 100) / 100}h worked
-                </span>
+                <span className="text-sm text-gray-500">{formatHrMin(pay.hours)} worked</span>
                 {pay.owed > 0.005 && (
                   <span className="ml-auto rounded-full bg-amber-50 px-2.5 py-0.5 text-sm font-bold text-amber-700">
                     {money(Math.round(pay.owed * 100) / 100)} owed
@@ -520,18 +588,31 @@ const TiWork = () => {
             </label>
             <label className="flex flex-col gap-1">
               <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                Hours
+                Time worked
               </span>
-              <input
-                type="number"
-                inputMode="decimal"
-                min={0}
-                step={0.25}
-                placeholder="0"
-                value={draft.hours}
-                onChange={(e) => setDraft((d) => ({ ...d, hours: e.target.value }))}
-                className="w-24 rounded-xl border border-gray-200 px-2 py-2 text-sm focus:border-gray-400 focus:outline-none"
-              />
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  placeholder="0"
+                  value={draft.h}
+                  onChange={(e) => setDraft((d) => ({ ...d, h: e.target.value }))}
+                  className="w-16 rounded-xl border border-gray-200 px-2 py-2 text-sm focus:border-gray-400 focus:outline-none"
+                />
+                <span className="text-sm text-gray-400">h</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={59}
+                  placeholder="0"
+                  value={draft.m}
+                  onChange={(e) => setDraft((d) => ({ ...d, m: e.target.value }))}
+                  className="w-16 rounded-xl border border-gray-200 px-2 py-2 text-sm focus:border-gray-400 focus:outline-none"
+                />
+                <span className="text-sm text-gray-400">m</span>
+              </div>
             </label>
           </div>
           <textarea
@@ -548,7 +629,7 @@ const TiWork = () => {
                 type="button"
                 onClick={() => {
                   setEditingId(null);
-                  setDraft({ date: todayKey, hours: "", report: "" });
+                  setDraft({ date: todayKey, h: "", m: "", report: "" });
                 }}
                 className="rounded-xl px-3 py-2 text-sm font-semibold text-gray-500"
               >
@@ -579,7 +660,9 @@ const TiWork = () => {
               <div key={e.id} className="rounded-2xl border border-gray-200 bg-white p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-bold text-gray-900">{fmtDay(e.date)}</span>
-                  <span className="text-sm font-semibold text-gray-600">{e.hours}h</span>
+                  <span className="text-sm font-semibold text-gray-600">
+                    {formatHrMin(e.hours)}
+                  </span>
                   <span
                     className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-bold ${STATUS_STYLE[e.status]}`}
                   >
@@ -608,7 +691,8 @@ const TiWork = () => {
                       type="button"
                       onClick={() => {
                         setEditingId(e.id);
-                        setDraft({ date: e.date, hours: String(e.hours), report: e.report });
+                        const hm = decimalToHm(e.hours);
+                        setDraft({ date: e.date, h: hm.h, m: hm.m, report: e.report });
                         window.scrollTo({ top: 0, behavior: "smooth" });
                       }}
                       className="text-xs font-semibold text-gray-500 hover:text-gray-700"
