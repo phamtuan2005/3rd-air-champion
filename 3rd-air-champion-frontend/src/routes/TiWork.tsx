@@ -80,6 +80,11 @@ const TiWork = () => {
   const [form, setForm] = useState({ identifier: "", code: "" });
   const [draft, setDraft] = useState({ date: todayKey, hours: "", report: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
+  // True when a code that USED to work has just been rejected — almost always
+  // because the host regenerated it. Worth distinguishing: to someone who has
+  // signed in fine for weeks, "doesn't match" reads as their own typo, and they
+  // retype it rather than asking for the new one.
+  const [wasRevoked, setWasRevoked] = useState(false);
 
   // Sign in from remembered credentials on arrival. A failure here means the
   // host changed the code, so the stored copy is cleared rather than left to
@@ -95,6 +100,7 @@ const TiWork = () => {
       .then((list) => setEntries(list ?? []))
       .catch((msg) => {
         setError(String(msg));
+        setWasRevoked(true);
         setCreds(null);
         localStorage.removeItem(CREDS_KEY);
       })
@@ -108,6 +114,7 @@ const TiWork = () => {
       return;
     }
     setError("");
+    setWasRevoked(false);
     setLoading(true);
     workSignIn(next)
       .then((who) => {
@@ -219,6 +226,12 @@ const TiWork = () => {
           />
 
           {error && <p className="mt-3 text-sm font-semibold text-red-500">{error}</p>}
+          {wasRevoked && (
+            <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm leading-relaxed text-amber-800">
+              Your saved code stopped working — it was probably replaced. Ask Anh-Tuan
+              for the new one. Your logged hours are safe.
+            </p>
+          )}
 
           <button
             type="button"
