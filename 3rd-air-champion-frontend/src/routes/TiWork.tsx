@@ -386,7 +386,7 @@ const TiWork = () => {
             key={v}
             type="button"
             onClick={() => setView(v)}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition-colors ${
+            className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-base font-semibold transition-colors ${
               view === v
                 ? "bg-gray-900 text-white shadow-sm"
                 : "border border-gray-200 bg-white text-gray-500"
@@ -396,9 +396,9 @@ const TiWork = () => {
                 "on the calendar", so the two apps name the same idea the same
                 way. */}
             {v === "work" ? (
-              <FaRegCalendarCheck size={14} className="shrink-0" />
+              <FaRegCalendarCheck size={16} className="shrink-0" />
             ) : (
-              <FaRegMoneyBillAlt size={15} className="shrink-0" />
+              <FaRegMoneyBillAlt size={17} className="shrink-0" />
             )}
             {v === "work" ? "My work" : "My pay"}
           </button>
@@ -426,18 +426,18 @@ const TiWork = () => {
                       key={k}
                       type="button"
                       onClick={() => setShiftTab(k)}
-                      className={`flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
+                      className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
                         shiftTab === k ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
                       }`}
                     >
                       {/* Waiting on you, already settled, not yet certain —
                           the shapes carry the same three states the words do. */}
                       {k === "tolog" ? (
-                        <FaRegClock size={12} className="shrink-0" />
+                        <FaRegClock size={14} className="shrink-0" />
                       ) : k === "done" ? (
-                        <FaRegCheckCircle size={12} className="shrink-0" />
+                        <FaRegCheckCircle size={14} className="shrink-0" />
                       ) : (
-                        <FaRegCalendarAlt size={12} className="shrink-0" />
+                        <FaRegCalendarAlt size={14} className="shrink-0" />
                       )}
                       {k === "tolog" ? "To log" : k === "done" ? "Done" : "Planned"}
                       {n > 0 && (
