@@ -281,6 +281,12 @@ router.post("/schedule", async (req: Request, res: any) => {
 // What they have earned, been paid and are owed — the Pay tab's answer, for one
 // person and from their side.
 //
+// Reported for the YEAR, not for all time. Nobody is told what they have been
+// paid across thirteen years at a job; a payslip shows the period and the year
+// to date. The only cumulative figure that survives is `owed`, because a balance
+// IS cumulative — it is whatever has not been settled yet, whenever it was
+// earned — and it is the one number here the worker can act on.
+//
 // Billed at the rate in force on each cleaning's OWN DATE, and including the
 // baseline hours from before tracking began, because that is exactly how the
 // host's summary computes it. Any other arithmetic here would have TiWork and
@@ -291,19 +297,30 @@ router.post("/pay-summary", async (req: Request, res: any) => {
     const who = await authenticate(req.body?.identifier, req.body?.code);
     if (!who) return res.status(401).json({ error: "Not signed in." });
 
+    const year = new Date().toISOString().slice(0, 4);
+    const paidThisYear = (who.doc.payments ?? [])
+      .filter((p: any) => String(p.paidOn ?? "").startsWith(year))
+      .reduce((sum: number, p: any) => sum + (p.amount ?? 0), 0);
+
     if (who.kind === "staff") {
       // Office staff earn from approved entries, each already carrying the rate
       // frozen when it was approved.
       const entries = await WorkEntry.find({ staff: who.doc._id, status: "approved" });
-      const earned = entries.reduce(
+      const earnedAllTime = entries.reduce(
         (sum: number, e: any) => sum + e.hours * (e.approvedRate || 0),
         0,
       );
-      const hours = entries.reduce((sum: number, e: any) => sum + e.hours, 0);
-      const paid = who.doc.paidAmount ?? 0;
-      return res
-        .status(200)
-        .json({ hours, earned, paid, owed: Math.max(0, earned - paid) });
+      const ofYear = entries.filter((e: any) => String(e.date).startsWith(year));
+      return res.status(200).json({
+        owed: Math.max(0, earnedAllTime - (who.doc.paidAmount ?? 0)),
+        year,
+        hours: ofYear.reduce((sum: number, e: any) => sum + e.hours, 0),
+        earned: ofYear.reduce(
+          (sum: number, e: any) => sum + e.hours * (e.approvedRate || 0),
+          0,
+        ),
+        paid: paidThisYear,
+      });
     }
 
     const assigns = await CleaningAssignment.find({
@@ -311,12 +328,21 @@ router.post("/pay-summary", async (req: Request, res: any) => {
       hours: { $ne: null },
     }).select("date hours");
 
+    // Lifetime feeds the BALANCE; the year is what gets reported.
+    let earnedAllTime = 0;
     let hours = 0;
     let earned = 0;
     const datesFromAssignments = new Set<string>();
+    const add = (dateKey: string, hrs: number) => {
+      const value = hrs * rateOnDate(who.doc, dateKey);
+      earnedAllTime += value;
+      if (String(dateKey).startsWith(year)) {
+        hours += hrs;
+        earned += value;
+      }
+    };
     for (const a of assigns as any[]) {
-      hours += a.hours;
-      earned += a.hours * rateOnDate(who.doc, a.date);
+      add(a.date, a.hours);
       datesFromAssignments.add(a.date);
     }
     // Approved days the planner never drafted. Their hours live on the entry
@@ -328,8 +354,7 @@ router.post("/pay-summary", async (req: Request, res: any) => {
     }).select("date hours");
     for (const e of orphans as any[]) {
       if (datesFromAssignments.has(e.date)) continue;
-      hours += e.hours;
-      earned += e.hours * rateOnDate(who.doc, e.date);
+      add(e.date, e.hours);
     }
     // Work done before assignment tracking began, priced at its own month's rate.
     const baseHrs = who.doc.baselineHours ?? 0;
@@ -337,11 +362,15 @@ router.post("/pay-summary", async (req: Request, res: any) => {
       const baseDate = who.doc.baselineMonth
         ? `${who.doc.baselineMonth}-01`
         : new Date().toISOString().slice(0, 10);
-      hours += baseHrs;
-      earned += baseHrs * rateOnDate(who.doc, baseDate);
+      add(baseDate, baseHrs);
     }
-    const paid = who.doc.paidAmount ?? 0;
-    res.status(200).json({ hours, earned, paid, owed: Math.max(0, earned - paid) });
+    res.status(200).json({
+      owed: Math.max(0, earnedAllTime - (who.doc.paidAmount ?? 0)),
+      year,
+      hours,
+      earned,
+      paid: paidThisYear,
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

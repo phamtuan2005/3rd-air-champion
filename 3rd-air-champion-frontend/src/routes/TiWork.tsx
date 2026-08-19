@@ -541,40 +541,46 @@ const TiWork = () => {
         {(pay || me.paidAmount > 0 || me.payments.length > 0) && (
           <div className="rounded-2xl border border-gray-200 bg-white p-3">
             {pay && (
-              <div className="mb-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                <span className="text-sm text-gray-500">
-                  Earned{" "}
-                  <span className="text-lg font-bold text-gray-900">
-                    {money(Math.round(pay.earned * 100) / 100)}
+              <>
+                {/* The two halves of a payslip. What is coming now is the
+                    question someone opens this to answer; the year to date is
+                    the one they need at tax time. A lifetime total is neither —
+                    it answers no question the worker has, and reads as the
+                    business tallying what it has spent on them. */}
+                <div className="mb-2 rounded-xl bg-amber-50 px-3 py-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-700/70">
+                    Still to come
+                  </p>
+                  <p className="text-2xl font-bold leading-none text-amber-700">
+                    {money(Math.round(pay.owed * 100) / 100)}
+                  </p>
+                </div>
+
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  {pay.year} to date
+                </p>
+                <div className="mb-2 mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                  <span className="text-sm text-gray-500">
+                    Earned{" "}
+                    <span className="text-lg font-bold text-gray-900">
+                      {money(Math.round(pay.earned * 100) / 100)}
+                    </span>
                   </span>
-                </span>
-                <span className="text-sm text-gray-500">{formatHrMin(pay.hours)} worked</span>
-                {pay.owed > 0.005 && (
-                  <span className="ml-auto rounded-full bg-amber-50 px-2.5 py-0.5 text-sm font-bold text-amber-700">
-                    {money(Math.round(pay.owed * 100) / 100)} owed
+                  <span className="text-sm text-gray-500">{formatHrMin(pay.hours)} worked</span>
+                  <span className="text-sm text-gray-500">
+                    Paid{" "}
+                    <span className="font-bold text-emerald-600">
+                      {money(Math.round(pay.paid * 100) / 100)}
+                    </span>
                   </span>
-                )}
-              </div>
+                </div>
+              </>
             )}
-            {/* This year leads; the lifetime total stays, quietly, because it is
-                what owed is computed from and hiding it would make the balance
-                unexplainable. A number climbing toward five figures answers no
-                question anybody has — "what have I been paid lately" does. */}
-            <p className="text-sm font-bold text-gray-800">
-              Paid in {todayKey.slice(0, 4)}{" "}
-              <span className="text-emerald-600">
-                {money(
-                  Math.round(
-                    me.payments
-                      .filter((p) => p.paidOn.startsWith(todayKey.slice(0, 4)))
-                      .reduce((sum, p) => sum + p.amount, 0) * 100,
-                  ) / 100,
-                )}
-              </span>
-              <span className="ml-2 font-normal text-gray-400">
-                · {money(me.paidAmount)} all time
-              </span>
-            </p>
+            {me.payments.length > 0 && (
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Recent payments
+              </p>
+            )}
             {me.payments.length > 0 && (
               <div className="mt-1.5 flex flex-col gap-1">
                 {me.payments.slice(0, 6).map((p, i) => (

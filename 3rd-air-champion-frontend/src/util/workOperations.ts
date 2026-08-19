@@ -87,7 +87,10 @@ export const fetchMySchedule = async (
   }
 };
 
+// Figures for the CURRENT YEAR, except `owed` — a balance is cumulative by
+// nature, being whatever has not been settled yet.
 export interface PaySummary {
+  year: string;
   hours: number;
   earned: number;
   paid: number;
