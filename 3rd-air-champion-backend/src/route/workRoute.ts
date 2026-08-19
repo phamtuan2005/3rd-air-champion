@@ -27,6 +27,17 @@ const normalizeEmail = (e: string) => String(e ?? "").trim().toLowerCase();
 // One shape for both kinds of worker, so TiWork does not need to know which it
 // is talking to except where the screens genuinely differ (a cleaner has a
 // schedule; an intern does not).
+// The rate in force on a date. payRate is only the BASE — what someone started
+// on — and every raise lives in rateHistory. Serializing payRate told a person
+// who had been given a raise that they were still on their old rate, which is
+// the worst possible field to get wrong on a screen about their own pay.
+const rateOnDate = (w: any, dateKey: string): number => {
+  const history = [...(w.rateHistory ?? [])]
+    .filter((h: any) => h.effectiveFrom <= dateKey)
+    .sort((a: any, b: any) => String(a.effectiveFrom).localeCompare(String(b.effectiveFrom)));
+  return history.length > 0 ? history[history.length - 1].rate : (w.payRate ?? 0);
+};
+
 const serializeWorker = (w: any, kind: "staff" | "cleaner") => ({
   id: w._id,
   kind,
@@ -35,7 +46,7 @@ const serializeWorker = (w: any, kind: "staff" | "cleaner") => ({
   hiredOn: w.hiredOn ?? "",
   payType: kind === "cleaner" ? "hourly" : (w.payType ?? "hourly"),
   // The rate is theirs to see — it is what they are owed per hour.
-  payRate: w.payRate ?? 0,
+  payRate: rateOnDate(w, new Date().toISOString().slice(0, 10)),
   paidAmount: w.paidAmount ?? 0,
   payments: (w.payments ?? [])
     .map((p: any) => ({ amount: p.amount, paidOn: p.paidOn, note: p.note ?? "" }))

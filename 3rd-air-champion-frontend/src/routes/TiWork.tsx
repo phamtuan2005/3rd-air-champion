@@ -80,6 +80,10 @@ const TiWork = () => {
   // Per-shift hour boxes, so a cleaner can fill in several turnovers before
   // sending any of them.
   const [shiftDraft, setShiftDraft] = useState<Record<string, string>>({});
+  // Two different questions, two orders. "What have I done and did it go in"
+  // reads backwards from today; "what am I doing next" reads forwards. One list
+  // in one order answers whichever question it was not sorted for.
+  const [shiftTab, setShiftTab] = useState<"done" | "upcoming">("done");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -206,6 +210,15 @@ const TiWork = () => {
       .then(() => reload(creds))
       .catch((msg) => setError(String(msg)));
   };
+
+  const shiftsDone = useMemo(
+    () => shifts.filter((sh) => sh.date <= todayKey).sort((a, b) => b.date.localeCompare(a.date)),
+    [shifts, todayKey],
+  );
+  const shiftsUpcoming = useMemo(
+    () => shifts.filter((sh) => sh.date > todayKey).sort((a, b) => a.date.localeCompare(b.date)),
+    [shifts, todayKey],
+  );
 
   // This month, split by what has actually been settled. "Waiting" is deliberately
   // shown apart from "approved": telling someone they have earned money that has
@@ -337,14 +350,37 @@ const TiWork = () => {
             afterwards. */}
         {me.kind === "cleaner" && (
           <div className="rounded-2xl border border-gray-200 bg-white p-3">
-            <p className="mb-2 text-sm font-bold text-gray-800">Your cleanings</p>
-            {shifts.length === 0 ? (
+            <div className="mb-2 flex items-center gap-2">
+              <p className="text-sm font-bold text-gray-800">Your cleanings</p>
+              <div className="ml-auto flex gap-1 rounded-lg bg-gray-100 p-0.5">
+                {(["done", "upcoming"] as const).map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setShiftTab(k)}
+                    className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
+                      shiftTab === k ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+                    }`}
+                  >
+                    {k === "done" ? "Done" : "Upcoming"}
+                    {k === "upcoming" && shiftsUpcoming.length > 0 && (
+                      <span className="rounded-full bg-gray-200 px-1.5 text-[11px] font-bold text-gray-600">
+                        {shiftsUpcoming.length}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {(shiftTab === "done" ? shiftsDone : shiftsUpcoming).length === 0 ? (
               <p className="py-3 text-center text-sm text-gray-400">
-                Nothing scheduled in the last few weeks.
+                {shiftTab === "done"
+                  ? "No cleanings in the last few weeks."
+                  : "Nothing scheduled yet — Anh-Tuan will add them."}
               </p>
             ) : (
               <div className="flex flex-col gap-2">
-                {shifts.map((sh) => {
+                {(shiftTab === "done" ? shiftsDone : shiftsUpcoming).map((sh) => {
                   const claim = sh.claim;
                   const upcoming = sh.date > todayKey;
                   return (
