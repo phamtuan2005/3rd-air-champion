@@ -1,6 +1,8 @@
 import express, { Request } from "express";
 import Staff from "../model/staffSchema";
 import WorkEntry from "../model/workEntrySchema";
+import Cleaner from "../model/cleanerSchema";
+import CleaningAssignment from "../model/cleaningAssignmentSchema";
 
 // All routes here are mounted behind the JWT middleware in server.ts.
 // REST rather than GraphQL, matching /cleaner and /misc.
@@ -188,13 +190,20 @@ router.get("/hours", async (req: Request, res: any) => {
     if (status) filter.status = status;
     const entries = await WorkEntry.find(filter)
       .populate("staff", "name title")
+      .populate("cleaner", "name")
+      .populate({ path: "assignment", populate: { path: "room", select: "name" } })
       .sort({ date: -1 });
     res.status(200).json(
       entries.map((e: any) => ({
         id: e._id,
-        staffId: e.staff?._id ?? e.staff,
-        staffName: e.staff?.name ?? "",
-        staffTitle: e.staff?.title ?? "",
+        // One queue, both kinds of worker. The host reviews hours; which record
+        // they are paid from is not something this screen should make them think
+        // about.
+        kind: e.cleaner ? "cleaner" : "staff",
+        staffId: String(e.cleaner?._id ?? e.cleaner ?? e.staff?._id ?? e.staff ?? ""),
+        staffName: e.cleaner?.name ?? e.staff?.name ?? "",
+        staffTitle: e.cleaner ? "Cleaner" : (e.staff?.title ?? ""),
+        roomName: e.assignment?.room?.name ?? "",
         date: e.date,
         hours: e.hours,
         report: e.report ?? "",
@@ -219,18 +228,33 @@ router.patch("/hours/review", async (req: Request, res: any) => {
 
     if (status === "approved") {
       // Freeze the rate in force ON THE DAY WORKED, not today's. A raise must
-      // never re-price work already done — the same rule cleaners follow — and
-      // approving late must not pay yesterday at tomorrow's rate.
-      const staff: any = await Staff.findById(entry.staff);
-      const history = [...(staff?.rateHistory ?? [])]
+      // never re-price work already done — the same rule the Clean panel follows
+      // — and approving late must not pay yesterday at tomorrow's rate.
+      const worker: any = entry.cleaner
+        ? await Cleaner.findById(entry.cleaner)
+        : await Staff.findById(entry.staff);
+      const history = [...(worker?.rateHistory ?? [])]
         .filter((r: any) => r.effectiveFrom <= entry.date)
         .sort((a: any, b: any) => a.effectiveFrom.localeCompare(b.effectiveFrom));
       entry.approvedRate =
-        history.length > 0 ? history[history.length - 1].rate : (staff?.payRate ?? 0);
+        history.length > 0 ? history[history.length - 1].rate : (worker?.payRate ?? 0);
       entry.approvedOn = reviewedOn ?? "";
+
+      // A cleaner's approved hours belong ON THE ASSIGNMENT. That is where the
+      // Clean panel, the pay summary and every hours report already read from —
+      // leaving them only on the entry would have TiWork and Clean disagree
+      // about the same morning.
+      if (entry.assignment) {
+        await CleaningAssignment.findByIdAndUpdate(entry.assignment, { hours: entry.hours });
+      }
     } else {
       entry.approvedRate = 0;
       entry.approvedOn = "";
+      // Declining takes the hours back off the assignment, so a rejected claim
+      // does not keep quietly earning in the Clean panel.
+      if (entry.assignment) {
+        await CleaningAssignment.findByIdAndUpdate(entry.assignment, { hours: null });
+      }
     }
     entry.status = status;
     if (hostNote !== undefined) entry.hostNote = hostNote;

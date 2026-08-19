@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { format, parseISO, startOfToday } from "date-fns";
+import { addDays, format, parseISO, startOfToday } from "date-fns";
 import {
   WorkCreds,
   WorkEntryType,
   WorkMe,
+  WorkShift,
   addMyEntry,
   deleteMyEntry,
   editMyEntry,
   fetchMyEntries,
+  fetchMySchedule,
   workSignIn,
 } from "../util/workOperations";
 
@@ -74,6 +76,10 @@ const TiWork = () => {
   });
   const [me, setMe] = useState<WorkMe | null>(null);
   const [entries, setEntries] = useState<WorkEntryType[]>([]);
+  const [shifts, setShifts] = useState<WorkShift[]>([]);
+  // Per-shift hour boxes, so a cleaner can fill in several turnovers before
+  // sending any of them.
+  const [shiftDraft, setShiftDraft] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -97,7 +103,10 @@ const TiWork = () => {
         setMe(who);
         return fetchMyEntries(creds);
       })
-      .then((list) => setEntries(list ?? []))
+      .then((list) => {
+        setEntries(list ?? []);
+        return loadSchedule(creds);
+      })
       .catch((msg) => {
         setError(String(msg));
         setWasRevoked(true);
@@ -134,7 +143,42 @@ const TiWork = () => {
     setForm({ identifier: "", code: "" });
   };
 
-  const reload = (c: WorkCreds) => fetchMyEntries(c).then(setEntries).catch(() => {});
+  // Three weeks back, two ahead: far enough to catch up on last week and see
+  // what is coming, without a year of history to scroll past.
+  const loadSchedule = (c: WorkCreds) =>
+    fetchMySchedule(c, {
+      from: format(addDays(startOfToday(), -21), "yyyy-MM-dd"),
+      to: format(addDays(startOfToday(), 14), "yyyy-MM-dd"),
+    })
+      .then(setShifts)
+      .catch(() => {});
+
+  const reload = (c: WorkCreds) =>
+    Promise.all([
+      fetchMyEntries(c).then(setEntries).catch(() => {}),
+      loadSchedule(c),
+    ]);
+
+  const submitShift = (shift: WorkShift) => {
+    if (!creds) return;
+    const hours = parseFloat(shiftDraft[shift.id] ?? "");
+    if (!Number.isFinite(hours) || hours <= 0) {
+      setError("How many hours? A number above zero.");
+      return;
+    }
+    setError("");
+    addMyEntry(creds, {
+      date: shift.date,
+      hours,
+      report: "",
+      assignmentId: shift.id,
+    })
+      .then(() => {
+        setShiftDraft((d) => ({ ...d, [shift.id]: "" }));
+        return reload(creds);
+      })
+      .catch((msg) => setError(String(msg)));
+  };
 
   const submit = () => {
     if (!creds) return;
@@ -287,7 +331,102 @@ const TiWork = () => {
           </p>
         </div>
 
-        {/* Add / edit */}
+        {/* A cleaner's rota. Hours go against a turnover rather than a bare date:
+            the host already knows which room was cleaned that morning, and
+            asking someone to retype it invites a mismatch nobody can resolve
+            afterwards. */}
+        {me.kind === "cleaner" && (
+          <div className="rounded-2xl border border-gray-200 bg-white p-3">
+            <p className="mb-2 text-sm font-bold text-gray-800">Your cleanings</p>
+            {shifts.length === 0 ? (
+              <p className="py-3 text-center text-sm text-gray-400">
+                Nothing scheduled in the last few weeks.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {shifts.map((sh) => {
+                  const claim = sh.claim;
+                  const upcoming = sh.date > todayKey;
+                  return (
+                    <div
+                      key={sh.id}
+                      className="flex flex-wrap items-center gap-2 border-b border-gray-100 pb-2 last:border-0 last:pb-0"
+                    >
+                      <span className="text-sm font-semibold text-gray-800">
+                        {fmtDay(sh.date)}
+                      </span>
+                      <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-700">
+                        {sh.roomName}
+                      </span>
+                      {claim ? (
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${STATUS_STYLE[claim.status]}`}
+                        >
+                          {claim.hours}h · {STATUS_LABEL[claim.status]}
+                        </span>
+                      ) : upcoming ? (
+                        <span className="text-xs text-gray-400">coming up</span>
+                      ) : (
+                        <>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            min={0}
+                            step={0.25}
+                            placeholder="hrs"
+                            value={shiftDraft[sh.id] ?? ""}
+                            onChange={(e) =>
+                              setShiftDraft((d) => ({ ...d, [sh.id]: e.target.value }))
+                            }
+                            className="w-20 rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:border-gray-400 focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => submitShift(sh)}
+                            disabled={!shiftDraft[sh.id]}
+                            className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+                          >
+                            Send
+                          </button>
+                        </>
+                      )}
+                      {claim?.hostNote && (
+                        <span className="w-full text-xs text-gray-500">
+                          Note from Anh-Tuan: {claim.hostNote}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Paid to date — the question anyone doing this work actually has. */}
+        {(me.paidAmount > 0 || me.payments.length > 0) && (
+          <div className="rounded-2xl border border-gray-200 bg-white p-3">
+            <p className="text-sm font-bold text-gray-800">
+              Paid to date{" "}
+              <span className="text-emerald-600">{money(me.paidAmount)}</span>
+            </p>
+            {me.payments.length > 0 && (
+              <div className="mt-1.5 flex flex-col gap-1">
+                {me.payments.slice(0, 6).map((p, i) => (
+                  <div key={i} className="flex items-center gap-2 text-sm">
+                    <span className="text-gray-500">{fmtDay(p.paidOn)}</span>
+                    <span className="font-semibold text-gray-800">{money(p.amount)}</span>
+                    {p.note && <span className="truncate text-xs text-gray-400">{p.note}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Add / edit — office staff log a day; a cleaner's hours belong to a
+            turnover above, so this form would be a second, conflicting path. */}
+        {me.kind === "staff" && (
         <div className="rounded-2xl border border-gray-200 bg-white p-3">
           <p className="mb-2 text-sm font-bold text-gray-800">
             {editingId ? "Edit this day" : "Log a day"}
@@ -351,6 +490,7 @@ const TiWork = () => {
             </button>
           </div>
         </div>
+        )}
 
         {/* History */}
         <div className="flex flex-col gap-2 pb-6">

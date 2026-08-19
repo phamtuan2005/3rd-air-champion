@@ -38,6 +38,9 @@ const serializeCleaner = (c: any) => ({
   maxRooms: c.maxRooms ?? 0,
   baselineHours: c.baselineHours ?? 0,
   baselineMonth: c.baselineMonth ?? "",
+  // TiWork sign-in, same as Staff. Cleaners log their own hours now.
+  accessCode: c.accessCode ?? "",
+  paidAmount: c.paidAmount ?? 0,
 });
 
 const serializeAssignment = (a: any) => ({
@@ -90,7 +93,7 @@ router.post("/create", async (req: Request, res: any) => {
 router.patch("/update", async (req: Request, res: any) => {
   const {
     id, name, phone, payRate, rateHistory, photo, character, availableDays, paused, priority, isOwner,
-    minRooms, maxRooms, baselineHours, baselineMonth,
+    minRooms, maxRooms, baselineHours, baselineMonth, accessCode,
   } = req.body;
   if (!id) return res.status(400).json({ error: "id is required" });
   try {
@@ -109,6 +112,7 @@ router.patch("/update", async (req: Request, res: any) => {
     if (maxRooms !== undefined) update.maxRooms = maxRooms;
     if (baselineHours !== undefined) update.baselineHours = baselineHours;
     if (baselineMonth !== undefined) update.baselineMonth = baselineMonth;
+    if (accessCode !== undefined) update.accessCode = accessCode;
     const cleaner = await Cleaner.findByIdAndUpdate(id, update, { new: true, runValidators: true });
     if (!cleaner) return res.status(404).json({ error: "Cleaner not found" });
     res.status(200).json(serializeCleaner(cleaner));

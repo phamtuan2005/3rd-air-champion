@@ -158,6 +158,8 @@ export const monthlyRunRate = (staff: StaffType[], todayKey: string) => {
 
 export interface HostWorkEntry {
   id: string;
+  kind: "staff" | "cleaner";
+  roomName: string;
   staffId: string;
   staffName: string;
   staffTitle: string;

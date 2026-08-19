@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { format, parseISO, startOfToday } from "date-fns";
 import CleanerAvatar from "../../shared/CleanerAvatar";
+import { CleanerType, fetchCleaners, updateCleaner } from "../../../util/cleanerOperations";
 import {
   HostWorkEntry,
   StaffType,
@@ -70,6 +71,13 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [tab, setTab] = useState<"team" | "hours">("team");
   const [workEntries, setWorkEntries] = useState<HostWorkEntry[]>([]);
+  // Cleaners are staff too — they are paid by this business and log hours in the
+  // same TiWork. They keep their own record because every CleaningAssignment
+  // points at it and the auto-planner needs fields an office role has no use
+  // for, so this screen SHOWS them rather than owning them: their rota and pay
+  // stay in Clean, and what belongs here is the one thing both kinds share —
+  // a way into TiWork.
+  const [cleaners, setCleaners] = useState<CleanerType[]>([]);
 
   const todayKey = format(startOfToday(), "yyyy-MM-dd");
 
@@ -90,6 +98,11 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
       .then(setStaff)
       .catch(() => setError("Could not load the team."))
       .finally(() => setLoading(false));
+    fetchCleaners(hostId, token)
+      .then(setCleaners)
+      .catch(() => {
+        /* the team list must survive a cleaner fetch failing */
+      });
     fetchWorkEntries(hostId, token)
       .then(setWorkEntries)
       .catch(() => {
@@ -531,6 +544,11 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-bold text-gray-900">{w.staffName}</span>
                       <span className="text-sm text-gray-500">{fmtDate(w.date)}</span>
+                      {w.roomName && (
+                        <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-700">
+                          {w.roomName}
+                        </span>
+                      )}
                       <span className="text-sm font-semibold text-gray-700">{w.hours}h</span>
                       <span
                         className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-bold ${
@@ -621,6 +639,92 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
                 </p>
               )}
               {active.map(renderCard)}
+
+              {/* Cleaners, listed but not owned. Their rota, rates and payments
+                  live in Clean; what this screen adds is the TiWork door, which
+                  is the one thing every paid person now shares. */}
+              {cleaners.length > 0 && (
+                <>
+                  <p className="pt-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    Cleaners
+                  </p>
+                  {cleaners.map((c) => (
+                    <div key={c.id} className="rounded-xl border border-gray-200 bg-white p-3">
+                      <div className="flex items-center gap-2.5">
+                        <CleanerAvatar
+                          name={c.name}
+                          photo={c.photo}
+                          character={c.character}
+                          sizeClass="h-10 w-10"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-base font-bold text-gray-900">{c.name}</span>
+                            {c.paused && (
+                              <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold uppercase text-amber-700">
+                                On leave
+                              </span>
+                            )}
+                          </p>
+                          <p className="mt-0.5 text-sm text-gray-500">
+                            Cleaner
+                            <span className="text-gray-400"> · paid in Clean</span>
+                          </p>
+                        </div>
+                        <p className="shrink-0 text-sm font-bold text-emerald-600">
+                          {money(c.payRate)}
+                          <span className="font-normal text-gray-400">/hr</span>
+                        </p>
+                      </div>
+                      <div className="mt-2.5 flex flex-wrap items-end gap-2 rounded-lg border border-gray-100 bg-gray-50 p-2.5">
+                        <label className="flex flex-col gap-1">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                            TiWork code
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <input
+                              placeholder="not set"
+                              key={c.accessCode}
+                              defaultValue={c.accessCode ?? ""}
+                              onBlur={(e) =>
+                                e.target.value !== (c.accessCode ?? "") &&
+                                updateCleaner({ id: c.id, accessCode: e.target.value.trim() }, token)
+                                  .then((u) =>
+                                    setCleaners((prev) =>
+                                      prev.map((x) => (x.id === u.id ? u : x)),
+                                    ),
+                                  )
+                                  .catch(() => setError("Could not save the code."))
+                              }
+                              className={`${inputCls} w-24 font-mono tracking-wider`}
+                            />
+                            <button
+                              type="button"
+                              title="Generate a new code — the old one stops working"
+                              onClick={() =>
+                                updateCleaner({ id: c.id, accessCode: newCode() }, token)
+                                  .then((u) =>
+                                    setCleaners((prev) =>
+                                      prev.map((x) => (x.id === u.id ? u : x)),
+                                    ),
+                                  )
+                                  .catch(() => setError("Could not generate a code."))
+                              }
+                              className="shrink-0 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-500 hover:bg-gray-50"
+                            >
+                              ↻
+                            </button>
+                          </div>
+                        </label>
+                        <p className="min-w-0 flex-1 text-[11px] leading-relaxed text-gray-400">
+                          They sign into TiWork with their phone number and this code, and log
+                          hours against the cleanings you scheduled.
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
 
               {former.length > 0 && (
                 <>

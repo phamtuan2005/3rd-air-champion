@@ -6,12 +6,33 @@ export type WorkStatus = "submitted" | "approved" | "rejected";
 
 export interface WorkMe {
   id: string;
+  // Which kind of worker signed in. Cleaners get a schedule; office staff log
+  // free-standing days. Everything else about the screen is the same.
+  kind: "staff" | "cleaner";
   name: string;
   title: string;
   hiredOn: string;
   payType: "hourly" | "biweekly";
   payRate: number;
+  paidAmount: number;
+  payments: { amount: number; paidOn: string; note: string }[];
   host: string;
+}
+
+// One turnover on a cleaner's rota, with whatever they have claimed for it.
+export interface WorkShift {
+  id: string;
+  date: string;
+  roomName: string;
+  roomColor: string;
+  recordedHours: number | null;
+  claim: {
+    id: string;
+    hours: number;
+    status: WorkStatus;
+    report: string;
+    hostNote: string;
+  } | null;
 }
 
 export interface WorkEntryType {
@@ -54,9 +75,21 @@ export const fetchMyEntries = async (creds: WorkCreds): Promise<WorkEntryType[]>
   }
 };
 
+export const fetchMySchedule = async (
+  creds: WorkCreds,
+  range: { from: string; to: string },
+): Promise<WorkShift[]> => {
+  try {
+    const res = await axios.post(`${BACKEND_ENDPOINT}/work/schedule`, { ...creds, ...range });
+    return res.data;
+  } catch (err) {
+    throw unwrap(err, "Could not load your schedule.");
+  }
+};
+
 export const addMyEntry = async (
   creds: WorkCreds,
-  entry: { date: string; hours: number; report: string },
+  entry: { date: string; hours: number; report: string; assignmentId?: string },
 ): Promise<WorkEntryType> => {
   try {
     const res = await axios.post(`${BACKEND_ENDPOINT}/work/entry`, { ...creds, ...entry });

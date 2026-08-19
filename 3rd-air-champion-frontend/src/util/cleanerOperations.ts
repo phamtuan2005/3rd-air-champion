@@ -23,6 +23,8 @@ export interface CleanerType {
   maxRooms?: number; // most rooms they'll take in a day; 0 = no cap (planner derives)
   baselineHours: number; // pre-tracking hours counted toward baselineMonth only
   baselineMonth: string; // "yyyy-MM"
+  accessCode?: string; // TiWork sign-in secret; "" = they cannot sign in yet
+  paidAmount?: number; // running total paid out
 }
 
 export interface CleaningAssignmentType {
@@ -87,6 +89,7 @@ export const updateCleaner = async (
     maxRooms?: number;
     baselineHours?: number;
     baselineMonth?: string;
+    accessCode?: string;
   },
   token: string,
 ): Promise<CleanerType> => {

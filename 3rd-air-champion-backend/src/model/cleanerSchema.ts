@@ -71,6 +71,12 @@ const cleanerSchema = new mongoose.Schema(
       ],
       default: [],
     },
+    // TiWork sign-in, exactly as on Staff. A cleaner is staff too — they are
+    // paid by this business and now log their own hours — they simply keep a
+    // separate record because the auto-planner needs fields (availableDays,
+    // priority, min/maxRooms) that mean nothing for an office role, and every
+    // CleaningAssignment already points here.
+    accessCode: { type: String, default: "" },
   },
   { timestamps: true }
 );

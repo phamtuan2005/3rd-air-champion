@@ -9,7 +9,20 @@ import mongoose from "mongoose";
 const workEntrySchema = new mongoose.Schema(
   {
     host: { type: mongoose.Schema.ObjectId, ref: "Host", required: true },
-    staff: { type: mongoose.Schema.ObjectId, ref: "Staff", required: true },
+    // Exactly ONE of these is set. Both kinds of worker log hours the same way
+    // and land in the same review queue; they differ only in which record they
+    // are paid from.
+    staff: { type: mongoose.Schema.ObjectId, ref: "Staff", default: null },
+    cleaner: { type: mongoose.Schema.ObjectId, ref: "Cleaner", default: null },
+    // Set when a cleaner logs against a specific turnover. On approval the hours
+    // are copied onto the assignment itself, because that is where the Clean
+    // panel and every pay calculation already read them from — leaving them only
+    // here would make TiWork and Clean disagree about the same morning.
+    assignment: {
+      type: mongoose.Schema.ObjectId,
+      ref: "CleaningAssignment",
+      default: null,
+    },
     // yyyy-MM-dd — the day worked, not the day submitted. Someone catching up on
     // Friday still logs Tuesday's hours against Tuesday.
     date: { type: String, required: true },
@@ -40,8 +53,17 @@ const workEntrySchema = new mongoose.Schema(
 // is ever read.
 workEntrySchema.index({ host: 1, status: 1, date: -1 });
 workEntrySchema.index({ staff: 1, date: -1 });
+workEntrySchema.index({ cleaner: 1, date: -1 });
+// One claim per turnover: re-submitting the same morning edits it rather than
+// stacking a second set of hours the host would have to notice and reject.
+workEntrySchema.index(
+  { assignment: 1 },
+  { unique: true, partialFilterExpression: { assignment: { $type: "objectId" } } },
+);
 
 workEntrySchema.pre("validate", function (next) {
+  if (!this.staff && !this.cleaner)
+    return next(new Error("An entry must belong to a staff member or a cleaner"));
   if (this.hours == null || this.hours <= 0)
     return next(new Error("Hours must be greater than zero"));
   // A day has 24 hours; anything beyond is a typo, and catching it here means
