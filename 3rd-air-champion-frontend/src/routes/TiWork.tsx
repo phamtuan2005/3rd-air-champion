@@ -270,21 +270,6 @@ const TiWork = () => {
   const shiftsFor = (tab: "tolog" | "done" | "upcoming") =>
     tab === "done" ? shiftsDone : tab === "upcoming" ? shiftsUpcoming : shiftsToLog;
 
-  // This month, split by what has actually been settled. "Waiting" is deliberately
-  // shown apart from "approved": telling someone they have earned money that has
-  // not been agreed yet would be the app making a promise on the host's behalf.
-  const totals = useMemo(() => {
-    const month = todayKey.slice(0, 7);
-    const mine = entries.filter((e) => e.date.slice(0, 7) === month);
-    const approved = mine.filter((e) => e.status === "approved");
-    const waiting = mine.filter((e) => e.status === "submitted");
-    return {
-      approvedHours: approved.reduce((s, e) => s + e.hours, 0),
-      approvedPay: approved.reduce((s, e) => s + e.hours * (e.approvedRate || 0), 0),
-      waitingHours: waiting.reduce((s, e) => s + e.hours, 0),
-    };
-  }, [entries, todayKey]);
-
   // ── Signed out ────────────────────────────────────────────────────────────
   if (!me) {
     return (
@@ -375,25 +360,6 @@ const TiWork = () => {
       </header>
 
       <div className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-3 px-4 py-3">
-        {/* This month */}
-        <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-            This month
-          </p>
-          <p className="mt-1 text-2xl font-bold leading-none text-emerald-600">
-            {formatHrMin(totals.approvedHours)}
-            {me.payType === "hourly" && totals.approvedPay > 0 && (
-              <span className="ml-2 text-base font-semibold text-gray-500">
-                {money(Math.round(totals.approvedPay * 100) / 100)}
-              </span>
-            )}
-          </p>
-          <p className="mt-1 text-xs text-gray-400">
-            approved
-            {totals.waitingHours > 0 && ` · ${formatHrMin(totals.waitingHours)} still waiting`}
-          </p>
-        </div>
-
         {/* A cleaner's rota. Hours go against a turnover rather than a bare date:
             the host already knows which room was cleaned that morning, and
             asking someone to retype it invites a mismatch nobody can resolve
