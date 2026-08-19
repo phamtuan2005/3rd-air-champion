@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { addDays, format, parseISO, startOfToday } from "date-fns";
+import { FaRegCalendarCheck, FaRegMoneyBillAlt } from "react-icons/fa";
 import CleanerAvatar from "../components/shared/CleanerAvatar";
 import RoomBadge from "../components/shared/RoomBadge";
 import { decimalToHm, formatHrMin, hmToDecimal } from "../util/hoursFormat";
@@ -379,12 +380,20 @@ const TiWork = () => {
             key={v}
             type="button"
             onClick={() => setView(v)}
-            className={`flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition-colors ${
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition-colors ${
               view === v
                 ? "bg-gray-900 text-white shadow-sm"
                 : "border border-gray-200 bg-white text-gray-500"
             }`}
           >
+            {/* The calendar-check is the same mark TiMag's booking cards use for
+                "on the calendar", so the two apps name the same idea the same
+                way. */}
+            {v === "work" ? (
+              <FaRegCalendarCheck size={14} className="shrink-0" />
+            ) : (
+              <FaRegMoneyBillAlt size={15} className="shrink-0" />
+            )}
             {v === "work" ? "My work" : "My pay"}
           </button>
         ))}
