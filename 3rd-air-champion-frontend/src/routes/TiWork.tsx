@@ -89,6 +89,11 @@ const TiWork = () => {
   // reads backwards from today; "what am I doing next" reads forwards. One list
   // in one order answers whichever question it was not sorted for.
   const [shiftTab, setShiftTab] = useState<"tolog" | "done" | "upcoming">("tolog");
+  // Two screens, not one long page. Work and money are separate questions asked
+  // at separate moments — a balance sitting under the rota is read every time
+  // someone checks tomorrow's rooms, whether or not they wanted to think about
+  // pay. TiMag's Clean modal keeps Pay a peer tab for the same reason.
+  const [view, setView] = useState<"work" | "pay">("work");
   const [pay, setPay] = useState<PaySummary | null>(null);
   // How far back the history reaches. Not all time by default: someone two years
   // in would load hundreds of rows to check last week. Not three weeks either —
@@ -368,12 +373,29 @@ const TiWork = () => {
         </button>
       </header>
 
+      <div className="mx-auto flex w-full max-w-lg shrink-0 gap-1 px-4 pt-3">
+        {(["work", "pay"] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => setView(v)}
+            className={`flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition-colors ${
+              view === v
+                ? "bg-gray-900 text-white shadow-sm"
+                : "border border-gray-200 bg-white text-gray-500"
+            }`}
+          >
+            {v === "work" ? "My work" : "My pay"}
+          </button>
+        ))}
+      </div>
+
       <div className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-3 px-4 py-3">
         {/* A cleaner's rota. Hours go against a turnover rather than a bare date:
             the host already knows which room was cleaned that morning, and
             asking someone to retype it invites a mismatch nobody can resolve
             afterwards. */}
-        {me.kind === "cleaner" && (
+        {view === "work" && me.kind === "cleaner" && (
           <div className="rounded-2xl border border-gray-200 bg-white p-3">
             <div className="mb-2 flex items-center gap-2">
               <p className="text-sm font-bold text-gray-800">Your cleanings</p>
@@ -554,7 +576,7 @@ const TiWork = () => {
             Deliberately the same layout and the same words: the two of them read
             these numbers to each other, and a figure that looks different on the
             two screens turns a two-minute conversation into an argument. */}
-        {pay && (
+        {view === "pay" && pay && (
           <div className="rounded-2xl border border-gray-200 bg-white p-3">
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
               <div className="flex items-center justify-between gap-2">
@@ -664,7 +686,7 @@ const TiWork = () => {
         {/* Office staff only. A cleaner's hours attach to a day the business
             scheduled, in the list above — a free date box would let a cleaning
             be invented that was never on any rota. */}
-        {me.kind === "staff" && (
+        {view === "work" && me.kind === "staff" && (
         <div className="rounded-2xl border border-gray-200 bg-white p-3">
           <p className="mb-2 text-sm font-bold text-gray-800">
             {editingId ? "Edit this day" : "Log a day"}
@@ -743,7 +765,9 @@ const TiWork = () => {
         </div>
         )}
 
-        {/* History */}
+        {/* History — a staff member's own submissions. A cleaner's work is the
+            rota above, so this would repeat it. */}
+        {view === "work" && me.kind === "staff" && (
         <div className="flex flex-col gap-2 pb-6">
           {loading && entries.length === 0 ? (
             <p className="py-6 text-center text-sm text-gray-400">Loading…</p>
@@ -808,6 +832,7 @@ const TiWork = () => {
             ))
           )}
         </div>
+        )}
 
         <p className="pb-6 text-center text-xs font-semibold italic text-amber-700/80">
           Your comfort. Our mission.
