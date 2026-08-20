@@ -26,6 +26,10 @@ interface AddPaneContextType {
   setIsRatesOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isStaffingOpen: boolean;
   setIsStaffingOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isUrgentActionOpen: boolean;
+  setIsUrgentActionOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isAskTiMagOpen: boolean;
+  setIsAskTiMagOpen: React.Dispatch<React.SetStateAction<boolean>>;
   // Weeks-per-page on a narrow phone — a per-device setting tuned from the menu.
   rowsPerPage: number;
   setRowsPerPage: (n: number) => void;

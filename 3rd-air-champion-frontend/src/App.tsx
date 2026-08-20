@@ -35,6 +35,10 @@ function App() {
   const [isMiscOpen, setIsMiscOpen] = useState(false);
   const [isRatesOpen, setIsRatesOpen] = useState(false);
   const [isStaffingOpen, setIsStaffingOpen] = useState(false);
+  // Urgent Action — paste a guest's last-minute text, get a reading of it.
+  const [isUrgentActionOpen, setIsUrgentActionOpen] = useState(false);
+  // Ask TiMag — a conversation with the books. Read-only; see aiRoute.
+  const [isAskTiMagOpen, setIsAskTiMagOpen] = useState(false);
   // Weeks-per-page on a narrow phone — set from the calendar header, persisted
   // per device so each phone/tablet keeps its own value. Clamped 1–6: 1 is a
   // single-week view, and 6 is the most week-rows any month can span (31 days
@@ -241,6 +245,10 @@ function App() {
                 setIsRatesOpen,
                 isStaffingOpen,
                 setIsStaffingOpen,
+                isUrgentActionOpen,
+                setIsUrgentActionOpen,
+                isAskTiMagOpen,
+                setIsAskTiMagOpen,
                 rowsPerPage,
                 setRowsPerPage,
                 rowHeight,
@@ -274,6 +282,10 @@ function App() {
                   isRatesOpen={isRatesOpen}
                   setIsRatesOpen={setIsRatesOpen}
                   isStaffingOpen={isStaffingOpen}
+                  isUrgentActionOpen={isUrgentActionOpen}
+                  setIsUrgentActionOpen={setIsUrgentActionOpen}
+                  isAskTiMagOpen={isAskTiMagOpen}
+                  setIsAskTiMagOpen={setIsAskTiMagOpen}
                   setIsStaffingOpen={setIsStaffingOpen}
                   isAvailabilitiesModalOpen={isAvailabilitiesModalOpen}
                   setIsAvailabilitiesModalOpen={setIsAvailabilitiesModalOpen}

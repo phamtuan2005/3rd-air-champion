@@ -11,6 +11,8 @@ import { createRoom, deleteRoom, fetchRooms, updateRoom } from "../../../util/ro
 import { guestType } from "../../../util/types/guestType";
 import { createGuest, deleteGuest, updateGuest, updateGuestPricing } from "../../../util/guestOperations";
 import { fetchWorkEntries } from "../../../util/staffOperations";
+import UrgentActionModal from "./UrgentActionModal";
+import AskTiMagModal from "./AskTiMagModal";
 import GuestView from "./GuestView/GuestView";
 import BookButton from "../BookButton";
 import { AddPaneContext, FooterContext, GuestModeContext, isSyncModalOpenContext } from "../../../context";
@@ -146,6 +148,10 @@ const MainView = ({
     isRatesOpen: boolean;
     setIsRatesOpen: React.Dispatch<React.SetStateAction<boolean>>;
     isStaffingOpen: boolean;
+    isUrgentActionOpen: boolean;
+    setIsUrgentActionOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    isAskTiMagOpen: boolean;
+    setIsAskTiMagOpen: React.Dispatch<React.SetStateAction<boolean>>;
     setIsStaffingOpen: React.Dispatch<React.SetStateAction<boolean>>;
     rowsPerPage: number;
     rowHeight: number;
@@ -167,6 +173,10 @@ const MainView = ({
     isRatesOpen,
     setIsRatesOpen,
     isStaffingOpen,
+    isUrgentActionOpen,
+    setIsUrgentActionOpen,
+    isAskTiMagOpen,
+    setIsAskTiMagOpen,
     setIsStaffingOpen,
     rowsPerPage,
     rowHeight,
@@ -1589,6 +1599,22 @@ const MainView = ({
             )
           }
           onClose={() => setIsRatesOpen(false)}
+        />
+      )}
+      {isAskTiMagOpen && (
+        <AskTiMagModal token={token as string} onClose={() => setIsAskTiMagOpen(false)} />
+      )}
+      {isUrgentActionOpen && (
+        <UrgentActionModal
+          monthMap={monthMap}
+          onClose={() => setIsUrgentActionOpen(false)}
+          onGoToStay={(booking, dateKey) => {
+            const date = new Date(dateKey + "T00:00:00");
+            setSelectedDate(date);
+            setCurrentBookings(monthMap.get(dateKey)?.bookings ?? null);
+            setSelectedBooking(booking);
+            setIsUrgentActionOpen(false);
+          }}
         />
       )}
       {isStaffingOpen && (

@@ -23,6 +23,7 @@ import miscRoute from "./route/miscRoute";
 import staffRoute from "./route/staffRoute";
 import workRoute from "./route/workRoute";
 import reminderRoute from "./route/reminderRoute";
+import aiRoute from "./route/aiRoute";
 import { authenticateToken } from "./middleware/authenticateJWT";
 import cors from "cors";
 
@@ -126,6 +127,7 @@ const startServer = async () => {
     apiRouter.use("/misc", miscRoute);
     apiRouter.use("/staff", staffRoute);
     apiRouter.use("/reminder", reminderRoute);
+    apiRouter.use("/ai", aiRoute);
 
     app.use("/api", apiRouter);
 

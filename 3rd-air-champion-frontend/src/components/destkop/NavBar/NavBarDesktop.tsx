@@ -45,6 +45,10 @@ interface NavBarDesktopProps {
   setIsRatesOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isStaffingOpen: boolean;
   setIsStaffingOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isUrgentActionOpen: boolean;
+  setIsUrgentActionOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isAskTiMagOpen: boolean;
+  setIsAskTiMagOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isAvailabilitiesModalOpen: boolean;
   setIsAvailabilitiesModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isBlockAirBnBModalOpen: boolean;
@@ -84,6 +88,10 @@ const NavBarDesktop = ({
   setIsRatesOpen,
   isStaffingOpen,
   setIsStaffingOpen,
+  isUrgentActionOpen,
+  setIsUrgentActionOpen,
+  isAskTiMagOpen,
+  setIsAskTiMagOpen,
   isAvailabilitiesModalOpen,
   setIsAvailabilitiesModalOpen,
   isBlockAirBnBModalOpen,
@@ -227,7 +235,12 @@ const NavBarDesktop = ({
       icon: <FaClipboardList className="text-sm" />,
       btn: "bg-orange-500",
       shadow: "drop-shadow-[0_4px_6px_rgba(249,115,22,0.5)]",
-      active: isTodoModalOpen || isCleanersOpen || isStaffingOpen,
+      active:
+        isTodoModalOpen ||
+        isCleanersOpen ||
+        isStaffingOpen ||
+        isUrgentActionOpen ||
+        isAskTiMagOpen,
       // One badge per action inside, rather than a single sum: yellow is To Do
       // (reminders + rooms to clean), rose is Clean (hours to record + turnovers
       // with nobody on them). Lumped together you could not tell which panel
@@ -259,6 +272,29 @@ const NavBarDesktop = ({
             { n: cleanUnassignedCount, cls: ROSE },
           ],
           run: () => setIsCleanersOpen(true),
+        },
+        {
+          label: "Ask TiMag",
+          desc: "A conversation with your books — occupancy, money, guests, cleanings.",
+          emoji: "💬",
+          hover: "hover:border-violet-300 hover:text-violet-600",
+          run: () => {
+            closeAllPanels();
+            setIsAskTiMagOpen(true);
+          },
+        },
+        {
+          // First in the list, not last. When this one is wanted, it is wanted
+          // NOW — a guest's text is sitting unread and a room is about to be
+          // decided on.
+          label: "Urgent Action",
+          desc: "Paste a guest's last-minute message and get a reading of it.",
+          emoji: "🚨",
+          hover: "hover:border-rose-300 hover:text-rose-600",
+          run: () => {
+            closeAllPanels();
+            setIsUrgentActionOpen(true);
+          },
         },
         {
           label: "Staffing",
