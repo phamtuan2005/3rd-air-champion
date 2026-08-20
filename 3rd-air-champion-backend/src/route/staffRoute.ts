@@ -3,6 +3,8 @@ import Staff from "../model/staffSchema";
 import WorkEntry from "../model/workEntrySchema";
 import Cleaner from "../model/cleanerSchema";
 import CleaningAssignment from "../model/cleaningAssignmentSchema";
+import { arrivingGuestCounts } from "../util/arrivingGuests";
+import { loadArrivals } from "../util/arrivalsLookup";
 
 // All routes here are mounted behind the JWT middleware in server.ts.
 // REST rather than GraphQL, matching /cleaner and /misc.
@@ -192,6 +194,45 @@ router.get("/hours", async (req: Request, res: any) => {
       .populate("staff", "name title")
       .populate("cleaner", "name")
       .sort({ date: -1 });
+
+    // What a cleaner's day actually consisted of: which rooms, and who was
+    // arriving into each. The claim itself records only a date and a total, so
+    // reviewing one meant opening the Clean panel to remember what was being
+    // paid for. Same rooms and the same headcounts TiWork shows the cleaner, so
+    // the two of them are looking at one day rather than two accounts of it.
+    const cleanerDays = entries
+      .filter((e: any) => e.cleaner)
+      .map((e: any) => ({ cleaner: String(e.cleaner?._id ?? e.cleaner), date: e.date }));
+
+    const assignments = cleanerDays.length
+      ? await CleaningAssignment.find({
+          host: hostId,
+          cleaner: { $in: cleanerDays.map((d) => d.cleaner) },
+          date: { $in: [...new Set(cleanerDays.map((d) => d.date))] },
+        }).populate("room", "name color")
+      : [];
+
+    const cleanings = assignments
+      .filter((a: any) => a.room?._id)
+      .map((a: any) => ({ date: a.date, roomId: String(a.room._id) }));
+    const guests = arrivingGuestCounts(await loadArrivals(hostId, cleanings), cleanings);
+
+    // Keyed by cleaner AND date: two cleaners can work the same morning, and one
+    // cleaner's rooms are not the other's.
+    const roomsByDay = new Map<string, { name: string; color: string; guests: number | null }[]>();
+    for (const a of assignments as any[]) {
+      if (!a.room?._id) continue;
+      const key = `${String(a.cleaner)}|${a.date}`;
+      const list = roomsByDay.get(key) ?? [];
+      list.push({
+        name: a.room.name ?? "",
+        color: a.room.color ?? "",
+        // null, not 0 — "nothing booked yet" is not "nobody is coming".
+        guests: guests.get(`${a.date}|${String(a.room._id)}`) ?? null,
+      });
+      roomsByDay.set(key, list);
+    }
+
     res.status(200).json(
       entries.map((e: any) => ({
         id: e._id,
@@ -205,6 +246,12 @@ router.get("/hours", async (req: Request, res: any) => {
         // Rooms the cleaner named for a day nothing was scheduled; empty when
         // assignments already say which rooms the visit covered.
         roomName: (e.rooms ?? []).join(", "),
+        // The scheduled rooms for a cleaner's day, each with the headcount
+        // arriving into it. Empty for office staff, whose hours are not against
+        // rooms at all.
+        rooms: e.cleaner
+          ? (roomsByDay.get(`${String(e.cleaner?._id ?? e.cleaner)}|${e.date}`) ?? [])
+          : [],
         date: e.date,
         hours: e.hours,
         report: e.report ?? "",

@@ -3,17 +3,10 @@ import Staff from "../model/staffSchema";
 import Cleaner from "../model/cleanerSchema";
 import CleaningAssignment from "../model/cleaningAssignmentSchema";
 import WorkEntry from "../model/workEntrySchema";
-import Host from "../model/hostSchema";
-import Day from "../model/daySchema";
 import { findAssignments } from "../util/assignmentQuery";
 import { computeCleanerPay } from "../util/cleanerPay";
-import {
-  Arrival,
-  LOOKAHEAD_DAYS,
-  arrivingGuestCounts,
-  dayKey,
-  shiftKey,
-} from "../util/arrivingGuests";
+import { arrivingGuestCounts } from "../util/arrivingGuests";
+import { loadArrivals } from "../util/arrivalsLookup";
 
 // TiWork — the staff-facing app. Mounted PUBLIC, before the JWT middleware:
 // staff have no TiMag login, the same way guests have none for TiBook.
@@ -235,44 +228,6 @@ router.delete("/entry", async (req: Request, res: any) => {
 //
 // Windowed rather than everything: the point of this screen is "what am I doing
 // next, and did last week's hours go in" — a year of history would bury both.
-// The arrivals on the books for a host, over the window a set of cleanings can
-// see. The date arithmetic itself lives in util/arrivingGuests, tested there.
-//
-// Scoped to the host's own calendar. TiWork once read across every host document
-// in the database and told a cleaner about a room that was not theirs.
-const loadArrivals = async (
-  hostId: unknown,
-  cleanings: { date: string; roomId: string }[],
-): Promise<Arrival[]> => {
-  if (cleanings.length === 0) return [];
-
-  const host: any = await Host.findById(hostId).select("calendar");
-  if (!host?.calendar) return [];
-
-  const dates = cleanings.map((c) => c.date).sort();
-  const from = new Date(dates[0] + "T00:00:00.000Z");
-  const to = new Date(shiftKey(dates[dates.length - 1], LOOKAHEAD_DAYS) + "T23:59:59.999Z");
-
-  const days: any[] = await Day.find({
-    calendar: host.calendar,
-    date: { $gte: from, $lte: to },
-  }).select("date bookings.room bookings.startDate bookings.numberOfGuests");
-
-  // Arrivals only: a booking is written onto every night of its stay, and the
-  // guests this cleaning is for are the ones whose stay STARTS — not the ones
-  // already halfway through it.
-  const out: Arrival[] = [];
-  for (const day of days) {
-    const key = dayKey(day.date);
-    for (const b of day.bookings ?? []) {
-      if (!b.room || !b.startDate) continue;
-      if (dayKey(b.startDate) !== key) continue;
-      out.push({ date: key, roomId: String(b.room), guests: b.numberOfGuests || 1 });
-    }
-  }
-  return out;
-};
-
 router.post("/schedule", async (req: Request, res: any) => {
   const { identifier, code, from, to } = req.body;
   try {

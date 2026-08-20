@@ -10,6 +10,7 @@ import { roomType } from "../../../util/types/roomType";
 import { createRoom, deleteRoom, fetchRooms, updateRoom } from "../../../util/roomOperations";
 import { guestType } from "../../../util/types/guestType";
 import { createGuest, deleteGuest, updateGuest, updateGuestPricing } from "../../../util/guestOperations";
+import { fetchWorkEntries } from "../../../util/staffOperations";
 import GuestView from "./GuestView/GuestView";
 import BookButton from "../BookButton";
 import { AddPaneContext, FooterContext, GuestModeContext, isSyncModalOpenContext } from "../../../context";
@@ -80,6 +81,7 @@ interface MainViewProps {
   setBookingRequestPendingCount: React.Dispatch<React.SetStateAction<number>>;
   setWishListAvailableCount: React.Dispatch<React.SetStateAction<number>>;
   setMiscCount: React.Dispatch<React.SetStateAction<number>>;
+  setStaffPendingCount: React.Dispatch<React.SetStateAction<number>>;
   cancellationFullRefundDays?: number;
   cancellationHalfRefundDays?: number;
 }
@@ -114,6 +116,7 @@ const MainView = ({
   setBookingRequestPendingCount,
   setWishListAvailableCount,
   setMiscCount,
+  setStaffPendingCount,
   cancellationFullRefundDays,
   cancellationHalfRefundDays,
 }: MainViewProps) => {
@@ -439,6 +442,18 @@ const MainView = ({
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hostId, token, isCleanersOpen, monthMap, planDays]);
+
+  // Hours submitted from TiWork and not yet ruled on — the Staffing badge.
+  // Refetched when the panel opens AND when it closes, so approving the last
+  // one clears the badge without a reload. Asked of the server with the status
+  // filter rather than counted client-side: the badge should not depend on the
+  // panel having been opened once to populate a list.
+  useEffect(() => {
+    if (!hostId || !token) return;
+    fetchWorkEntries(hostId, token, "submitted")
+      .then((entries) => setStaffPendingCount(entries.length))
+      .catch(() => setStaffPendingCount(0));
+  }, [hostId, token, isStaffingOpen, setStaffPendingCount]);
 
   // ── Messaging hook ────────────────────────────────────────────────────────
   const {

@@ -160,6 +160,10 @@ export interface HostWorkEntry {
   id: string;
   kind: "staff" | "cleaner";
   roomName: string;
+  // The rooms a cleaner's day covered, each with the headcount arriving into it
+  // — the same rooms and figures TiWork shows the cleaner. Empty for office
+  // staff, whose hours are not against rooms.
+  rooms?: { name: string; color: string; guests?: number | null }[];
   staffId: string;
   staffName: string;
   staffTitle: string;

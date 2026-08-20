@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { format, parseISO, startOfToday } from "date-fns";
 import CleanerAvatar from "../../shared/CleanerAvatar";
+import GuestFigures from "../../shared/GuestFigures";
+import RoomBadge from "../../shared/RoomBadge";
+import { MdCleaningServices } from "react-icons/md";
 import { GUEST_AVATAR_PRESETS } from "../../../util/guestAvatars";
 import { formatHrMin } from "../../../util/hoursFormat";
 import {
@@ -605,10 +608,24 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
               <div className="flex flex-col gap-2.5">
                 {workEntries.map((w) => (
                   <div key={w.id} className="rounded-xl border border-gray-200 bg-white p-3">
+                    {/* Who, when, what the visit was, and how long — the line
+                        TiWork shows the cleaner for the same day, so a claim and
+                        the claimant's own screen read alike. */}
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-bold text-gray-900">{w.staffName}</span>
                       <span className="text-sm text-gray-500">{fmtDate(w.date)}</span>
-                      {w.roomName && (
+                      {w.kind === "cleaner" && (w.rooms?.length ?? 0) > 0 && (
+                        <span className="inline-flex items-center gap-1.5 text-sm text-gray-500">
+                          <MdCleaningServices className="shrink-0 text-teal-600" size={14} />
+                          <span className="font-semibold">
+                            {w.rooms!.length} {w.rooms!.length === 1 ? "room" : "rooms"}
+                          </span>
+                        </span>
+                      )}
+                      {/* Rooms the cleaner typed in for a day nothing was
+                          scheduled — kept, because then it is the only record of
+                          what they say they cleaned. */}
+                      {w.roomName && (w.rooms?.length ?? 0) === 0 && (
                         <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-700">
                           {w.roomName}
                         </span>
@@ -630,6 +647,21 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
                             : "Waiting on you"}
                       </span>
                     </div>
+                    {/* What the day actually consisted of. Reviewing an hours
+                        claim used to mean opening the Clean panel to remember
+                        what was being paid for; the rooms and their headcounts
+                        are the answer, and they are the same ones the cleaner
+                        was shown in TiWork. */}
+                    {(w.rooms?.length ?? 0) > 0 && (
+                      <div className="mt-1.5 flex flex-col gap-1">
+                        {w.rooms!.map((r, i) => (
+                          <div key={`${r.name}-${i}`} className="flex items-center gap-2">
+                            <RoomBadge room={{ name: r.name, color: r.color }} rooms={w.rooms!} />
+                            <GuestFigures n={r.guests ?? 0} />
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     {w.report && (
                       <p className="mt-1.5 whitespace-pre-line text-sm text-gray-600">{w.report}</p>
                     )}

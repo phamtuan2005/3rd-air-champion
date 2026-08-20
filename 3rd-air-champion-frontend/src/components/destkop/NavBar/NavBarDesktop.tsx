@@ -56,6 +56,7 @@ interface NavBarDesktopProps {
   todoCleanCount: number;
   cleanTodoCount: number;
   cleanUnassignedCount: number;
+  staffPendingCount: number;
   isRequestManagerOpen: boolean;
   setIsRequestManagerOpen: React.Dispatch<React.SetStateAction<boolean>>;
   bookingRequestPendingCount: number;
@@ -94,6 +95,7 @@ const NavBarDesktop = ({
   todoCleanCount,
   cleanTodoCount,
   cleanUnassignedCount,
+  staffPendingCount,
   isRequestManagerOpen,
   setIsRequestManagerOpen,
   bookingRequestPendingCount,
@@ -143,6 +145,11 @@ const NavBarDesktop = ({
   const YELLOW = "bg-yellow-400 text-black";
   const GREEN = "bg-green-500 text-white";
   const ROSE = "bg-rose-500 text-white";
+  // Staffing's own accent, the indigo its card already hovers to. A fourth
+  // colour rather than reusing yellow: two yellow badges on one button would
+  // say "something is waiting" without saying which panel is waiting, which is
+  // the only thing the number is for.
+  const INDIGO = "bg-indigo-500 text-white";
 
   const GROUPS: Record<
     "calendar" | "tasks" | "money",
@@ -228,6 +235,7 @@ const NavBarDesktop = ({
       badges: [
         { n: todoCleanCount, cls: YELLOW, pos: "mid" },
         { n: cleanTodoCount + cleanUnassignedCount, cls: ROSE, pos: "right" },
+        { n: staffPendingCount, cls: INDIGO, pos: "left" },
       ],
       actions: [
         {
@@ -257,6 +265,10 @@ const NavBarDesktop = ({
           desc: "The people helping run the business, their pay and performance.",
           emoji: "👤",
           hover: "hover:border-indigo-300 hover:text-indigo-600",
+          // Hours submitted from TiWork that nobody has ruled on yet. A person
+          // is waiting on each one to hear that their claim counts, so it is
+          // worth a number on the outside of the panel.
+          badges: [{ n: staffPendingCount, cls: INDIGO }],
           run: () => {
             closeAllPanels();
             setIsStaffingOpen(true);

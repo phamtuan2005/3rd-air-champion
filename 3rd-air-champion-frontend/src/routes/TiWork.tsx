@@ -5,11 +5,11 @@ import {
   FaRegCalendarCheck,
   FaRegCheckCircle,
   FaRegClock,
-  FaUser,
   FaRegMoneyBillAlt,
 } from "react-icons/fa";
 import CleanerAvatar from "../components/shared/CleanerAvatar";
 import RoomBadge from "../components/shared/RoomBadge";
+import GuestFigures from "../components/shared/GuestFigures";
 import { decimalToHm, formatHrMin, hmToDecimal } from "../util/hoursFormat";
 import {
   WorkCreds,
@@ -27,11 +27,6 @@ import {
 } from "../util/workOperations";
 
 const CREDS_KEY = "tiWorkCreds";
-
-// Above this, a row of figures stops being countable at a glance and becomes a
-// smear you have to read the number off anyway — so past it we show one figure
-// and the count instead of pretending to draw them all.
-const MAX_GUEST_FIGURES = 6;
 
 // The house mark and the promise, as ONE thing.
 //
@@ -609,29 +604,7 @@ const TiWork = () => {
                                 knows what it means, a cleaner meets it once a week
                                 on a phone. Silent when nothing is booked yet,
                                 which is not the same as nobody coming. */}
-                            {r.guests ? (
-                              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-600">
-                                {/* One figure per person. A single icon beside
-                                    "2 guests" reads as an icon meaning "guests"
-                                    and leaves the number to be noticed; three
-                                    figures are counted before the words are
-                                    read, which is the whole point of putting it
-                                    on a cleaner's screen. */}
-                                <span className="inline-flex shrink-0 items-center gap-0.5 text-gray-500">
-                                  {r.guests <= MAX_GUEST_FIGURES ? (
-                                    Array.from({ length: r.guests }, (_, gi) => (
-                                      <FaUser key={gi} size={11} className="shrink-0" />
-                                    ))
-                                  ) : (
-                                    <>
-                                      <FaUser size={11} className="shrink-0" />
-                                      <span className="text-xs font-bold">x{r.guests}</span>
-                                    </>
-                                  )}
-                                </span>
-                                {r.guests} {r.guests === 1 ? "guest" : "guests"} arriving
-                              </span>
-                            ) : null}
+                            <GuestFigures n={r.guests ?? 0} />
                           </div>
                         ))}
                       </div>

@@ -93,6 +93,10 @@ function App() {
   const [cleanUnassignedCount, setCleanUnassignedCount] = useState(0);
   // House expenses logged for the month in view — the Misc badge on Money
   const [miscCount, setMiscCount] = useState(0);
+  // Hours a worker has submitted from TiWork and nobody has ruled on yet — the
+  // Staffing badge. Somebody is waiting to be told their claim counts, and until
+  // now the only way to find out was to open the panel and look.
+  const [staffPendingCount, setStaffPendingCount] = useState(0);
   const [isRequestManagerOpen, setIsRequestManagerOpen] = useState(false);
   const [bookingRequestPendingCount, setBookingRequestPendingCount] =
     useState(0);
@@ -282,6 +286,7 @@ function App() {
                   todoCleanCount={todoCleanCount}
                   cleanTodoCount={cleanTodoCount}
                   cleanUnassignedCount={cleanUnassignedCount}
+                  staffPendingCount={staffPendingCount}
                   miscCount={miscCount}
                   isRequestManagerOpen={isRequestManagerOpen}
                   setIsRequestManagerOpen={setIsRequestManagerOpen}
@@ -319,6 +324,7 @@ function App() {
                     setAirbnbPendingCount={setAirbnbPendingCount}
                     setAvailableNightsCount={setAvailableNightsCount}
                     setMiscCount={setMiscCount}
+                    setStaffPendingCount={setStaffPendingCount}
                     setTodoCleanCount={setTodoCleanCount}
                     setCleanTodoCount={setCleanTodoCount}
                     setCleanUnassignedCount={setCleanUnassignedCount}
