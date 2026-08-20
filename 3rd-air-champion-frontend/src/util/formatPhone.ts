@@ -9,3 +9,13 @@ export const formatPhone = (raw: string): string => {
     return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
   return raw;
 };
+
+// What gets SENT to the backend. Formatting goes, but a typed "+" stays: it is
+// the only thing that says this number is not American, and stripping it turned
+// a German +49 into a 13-digit US number the server then refused. The backend
+// re-formats from here, so this only has to preserve the country code.
+export const toStoredPhone = (raw: string): string => {
+  const trimmed = (raw ?? "").trim();
+  const digits = trimmed.replace(/\D/g, "");
+  return trimmed.startsWith("+") ? `+${digits}` : digits;
+};

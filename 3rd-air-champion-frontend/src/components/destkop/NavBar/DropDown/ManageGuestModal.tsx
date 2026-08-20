@@ -10,6 +10,7 @@ import RoomBadge from "../../../shared/RoomBadge";
 import PickerModal, { PickerOption } from "../../../shared/PickerModal";
 import CleanerAvatar from "../../../shared/CleanerAvatar";
 import { GUEST_AVATAR_PRESETS } from "../../../../util/guestAvatars";
+import { toStoredPhone } from "../../../../util/formatPhone";
 
 const manageGuestSchema = z.object({
   name: z
@@ -56,6 +57,10 @@ interface ManageGuestModalProps {
     onError: (msg: string) => void,
   ) => void;
   onDelete: (guestId: string, onError: (msg: string) => void) => void;
+  // Opens straight on a blank guest, name and phone already filled — the way in
+  // from a booking request by somebody who is not in the guest list yet. The
+  // host confirms what the guest typed rather than retyping it.
+  prefill?: { name: string; phone: string } | null;
 }
 
 const ManageGuestModal = ({
@@ -65,7 +70,13 @@ const ManageGuestModal = ({
   onSave,
   onAdd,
   onDelete,
+  prefill,
 }: ManageGuestModalProps) => {
+  // Adding, not editing. The guest picker, the avatar, the rates and Delete all
+  // belong to an existing record, so none of them are shown — /guest/create
+  // takes name, phone, email and notes and nothing else, and a form that
+  // collects more than it can save is a form that loses work.
+  const addMode = !!prefill;
   const selectableGuests = guests
     .filter((g) => g.name !== "AirBnB")
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -123,12 +134,14 @@ const ManageGuestModal = ({
     formState: { errors },
   } = useForm<ManageGuestFormData>({
     resolver: zodResolver(manageGuestSchema),
-    values: {
-      name: selectedGuest?.name ?? "",
-      phone: selectedGuest?.phone ?? "",
-      email: selectedGuest?.email ?? "",
-      notes: selectedGuest?.notes ?? "",
-    },
+    values: addMode
+      ? { name: prefill!.name, phone: prefill!.phone, email: "", notes: "" }
+      : {
+          name: selectedGuest?.name ?? "",
+          phone: selectedGuest?.phone ?? "",
+          email: selectedGuest?.email ?? "",
+          notes: selectedGuest?.notes ?? "",
+        },
   });
 
   const handleGuestChange = (id: string) => {
@@ -159,9 +172,15 @@ const ManageGuestModal = ({
       .filter((p) => Number.isFinite(p.price) && p.price >= 0);
 
   const onSubmit: SubmitHandler<ManageGuestFormData> = (data) => {
-    if (!selectedGuest) return;
     setErrorMessage("");
-    const cleaned = { ...data, phone: data.phone.replace(/\D/g, "") };
+    const cleaned = { ...data, phone: toStoredPhone(data.phone) };
+    // Already known to be new — the request card only offers this for a phone
+    // that matches nobody, so there is no name to confirm against.
+    if (addMode) {
+      onAdd({ ...cleaned, returning: true }, (msg) => setErrorMessage(msg));
+      return;
+    }
+    if (!selectedGuest) return;
     const nameExistsInList = selectableGuests.some(
       (g) => g.name === cleaned.name,
     );
@@ -200,7 +219,9 @@ const ManageGuestModal = ({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-          <h2 className="text-base font-bold text-gray-900">Manage guest</h2>
+          <h2 className="text-base font-bold text-gray-900">
+            {addMode ? "New guest" : "Manage guest"}
+          </h2>
           <button
             type="button"
             onClick={onClose}
@@ -211,14 +232,20 @@ const ManageGuestModal = ({
           </button>
         </div>
 
-        {selectableGuests.length === 0 ? (
+        {!addMode && selectableGuests.length === 0 ? (
           <p className="px-4 py-6 text-center text-sm text-gray-500">
             No returning guests found.
           </p>
         ) : (
           <div className="flex min-h-0 flex-col gap-3 overflow-y-auto p-4">
-            {/* Guest selector — a picker, not a native select, which opens the
-                OS wheel on a phone and looks nothing like the app. */}
+            {addMode ? (
+              <p className="rounded-xl bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-800">
+                From their booking request. Check the details, then add them —
+                rates and an avatar can be set afterwards.
+              </p>
+            ) : (
+            /* Guest selector — a picker, not a native select, which opens the
+               OS wheel on a phone and looks nothing like the app. */
             <div>
               <label className={LABEL}>Guest</label>
               <button
@@ -244,6 +271,7 @@ const ManageGuestModal = ({
                 <FaChevronDown size={10} className="shrink-0 text-gray-400" />
               </button>
             </div>
+            )}
 
             <form
               className="flex flex-col gap-3"
@@ -276,6 +304,7 @@ const ManageGuestModal = ({
                 </div>
               </div>
 
+              {!addMode && (
               <div>
                 <label className={LABEL}>Avatar</label>
                 {/* What they look like now, and a way in. The grid itself stays
@@ -336,13 +365,14 @@ const ManageGuestModal = ({
                   </p>
                 )}
               </div>
+              )}
 
               <div>
                 <label className={LABEL}>Notes</label>
                 <textarea className={`mt-1 ${FIELD}`} rows={2} {...register("notes")} />
               </div>
 
-              {activeRooms.length > 0 && (
+              {!addMode && activeRooms.length > 0 && (
                 <div>
                   <label className={LABEL}>Room rates</label>
                   <div className="mt-1 divide-y divide-gray-100 rounded-xl border border-gray-200">
@@ -394,16 +424,20 @@ const ManageGuestModal = ({
               <div className="flex items-center justify-between gap-2 pt-1">
                 {/* Destructive action kept quiet and apart from the everyday
                     ones — it still arms a confirmation before anything happens. */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setConfirmDelete(true);
-                    setPendingConfirm(null);
-                  }}
-                  className="rounded-lg px-2.5 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50"
-                >
-                  Delete
-                </button>
+                {addMode ? (
+                  <span />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirmDelete(true);
+                      setPendingConfirm(null);
+                    }}
+                    className="rounded-lg px-2.5 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50"
+                  >
+                    Delete
+                  </button>
+                )}
                 <div className="flex gap-2">
                   <button
                     type="button"
@@ -416,7 +450,7 @@ const ManageGuestModal = ({
                     type="submit"
                     className="rounded-lg bg-gray-900 px-4 py-1.5 text-sm font-semibold text-white"
                   >
-                    Save
+                    {addMode ? "Add guest" : "Save"}
                   </button>
                 </div>
               </div>

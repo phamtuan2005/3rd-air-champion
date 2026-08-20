@@ -3,6 +3,30 @@ import parsePhoneNumber, { isPossiblePhoneNumber } from "libphonenumber-js";
 import Host from "./hostSchema";
 import Day from "./daySchema";
 
+// One phone number, stored one way.
+//
+// A number typed with a country code belongs to that country; only a bare
+// number is assumed to be US. Assuming US for everything is what rejected a
+// German +49 as "invalid" — parsed against the US plan it is simply too long.
+//
+// US numbers keep the national look the rest of the app is written around.
+// Anything else keeps its "+" and country code, without which the number
+// cannot be dialled or texted from here at all.
+const normalizePhone = (raw: string): string | null => {
+  const input = (raw ?? "").trim();
+  if (!input) return null;
+  const country = input.startsWith("+") ? undefined : "US";
+  if (!isPossiblePhoneNumber(input, country)) return null;
+  const parsed = parsePhoneNumber(input, country);
+  if (!parsed) return null;
+  return parsed.country === "US" ? parsed.formatNational() : parsed.formatInternational();
+};
+
+// Says what to do about it. "Invalid phone number" on a foreign number the host
+// typed correctly sends them looking for a typo that is not there.
+const BAD_PHONE =
+  "Invalid phone number. A number outside the US needs its country code, like +49 151 12345678.";
+
 const guestSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
@@ -63,14 +87,9 @@ guestSchema.pre(
     if (update && typeof update === "object" && !Array.isArray(update)) {
       if ("phone" in update) {
         // Phone sanitization
-        if (isPossiblePhoneNumber(update.phone, "US")) {
-          const phoneNumber = parsePhoneNumber(update.phone, "US");
-          if (update.phone && phoneNumber) {
-            update.phone = phoneNumber.formatNational();
-          }
-        } else {
-          return next(new Error("Invalid phone number"));
-        }
+        const normalized = normalizePhone(update.phone);
+        if (!normalized) return next(new Error(BAD_PHONE));
+        update.phone = normalized;
       }
 
       // Number of Guests validation
@@ -106,14 +125,9 @@ guestSchema.pre("save", function (next) {
   if (this.notes === null) this.notes = "";
 
   // Phone sanitization
-  if (isPossiblePhoneNumber(this.phone, "US")) {
-    const phoneNumber = parsePhoneNumber(this.phone, "US");
-    if (this.phone && phoneNumber) {
-      this.phone = phoneNumber.formatNational();
-    }
-  } else {
-    return next(new Error("Invalid phone number"));
-  }
+  const normalized = normalizePhone(this.phone);
+  if (!normalized) return next(new Error(BAD_PHONE));
+  this.phone = normalized;
 
   // Email sanitization
   this.email = this.email?.toLocaleLowerCase();

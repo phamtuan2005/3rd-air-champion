@@ -1,6 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { SubmitHandler, useForm } from "react-hook-form";
 import { guestAddSchema, guestAddZodObject } from "./zodAddGuest";
+import { toStoredPhone } from "../../../util/formatPhone";
 
 interface GuestAddPaneProps {
   guestErrorMessage: string;
@@ -16,8 +17,9 @@ const GuestAddPane = ({ guestErrorMessage, onAddGuest }: GuestAddPaneProps) => {
   } = useForm<guestAddSchema>({ resolver: zodResolver(guestAddZodObject) });
 
   const onSubmit: SubmitHandler<guestAddSchema> = (data) => {
-    // Strip formatting — store the phone as digits only.
-    onAddGuest({ name: data.name, phone: data.phone.replace(/\D/g, "") });
+    // Strip formatting, but keep a typed "+" — it is what marks the number
+    // as belonging to a country other than this one.
+    onAddGuest({ name: data.name, phone: toStoredPhone(data.phone) });
   };
 
   return (

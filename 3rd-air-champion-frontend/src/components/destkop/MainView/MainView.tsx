@@ -539,6 +539,16 @@ const MainView = ({
     }
   }, [isTodoModalOpen]);
 
+  // A booking request from somebody not in the guest list yet: "+ Add" opens
+  // the guest form with what they typed already in it. Creating the record
+  // silently behind the button looked like nothing had happened, and gave the
+  // host no chance to fix a name or a mistyped digit before it was saved.
+  const [guestPrefill, setGuestPrefill] = useState<{ name: string; phone: string } | null>(null);
+  const openGuestPrefill = (guest: { name: string; phone: string }) => {
+    setGuestPrefill(guest);
+    setIsManageGuestOpen(true);
+  };
+
   // ── CRUD handlers ─────────────────────────────────────────────────────────
   const onAddGuest = (guestObject: { name: string; phone: string }) => {
     createGuest(guestObject, token as string)
@@ -600,6 +610,7 @@ const MainView = ({
       .then((result) => {
         setGuests((prev) => [...prev, result]);
         setIsManageGuestOpen(false);
+        setGuestPrefill(null);
       })
       .catch((err) => {
         onError(typeof err === "string" ? err : "Failed to create guest. Please try again.");
@@ -1198,11 +1209,7 @@ const MainView = ({
               setIsRequestManagerOpen(false);
               setIsModalOpen(true);
             }}
-            onAddGuest={(guest) =>
-              createGuest(guest, token as string)
-                .then((result) => setGuests((prev) => [...prev, result]))
-                .catch((err) => console.error("Error adding guest:", err))
-            }
+            onAddGuest={openGuestPrefill}
             onUnbook={onUnbook}
           />
         ) : (
@@ -1390,11 +1397,7 @@ const MainView = ({
               setIsRequestManagerOpen(false);
               setIsModalOpen(true);
             }}
-            onAddGuest={(guest) =>
-              createGuest(guest, token as string)
-                .then((result) => setGuests((prev) => [...prev, result]))
-                .catch((err) => console.error("Error adding guest:", err))
-            }
+            onAddGuest={openGuestPrefill}
             onUnbook={onUnbook}
           />
         )}
@@ -1545,11 +1548,15 @@ const MainView = ({
           }}
         />
       )}
-      {isManageGuestOpen && guests.length > 0 && (
+      {isManageGuestOpen && (guestPrefill || guests.length > 0) && (
         <ManageGuestModal
           guests={guests}
           rooms={rooms}
-          onClose={() => setIsManageGuestOpen(false)}
+          prefill={guestPrefill}
+          onClose={() => {
+            setIsManageGuestOpen(false);
+            setGuestPrefill(null);
+          }}
           onSave={onUpdateGuestFromModal}
           onAdd={onAddGuestFromModal}
           onDelete={onDeleteGuestFromModal}
