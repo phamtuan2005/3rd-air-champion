@@ -546,10 +546,44 @@ const TiWork = () => {
                           : "flex flex-col gap-1.5 border-b border-gray-100 pb-2 last:border-0 last:pb-0"
                       }
                     >
-                      <div className="flex flex-wrap items-center gap-1.5">
+                      {/* One line that answers the whole day: when, how big, and
+                          where the hours stand. The size was left to be counted
+                          off the rows below, and the hours sat under them — so
+                          the two things somebody scanning the list actually wants
+                          were the two things they had to hunt for. */}
+                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                         <span className="text-base font-semibold text-gray-800">
                           {fmtDay(sh.date)}
                         </span>
+                        <span className="text-gray-300">&middot;</span>
+                        <span className="text-sm font-semibold text-gray-500">
+                          {sh.rooms.length} {sh.rooms.length === 1 ? "room" : "rooms"}
+                        </span>
+                        {claim ? (
+                          <>
+                            <span className="text-gray-300">&middot;</span>
+                            <span
+                              className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${STATUS_STYLE[claim.status]}`}
+                            >
+                              {formatHrMin(claim.hours)} {STATUS_LABEL[claim.status].toLowerCase()}
+                            </span>
+                          </>
+                        ) : sh.recordedHours != null ? (
+                          <>
+                            <span className="text-gray-300">&middot;</span>
+                            {/* Already entered by Anh-Tuan in TiMag. Shown, not
+                                editable: two people typing the same day is how
+                                the two screens end up disagreeing. */}
+                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
+                              {formatHrMin(sh.recordedHours)} recorded
+                            </span>
+                          </>
+                        ) : upcoming ? (
+                          <>
+                            <span className="text-gray-300">&middot;</span>
+                            <span className="text-sm italic text-gray-400">planned</span>
+                          </>
+                        ) : null}
                       </div>
                       {/* One room per LINE, each with its own headcount.
                           Laid out in a row, the rooms and their counts sat in a
@@ -601,23 +635,12 @@ const TiWork = () => {
                           </div>
                         ))}
                       </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        {claim ? (
-                          <span
-                            className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${STATUS_STYLE[claim.status]}`}
-                          >
-                            {formatHrMin(claim.hours)} · {STATUS_LABEL[claim.status]}
-                          </span>
-                        ) : sh.recordedHours != null ? (
-                          /* Already entered by Anh-Tuan in TiMag. Shown, not
-                             editable: two people typing the same day is how the
-                             two screens end up disagreeing. */
-                          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
-                            {formatHrMin(sh.recordedHours)} · recorded
-                          </span>
-                        ) : upcoming ? (
-                          <span className="text-sm italic text-gray-400">planned</span>
-                        ) : (
+                      {/* Only what is still to be DONE about the day lives down
+                          here — the boxes for hours not yet sent, and anything
+                          Anh-Tuan wrote back. A day already settled says so on
+                          the line above and needs no second row. */}
+                      <div className="flex flex-wrap items-center gap-2 empty:hidden">
+                        {!claim && sh.recordedHours == null && !upcoming && (
                           <>
                             {/* Hours and minutes, never a decimal. Nobody
                                 works 1.58 hours. */}
