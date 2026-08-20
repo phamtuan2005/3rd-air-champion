@@ -248,6 +248,36 @@ router.post("/chat", async (req: Request, res: any) => {
     }))
     .slice(-24);
 
+  // ── Server-sent events, because the answer takes longer than the CDN waits ──
+  //
+  // CloudFront gives an origin 30 seconds to START responding, then returns its
+  // own 504 — which is what this route did on its first real question. A model
+  // running several tool calls over a month of calendar is simply slower than
+  // that, and raising the timeout only moves the wall (60s is the ceiling).
+  //
+  // So the response opens IMMEDIATELY and keeps a heartbeat flowing while the
+  // work happens. The connection is never idle, so there is nothing to time
+  // out, and the wait stops being a gamble against a stopwatch.
+  //
+  // Everything that can fail cheaply — no key, no message — is answered as
+  // ordinary JSON above this line. Once the stream opens the status code is
+  // already sent and cannot be taken back.
+  res.status(200);
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+  // no-transform matters as much as no-cache: it tells the CDN not to buffer
+  // the body, which would defeat the whole point of streaming it.
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders?.();
+
+  const send = (event: string, payload: unknown) =>
+    res.write(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`);
+
+  // A comment line every few seconds. Invisible to the client's parser, but it
+  // is bytes on the wire, which is the only thing the CDN is counting.
+  const heartbeat = setInterval(() => res.write(": working\n\n"), 5000);
+
   try {
     const client = new Anthropic();
     const runner = client.beta.messages.toolRunner({
@@ -259,6 +289,16 @@ router.post("/chat", async (req: Request, res: any) => {
       messages,
     });
 
+    // Each iteration is one model turn. Reporting the tool calls as they happen
+    // shows the host it is reading rather than composing — and turns a blank
+    // thirty seconds into something legible.
+    for await (const message of runner) {
+      const used = (message?.content ?? [])
+        .filter((b: any) => b.type === "tool_use")
+        .map((b: any) => b.name);
+      if (used.length > 0) send("progress", { tools: used });
+    }
+
     const final = await runner.done();
     const text = (final?.content ?? [])
       .filter((b: any) => b.type === "text")
@@ -266,10 +306,8 @@ router.post("/chat", async (req: Request, res: any) => {
       .join("\n")
       .trim();
 
-    res.status(200).json({
+    send("reply", {
       reply: text || "I could not put an answer together for that one.",
-      // Shown in the panel so the host can see it actually looked things up
-      // rather than answering from the air.
       usage: {
         input: final?.usage?.input_tokens ?? 0,
         output: final?.usage?.output_tokens ?? 0,
@@ -277,14 +315,20 @@ router.post("/chat", async (req: Request, res: any) => {
     });
   } catch (error: any) {
     // Most specific first — the difference between "no credit" and "try again"
-    // is the difference between a task and a wait.
-    if (error instanceof Anthropic.AuthenticationError)
-      return res.status(502).json({ error: "The server's API key was rejected." });
-    if (error instanceof Anthropic.RateLimitError)
-      return res.status(429).json({ error: "Too many requests just now — try again shortly." });
-    if (error instanceof Anthropic.APIError)
-      return res.status(502).json({ error: `The assistant is unavailable (${error.status}).` });
-    res.status(500).json({ error: error?.message ?? "Something went wrong." });
+    // is the difference between a task and a wait. These travel as events now,
+    // since the 200 has already gone out.
+    const message =
+      error instanceof Anthropic.AuthenticationError
+        ? "The server's API key was rejected."
+        : error instanceof Anthropic.RateLimitError
+          ? "Too many requests just now — try again shortly."
+          : error instanceof Anthropic.APIError
+            ? `The assistant is unavailable (${error.status}).`
+            : (error?.message ?? "Something went wrong.");
+    send("failed", { error: message });
+  } finally {
+    clearInterval(heartbeat);
+    res.end();
   }
 });
 

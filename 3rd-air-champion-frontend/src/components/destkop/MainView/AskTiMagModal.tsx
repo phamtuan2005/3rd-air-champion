@@ -7,6 +7,16 @@ interface AskTiMagModalProps {
   onClose: () => void;
 }
 
+// What each tool is, said the way the host would say it. A waiting line that
+// reads "get_calendar" tells him the machinery is working; one that reads
+// "reading the calendar" tells him what it is working ON.
+const TOOL_WORDS: Record<string, string> = {
+  get_calendar: "reading the calendar",
+  get_rooms: "checking the rooms",
+  get_guests: "looking up guests",
+  get_cleanings: "checking the cleaning rota",
+};
+
 // Openers, so the first use is not a blank box. Chosen to show what it can
 // actually reach — the calendar, the guest list, the cleaning rota — rather
 // than to be clever.
@@ -31,6 +41,7 @@ const AskTiMagModal = ({ token, onClose }: AskTiMagModalProps) => {
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  const [doing, setDoing] = useState<string>("");
   const [error, setError] = useState("");
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
@@ -47,10 +58,13 @@ const AskTiMagModal = ({ token, onClose }: AskTiMagModalProps) => {
     setTurns(next);
     setDraft("");
     setError("");
+    setDoing("");
     setBusy(true);
     try {
       // The whole history goes each time; the model keeps no memory of its own.
-      const { reply } = await askTiMag(next, token);
+      const { reply } = await askTiMag(next, token, (tools) =>
+        setDoing(tools.map((t) => TOOL_WORDS[t] ?? t).join(", ")),
+      );
       setTurns([...next, { role: "assistant", content: reply }]);
     } catch (err) {
       // The question stays on screen. Losing what you typed because a server
@@ -58,6 +72,7 @@ const AskTiMagModal = ({ token, onClose }: AskTiMagModalProps) => {
       setError(typeof err === "string" ? err : "Could not reach the assistant.");
     } finally {
       setBusy(false);
+      setDoing("");
     }
   };
 
@@ -122,9 +137,10 @@ const AskTiMagModal = ({ token, onClose }: AskTiMagModalProps) => {
 
           {busy && (
             <div className="self-start rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-500">
-              {/* Says what it is doing. Looking things up takes a few seconds,
-                  and a silent pause reads as a hang. */}
-              Reading your books…
+              {/* Says what it is doing, and names the book it is in. Looking
+                  things up takes real seconds, and a silent pause reads as a
+                  hang — worse, it reads as a machine making something up. */}
+              {doing ? `${doing}…` : "Thinking…"}
             </div>
           )}
 
