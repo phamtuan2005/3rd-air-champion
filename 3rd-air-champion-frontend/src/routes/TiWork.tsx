@@ -527,31 +527,38 @@ const TiWork = () => {
                         <span className="text-base font-semibold text-gray-800">
                           {fmtDay(sh.date)}
                         </span>
-                        {/* Every room in that visit. The hours are for the trip,
-                            not for any one room.
+                      </div>
+                      {/* One room per LINE, each with its own headcount.
+                          Laid out in a row, the rooms and their counts sat in a
+                          single band — badge, number, badge, number — and a
+                          cleaner could not tell which room the number in the
+                          middle belonged to. Two rooms expecting different
+                          numbers of people is exactly when this matters, so the
+                          pairing has to be unmistakable.
 
-                            RoomBadge, not a chip of our own: a room is the same
-                            colour everywhere in TiMag and TiBook, and a cleaner
-                            who reads "Queen" as yellow on the calendar should
-                            not meet a grey one here. */}
+                          RoomBadge, not a chip of our own: a room is the same
+                          colour everywhere in TiMag and TiBook, and a cleaner
+                          who reads "Queen" as yellow on the calendar should not
+                          meet a grey one here. */}
+                      <div className="flex flex-col gap-1">
                         {sh.rooms.map((r, i) => (
-                          <span key={`${r.name}-${i}`} className="inline-flex items-center gap-1">
-                            <RoomBadge room={{ name: r.name, color: r.color }} />
+                          <div key={`${r.name}-${i}`} className="flex items-center gap-2">
+                            <RoomBadge room={{ name: r.name, color: r.color }} rooms={sh.rooms} />
                             {/* How many people arrive after this clean — asked
-                                for by a cleaner, who sets out beds and towels
-                                for a headcount and was otherwise texting to ask.
+                                for by a cleaner, who sets out beds and towels for
+                                a headcount and was otherwise texting to ask.
                                 Spelled out rather than TiMag's bare "(2)": the
-                                host reads that number beside a hundred others
-                                and knows what it means, a cleaner meets it once
-                                a week on a phone. Absent when nothing is booked
-                                yet, which is not the same as nobody coming. */}
+                                host reads that number beside a hundred others and
+                                knows what it means, a cleaner meets it once a week
+                                on a phone. Silent when nothing is booked yet,
+                                which is not the same as nobody coming. */}
                             {r.guests ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-600">
-                                <FaRegUser size={10} />
-                                {r.guests} {r.guests === 1 ? "guest" : "guests"}
+                              <span className="inline-flex items-center gap-1 text-sm font-semibold text-gray-600">
+                                <FaRegUser size={11} className="shrink-0 text-gray-400" />
+                                {r.guests} {r.guests === 1 ? "guest" : "guests"} arriving
                               </span>
                             ) : null}
-                          </span>
+                          </div>
                         ))}
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
