@@ -35,26 +35,19 @@ const CREDS_KEY = "tiWorkCreds";
 // reader's own comfort. Together they say whose house this is and what it owes
 // the guest. Named as a promise TO THE GUEST, the same way the cleaner texts
 // name it, so the words on the screen match the words in the message.
-const PromiseMark = ({
-  showApp = false,
-  className = "",
-}: {
-  showApp?: boolean;
-  className?: string;
-}) => (
+//
+// The app's own name is deliberately NOT part of it. TiWork is a tool; TT House
+// is the business making the promise, and running the two together as
+// "TiWork · TT House" read as one odd compound name rather than as a tool
+// belonging to a house. Identical on every screen, so the mark is a mark.
+const PromiseMark = ({ className = "" }: { className?: string }) => (
   <div className={`flex items-center gap-2.5 ${className}`}>
     <img src="/TiMagLogo.svg" alt="TT House" className="h-10 w-10 shrink-0" />
     <div className="min-w-0">
       {/* The house is NAMED, not just pictured. A logo alone leaves "who am I
           working for" to be inferred from a small drawing, and the answer to
           that question should never need inferring on a payroll screen. */}
-      {showApp ? (
-        <p className="text-xl font-bold leading-tight text-gray-900">
-          TiWork <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">· TT House</span>
-        </p>
-      ) : (
-        <p className="text-sm font-bold leading-tight text-gray-900">TT House</p>
-      )}
+      <p className="text-sm font-bold leading-tight text-gray-900">TT House</p>
       <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-600/80">
         Our promise to every guest
       </p>
@@ -326,7 +319,14 @@ const TiWork = () => {
     return (
       <div className="tibook-type flex min-h-[100dvh] flex-col items-center justify-center bg-gray-50 px-4">
         <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-          <PromiseMark showApp />
+          {/* The tool names itself first — this is the screen where somebody
+              checks they opened the right app. The house and its promise follow
+              as their own block. */}
+          <h1 className="text-xl font-bold leading-tight text-gray-900">TiWork</h1>
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+            Hours &amp; pay for the team
+          </p>
+          <PromiseMark className="mt-3 rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-2" />
           <p className="mt-2.5 text-sm text-gray-500">
             Log your hours and tell us what you worked on.
           </p>
