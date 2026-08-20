@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { addDays, format, parseISO, startOfToday } from "date-fns";
 import {
   FaRegCalendarAlt,
   FaRegCalendarCheck,
   FaRegCheckCircle,
   FaRegClock,
-  FaRegUser,
+  FaUser,
   FaRegMoneyBillAlt,
 } from "react-icons/fa";
 import CleanerAvatar from "../components/shared/CleanerAvatar";
@@ -27,6 +27,11 @@ import {
 } from "../util/workOperations";
 
 const CREDS_KEY = "tiWorkCreds";
+
+// Above this, a row of figures stops being countable at a glance and becomes a
+// smear you have to read the number off anyway — so past it we show one figure
+// and the count instead of pretending to draw them all.
+const MAX_GUEST_FIGURES = 6;
 
 // The house mark and the promise, as ONE thing.
 //
@@ -127,6 +132,14 @@ const TiWork = () => {
   // reads backwards from today; "what am I doing next" reads forwards. One list
   // in one order answers whichever question it was not sorted for.
   const [shiftTab, setShiftTab] = useState<"tolog" | "done" | "upcoming">("tolog");
+  // "To log" is the right tab to open on when something is waiting there, and a
+  // dead end when nothing is — a cleaner who is up to date was landing on an
+  // empty list and had to find their way to the schedule themselves.
+  //
+  // Runs ONCE, on the first schedule that arrives. Re-running it would move the
+  // tab under someone who had just chosen it, and logging your last outstanding
+  // day would throw you onto a different screen as a reward.
+  const autoTabbedRef = useRef(false);
   // Two screens, not one long page. Work and money are separate questions asked
   // at separate moments — a balance sitting under the rota is read every time
   // someone checks tomorrow's rooms, whether or not they wanted to think about
@@ -313,6 +326,16 @@ const TiWork = () => {
 
   const shiftsFor = (tab: "tolog" | "done" | "upcoming") =>
     tab === "done" ? shiftsDone : tab === "upcoming" ? shiftsUpcoming : shiftsToLog;
+
+  useEffect(() => {
+    if (autoTabbedRef.current || shifts.length === 0) return;
+    autoTabbedRef.current = true;
+    if (shiftsToLog.length > 0) return;
+    // What is coming before what is finished: a cleaner with nothing to log is
+    // asking "when am I next in", not "what did I already do".
+    if (shiftsUpcoming.length > 0) setShiftTab("upcoming");
+    else if (shiftsDone.length > 0) setShiftTab("done");
+  }, [shifts, shiftsToLog, shiftsUpcoming, shiftsDone]);
 
   // ── Signed out ────────────────────────────────────────────────────────────
   if (!me) {
@@ -553,8 +576,25 @@ const TiWork = () => {
                                 on a phone. Silent when nothing is booked yet,
                                 which is not the same as nobody coming. */}
                             {r.guests ? (
-                              <span className="inline-flex items-center gap-1 text-sm font-semibold text-gray-600">
-                                <FaRegUser size={11} className="shrink-0 text-gray-400" />
+                              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-600">
+                                {/* One figure per person. A single icon beside
+                                    "2 guests" reads as an icon meaning "guests"
+                                    and leaves the number to be noticed; three
+                                    figures are counted before the words are
+                                    read, which is the whole point of putting it
+                                    on a cleaner's screen. */}
+                                <span className="inline-flex shrink-0 items-center gap-0.5 text-gray-500">
+                                  {r.guests <= MAX_GUEST_FIGURES ? (
+                                    Array.from({ length: r.guests }, (_, gi) => (
+                                      <FaUser key={gi} size={11} className="shrink-0" />
+                                    ))
+                                  ) : (
+                                    <>
+                                      <FaUser size={11} className="shrink-0" />
+                                      <span className="text-xs font-bold">x{r.guests}</span>
+                                    </>
+                                  )}
+                                </span>
                                 {r.guests} {r.guests === 1 ? "guest" : "guests"} arriving
                               </span>
                             ) : null}
