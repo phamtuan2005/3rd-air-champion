@@ -5,6 +5,7 @@ import {
   FaRegCalendarCheck,
   FaRegCheckCircle,
   FaRegClock,
+  FaRegUser,
   FaRegMoneyBillAlt,
 } from "react-icons/fa";
 import CleanerAvatar from "../components/shared/CleanerAvatar";
@@ -26,6 +27,43 @@ import {
 } from "../util/workOperations";
 
 const CREDS_KEY = "tiWorkCreds";
+
+// The house mark and the promise, as ONE thing.
+//
+// Apart, each is weaker: the logo alone is decoration, and the promise alone is
+// a line of text easy to read past — or, worse, to read as a promise about the
+// reader's own comfort. Together they say whose house this is and what it owes
+// the guest. Named as a promise TO THE GUEST, the same way the cleaner texts
+// name it, so the words on the screen match the words in the message.
+const PromiseMark = ({
+  showApp = false,
+  className = "",
+}: {
+  showApp?: boolean;
+  className?: string;
+}) => (
+  <div className={`flex items-center gap-2.5 ${className}`}>
+    <img src="/TiMagLogo.svg" alt="TT House" className="h-10 w-10 shrink-0" />
+    <div className="min-w-0">
+      {/* The house is NAMED, not just pictured. A logo alone leaves "who am I
+          working for" to be inferred from a small drawing, and the answer to
+          that question should never need inferring on a payroll screen. */}
+      {showApp ? (
+        <p className="text-xl font-bold leading-tight text-gray-900">
+          TiWork <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">· TT House</span>
+        </p>
+      ) : (
+        <p className="text-sm font-bold leading-tight text-gray-900">TT House</p>
+      )}
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-600/80">
+        Our promise to every guest
+      </p>
+      <p className="text-sm font-semibold italic leading-tight text-amber-700">
+        "Your comfort. Our mission."
+      </p>
+    </div>
+  </div>
+);
 
 const money = (n: number) => (Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`);
 
@@ -288,21 +326,7 @@ const TiWork = () => {
     return (
       <div className="tibook-type flex min-h-[100dvh] flex-col items-center justify-center bg-gray-50 px-4">
         <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center gap-3">
-            <img src="/TiMagLogo.svg" alt="TT House" className="h-10 w-10 shrink-0" />
-            <div className="min-w-0">
-              <h1 className="text-xl font-bold leading-tight text-gray-900">TiWork</h1>
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                TT House
-              </p>
-            </div>
-          </div>
-          {/* The house motto, in the same voice TiBook shows guests. The team
-              read this screen more often than any guest reads theirs, so it is
-              the one place the promise is worth repeating daily. */}
-          <p className="mt-3 border-l-2 border-amber-300 pl-2 text-sm font-semibold italic leading-tight text-amber-700">
-            Your comfort. Our mission.
-          </p>
+          <PromiseMark showApp />
           <p className="mt-2.5 text-sm text-gray-500">
             Log your hours and tell us what you worked on.
           </p>
@@ -377,6 +401,13 @@ const TiWork = () => {
         </button>
       </header>
 
+      {/* The promise sits ABOVE the hours and the pay, not only on the login
+          screen a returning worker skips past with a saved code. Someone who
+          stays signed in for months would otherwise never see it again. */}
+      <div className="mx-auto w-full max-w-lg shrink-0 px-4 pt-3">
+        <PromiseMark className="rounded-2xl border border-amber-200 bg-amber-50/60 px-3 py-2" />
+      </div>
+
       <div className="mx-auto flex w-full max-w-lg shrink-0 gap-1 px-4 pt-3">
         {(["work", "pay"] as const).map((v) => (
           <button
@@ -397,7 +428,14 @@ const TiWork = () => {
             ) : (
               <FaRegMoneyBillAlt size={17} className="shrink-0" />
             )}
-            {v === "work" ? "My work" : "My pay"}
+            {/* "Your", not "My". Every other word on this screen speaks TO the
+                person — "Your cleanings", "Your saved code stopped working",
+                "what's coming to you" — and the house motto they read here daily
+                is "Your comfort. Our mission." Two labels in the other voice made
+                the tabs read as a different app's, which is exactly the kind of
+                small wrongness that makes someone doubt they are in the right
+                place. */}
+            {v === "work" ? "Your work" : "Your pay"}
           </button>
         ))}
       </div>
@@ -497,7 +535,23 @@ const TiWork = () => {
                             who reads "Queen" as yellow on the calendar should
                             not meet a grey one here. */}
                         {sh.rooms.map((r, i) => (
-                          <RoomBadge key={`${r.name}-${i}`} room={{ name: r.name, color: r.color }} />
+                          <span key={`${r.name}-${i}`} className="inline-flex items-center gap-1">
+                            <RoomBadge room={{ name: r.name, color: r.color }} />
+                            {/* How many people arrive after this clean — asked
+                                for by a cleaner, who sets out beds and towels
+                                for a headcount and was otherwise texting to ask.
+                                Spelled out rather than TiMag's bare "(2)": the
+                                host reads that number beside a hundred others
+                                and knows what it means, a cleaner meets it once
+                                a week on a phone. Absent when nothing is booked
+                                yet, which is not the same as nobody coming. */}
+                            {r.guests ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-600">
+                                <FaRegUser size={10} />
+                                {r.guests} {r.guests === 1 ? "guest" : "guests"}
+                              </span>
+                            ) : null}
+                          </span>
                         ))}
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
@@ -872,8 +926,10 @@ const TiWork = () => {
         </div>
         )}
 
-        <p className="pb-6 text-center text-xs font-semibold italic text-amber-700/80">
-          Your comfort. Our mission.
+        {/* The worker's half of the promise, which the mark at the top states.
+            Repeating the motto itself here would make it wallpaper. */}
+        <p className="pb-6 text-center text-xs leading-relaxed text-gray-400">
+          Every room you leave ready is how we keep that promise. Thank you.
         </p>
       </div>
     </div>

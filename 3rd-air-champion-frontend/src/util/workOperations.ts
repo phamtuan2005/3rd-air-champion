@@ -26,7 +26,9 @@ export interface WorkMe {
 // business pays for the trip.
 export interface WorkShift {
   date: string;
-  rooms: { name: string; color: string }[];
+  // guests = how many people arrive in that room after the clean (the next
+  // check-in, same rule as TiMag's Plan tab). null when nothing is booked yet.
+  rooms: { name: string; color: string; guests?: number | null }[];
   recordedHours: number | null;
   claim: {
     id: string;
