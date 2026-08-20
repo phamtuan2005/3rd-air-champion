@@ -544,7 +544,13 @@ const MainView = ({
   // silently behind the button looked like nothing had happened, and gave the
   // host no chance to fix a name or a mistyped digit before it was saved.
   const [guestPrefill, setGuestPrefill] = useState<{ name: string; phone: string } | null>(null);
+  // The guest gets created before their rates are posted, so a rate that fails
+  // leaves a real person already saved with the Add button still live. Pressing
+  // it again must not make a second copy — this remembers who exists and sends
+  // the retry straight back to the rates.
+  const createdGuestIdRef = useRef<string | null>(null);
   const openGuestPrefill = (guest: { name: string; phone: string }) => {
+    createdGuestIdRef.current = null;
     setGuestPrefill(guest);
     setIsManageGuestOpen(true);
   };
@@ -603,17 +609,60 @@ const MainView = ({
   };
 
   const onAddGuestFromModal = (
-    guestObject: { name: string; phone: string; email?: string; notes?: string; returning: boolean },
+    guestObject: {
+      name: string;
+      phone: string;
+      email?: string;
+      notes?: string;
+      returning: boolean;
+      pricing?: { room: string; price: number }[];
+    },
     onError: (msg: string) => void,
   ) => {
-    createGuest(guestObject, token as string)
+    const { pricing = [], ...fields } = guestObject;
+    const existingId = createdGuestIdRef.current;
+    const guestSaved = existingId
+      ? Promise.resolve({ id: existingId })
+      : createGuest(fields, token as string).then((created) => {
+          createdGuestIdRef.current = created.id;
+          setGuests((prev) => [...prev, created]);
+          return created;
+        });
+
+    guestSaved
+      .then(async (created) => {
+        // /guest/create takes no rates, so they go on one at a time straight
+        // after. Sequential, not Promise.all: every response carries the guest's
+        // WHOLE pricing list, so concurrent posts race and whichever lands last
+        // wins with a list that is missing the others.
+        let result: any = created;
+        for (const p of pricing) {
+          result = await updateGuestPricing(
+            { guest: created.id, room: p.room, price: p.price },
+            token as string,
+          );
+        }
+        return result;
+      })
       .then((result) => {
-        setGuests((prev) => [...prev, result]);
+        setGuests((prev) =>
+          prev.some((g) => g.id === result.id)
+            ? prev.map((g) => (g.id === result.id ? { ...g, ...result } : g))
+            : [...prev, result],
+        );
+        createdGuestIdRef.current = null;
         setIsManageGuestOpen(false);
         setGuestPrefill(null);
       })
       .catch((err) => {
-        onError(typeof err === "string" ? err : "Failed to create guest. Please try again.");
+        const msg = typeof err === "string" ? err : "Failed to create guest. Please try again.";
+        // Says which half failed. "Failed to create guest" on a guest who is
+        // already saved sends the host looking for a record that is right there.
+        onError(
+          createdGuestIdRef.current
+            ? `${msg} ${fields.name} was added — press Add guest again to retry just the rates.`
+            : msg,
+        );
       });
   };
 

@@ -53,6 +53,10 @@ interface ManageGuestModalProps {
       email?: string;
       notes?: string;
       returning: boolean;
+      // Rates set on the way in. A guest whose rate is agreed now but recorded
+      // later gets their first booking at the room's base price, and nobody
+      // notices until the money is already wrong.
+      pricing?: { room: string; price: number }[];
     },
     onError: (msg: string) => void,
   ) => void;
@@ -117,8 +121,11 @@ const ManageGuestModal = ({
     selectableGuests.find((g) => g.id === selectedGuestId) ??
     selectableGuests[0];
 
+  // Empty in add mode. Seeding from selectedGuest here would open the form with
+  // whichever guest sorts first already priced in, and their rates would be
+  // saved onto a different person.
   const [prices, setPrices] = useState<Record<string, string>>(() =>
-    pricesFor(selectedGuest),
+    prefill ? pricesFor(undefined) : pricesFor(selectedGuest),
   );
   // Seeded from the guest on first render; kept in step by handleGuestChange.
   const [characterInit, setCharacterInit] = useState(false);
@@ -177,7 +184,9 @@ const ManageGuestModal = ({
     // Already known to be new — the request card only offers this for a phone
     // that matches nobody, so there is no name to confirm against.
     if (addMode) {
-      onAdd({ ...cleaned, returning: true }, (msg) => setErrorMessage(msg));
+      onAdd({ ...cleaned, returning: true, pricing: pricingFromInputs() }, (msg) =>
+        setErrorMessage(msg),
+      );
       return;
     }
     if (!selectedGuest) return;
@@ -240,8 +249,8 @@ const ManageGuestModal = ({
           <div className="flex min-h-0 flex-col gap-3 overflow-y-auto p-4">
             {addMode ? (
               <p className="rounded-xl bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-800">
-                From their booking request. Check the details, then add them —
-                rates and an avatar can be set afterwards.
+                From their booking request. Check the details and set their
+                rates before adding them — an avatar can be picked afterwards.
               </p>
             ) : (
             /* Guest selector — a picker, not a native select, which opens the
@@ -372,7 +381,7 @@ const ManageGuestModal = ({
                 <textarea className={`mt-1 ${FIELD}`} rows={2} {...register("notes")} />
               </div>
 
-              {!addMode && activeRooms.length > 0 && (
+              {activeRooms.length > 0 && (
                 <div>
                   <label className={LABEL}>Room rates</label>
                   <div className="mt-1 divide-y divide-gray-100 rounded-xl border border-gray-200">
