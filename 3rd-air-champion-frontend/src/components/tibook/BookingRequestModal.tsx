@@ -837,10 +837,36 @@ const BookingRequestModal = ({
                       const anyGroupPrice = selectedRoom ? getRoomPrice(selectedRoom.id) : null;
                       return (
                         <div>
-                          <p className="text-xs text-gray-500 mb-2">
-                            Which room for{" "}
-                            {anyGroup.ranges.map(formatRangeLabel).join(", ")}?
+                          {/* Each stay on its own line, with its own nights.
+                              Two unrelated trips run together as "Which room for
+                              Sep 2 - Sep 4, Oct 11 - Oct 12?" reads as one very
+                              strange booking, and the single total underneath
+                              made it worse. They ARE separate — one request is
+                              sent per range — so they are shown that way. */}
+                          <p className="text-xs text-gray-500 mb-1.5">
+                            {anyGroup.ranges.length > 1
+                              ? `Which room for these ${anyGroup.ranges.length} separate stays?`
+                              : `Which room for ${formatRangeLabel(anyGroup.ranges[0])}?`}
                           </p>
+                          {anyGroup.ranges.length > 1 && (
+                            <ul className="mb-2 flex flex-col gap-1">
+                              {anyGroup.ranges.map((range) => (
+                                <li
+                                  key={`${range.start}-${range.end}`}
+                                  className="flex items-baseline justify-between gap-2 rounded-lg bg-gray-50 px-2.5 py-1.5"
+                                >
+                                  <span className="text-xs font-semibold text-gray-700">
+                                    {formatRangeLabel(range)}
+                                  </span>
+                                  <span className="shrink-0 text-xs text-gray-400">
+                                    {anyGroupPrice !== null
+                                      ? `${range.nights}n · ~$${anyGroupPrice * range.nights}`
+                                      : `${range.nights}n`}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
                           <input type="hidden" {...register("room", { required: hasAnyRoomGroup })} />
                           <button
                             type="button"
@@ -876,7 +902,17 @@ const BookingRequestModal = ({
                           )}
                           {anyGroupPrice !== null && (
                             <p className={`text-xs font-semibold ${theme.textPrimary} mt-1.5`}>
-                              ~${anyGroupPrice * anyGroup.totalNights} estimated ({anyGroup.totalNights}n × ${anyGroupPrice}/night)
+                              ~${anyGroupPrice * anyGroup.totalNights} estimated
+                              {anyGroup.ranges.length > 1 ? " for both stays" : ""} (
+                              {anyGroup.totalNights}n × ${anyGroupPrice}/night)
+                            </p>
+                          )}
+                          {anyGroup.ranges.length > 1 && (
+                            // Said plainly, because the room question is asked
+                            // once and could imply one booking.
+                            <p className="mt-1 text-[11px] leading-relaxed text-gray-400">
+                              {anyGroup.ranges.length} separate requests, same room. This room is
+                              free on every one of these nights.
                             </p>
                           )}
                         </div>
