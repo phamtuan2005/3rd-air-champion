@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { hostType } from "../../util/types/hostType";
 
 interface HostProfileBannerProps {
@@ -60,6 +60,18 @@ const HostProfileBanner = ({
   // the one thing on the screen they do not need, and the row stays tappable
   // if they want it — the summary row is the toggle.
   const [expanded, setExpanded] = useState(defaultExpanded);
+
+  // Recognition can arrive AFTER this mounts — the saved phone is read from
+  // local storage, but the name can come from a fetch. useState only reads its
+  // argument once, so without this the banner stays open for exactly the guests
+  // it is supposed to fold for.
+  //
+  // Guarded by a tap: once the guest has opened or shut it themselves, that is
+  // their decision and nothing arriving later gets to overrule it.
+  const touched = useRef(false);
+  useEffect(() => {
+    if (!touched.current) setExpanded(defaultExpanded);
+  }, [defaultExpanded]);
   const displayName = host.airbnbName || host.name;
 
   return (
@@ -68,7 +80,10 @@ const HostProfileBanner = ({
       <button
         type="button"
         className="w-full px-4 py-2 flex items-center gap-2 active:bg-gray-50 transition-colors"
-        onClick={() => setExpanded((v) => !v)}
+        onClick={() => {
+          touched.current = true;
+          setExpanded((v) => !v);
+        }}
       >
         <div className="flex items-center gap-1.5 flex-1 min-w-0">
           {!expanded && <div className="flex items-center flex-shrink-0">

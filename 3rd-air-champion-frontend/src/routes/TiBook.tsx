@@ -442,6 +442,10 @@ const TiBookInner = () => {
   // a stranger is never quietly dropped into the reduced view.
   const greetedName = guestBookings.find((b) => b.guestName)?.guestName ?? guestName;
   const isReturningGuest = !!greetedName.trim();
+  // Somebody this browser has booked with before. Deliberately the PHONE, not
+  // the name: the phone is what is saved first and what every lookup keys on,
+  // and a guest whose name never came back is still not a stranger.
+  const isKnownVisitor = isReturningGuest || !!guestPhone.trim();
 
   // What THIS guest pays, not what the room lists at.
   //
@@ -500,7 +504,7 @@ const TiBookInner = () => {
             <HostProfileBanner
               host={currentHost}
               cohostNames={cohostNames}
-              defaultExpanded={!isReturningGuest}
+              defaultExpanded={!isKnownVisitor}
             />
           )}
           {rooms.length > 0 && (
