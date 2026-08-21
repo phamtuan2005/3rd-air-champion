@@ -159,9 +159,13 @@ const DetailsModal = ({
 
   return (
     <div className="modal-type fixed bottom-0 left-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center z-50">
-      <div className="bg-white rounded-xl p-5 max-w-lg w-full shadow-xl">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+      {/* Bounded and scrollable. Centred in the viewport with no ceiling, a
+          tall booking overflowed at BOTH ends at once — the close button above
+          the top of the screen and Save below the bottom, with no way to reach
+          either. */}
+      <div className="bg-white rounded-xl max-w-lg w-full shadow-xl flex flex-col max-h-[88svh] overflow-hidden">
+        {/* Header — stays put, so the way out is always in reach */}
+        <div className="flex items-center justify-between shrink-0 px-5 pt-5 pb-4">
           <div className="flex flex-col items-start gap-1">
             <div className="flex items-center gap-2">
               {isWriting ? (
@@ -237,7 +241,7 @@ const DetailsModal = ({
           </button>
         </div>
 
-        <div className="space-y-4">
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5 space-y-4">
           {/* Stay summary — colored room chip, AirBnB tag, dates, nights, total */}
           <div className="rounded-lg bg-gray-50 border border-gray-100 px-3 py-2">
             <div className="flex items-center justify-between gap-2">
@@ -444,8 +448,8 @@ const DetailsModal = ({
             </div>
           )}
 
-          {/* Early Check-in + Late Checkout + Guests row */}
-          <div className="flex items-center gap-6">
+          {/* Early Check-in + Late Checkout + Sofa Bed + Guests row */}
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Early Check-in</p>
               {isWriting ? (
@@ -600,7 +604,7 @@ const DetailsModal = ({
 
           {/* Edit actions */}
           {isWriting && (
-            <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+            <div className="sticky bottom-0 -mx-5 -mb-5 flex justify-end gap-2 border-t border-gray-100 bg-white px-5 py-3">
               <button
                 onClick={handleSubmit(onSubmit)}
                 className="px-4 py-1.5 bg-green-500 hover:bg-green-600 text-white text-sm rounded-md"
