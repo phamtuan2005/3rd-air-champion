@@ -64,7 +64,13 @@ const TiBookInner = () => {
   // is a first-visit pitch, and on their return it is just height taken from the
   // calendar they came for. Opened by hand with "Photos ▾"; not persisted, so
   // every visit starts on the calendar.
-  const [roomsExpanded, setRoomsExpanded] = useState(false);
+  // Open by default now, for everyone. It used to start shut for a returning
+  // guest, on the reasoning that they had already seen the rooms — but the
+  // cards carry THEIR agreed rate now, which is the one thing on this screen a
+  // returning guest cannot get anywhere else. The introduction above collapses
+  // for them instead; the height goes to what is new, not to what they know.
+  // Still theirs to shut with "Photos ▾".
+  const [roomsExpanded, setRoomsExpanded] = useState(true);
   const [reservedMap, setReservedMap] = useState<Map<string, Set<string>>>(new Map());
   const [myBookingsOpen, setMyBookingsOpen] = useState(false);
   const [bookingsFocusKey, setBookingsFocusKey] = useState<string | null>(null);
@@ -490,7 +496,13 @@ const TiBookInner = () => {
         {/* Header stack — host banner + room filter. The calendar panel slides up
             over these as the grip is dragged, until it fills the window. */}
         <div ref={headerRef} className="shrink-0">
-          {currentHost && <HostProfileBanner host={currentHost} cohostNames={cohostNames} />}
+          {currentHost && (
+            <HostProfileBanner
+              host={currentHost}
+              cohostNames={cohostNames}
+              defaultExpanded={!isReturningGuest}
+            />
+          )}
           {rooms.length > 0 && (
             <RoomCards
               rooms={rooms}

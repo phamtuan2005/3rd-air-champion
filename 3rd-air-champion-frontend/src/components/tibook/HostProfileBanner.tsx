@@ -4,6 +4,8 @@ import { hostType } from "../../util/types/hostType";
 interface HostProfileBannerProps {
   host: hostType;
   cohostNames?: string[];
+  // False for a guest we already greet by name — see the note in the component.
+  defaultExpanded?: boolean;
 }
 
 const HostAvatar = ({ name, profileUrl }: { name: string; profileUrl?: string }) => {
@@ -44,12 +46,20 @@ const HostAvatar = ({ name, profileUrl }: { name: string; profileUrl?: string })
   ) : inner;
 };
 
-const HostProfileBanner = ({ host, cohostNames = [] }: HostProfileBannerProps) => {
-  // Expanded on every screen. This was briefly collapsed on short phones, back
-  // when a short screen meant the calendar got squeezed to nothing with no way
-  // to reach it. The page scrolls now, so the height is no longer taken from the
-  // calendar — it is just further down, and the welcome gets to lead.
-  const [expanded, setExpanded] = useState(true);
+const HostProfileBanner = ({
+  host,
+  cohostNames = [],
+  defaultExpanded = true,
+}: HostProfileBannerProps) => {
+  // Expanded for a first visit, where the welcome gets to lead. This was once
+  // collapsed on short phones for space, back when a short screen squeezed the
+  // calendar to nothing; the page scrolls now, so height is no longer the
+  // reason.
+  //
+  // A guest we already greet by name has met us. For them the introduction is
+  // the one thing on the screen they do not need, and the row stays tappable
+  // if they want it — the summary row is the toggle.
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const displayName = host.airbnbName || host.name;
 
   return (
