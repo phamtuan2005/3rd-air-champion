@@ -230,6 +230,39 @@ const BookingRequestModal = ({
     return activeRooms.filter((r) => !taken.has(r.id));
   };
 
+  // Each stay opens on the first room free for it, rather than on "Select a
+  // room". Most guests take whatever is available; asking them to choose three
+  // times to reach the obvious answer is three taps for nothing. Choosing is
+  // still one tap away, and an untouched default is a real choice here because
+  // the list only ever contains rooms that stay can actually have.
+  //
+  // Only ever fills a BLANK — a room the guest picked is never overwritten by a
+  // later re-run of this.
+  useEffect(() => {
+    const anyGroup = cartGroups.find((g) => g.roomId === null);
+    if (!anyGroup) return;
+    setRangeRooms((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const range of anyGroup.ranges) {
+        const key = rangeKey(range);
+        if (next[key]) continue;
+        const first = roomsForRange(range)[0];
+        if (first) {
+          next[key] = first.id;
+          changed = true;
+        }
+      }
+      if (changed) {
+        // The form's single `room` field is what validation watches.
+        const seeded = Object.values(next).find(Boolean);
+        if (seeded) setValue("room", seeded, { shouldValidate: true });
+      }
+      return changed ? next : prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartGroups, monthMap, activeRooms]);
+
   const availableRoomsForAnyGroup = useMemo(() => {
     const anyGroup = cartGroups.find((g) => g.roomId === null);
     if (!anyGroup) return activeRooms;
