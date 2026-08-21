@@ -167,7 +167,9 @@ const BookingRequestModal = ({
   const [guestMemberSince, setGuestMemberSince] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [datesError, setDatesError] = useState("");
-  const [roomDropdownOpen, setRoomDropdownOpen] = useState(false);
+  // Which stay's room list is open, by range key — there is one dropdown per
+  // stay now, and only one should be open at a time. `null` = all shut.
+  const [roomDropdownOpen, setRoomDropdownOpen] = useState<string | null>(null);
   const [localWishList, setLocalWishList] = useState<Set<string>>(wishListDates ?? new Set());
   const [pendingRemove, setPendingRemove] = useState<string | null>(null);
   const [pendingRemoveCart, setPendingRemoveCart] = useState<string | null>(null);
@@ -194,6 +196,39 @@ const BookingRequestModal = ({
       if (aSelected !== bSelected) return aSelected ? -1 : 1;
       return b.price - a.price;
     });
+
+  // A room PER STAY. One dropdown covering three unrelated trips forces the
+  // same room on all of them, and offers only rooms free across every one — so
+  // a room free in September but taken in October disappears from a September
+  // stay it was perfectly available for.
+  const [rangeRooms, setRangeRooms] = useState<Record<string, string>>({});
+  const rangeKey = (r: { start: string; end: string }) => `${r.start}|${r.end}`;
+
+  const datesOfRange = (range: { start: string; end: string }) => {
+    const dates: string[] = [];
+    const cur = new Date(range.start);
+    const last = new Date(range.end);
+    while (cur <= last) {
+      dates.push(cur.toISOString().split("T")[0]);
+      cur.setDate(cur.getDate() + 1);
+    }
+    return dates;
+  };
+
+  // Free for THIS stay: excludes rooms booked or host-blocked on any of its
+  // nights, so a room can never be offered for dates it cannot take.
+  const roomsForRange = (range: { start: string; end: string }) => {
+    const taken = new Set(
+      datesOfRange(range).flatMap((d) => {
+        const day = monthMap.get(d);
+        return [
+          ...(day?.bookings.map((b) => b.room?.id).filter(Boolean) ?? []),
+          ...(day?.blockedRooms?.map((r) => r?.id).filter(Boolean) ?? []),
+        ];
+      }),
+    );
+    return activeRooms.filter((r) => !taken.has(r.id));
+  };
 
   const availableRoomsForAnyGroup = useMemo(() => {
     const anyGroup = cartGroups.find((g) => g.roomId === null);
@@ -349,8 +384,20 @@ const BookingRequestModal = ({
     setStep(2);
   };
 
+  // Every stay needs its own room before anything is sent. Falling back to
+  // "whatever was picked last" would quietly book one stay into a room the
+  // guest chose for a different one.
+  const anyGroupForCheck = cartGroups.find((g) => g.roomId === null);
+  const stayMissingRoom = (anyGroupForCheck?.ranges ?? []).find(
+    (r) => !rangeRooms[rangeKey(r)],
+  );
+
   const onSubmit: SubmitHandler<FormData> = async (data) => {
     if (submittingRef.current) return;
+    if (stayMissingRoom) {
+      setDatesError(`Please pick a room for ${formatRangeLabel(stayMissingRoom)}.`);
+      return;
+    }
     submittingRef.current = true;
     setIsSubmitting(true);
     setSubmitError(false);
@@ -360,8 +407,12 @@ const BookingRequestModal = ({
 
       if (cartDates.size > 0) {
         cartGroups.forEach((group) => {
-          const roomId = group.roomId ?? data.room;
           group.ranges.forEach((range) => {
+            // Each stay carries its OWN room. group.roomId covers dates picked
+            // for a specific room on the calendar; rangeRooms covers the ones
+            // chosen per stay above. data.room is the last resort so a request
+            // is never sent roomless.
+            const roomId = group.roomId ?? rangeRooms[rangeKey(range)] ?? data.room;
             const notesText = [
               "Dates from calendar: " + formatRangeLabel(range),
               notes.trim(),
@@ -833,88 +884,88 @@ const BookingRequestModal = ({
                     ))}
                     {hasAnyRoomGroup && (() => {
                       const anyGroup = cartGroups.find((g) => g.roomId === null)!;
-                      const selectedRoom = activeRooms.find((r) => r.id === watchedRoom);
-                      const anyGroupPrice = selectedRoom ? getRoomPrice(selectedRoom.id) : null;
+                      const many = anyGroup.ranges.length > 1;
                       return (
-                        <div>
-                          {/* Each stay on its own line, with its own nights.
-                              Two unrelated trips run together as "Which room for
-                              Sep 2 - Sep 4, Oct 11 - Oct 12?" reads as one very
-                              strange booking, and the single total underneath
-                              made it worse. They ARE separate — one request is
-                              sent per range — so they are shown that way. */}
-                          <p className="text-xs text-gray-500 mb-1.5">
-                            {anyGroup.ranges.length > 1
-                              ? `Which room for these ${anyGroup.ranges.length} separate stays?`
-                              : `Which room for ${formatRangeLabel(anyGroup.ranges[0])}?`}
-                          </p>
-                          {anyGroup.ranges.length > 1 && (
-                            <ul className="mb-2 flex flex-col gap-1">
-                              {anyGroup.ranges.map((range) => (
-                                <li
-                                  key={`${range.start}-${range.end}`}
-                                  className="flex items-baseline justify-between gap-2 rounded-lg bg-gray-50 px-2.5 py-1.5"
-                                >
+                        <div className="flex flex-col gap-2">
+                          {/* One dropdown PER STAY. These are separate trips —
+                              a separate request is sent for each — and the room
+                              free in September is not always the room free in
+                              October. A single dropdown forced one room on all
+                              of them AND offered only rooms free across every
+                              one, hiding rooms that were perfectly available
+                              for the stay actually being chosen. */}
+                          {many && (
+                            <p className="text-xs text-gray-500">
+                              {anyGroup.ranges.length} separate stays — pick a room for each.
+                            </p>
+                          )}
+                          <input type="hidden" {...register("room", { required: hasAnyRoomGroup })} />
+                          {anyGroup.ranges.map((range) => {
+                            const key = rangeKey(range);
+                            const free = roomsForRange(range);
+                            const chosenId = rangeRooms[key];
+                            const chosen = activeRooms.find((r) => r.id === chosenId);
+                            const price = chosen ? getRoomPrice(chosen.id) : null;
+                            const open = roomDropdownOpen === key;
+                            return (
+                              <div key={key} className={many ? "rounded-xl bg-gray-50 p-2" : ""}>
+                                <div className="mb-1 flex items-baseline justify-between gap-2">
                                   <span className="text-xs font-semibold text-gray-700">
                                     {formatRangeLabel(range)}
                                   </span>
                                   <span className="shrink-0 text-xs text-gray-400">
-                                    {anyGroupPrice !== null
-                                      ? `${range.nights}n · ~$${anyGroupPrice * range.nights}`
-                                      : `${range.nights}n`}
+                                    {range.nights}n
                                   </span>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                          <input type="hidden" {...register("room", { required: hasAnyRoomGroup })} />
-                          <button
-                            type="button"
-                            onClick={() => setRoomDropdownOpen((o) => !o)}
-                            className="border border-gray-300 rounded-xl px-3 py-2 w-full text-sm flex items-center justify-between gap-2"
-                          >
-                            {selectedRoom ? (
-                              <RoomBadge room={selectedRoom} rooms={activeRooms} />
-                            ) : (
-                              <span className="text-gray-400">Select a room</span>
-                            )}
-                            <span className="text-gray-400 text-xs">▾</span>
-                          </button>
-                          {roomDropdownOpen && (
-                            <ul className="border border-gray-200 rounded-xl mt-1 overflow-hidden shadow-sm bg-white">
-                              {availableRoomsForAnyGroup.map((room) => {
-                                const price = getRoomPrice(room.id);
-                                return (
-                                  <li
-                                    key={room.id}
-                                    className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-pointer"
-                                    onClick={() => { setValue("room", room.id, { shouldValidate: true }); setRoomDropdownOpen(false); }}
-                                  >
-                                    <input type="radio" readOnly checked={watchedRoom === room.id} className="pointer-events-none w-4 h-4" />
-                                    <RoomBadge room={room} rooms={activeRooms} />
-                                    {price !== null && (
-                                      <span className="text-xs text-gray-400 ml-auto">${price}/night</span>
-                                    )}
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          )}
-                          {anyGroupPrice !== null && (
-                            <p className={`text-xs font-semibold ${theme.textPrimary} mt-1.5`}>
-                              ~${anyGroupPrice * anyGroup.totalNights} estimated
-                              {anyGroup.ranges.length > 1 ? " for both stays" : ""} (
-                              {anyGroup.totalNights}n × ${anyGroupPrice}/night)
-                            </p>
-                          )}
-                          {anyGroup.ranges.length > 1 && (
-                            // Said plainly, because the room question is asked
-                            // once and could imply one booking.
-                            <p className="mt-1 text-[11px] leading-relaxed text-gray-400">
-                              {anyGroup.ranges.length} separate requests, same room. This room is
-                              free on every one of these nights.
-                            </p>
-                          )}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setRoomDropdownOpen(open ? null : key)}
+                                  className="border border-gray-300 rounded-xl px-3 py-2 w-full text-sm flex items-center justify-between gap-2 bg-white"
+                                >
+                                  {chosen ? (
+                                    <RoomBadge room={chosen} rooms={activeRooms} />
+                                  ) : (
+                                    <span className="text-gray-400">
+                                      {free.length === 0 ? "No room free for these nights" : "Select a room"}
+                                    </span>
+                                  )}
+                                  <span className="text-gray-400 text-xs">▾</span>
+                                </button>
+                                {open && free.length > 0 && (
+                                  <ul className="border border-gray-200 rounded-xl mt-1 overflow-hidden shadow-sm bg-white">
+                                    {free.map((room) => {
+                                      const rate = getRoomPrice(room.id);
+                                      return (
+                                        <li
+                                          key={room.id}
+                                          className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-pointer"
+                                          onClick={() => {
+                                            setRangeRooms((prev) => ({ ...prev, [key]: room.id }));
+                                            // The form's single `room` field is what
+                                            // validation watches; keep it fed so a
+                                            // filled-in form is never called empty.
+                                            setValue("room", room.id, { shouldValidate: true });
+                                            setRoomDropdownOpen(null);
+                                          }}
+                                        >
+                                          <input type="radio" readOnly checked={chosenId === room.id} className="pointer-events-none w-4 h-4" />
+                                          <RoomBadge room={room} rooms={activeRooms} />
+                                          {rate !== null && (
+                                            <span className="text-xs text-gray-400 ml-auto">${rate}/night</span>
+                                          )}
+                                        </li>
+                                      );
+                                    })}
+                                  </ul>
+                                )}
+                                {price !== null && (
+                                  <p className={`text-xs font-semibold ${theme.textPrimary} mt-1`}>
+                                    ~${price * range.nights} ({range.nights}n × ${price}/night)
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       );
                     })()}
@@ -924,12 +975,17 @@ const BookingRequestModal = ({
                       let total = 0;
                       let hasSomePricing = false;
                       for (const group of cartGroups) {
-                        const roomId = group.roomId ?? watchedRoom ?? null;
-                        if (!roomId) continue;
-                        const price = getRoomPrice(roomId);
-                        if (price === null) continue;
-                        hasSomePricing = true;
-                        total += price * group.totalNights;
+                        for (const range of group.ranges) {
+                          // Per STAY, at that stay's own room rate — stays can
+                          // now sit in different rooms, so one room's price
+                          // times all the nights is simply the wrong sum.
+                          const roomId = group.roomId ?? rangeRooms[rangeKey(range)] ?? null;
+                          if (!roomId) continue;
+                          const price = getRoomPrice(roomId);
+                          if (price === null) continue;
+                          hasSomePricing = true;
+                          total += price * range.nights;
+                        }
                       }
                       if (!hasSomePricing) return null;
                       return (
@@ -955,7 +1011,7 @@ const BookingRequestModal = ({
                         <input type="hidden" {...register("room", { required: "Please choose a room" })} />
                         <button
                           type="button"
-                          onClick={() => setRoomDropdownOpen((o) => !o)}
+                          onClick={() => setRoomDropdownOpen((o) => (o === "single" ? null : "single"))}
                           className="border border-gray-300 rounded-xl px-3 py-2 w-full text-sm flex items-center justify-between gap-2"
                         >
                           {selectedRoom ? (
@@ -965,7 +1021,7 @@ const BookingRequestModal = ({
                           )}
                           <span className="text-gray-400 text-xs">▾</span>
                         </button>
-                        {roomDropdownOpen && (
+                        {roomDropdownOpen === "single" && (
                           <ul className="border border-gray-200 rounded-xl mt-1 overflow-hidden shadow-sm bg-white">
                             {displayRooms.map((room) => {
                               const price = getRoomPrice(room.id);
@@ -973,7 +1029,7 @@ const BookingRequestModal = ({
                                 <li
                                   key={room.id}
                                   className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-pointer"
-                                  onClick={() => { setValue("room", room.id, { shouldValidate: true }); setRoomDropdownOpen(false); }}
+                                  onClick={() => { setValue("room", room.id, { shouldValidate: true }); setRoomDropdownOpen(null); }}
                                 >
                                   <input type="radio" readOnly checked={watchedRoom === room.id} className="pointer-events-none w-4 h-4" />
                                   <RoomBadge room={room} rooms={activeRooms} />
