@@ -14,6 +14,12 @@ import {
   differenceInCalendarDays,
 } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
+
+// A room here sleeps two. From the third guest on, the sofa bed is what they
+// are sleeping on, so the request defaults to on at this count — the cleaner
+// needs to know before the guest arrives, and nobody should have to remember
+// to tick it.
+const SOFA_BED_FROM_GUESTS = 3;
 import { buildDateRange } from "../../util/dateRange";
 import BookingRequest from "../../model/bookingRequestSchema";
 
@@ -458,6 +464,11 @@ export const dayResolvers = {
                 bookedOn: format(new Date(), "yyyy-MM-dd"),
                 duration,
                 numberOfGuests,
+                // Three or more people in a room built for two means the sofa
+                // bed is needed, so the request starts ON rather than waiting
+                // for somebody to remember. A DEFAULT, not a rule: the host can
+                // untick it on the booking, and nothing re-ticks it.
+                sofaBed: (numberOfGuests ?? 1) >= SOFA_BED_FROM_GUESTS,
                 startDate: dates[0],
                 endDate: dates[dates.length - 1],
                 reserved: reserved ?? false,

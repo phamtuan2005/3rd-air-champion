@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import { bookingType, feeType, feesTotal } from "../../../../util/types/bookingType";
 import { roomType } from "../../../../util/types/roomType";
 import { getRoomColor } from "../../../../util/getRoomColor";
@@ -6,6 +6,10 @@ import { FaRegEdit } from "react-icons/fa";
 import { useForm, Controller, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { addDays, format, parseISO } from "date-fns";
+
+// Mirrors the backend default in graphql/resolvers/day.ts — a room here sleeps
+// two, so from the third guest the sofa bed is in use.
+const SOFA_BED_FROM_GUESTS = 3;
 import {
   guestUpdateSchema,
   guestUpdateZodObject,
@@ -98,6 +102,8 @@ const DetailsModal = ({
     control,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<guestUpdateSchema>({
     resolver: zodResolver(guestUpdateZodObject),
@@ -110,6 +116,29 @@ const DetailsModal = ({
       numberOfGuests: booking.numberOfGuests || 1,
     },
   });
+
+  // Raise the guest count to three and the sofa bed request turns itself on —
+  // a room here sleeps two, so the third guest is sleeping on it and the
+  // cleaner has a bed to make up.
+  //
+  // Only ever turns it ON, and only as the count crosses the line. Lowering the
+  // count again leaves it alone, and unticking it stays unticked: it is a
+  // default being offered, not a rule being enforced, and it is offered in the
+  // same open form where it can be undone in one tap.
+  const watchedGuests = watch("numberOfGuests");
+  const watchedSofaBed = watch("sofaBed");
+  const crossedRef = useRef(false);
+  useEffect(() => {
+    const guests = Number(watchedGuests) || 0;
+    if (guests >= SOFA_BED_FROM_GUESTS) {
+      if (!crossedRef.current && !watchedSofaBed) {
+        setValue("sofaBed", true, { shouldDirty: true });
+      }
+      crossedRef.current = true;
+    } else {
+      crossedRef.current = false;
+    }
+  }, [watchedGuests, watchedSofaBed, setValue]);
 
   const onSubmit: SubmitHandler<guestUpdateSchema> = (data) => {
     const processedData = { ...data, id: booking.id };
