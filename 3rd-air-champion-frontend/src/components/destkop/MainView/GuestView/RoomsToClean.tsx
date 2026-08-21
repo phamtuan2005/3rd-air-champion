@@ -295,6 +295,16 @@ const RoomsToClean = ({ selectedDate, monthMap, hostId, token, senderName }: Roo
               {nextCheckIn?.earlyCheckin && (
                 <p className="text-xs font-semibold text-orange-500">Early Check-in Requested</p>
               )}
+              {/* Read off the ARRIVING stay, like the headcount above it: the
+                  sofa bed is a bed for the people coming in, not for the ones
+                  who just left. It is the one request on this list that adds
+                  work to the clean itself, so it is stated rather than left to
+                  be inferred from "3 guests". */}
+              {nextCheckIn?.sofaBed && (
+                <p className="text-xs font-semibold text-violet-600">
+                  🛋 Sofa bed to make up
+                </p>
+              )}
               {/* Only a real departing stay can have asked for a late checkout —
                   on a probable row `booking` is the ARRIVING stay. */}
               {!probable && booking.lateCheckout && (
