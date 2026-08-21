@@ -70,6 +70,26 @@ export const recommendAction = (
   }
 
   if (reading.intent === "not-coming") {
+    // A refusal naming a day the stay does not START on is three different
+    // messages wearing one sentence: the wrong booking, a cancellation of the
+    // whole stay, or a guest dropping ONE night of several and still arriving
+    // for the others. They call for three different actions, and opening the
+    // room is only right for one of them — so this asks rather than picks.
+    const dayMismatch = reading.weekday != null && reading.weekday !== stay.startWeekday;
+    if (dayMismatch) {
+      const said = WEEKDAY_NAMES[reading.weekday as number];
+      const booked = WEEKDAY_NAMES[stay.startWeekday];
+      return {
+        verdict: "ask",
+        headline: `Ask ${stay.guestName} before touching the ${room}`,
+        because: `They name ${said}, but this stay starts ${booked}. Do they mean the whole stay, or just that night?`,
+        cautions: [
+          ...cautions,
+          `If they are only dropping ${said} and still arriving ${booked}, opening the ${room} takes the rest of their stay with it.`,
+        ],
+      };
+    }
+
     return {
       verdict: "open",
       headline: `Open the ${room}`,

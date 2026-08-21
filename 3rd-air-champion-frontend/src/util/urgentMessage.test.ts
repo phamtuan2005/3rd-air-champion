@@ -158,11 +158,27 @@ describe("an explicit refusal", () => {
     expect(rec.cautions.join(" ")).toContain("cannot be let in");
   });
 
-  it("flags the day when the refusal names a day the stay does not start on", () => {
-    // Said of a Monday stay, "not coming Tuesday" may be the wrong booking — or
-    // a guest dropping one night of several.
-    const rec = recommendAction(readGuestMessage("I will not come on Tuesday"), CUTE);
-    expect(rec.cautions.join(" ")).toContain("check this is the right booking");
+  it("ASKS rather than opens when the refusal names a day the stay does not start on", () => {
+    // The real case: Sean Yoo's King runs from Tuesday and he writes "I will not
+    // come on Thursday". That is either the wrong booking, a cancellation, or a
+    // guest dropping one night of several and still arriving Tuesday. Opening
+    // the room is right for exactly one of those readings.
+    const rec = recommendAction(readGuestMessage("I will not come on Thursday"), CUTE);
+    expect(rec.verdict).toBe("ask");
+    expect(rec.headline).toContain("Ask Minh");
+    expect(rec.because).toContain("Thursday");
+    expect(rec.because).toContain("Monday");
+    expect(rec.cautions.join(" ")).toContain("takes the rest of their stay with it");
+  });
+
+  it("still opens when the refusal names the day the stay begins", () => {
+    const rec = recommendAction(readGuestMessage("I will not come on Monday"), CUTE);
+    expect(rec.verdict).toBe("open");
+  });
+
+  it("still opens on a clean refusal that names no day at all", () => {
+    const rec = recommendAction(readGuestMessage("Sorry, I have to cancel"), CUTE);
+    expect(rec.verdict).toBe("open");
   });
 
   it('handles "I won\'t be coming" and "not going to make it"', () => {
