@@ -159,6 +159,8 @@ const BookingRequestModal = ({
   // Which stay's room list is open, by range key — there is one dropdown per
   // stay now, and only one should be open at a time. `null` = all shut.
   const [roomDropdownOpen, setRoomDropdownOpen] = useState<string | null>(null);
+  // Writing dates gets its own screen — see the note by the trigger button.
+  const [dateSheetOpen, setDateSheetOpen] = useState(false);
   const [localWishList, setLocalWishList] = useState<Set<string>>(wishListDates ?? new Set());
   const [pendingRemove, setPendingRemove] = useState<string | null>(null);
   const [pendingRemoveCart, setPendingRemoveCart] = useState<string | null>(null);
@@ -767,96 +769,36 @@ const BookingRequestModal = ({
                 <div className="flex-1 h-px bg-gray-100" />
               </div>
 
-              {/* Free text */}
+              {/* Free text — opened as its own sheet.
+                  Typed inline, a phone keyboard rose under the read-back panel
+                  and shoved "Next — Finalize your booking" up against "Add 2
+                  dates to my request": two buttons a thumb apart, one of which
+                  leaves the step. The wrong tap sends a request the guest was
+                  still writing. Writing gets its own screen now, and hands them
+                  back here when they are done. */}
               <div>
                 <p className="text-sm font-medium mb-2">Write your dates</p>
-                <textarea
-                  className={`border border-gray-300 rounded-xl px-3 py-2 w-full text-sm resize-none focus:outline-none focus:ring-2 ${theme.focusRing}`}
-                  rows={3}
-                  placeholder={"e.g. May 1, 3–5, 20–21\nor anything else you'd like us to know"}
-                  value={notes}
-                  onChange={(e) => { setNotes(e.target.value); if (datesError) setDatesError(""); }}
-                />
+                <button
+                  type="button"
+                  onClick={() => setDateSheetOpen(true)}
+                  className={`w-full rounded-xl border border-gray-300 px-3 py-2.5 text-left text-sm ${
+                    notes.trim() ? "text-gray-800" : "text-gray-400"
+                  }`}
+                >
+                  {notes.trim() ? (
+                    <span className="line-clamp-2 whitespace-pre-line">{notes.trim()}</span>
+                  ) : (
+                    "e.g. May 1, 3–5, 20–21 — or anything else you'd like us to know"
+                  )}
+                </button>
                 {datesError && <p className="text-red-500 text-xs mt-1">{datesError}</p>}
-
-                {/* What we understood, shown back before anything is acted on.
-                    The guest confirms a reading rather than trusting one — and
-                    if we read them wrongly they can see it here rather than
-                    discovering it when the wrong night is booked. */}
                 {typed.dates.length > 0 && (
-                  <div className="mt-2 rounded-xl border border-gray-200 bg-gray-50 p-2.5">
-                    <p className="text-xs font-semibold text-gray-500">
-                      {typed.dates.length === 1 ? "We read this date" : `We read these ${typed.dates.length} dates`}
-                    </p>
-                    <div className="mt-1.5 flex flex-wrap gap-1">
-                      {typed.dates.map((d) => {
-                        // A night they ALREADY HAVE is checked first. It is not
-                        // free, but striking it through would tell a guest they
-                        // cannot have the very date they are already booked
-                        // into — the most alarming way to say the most
-                        // reassuring thing.
-                        const mine = myBookedDates?.has(d);
-                        const inCart = cartDates.has(d);
-                        // undefined means TiBook did not tell us — better to say
-                        // nothing than to colour a date green on a guess.
-                        const free = roomsFreeOn?.(d);
-                        return (
-                          <span
-                            key={d}
-                            className={`rounded-lg px-2 py-1 text-xs font-semibold ${
-                              mine
-                                ? `${theme.tagBg} ${theme.tagText} ring-1 ${theme.tagBorder}`
-                                : inCart
-                                  ? "bg-gray-900 text-white"
-                                  : free === 0
-                                    ? "bg-white text-gray-400 line-through ring-1 ring-gray-200"
-                                    : "bg-white text-gray-800 ring-1 ring-gray-300"
-                            }`}
-                          >
-                            {mine ? "✓ " : ""}
-                            {format(parseISO(d), "EEE d MMM")}
-                          </span>
-                        );
-                      })}
-                    </div>
-                    {typedFree.length > 0 && onAddCartDates && (
-                      <button
-                        type="button"
-                        onClick={() => onAddCartDates(typedFree)}
-                        className={`mt-2 w-full rounded-lg ${theme.btn} ${theme.btnHover} py-2 text-sm font-semibold text-white`}
-                      >
-                        Add {typedFree.length} date{typedFree.length > 1 ? "s" : ""} to my request
-                      </button>
-                    )}
-                    {/* Said before anything about what is full, because it is
-                        the difference between "you cannot have your date" and
-                        "you already do". */}
-                    {typedMine.length > 0 && (
-                      <p className={`mt-1.5 text-xs font-semibold leading-relaxed ${theme.textPrimary}`}>
-                        {typedMine.length === typed.dates.length
-                          ? typedMine.length === 1
-                            ? "No need to book — that night is already yours."
-                            : "No need to book — those nights are already yours."
-                          : `${typedMine.length} of these ${typedMine.length === 1 ? "night is" : "nights are"} already booked in your name — nothing to do for ${typedMine.length === 1 ? "it" : "them"}.`}
-                      </p>
-                    )}
-                    {typedNew.length > typedFree.length && (
-                      <p className="mt-1.5 text-xs leading-relaxed text-gray-500">
-                        The crossed-out dates are full. Tap them on the calendar to join the
-                        wish list and we'll tell you if they open up.
-                      </p>
-                    )}
-                    {typedFree.length === 0 && typedNew.length === 0 && typedMine.length === 0 && (
-                      <p className="mt-1.5 text-xs font-medium text-gray-500">
-                        All of these are already in your request.
-                      </p>
-                    )}
-                    {typed.leftover && (
-                      <p className="mt-1.5 border-l-2 border-gray-300 pl-2 text-xs italic leading-relaxed text-gray-500">
-                        We'll pass this on too: "{typed.leftover}"
-                      </p>
-                    )}
-                  </div>
+                  <p className="mt-1.5 text-xs font-semibold text-gray-500">
+                    {typed.dates.length === 1
+                      ? "1 date read from what you wrote"
+                      : `${typed.dates.length} dates read from what you wrote`}
+                    {typedFree.length > 0 ? " — tap to add them" : ""}
+                  </p>
                 )}
               </div>
 
@@ -1200,6 +1142,147 @@ const BookingRequestModal = ({
           </form>
         )}
       </div>
+
+      {/* Writing dates, on its own screen.
+          Three things only: what they type, what we read, and the single
+          button that acts on it. Nothing else is reachable while the keyboard
+          is up, so there is no neighbouring button to hit by mistake. */}
+      {dateSheetOpen && (
+        <div
+          className="fixed inset-0 z-[60] flex flex-col justify-end bg-black/50"
+          onClick={() => setDateSheetOpen(false)}
+        >
+          <div
+            className="flex max-h-[92svh] flex-col rounded-t-2xl bg-white"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3">
+              <p className="text-base font-bold text-gray-900">Write your dates</p>
+              <button
+                type="button"
+                onClick={() => setDateSheetOpen(false)}
+                className="px-1 text-xl leading-none text-gray-400"
+                aria-label="Close"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-4">
+              <textarea
+                autoFocus
+                rows={3}
+                value={notes}
+                onChange={(e) => {
+                  setNotes(e.target.value);
+                  if (datesError) setDatesError("");
+                }}
+                placeholder={"e.g. May 1, 3–5, 20–21\nor anything else you'd like us to know"}
+                className={`w-full resize-none rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 ${theme.focusRing}`}
+              />
+
+              {/* What we understood, shown back before anything is acted on.
+                  The guest confirms a reading rather than trusting one — and if
+                  we read them wrongly they see it here rather than discovering
+                  it when the wrong night is booked. */}
+              {typed.dates.length > 0 && (
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-2.5">
+                  <p className="text-xs font-semibold text-gray-500">
+                    {typed.dates.length === 1
+                      ? "We read this date"
+                      : `We read these ${typed.dates.length} dates`}
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {typed.dates.map((d) => {
+                      // A night they ALREADY HAVE is checked first. It is not
+                      // free, but striking it through would tell a guest they
+                      // cannot have the very date they are already booked into
+                      // — the most alarming way to say the most reassuring
+                      // thing.
+                      const mine = myBookedDates?.has(d);
+                      const inCart = cartDates.has(d);
+                      // undefined means TiBook did not tell us — better to say
+                      // nothing than to colour a date green on a guess.
+                      const free = roomsFreeOn?.(d);
+                      return (
+                        <span
+                          key={d}
+                          className={`rounded-lg px-2 py-1 text-xs font-semibold ${
+                            mine
+                              ? `${theme.tagBg} ${theme.tagText} ring-1 ${theme.tagBorder}`
+                              : inCart
+                                ? "bg-gray-900 text-white"
+                                : free === 0
+                                  ? "bg-white text-gray-400 line-through ring-1 ring-gray-200"
+                                  : "bg-white text-gray-800 ring-1 ring-gray-300"
+                          }`}
+                        >
+                          {mine ? "✓ " : ""}
+                          {format(parseISO(d), "EEE d MMM")}
+                        </span>
+                      );
+                    })}
+                  </div>
+                  {/* Said before anything about what is full, because it is the
+                      difference between "you cannot have your date" and "you
+                      already do". */}
+                  {typedMine.length > 0 && (
+                    <p className={`mt-1.5 text-xs font-semibold leading-relaxed ${theme.textPrimary}`}>
+                      {typedMine.length === typed.dates.length
+                        ? typedMine.length === 1
+                          ? "No need to book — that night is already yours."
+                          : "No need to book — those nights are already yours."
+                        : `${typedMine.length} of these ${typedMine.length === 1 ? "night is" : "nights are"} already booked in your name — nothing to do for ${typedMine.length === 1 ? "it" : "them"}.`}
+                    </p>
+                  )}
+                  {typedNew.length > typedFree.length && (
+                    <p className="mt-1.5 text-xs leading-relaxed text-gray-500">
+                      The crossed-out dates are full. Tap them on the calendar to join the
+                      wish list and we'll tell you if they open up.
+                    </p>
+                  )}
+                  {typedFree.length === 0 && typedNew.length === 0 && typedMine.length === 0 && (
+                    <p className="mt-1.5 text-xs font-medium text-gray-500">
+                      All of these are already in your request.
+                    </p>
+                  )}
+                  {typed.leftover && (
+                    <p className="mt-1.5 border-l-2 border-gray-300 pl-2 text-xs italic leading-relaxed text-gray-500">
+                      We'll pass this on too: "{typed.leftover}"
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* The one action, pinned. Adding the dates also closes the sheet:
+                the guest has finished writing, and the next thing they want is
+                the form they came from. */}
+            <div className="shrink-0 border-t border-gray-100 p-4">
+              {typedFree.length > 0 && onAddCartDates ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAddCartDates(typedFree);
+                    setDateSheetOpen(false);
+                  }}
+                  className={`w-full rounded-xl ${theme.btn} ${theme.btnHover} py-3 text-sm font-semibold text-white`}
+                >
+                  Add {typedFree.length} date{typedFree.length > 1 ? "s" : ""} to my request
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setDateSheetOpen(false)}
+                  className="w-full rounded-xl bg-gray-100 py-3 text-sm font-semibold text-gray-700"
+                >
+                  Done
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
