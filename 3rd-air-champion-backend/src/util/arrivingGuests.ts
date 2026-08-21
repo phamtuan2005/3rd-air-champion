@@ -31,30 +31,39 @@ export interface Arrival {
   date: string; // yyyy-MM-dd the stay STARTS
   roomId: string;
   guests: number;
+  // A sofa bed to make up for this stay. Carried alongside the headcount
+  // because it answers the same question — what does this room need doing to
+  // it — and because a bed nobody mentioned is a bed nobody makes.
+  sofaBed?: boolean;
+}
+
+export interface ArrivalNeed {
+  guests: number;
+  sofaBed: boolean;
 }
 
 // For each cleaning (date + room), the headcount of the next stay to begin in
 // that room. Absent from the map where nothing is booked within the lookahead:
 // "no arrival on the books" and "nobody is coming" are different things to tell
 // a cleaner, so the caller sends null rather than 0.
-export const arrivingGuestCounts = (
+export const arrivingNeeds = (
   arrivals: Arrival[],
   cleanings: { date: string; roomId: string }[],
   lookaheadDays: number = LOOKAHEAD_DAYS,
-): Map<string, number> => {
-  const byDayRoom = new Map<string, number>();
+): Map<string, ArrivalNeed> => {
+  const byDayRoom = new Map<string, ArrivalNeed>();
   for (const a of arrivals) {
     // A stay only ever starts once in a room on a day; the guard keeps the
     // EARLIEST reading if duplicates ever appear, rather than a silent overwrite.
     const k = `${a.date}|${a.roomId}`;
-    if (!byDayRoom.has(k)) byDayRoom.set(k, a.guests || 1);
+    if (!byDayRoom.has(k)) byDayRoom.set(k, { guests: a.guests || 1, sofaBed: !!a.sofaBed });
   }
 
-  const out = new Map<string, number>();
+  const out = new Map<string, ArrivalNeed>();
   for (const { date, roomId } of cleanings) {
     for (let i = 0; i <= lookaheadDays; i++) {
       // i = 0 is a same-day check-in: someone arrives the afternoon of the
-      // morning being cleaned, which is exactly when the headcount matters most.
+      // morning being cleaned, which is exactly when this matters most.
       const hit = byDayRoom.get(`${shiftKey(date, i)}|${roomId}`);
       if (hit != null) {
         out.set(`${date}|${roomId}`, hit);
@@ -64,3 +73,13 @@ export const arrivingGuestCounts = (
   }
   return out;
 };
+
+/** Headcount only — kept for callers that do not care about the rest. */
+export const arrivingGuestCounts = (
+  arrivals: Arrival[],
+  cleanings: { date: string; roomId: string }[],
+  lookaheadDays: number = LOOKAHEAD_DAYS,
+): Map<string, number> =>
+  new Map(
+    [...arrivingNeeds(arrivals, cleanings, lookaheadDays)].map(([k, v]) => [k, v.guests]),
+  );

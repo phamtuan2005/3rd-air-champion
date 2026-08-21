@@ -27,6 +27,7 @@ interface DetailsModalProps {
     notes?: string;
     earlyCheckin?: boolean;
     lateCheckout?: boolean;
+    sofaBed?: boolean;
   }) => void;
   onAirbnbPriceUpdate?: (bookingId: string, airbnbPrice: number) => void;
   onFeesUpdate?: (bookingId: string, fees: feeType[]) => void;
@@ -105,6 +106,7 @@ const DetailsModal = ({
       notes: booking.notes || "",
       earlyCheckin: booking.earlyCheckin || false,
       lateCheckout: booking.lateCheckout || false,
+      sofaBed: booking.sofaBed || false,
       numberOfGuests: booking.numberOfGuests || 1,
     },
   });
@@ -457,6 +459,32 @@ const DetailsModal = ({
               ) : (
                 <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${booking.lateCheckout ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
                   {booking.lateCheckout ? "Yes" : "No"}
+                </span>
+              )}
+            </div>
+
+            <div>
+              {/* The one special request that makes WORK for somebody else. The
+                  other two move a time; this one is a bed to make up, and the
+                  cleaner has to be told — see TiWork's rota. */}
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Sofa Bed</p>
+              {isWriting ? (
+                <Controller
+                  name="sofaBed"
+                  control={control}
+                  render={({ field }) => (
+                    <input
+                      id="sofaBed"
+                      type="checkbox"
+                      checked={field.value ?? false}
+                      onChange={(e) => field.onChange(e.target.checked)}
+                      className="w-4 h-4"
+                    />
+                  )}
+                />
+              ) : (
+                <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${booking.sofaBed ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                  {booking.sofaBed ? "Yes" : "No"}
                 </span>
               )}
             </div>

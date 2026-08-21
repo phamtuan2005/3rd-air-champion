@@ -10,6 +10,7 @@ export const guestUpdateZodObject = z.object({
   notes: z.string().optional(),
   earlyCheckin: z.boolean().optional(),
   lateCheckout: z.boolean().optional(),
+  sofaBed: z.boolean().optional(),
   numberOfGuests: z
     .number("Must be a number")
     .min(1, { message: "Must be at least 1 guest" }),

@@ -10,6 +10,7 @@ import {
 import CleanerAvatar from "../components/shared/CleanerAvatar";
 import RoomBadge from "../components/shared/RoomBadge";
 import GuestFigures from "../components/shared/GuestFigures";
+import SofaBedTag from "../components/shared/SofaBedTag";
 import { decimalToHm, formatHrMin, hmToDecimal } from "../util/hoursFormat";
 import {
   WorkCreds,
@@ -605,6 +606,7 @@ const TiWork = () => {
                                 on a phone. Silent when nothing is booked yet,
                                 which is not the same as nobody coming. */}
                             <GuestFigures n={r.guests ?? 0} />
+                            <SofaBedTag on={r.sofaBed} />
                           </div>
                         ))}
                       </div>

@@ -17,6 +17,10 @@ export interface bookingType {
   notes: string;
   earlyCheckin: boolean;
   lateCheckout: boolean;
+  // A sofa bed to make up. Per booking, not per guest — the same guest may
+  // want it one stay and not the next. It exists mainly so the CLEANER knows
+  // there is a bed to make that the room does not normally have.
+  sofaBed?: boolean;
   guest: guestType;
   room: roomType;
   description: string;

@@ -5,7 +5,7 @@ import CleaningAssignment from "../model/cleaningAssignmentSchema";
 import WorkEntry from "../model/workEntrySchema";
 import { findAssignments } from "../util/assignmentQuery";
 import { computeCleanerPay } from "../util/cleanerPay";
-import { arrivingGuestCounts } from "../util/arrivingGuests";
+import { arrivingNeeds } from "../util/arrivingGuests";
 import { loadArrivals } from "../util/arrivalsLookup";
 
 // TiWork — the staff-facing app. Mounted PUBLIC, before the JWT middleware:
@@ -261,17 +261,21 @@ router.post("/schedule", async (req: Request, res: any) => {
     const cleanings = (assignments as any[])
       .filter((a) => a.room?._id)
       .map((a) => ({ date: a.date, roomId: String(a.room._id) }));
-    const guestCounts = arrivingGuestCounts(await loadArrivals(who.doc.host, cleanings), cleanings);
+    const needs = arrivingNeeds(await loadArrivals(who.doc.host, cleanings), cleanings);
 
     const byDate = new Map<string, any>();
     for (const a of assignments as any[]) {
       const g = byDate.get(a.date) ?? { date: a.date, rooms: [], recordedHours: 0, hasHours: false };
+      const need = a.room?._id ? needs.get(`${a.date}|${String(a.room._id)}`) : undefined;
       g.rooms.push({
         name: a.room?.name ?? "",
         color: a.room?.color ?? "",
         // null, not 0, where nothing is booked yet — "no arrival on the books"
         // and "nobody is coming" are different things to tell a cleaner.
-        guests: a.room?._id ? (guestCounts.get(`${a.date}|${String(a.room._id)}`) ?? null) : null,
+        guests: need?.guests ?? null,
+        // Extra work, so it travels with the schedule rather than waiting for
+        // somebody to remember to mention it.
+        sofaBed: !!need?.sofaBed,
       });
       if (a.hours != null) {
         g.recordedHours += a.hours;

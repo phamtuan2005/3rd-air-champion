@@ -1045,17 +1045,44 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
       .catch((err) => setError(err.response?.data?.error ?? "Could not save hours"));
   };
 
-  // Guests arriving after a cleaning — the cleaner needs the headcount to set
-  // up beds and towels. First check-in for the room on/after the morning.
-  const nextGuestCount = (roomId: string, morningKey: string): number | null => {
+  // What the arriving stay needs — the headcount for beds and towels, and
+  // whether there is a sofa bed to make up. First check-in for the room on or
+  // after the morning being cleaned.
+  //
+  // The sofa bed rides with the headcount because it answers the same question:
+  // what does this room need doing to it. A bed nobody mentions is a bed nobody
+  // makes, and the cleaner finds out from the guest.
+  const nextArrival = (
+    roomId: string,
+    morningKey: string,
+  ): { guests: number; sofaBed: boolean } | null => {
     for (let i = 0; i <= 30; i++) {
       const key = format(addDays(new Date(morningKey + "T00:00:00"), i), "yyyy-MM-dd");
       const found = monthMap
         .get(key)
         ?.bookings.find((b) => b.room?.id === roomId && b.startDate.split("T")[0] === key);
-      if (found) return found.numberOfGuests || 1;
+      if (found) return { guests: found.numberOfGuests || 1, sofaBed: !!found.sofaBed };
     }
     return null;
+  };
+
+  // "(2)" · "(2, 🛋)" · "(🛋)" — whatever the stay actually needs, and nothing
+  // when it needs nothing worth saying.
+  const arrivalSuffix = (roomId: string, morningKey: string): string => {
+    const need = nextArrival(roomId, morningKey);
+    if (!need) return "";
+    const parts = [need.guests ? String(need.guests) : "", need.sofaBed ? "🛋" : ""].filter(Boolean);
+    return parts.length ? ` (${parts.join(", ")})` : "";
+  };
+
+  // Explains only what is actually in the message. A legend for a symbol that
+  // does not appear is noise; a symbol with no legend is a puzzle.
+  const legendFor = (lines: string[]): string => {
+    const text = lines.join("\n");
+    const parts: string[] = [];
+    if (/\(\d/.test(text)) parts.push("numbers = guests arriving");
+    if (text.includes("🛋")) parts.push("🛋 = sofa bed to make up");
+    return parts.length ? `(${parts.join("; ")})` : "";
   };
 
   // ── Sent-schedule drift ("re-send" flags) ──
@@ -1076,7 +1103,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
           a.date <= d6 &&
           !isStaleCleaning(a.room.id, a.date),
       )
-      .map((a) => `${a.date}:${a.room!.id}:${nextGuestCount(a.room!.id, a.date) ?? ""}`)
+      .map((a) => `${a.date}:${a.room!.id}:${arrivalSuffix(a.room!.id, a.date)}`)
       .sort()
       .join("|");
   };
@@ -1132,8 +1159,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
 
     const byDay = new Map<string, string[]>();
     mine.forEach((a) => {
-      const count = nextGuestCount(a.room!.id, a.date);
-      const label = `${a.room!.name}${count ? ` (${count})` : ""}`;
+      const label = `${a.room!.name}${arrivalSuffix(a.room!.id, a.date)}`;
       byDay.set(a.date, [...(byDay.get(a.date) ?? []), label]);
     });
     const lines = [...byDay.entries()].map(
@@ -1148,8 +1174,8 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
     // it — otherwise a cleaner may act on whichever they happen to scroll to.
     const isResend = !!sentSchedules[sentKey(cleaner.id, monday)];
     const message = isResend
-      ? `Hi ${cleaner.name}, here's your UPDATED cleaning schedule for ${weekLabel} — this replaces what I sent before:\n${lines.join("\n")}\n(numbers = guests arriving)\n\n${cleanerSignoff(senderName)}`
-      : `Hi ${cleaner.name}, your cleaning schedule for ${weekLabel}:\n${lines.join("\n")}\n(numbers = guests arriving)\n\n${cleanerSignoff(senderName)}`;
+      ? `Hi ${cleaner.name}, here's your UPDATED cleaning schedule for ${weekLabel} — this replaces what I sent before:\n${lines.join("\n")}\n${legendFor(lines)}\n\n${cleanerSignoff(senderName)}`
+      : `Hi ${cleaner.name}, your cleaning schedule for ${weekLabel}:\n${lines.join("\n")}\n${legendFor(lines)}\n\n${cleanerSignoff(senderName)}`;
     window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(message)}`;
     // Remember exactly what we sent (shared via backend) so later drift from the
     // live plan flags a re-send — for you and any cohost.
@@ -1868,19 +1894,18 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                             name — inside the fixed-width name button it stole space
                             from the avatar and truncated the name. */}
                         <div className="flex flex-1 flex-wrap items-center gap-1">
-                          {rooms.map((room, i) => {
-                            // Same headcount the SMS carries — beds/towels to prep
-                            const count = nextGuestCount(room.id, dateKey);
-                            return (
-                              <span
-                                key={`${room.id}-${i}`}
-                                className={`${getRoomColor(room.name, roomColorById.get(room.id))} rounded-md px-2 py-1 text-[13px] font-semibold text-black shadow-sm`}
-                              >
-                                {room.name}
-                                {count ? ` (${count})` : ""}
-                              </span>
-                            );
-                          })}
+                          {rooms.map((room, i) => (
+                            // Same headcount the SMS carries — beds/towels to
+                            // prep — plus the sofa bed, which is extra work and
+                            // must not be discovered on arrival.
+                            <span
+                              key={`${room.id}-${i}`}
+                              className={`${getRoomColor(room.name, roomColorById.get(room.id))} rounded-md px-2 py-1 text-[13px] font-semibold text-black shadow-sm`}
+                            >
+                              {room.name}
+                              {arrivalSuffix(room.id, dateKey)}
+                            </span>
+                          ))}
                         </div>
                         {scheduleStatus(cleaner.id, weekMonday) === "changed" && <ResendBadge />}
                       </div>
@@ -2024,12 +2049,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                     }`}
                   >
                     {entry.checkoutBooking.room.name}
-                    {(() => {
-                      const count =
-                        entry.sameDayCheckIn?.numberOfGuests ||
-                        nextGuestCount(entry.checkoutBooking.room.id, day.morningKey);
-                      return count ? ` (${count})` : "";
-                    })()}
+                    {arrivalSuffix(entry.checkoutBooking.room.id, day.morningKey)}
                     {entry.rebookOdds < 0.995 && (
                       <span className="ml-1 opacity-70">{Math.round(entry.rebookOdds * 100)}%</span>
                     )}

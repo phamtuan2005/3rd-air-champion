@@ -33,6 +33,7 @@ router.get("/get", async (req: Request, res: any) => {
               notes
               earlyCheckin
               lateCheckout
+              sofaBed
               guest {
                 id
                 name
@@ -158,6 +159,7 @@ router.post("/get/host", async (req: Request, res: any) => {
               notes
               earlyCheckin
               lateCheckout
+              sofaBed
               guest {
                 id
                 name
@@ -434,6 +436,7 @@ router.post("/block/room", async (req: Request, res: any) => {
           notes
           earlyCheckin
           lateCheckout
+          sofaBed
           airbnbBlocked
           guest {
             id
@@ -503,6 +506,7 @@ router.post("/unblock/room", async (req: Request, res: any) => {
           notes
           earlyCheckin
           lateCheckout
+          sofaBed
           airbnbBlocked
           guest {
             id
@@ -602,6 +606,7 @@ router.post("/book/range", async (req: Request, res: any) => {
               notes
               earlyCheckin
               lateCheckout
+              sofaBed
               price
               airbnbPrice
               fees {
@@ -670,7 +675,7 @@ router.post("/update/booking/guest", async (req: Request, res: any) => {
   if (!("user" in req))
     return res.status(401).json({ error: "Invalid or expired token" });
 
-  const { id, alias, notes, earlyCheckin, lateCheckout, numberOfGuests } = req.body;
+  const { id, alias, notes, earlyCheckin, lateCheckout, sofaBed, numberOfGuests } = req.body;
 
   const variables: {
     id: string;
@@ -678,17 +683,19 @@ router.post("/update/booking/guest", async (req: Request, res: any) => {
     notes?: string;
     earlyCheckin?: boolean;
     lateCheckout?: boolean;
+    sofaBed?: boolean;
     numberOfGuests?: number;
   } = { id };
   if (alias) variables.alias = alias;
   if (notes) variables.notes = notes;
   if (earlyCheckin !== undefined) variables.earlyCheckin = earlyCheckin;
   if (lateCheckout !== undefined) variables.lateCheckout = lateCheckout;
+  if (sofaBed !== undefined) variables.sofaBed = sofaBed;
   if (numberOfGuests) variables.numberOfGuests = numberOfGuests;
 
   const query = `
-        mutation UpdateBookingGuest($id: String!, $alias: String, $notes: String, $earlyCheckin: Boolean, $lateCheckout: Boolean, $numberOfGuests: Int) {
-          updateBookingGuest(_id: $id, alias: $alias, notes: $notes, earlyCheckin: $earlyCheckin, lateCheckout: $lateCheckout, numberOfGuests: $numberOfGuests) {
+        mutation UpdateBookingGuest($id: String!, $alias: String, $notes: String, $earlyCheckin: Boolean, $lateCheckout: Boolean, $sofaBed: Boolean, $numberOfGuests: Int) {
+          updateBookingGuest(_id: $id, alias: $alias, notes: $notes, earlyCheckin: $earlyCheckin, lateCheckout: $lateCheckout, sofaBed: $sofaBed, numberOfGuests: $numberOfGuests) {
             id
             calendar
             date
@@ -706,6 +713,7 @@ router.post("/update/booking/guest", async (req: Request, res: any) => {
               notes
               earlyCheckin
               lateCheckout
+              sofaBed
               price
               airbnbPrice
               fees {
@@ -785,6 +793,7 @@ router.post("/update/booking/airbnb-price", async (req: Request, res: any) => {
               notes
               earlyCheckin
               lateCheckout
+              sofaBed
               price
               airbnbPrice
               fees {
@@ -862,6 +871,7 @@ router.post("/update/booking/fees", async (req: Request, res: any) => {
               notes
               earlyCheckin
               lateCheckout
+              sofaBed
               price
               airbnbPrice
               fees {
@@ -939,6 +949,7 @@ router.post("/update/unbook/guest", async (req: Request, res: any) => {
               notes
               earlyCheckin
               lateCheckout
+              sofaBed
               price
               airbnbPrice
               fees {
@@ -1018,6 +1029,7 @@ router.post("/update/booking/airbnb-blocked", async (req: Request, res: any) => 
               notes
               earlyCheckin
               lateCheckout
+              sofaBed
               price
               airbnbPrice
               fees {
@@ -1097,6 +1109,7 @@ router.post("/update/booking/reserved", async (req: Request, res: any) => {
               notes
               earlyCheckin
               lateCheckout
+              sofaBed
               price
               airbnbPrice
               fees {

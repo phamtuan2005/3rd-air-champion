@@ -71,6 +71,7 @@ export const updateBookingGuest = async (
     notes?: string;
     earlyCheckin?: boolean;
     lateCheckout?: boolean;
+    sofaBed?: boolean;
     numberOfGuests?: number;
     alias?: string;
   },

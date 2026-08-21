@@ -584,13 +584,14 @@ export const dayResolvers = {
     },
     updateBookingGuest: async (
       _: unknown,
-      { _id, alias, notes, earlyCheckin, lateCheckout, numberOfGuests }: any
+      { _id, alias, notes, earlyCheckin, lateCheckout, sofaBed, numberOfGuests }: any
     ) => {
       const updateBody: {
         "bookings.$[matchingBooking].alias"?: string;
         "bookings.$[matchingBooking].notes"?: string;
         "bookings.$[matchingBooking].earlyCheckin"?: boolean;
         "bookings.$[matchingBooking].lateCheckout"?: boolean;
+        "bookings.$[matchingBooking].sofaBed"?: boolean;
         "bookings.$[matchingBooking].numberOfGuests"?: number;
       } = {};
 
@@ -598,6 +599,7 @@ export const dayResolvers = {
       if (notes) updateBody["bookings.$[matchingBooking].notes"] = notes;
       if (earlyCheckin !== undefined) updateBody["bookings.$[matchingBooking].earlyCheckin"] = earlyCheckin;
       if (lateCheckout !== undefined) updateBody["bookings.$[matchingBooking].lateCheckout"] = lateCheckout;
+      if (sofaBed !== undefined) updateBody["bookings.$[matchingBooking].sofaBed"] = sofaBed;
       if (numberOfGuests) updateBody["bookings.$[matchingBooking].numberOfGuests"] = numberOfGuests;
 
       const dayOfBooking = await Day.findOne({ "bookings._id": _id });

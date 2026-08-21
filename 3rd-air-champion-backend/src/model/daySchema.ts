@@ -18,6 +18,10 @@ const daySchema = new mongoose.Schema(
         notes: { type: String, default: "" },
         earlyCheckin: { type: Boolean, default: false },
         lateCheckout: { type: Boolean, default: false },
+        // A third special request beside the two check-in ones. Stored per
+        // booking rather than per guest: the same guest may want it one stay
+        // and not the next.
+        sofaBed: { type: Boolean, default: false },
         room: { type: mongoose.Schema.ObjectId, ref: "Room" },
         guest: { type: mongoose.Schema.ObjectId, ref: "Guest" },
         price: { type: Number, default: "0" },

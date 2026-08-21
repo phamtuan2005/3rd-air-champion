@@ -3,7 +3,7 @@ import Staff from "../model/staffSchema";
 import WorkEntry from "../model/workEntrySchema";
 import Cleaner from "../model/cleanerSchema";
 import CleaningAssignment from "../model/cleaningAssignmentSchema";
-import { arrivingGuestCounts } from "../util/arrivingGuests";
+import { arrivingNeeds } from "../util/arrivingGuests";
 import { loadArrivals } from "../util/arrivalsLookup";
 
 // All routes here are mounted behind the JWT middleware in server.ts.
@@ -215,20 +215,25 @@ router.get("/hours", async (req: Request, res: any) => {
     const cleanings = assignments
       .filter((a: any) => a.room?._id)
       .map((a: any) => ({ date: a.date, roomId: String(a.room._id) }));
-    const guests = arrivingGuestCounts(await loadArrivals(hostId, cleanings), cleanings);
+    const needs = arrivingNeeds(await loadArrivals(hostId, cleanings), cleanings);
 
     // Keyed by cleaner AND date: two cleaners can work the same morning, and one
     // cleaner's rooms are not the other's.
-    const roomsByDay = new Map<string, { name: string; color: string; guests: number | null }[]>();
+    const roomsByDay = new Map<
+      string,
+      { name: string; color: string; guests: number | null; sofaBed: boolean }[]
+    >();
     for (const a of assignments as any[]) {
       if (!a.room?._id) continue;
       const key = `${String(a.cleaner)}|${a.date}`;
       const list = roomsByDay.get(key) ?? [];
+      const need = needs.get(`${a.date}|${String(a.room._id)}`);
       list.push({
         name: a.room.name ?? "",
         color: a.room.color ?? "",
         // null, not 0 — "nothing booked yet" is not "nobody is coming".
-        guests: guests.get(`${a.date}|${String(a.room._id)}`) ?? null,
+        guests: need?.guests ?? null,
+        sofaBed: !!need?.sofaBed,
       });
       roomsByDay.set(key, list);
     }
