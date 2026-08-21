@@ -9,6 +9,7 @@ import { getAvailableRooms } from "../../util/bookingOperations";
 import { fetchGuestByPhone } from "../../util/guestOperations";
 import { format, parseISO } from "date-fns";
 import { parseDateText } from "../../util/dateText";
+import { groupConsecutiveDates } from "../../util/cartGrouping";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import RoomBadge from "../shared/RoomBadge";
 import GuestLoyaltyBanner from "./GuestLoyaltyBanner";
@@ -68,30 +69,11 @@ type CartGroup = {
   totalNights: number;
 };
 
-const groupConsecutiveDates = (dates: Set<string>): { start: string; end: string; nights: number }[] => {
-  const sorted = Array.from(dates).sort();
-  if (sorted.length === 0) return [];
-  const ranges: { start: string; end: string; nights: number }[] = [];
-  let start = sorted[0];
-  let end = sorted[0];
-  for (let i = 1; i < sorted.length; i++) {
-    const prev = new Date(end);
-    prev.setDate(prev.getDate() + 1);
-    if (prev.toISOString().split("T")[0] === sorted[i]) {
-      end = sorted[i];
-    } else {
-      const nights = Math.round((new Date(end).getTime() - new Date(start).getTime()) / 86400000) + 1;
-      ranges.push({ start, end, nights });
-      start = sorted[i];
-      end = sorted[i];
-    }
-  }
-  const nights = Math.round((new Date(end).getTime() - new Date(start).getTime()) / 86400000) + 1;
-  ranges.push({ start, end, nights });
-  return ranges;
-};
-
-const buildCartGroups = (cartDates: Map<string, string | null>, rooms: roomType[]): CartGroup[] => {
+const buildCartGroups = (
+  cartDates: Map<string, string | null>,
+  rooms: roomType[],
+  freeRoomsOn?: (dateKey: string) => Set<string>,
+): CartGroup[] => {
   const byKey = new Map<string, Set<string>>();
   cartDates.forEach((roomId, dateKey) => {
     const key = roomId ?? "any";
@@ -101,7 +83,9 @@ const buildCartGroups = (cartDates: Map<string, string | null>, rooms: roomType[
   return Array.from(byKey.entries()).map(([key, dates]) => {
     const roomId = key === "any" ? null : key;
     const room = rooms.find((r) => r.id === roomId);
-    const ranges = groupConsecutiveDates(dates);
+    // Only the "any room" pile needs splitting by what is free — dates already
+    // committed to a room were checked against that room when they were picked.
+    const ranges = groupConsecutiveDates(dates, roomId === null ? freeRoomsOn : undefined);
     return { key, roomId, room, ranges, totalNights: ranges.reduce((sum, r) => sum + r.nights, 0) };
   });
 };
@@ -185,7 +169,24 @@ const BookingRequestModal = ({
     return keys;
   };
 
-  const cartGroups = useMemo(() => buildCartGroups(cartDates, rooms), [cartDates, rooms]);
+  // Which rooms are free on a single night — the input the grouping needs to
+  // avoid building a stay no room can cover.
+  const freeRoomsOn = useMemo(() => {
+    const activeIds = rooms.filter((r) => r.active).map((r) => r.id);
+    return (dateKey: string) => {
+      const day = monthMap.get(dateKey);
+      const taken = new Set<string>([
+        ...(day?.bookings.map((b) => b.room?.id).filter(Boolean) as string[] ?? []),
+        ...((day?.blockedRooms?.map((r) => r?.id).filter(Boolean) as string[]) ?? []),
+      ]);
+      return new Set(activeIds.filter((id) => !taken.has(id)));
+    };
+  }, [rooms, monthMap]);
+
+  const cartGroups = useMemo(
+    () => buildCartGroups(cartDates, rooms, freeRoomsOn),
+    [cartDates, rooms, freeRoomsOn],
+  );
   const hasAnyRoomGroup = cartGroups.some((g) => g.roomId === null);
 
   const activeRooms = rooms
