@@ -34,10 +34,21 @@ const asKey = (d: unknown, fallback: string): string => {
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
 
+// A hard ceiling, not advice. A model asked about "this year" will ask for a
+// year, and that answer then rides along on every later turn of the
+// conversation — paid for again each time.
+const MAX_RANGE_DAYS = 62;
+
 const clampRange = (from: unknown, to: unknown) => {
-  const start = asKey(from, todayKey());
-  const end = asKey(to, start);
-  return start <= end ? { start, end } : { start: end, end: start };
+  const a = asKey(from, todayKey());
+  const b = asKey(to, a);
+  const start = a <= b ? a : b;
+  let end = a <= b ? b : a;
+  const ceiling = new Date(start + "T00:00:00.000Z");
+  ceiling.setUTCDate(ceiling.getUTCDate() + MAX_RANGE_DAYS);
+  const capped = ceiling.toISOString().slice(0, 10);
+  if (end > capped) end = capped;
+  return { start, end };
 };
 
 // ── The tools, all scoped to one host ────────────────────────────────────────
@@ -52,7 +63,9 @@ const buildTools = (hostId: string) => {
     description:
       "Bookings on the calendar between two dates (inclusive), one entry per night. " +
       "Use this for occupancy, who is staying where, arrivals, departures and nightly " +
-      "revenue. Dates are yyyy-MM-dd. Keep the range under ~60 days.",
+      "revenue. Dates are yyyy-MM-dd. Ranges longer than 62 days are cut to 62 — " +
+      "ask for the window you need, not the whole year. Days with no bookings are " +
+      "left out of the reply.",
     inputSchema: {
       type: "object",
       properties: {
@@ -77,26 +90,49 @@ const buildTools = (hostId: string) => {
         .populate("bookings.guest", "name phone")
         .sort({ date: 1 });
 
-      return JSON.stringify(
-        days.map((d) => ({
-          date: dayKey(d.date),
-          blocked: !!d.isBlocked,
-          bookings: (d.bookings ?? []).map((b: any) => ({
-            guest: b.guest?.name ?? "",
-            room: b.room?.name ?? "",
-            // A stay is written onto every night; this flags the night it began.
-            arrivesToday: b.startDate ? dayKey(b.startDate) === dayKey(d.date) : false,
-            nights: b.duration ?? 1,
-            guests: b.numberOfGuests ?? 0,
-            price: b.price ?? 0,
-            airbnbPrice: b.airbnbPrice ?? 0,
+      // Trimmed hard, because every byte returned here is re-sent with every
+      // follow-up question in the conversation — a fat tool result is not paid
+      // for once, it is paid for again on each turn after it.
+      //
+      // So: empty days are dropped, and a field only appears when it says
+      // something. `false` and `0` cost the same as a real answer and carry
+      // less.
+      const rows = days
+        .map((d: any) => {
+          const date = dayKey(d.date);
+          const bookings = (d.bookings ?? []).map((b: any) => {
+            const row: Record<string, unknown> = {
+              guest: b.guest?.name ?? "",
+              room: b.room?.name ?? "",
+              price: b.price ?? 0,
+            };
+            // A stay is written onto every night; this marks the night it began.
+            if (b.startDate && dayKey(b.startDate) === date) {
+              row.arrives = true;
+              row.nights = b.duration ?? 1;
+              if (b.numberOfGuests) row.guests = b.numberOfGuests;
+            }
+            if (b.airbnbPrice) row.airbnbPrice = b.airbnbPrice;
             // reserved = held but NOT paid. An amber hold is not a vacancy and
             // must never be counted as an empty room.
-            reservedUnpaid: !!b.reserved,
-            notes: b.notes ?? "",
-          })),
-        })),
-      );
+            if (b.reserved) row.reservedUnpaid = true;
+            // Long notes are the single biggest thing in this payload and are
+            // rarely what the question is about. Enough to see there IS a note.
+            if (b.notes) row.notes = String(b.notes).slice(0, 120);
+            return row;
+          });
+          if (bookings.length === 0 && !d.isBlocked) return null;
+          return d.isBlocked ? { date, blocked: true, bookings } : { date, bookings };
+        })
+        .filter(Boolean);
+
+      // Days with nothing on them are absent, so say so rather than leaving the
+      // model to infer it from a gap.
+      return JSON.stringify({
+        range: { from: start, to: end },
+        note: "Dates absent from this list have no bookings and are not blocked.",
+        days: rows,
+      });
     },
   });
 
@@ -138,17 +174,31 @@ const buildTools = (hostId: string) => {
           String(g.name ?? "").toLowerCase().includes(q) ||
           String(g.phone ?? "").replace(/\D/g, "").includes(q.replace(/\D/g, "")),
         )
-        .map((g) => ({
-          name: g.name,
-          phone: g.phone ?? "",
-          returning: !!g.returning,
-          notes: g.notes ?? "",
-          rates: (g.pricing ?? []).map((p: any) => ({
-            room: p.room?.name ?? "",
-            price: p.price,
-          })),
-        }));
-      return JSON.stringify(rows.slice(0, 200));
+        .map((g) => {
+          const row: Record<string, unknown> = { name: g.name };
+          if (g.phone) row.phone = g.phone;
+          if (g.returning) row.returning = true;
+          if (g.notes) row.notes = String(g.notes).slice(0, 120);
+          // "King:60" rather than an object per room — same information, a
+          // fraction of the tokens.
+          const rates = (g.pricing ?? [])
+            .filter((p: any) => p?.room?.name)
+            .map((p: any) => `${p.room.name}:${p.price}`);
+          if (rates.length) row.rates = rates;
+          return row;
+        });
+      // Unfiltered, the whole list is a large payload that then rides along on
+      // every later turn. Cut it — but say so, rather than cutting silently and
+      // letting the model answer "everyone" from a partial list.
+      const CAP = 60;
+      return JSON.stringify(
+        rows.length > CAP
+          ? {
+              guests: rows.slice(0, CAP),
+              note: `${rows.length} guests in total; showing the first ${CAP}. Use 'search' to narrow.`,
+            }
+          : { guests: rows },
+      );
     },
   });
 
@@ -156,7 +206,7 @@ const buildTools = (hostId: string) => {
     name: "get_cleanings",
     description:
       "Cleaning assignments between two dates: which cleaner, which room, which morning, " +
-      "and the hours recorded against it (null where nothing has been recorded yet).",
+      "and the hours recorded against it. No 'hours' field means none recorded yet.",
     inputSchema: {
       type: "object",
       properties: {
@@ -176,12 +226,17 @@ const buildTools = (hostId: string) => {
         .populate("cleaner", "name")
         .sort({ date: 1 });
       return JSON.stringify(
-        rows.map((a) => ({
-          date: a.date,
-          room: a.room?.name ?? "",
-          cleaner: a.cleaner?.name ?? "(unassigned)",
-          hours: a.hours ?? null,
-        })),
+        rows.map((a) => {
+          const row: Record<string, unknown> = {
+            date: a.date,
+            room: a.room?.name ?? "",
+            cleaner: a.cleaner?.name ?? "(unassigned)",
+          };
+          // Absent means no hours recorded. A null on every unworked row is
+          // pure weight.
+          if (a.hours != null) row.hours = a.hours;
+          return row;
+        }),
       );
     },
   });
