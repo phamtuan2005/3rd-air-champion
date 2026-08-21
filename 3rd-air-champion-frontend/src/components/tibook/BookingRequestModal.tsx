@@ -8,6 +8,7 @@ import { setGuestWishList } from "../../util/wishListOperations";
 import { getAvailableRooms } from "../../util/bookingOperations";
 import { fetchGuestByPhone } from "../../util/guestOperations";
 import { format, parseISO } from "date-fns";
+import { parseDateText } from "../../util/dateText";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import RoomBadge from "../shared/RoomBadge";
 import GuestLoyaltyBanner from "./GuestLoyaltyBanner";
@@ -35,6 +36,14 @@ interface BookingRequestModalProps {
   onWishListSent?: (phone: string, name: string, newDates: string[]) => void;
   onRemoveWishDate?: (date: string) => void;
   onRemoveCartRange?: (dateKeys: string[]) => void;
+  // Dates read out of what the guest TYPED, added to the same cart a tap on
+  // the calendar fills — so everything downstream (grouping, rooms, submission)
+  // is the code that already works, not a second path beside it.
+  onAddCartDates?: (dateKeys: string[]) => void;
+  // Which rooms are free on a date, asked of TiBook rather than recomputed
+  // here: availability has to subtract per-room blocks as well as bookings, and
+  // two implementations of that rule would eventually disagree.
+  roomsFreeOn?: (dateKey: string) => number;
   cancellationFullRefundDays?: number;
   cancellationHalfRefundDays?: number;
   houseRules?: string;
@@ -127,6 +136,8 @@ const BookingRequestModal = ({
   onWishListSent,
   onRemoveWishDate,
   onRemoveCartRange,
+  onAddCartDates,
+  roomsFreeOn,
   cancellationFullRefundDays,
   cancellationHalfRefundDays,
   houseRules,
@@ -310,6 +321,20 @@ const BookingRequestModal = ({
     if (!guestPricing) return null;
     return guestPricing.find((p) => p.room === roomId)?.price ?? null;
   };
+
+  // What the guest typed, read as dates. The box has always invited a list of
+  // dates and never looked at one — the text rode along as a note on a single
+  // request built from the form's default day, and the host re-entered the real
+  // dates by hand. Reading it costs nothing and happens as they type.
+  const typed = useMemo(() => parseDateText(notes), [notes]);
+  const typedNew = useMemo(
+    () => typed.dates.filter((d) => !cartDates.has(d)),
+    [typed.dates, cartDates],
+  );
+  const typedFree = useMemo(
+    () => (roomsFreeOn ? typedNew.filter((d) => roomsFreeOn(d) > 0) : typedNew),
+    [typedNew, roomsFreeOn],
+  );
 
   const sortedWishListDates = [...localWishList].sort();
   const hasWishList = sortedWishListDates.length > 0;
@@ -658,6 +683,65 @@ const BookingRequestModal = ({
                   onChange={(e) => { setNotes(e.target.value); if (datesError) setDatesError(""); }}
                 />
                 {datesError && <p className="text-red-500 text-xs mt-1">{datesError}</p>}
+
+                {/* What we understood, shown back before anything is acted on.
+                    The guest confirms a reading rather than trusting one — and
+                    if we read them wrongly they can see it here rather than
+                    discovering it when the wrong night is booked. */}
+                {typed.dates.length > 0 && (
+                  <div className="mt-2 rounded-xl border border-gray-200 bg-gray-50 p-2.5">
+                    <p className="text-xs font-semibold text-gray-500">
+                      {typed.dates.length === 1 ? "We read this date" : `We read these ${typed.dates.length} dates`}
+                    </p>
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {typed.dates.map((d) => {
+                        const inCart = cartDates.has(d);
+                        // undefined means TiBook did not tell us — better to say
+                        // nothing than to colour a date green on a guess.
+                        const free = roomsFreeOn?.(d);
+                        return (
+                          <span
+                            key={d}
+                            className={`rounded-lg px-2 py-1 text-xs font-semibold ${
+                              inCart
+                                ? "bg-gray-900 text-white"
+                                : free === 0
+                                  ? "bg-white text-gray-400 line-through ring-1 ring-gray-200"
+                                  : "bg-white text-gray-800 ring-1 ring-gray-300"
+                            }`}
+                          >
+                            {format(parseISO(d), "EEE d MMM")}
+                          </span>
+                        );
+                      })}
+                    </div>
+                    {typedFree.length > 0 && onAddCartDates && (
+                      <button
+                        type="button"
+                        onClick={() => onAddCartDates(typedFree)}
+                        className={`mt-2 w-full rounded-lg ${theme.btn} ${theme.btnHover} py-2 text-sm font-semibold text-white`}
+                      >
+                        Add {typedFree.length} date{typedFree.length > 1 ? "s" : ""} to my request
+                      </button>
+                    )}
+                    {typedNew.length > typedFree.length && (
+                      <p className="mt-1.5 text-xs leading-relaxed text-gray-500">
+                        The crossed-out dates are full. Tap them on the calendar to join the
+                        wish list and we'll tell you if they open up.
+                      </p>
+                    )}
+                    {typedFree.length === 0 && typedNew.length === 0 && (
+                      <p className="mt-1.5 text-xs font-medium text-gray-500">
+                        All of these are already in your request.
+                      </p>
+                    )}
+                    {typed.leftover && (
+                      <p className="mt-1.5 border-l-2 border-gray-300 pl-2 text-xs italic leading-relaxed text-gray-500">
+                        We'll pass this on too: "{typed.leftover}"
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
             </div>

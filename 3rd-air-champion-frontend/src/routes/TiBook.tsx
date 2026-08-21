@@ -620,6 +620,20 @@ const TiBookInner = () => {
           onClose={() => setIsBookingModalOpen(false)}
           onSuccess={() => setCartDates(new Map())}
           onRemoveCartRange={(keys) => setCartDates((prev) => { const next = new Map(prev); keys.forEach((k) => next.delete(k)); return next; })}
+          onAddCartDates={(keys) =>
+            // Typed dates land in the cart as "any room", the same as the
+            // already-building-an-any-room-stay path in toggleCartDate. A guest
+            // listing seven scattered nights is not choosing a room per night;
+            // the host assigns them.
+            setCartDates((prev) => {
+              const next = new Map(prev);
+              keys.forEach((k) => {
+                if (!next.has(k)) next.set(k, null);
+              });
+              return next;
+            })
+          }
+          roomsFreeOn={(key) => availableRoomsForDate(new Date(key + "T00:00:00")).length}
           cancellationFullRefundDays={currentHost.cancellationFullRefundDays}
           cancellationHalfRefundDays={currentHost.cancellationHalfRefundDays}
           houseRules={currentHost.houseRules}

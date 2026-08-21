@@ -1,0 +1,128 @@
+import { describe, expect, it } from "vitest";
+import { parseDateText } from "./dateText";
+
+// A fixed "today" so the year-rolling rules are testable at all.
+const TODAY = new Date(2026, 7, 20); // Thu 20 Aug 2026
+
+const on = (text: string) => parseDateText(text, TODAY);
+
+describe("the message this was built for", () => {
+  it('reads "I need to book for Aug 23, 24, 25, 27, and Sept 2,3,4"', () => {
+    const { dates } = on("I need to book for Aug 23, 24, 25, 27, and Sept 2,3,4");
+    expect(dates).toEqual([
+      "2026-08-23",
+      "2026-08-24",
+      "2026-08-25",
+      "2026-08-27",
+      "2026-09-02",
+      "2026-09-03",
+      "2026-09-04",
+    ]);
+  });
+
+  it("keeps the numbers with the month most recently named", () => {
+    // The 2,3,4 belong to September, not August — that is the whole trick.
+    const { dates } = on("Aug 23, Sept 2,3,4");
+    expect(dates).toEqual(["2026-08-23", "2026-09-02", "2026-09-03", "2026-09-04"]);
+  });
+});
+
+describe("the shapes guests actually write", () => {
+  it("reads the placeholder the box has always shown", () => {
+    const { dates } = on("May 1, 3–5, 20–21");
+    expect(dates).toEqual([
+      "2027-05-01",
+      "2027-05-03",
+      "2027-05-04",
+      "2027-05-05",
+      "2027-05-20",
+      "2027-05-21",
+    ]);
+  });
+
+  it("reads a day before the month", () => {
+    expect(on("23 Aug").dates).toEqual(["2026-08-23"]);
+    expect(on("23rd August").dates).toEqual(["2026-08-23"]);
+  });
+
+  it("reads a range", () => {
+    expect(on("Aug 23-25").dates).toEqual(["2026-08-23", "2026-08-24", "2026-08-25"]);
+  });
+
+  it("reads slashes, with and without a year", () => {
+    expect(on("8/23").dates).toEqual(["2026-08-23"]);
+    expect(on("8/23/2027").dates).toEqual(["2027-08-23"]);
+  });
+
+  it("reads tonight and tomorrow", () => {
+    expect(on("can I come tonight?").dates).toEqual(["2026-08-20"]);
+    expect(on("arriving tomorrow").dates).toEqual(["2026-08-21"]);
+  });
+
+  it("survives full month names, dots and capitals", () => {
+    expect(on("SEPT. 2").dates).toEqual(["2026-09-02"]);
+    expect(on("September 2").dates).toEqual(["2026-09-02"]);
+  });
+});
+
+describe("the year is inferred, not assumed", () => {
+  it("rolls to next year for a month already gone", () => {
+    // January is behind us in August, so "Jan 3" is the January coming.
+    expect(on("Jan 3").dates).toEqual(["2027-01-03"]);
+  });
+
+  it("keeps this year for a date still ahead", () => {
+    expect(on("Dec 24").dates).toEqual(["2026-12-24"]);
+  });
+
+  it("rolls a day earlier this month to next year", () => {
+    // The 5th of August has passed; the 25th has not.
+    expect(on("Aug 5").dates).toEqual(["2027-08-05"]);
+    expect(on("Aug 25").dates).toEqual(["2026-08-25"]);
+  });
+});
+
+describe("what it refuses to invent", () => {
+  it("drops an impossible day rather than rolling into the next month", () => {
+    expect(on("Feb 30").dates).toEqual([]);
+    expect(on("Sept 31").dates).toEqual([]);
+  });
+
+  it("finds nothing in a message with no dates", () => {
+    const { dates, leftover } = on("do you have parking?");
+    expect(dates).toEqual([]);
+    expect(leftover).toBe("do you have parking?");
+  });
+
+  it("returns an empty result for empty input", () => {
+    expect(on("   ")).toEqual({ dates: [], leftover: "" });
+  });
+
+  it("does not swallow a number that is not a date", () => {
+    // "4 nights" is not the 4th of the month. The run of days ends at "and".
+    const { dates } = on("Aug 23 and we need parking for 4 cars");
+    expect(dates).toEqual(["2026-08-23"]);
+  });
+});
+
+describe("what the guest said that was not a date", () => {
+  it("hands back the rest of the message, cleaned of the leftovers", () => {
+    const { dates, leftover } = on("Aug 23, 24 — and we'll have a dog with us");
+    expect(dates).toEqual(["2026-08-23", "2026-08-24"]);
+    expect(leftover).toBe("and we'll have a dog with us");
+  });
+
+  it("is empty when the message was only dates", () => {
+    expect(on("Aug 23, 24, 25").leftover).toBe("");
+  });
+});
+
+describe("tidiness", () => {
+  it("removes duplicates and sorts", () => {
+    expect(on("Aug 25, Aug 23, Aug 25").dates).toEqual(["2026-08-23", "2026-08-25"]);
+  });
+
+  it("reads a backwards range rather than producing nothing", () => {
+    expect(on("Aug 25-23").dates).toEqual(["2026-08-23", "2026-08-24", "2026-08-25"]);
+  });
+});
