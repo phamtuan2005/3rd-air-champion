@@ -38,6 +38,11 @@ interface CustomCalendarProps {
   rowHeight?: number;
   onRowHeightChange?: (n: number) => void;
   anchorDate?: string | null;
+  // Which filter the calendar has already jumped for. Held by MainView, like
+  // anchorDate and for the same reason: this component is unmounted on every
+  // booking change, so a ref in here forgets and the jump happens again.
+  revealedFilterKey?: string | null;
+  onRevealedFilterKeyChange?: (key: string | null) => void;
   onAnchorDateChange?: (key: string) => void;
 }
 
@@ -67,6 +72,8 @@ const CustomCalendar = ({
   rowHeight,
   onRowHeightChange,
   anchorDate,
+  revealedFilterKey = null,
+  onRevealedFilterKeyChange,
   onAnchorDateChange,
 }: CustomCalendarProps) => {
   const [useMonthMap, setUseMonthMap] = useState<Map<string, dayType>>(monthMap);
@@ -150,11 +157,22 @@ const CustomCalendar = ({
   // Prefers their next stay from today, falling back to their most recent one,
   // so filtering someone who has already been and gone still lands on them
   // rather than on empty space.
+  //
+  // Fires when the FILTER changes — not every time the data reloads. Editing a
+  // booking flips isCalendarLoading, which remounts this component and rebuilds
+  // monthMap; without the guard below, that re-ran the jump and threw the host
+  // back to the guest's next stay from today. Edit a stay in a month you had
+  // paged to, close the modal, and you were somewhere else.
   useEffect(() => {
-    if (!currentGuest && !currentAirBnBGuest) {
+    const filterKey = currentGuest ?? currentAirBnBGuest ?? null;
+    if (!filterKey) {
       setRevealDate(null);
+      if (revealedFilterKey) onRevealedFilterKeyChange?.(null);
       return;
     }
+    // Already jumped for this guest. Where the host has paged to since is
+    // theirs, and a data refresh is not a reason to take it away.
+    if (revealedFilterKey === filterKey) return;
 
     const todayKey = format(startOfToday(), "yyyy-MM-dd");
     const stayKeys: string[] = [];
@@ -164,8 +182,11 @@ const CustomCalendar = ({
       );
       if (hit) stayKeys.push(dateStr);
     });
+    // No stays yet almost always means the data has not arrived. Return WITHOUT
+    // marking this filter as done, so the jump still happens once it has.
     if (stayKeys.length === 0) return;
 
+    onRevealedFilterKeyChange?.(filterKey);
     stayKeys.sort();
     // Sorted date strings, so the first one on or after today IS the next stay —
     // no interval maths needed.
@@ -184,7 +205,7 @@ const CustomCalendar = ({
     // currentMonth is deliberately NOT a dependency: this should fire when the
     // FILTER changes, not every time the host pages to another month, or they
     // could never look at a month the guest is absent from.
-  }, [currentGuest, currentAirBnBGuest, monthMap]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentGuest, currentAirBnBGuest, monthMap, revealedFilterKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset modal / paid dates / hold selection when guest filter changes
   useEffect(() => {

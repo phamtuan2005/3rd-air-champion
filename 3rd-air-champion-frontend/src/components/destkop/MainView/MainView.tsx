@@ -272,6 +272,10 @@ const MainView = ({
   // grid: isCalendarLoading unmounts the grid on every booking change, so a ref
   // down there dies with it and the week is thrown away.
   const [calendarAnchorDate, setCalendarAnchorDate] = useState<string | null>(null);
+  // Which guest filter the calendar has already jumped to a stay for. Here for
+  // the same reason as the anchor above: the calendar is unmounted on every
+  // booking change, and a memory that dies with it makes the jump repeat.
+  const [revealedFilterKey, setRevealedFilterKey] = useState<string | null>(null);
   // How many mornings past today the cleaning Plan forecasts, host-tunable from
   // the Plan tab and remembered per device — the same shape as the calendar's
   // row settings. It lives HERE rather than inside the modal because the Clean
@@ -1038,6 +1042,8 @@ const MainView = ({
               scrollToTodayTrigger={scrollToTodayTrigger}
               anchorDate={calendarAnchorDate}
               onAnchorDateChange={setCalendarAnchorDate}
+              revealedFilterKey={revealedFilterKey}
+              onRevealedFilterKeyChange={setRevealedFilterKey}
               gapsMode={gapsMode}
               cleanMode={cleanMode}
               cleanerByRoomMorning={cleanerByRoomMorning}
