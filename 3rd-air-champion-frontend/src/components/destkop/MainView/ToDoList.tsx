@@ -531,6 +531,15 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                         Early Check-in Requested
                       </p>
                     )}
+                    {/* Off the ARRIVING stay, like the headcount above — the
+                        sofa bed is for the people coming in. The one request
+                        here that adds work to the clean rather than moving a
+                        time, so it is said rather than inferred from "3 guests". */}
+                    {nextCheckIn?.sofaBed && (
+                      <p className="text-sm font-semibold text-violet-600">
+                        🛋 Sofa bed to make up
+                      </p>
+                    )}
                     {booking.lateCheckout && (
                       <p className="text-sm font-semibold text-blue-500">
                         {booking.guest.name === "AirBnB"
