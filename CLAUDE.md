@@ -20,7 +20,7 @@ first.
 cd 3rd-air-champion-frontend
 npm run dev                              # localhost:5173
 npx tsc --noEmit -p tsconfig.app.json    # typecheck
-npx vitest run src/util                  # unit tests
+npm test                                 # unit tests
 npm run build
 
 # backend
