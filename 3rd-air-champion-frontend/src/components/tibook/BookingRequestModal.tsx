@@ -45,6 +45,10 @@ interface BookingRequestModalProps {
   // here: availability has to subtract per-room blocks as well as bookings, and
   // two implementations of that rule would eventually disagree.
   roomsFreeOn?: (dateKey: string) => number;
+  // Nights this guest has ALREADY booked. Without it, a night they own reads
+  // as "full" — identical to a night somebody else has — and the guest is told
+  // they cannot have the very date they are standing on.
+  myBookedDates?: Set<string>;
   cancellationFullRefundDays?: number;
   cancellationHalfRefundDays?: number;
   houseRules?: string;
@@ -122,6 +126,7 @@ const BookingRequestModal = ({
   onRemoveCartRange,
   onAddCartDates,
   roomsFreeOn,
+  myBookedDates,
   cancellationFullRefundDays,
   cancellationHalfRefundDays,
   houseRules,
@@ -396,9 +401,14 @@ const BookingRequestModal = ({
   // request built from the form's default day, and the host re-entered the real
   // dates by hand. Reading it costs nothing and happens as they type.
   const typed = useMemo(() => parseDateText(notes), [notes]);
+  // Already theirs — not free, but the opposite of a problem.
+  const typedMine = useMemo(
+    () => typed.dates.filter((d) => myBookedDates?.has(d)),
+    [typed.dates, myBookedDates],
+  );
   const typedNew = useMemo(
-    () => typed.dates.filter((d) => !cartDates.has(d)),
-    [typed.dates, cartDates],
+    () => typed.dates.filter((d) => !cartDates.has(d) && !myBookedDates?.has(d)),
+    [typed.dates, cartDates, myBookedDates],
   );
   const typedFree = useMemo(
     () => (roomsFreeOn ? typedNew.filter((d) => roomsFreeOn(d) > 0) : typedNew),
@@ -780,6 +790,12 @@ const BookingRequestModal = ({
                     </p>
                     <div className="mt-1.5 flex flex-wrap gap-1">
                       {typed.dates.map((d) => {
+                        // A night they ALREADY HAVE is checked first. It is not
+                        // free, but striking it through would tell a guest they
+                        // cannot have the very date they are already booked
+                        // into — the most alarming way to say the most
+                        // reassuring thing.
+                        const mine = myBookedDates?.has(d);
                         const inCart = cartDates.has(d);
                         // undefined means TiBook did not tell us — better to say
                         // nothing than to colour a date green on a guess.
@@ -788,13 +804,16 @@ const BookingRequestModal = ({
                           <span
                             key={d}
                             className={`rounded-lg px-2 py-1 text-xs font-semibold ${
-                              inCart
-                                ? "bg-gray-900 text-white"
-                                : free === 0
-                                  ? "bg-white text-gray-400 line-through ring-1 ring-gray-200"
-                                  : "bg-white text-gray-800 ring-1 ring-gray-300"
+                              mine
+                                ? `${theme.tagBg} ${theme.tagText} ring-1 ${theme.tagBorder}`
+                                : inCart
+                                  ? "bg-gray-900 text-white"
+                                  : free === 0
+                                    ? "bg-white text-gray-400 line-through ring-1 ring-gray-200"
+                                    : "bg-white text-gray-800 ring-1 ring-gray-300"
                             }`}
                           >
+                            {mine ? "✓ " : ""}
                             {format(parseISO(d), "EEE d MMM")}
                           </span>
                         );
@@ -809,13 +828,25 @@ const BookingRequestModal = ({
                         Add {typedFree.length} date{typedFree.length > 1 ? "s" : ""} to my request
                       </button>
                     )}
+                    {/* Said before anything about what is full, because it is
+                        the difference between "you cannot have your date" and
+                        "you already do". */}
+                    {typedMine.length > 0 && (
+                      <p className={`mt-1.5 text-xs font-semibold leading-relaxed ${theme.textPrimary}`}>
+                        {typedMine.length === typed.dates.length
+                          ? typedMine.length === 1
+                            ? "No need to book — that night is already yours."
+                            : "No need to book — those nights are already yours."
+                          : `${typedMine.length} of these ${typedMine.length === 1 ? "night is" : "nights are"} already booked in your name — nothing to do for ${typedMine.length === 1 ? "it" : "them"}.`}
+                      </p>
+                    )}
                     {typedNew.length > typedFree.length && (
                       <p className="mt-1.5 text-xs leading-relaxed text-gray-500">
                         The crossed-out dates are full. Tap them on the calendar to join the
                         wish list and we'll tell you if they open up.
                       </p>
                     )}
-                    {typedFree.length === 0 && typedNew.length === 0 && (
+                    {typedFree.length === 0 && typedNew.length === 0 && typedMine.length === 0 && (
                       <p className="mt-1.5 text-xs font-medium text-gray-500">
                         All of these are already in your request.
                       </p>

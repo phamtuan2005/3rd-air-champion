@@ -676,6 +676,7 @@ const TiBookInner = () => {
             })
           }
           roomsFreeOn={(key) => availableRoomsForDate(new Date(key + "T00:00:00")).length}
+          myBookedDates={myBookingDates}
           cancellationFullRefundDays={currentHost.cancellationFullRefundDays}
           cancellationHalfRefundDays={currentHost.cancellationHalfRefundDays}
           houseRules={currentHost.houseRules}
