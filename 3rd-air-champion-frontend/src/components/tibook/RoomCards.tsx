@@ -19,6 +19,10 @@ interface RoomCardsProps {
   // reduced filter shown over a dragged-up calendar passes nothing and stays
   // fixed, because there the calendar owns the height.
   onToggleCompact?: () => void;
+  // This guest's own agreed rate per room, where they have one. Empty for a
+  // stranger, and for a returning guest with no special price — both of whom
+  // simply see the room's own rate.
+  myRates?: Map<string, number>;
 }
 
 const RoomCard = ({
@@ -27,12 +31,14 @@ const RoomCard = ({
   selected,
   onSelect,
   onViewPhotos,
+  myRate,
 }: {
   room: roomType;
   allRooms: roomType[];
   selected: boolean;
   onSelect: () => void;
   onViewPhotos: () => void;
+  myRate?: number;
 }) => {
   const { theme } = useTiBookTheme();
   const photos = (room.photos?.filter(Boolean) ?? []).map(resolveUrl);
@@ -82,6 +88,30 @@ const RoomCard = ({
           and moved to the header once; "✓ selected" repeated the tick already
           drawn on the photo and the border already around the card. Both were
           costing a line of every card, and the cards sit above the calendar. */}
+      {/* What THIS guest pays. Their agreed rate could only be seen several
+          taps into a booking request, so a returning guest on $60 was quoted
+          the room's $73 everywhere they actually looked.
+
+          A guest on a deliberate $0 rate — family — is not shown "$0", which
+          reads like a bug. They are told what it means. */}
+      {myRate != null && (
+        <div className="px-2 pt-1 text-[10px] leading-tight sm:text-[11px]">
+          {myRate === 0 ? (
+            <span className={`font-bold ${theme.textPrimary}`}>
+              Family — no charge
+            </span>
+          ) : (
+            <>
+              {myRate < room.price && (
+                <span className="mr-1 text-gray-400 line-through">${room.price}</span>
+              )}
+              <span className="font-bold text-gray-800">${myRate}</span>
+              <span className="text-gray-400">/night</span>
+            </>
+          )}
+        </div>
+      )}
+
       <div
         className="px-2 py-1.5 cursor-pointer active:bg-gray-50 flex items-center gap-1"
         onClick={onSelect}
@@ -105,7 +135,7 @@ const RoomCard = ({
   );
 };
 
-const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact = false, onToggleCompact }: RoomCardsProps) => {
+const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact = false, onToggleCompact, myRates }: RoomCardsProps) => {
   const { theme } = useTiBookTheme();
   const [galleryRoom, setGalleryRoom] = useState<roomType | null>(null);
   const activeRooms = rooms.filter((r) => r.active).sort((a, b) => b.price - a.price);
@@ -209,6 +239,7 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
               selected={!isAll && (selectedRoomIds?.has(room.id) ?? false)}
               onSelect={() => onToggleRoom(room.id)}
               onViewPhotos={() => setGalleryRoom(room)}
+              myRate={myRates?.get(room.id)}
             />
           ))}
         </div>

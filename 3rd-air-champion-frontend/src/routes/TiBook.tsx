@@ -20,6 +20,7 @@ import RoomPickerPopup from "../components/tibook/RoomPickerPopup";
 import ReservedHoldsPopup from "../components/tibook/ReservedHoldsPopup";
 import { getGuestWishList } from "../util/wishListOperations";
 import { fetchBookingRequestsByHost, fetchCalendarBookingsByGuest } from "../util/bookingRequestOperations";
+import { fetchGuestByPhone } from "../util/guestOperations";
 
 const TiBookInner = () => {
   const { theme } = useTiBookTheme();
@@ -436,6 +437,30 @@ const TiBookInner = () => {
   const greetedName = guestBookings.find((b) => b.guestName)?.guestName ?? guestName;
   const isReturningGuest = !!greetedName.trim();
 
+  // What THIS guest pays, not what the room lists at.
+  //
+  // A returning guest on an agreed rate could only see it several taps into a
+  // booking request, so the room cards quoted them a price that was not theirs.
+  // Asking "what's my rate?" should not require starting a booking.
+  const [myRates, setMyRates] = useState<Map<string, number>>(new Map());
+  useEffect(() => {
+    if (!guestPhone || !currentHost) {
+      setMyRates(new Map());
+      return;
+    }
+    fetchGuestByPhone(guestPhone, currentHost.id)
+      .then((guest) => {
+        const next = new Map<string, number>();
+        (guest?.pricing ?? []).forEach((p: { room: string; price: number }) => {
+          if (typeof p.price === "number") next.set(p.room, p.price);
+        });
+        setMyRates(next);
+      })
+      // A rate we cannot fetch is simply not shown. The room's own price is
+      // still there, and a wrong price is far worse than a missing one.
+      .catch(() => setMyRates(new Map()));
+  }, [guestPhone, currentHost]);
+
   // DYNAMIC viewport height. Plain 100vh (h-screen) is the height the page would
   // have with the browser chrome hidden, so on an iPhone the layout is taller
   // than the screen actually showing it — the header stack fills what you can
@@ -472,6 +497,7 @@ const TiBookInner = () => {
               selectedRoomIds={selectedRoomIds}
               onToggleRoom={handleToggleRoom}
               onSelectAll={() => setSelectedRoomIds(null)}
+              myRates={myRates}
               compact={isReturningGuest && !roomsExpanded}
               onToggleCompact={isReturningGuest ? () => setRoomsExpanded((o) => !o) : undefined}
             />
