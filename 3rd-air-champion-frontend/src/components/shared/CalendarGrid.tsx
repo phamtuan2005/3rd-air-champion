@@ -2,7 +2,6 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import "../../styles/calendarStyle.css";
 import {
   addDays,
-  endOfMonth,
   getDay,
   isAfter,
   isBefore,
@@ -779,7 +778,7 @@ const CalendarGrid = ({
     return className;
   };
 
-  const getTileContent = (date: Date) => {
+  const getTileContent = (date: Date, drawnRightInRow: number = 7 - getDay(date)) => {
     // Declared here, above EVERY branch — not beside the bars that use them.
     //
     // Gaps mode returns early, from a nested map(), and read both of these. With
@@ -1113,10 +1112,17 @@ const CalendarGrid = ({
           // bar of the guest actually staying that night.
           let maxDuration = 1;
           if (pmBooking && pmIsStart) {
-            const daysLeftInWeek = 7 - getDay(date);
-            maxDuration = Math.max(Math.min(pmBooking.duration, daysLeftInWeek), 1);
-            // The month last day may be followed by cells this page does not draw.
-            if (isSameDay(date, endOfMonth(date))) maxDuration = 1;
+            // Clamped to the tiles THIS PAGE ACTUALLY DRAWS to the right, in
+            // this row — which is the row limit and the page limit in one
+            // number.
+            //
+            // It used to be "days left in the week", with the month's last day
+            // forced to a single tile because the cells after it might not be
+            // drawn. But a page fills the trailing days of the week containing
+            // the month end, so they usually ARE drawn — and the blanket rule
+            // cut the name off every stay starting on the 31st: "Joseph" over
+            // a bar running well into the next month read as "Josep".
+            maxDuration = Math.max(Math.min(pmBooking.duration, drawnRightInRow), 1);
           }
 
           const availableTileWidth = tileWidth ? tileWidth * maxDuration - tileWidth / 5 : 0;
@@ -1449,7 +1455,19 @@ const CalendarGrid = ({
                 {layout.cells.map((date, cellIdx) => {
                   if (!date) return <div key={cellIdx} />;
                   const classes = getTileClasses(date, layout.month);
-                  const content = getTileContent(date);
+                  // How many cells to the right of this one, in the same row,
+                  // this page actually draws. A label may span exactly these:
+                  // any wider and it paints over the next page in the 1-2 week
+                  // layouts, where pages sit side by side.
+                  const col = cellIdx % 7;
+                  let drawnRightInRow = 1;
+                  while (
+                    col + drawnRightInRow < 7 &&
+                    layout.cells[cellIdx + drawnRightInRow] != null
+                  ) {
+                    drawnRightInRow++;
+                  }
+                  const content = getTileContent(date, drawnRightInRow);
                   return (
                     <button
                       key={cellIdx}
