@@ -416,6 +416,28 @@ const BookingRequestModal = ({
     () => (roomsFreeOn ? typedNew.filter((d) => roomsFreeOn(d) > 0) : typedNew),
     [typedNew, roomsFreeOn],
   );
+  // Nights they asked for that nobody can give them tonight. The guest has
+  // already said they want these by typing them; making them go and tap each
+  // one on a calendar to be TOLD IF IT OPENS is work the app can simply do.
+  const typedFull = useMemo(
+    () => (roomsFreeOn ? typedNew.filter((d) => roomsFreeOn(d) === 0) : []),
+    [typedNew, roomsFreeOn],
+  );
+  const typedFullNew = useMemo(
+    () => typedFull.filter((d) => !localWishList.has(d)),
+    [typedFull, localWishList],
+  );
+
+  // One action covers both halves of what they wrote: the free nights become
+  // the request, the full ones become a watch. Disclosed on the button and in
+  // the line under it, so nothing happens that was not asked for on screen.
+  const takeTypedDates = () => {
+    if (typedFree.length > 0) onAddCartDates?.(typedFree);
+    if (typedFullNew.length > 0) {
+      setLocalWishList((prev) => new Set([...prev, ...typedFullNew]));
+    }
+    setDateSheetOpen(false);
+  };
 
   const sortedWishListDates = [...localWishList].sort();
   const hasWishList = sortedWishListDates.length > 0;
@@ -628,8 +650,16 @@ const BookingRequestModal = ({
           <div className="flex flex-col flex-1 min-h-0">
             <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
 
-              {/* Cart groups */}
-              <div>
+              {/* Order follows what the guest came to do.
+                  Arriving with nothing picked from the calendar means they
+                  came to write their dates — so that goes on top, and the
+                  calendar section moves below it. Arriving WITH dates picked,
+                  the calendar list leads, because it is the thing they have
+                  already built and want to check.
+
+                  Done with flex `order` rather than two copies of the markup:
+                  one of them would eventually be edited and the other forgotten. */}
+              <div className={cartGroups.length === 0 ? "order-3" : ""}>
                 <p className="text-sm font-medium mb-2">Dates picked from calendar</p>
                 {cartGroups.length > 0 ? (
                   <div className="flex flex-col gap-3">
@@ -712,7 +742,7 @@ const BookingRequestModal = ({
 
               {/* Wish list dates */}
               {hasWishList && (
-                <div>
+                <div className={cartGroups.length === 0 ? "order-4" : ""}>
                   <p className="text-sm font-medium mb-2">Sold-out dates (wish list)</p>
                   <div className="flex flex-col gap-1.5">
                     {sortedWishListDates.map((d) => (
@@ -763,7 +793,7 @@ const BookingRequestModal = ({
               )}
 
               {/* Divider */}
-              <div className="flex items-center gap-2">
+              <div className={`flex items-center gap-2 ${cartGroups.length === 0 ? "order-2" : ""}`}>
                 <div className="flex-1 h-px bg-gray-100" />
                 <span className="text-xs text-gray-400">and / or</span>
                 <div className="flex-1 h-px bg-gray-100" />
@@ -776,7 +806,7 @@ const BookingRequestModal = ({
                   leaves the step. The wrong tap sends a request the guest was
                   still writing. Writing gets its own screen now, and hands them
                   back here when they are done. */}
-              <div>
+              <div className={cartGroups.length === 0 ? "order-1" : ""}>
                 <p className="text-sm font-medium mb-2">Write your dates</p>
                 <button
                   type="button"
@@ -1235,10 +1265,11 @@ const BookingRequestModal = ({
                         : `${typedMine.length} of these ${typedMine.length === 1 ? "night is" : "nights are"} already booked in your name — nothing to do for ${typedMine.length === 1 ? "it" : "them"}.`}
                     </p>
                   )}
-                  {typedNew.length > typedFree.length && (
+                  {typedFull.length > 0 && (
                     <p className="mt-1.5 text-xs leading-relaxed text-gray-500">
-                      The crossed-out dates are full. Tap them on the calendar to join the
-                      wish list and we'll tell you if they open up.
+                      The crossed-out {typedFull.length === 1 ? "date is" : "dates are"} full
+                      tonight — we'll watch {typedFull.length === 1 ? "it" : "them"} for you and
+                      tell you the moment {typedFull.length === 1 ? "it opens" : "they open"} up.
                     </p>
                   )}
                   {typedFree.length === 0 && typedNew.length === 0 && typedMine.length === 0 && (
@@ -1259,16 +1290,17 @@ const BookingRequestModal = ({
                 the guest has finished writing, and the next thing they want is
                 the form they came from. */}
             <div className="shrink-0 border-t border-gray-100 p-4">
-              {typedFree.length > 0 && onAddCartDates ? (
+              {typedFree.length > 0 || typedFullNew.length > 0 ? (
                 <button
                   type="button"
-                  onClick={() => {
-                    onAddCartDates(typedFree);
-                    setDateSheetOpen(false);
-                  }}
+                  onClick={takeTypedDates}
                   className={`w-full rounded-xl ${theme.btn} ${theme.btnHover} py-3 text-sm font-semibold text-white`}
                 >
-                  Add {typedFree.length} date{typedFree.length > 1 ? "s" : ""} to my request
+                  {typedFree.length > 0 && typedFullNew.length > 0
+                    ? `Request ${typedFree.length} date${typedFree.length > 1 ? "s" : ""}, watch ${typedFullNew.length} more`
+                    : typedFree.length > 0
+                      ? `Add ${typedFree.length} date${typedFree.length > 1 ? "s" : ""} to my request`
+                      : `Watch ${typedFullNew.length} full date${typedFullNew.length > 1 ? "s" : ""} for me`}
                 </button>
               ) : (
                 <button
