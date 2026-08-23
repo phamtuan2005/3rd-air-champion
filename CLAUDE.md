@@ -30,7 +30,9 @@ npx tsc --noEmit
 npx jest
 ```
 
-Run the typecheck and the tests before you consider a change finished.
+Run the typecheck and the tests before you consider a change finished. CI runs
+all of it on every pull request and every push to `main` — a red tick is not
+somebody else's problem to sort out.
 
 ## Rules
 

@@ -1,0 +1,77 @@
+# Every push and every pull request gets checked, by something that never has a
+# busy week.
+#
+# The point is not ceremony. It is that `main` is the deployed app, several
+# people now push to it, and "somebody will read the diff" stops being true the
+# first time somebody is busy. A red tick here is visible before a merge; a
+# broken main is discovered by a guest.
+#
+# What this CANNOT catch: a change that is correct code and wrong for this
+# business — making `reserved` mean vacant, or counting a stay on every night
+# instead of its first. Those rules live in CLAUDE.md and still need a human.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A new push to the same branch cancels the run still going for the old one.
+# Nobody needs the verdict on a commit that has already been replaced.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend — typecheck, tests, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 3rd-air-champion-frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: 3rd-air-champion-frontend/package-lock.json
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit -p tsconfig.app.json
+
+      - name: Unit tests
+        run: npm test
+
+      # The build is a real check, not a formality: it runs `tsc -b` across the
+      # whole project and catches what the app-only typecheck does not.
+      - name: Build
+        run: npm run build
+
+  backend:
+    name: Backend — typecheck and tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 3rd-air-champion-backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: 3rd-air-champion-backend/package-lock.json
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # The model tests spin up an in-memory MongoDB, so no database service is
+      # needed here — but the first run downloads the binary, which is why this
+      # job is slower than the frontend one.
+      - name: Tests
+        run: npx jest --ci
