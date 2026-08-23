@@ -514,6 +514,8 @@ const TiBookInner = () => {
               onToggleRoom={handleToggleRoom}
               onSelectAll={() => setSelectedRoomIds(null)}
               myRates={myRates}
+              hostPhone={currentHost?.phone}
+              hostName={currentHost?.name}
               compact={isReturningGuest && !roomsExpanded}
               onToggleCompact={isReturningGuest ? () => setRoomsExpanded((o) => !o) : undefined}
             />
@@ -550,6 +552,8 @@ const TiBookInner = () => {
                 selectedRoomIds={selectedRoomIds}
                 onToggleRoom={handleToggleRoom}
                 onSelectAll={() => setSelectedRoomIds(null)}
+                hostPhone={currentHost?.phone}
+                hostName={currentHost?.name}
                 compact
               />
             )}

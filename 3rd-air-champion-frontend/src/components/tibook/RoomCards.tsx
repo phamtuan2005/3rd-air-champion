@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { roomType } from "../../util/types/roomType";
 import RoomGalleryModal from "./RoomGalleryModal";
+import { getRoomPhotos } from "../../util/roomFacts";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import { getRoomColor } from "../../util/getRoomColor";
 import RoomBadge from "../shared/RoomBadge";
@@ -23,6 +24,11 @@ interface RoomCardsProps {
   // stranger, and for a returning guest with no special price — both of whom
   // simply see the room's own rate.
   myRates?: Map<string, number>;
+  // Passed straight through to the gallery, which offers to text the host about
+  // the price. Absent where the host record carries no number, and the gallery
+  // then simply does not offer it.
+  hostPhone?: string;
+  hostName?: string;
 }
 
 const RoomCard = ({
@@ -41,7 +47,9 @@ const RoomCard = ({
   myRate?: number;
 }) => {
   const { theme } = useTiBookTheme();
-  const photos = (room.photos?.filter(Boolean) ?? []).map(resolveUrl);
+  // Same list the gallery pages through, so the count badge below cannot
+  // promise more pictures than the gallery actually has.
+  const photos = getRoomPhotos(room).map(resolveUrl);
   const [imgError, setImgError] = useState(false);
 
   return (
@@ -135,9 +143,10 @@ const RoomCard = ({
   );
 };
 
-const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact = false, onToggleCompact, myRates }: RoomCardsProps) => {
+const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact = false, onToggleCompact, myRates, hostPhone, hostName }: RoomCardsProps) => {
   const { theme } = useTiBookTheme();
   const [galleryRoom, setGalleryRoom] = useState<roomType | null>(null);
+  const hostFirstName = (hostName ?? "").split(" ")[0] || "the host";
   const activeRooms = rooms.filter((r) => r.active).sort((a, b) => b.price - a.price);
   if (activeRooms.length === 0) return null;
 
@@ -203,10 +212,19 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
               half for anyone who tried the picture first.
               No truncate: an instruction that gets cut off is worse than one
               that wraps on the narrowest phones. */}
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-            Our Rooms{" "}
-            <span className="font-medium normal-case">· tap on the room name to select</span>
-          </p>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+              Our Rooms{" "}
+              <span className="font-medium normal-case">· tap on room name to select</span>
+            </p>
+            {/* No price is quoted on the cards, so the reason is given here —
+                once, in the same place the other card-wide hint lives, rather
+                than five times over. Said as what WILL happen: the guest agrees
+                a price with the host, and opening a room is how they start. */}
+            <p className="mt-0.5 text-xs text-gray-500">
+              Every price is agreed between you and {hostFirstName}. Open a room to ask.
+            </p>
+          </div>
           {onToggleCompact && (
             <button
               type="button"
@@ -248,6 +266,8 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
       {galleryRoom && (
         <RoomGalleryModal
           room={galleryRoom}
+          hostPhone={hostPhone}
+          hostName={hostName}
           onClose={() => setGalleryRoom(null)}
         />
       )}
