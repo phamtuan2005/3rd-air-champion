@@ -102,23 +102,36 @@ hostSchema.pre(
     const update = this.getUpdate();
 
     if (update && typeof update === "object" && !Array.isArray(update)) {
-      const fields = (update as any).$set ?? update;
+      // BOTH shapes, not one or the other. `timestamps: true` puts its own
+      // updatedAt under $set, so an ordinary
+      //     Host.findByIdAndUpdate(id, { password })
+      // arrives here as { password, $set: { updatedAt }, $setOnInsert: {...} }
+      // — fields at the top level AND a $set that holds only the timestamp.
+      // This used to read `update.$set ?? update`, which found that $set, saw
+      // no password in it, and did nothing at all: the new password went to
+      // the database in PLAINTEXT, and an invalid name walked past validation.
+      // Callers may equally pass { $set: { password } }, so both are checked.
+      const shapes = [update as any, (update as any).$set].filter(
+        (o) => o && typeof o === "object" && !Array.isArray(o)
+      );
 
-      if ("name" in fields) {
-        // Name validation
-        const specialCharRegex = /[`!@#$%^&*()_+=\[\]{};:"\\|,<>\/?~]/;
+      for (const fields of shapes) {
+        if ("name" in fields) {
+          // Name validation
+          const specialCharRegex = /[`!@#$%^&*()_+=\[\]{};:"\\|,<>\/?~]/;
 
-        if (specialCharRegex.test(fields.name))
-          return next(new Error("Name cannot contain special characters"));
-      }
+          if (specialCharRegex.test(fields.name))
+            return next(new Error("Name cannot contain special characters"));
+        }
 
-      if ("email" in fields) {
-        fields.email = fields.email.toLowerCase();
-      }
+        if ("email" in fields) {
+          fields.email = fields.email.toLowerCase();
+        }
 
-      if ("password" in fields) {
-        const salt = await bcrypt.genSalt(SALT_ROUNDS);
-        fields.password = await bcrypt.hash(fields.password, salt);
+        if ("password" in fields) {
+          const salt = await bcrypt.genSalt(SALT_ROUNDS);
+          fields.password = await bcrypt.hash(fields.password, salt);
+        }
       }
     }
 
