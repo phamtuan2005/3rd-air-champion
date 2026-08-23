@@ -42,7 +42,7 @@ Two things about that file:
 ## Tests
 
 ```bash
-npx vitest run src/util
+npm test
 ```
 
 `dateText` and `cartGrouping` are the two TiBook rules with real tests, and both
@@ -97,7 +97,7 @@ telling them what will happen instead, pick the second.
 
 ```bash
 npx tsc --noEmit -p tsconfig.app.json
-npx vitest run src/util
+npm test
 npm run build
 ```
 
