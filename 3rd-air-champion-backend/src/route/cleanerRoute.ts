@@ -171,7 +171,7 @@ router.get("/summary", async (req: Request, res: any) => {
 // Record a payout — adjusts the cleaner's running paid total. Negative
 // amounts correct a mis-recorded payout; the total never drops below zero.
 router.post("/pay", async (req: Request, res: any) => {
-  const { id, amount, paidOn, note } = req.body;
+  const { id, amount, paidOn, note, tip } = req.body;
   if (!id || typeof amount !== "number" || !isFinite(amount) || amount === 0)
     return res.status(400).json({ error: "id and a non-zero numeric amount are required" });
   try {
@@ -183,6 +183,7 @@ router.post("/pay", async (req: Request, res: any) => {
     // evening payout in California to the following day.
     cleaner.payments.push({
       amount,
+      tip: !!tip,
       paidOn: paidOn || new Date().toISOString().slice(0, 10),
       note: note || "",
     });

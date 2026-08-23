@@ -107,13 +107,17 @@ export interface CleanerSummaryType {
   hours: number; // all-time recorded + baseline
   earned: number; // hours × rate
   paid: number; // running payouts
-  balance: number; // earned − paid: what the host owes right now
+  balance: number; // earned − WAGES paid: what the host owes right now
+  // Tips, kept apart from wages. They are real money out, but they settle
+  // nothing — see the note in the backend's cleanerPay.
+  tips?: number;
+  wagesPaid?: number;
   // Work not yet covered by payments — what the host and cleaner actually
   // discuss. Lifetime totals answer a question nobody asked.
   unpaidHours?: number;
   unpaidSince?: string | null; // yyyy-MM-dd of the first unpaid day
   // Itemised payouts, newest first, so a duplicate is visible and removable.
-  payments?: { id: string; amount: number; paidOn: string; note: string }[];
+  payments?: { id: string; amount: number; paidOn: string; note: string; tip?: boolean }[];
   // Paid before logging existed — one opening figure, not individually undoable.
   openingPaid?: number;
 }
@@ -134,8 +138,11 @@ export const recordCleanerPayment = async (
   amount: number,
   token: string,
   paidOn?: string, // host's LOCAL date — the server runs UTC and would misdate an evening payout
+  // A tip is money on TOP of wages. Sent as an ordinary payment it settles the
+  // balance, so tipping somebody quietly reduces their next wage packet.
+  tip?: boolean,
 ): Promise<void> => {
-  await axios.post(`${BACKEND_ENDPOINT}/cleaner/pay`, { id, amount, paidOn }, auth(token));
+  await axios.post(`${BACKEND_ENDPOINT}/cleaner/pay`, { id, amount, paidOn, tip }, auth(token));
 };
 
 // Undo one logged payout rather than posting an offsetting negative, which

@@ -67,6 +67,12 @@ const cleanerSchema = new mongoose.Schema(
           amount: { type: Number, required: true },
           paidOn: { type: String, required: true }, // yyyy-MM-dd, host's local date
           note: { type: String, default: "" },
+          // A tip is money given ON TOP of wages, not money settling them.
+          // Recorded as an ordinary payment it paid down the balance, so a $11
+          // tip quietly meant $11 less in the next wage packet — and, because
+          // paid then exceeded earned, the Pay tab reported "hours missing"
+          // for hours that were never worked.
+          tip: { type: Boolean, default: false },
         },
       ],
       default: [],

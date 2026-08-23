@@ -414,7 +414,10 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
   const [removeArmed, setRemoveArmed] = useState<string | null>(null);
   // Payout adds to paid, Undo subtracts — phone number pads have no minus key,
   // so direction is a toggle and the typed amount is always positive.
-  const [payMode, setPayMode] = useState<"payout" | "undo">("payout");
+  // A tip is its own kind of payment, not a payout with a note on it. Recorded
+  // as a payout it settles wages — so tipping somebody $11 quietly took $11 off
+  // what they were still owed, and made the tab report hours missing.
+  const [payMode, setPayMode] = useState<"payout" | "tip" | "undo">("payout");
   // Two-tap confirm rendered in-design — no browser confirm() popup
   const [payConfirmArmed, setPayConfirmArmed] = useState(false);
   const [error, setError] = useState("");
@@ -1276,7 +1279,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
       return;
     }
     const signed = payMode === "undo" ? -amount : amount;
-    recordCleanerPayment(entry.id, signed, token, todayKey)
+    recordCleanerPayment(entry.id, signed, token, todayKey, payMode === "tip")
       .then(() => {
         // Stay in the detail modal so the host sees the updated balance; just
         // reset the input and disarm the confirm.
@@ -3214,6 +3217,14 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                           >
                             {p.amount < 0 ? "−" : ""}${Math.abs(p.amount).toFixed(2)}
                           </span>
+                          {/* Which money this was. A tip and a payout look the
+                              same in a list of amounts, and they mean opposite
+                              things for what is still owed. */}
+                          {p.tip && (
+                            <span className="shrink-0 rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-700">
+                              tip
+                            </span>
+                          )}
                           <button
                             type="button"
                             onClick={() => handleRemovePayment(entry.id, p.id)}
@@ -3287,10 +3298,11 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
 
                   {/* Payout / Undo mistake */}
                   <div className="mt-4 border-t border-gray-100 pt-3">
-                    <div className="mb-1.5 grid grid-cols-2 gap-1 rounded-lg bg-gray-100 p-0.5">
+                    <div className="mb-1.5 grid grid-cols-3 gap-1 rounded-lg bg-gray-100 p-0.5">
                       {(
                         [
                           { key: "payout", label: "Payout" },
+                          { key: "tip", label: "Tip" },
                           { key: "undo", label: "Undo mistake" },
                         ] as const
                       ).map(({ key, label }) => (
@@ -3315,7 +3327,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                     </div>
                     <div className="flex items-center gap-1.5">
                       <label className="text-sm text-gray-500">
-                        {payMode === "payout" ? "Pay $" : "Undo $"}
+                        {payMode === "payout" ? "Pay $" : payMode === "tip" ? "Tip $" : "Undo $"}
                       </label>
                       <input
                         className={`${inputCls} w-24`}
@@ -3343,7 +3355,9 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                           ? `Confirm $${parseFloat(payDraft) || 0}`
                           : payMode === "payout"
                             ? "Record payout"
-                            : "Record undo"}
+                            : payMode === "tip"
+                              ? "Record tip"
+                              : "Record undo"}
                       </button>
                     </div>
                     <p className="mt-1 text-[12px] text-gray-400">

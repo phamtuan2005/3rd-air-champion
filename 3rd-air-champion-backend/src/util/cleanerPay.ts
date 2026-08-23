@@ -71,6 +71,18 @@ export const computeCleanerPay = (
 
   const paid = cleaner?.paidAmount ?? 0;
 
+  // Tips are not wages. They are given on top of what was earned, so they must
+  // not consume the hours a wage payment consumes — otherwise tipping somebody
+  // reduces what they are still owed, which is the opposite of a tip.
+  //
+  // Anything paid before the itemised log existed counts as wages: there was no
+  // way to mark a tip then, and treating unmarked history as tips would inflate
+  // the balance instead.
+  const tips = (cleaner?.payments ?? [])
+    .filter((p: any) => p.tip)
+    .reduce((s: number, p: any) => s + (p.amount ?? 0), 0);
+  const wagesPaid = Math.max(0, paid - tips);
+
   // Which work the money has already covered. paidAmount is a running total with
   // no dates, so the boundary is recovered by consuming days oldest-first until
   // payments run out — everything after that is unpaid. A payment landing
@@ -81,7 +93,7 @@ export const computeCleanerPay = (
       : []),
     ...days,
   ];
-  let remainingPaid = paid;
+  let remainingPaid = wagesPaid;
   let unpaidHours = 0;
   let unpaidSince: string | null = null;
   for (const d of timeline) {
@@ -105,6 +117,7 @@ export const computeCleanerPay = (
       amount: p.amount,
       paidOn: p.paidOn,
       note: p.note ?? "",
+      tip: !!p.tip,
     }))
     .sort((x: any, y: any) => (x.paidOn < y.paidOn ? 1 : -1));
   const logged = payments.reduce((s: number, p: any) => s + p.amount, 0);
@@ -113,7 +126,10 @@ export const computeCleanerPay = (
     hours,
     earned,
     paid,
-    balance: earned - paid,
+    // What is still OWED, which only wages can settle.
+    balance: earned - wagesPaid,
+    wagesPaid,
+    tips,
     unpaidHours,
     unpaidSince,
     payments,
