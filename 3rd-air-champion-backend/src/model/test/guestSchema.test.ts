@@ -198,8 +198,17 @@ describe("Guest Schema - Valid", () => {
     savedGuests.forEach((savedGuest, index) => {
       const expectedData = guestData[index];
 
+      // The stored form, by the schema's rule: a US number keeps the national
+      // look the app is written around, anything else keeps its country code.
+      //
+      // This used to assume formatNational() always. faker generates random
+      // numbers, and a +1 area code is not necessarily American — 658 is
+      // Jamaica — so the test passed or failed on the luck of the draw.
       const phoneNumber = parsePhoneNUmber(expectedData.phone, "US");
-      const nationalNumber = phoneNumber?.formatNational();
+      const nationalNumber =
+        phoneNumber?.country === "US"
+          ? phoneNumber?.formatNational()
+          : phoneNumber?.formatInternational();
 
       expect(savedGuest._id).toBeDefined();
       expect(savedGuest.name).toBe(expectedData.name);

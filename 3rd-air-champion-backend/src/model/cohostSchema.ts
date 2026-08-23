@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { updateShapes } from "../util/updateShapes";
 import bcrypt from "bcrypt";
 import Host from "./hostSchema";
 
@@ -51,26 +52,30 @@ cohostSchema.pre(
 
     (this as any).originalCohosts = await mongoose.model("Cohost").find(query);
 
-    if (update && typeof update === "object" && !Array.isArray(update)) {
-      if ("name" in update) {
+    // Every shape the fields can arrive in — see util/updateShapes. This read
+    // only the top level, so a caller passing { $set: { password } } had their
+    // cohost password written to the database in PLAINTEXT: the same failure
+    // found in hostSchema, from the opposite direction.
+    for (const fields of updateShapes(update)) {
+      if ("name" in fields) {
         // Name validation
         const specialCharRegex = /[`!@#$%^&*()_+=\[\]{};:"\\|,<>\/?~]/;
 
-        if (specialCharRegex.test(update.name))
+        if (specialCharRegex.test(fields.name))
           return next(new Error("Name cannot contain special characters"));
       }
 
-      if ("email" in update) {
-        update.email = update.email.toLowerCase();
+      if ("email" in fields) {
+        fields.email = fields.email.toLowerCase();
       }
 
-      if ("password" in update) {
+      if ("password" in fields) {
         const salt = await bcrypt.genSalt(SALT_ROUNDS);
-        update.password = await bcrypt.hash(update.password, salt);
+        fields.password = await bcrypt.hash(fields.password, salt);
       }
 
-      if ("host" in update) {
-        if (!(await Host.exists({ _id: update.host._id })))
+      if ("host" in fields) {
+        if (!(await Host.exists({ _id: fields.host._id })))
           return next(new Error("Host does not exist"));
       }
     }

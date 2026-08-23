@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { updateShapes } from "../util/updateShapes";
 import Room from "./roomSchema";
 import Calendar from "./calendarSchema";
 import Guest from "./guestSchema";
@@ -102,20 +103,8 @@ hostSchema.pre(
     const update = this.getUpdate();
 
     if (update && typeof update === "object" && !Array.isArray(update)) {
-      // BOTH shapes, not one or the other. `timestamps: true` puts its own
-      // updatedAt under $set, so an ordinary
-      //     Host.findByIdAndUpdate(id, { password })
-      // arrives here as { password, $set: { updatedAt }, $setOnInsert: {...} }
-      // — fields at the top level AND a $set that holds only the timestamp.
-      // This used to read `update.$set ?? update`, which found that $set, saw
-      // no password in it, and did nothing at all: the new password went to
-      // the database in PLAINTEXT, and an invalid name walked past validation.
-      // Callers may equally pass { $set: { password } }, so both are checked.
-      const shapes = [update as any, (update as any).$set].filter(
-        (o) => o && typeof o === "object" && !Array.isArray(o)
-      );
-
-      for (const fields of shapes) {
+      // Both shapes — see util/updateShapes for why one is never enough.
+      for (const fields of updateShapes(update)) {
         if ("name" in fields) {
           // Name validation
           const specialCharRegex = /[`!@#$%^&*()_+=\[\]{};:"\\|,<>\/?~]/;

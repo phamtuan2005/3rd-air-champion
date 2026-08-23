@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { updateShapes } from "../util/updateShapes";
 import Host from "./hostSchema";
 import Day from "./daySchema";
 import Guest from "./guestSchema";
@@ -53,9 +54,11 @@ roomSchema.pre(
 
     const rooms = await mongoose.model("Room").find(query);
 
-    if (update && typeof update === "object" && !Array.isArray(update)) {
-      const fields = (update as any).$set ?? update;
-
+    // Every shape the fields can arrive in — see util/updateShapes. This read
+    // `update.$set ?? update`, which on a plain findByIdAndUpdate finds the
+    // timestamp-only $set that Mongoose adds and looks no further: the price
+    // check never ran, and a room could be updated to a negative one.
+    for (const fields of updateShapes(update)) {
       if ("price" in fields) {
         const newPrice = fields.price;
         if (typeof newPrice !== "number" || newPrice <= 0) {
