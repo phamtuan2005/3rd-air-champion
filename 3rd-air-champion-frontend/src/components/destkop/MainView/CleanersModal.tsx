@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { addDays, format, startOfToday, startOfWeek } from "date-fns";
+import { addDays, endOfMonth, format, startOfToday, startOfWeek } from "date-fns";
 import { FaDollarSign, FaRedo, FaRegClock } from "react-icons/fa";
 import { MdCleaningServices } from "react-icons/md";
 import { dayType } from "../../../util/types/dayType";
@@ -700,14 +700,28 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
 
   useEffect(() => {
     if (!hostId || !token) return;
-    // Cover this month (hours + pay) AND this week + next week (fixed schedule),
-    // whichever starts/ends wider.
+    // The window has to cover everything this modal can SHOW, or an assignment
+    // saves and then disappears.
+    //
+    // It used to end at "this week + next week". The Plan tab reaches further —
+    // planDays mornings from today, host-tunable — so a cleaner assigned beyond
+    // that fortnight was written to the server correctly and never fetched
+    // back. Reopening the modal showed the room unassigned again, which reads
+    // exactly like a save that failed. It did not; the question did.
+    //
+    // Three horizons, and the window is the widest of them: the month for hours
+    // and pay, the fortnight for the fixed schedule, and the plan for whatever
+    // the host has set it to.
     const thisMonday = format(startOfWeek(startOfToday(), { weekStartsOn: 1 }), "yyyy-MM-dd");
     const start = thisMonday < `${monthKey}-01` ? thisMonday : `${monthKey}-01`;
-    const end = format(
+    const fortnightEnd = format(
       addDays(startOfWeek(startOfToday(), { weekStartsOn: 1 }), 13),
       "yyyy-MM-dd",
     );
+    const planEnd = format(addDays(startOfToday(), planDays), "yyyy-MM-dd");
+    const monthEnd = format(endOfMonth(new Date(`${monthKey}-01T00:00:00`)), "yyyy-MM-dd");
+    // yyyy-MM-dd sorts lexicographically, so the latest string is the latest day.
+    const end = [fortnightEnd, planEnd, monthEnd].sort().pop()!;
     fetchCleaners(hostId, token)
       .then(setCleaners)
       .catch((err) => console.error("Error fetching cleaners:", err));
@@ -724,8 +738,11 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
       )
       .catch((err) => console.error("Error fetching sent schedules:", err));
     reloadSummary();
+    // planDays is a dependency: widening the Plan horizon has to fetch the
+    // assignments that horizon can now reach, or the new mornings all look
+    // unassigned.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hostId, token]);
+  }, [hostId, token, planDays, monthKey]);
 
   // Past (or today's) cleanings whose hours haven't been recorded yet — excluding
   // stale ones (a room a continuous stay absorbed still needs no cleaning).
