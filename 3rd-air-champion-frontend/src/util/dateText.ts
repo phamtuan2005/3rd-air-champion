@@ -27,8 +27,16 @@ const MONTHS: Record<string, number> = {
 };
 
 export interface ParsedDates {
-  // Unique yyyy-MM-dd, ascending.
+  // Unique yyyy-MM-dd, ascending. Bookable: today or later.
   dates: string[];
+  // Nights that have already been and gone, kept apart rather than dropped.
+  //
+  // A guest writing "Aug 20-30" on the 24th means one stay; the days at the
+  // front of it are simply behind us. Silently discarding them would leave
+  // them wondering what happened to the dates they typed, and silently
+  // booking them is not possible. So they come back separately and TiBook
+  // says which ones passed.
+  past: string[];
   // The words that carried no date. Kept verbatim: it is the guest's message,
   // and "we'll have a dog with us" matters even though it is not a date.
   leftover: string;
@@ -52,10 +60,16 @@ const daysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
  *   "8/23"              "8/23/2026"       "tonight"  "tomorrow"
  * A bare number carries the month most recently named, which is what makes
  * "Aug 23, 24, 25" mean three days in August rather than three loose numbers.
+ *
+ * Comes back in two piles: `dates`, which are today or later and can be asked
+ * for, and `past`, which cannot. Nothing in `past` is dropped — the guest
+ * typed it, and being told "the 20th has already gone" is the only useful
+ * answer. A whole run is dated as one unit, so a stay that straddles today
+ * stays one stay.
  */
 export const parseDateText = (text: string, today: Date = new Date()): ParsedDates => {
   const raw = (text ?? "").trim();
-  if (!raw) return { dates: [], leftover: "" };
+  if (!raw) return { dates: [], past: [], leftover: "" };
 
   const found = new Set<string>();
   // Which stretches of the input were consumed, so the rest can be handed back.
@@ -137,6 +151,7 @@ export const parseDateText = (text: string, today: Date = new Date()): ParsedDat
     used.push([hit.end, hit.end + run[0].length]);
 
     const numbers = run[0].match(/\d{1,2}(?:\s*-\s*\d{1,2})?/g) ?? [];
+    const days: number[] = [];
     for (const piece of numbers) {
       const range = piece.match(/^(\d{1,2})\s*-\s*(\d{1,2})$/);
       if (range) {
@@ -144,11 +159,25 @@ export const parseDateText = (text: string, today: Date = new Date()): ParsedDat
         const b = Number(range[2]);
         // A backwards range is a typo, not a wrap-around. Read it either way
         // round rather than producing nothing.
-        for (let d = Math.min(a, b); d <= Math.max(a, b); d++) addDay(hit.month, d);
+        for (let d = Math.min(a, b); d <= Math.max(a, b); d++) days.push(d);
       } else {
-        addDay(hit.month, Number(piece));
+        days.push(Number(piece));
       }
     }
+    if (days.length === 0) return;
+
+    // ONE year for the whole run, decided by its LAST day.
+    //
+    // The year used to be worked out per day, which tore a single stay in two
+    // whenever it straddled today: "Aug 20-30" typed on the 24th came back as
+    // the 24th to the 30th of THIS year plus the 20th to the 23rd of NEXT —
+    // eleven nights across two years, from a guest who asked for one span.
+    // Anchoring on the last day keeps the intent the tests describe: a run
+    // wholly behind us ("Aug 5" in August) is the one coming round again,
+    // while a run that reaches into the future stays in this year, front and
+    // all. The days at the front that have passed are separated out below.
+    const runYear = yearFor(hit.month, Math.max(...days));
+    for (const d of days) addDay(hit.month, d, runYear);
   });
 
   // ── What was left ──────────────────────────────────────────────────────────
@@ -161,8 +190,15 @@ export const parseDateText = (text: string, today: Date = new Date()): ParsedDat
   }
   leftover += raw.slice(cursor);
 
+  // Today itself is not past — a guest asking for tonight is asking for a
+  // night that can still be had. Compared as yyyy-MM-dd strings, which sort
+  // correctly and never touch a timezone.
+  const todayKey = keyOf(y0, m0, d0);
+  const all = [...found].sort();
+
   return {
-    dates: [...found].sort(),
+    dates: all.filter((d) => d >= todayKey),
+    past: all.filter((d) => d < todayKey),
     // Strip the punctuation left behind when the dates are lifted out, so
     // "Aug 23, 24 — and we have a dog" does not come back as ", — and…".
     // The dash class covers the en and em dashes a phone keyboard produces —

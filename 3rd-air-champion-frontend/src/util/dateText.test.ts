@@ -95,13 +95,63 @@ describe("what it refuses to invent", () => {
   });
 
   it("returns an empty result for empty input", () => {
-    expect(on("   ")).toEqual({ dates: [], leftover: "" });
+    expect(on("   ")).toEqual({ dates: [], past: [], leftover: "" });
   });
 
   it("does not swallow a number that is not a date", () => {
     // "4 nights" is not the 4th of the month. The run of days ends at "and".
     const { dates } = on("Aug 23 and we need parking for 4 cars");
     expect(dates).toEqual(["2026-08-23"]);
+  });
+});
+
+describe("nights that have already gone", () => {
+  // A guest typing a stay that started before today is not making a mistake
+  // worth scolding — part of what they asked for is simply behind us. These
+  // came back as bookable nights, and a night in the past cannot be booked.
+
+  it("keeps a whole run in one year instead of tearing it across two", () => {
+    // Thu 20 Aug 2026 is TODAY. The 18th and 19th have gone; the rest have not.
+    // This used to answer with the 20th-25th of 2026 AND the 18th-19th of 2027
+    // — one span, eleven months apart, from a guest who asked for one stay.
+    const { dates, past } = on("Aug 18-25");
+    expect(past).toEqual(["2026-08-18", "2026-08-19"]);
+    expect(dates).toEqual([
+      "2026-08-20",
+      "2026-08-21",
+      "2026-08-22",
+      "2026-08-23",
+      "2026-08-24",
+      "2026-08-25",
+    ]);
+  });
+
+  it("separates a listed day that has gone from the ones that have not", () => {
+    const { dates, past } = on("Aug 19, 21, 22");
+    expect(past).toEqual(["2026-08-19"]);
+    expect(dates).toEqual(["2026-08-21", "2026-08-22"]);
+  });
+
+  it("treats a spelled-out past year as past, not as next year", () => {
+    // With the year written down there is nothing to infer: they mean that day.
+    const { dates, past } = on("8/1/2026");
+    expect(past).toEqual(["2026-08-01"]);
+    expect(dates).toEqual([]);
+  });
+
+  it("counts today itself as still bookable", () => {
+    // Tonight is a night that can still be had.
+    expect(on("tonight").dates).toEqual(["2026-08-20"]);
+    expect(on("tonight").past).toEqual([]);
+    expect(on("Aug 20").dates).toEqual(["2026-08-20"]);
+  });
+
+  it("still rolls a run wholly behind us into next year", () => {
+    // Unchanged, and the reason the year is inferred at all: nobody typing
+    // "Aug 5" in late August means the one that has gone.
+    expect(on("Aug 5").dates).toEqual(["2027-08-05"]);
+    expect(on("Aug 3-5").dates).toEqual(["2027-08-03", "2027-08-04", "2027-08-05"]);
+    expect(on("Aug 3-5").past).toEqual([]);
   });
 });
 

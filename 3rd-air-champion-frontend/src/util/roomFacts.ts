@@ -180,7 +180,7 @@ const factsByListing: Record<string, roomFacts> = {
     // Shared, and said so. Guessing wrong about this is the single worst
     // surprise a guest can arrive to.
     bathroom: "Shared bathroom, with a bathtub, bidet and hot water",
-    privacy: "Your own room with a lock on the door; the bathroom is shared",
+    privacy: "Your own room, with a lock on the door",
     highlights: [
       "Wifi",
       "Air conditioning",
@@ -205,7 +205,7 @@ const factsByListing: Record<string, roomFacts> = {
     maxGuests: 1,
     beds: [{ kind: "double", label: "1 double bed" }],
     bathroom: "Shared bathroom, with a bathtub, bidet and hot water",
-    privacy: "Your own room with a lock on the door; the bathroom is shared",
+    privacy: "Your own room, with a lock on the door",
     // No air conditioning and no TV on this listing — both are listed as
     // unavailable. Do not add them back by copying another room's list.
     highlights: [
