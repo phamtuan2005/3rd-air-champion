@@ -11,6 +11,7 @@ import { decimalToHm, formatHrMin, hmToDecimal } from "../../../util/hoursFormat
 import {
   CLEANING_FORECAST_DAYS,
   getCheckoutsOn,
+  getCleaningEntriesFor,
   getCleaningForecast,
   isStaleCleaning as isStale,
 } from "../../../util/cleaningTasks";
@@ -440,8 +441,36 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
   // the prior night and is NOT leaving), there was no turnover — so an assignment
   // for it is STALE (e.g. a probable clean a later multi-night booking absorbed).
   // Self-heals: cancel the booking and the assignment shows again.
+  // Which rooms genuinely turn over on a morning — the SAME answer the Plan tab
+  // works from, so the two tabs cannot disagree about the same day. Built once
+  // per morning and cached: the entries calculation scans occupancy across the
+  // whole map, which is not something to redo inside a filter.
+  const turnoverCache = useRef(new Map<string, Set<string>>());
+  useEffect(() => {
+    turnoverCache.current = new Map();
+  }, [monthMap]);
+  const roomsTurningOver = (morningKey: string): Set<string> => {
+    const hit = turnoverCache.current.get(morningKey);
+    if (hit) return hit;
+    const ids = new Set(
+      getCleaningEntriesFor(monthMap, morningKey).map((e) => e.checkoutBooking.room.id),
+    );
+    turnoverCache.current.set(morningKey, ids);
+    return ids;
+  };
+
   const isStaleCleaning = (roomId: string, morningKey: string) =>
-    isStale(monthMap, roomId, morningKey);
+    // Absorbed by a longer stay — the original case.
+    isStale(monthMap, roomId, morningKey) ||
+    // Or nothing turns over that morning at all, which is what an UNBOOKED stay
+    // leaves behind. isStale alone could not see it: it looks for an occupant
+    // whose stay continues, and a cancelled booking leaves no occupant to find,
+    // so the Week tab went on listing a room nobody had slept in. Plan was
+    // right because it derives from this same list.
+    //
+    // Gap cleanings survive: a forecast turnover IS one of these entries, so a
+    // cleaning assigned into an empty stretch is not swept away with it.
+    !roomsTurningOver(morningKey).has(roomId);
   const weekAssignments = assignments.filter(
     (a) =>
       a.date >= weekDates[0] &&
