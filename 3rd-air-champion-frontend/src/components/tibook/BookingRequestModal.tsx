@@ -830,6 +830,17 @@ const BookingRequestModal = ({
                     {typedFree.length > 0 ? " — tap to add them" : ""}
                   </p>
                 )}
+                {/* Said here too, next to the box they are typing in, because
+                    the read-back panel lives further down and a guest fixing a
+                    year should not have to go looking for the reason. */}
+                {typed.past.length > 0 && (
+                  <p className="mt-1 text-xs font-medium text-amber-700">
+                    {typed.past.length === 1
+                      ? `${format(parseISO(typed.past[0]), "EEE d MMM")} has already gone by`
+                      : `${typed.past.length} of those nights have already gone by`}
+                    {typed.dates.length > 0 ? " — we've kept the rest." : "."}
+                  </p>
+                )}
               </div>
 
             </div>
@@ -1215,13 +1226,18 @@ const BookingRequestModal = ({
                   The guest confirms a reading rather than trusting one — and if
                   we read them wrongly they see it here rather than discovering
                   it when the wrong night is booked. */}
-              {typed.dates.length > 0 && (
+              {/* Also opens for dates that are ONLY in the past. A guest who
+                  typed last week's dates and got a blank panel would have no
+                  idea whether TiBook had understood them at all. */}
+              {(typed.dates.length > 0 || typed.past.length > 0) && (
                 <div className="rounded-xl border border-gray-200 bg-gray-50 p-2.5">
-                  <p className="text-xs font-semibold text-gray-500">
-                    {typed.dates.length === 1
-                      ? "We read this date"
-                      : `We read these ${typed.dates.length} dates`}
-                  </p>
+                  {typed.dates.length > 0 && (
+                    <p className="text-xs font-semibold text-gray-500">
+                      {typed.dates.length === 1
+                        ? "We read this date"
+                        : `We read these ${typed.dates.length} dates`}
+                    </p>
+                  )}
                   <div className="mt-1.5 flex flex-wrap gap-1">
                     {typed.dates.map((d) => {
                       // A night they ALREADY HAVE is checked first. It is not
@@ -1253,6 +1269,40 @@ const BookingRequestModal = ({
                       );
                     })}
                   </div>
+                  {/* Nights already behind us. Shown, not silently dropped:
+                      the guest typed them, and a date vanishing without a word
+                      is the one thing more confusing than a date they cannot
+                      have. Named individually where there are only a few, so
+                      somebody who meant next year can see exactly which day to
+                      correct — and told what to write, rather than left to
+                      guess at what the app wants. */}
+                  {typed.past.length > 0 && (
+                    <div className={typed.dates.length > 0 ? "mt-2 border-t border-gray-200 pt-2" : ""}>
+                      <p className="text-xs font-semibold text-amber-700">
+                        {typed.past.length === 1
+                          ? "This night has already gone by"
+                          : `${typed.past.length} of these nights have already gone by`}
+                      </p>
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {typed.past.map((d) => (
+                          <span
+                            key={d}
+                            className="rounded-lg bg-white px-2 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-200"
+                          >
+                            {format(parseISO(d), "EEE d MMM")}
+                          </span>
+                        ))}
+                      </div>
+                      <p className="mt-1.5 text-xs leading-relaxed text-gray-500">
+                        {typed.dates.length > 0
+                          ? "We've left those out and kept the rest."
+                          : "Nothing to add from this yet."}{" "}
+                        If you meant next year, add the year — "
+                        {format(parseISO(typed.past[0]), "d MMM")}{" "}
+                        {parseISO(typed.past[0]).getFullYear() + 1}" — and we'll pick it up.
+                      </p>
+                    </div>
+                  )}
                   {/* Said before anything about what is full, because it is the
                       difference between "you cannot have your date" and "you
                       already do". */}
