@@ -112,6 +112,9 @@ export interface CleanerSummaryType {
   // nothing — see the note in the backend's cleanerPay.
   tips?: number;
   wagesPaid?: number;
+  // Paid above the hours on record. Counted as a tip rather than reported as a
+  // discrepancy — see the note in the backend's cleanerPay.
+  impliedTip?: number;
   // Work not yet covered by payments — what the host and cleaner actually
   // discuss. Lifetime totals answer a question nobody asked.
   unpaidHours?: number;

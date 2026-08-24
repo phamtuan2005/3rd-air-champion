@@ -98,6 +98,29 @@ describe("a tip is not a wage", () => {
     expect(computeCleanerPay(c, worked).balance).toBe(0);
   });
 
+  it("counts an overpayment as a tip rather than as missing hours", () => {
+    // The real shape of it: Cindy hands over a round figure that includes a
+    // few dollars of thank-you, without recording the tip separately. Paid
+    // exceeds earned, and the app used to call that a bookkeeping error.
+    const c = cleaner({ paidAmount: 61, payments: [] }); // earned is 50
+    const pay = computeCleanerPay(c, worked);
+    expect(pay.impliedTip).toBe(11);
+    expect(pay.tips).toBe(11);
+    // Never negative: money above the work done is a gift, not a debt the
+    // cleaner is carrying.
+    expect(pay.balance).toBe(0);
+  });
+
+  it("turns an overpayment back into wages when the missing hours arrive", () => {
+    // The safety net. If the surplus really was an unrecorded cleaning, adding
+    // it in Record fixes itself — earned rises, the excess disappears, and
+    // nothing has to be undone.
+    const c = cleaner({ paidAmount: 61, payments: [] });
+    const withMissingDay = computeCleanerPay(c, [...worked, day("2026-08-03", 0.44)]);
+    expect(withMissingDay.impliedTip).toBe(0);
+    expect(withMissingDay.balance).toBe(0);
+  });
+
   it("treats money paid before the tip flag existed as wages", () => {
     // Unmarked history is wages. Reading it as tips would inflate the balance
     // and claim the house owes money it already handed over.

@@ -122,14 +122,32 @@ export const computeCleanerPay = (
     .sort((x: any, y: any) => (x.paidOn < y.paidOn ? 1 : -1));
   const logged = payments.reduce((s: number, p: any) => s + p.amount, 0);
 
+  // Paid more than the hours account for? That is a tip, and it is said so.
+  //
+  // This used to be reported as "hours missing" — the reasoning being that
+  // payouts are never made in advance, so an excess could only mean a cleaning
+  // was never entered. True sometimes, and alarming every time: Cindy adds a
+  // few dollars to a payout as a thank-you, and the app accused the books of
+  // being wrong.
+  //
+  // The excess is counted as a tip and the balance settles at zero. Missing
+  // hours remain possible, so the surplus is still SHOWN — entering the
+  // cleaning in Record moves the money from tip to wages by itself, because
+  // earned rises and the excess shrinks. Nothing has to be undone.
+  const owed = earned - wagesPaid;
+  const impliedTip = owed < -0.005 ? -owed : 0;
+
   return {
     hours,
     earned,
     paid,
-    // What is still OWED, which only wages can settle.
-    balance: earned - wagesPaid,
+    // What is still OWED, which only wages can settle. Never negative: money
+    // handed over above the work done is a gift, not a debt the cleaner carries.
+    balance: Math.max(0, owed),
     wagesPaid,
-    tips,
+    // Marked as a tip when it was paid, plus anything paid above the hours.
+    tips: tips + impliedTip,
+    impliedTip,
     unpaidHours,
     unpaidSince,
     payments,

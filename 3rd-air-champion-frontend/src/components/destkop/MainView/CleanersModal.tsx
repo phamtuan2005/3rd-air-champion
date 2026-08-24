@@ -2712,12 +2712,14 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                           : ""}
                       </>
                     ) : (
-                      // Payments are never made in advance here, so paid exceeding
-                      // earned cannot be a credit — it can only mean hours were
-                      // never entered. Say how many, in hours, since that is the
-                      // thing to go and fix. "All paid up" hid a real discrepancy.
-                      entry.balance < -0.005 ? (
-                        <span className="text-amber-600">⚠ hours missing</span>
+                      // Paid above the hours on record is a tip, not an alarm.
+                      // Still shown, because it can also be a cleaning nobody
+                      // entered — but entering it moves the money from tip to
+                      // wages by itself, so there is nothing to undo.
+                      (entry.impliedTip ?? 0) > 0.005 ? (
+                        <span className="text-violet-600">
+                          All paid up · ${(entry.impliedTip ?? 0).toFixed(2)} tip
+                        </span>
                       ) : (
                         "All paid up"
                       )
@@ -3152,12 +3154,13 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                               ? ` since ${format(new Date(entry.unpaidSince + "T00:00:00"), "MMM d")}`
                               : ""
                           }`
-                        : entry.balance < -0.005
-                          ? // Paid exceeds recorded work, and payouts are never made in
-                            // advance — so hours are missing. The shortfall in dollars is
-                            // stated, not converted to hours: that would only give the
-                            // hours needed to reach zero, not the hours actually worked.
-                            `Paid $${Math.abs(entry.balance).toFixed(2)} beyond the hours on record — enter the missing cleanings in Record`
+                        : (entry.impliedTip ?? 0) > 0.005
+                          ? // Paid above the hours on record. Treated as a tip, which is
+                            // what it usually is — a few dollars added to a payout as a
+                            // thank-you. Said plainly rather than flagged, but said, since
+                            // it can also be a cleaning that was never entered: add it in
+                            // Record and the surplus becomes wages on its own.
+                            `All paid up · $${(entry.impliedTip ?? 0).toFixed(2)} counted as a tip. If a cleaning is missing, add it in Record.`
                           : "All paid up"}
                     </p>
                   </div>
