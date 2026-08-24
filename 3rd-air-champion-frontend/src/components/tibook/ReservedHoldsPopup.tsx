@@ -8,6 +8,11 @@ export interface ReservedHold {
   checkIn: Date;
   checkOut: Date;
   nights: number;
+  // This guest's own nightly rate where they have one, otherwise the room's.
+  // Undefined when it could not be worked out — silent beats wrong on money.
+  nightly?: number;
+  // Whole-stay extras, counted once for the stay rather than per night.
+  fees?: number;
 }
 
 interface ReservedHoldsPopupProps {
@@ -24,14 +29,33 @@ const ReservedHoldsPopup = ({ holds, hostName, hostPhone, onClose }: ReservedHol
   const { theme } = useTiBookTheme();
   const hostFirstName = (hostName ?? "").split(" ")[0] || "the host";
 
+  // What each hold costs, and what they come to together. A guest asked to send
+  // money needs to know how much; without it the only way to find out was to ask,
+  // which is a message and a wait standing between them and paying.
+  const costOf = (h: ReservedHold) =>
+    h.nightly == null ? null : h.nightly * h.nights + (h.fees ?? 0);
+  // Only totalled when EVERY hold has a price. A total missing one room still
+  // reads as the whole amount, and would be quoted back short.
+  const priced = holds.map(costOf);
+  const total = priced.every((p) => p != null)
+    ? (priced as number[]).reduce((sum, p) => sum + p, 0)
+    : null;
+  const money = (n: number) => (Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`);
+
   const textHost = () => {
     if (!hostPhone) return;
-    const lines = holds.map(
-      (h) => `- ${h.roomName}: ${format(h.checkIn, "MMM d")} → ${format(h.checkOut, "MMM d")}`,
-    );
+    const lines = holds.map((h) => {
+      const cost = costOf(h);
+      return `- ${h.roomName}: ${format(h.checkIn, "MMM d")} → ${format(h.checkOut, "MMM d")}${
+        cost == null ? "" : ` — ${money(cost)}`
+      }`;
+    });
     const body =
       `Hi ${hostFirstName}! I'd like to confirm the room${holds.length === 1 ? "" : "s"} you're holding for me:\n` +
       lines.join("\n") +
+      // The total travels in the message too, so the host and the guest are
+      // quoting the same figure to each other.
+      (total == null ? "" : `\nTotal: ${money(total)}`) +
       `\nHow would you like me to send the payment? Thank you!`;
     window.location.href = `sms:${hostPhone}?&body=${encodeURIComponent(body)}`;
   };
@@ -89,11 +113,24 @@ const ReservedHoldsPopup = ({ holds, hostName, hostPhone, onClose }: ReservedHol
                   </p>
                   <p className="text-[11px] text-gray-500">
                     {h.nights} night{h.nights === 1 ? "" : "s"}
+                    {h.nightly != null && ` × ${money(h.nightly)}`}
                   </p>
+                  {costOf(h) != null && (
+                    <p className="text-sm font-bold text-gray-800">{money(costOf(h)!)}</p>
+                  )}
                 </div>
               </div>
             ))}
           </div>
+
+          {/* What it comes to. Said once, plainly, so nobody is adding rooms up
+              in their head before sending money. */}
+          {total != null && (
+            <div className="mt-2 flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+              <span className="text-sm font-semibold text-amber-800">Total to pay</span>
+              <span className="text-base font-bold text-amber-900">{money(total)}</span>
+            </div>
+          )}
 
           {/* Pay via the host */}
           {hostPhone && (

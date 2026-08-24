@@ -212,6 +212,17 @@ const BookingRequestModal = ({
   const [rangeRooms, setRangeRooms] = useState<Record<string, string>>({});
   const rangeKey = (r: { start: string; end: string }) => `${r.start}|${r.end}`;
 
+  // A date in another year SAYS the year.
+  //
+  // "May 3" typed in August means next May — the parser rolls it forward,
+  // because nobody asking in August means the May that has gone. But the chip
+  // read "Mon 3 May", which looks like this year to anyone who does not know
+  // the rule, and the guest has no reason to know it. The year is only added
+  // where it differs, so the common case stays short.
+  const thisYear = String(new Date().getFullYear());
+  const dayLabel = (key: string) =>
+    format(parseISO(key), key.slice(0, 4) === thisYear ? "EEE d MMM" : "EEE d MMM yyyy");
+
   const datesOfRange = (range: { start: string; end: string }) => {
     const dates: string[] = [];
     const cur = new Date(range.start);
@@ -836,7 +847,7 @@ const BookingRequestModal = ({
                 {typed.past.length > 0 && (
                   <p className="mt-1 text-xs font-medium text-amber-700">
                     {typed.past.length === 1
-                      ? `${format(parseISO(typed.past[0]), "EEE d MMM")} has already gone by`
+                      ? `${dayLabel(typed.past[0])} has already gone by`
                       : `${typed.past.length} of those nights have already gone by`}
                     {typed.dates.length > 0 ? " — we've kept the rest." : "."}
                   </p>
@@ -1264,7 +1275,7 @@ const BookingRequestModal = ({
                           }`}
                         >
                           {mine ? "✓ " : ""}
-                          {format(parseISO(d), "EEE d MMM")}
+                          {dayLabel(d)}
                         </span>
                       );
                     })}
@@ -1289,7 +1300,7 @@ const BookingRequestModal = ({
                             key={d}
                             className="rounded-lg bg-white px-2 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-200"
                           >
-                            {format(parseISO(d), "EEE d MMM")}
+                            {dayLabel(d)}
                           </span>
                         ))}
                       </div>

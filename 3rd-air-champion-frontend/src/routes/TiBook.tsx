@@ -238,6 +238,30 @@ const TiBookInner = () => {
   // Reserved (R) holds — rooms the host is holding for this guest that aren't paid
   // yet. NOT drawn as confirmed stays (myStays filters "confirmed"); surfaced only
   // in a gentle "please pay or it may be released" popup. Upcoming holds only.
+  // What THIS guest pays, not what the room lists at.
+  //
+  // A returning guest on an agreed rate could only see it several taps into a
+  // booking request, so the room cards quoted them a price that was not theirs.
+  // Asking "what's my rate?" should not require starting a booking.
+  const [myRates, setMyRates] = useState<Map<string, number>>(new Map());
+  useEffect(() => {
+    if (!guestPhone || !currentHost) {
+      setMyRates(new Map());
+      return;
+    }
+    fetchGuestByPhone(guestPhone, currentHost.id)
+      .then((guest) => {
+        const next = new Map<string, number>();
+        (guest?.pricing ?? []).forEach((p: { room: string; price: number }) => {
+          if (typeof p.price === "number") next.set(p.room, p.price);
+        });
+        setMyRates(next);
+      })
+      // A rate we cannot fetch is simply not shown. The room's own price is
+      // still there, and a wrong price is far worse than a missing one.
+      .catch(() => setMyRates(new Map()));
+  }, [guestPhone, currentHost]);
+
   const reservedStays = useMemo(
     () =>
       guestBookings
@@ -257,7 +281,7 @@ const TiBookInner = () => {
           };
         })
         .filter((h) => h.checkOut > startOfToday()),
-    [guestBookings, rooms],
+    [guestBookings, rooms, myRates],
   );
 
   // Auto-open the holds popup ONCE per session per unique set of holds (so it
@@ -446,30 +470,6 @@ const TiBookInner = () => {
   // the name: the phone is what is saved first and what every lookup keys on,
   // and a guest whose name never came back is still not a stranger.
   const isKnownVisitor = isReturningGuest || !!guestPhone.trim();
-
-  // What THIS guest pays, not what the room lists at.
-  //
-  // A returning guest on an agreed rate could only see it several taps into a
-  // booking request, so the room cards quoted them a price that was not theirs.
-  // Asking "what's my rate?" should not require starting a booking.
-  const [myRates, setMyRates] = useState<Map<string, number>>(new Map());
-  useEffect(() => {
-    if (!guestPhone || !currentHost) {
-      setMyRates(new Map());
-      return;
-    }
-    fetchGuestByPhone(guestPhone, currentHost.id)
-      .then((guest) => {
-        const next = new Map<string, number>();
-        (guest?.pricing ?? []).forEach((p: { room: string; price: number }) => {
-          if (typeof p.price === "number") next.set(p.room, p.price);
-        });
-        setMyRates(next);
-      })
-      // A rate we cannot fetch is simply not shown. The room's own price is
-      // still there, and a wrong price is far worse than a missing one.
-      .catch(() => setMyRates(new Map()));
-  }, [guestPhone, currentHost]);
 
   // DYNAMIC viewport height. Plain 100vh (h-screen) is the height the page would
   // have with the browser chrome hidden, so on an iPhone the layout is taller
