@@ -3095,6 +3095,13 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
           const dayRate = (d: string) => (cleaner ? rateOn(cleaner, d) : 0);
           const days = cleanerDayHours(entry.id);
           const subtotal = days.reduce((s, [date, h]) => s + h * dayRate(date), 0);
+          // Newest first ON THIS CARD. The host opens it to see what has just
+          // happened; the start of the month is history they scroll to.
+          //
+          // cleanerDayHours stays chronological because the SMS to the cleaner
+          // is built from it, and a list of your own hours reads like a payslip:
+          // oldest first, adding up to the total at the bottom.
+          const daysNewestFirst = [...days].reverse();
           const tip = parseFloat(tipDraft[entry.id]) || 0;
           return (
             <div
@@ -3175,7 +3182,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                         No recorded hours this month
                       </p>
                     ) : (
-                      days.map(([date, hrs]) => (
+                      daysNewestFirst.map(([date, hrs]) => (
                         <div key={date} className="flex items-center gap-2 py-0.5 text-sm">
                           <span className="flex-1 text-gray-600">
                             {format(new Date(date + "T00:00:00"), "EEE M/d")}
