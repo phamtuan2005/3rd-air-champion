@@ -36,6 +36,7 @@ import CleanersModal from "./CleanersModal";
 import MiscModal from "./MiscModal";
 import ChargesModal from "./ChargesModal";
 import { fetchCharges, isChargeInMonth } from "../../../util/chargeOperations";
+import { updateBookingExpectedPayDate } from "../../../util/bookingOperations";
 import DefaultRateGuestsModal from "./DefaultRateGuestsModal";
 import StaffingModal from "./StaffingModal";
 import CleanDaySheet from "./CleanDaySheet";
@@ -520,6 +521,21 @@ const MainView = ({
   const onPricingEdit = (booking: bookingType) => {
     setPricingEditOnOpen(true);
     setSelectedBooking(booking);
+  };
+
+  // The guest's answer to "when will you send payment?" on a held stay. Written
+  // across every night of the stay by the resolver, so the calendar is refreshed
+  // from what comes back rather than patched in place.
+  const onExpectedPayDateChange = async (booking: bookingType, date: string) => {
+    try {
+      const updatedDays = await updateBookingExpectedPayDate(
+        { id: booking.id, expectedPayDate: date },
+        token as string,
+      );
+      onDaysUpdate(updatedDays);
+    } catch (err) {
+      console.error("Error saving expected pay date:", err);
+    }
   };
 
   const shiftDate = (delta: number) => {
@@ -1356,6 +1372,7 @@ const MainView = ({
               setSelectedModifyBooking={setSelectedModifyBooking as React.Dispatch<React.SetStateAction<bookingType>>}
               onRequestUnbook={(b) => setUnbookBookings([b])}
               onPricingEdit={onPricingEdit}
+              onExpectedPayDateChange={onExpectedPayDateChange}
             >
               <BookButton setIsModalOpen={setIsModalOpen} setSelectedRoom={setSelectedRoom} />
             </GuestView>
@@ -1411,6 +1428,7 @@ const MainView = ({
           setSelectedModifyBooking={setSelectedModifyBooking as React.Dispatch<React.SetStateAction<bookingType>>}
           onRequestUnbook={(b) => setUnbookBookings([b])}
           onPricingEdit={onPricingEdit}
+          onExpectedPayDateChange={onExpectedPayDateChange}
         >
           <BookButton
             setIsModalOpen={setIsModalOpen}

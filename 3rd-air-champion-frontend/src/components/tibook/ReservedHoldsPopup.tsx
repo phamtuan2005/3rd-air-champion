@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { getRoomColor } from "../../util/getRoomColor";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
 
@@ -13,6 +13,10 @@ export interface ReservedHold {
   nightly?: number;
   // Whole-stay extras, counted once for the stay rather than per night.
   fees?: number;
+  // yyyy-MM-dd this guest told the host they would pay. Their own words, said
+  // back to them — a date they chose is a firmer thing to act on than a vague
+  // "pending payment", and they can see it without having to ask.
+  expectedPayDate?: string;
 }
 
 interface ReservedHoldsPopupProps {
@@ -41,6 +45,14 @@ const ReservedHoldsPopup = ({ holds, hostName, hostPhone, onClose }: ReservedHol
     ? (priced as number[]).reduce((sum, p) => sum + p, 0)
     : null;
   const money = (n: number) => (Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`);
+  // The soonest date this guest gave across their holds, and whether it has
+  // passed. String comparison on zero-padded yyyy-MM-dd, so no timezone can
+  // shift which day it is.
+  const promisedDate = holds
+    .map((h) => h.expectedPayDate)
+    .filter((d): d is string => !!d)
+    .sort()[0];
+  const promisedLate = !!promisedDate && promisedDate < format(new Date(), "yyyy-MM-dd");
   // A deliberate $0 rate is family, not a bug — never quote them "$0", which
   // reads as a broken price. Same wording the room cards already use.
   const priceLabel = (n: number) => (n === 0 ? "No charge" : money(n));
@@ -96,6 +108,23 @@ const ReservedHoldsPopup = ({ holds, hostName, hostPhone, onClose }: ReservedHol
             {holds.length === 1 ? "it" : "them"}, please send your payment soon — unpaid holds may be
             released so other guests can book. 🙏
           </p>
+
+          {/* The date THEY gave, when they gave one. Only the soonest is shown:
+              several holds usually share one promise, and listing a date per
+              room turns one commitment into a list to decode. */}
+          {promisedDate && (
+            <p
+              className={`mt-2 rounded-lg px-2.5 py-1.5 text-xs font-semibold ${
+                promisedLate
+                  ? "bg-red-50 text-red-700"
+                  : "bg-amber-100/70 text-amber-800"
+              }`}
+            >
+              {promisedLate
+                ? `You'd planned to send payment by ${format(parseISO(promisedDate), "EEEE, MMM d")} — no problem if you need a little longer, just let ${hostFirstName} know.`
+                : `You said you'd send payment by ${format(parseISO(promisedDate), "EEEE, MMM d")} — thank you!`}
+            </p>
+          )}
 
           {/* Held stays */}
           <div className="mt-3 flex flex-col gap-2">

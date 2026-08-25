@@ -30,6 +30,9 @@ export interface bookingType {
   endDate: string;
   airbnbBlocked: boolean;
   reserved?: boolean;
+  // yyyy-MM-dd the guest said they would send payment for a HELD stay. "" until
+  // asked. Per stay, stored on every night — read it from the start night.
+  expectedPayDate?: string;
 }
 
 // Sum of a booking's extra fees — counted ONCE per stay (fees are stored on

@@ -137,6 +137,26 @@ export const updateBookingFees = async (
     });
 };
 
+// When the guest said they would pay. "" clears it back to unasked.
+export const updateBookingExpectedPayDate = async (
+  request: { id: string; expectedPayDate: string },
+  token: string
+) => {
+  return axios
+    .post(`${BACKEND_ENDPOINT}/day/update/booking/expected-pay-date`, request, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+    .then((result) => result.data)
+    .catch((err) => {
+      if (err.response && err.response.data && err.response.data.errors) {
+        throw err.response.data.errors;
+      }
+      throw "An unexpected error occurred. Please try again.";
+    });
+};
+
 export const markAirBnBBlocked = async (
   request: { id: string; blocked: boolean },
   token: string

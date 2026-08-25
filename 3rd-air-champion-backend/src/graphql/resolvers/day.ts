@@ -147,6 +147,10 @@ export const dayResolvers = {
               numberOfGuests: booking.numberOfGuests ?? 1,
               createdAt: (day as any).createdAt?.toISOString() ?? day.date.toISOString(),
               fees: (booking.fees ?? []).map((f: any) => ({ label: f.label, amount: f.amount })),
+              // What the guest told the host they would pay by. Shown back to
+              // them in TiBook, so a hold is their own promise rather than an
+              // unexplained "pending payment".
+              expectedPayDate: booking.expectedPayDate ?? "",
             },
           });
         }
@@ -792,6 +796,56 @@ export const dayResolvers = {
         { $set: { "bookings.$[matchingBooking].reserved": reserved } },
         {
           arrayFilters: [{ "matchingBooking.guest": currentBooking?.guest, "matchingBooking.room": currentBooking?.room }],
+          runValidators: true,
+        }
+      );
+
+      return await Day.find({ calendar, date: { $gte: startDate, $lte: endDate } })
+        .populate("bookings.guest")
+        .populate("bookings.room")
+        .populate("blockedRooms");
+    },
+    // The guest's answer to "when will you send payment?". Written across every
+    // night of the stay, the same way reserved and fees are — a stay is one
+    // promise, not one promise per night.
+    updateBookingExpectedPayDate: async (_: unknown, { _id, expectedPayDate }: any) => {
+      const dayOfBooking = await Day.findOne({ "bookings._id": _id });
+      if (!dayOfBooking) throw new Error("Booking not found");
+
+      const calendar = dayOfBooking.calendar;
+      const currentBooking = dayOfBooking.bookings.find((booking: any) => booking.id === _id);
+
+      // Older stays predate startDate/endDate; fall back to the night this
+      // booking row sits on plus its duration, as updateBookingFees does.
+      let startDate = currentBooking?.startDate;
+      let endDate = currentBooking?.endDate;
+      if (!startDate || !endDate) {
+        startDate = dayOfBooking.date;
+        endDate = addDays(dayOfBooking.date, (currentBooking?.duration ?? 1) - 1);
+      }
+
+      // "" clears the promise back to unasked. Anything else must be a plain
+      // yyyy-MM-dd — dates are string-keyed everywhere in this app, and a Date
+      // through a local timezone lands a day out for anyone east or west.
+      const value = String(expectedPayDate ?? "").trim();
+      if (value !== "" && !/^\d{4}-\d{2}-\d{2}$/.test(value))
+        throw new Error("expectedPayDate must be yyyy-MM-dd");
+
+      await Day.updateMany(
+        {
+          calendar,
+          date: { $gte: startDate, $lte: endDate },
+          "bookings.guest": currentBooking?.guest,
+          "bookings.room": currentBooking?.room,
+        },
+        { $set: { "bookings.$[matchingBooking].expectedPayDate": value } },
+        {
+          arrayFilters: [
+            {
+              "matchingBooking.guest": currentBooking?.guest,
+              "matchingBooking.room": currentBooking?.room,
+            },
+          ],
           runValidators: true,
         }
       );

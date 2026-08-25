@@ -14,7 +14,7 @@ import {
   FaRegCommentDots,
   FaRegTrashAlt,
 } from "react-icons/fa";
-import { format as formatLocal } from "date-fns";
+import { differenceInCalendarDays, format as formatLocal } from "date-fns";
 import RebookCount from "./RebookCount";
 import { FooterContext } from "../../../../context";
 import { getLoyaltyTier } from "../../../tibook/GuestLoyaltyBanner";
@@ -34,6 +34,9 @@ interface BookingCardProps {
   onRequestUnbook: (booking: bookingType) => void;
   setIsMobileModalOpen?: React.Dispatch<React.SetStateAction<boolean>>;
   onPricingEdit: (booking: bookingType) => void;
+  // The guest's answer to "when will you send payment?" for a HELD stay. "" to
+  // clear it back to unasked.
+  onExpectedPayDateChange: (booking: bookingType, date: string) => void;
 }
 
 // Full-width action rows for the guest action palette. It floats over the
@@ -60,6 +63,7 @@ const BookingCard = ({
   onRequestUnbook,
   setIsMobileModalOpen,
   onPricingEdit,
+  onExpectedPayDateChange,
 }: BookingCardProps) => {
   const { setIsFooterVisible } = useContext(FooterContext)!;
   // All per-booking actions live in a small draggable palette focused on this
@@ -130,6 +134,15 @@ const BookingCard = ({
   };
 
   const isReserved = booking.reserved === true;
+  // How far past the promised date this hold is, 0 when on time or unasked.
+  // Both sides parsed the same way so the comparison cannot drift a day.
+  const payDaysLate =
+    isReserved && booking.expectedPayDate
+      ? Math.max(
+          0,
+          differenceInCalendarDays(new Date(), parseLocalDate(booking.expectedPayDate)),
+        )
+      : 0;
   const isAirBnB = booking.guest.name === "AirBnB";
   const guestLabel = booking.guest.alias || booking.alias || booking.guest.name;
   const roomColor = getRoomColor(booking.room.name, booking.room.color);
@@ -273,6 +286,45 @@ const BookingCard = ({
                 · {booking.duration} {booking.duration > 1 ? "nights" : "night"}
               </span>
             </p>
+            {/* A hold with no date on it is an open-ended hope. This is the
+                guest's own answer to "when will you send payment?", so a lapsed
+                promise can be seen rather than remembered. Held stays only —
+                a paid stay has nothing to promise. */}
+            {isReserved && (
+              <div
+                className={`mt-1.5 flex flex-wrap items-center gap-2 rounded-lg border px-2.5 py-1.5 ${
+                  payDaysLate > 0
+                    ? "border-red-300 bg-red-50"
+                    : "border-amber-200 bg-amber-100/60"
+                }`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <span
+                  className={`text-xs font-bold ${
+                    payDaysLate > 0 ? "text-red-700" : "text-amber-800"
+                  }`}
+                >
+                  Promised to pay
+                </span>
+                <input
+                  type="date"
+                  value={booking.expectedPayDate ?? ""}
+                  // e.target.value is already a yyyy-MM-dd string. Deliberately
+                  // NOT valueAsDate, which hands back UTC midnight and lands a
+                  // day out for anyone east or west of the host.
+                  onChange={(e) => onExpectedPayDateChange(booking, e.target.value)}
+                  className="rounded-md border border-amber-300 bg-white px-2 py-1 text-xs font-semibold text-gray-800"
+                />
+                {payDaysLate > 0 && (
+                  <span className="text-xs font-bold text-red-600">
+                    {payDaysLate} day{payDaysLate === 1 ? "" : "s"} late
+                  </span>
+                )}
+                {!booking.expectedPayDate && (
+                  <span className="text-xs text-amber-700">ask the guest</span>
+                )}
+              </div>
+            )}
           </div>
 
           {isFeedAirBnB ? (

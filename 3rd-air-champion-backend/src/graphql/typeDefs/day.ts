@@ -33,6 +33,7 @@ export const dayDefs = gql`
     endDate: Date
     airbnbBlocked: Boolean
     reserved: Boolean
+    expectedPayDate: String
   }
 
   type Day {
@@ -70,6 +71,7 @@ export const dayDefs = gql`
     status: String!
     createdAt: String!
     fees: [Fee]
+    expectedPayDate: String
   }
 
   input UnbookBookingInput {
@@ -160,6 +162,8 @@ export const dayDefs = gql`
     markAirBnBBlocked(_id: String!, blocked: Boolean!): [Day]
 
     setBookingReserved(_id: String!, reserved: Boolean!): [Day]
+
+    updateBookingExpectedPayDate(_id: String!, expectedPayDate: String!): [Day]
 
     unbookGuest(_id: String!): [Day]
 

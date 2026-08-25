@@ -63,6 +63,7 @@ router.get("/get", async (req: Request, res: any) => {
               startDate
               endDate
               reserved
+              expectedPayDate
             }
           }
         }`;
@@ -191,6 +192,7 @@ router.post("/get/host", async (req: Request, res: any) => {
               startDate
               endDate
               reserved
+              expectedPayDate
               airbnbBlocked
             }
           }
@@ -457,6 +459,7 @@ router.post("/block/room", async (req: Request, res: any) => {
           startDate
           endDate
           reserved
+          expectedPayDate
         }
       }
     }`;
@@ -527,6 +530,7 @@ router.post("/unblock/room", async (req: Request, res: any) => {
           startDate
           endDate
           reserved
+          expectedPayDate
         }
       }
     }`;
@@ -642,6 +646,7 @@ router.post("/book/range", async (req: Request, res: any) => {
               startDate
               endDate
               reserved
+              expectedPayDate
             }
           }
         }`;
@@ -749,6 +754,7 @@ router.post("/update/booking/guest", async (req: Request, res: any) => {
               startDate
               endDate
               reserved
+              expectedPayDate
             }
           }
         }`;
@@ -829,6 +835,7 @@ router.post("/update/booking/airbnb-price", async (req: Request, res: any) => {
               startDate
               endDate
               reserved
+              expectedPayDate
             }
           }
         }`;
@@ -907,6 +914,7 @@ router.post("/update/booking/fees", async (req: Request, res: any) => {
               startDate
               endDate
               reserved
+              expectedPayDate
             }
           }
         }`;
@@ -985,6 +993,7 @@ router.post("/update/unbook/guest", async (req: Request, res: any) => {
               startDate
               endDate
               reserved
+              expectedPayDate
             }
           }
         }`;
@@ -1066,6 +1075,7 @@ router.post("/update/booking/airbnb-blocked", async (req: Request, res: any) => 
               startDate
               endDate
               reserved
+              expectedPayDate
             }
           }
         }`;
@@ -1146,6 +1156,7 @@ router.post("/update/booking/reserved", async (req: Request, res: any) => {
               startDate
               endDate
               reserved
+              expectedPayDate
             }
           }
         }`;
@@ -1156,6 +1167,88 @@ router.post("/update/booking/reserved", async (req: Request, res: any) => {
         return res.status(400).json({ errors: result.errors[0].message });
       }
       res.status(200).json(result.data.setBookingReserved);
+    })
+    .catch((error: any) => {
+      res.status(500).json({ error: error.message });
+    });
+});
+
+// Record when the GUEST said they would pay for a held stay. "" clears it back
+// to unasked. Returns the updated Day docs for the stay range.
+router.post("/update/booking/expected-pay-date", async (req: Request, res: any) => {
+  if (!("user" in req))
+    return res.status(401).json({ error: "Invalid or expired token" });
+
+  const { id, expectedPayDate } = req.body;
+
+  const query = `
+        mutation UpdateBookingExpectedPayDate($id: String!, $expectedPayDate: String!) {
+          updateBookingExpectedPayDate(_id: $id, expectedPayDate: $expectedPayDate) {
+            id
+            calendar
+            date
+            isAirBnB
+            isBlocked
+            blockedRooms {
+              host
+              id
+              name
+              price
+            }
+            bookings {
+              id
+              alias
+              notes
+              earlyCheckin
+              lateCheckout
+              sofaBed
+              price
+              airbnbPrice
+              fees {
+                label
+                amount
+              }
+              airbnbBlocked
+              guest {
+                id
+                name
+                alias
+                email
+                phone
+                numberOfGuests
+                returning
+                notes
+                character
+                host
+                pricing {
+                  id
+                  price
+                  room
+                }
+              }
+              room {
+                id
+                host
+                name
+                price
+              }
+              description
+              duration
+              numberOfGuests
+              startDate
+              endDate
+              reserved
+              expectedPayDate
+            }
+          }
+        }`;
+
+  sendGraphQLRequest(query, { id, expectedPayDate })
+    .then((result: any) => {
+      if (result.errors) {
+        return res.status(400).json({ errors: result.errors[0].message });
+      }
+      res.status(200).json(result.data.updateBookingExpectedPayDate);
     })
     .catch((error: any) => {
       res.status(500).json({ error: error.message });

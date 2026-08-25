@@ -19,6 +19,8 @@ export interface GuestBooking {
   status: string;
   createdAt: string;
   fees?: { label: string; amount: number }[];
+  // yyyy-MM-dd the guest told the host they would pay, on a held stay.
+  expectedPayDate?: string;
   _source?: "calendar" | "tibook";
 }
 

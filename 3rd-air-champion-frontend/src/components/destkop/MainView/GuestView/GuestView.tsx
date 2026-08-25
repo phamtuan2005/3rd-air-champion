@@ -47,6 +47,7 @@ interface GuestViewProps {
   setSelectedModifyBooking: React.Dispatch<React.SetStateAction<bookingType>>;
   onRequestUnbook: (booking: bookingType) => void;
   onPricingEdit: (booking: bookingType) => void;
+  onExpectedPayDateChange: (booking: bookingType, date: string) => void;
 }
 
 const GuestView = ({
@@ -75,6 +76,7 @@ const GuestView = ({
   setSelectedModifyBooking,
   onRequestUnbook,
   onPricingEdit,
+  onExpectedPayDateChange,
 }: GuestViewProps) => {
   // Guests = bookings + booking actions; Cleaning = turnover rooms for this
   // date; Profit = that date's money, in and out.
@@ -167,6 +169,7 @@ const GuestView = ({
           onRequestUnbook={onRequestUnbook}
           setIsMobileModalOpen={setIsMobileModalOpen}
           onPricingEdit={onPricingEdit}
+          onExpectedPayDateChange={onExpectedPayDateChange}
         />
       ))}
 

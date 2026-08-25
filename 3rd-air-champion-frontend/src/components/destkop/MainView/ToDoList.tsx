@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { dayType } from "../../../util/types/dayType";
-import { bookingType } from "../../../util/types/bookingType";
-import { addDays, startOfToday, format } from "date-fns";
+import { bookingType, feesTotal } from "../../../util/types/bookingType";
+import { addDays, differenceInCalendarDays, startOfToday, format } from "date-fns";
 import { getRoomColor } from "../../../util/getRoomColor";
 import { DEFAULT_TEMPLATE, TEMPLATE_KEY, resolveTemplate } from "../../../util/reminderTemplate";
 import { CLEANING_LOOKBACK_DAYS, cleaningTaskId, getCleaningCounts, getCleaningItems, countPendingReminders, CleaningItem } from "../../../util/cleaningTasks";
@@ -21,7 +21,7 @@ interface ToDoListProps {
   senderName?: string; // who's logged in — signs the cleaner text
 }
 
-type TabKey = "reminders" | "cleaning";
+type TabKey = "reminders" | "cleaning" | "payments";
 
 const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = "", hostId, token, senderName }: ToDoListProps) => {
   // Reminders / Cleaning = today's actionable tasks.
@@ -146,6 +146,31 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
     [monthMap, doneAsCompleted],
   );
   const cleaningCounts = getCleaningCounts(cleaningItems);
+
+  // Held stays whose promised pay date has passed. One row per STAY: a stay is
+  // written onto every night it covers, so rows are taken from the START night
+  // only — counting every row would report a 3-night hold as three chases.
+  const overdueHolds = useMemo(() => {
+    const todayKey = format(startOfToday(), "yyyy-MM-dd");
+    const out: { booking: bookingType; daysLate: number }[] = [];
+    monthMap.forEach((day, dayKey) => {
+      day.bookings.forEach((b) => {
+        if (!b.reserved || !b.room || !b.expectedPayDate) return;
+        if (b.startDate.split("T")[0] !== dayKey) return;
+        // Plain string comparison — both sides are zero-padded yyyy-MM-dd, so
+        // this cannot drift a day the way a parsed local date can.
+        if (b.expectedPayDate >= todayKey) return;
+        out.push({
+          booking: b,
+          daysLate: differenceInCalendarDays(
+            new Date(todayKey + "T00:00:00"),
+            new Date(b.expectedPayDate + "T00:00:00"),
+          ),
+        });
+      });
+    });
+    return out.sort((a, z) => z.daysLate - a.daysLate);
+  }, [monthMap]);
 
   // Who's assigned to clean each dirty room. Assignments are keyed by the
   // cleaning morning (= the checkout morning) + room, so we fetch over the same
@@ -275,6 +300,10 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
       ),
     },
     { key: "cleaning", label: "Cleaning", count: cleaningCounts.max },
+    // Money promised and not arrived. Its own tab because it is chased at a
+    // different moment from a reminder or a clean — and because a hold nobody
+    // looks at is a room quietly not earning.
+    { key: "payments", label: "Payments", count: overdueHolds.length },
   ];
 
   const emptyState = (message: string) => (
@@ -290,7 +319,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
         <p className="text-sm text-gray-400">{format(startOfToday(), "EEEE, MMMM d, yyyy")}</p>
       </div>
 
-      <div className="mb-3 grid shrink-0 grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1">
+      <div className="mb-3 grid shrink-0 grid-cols-3 gap-1 rounded-xl bg-gray-100 p-1">
         {tabs.map(({ key, label, count }) => (
           <button
             key={key}
@@ -411,6 +440,56 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
           </>
         ) : (
           emptyState("No check-ins tomorrow")
+        ))}
+
+      {activeTab === "payments" &&
+        (overdueHolds.length > 0 ? (
+          <div className="flex flex-col gap-2">
+            {overdueHolds.map(({ booking, daysLate }) => (
+              <div
+                key={`${booking.startDate.split("T")[0]}|${booking.room.id}`}
+                className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-base font-bold text-gray-900">
+                      {booking.guest.alias || booking.alias || booking.guest.name}
+                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      <span
+                        className={`${getRoomColor(booking.room.name, booking.room.color)} rounded-md px-2 py-0.5 text-xs font-bold text-black`}
+                      >
+                        {booking.room.name}
+                      </span>
+                      <span className="text-sm text-gray-500">
+                        {format(new Date(booking.startDate.split("T")[0] + "T00:00:00"), "MMM d")} ·{" "}
+                        {booking.duration} night{booking.duration === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-lg font-bold tabular-nums text-gray-900">
+                      ${Math.round((booking.price ?? 0) * booking.duration + feesTotal(booking.fees))}
+                    </p>
+                    <p className="text-xs font-bold text-red-600">
+                      {daysLate} day{daysLate === 1 ? "" : "s"} late
+                    </p>
+                  </div>
+                </div>
+                {/* Their own words, dated. Chasing goes better when the date
+                    came from the guest rather than from the house. */}
+                <p className="mt-1.5 text-xs text-red-700">
+                  Promised{" "}
+                  {format(
+                    new Date(booking.expectedPayDate + "T00:00:00"),
+                    "EEEE, MMM d",
+                  )}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          emptyState("No payments overdue")
         ))}
 
       {activeTab === "cleaning" &&

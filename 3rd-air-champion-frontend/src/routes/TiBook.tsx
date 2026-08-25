@@ -286,6 +286,7 @@ const TiBookInner = () => {
             // backend already hands back only the start night's, so this adds
             // them once and never once per night.
             fees: (b.fees ?? []).reduce((sum, f) => sum + (Number(f.amount) || 0), 0),
+            expectedPayDate: b.expectedPayDate ?? "",
           };
         })
         .filter((h) => h.checkOut > startOfToday()),

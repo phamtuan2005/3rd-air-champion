@@ -45,6 +45,12 @@ const daySchema = new mongoose.Schema(
         endDate: { type: Date },
         airbnbBlocked: { type: Boolean, default: false },
         reserved: { type: Boolean, default: false },
+        // yyyy-MM-dd the GUEST said they would send payment, for a held
+        // (reserved) stay. Their answer to "when will you pay?", kept so a hold
+        // is a promise with a date on it rather than an open-ended hope — and so
+        // a lapsed one can be seen. "" until asked. Per STAY: copied onto every
+        // night like airbnbPrice and fees, read from the start night.
+        expectedPayDate: { type: String, default: "" },
       },
     ],
     blockedRooms: [{ type: mongoose.Schema.ObjectId, ref: "Room" }],
