@@ -109,6 +109,12 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
   useEffect(() => {
     const bottom = document.querySelector("nav")?.getBoundingClientRect().bottom;
     if (bottom && bottom > 24) maxPull.current = Math.round(bottom);
+    // OPEN at the nav's edge rather than full-bleed. The pull-down exists so a
+    // guest can see their own name while looking at the pictures; starting
+    // over the top of it meant the gallery covered that name until they found
+    // a grip they had no reason to look for. Dragging still closes the gap
+    // back up for a full-bleed look.
+    setPull(maxPull.current);
   }, []);
 
   const grip = useRef<{ y: number; start: number } | null>(null);
