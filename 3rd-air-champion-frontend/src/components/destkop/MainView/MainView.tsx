@@ -35,6 +35,7 @@ import ManageGuestModal from "../NavBar/DropDown/ManageGuestModal";
 import CleanersModal from "./CleanersModal";
 import MiscModal from "./MiscModal";
 import ChargesModal from "./ChargesModal";
+import { fetchCharges, isChargeInMonth } from "../../../util/chargeOperations";
 import DefaultRateGuestsModal from "./DefaultRateGuestsModal";
 import StaffingModal from "./StaffingModal";
 import CleanDaySheet from "./CleanDaySheet";
@@ -385,6 +386,26 @@ const MainView = ({
     refreshKey: badgeTick,
     sentReminderIds,
   });
+
+  // Guest charges landing in the month on screen. useCalendarStats works from
+  // monthMap alone, and a charge has no stay and so no place in monthMap — the
+  // header would report a month's money while leaving out a fee earned in it.
+  // badgeTick brings it back after one is added or marked in the Charges modal.
+  const [monthChargeTotal, setMonthChargeTotal] = useState(0);
+  useEffect(() => {
+    if (!hostId || !token) {
+      setMonthChargeTotal(0);
+      return;
+    }
+    const mk = format(currentMonth, "yyyy-MM");
+    fetchCharges(hostId, token)
+      .then((items) =>
+        setMonthChargeTotal(
+          items.filter((c) => isChargeInMonth(c, mk)).reduce((sum, c) => sum + c.amount, 0),
+        ),
+      )
+      .catch(() => setMonthChargeTotal(0));
+  }, [hostId, token, currentMonth, badgeTick, isChargesOpen]);
 
   // Cleaner labels for the calendar. Only fetched while Clean mode is on, and
   // only around the month in view — the calendar browses 24 months back, and
@@ -1011,7 +1032,7 @@ const MainView = ({
               occupancy={occupancy}
               currentMonth={currentMonth}
               paidDates={paidDates}
-              profit={profit}
+              profit={{ total: profit.total + monthChargeTotal, airbnb: profit.airbnb }}
               rooms={rooms}
               selectedRoomName={selectedRoomName}
               getCurrentGuestBill={getCurrentGuestBill}

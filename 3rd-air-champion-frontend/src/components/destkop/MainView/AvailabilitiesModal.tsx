@@ -593,7 +593,12 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
   const chargesUnpaid = charges.filter((c) => !c.paid).length;
   // The month this modal is showing — the one the outlook was computed for.
   const viewedMonthKey = format(startOfMonth(currentMonth), "yyyy-MM", { timeZone });
-  const netProfit = totalMonthProfit + chargesTotal - estimatedCleaningFee - miscFee;
+  // Charges ride INSIDE the headline Total rather than sitting beside it. A fee
+  // is money the month earned; splitting it out made the host add two numbers to
+  // learn what the month took. Net is unchanged by the move — it always counted
+  // them, just further down.
+  const totalWithCharges = totalMonthProfit + chargesTotal;
+  const netProfit = totalWithCharges - estimatedCleaningFee - miscFee;
   const dollars = (n: number) => `$${Math.round(n).toLocaleString()}`;
   // Shared style so the Total and Net profit amounts always render identical size.
   const bigAmountCls = "inline-block rounded-lg px-3 py-1 text-2xl font-bold text-white";
@@ -856,10 +861,20 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
               <td className="pt-2">{totalNights}</td>
               <td className="pt-2 text-right">
                 <span className={`${bigAmountCls} bg-emerald-600`}>
-                  ${Math.round(totalMonthProfit).toLocaleString()}
+                  ${Math.round(totalWithCharges).toLocaleString()}
                 </span>
               </td>
             </tr>
+            {/* Named, because a charge belongs to no room and so appears nowhere
+                in the rows above — without this the Total would not add up from
+                what is on screen. */}
+            {chargesTotal > 0 && (
+              <tr>
+                <td colSpan={3} className="pt-1 text-right text-[11px] font-medium text-gray-400">
+                  includes {dollars(chargesTotal)} guest charges
+                </td>
+              </tr>
+            )}
           </tfoot>
         </table>
       )}
@@ -921,7 +936,9 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
           {charges.length > 0 && (
             <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 flex-col">
-                <span className="text-sm font-bold text-gray-800">Guest charges</span>
+                <span className="text-sm font-bold text-gray-800">
+                  Guest charges <span className="font-medium text-gray-400">· in Total</span>
+                </span>
                 <span className="text-xs text-gray-500">
                   {charges
                     .slice(0, 2)
@@ -933,8 +950,10 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
                   )}
                 </span>
               </div>
+              {/* No "+" any more: it is already inside the Total above, and a
+                  plus sign here read as a second addition. */}
               <span className="shrink-0 text-xl font-bold tabular-nums text-emerald-600">
-                +{dollars(chargesTotal)}
+                {dollars(chargesTotal)}
               </span>
             </div>
           )}
