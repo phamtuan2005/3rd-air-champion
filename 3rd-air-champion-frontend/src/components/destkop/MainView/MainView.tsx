@@ -538,6 +538,25 @@ const MainView = ({
       // fail ([[project-cloudfront-masks-api-errors]]).
       if (!Array.isArray(updatedDays)) throw new Error("Pay date was not saved");
       onDaysUpdate(updatedDays);
+      // onDaysUpdate refreshes `days` (and so monthMap), but the open card list
+      // renders from `currentBookings` — a SNAPSHOT taken when the day was
+      // opened. Without this the date field stayed blank until the card was
+      // closed and reopened, which read as the save having failed.
+      //
+      // Patched by stay identity (guest + room + start night) rather than by
+      // re-reading a day: the whole stay carries one promise, and matching this
+      // way needs no date-key arithmetic to get right.
+      setCurrentBookings((prev) =>
+        prev
+          ? prev.map((b) =>
+              b.room?.id === booking.room?.id &&
+              b.guest?.id === booking.guest?.id &&
+              b.startDate === booking.startDate
+                ? { ...b, expectedPayDate: date }
+                : b,
+            )
+          : prev,
+      );
     } catch (err) {
       console.error("Error saving expected pay date:", err);
     }
