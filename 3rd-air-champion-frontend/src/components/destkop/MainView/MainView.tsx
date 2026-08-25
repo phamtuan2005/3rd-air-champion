@@ -532,6 +532,11 @@ const MainView = ({
         { id: booking.id, expectedPayDate: date },
         token as string,
       );
+      // CloudFront answers an unknown /api/* path with index.html and a 200, so
+      // a route that is not deployed yet arrives looking like success — and
+      // feeding that HTML to onDaysUpdate would wipe the calendar rather than
+      // fail ([[project-cloudfront-masks-api-errors]]).
+      if (!Array.isArray(updatedDays)) throw new Error("Pay date was not saved");
       onDaysUpdate(updatedDays);
     } catch (err) {
       console.error("Error saving expected pay date:", err);
