@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type TouchEvent as ReactTouchEvent } from "react";
 import { createPortal } from "react-dom";
 import { roomType } from "../../util/types/roomType";
-import { getRoomFacts, getRoomPhotos } from "../../util/roomFacts";
+import { getRoomFacts, getRoomPhotos, houseKitchen } from "../../util/roomFacts";
 import { getRoomColor } from "../../util/getRoomColor";
 import BedIcon from "./BedIcon";
 
@@ -94,6 +94,38 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
     else prev();
   };
 
+  // Pull-down, the same gesture the calendar uses: grab the grip and drag.
+  //
+  // A full-bleed gallery hides who TiBook thinks you are. A guest deep in the
+  // pictures cannot see their own name in the nav, and "am I still signed in
+  // as me?" is a question they should never have to close the gallery to
+  // answer. Pulling down uncovers the nav and stops there — this is a peek,
+  // not a way out. The × and Escape still close it.
+  const [pull, setPull] = useState(0);
+  // How far down is "enough": the bottom edge of the nav, measured rather than
+  // guessed, so it still uncovers exactly the nav if that bar ever changes
+  // height. The fallback is only for the case where there is no nav to find.
+  const maxPull = useRef(72);
+  useEffect(() => {
+    const bottom = document.querySelector("nav")?.getBoundingClientRect().bottom;
+    if (bottom && bottom > 24) maxPull.current = Math.round(bottom);
+  }, []);
+
+  const grip = useRef<{ y: number; start: number } | null>(null);
+  const onGripDown = (e: React.PointerEvent) => {
+    grip.current = { y: e.clientY, start: pull };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const onGripMove = (e: React.PointerEvent) => {
+    const g = grip.current;
+    if (!g) return;
+    // Drag down => positive => the sheet's top edge comes down.
+    setPull(Math.max(0, Math.min(maxPull.current, g.start + (e.clientY - g.y))));
+  };
+  const onGripUp = () => {
+    grip.current = null;
+  };
+
   // Bring the current thumbnail to the middle of the strip. With 29 pictures
   // the marked one is otherwise off-screen the moment a guest presses ›, and
   // finding it again by dragging is work the app can do for them.
@@ -117,7 +149,14 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
 
   return createPortal(
     <div
-      className="tibook-type fixed inset-0 bg-black bg-opacity-90 z-50 flex flex-col"
+      // Top edge moves, bottom stays pinned — the sheet SHRINKS rather than
+      // sliding, so nothing at the bottom is pushed off the screen when it is
+      // pulled down. Rounded only once it has moved, since at rest it is
+      // full-bleed and a rounded corner there would just show the page behind.
+      className={`tibook-type fixed inset-x-0 bottom-0 bg-black bg-opacity-90 z-50 flex flex-col ${
+        pull > 0 ? "rounded-t-2xl" : ""
+      }`}
+      style={{ top: pull }}
       onClickCapture={(e) => {
         if (!swiped.current) return;
         swiped.current = false;
@@ -125,6 +164,21 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
       }}
       onClick={onClose}
     >
+      {/* Drag grip — pull down to uncover the nav, and your own name with it.
+          touch-none so the browser does not claim the gesture as a scroll.
+          The click that trails a drag is stopped here: the backdrop closes on
+          click, and letting go of the grip must not shut the gallery. */}
+      <div
+        className="flex shrink-0 cursor-ns-resize touch-none select-none items-center justify-center pb-1 pt-2"
+        onPointerDown={onGripDown}
+        onPointerMove={onGripMove}
+        onPointerUp={onGripUp}
+        onPointerCancel={onGripUp}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <span className="h-1.5 w-10 rounded-full bg-white/40" />
+      </div>
+
       {/* Header */}
       <div
         className="flex items-center justify-between px-4 py-3 shrink-0"
@@ -268,6 +322,10 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
               ))}
             </ul>
             <p className="mt-1 text-sm text-gray-300">{facts.bathroom}</p>
+            {/* Beside the bathroom, because it is the same kind of answer: what
+                in this house is yours alone and what is everybody's. Read from
+                one constant, so all five rooms say it identically. */}
+            <p className="text-sm text-gray-300">{houseKitchen}</p>
             <p className="text-sm text-gray-300">{facts.privacy}</p>
             <ul className="mt-2 flex flex-wrap gap-1.5">
               {facts.highlights.map((highlight) => (

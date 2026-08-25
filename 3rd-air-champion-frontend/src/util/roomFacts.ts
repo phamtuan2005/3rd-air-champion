@@ -82,6 +82,15 @@ const listingId = (airbnbUrl?: string) => {
 //
 // Which listing each came off is incidental; they are pictures of the house,
 // not of that room.
+// True of the house, not of any one room, so it is written once and shown on
+// every room rather than copied into five entries that could drift apart.
+//
+// Note this CONTRADICTS the AirBnB listings, which mark the kitchen
+// "Unavailable" on every room but King. The house says otherwise and the house
+// is the authority on its own kitchen — but TiBook links to those listings, so
+// a guest can read both. They want correcting.
+export const houseKitchen = "Shared kitchen, open to every guest in the house";
+
 const housePhotos = [
   // The front of the house, from the street.
   "https://a0.muscache.com/im/pictures/hosting/Hosting-1586635483950294231/original/98a07cfc-7ac1-4717-9245-09091f2463d1.jpeg?im_w=1200",
@@ -106,7 +115,9 @@ const factsByListing: Record<string, roomFacts> = {
       "Air conditioning",
       "Heating",
       "Dedicated workspace",
-      "Kitchen",
+      // No "Kitchen" chip: the shared kitchen is now a line of its own on every
+      // room, and saying it twice on this one is the repetition just taken out
+      // of Chill's and Cozy's bathrooms.
       "Mini fridge",
       "Free street parking",
       "Self check-in",
