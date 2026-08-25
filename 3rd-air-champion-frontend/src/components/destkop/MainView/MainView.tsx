@@ -34,6 +34,7 @@ import EditRoomModal from "../NavBar/DropDown/EditRoomModal";
 import ManageGuestModal from "../NavBar/DropDown/ManageGuestModal";
 import CleanersModal from "./CleanersModal";
 import MiscModal from "./MiscModal";
+import ChargesModal from "./ChargesModal";
 import DefaultRateGuestsModal from "./DefaultRateGuestsModal";
 import StaffingModal from "./StaffingModal";
 import CleanDaySheet from "./CleanDaySheet";
@@ -144,6 +145,8 @@ const MainView = ({
     isCleanersOpen: boolean;
     setIsCleanersOpen: React.Dispatch<React.SetStateAction<boolean>>;
     isMiscOpen: boolean;
+    isChargesOpen: boolean;
+    setIsChargesOpen: React.Dispatch<React.SetStateAction<boolean>>;
     setIsMiscOpen: React.Dispatch<React.SetStateAction<boolean>>;
     isRatesOpen: boolean;
     setIsRatesOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -170,6 +173,8 @@ const MainView = ({
     setIsCleanersOpen,
     isMiscOpen,
     setIsMiscOpen,
+    isChargesOpen,
+    setIsChargesOpen,
     isRatesOpen,
     setIsRatesOpen,
     isStaffingOpen,
@@ -1504,6 +1509,8 @@ const MainView = ({
           bookings={unbookBookings}
           cancellationFullRefundDays={cancellationFullRefundDays}
           cancellationHalfRefundDays={cancellationHalfRefundDays}
+          hostId={hostId}
+          token={token}
           onClose={() => setUnbookBookings(null)}
           onUnbook={onUnbook}
         />
@@ -1570,6 +1577,14 @@ const MainView = ({
             setIsCleanersOpen(false);
             setCleanersInitialTab(undefined);
           }}
+        />
+      )}
+      {isChargesOpen && (
+        <ChargesModal
+          hostId={hostId}
+          token={token as string}
+          currentMonth={currentMonth}
+          onClose={() => setIsChargesOpen(false)}
         />
       )}
       {isMiscOpen && (

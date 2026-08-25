@@ -278,6 +278,14 @@ const TiBookInner = () => {
             checkIn,
             checkOut: addDays(checkIn, b.duration),
             nights: b.duration,
+            // This guest's own agreed rate where they have one, otherwise the
+            // room's. `??` and not `||` on purpose: a family guest's rate is a
+            // real, deliberate 0 and must not fall through to the room price.
+            nightly: myRates.get(b.room) ?? room?.price,
+            // Fees are per STAY though they are stored on every night; the
+            // backend already hands back only the start night's, so this adds
+            // them once and never once per night.
+            fees: (b.fees ?? []).reduce((sum, f) => sum + (Number(f.amount) || 0), 0),
           };
         })
         .filter((h) => h.checkOut > startOfToday()),

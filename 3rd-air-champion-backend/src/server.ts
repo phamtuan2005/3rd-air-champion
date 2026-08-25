@@ -20,6 +20,7 @@ import bookingRequestRoute from "./route/bookingRequestRoute";
 import wishListRoute from "./route/wishListRoute";
 import cleanerRoute from "./route/cleanerRoute";
 import miscRoute from "./route/miscRoute";
+import chargeRoute from "./route/chargeRoute";
 import staffRoute from "./route/staffRoute";
 import workRoute from "./route/workRoute";
 import reminderRoute from "./route/reminderRoute";
@@ -125,6 +126,7 @@ const startServer = async () => {
     apiRouter.use("/airbnb", syncRoute);
     apiRouter.use("/cleaner", cleanerRoute);
     apiRouter.use("/misc", miscRoute);
+    apiRouter.use("/charge", chargeRoute);
     apiRouter.use("/staff", staffRoute);
     apiRouter.use("/reminder", reminderRoute);
     apiRouter.use("/ai", aiRoute);

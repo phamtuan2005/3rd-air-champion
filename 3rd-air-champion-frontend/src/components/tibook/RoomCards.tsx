@@ -151,6 +151,10 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
   if (activeRooms.length === 0) return null;
 
   const isAll = selectedRoomIds === null;
+  // How many rooms on show carry a rate agreed with THIS guest. A returning
+  // guest is looking straight at their own prices, so sending them off to ask
+  // for one is the app forgetting what it has just told them.
+  const ratedCount = activeRooms.filter((r) => myRates?.get(r.id) != null).length;
 
   if (compact) {
     return (
@@ -217,12 +221,21 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
               Our Rooms{" "}
               <span className="font-medium normal-case">· tap on room name to select</span>
             </p>
-            {/* No price is quoted on the cards, so the reason is given here —
-                once, in the same place the other card-wide hint lives, rather
-                than five times over. Said as what WILL happen: the guest agrees
-                a price with the host, and opening a room is how they start. */}
+            {/* Said once, in the same place the other card-wide hint lives,
+                rather than five times over. Which sentence depends on what the
+                guest can actually see: a card quotes a price only where this
+                guest has an agreed rate, so a stranger sees none and is told how
+                one gets set, while a returning guest is told the prices in front
+                of them are theirs. This read "Open a room to ask" for everybody
+                until Eddie — who has a rate on every room — was still being sent
+                off to ask for a price already on his screen. Both phrased as
+                what WILL happen. */}
             <p className="mt-0.5 text-xs text-gray-500">
-              Every price is agreed between you and {hostFirstName}. Open a room to ask.
+              {ratedCount === 0
+                ? `Every price is agreed between you and ${hostFirstName}. Open a room to ask.`
+                : ratedCount === activeRooms.length
+                  ? `These are your prices, agreed with ${hostFirstName}.`
+                  : `Your agreed prices are shown. Open a room without one to ask ${hostFirstName}.`}
             </p>
           </div>
           {onToggleCompact && (
@@ -268,6 +281,7 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
           room={galleryRoom}
           hostPhone={hostPhone}
           hostName={hostName}
+          myRate={myRates?.get(galleryRoom.id)}
           onClose={() => setGalleryRoom(null)}
         />
       )}

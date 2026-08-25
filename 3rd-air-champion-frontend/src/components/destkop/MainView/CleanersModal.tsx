@@ -10,6 +10,7 @@ import { getRoomColor } from "../../../util/getRoomColor";
 import { decimalToHm, formatHrMin, hmToDecimal } from "../../../util/hoursFormat";
 import {
   CLEANING_FORECAST_DAYS,
+  ForecastEntry,
   getCheckoutsOn,
   getCleaningEntriesFor,
   getCleaningForecast,
@@ -445,18 +446,27 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
   // works from, so the two tabs cannot disagree about the same day. Built once
   // per morning and cached: the entries calculation scans occupancy across the
   // whole map, which is not something to redo inside a filter.
-  const turnoverCache = useRef(new Map<string, Set<string>>());
+  // The ENTRIES are cached, not just their room ids, because the Week tab lists
+  // them now — it used to render only assignment records, so a room that turned
+  // over with nobody assigned was invisible there while Plan showed it in amber.
+  // Same morning, two different answers. Both tabs read this now.
+  const turnoverCache = useRef(new Map<string, { entries: ForecastEntry[]; ids: Set<string> }>());
   useEffect(() => {
     turnoverCache.current = new Map();
   }, [monthMap]);
-  const roomsTurningOver = (morningKey: string): Set<string> => {
+  const cleaningEntriesFor = (morningKey: string): ForecastEntry[] => {
     const hit = turnoverCache.current.get(morningKey);
-    if (hit) return hit;
-    const ids = new Set(
-      getCleaningEntriesFor(monthMap, morningKey).map((e) => e.checkoutBooking.room.id),
-    );
-    turnoverCache.current.set(morningKey, ids);
-    return ids;
+    if (hit) return hit.entries;
+    const entries = getCleaningEntriesFor(monthMap, morningKey);
+    turnoverCache.current.set(morningKey, {
+      entries,
+      ids: new Set(entries.map((e) => e.checkoutBooking.room.id)),
+    });
+    return entries;
+  };
+  const roomsTurningOver = (morningKey: string): Set<string> => {
+    cleaningEntriesFor(morningKey);
+    return turnoverCache.current.get(morningKey)!.ids;
   };
 
   const isStaleCleaning = (roomId: string, morningKey: string) =>
@@ -1872,13 +1882,31 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
               g.rooms.push(a.room!);
               groups.set(a.cleaner!.id, g);
             });
+            // Rooms that turn over this morning with nobody on them. Plan has
+            // always shown these; Week showed only assignment records, so a
+            // turnover nobody had been assigned to simply was not on the tab the
+            // host works the week from — King on Tue Aug 25 read as "1 room"
+            // here and "2 rooms · 1 to assign" in Plan, for the same morning.
+            //
+            // Today and later only. A past morning either got cleaned or did
+            // not, and inviting someone to assign a cleaner backwards belongs to
+            // Record, not here — the tabs stay split by TIME, which is the one
+            // difference between them that is meant to exist.
+            const assignedRoomIds = new Set(dayAssignments.map((a) => a.room!.id));
+            const unassigned =
+              dateKey < todayKey
+                ? []
+                : cleaningEntriesFor(dateKey).filter(
+                    (e) => !assignedRoomIds.has(e.checkoutBooking.room.id),
+                  );
+            const totalRooms = dayAssignments.length + unassigned.length;
             return (
               <div
                 key={dateKey}
                 className={`mb-2 overflow-hidden rounded-xl border bg-white ${
                   isToday
                     ? "border-violet-400 shadow-sm ring-1 ring-violet-300"
-                    : dayAssignments.length
+                    : totalRooms
                       ? "border-gray-300 shadow-sm"
                       : "border-gray-200"
                 }`}
@@ -1886,7 +1914,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                 {/* Day header — date, Today badge, and the room count */}
                 <div
                   className={`flex items-center justify-between px-3 py-1.5 ${
-                    dayAssignments.length ? "border-b" : ""
+                    totalRooms ? "border-b" : ""
                   } ${isToday ? "border-violet-100 bg-violet-50" : "border-gray-100 bg-gray-50"}`}
                 >
                   <div className="flex items-baseline gap-1.5">
@@ -1905,13 +1933,14 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                     )}
                   </div>
                   <span className="text-sm font-semibold text-gray-400">
-                    {dayAssignments.length
-                      ? `${dayAssignments.length} room${dayAssignments.length === 1 ? "" : "s"}`
-                      : "no cleanings"}
+                    {totalRooms ? `${totalRooms} room${totalRooms === 1 ? "" : "s"}` : "no cleanings"}
+                    {unassigned.length > 0 && (
+                      <span className="text-amber-600"> · {unassigned.length} to assign</span>
+                    )}
                   </span>
                 </div>
                 {/* One aligned row per cleaner (avatar + fixed-width name → chips line up) */}
-                {dayAssignments.length > 0 && (
+                {totalRooms > 0 && (
                   <div className="divide-y divide-gray-100">
                     {[...groups.values()].map(({ cleaner, rooms }) => (
                       <div key={cleaner.id} className="flex items-center gap-2 px-3 py-1.5">
@@ -1959,6 +1988,49 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                         {scheduleStatus(cleaner.id, weekMonday) === "changed" && <ResendBadge />}
                       </div>
                     ))}
+                    {/* The rooms nobody is on yet, in the same amber row Plan
+                        uses — a host scanning the week sees the gap without
+                        having to cross-check another tab. Tapping opens the same
+                        assign popover, so the fix is where the problem is seen
+                        rather than a trip to Plan and back. */}
+                    {unassigned.length > 0 && (
+                      <div className="flex items-center gap-2 bg-amber-50/50 px-3 py-1.5">
+                        <div className="flex w-24 shrink-0 items-center gap-1.5">
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-100 text-sm font-bold text-amber-600">
+                            !
+                          </span>
+                          <span className="truncate text-sm font-semibold text-amber-600">
+                            Unassigned
+                          </span>
+                        </div>
+                        <div className="flex flex-1 flex-wrap items-center gap-1">
+                          {unassigned.map((entry, i) => (
+                            <button
+                              key={`${entry.checkoutBooking.room.id}-${i}`}
+                              type="button"
+                              onClick={() =>
+                                setAssignTarget({
+                                  morningKey: dateKey,
+                                  roomId: entry.checkoutBooking.room.id,
+                                  roomName: entry.checkoutBooking.room.name,
+                                  sameDay: entry.sameDayCheckIn != null,
+                                })
+                              }
+                              className={`${getRoomColor(entry.checkoutBooking.room.name, entry.checkoutBooking.room.color)} rounded-md px-2 py-1 text-[13px] font-semibold text-black shadow-sm transition-transform hover:scale-105 ${
+                                entry.probable
+                                  ? "outline-2 outline-dashed outline-red-500"
+                                  : entry.sameDayCheckIn
+                                    ? "ring-2 ring-red-500"
+                                    : ""
+                              }`}
+                            >
+                              {entry.checkoutBooking.room.name}
+                              {arrivalSuffix(entry.checkoutBooking.room.id, dateKey)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1968,9 +2040,12 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
           {/* Texting a schedule now lives in the Team tab's per-cleaner Message
               menu (this week + next week offered by explicit dates), so every
               cleaner text — schedule, earnings, cleaning rules — has one home. */}
+          {/* No longer sends the host to Plan to assign — an amber room here is
+              tappable, so the instruction would be pointing at the long way
+              round. */}
           <p className="mt-2 text-center text-sm text-gray-400">
             {weekAssignments.length === 0
-              ? "Assign rooms in the Plan tab — they land here by date"
+              ? "Tap an amber room to assign a cleaner"
               : "To text this schedule, open a cleaner's 💬 Message menu in the Team tab"}
           </p>
           </>

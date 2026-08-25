@@ -41,6 +41,7 @@ interface NavBarDesktopProps {
   setIsCleanersOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isMiscOpen: boolean;
   setIsMiscOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsChargesOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isRatesOpen: boolean;
   setIsRatesOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isStaffingOpen: boolean;
@@ -84,6 +85,7 @@ const NavBarDesktop = ({
   setIsCleanersOpen,
   isMiscOpen,
   setIsMiscOpen,
+  setIsChargesOpen,
   isRatesOpen,
   setIsRatesOpen,
   isStaffingOpen,
@@ -345,6 +347,13 @@ const NavBarDesktop = ({
           hover: "hover:border-teal-300 hover:text-teal-600",
           badges: [{ n: miscCount, cls: ROSE }],
           run: () => setIsMiscOpen(true),
+        },
+        {
+          label: "Charges",
+          desc: "Fees a guest owes with no stay behind them.",
+          emoji: "💸",
+          hover: "hover:border-amber-300 hover:text-amber-600",
+          run: () => setIsChargesOpen(true),
         },
         {
           label: "Rates",

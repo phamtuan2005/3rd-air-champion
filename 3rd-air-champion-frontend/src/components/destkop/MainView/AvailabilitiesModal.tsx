@@ -6,6 +6,7 @@ import { roomType } from "../../../util/types/roomType";
 import RoomBadge from "../../shared/RoomBadge";
 import { fetchAssignments, fetchCleaners, rateOn, CleanerType, CleaningAssignmentType } from "../../../util/cleanerOperations";
 import { fetchMiscExpenses, isExpenseInMonth } from "../../../util/miscOperations";
+import { fetchCharges, isChargeInMonth, ChargeType } from "../../../util/chargeOperations";
 import { bookingNightAmount, getRoomMonthEstimates, monthDateKeys, getDayGross } from "../../../util/profit";
 import { getCleaningEntriesFor } from "../../../util/cleaningTasks";
 
@@ -237,6 +238,8 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
   // Both are subtracted from the estimated gross to show a net figure.
   const [cleaningFee, setCleaningFee] = useState(0);
   const [miscFee, setMiscFee] = useState(0);
+  // Guest charges landing in the viewed month (cancellation fees, damage).
+  const [charges, setCharges] = useState<ChargeType[]>([]);
   // This month's assignments, and a longer history used only to price cleanings
   // that have not happened yet.
   const [monthAssignments, setMonthAssignments] = useState<CleaningAssignmentType[]>([]);
@@ -297,6 +300,13 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
         ),
       )
       .catch(() => setMiscFee(0));
+
+    // Guest charges with no stay behind them — a cancellation fee above all.
+    // They are real money in, so they belong in the month's total; without this
+    // a fee could be recorded and still never be reported anywhere.
+    fetchCharges(hostId, token)
+      .then((items) => setCharges(items.filter((c) => isChargeInMonth(c, monthKey))))
+      .catch(() => setCharges([]));
   }, [hostId, token, currentMonth, timeZone, cleaners, isOpen]);
 
   // ── Trend tabs: profit & booking metrics over the last 6 months ───────────
@@ -470,12 +480,61 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
   // future ones are priced at the trailing average of what cleanings actually
   // took. Where a cleaner is already assigned, their own rate is used; otherwise
   // the average rate paid.
+  //
+  // Averaged as COST, never as average-hours x average-rate. Those two means
+  // are not independent here: Cindy cleans as owner at $0 and takes the long
+  // visits, the paid cleaners take the short ones, so hours and rate correlate
+  // negatively. E[h] x E[r] priced a room at $36.71 when 116 real cleanings say
+  // $15.03 — a 2.44x overcharge that tracked rooms-per-visit (2.47) closely
+  // enough to look like a per-visit/per-room mixup, and was not one.
+  //
+  // A cleaning EVENT is a cleaner-day, not a row: the visit's hours sit on one
+  // room's row and 0 on its siblings. So group into visits first, then divide
+  // by ROOMS for anything per-room.
   const cleaningNorms = useMemo(() => {
-    const worked = historyAssignments.filter((a) => a.hours != null && a.cleaner);
+    const visits = new Map<
+      string,
+      { date: string; cleaner: CleanerType; rooms: number; hours: number }
+    >();
+    for (const a of historyAssignments) {
+      if (!a.cleaner || !a.room) continue;
+      const key = `${a.cleaner.id}|${a.date}`;
+      const v = visits.get(key) ?? { date: a.date, cleaner: a.cleaner, rooms: 0, hours: 0 };
+      v.rooms += 1;
+      if (a.hours != null) v.hours += a.hours;
+      visits.set(key, v);
+    }
+    const worked = [...visits.values()].filter((v) => v.hours > 0);
     if (worked.length === 0) return null;
-    const hours = worked.reduce((s, a) => s + (a.hours ?? 0), 0) / worked.length;
-    const rate = worked.reduce((s, a) => s + rateOn(a.cleaner!, a.date), 0) / worked.length;
-    return { hours, rate, sample: worked.length };
+
+    const totalRooms = worked.reduce((s, v) => s + v.rooms, 0);
+    const totalHours = worked.reduce((s, v) => s + v.hours, 0);
+    const totalCost = worked.reduce((s, v) => s + v.hours * rateOn(v.cleaner, v.date), 0);
+
+    // Each cleaner's own speed, so a room somebody is already down for is priced
+    // at what THEY take rather than at the house average — the house average
+    // includes unpaid owner hours and would misprice a paid cleaner's morning.
+    const per = new Map<string, { rooms: number; hours: number }>();
+    for (const v of worked) {
+      const p = per.get(v.cleaner.id) ?? { rooms: 0, hours: 0 };
+      p.rooms += v.rooms;
+      p.hours += v.hours;
+      per.set(v.cleaner.id, p);
+    }
+
+    const hoursPerRoom = totalHours / totalRooms;
+    return {
+      hoursPerRoom,
+      // What a room has actually cost, whoever cleaned it — the right price for
+      // a morning with nobody assigned yet.
+      costPerRoom: totalCost / totalRooms,
+      hoursPerRoomFor: (id: string) => {
+        const p = per.get(id);
+        return p && p.rooms > 0 ? p.hours / p.rooms : hoursPerRoom;
+      },
+      sample: worked.length,
+      rooms: totalRooms,
+    };
   }, [historyAssignments]);
 
   // Cleanings still to come this month, and what they should cost. Uses the same
@@ -487,6 +546,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
     const monthKey = format(startOfMonth(currentMonth), "yyyy-MM", { timeZone });
     let cost = 0;
     let count = 0;
+    let probable = 0;
     for (const dateKey of monthDateKeys(monthKey)) {
       if (dateKey < todayKey) continue; // already happened; recorded hours cover it
       for (const entry of getCleaningEntriesFor(monthMap, dateKey)) {
@@ -498,18 +558,35 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
         // Hours already recorded — it is in the actual figure, not the outlook.
         if (assigned?.hours != null) continue;
         count++;
+        if (entry.probable) probable++;
+        // Weighted by the odds the cleaning actually happens. A gap turnover is
+        // a room with no booking yet — it only needs cleaning if that night
+        // sells, which rebookOdds measures. Charging every one of them at full
+        // price billed the month for cleanings nobody may ever do, and at high
+        // occupancy that is most of the rooms in an empty stretch. The field has
+        // carried these odds all along (Plan prints them as the % on a dashed
+        // chip); this was the one surface spending them as certainties.
+        //
+        // A confirmed checkout carries odds of exactly 1, so it is unaffected.
         cost +=
-          cleaningNorms.hours *
-          (assigned?.cleaner ? rateOn(assigned.cleaner, dateKey) : cleaningNorms.rate);
+          entry.rebookOdds *
+          (assigned?.cleaner
+            ? cleaningNorms.hoursPerRoomFor(assigned.cleaner.id) *
+              rateOn(assigned.cleaner, dateKey)
+            : cleaningNorms.costPerRoom);
       }
     }
-    return { cost, count };
+    return { cost, count, probable };
   }, [cleaningNorms, monthAssignments, monthMap, currentMonth, timeZone, today]);
 
   const estimatedCleaningFee = cleaningFee + (cleaningOutlook?.cost ?? 0);
+  // Guest charges with no stay behind them. Money IN, so it ADDS — the one line
+  // on this card that is a cost-shaped row and yet increases the total.
+  const chargesTotal = charges.reduce((s, c) => s + c.amount, 0);
+  const chargesUnpaid = charges.filter((c) => !c.paid).length;
   // The month this modal is showing — the one the outlook was computed for.
   const viewedMonthKey = format(startOfMonth(currentMonth), "yyyy-MM", { timeZone });
-  const netProfit = totalMonthProfit - estimatedCleaningFee - miscFee;
+  const netProfit = totalMonthProfit + chargesTotal - estimatedCleaningFee - miscFee;
   const dollars = (n: number) => `$${Math.round(n).toLocaleString()}`;
   // Shared style so the Total and Net profit amounts always render identical size.
   const bigAmountCls = "inline-block rounded-lg px-3 py-1 text-2xl font-bold text-white";
@@ -794,10 +871,36 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
               <span className="text-sm font-bold text-gray-800">
                 Cleaning fee{cleaningOutlook && cleaningOutlook.count > 0 ? " (est.)" : ""}
               </span>
+              {/* The probable half is named rather than folded into one number.
+                  "29 still to clean" read as 29 booked jobs when a third of them
+                  were rooms with no booking yet — the estimate looked wrong
+                  because the count did. */}
               {cleaningOutlook && cleaningOutlook.count > 0 && (
                 <span className="text-xs text-gray-500">
-                  <span className="font-bold text-gray-800">{cleaningOutlook.count}</span> still to clean ·{" "}
-                  <span className="font-bold text-gray-800">{dollars(cleaningFee)}</span> recorded
+                  <span className="font-bold text-gray-800">
+                    {cleaningOutlook.count - cleaningOutlook.probable}
+                  </span>{" "}
+                  booked
+                  {cleaningOutlook.probable > 0 && (
+                    <>
+                      {" + "}
+                      <span className="font-bold text-gray-800">{cleaningOutlook.probable}</span>{" "}
+                      likely
+                    </>
+                  )}{" "}
+                  · <span className="font-bold text-gray-800">{dollars(cleaningFee)}</span> recorded
+                  {cleaningNorms && (
+                    // The rate the forecast is using, shown rather than left to
+                    // be reverse-engineered from the total. A number that looks
+                    // wrong can now be checked against what a cleaning costs.
+                    <>
+                      {" · at "}
+                      <span className="font-bold text-gray-800">
+                        {dollars(cleaningNorms.costPerRoom)}
+                      </span>
+                      /room
+                    </>
+                  )}
                 </span>
               )}
             </div>
@@ -805,6 +908,30 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
               −{dollars(cleaningOutlook ? estimatedCleaningFee : cleaningFee)}
             </span>
           </div>
+          {/* Guest charges — the only PLUS among the cost rows, so it is emerald
+              and signed "+", never rose. A cancellation fee arrives here because
+              unbooking deleted the stay it was charged against. */}
+          {charges.length > 0 && (
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 flex-col">
+                <span className="text-sm font-bold text-gray-800">Guest charges</span>
+                <span className="text-xs text-gray-500">
+                  {charges
+                    .slice(0, 2)
+                    .map((c) => `${c.guest.name.split(" ")[0]} ${c.label.toLowerCase()}`)
+                    .join(" · ")}
+                  {charges.length > 2 && ` · +${charges.length - 2} more`}
+                  {chargesUnpaid > 0 && (
+                    <span className="font-bold text-amber-600"> · {chargesUnpaid} unpaid</span>
+                  )}
+                </span>
+              </div>
+              <span className="shrink-0 text-xl font-bold tabular-nums text-emerald-600">
+                +{dollars(chargesTotal)}
+              </span>
+            </div>
+          )}
+
           <div className="flex items-center justify-between">
             <span className="text-sm font-bold text-gray-800">Misc fee</span>
             <span className="shrink-0 text-xl font-bold tabular-nums text-rose-600">−{dollars(miscFee)}</span>

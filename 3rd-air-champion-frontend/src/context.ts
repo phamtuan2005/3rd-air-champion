@@ -21,6 +21,8 @@ interface AddPaneContextType {
   isCleanersOpen: boolean;
   setIsCleanersOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isMiscOpen: boolean;
+  isChargesOpen: boolean;
+  setIsChargesOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setIsMiscOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isRatesOpen: boolean;
   setIsRatesOpen: React.Dispatch<React.SetStateAction<boolean>>;

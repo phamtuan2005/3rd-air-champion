@@ -33,6 +33,7 @@ function App() {
   const [isManageGuestOpen, setIsManageGuestOpen] = useState(false);
   const [isCleanersOpen, setIsCleanersOpen] = useState(false);
   const [isMiscOpen, setIsMiscOpen] = useState(false);
+  const [isChargesOpen, setIsChargesOpen] = useState(false);
   const [isRatesOpen, setIsRatesOpen] = useState(false);
   const [isStaffingOpen, setIsStaffingOpen] = useState(false);
   // Urgent Action — paste a guest's last-minute text, get a reading of it.
@@ -241,6 +242,8 @@ function App() {
                 setIsCleanersOpen,
                 isMiscOpen,
                 setIsMiscOpen,
+                isChargesOpen,
+                setIsChargesOpen,
                 isRatesOpen,
                 setIsRatesOpen,
                 isStaffingOpen,
@@ -279,6 +282,7 @@ function App() {
                   setIsCleanersOpen={setIsCleanersOpen}
                   isMiscOpen={isMiscOpen}
                   setIsMiscOpen={setIsMiscOpen}
+                  setIsChargesOpen={setIsChargesOpen}
                   isRatesOpen={isRatesOpen}
                   setIsRatesOpen={setIsRatesOpen}
                   isStaffingOpen={isStaffingOpen}

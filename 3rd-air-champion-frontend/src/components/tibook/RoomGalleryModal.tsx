@@ -15,10 +15,13 @@ interface RoomGalleryModalProps {
   // than showing a button that goes nowhere.
   hostPhone?: string;
   hostName?: string;
+  // This guest's own agreed rate for THIS room, where they have one. Absent for
+  // a stranger, and for a returning guest who has never been quoted this room.
+  myRate?: number;
   onClose: () => void;
 }
 
-const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, onClose }: RoomGalleryModalProps) => {
+const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate, onClose }: RoomGalleryModalProps) => {
   const photos = getRoomPhotos(room).map(resolveUrl);
   const [index, setIndex] = useState(initialIndex);
   // Undefined for any room not transcribed yet, and the footer then reads
@@ -41,10 +44,19 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, onClose
   //
   // The room is named in the draft because the host's reply depends on which
   // room it is, and a guest should not have to type that out again.
+  //
+  // A guest who already HAS a rate is not asking what the price is — they know.
+  // Their draft carries the rate so the host can see which figure is being
+  // talked about, and asks about dates instead of asking to be quoted again.
+  const hasRate = myRate != null;
   const priceSmsHref = hostPhone
     ? `sms:${hostPhone}?&body=${encodeURIComponent(
-        `Hi ${hostFirstName}! I'm looking at the ${room.name} room on TiBook. ` +
-          `Could we talk about the price for my dates?`,
+        `Hi ${hostFirstName}! I'm looking at the ${room.name} room on TiBook` +
+          (hasRate
+            ? myRate === 0
+              ? `. Could we talk about my dates?`
+              : ` (my price is $${myRate}/night). Could we talk about my dates?`
+            : `. Could we talk about the price for my dates?`),
       )}`
     : undefined;
 
@@ -279,17 +291,38 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, onClose
             loud rather than left for the guest to guess at, and placed where
             they are already weighing up the room.
             Outside the facts block on purpose: it stands for every room, even
-            the ones with nothing transcribed yet. */}
+            the ones with nothing transcribed yet.
+
+            A returning guest on an agreed rate is told what it IS, not invited
+            to go and find out. This said "you can settle the price directly"
+            and offered "Ask about the price" to everyone, including guests
+            whose rate the app was showing on the card they had just tapped —
+            two screens disagreeing about whether a price existed. The message
+            stays offered either way: an agreed rate is still a conversation,
+            it is just no longer an unanswered question. */}
         {priceSmsHref && (
           <>
             <p className="mt-3 text-sm text-gray-300">
-              The price here is something you can settle with {hostFirstName} directly.
+              {!hasRate ? (
+                <>The price here is something you can settle with {hostFirstName} directly.</>
+              ) : myRate === 0 ? (
+                <>
+                  <span className="font-semibold text-white">Family — no charge</span> for this
+                  room, agreed with {hostFirstName}.
+                </>
+              ) : (
+                <>
+                  Your price for this room is{" "}
+                  <span className="font-semibold text-white">${myRate}/night</span>, agreed with{" "}
+                  {hostFirstName}.
+                </>
+              )}
             </p>
             <a
               href={priceSmsHref}
               className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-white/30 py-2 text-sm font-semibold text-white hover:bg-white/10"
             >
-              💬 Ask {hostFirstName} about the price
+              💬 {hasRate ? `Message ${hostFirstName}` : `Ask ${hostFirstName} about the price`}
             </a>
           </>
         )}

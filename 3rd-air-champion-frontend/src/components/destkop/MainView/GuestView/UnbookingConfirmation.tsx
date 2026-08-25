@@ -1,14 +1,18 @@
+import { useState } from "react";
 import { toZonedTime } from "date-fns-tz";
 import { formatDate } from "../../../../util/formatDate";
 import { bookingType } from "../../../../util/types/bookingType";
 import { dayType } from "../../../../util/types/dayType";
-import { addDays, differenceInCalendarDays, parseISO } from "date-fns";
+import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
+import { CHARGE_LABELS, createCharge } from "../../../../util/chargeOperations";
 
 interface UnbookingConfirmationProps {
   bookings: bookingType[]; // one or many stays to unbook in a single firm step
   monthMap: Map<string, dayType>;
   cancellationFullRefundDays?: number;
   cancellationHalfRefundDays?: number;
+  hostId?: string;
+  token?: string | null;
   onClose: () => void;
   onUnbook: (ids: string[]) => void;
 }
@@ -39,9 +43,20 @@ const UnbookingConfirmation = ({
   monthMap,
   cancellationFullRefundDays,
   cancellationHalfRefundDays,
+  hostId,
+  token,
   onClose,
   onUnbook,
 }: UnbookingConfirmationProps) => {
+  // A fee charged for cancelling cannot live on the booking being cancelled —
+  // unbooking deletes every night of the stay and its fees with them. Eddie
+  // cancelled two nights, owed a fee, and there was nowhere to record it. So it
+  // is captured HERE, at the one moment the room, the dates and the guest are
+  // all still known, and written to its own charge record.
+  const [feeAmount, setFeeAmount] = useState("");
+  const [feeLabel, setFeeLabel] = useState<string>("Cancellation");
+  const [saving, setSaving] = useState(false);
+  const [feeError, setFeeError] = useState<string | null>(null);
   const many = bookings.length > 1;
   const refunds = bookings.map((b) =>
     refundFor(b, cancellationFullRefundDays, cancellationHalfRefundDays),
@@ -74,7 +89,50 @@ const UnbookingConfirmation = ({
     window.location.href = `sms:${guest.phone}?&body=${encodeURIComponent(body)}`;
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
+    // Save the fee BEFORE deleting anything. If it fails the stay is left
+    // standing and the host can try again — unbooking first would destroy the
+    // only record of what the fee was for, which is the whole problem this
+    // exists to fix.
+    const amount = Number(feeAmount);
+    if (feeAmount.trim() !== "" && amount > 0) {
+      if (!hostId || !token) {
+        setFeeError("Cannot save the fee — please reload and try again.");
+        return;
+      }
+      setSaving(true);
+      setFeeError(null);
+      try {
+        const first = bookings[0];
+        await createCharge(
+          {
+            host: hostId,
+            guest: first.guest.id,
+            label: feeLabel,
+            amount,
+            // Charged today: it belongs to the month the cancellation happened
+            // in, not the month the stay would have been.
+            date: format(new Date(), "yyyy-MM-dd"),
+            note: bookings
+              .map(
+                (b) =>
+                  `${b.room.name} ${formatDate(b.startDate)}–${formatDate(b.endDate)} (${b.duration} night${b.duration === 1 ? "" : "s"}), cancelled`,
+              )
+              .join("; "),
+            roomName: first.room.name,
+            stayStart: first.startDate.split("T")[0],
+            stayNights: bookings.reduce((s, b) => s + b.duration, 0),
+          },
+          token,
+        );
+      } catch {
+        setSaving(false);
+        setFeeError("The fee could not be saved. Nothing was unbooked — try again.");
+        return;
+      }
+      setSaving(false);
+    }
+
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     // Each stay is stored as one booking record per night; collect every
     // night's id across every selected stay, then delete them all in one batch.
@@ -149,6 +207,54 @@ const UnbookingConfirmation = ({
           </div>
         )}
 
+        {/* A fee the guest still owes. Offered for direct guests only — AirBnB
+            owns its own cancellations and you never charge that guest yourself.
+            Left blank it does nothing, so the usual cancellation is unchanged. */}
+        {!isAirBnBGuest && (
+          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-semibold text-amber-800" htmlFor="cancel-fee">
+                Fee still owed
+              </label>
+              <span className="text-xs text-amber-600">optional</span>
+            </div>
+            <div className="mt-1.5 flex items-center gap-2">
+              <div className="relative">
+                <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-400">
+                  $
+                </span>
+                <input
+                  id="cancel-fee"
+                  type="number"
+                  min="0"
+                  step="1"
+                  inputMode="decimal"
+                  value={feeAmount}
+                  onChange={(e) => setFeeAmount(e.target.value)}
+                  placeholder="0"
+                  className="w-24 rounded-md border border-amber-300 bg-white py-1.5 pl-5 pr-2 text-sm font-semibold text-gray-900"
+                />
+              </div>
+              <select
+                value={feeLabel}
+                onChange={(e) => setFeeLabel(e.target.value)}
+                className="rounded-md border border-amber-300 bg-white px-2 py-1.5 text-sm font-semibold text-gray-700"
+              >
+                {CHARGE_LABELS.map((l) => (
+                  <option key={l} value={l}>
+                    {l}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <p className="mt-1.5 text-xs text-amber-700">
+              Kept against {bookings[0]?.alias || guest?.name} after the stay is removed, and
+              counted in this month's money.
+            </p>
+            {feeError && <p className="mt-1 text-xs font-semibold text-red-600">{feeError}</p>}
+          </div>
+        )}
+
         <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t border-gray-100">
           {!isAirBnBGuest && (
           <button
@@ -165,9 +271,12 @@ const UnbookingConfirmation = ({
           </button>
           <button
             onClick={handleConfirm}
-            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm font-bold"
+            disabled={saving}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm font-bold disabled:cursor-not-allowed disabled:bg-gray-300"
           >
-            Unbook {bookings.length} {many ? "bookings" : "booking"}
+            {saving
+              ? "Saving fee…"
+              : `Unbook ${bookings.length} ${many ? "bookings" : "booking"}`}
           </button>
         </div>
       </div>
