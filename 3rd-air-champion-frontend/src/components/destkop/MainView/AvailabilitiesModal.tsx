@@ -383,7 +383,11 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
     Promise.all([
       fetchAssignments(hostId, rangeStart, rangeEnd, token).catch(() => []),
       fetchMiscExpenses(hostId, token).catch(() => []),
-    ]).then(([assigns, misc]) => {
+      // Charges belong in the trend for the same reason they belong in Net:
+      // leave them out here and the August bar disagrees with the August card
+      // about the same month. Start-night fees taught this lesson once already.
+      fetchCharges(hostId, token).catch(() => []),
+    ]).then(([assigns, misc, chargeList]) => {
       // Six months of history is a far steadier basis for "what does a cleaning
       // cost" than the handful recorded so far this month.
       setHistoryAssignments(assigns);
@@ -399,6 +403,9 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
           const miscTotal = misc
             .filter((e) => isExpenseInMonth(e, mk))
             .reduce((s, e) => s + e.amount, 0);
+          const chargeTotal = chargeList
+            .filter((c) => isChargeInMonth(c, mk))
+            .reduce((s, c) => s + c.amount, 0);
           return {
             month: mk,
             label: format(mDate, "MMM", { timeZone }),
@@ -406,7 +413,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
             gross,
             cleaning,
             misc: miscTotal,
-            net: gross - cleaning - miscTotal,
+            net: gross + chargeTotal - cleaning - miscTotal,
           };
         }),
       );

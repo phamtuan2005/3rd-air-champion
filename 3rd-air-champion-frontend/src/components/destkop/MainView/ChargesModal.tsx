@@ -1,20 +1,25 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { addMonths, format, subMonths } from "date-fns";
-import { FaChevronLeft, FaChevronRight, FaTrash } from "react-icons/fa";
+import { FaChevronLeft, FaChevronRight, FaPlus, FaTrash } from "react-icons/fa";
 import {
   CHARGE_LABELS,
   ChargeType,
+  createCharge,
   deleteCharge,
   fetchCharges,
   isChargeInMonth,
   updateCharge,
 } from "../../../util/chargeOperations";
+import { guestType } from "../../../util/types/guestType";
 
 interface ChargesModalProps {
   hostId: string;
   token: string;
   currentMonth?: Date;
+  // Needed to charge somebody whose stay is already gone — a fee remembered
+  // after the cancellation, or damage found during a clean.
+  guests?: guestType[];
   onClose: () => void;
 }
 
@@ -35,7 +40,7 @@ const inputCls =
 // Charges are CREATED at the moment of unbooking (the only moment the room, the
 // dates and the guest are all still known); this is where they are corrected,
 // marked paid, or removed afterwards. Without it a mistyped fee was permanent.
-const ChargesModal = ({ hostId, token, currentMonth, onClose }: ChargesModalProps) => {
+const ChargesModal = ({ hostId, token, currentMonth, guests = [], onClose }: ChargesModalProps) => {
   const [month, setMonth] = useState<Date>(currentMonth ?? new Date());
   const [charges, setCharges] = useState<ChargeType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,6 +55,18 @@ const ChargesModal = ({ hostId, token, currentMonth, onClose }: ChargesModalProp
   });
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  // The "add by hand" composer. Every other card here is derived from a
+  // cancellation; this is the way in for a fee whose stay is already gone —
+  // Eddie's, for one, cancelled before charges existed.
+  const [adding, setAdding] = useState(false);
+  const [newDraft, setNewDraft] = useState({
+    guest: "",
+    amount: "",
+    label: "Cancellation" as string,
+    note: "",
+    paid: false,
+  });
+  const [savingNew, setSavingNew] = useState(false);
 
   const monthKey = format(month, "yyyy-MM");
 
@@ -106,6 +123,43 @@ const ChargesModal = ({ hostId, token, currentMonth, onClose }: ChargesModalProp
     }
     if (await patch(c.id, { id: c.id, amount, label: draft.label, note: draft.note }))
       setEditingId(null);
+  };
+
+  const saveNew = async () => {
+    const amount = Number(newDraft.amount);
+    if (!newDraft.guest) {
+      setError("Choose who owes it — a charge nobody is named on cannot be chased.");
+      return;
+    }
+    if (!(amount > 0)) {
+      setError("A charge has to be more than $0.");
+      return;
+    }
+    setSavingNew(true);
+    try {
+      const created = await createCharge(
+        {
+          host: hostId,
+          guest: newDraft.guest,
+          label: newDraft.label,
+          amount,
+          paid: newDraft.paid,
+          // Dated into the month on screen, so a fee remembered late still lands
+          // in the month it belongs to rather than today's.
+          date: format(month, "yyyy-MM-dd"),
+          note: newDraft.note,
+        },
+        token,
+      );
+      setCharges((prev) => [created, ...prev]);
+      setAdding(false);
+      setNewDraft({ guest: "", amount: "", label: "Cancellation", note: "", paid: false });
+      setError(null);
+    } catch {
+      setError("That charge could not be saved.");
+    } finally {
+      setSavingNew(false);
+    }
   };
 
   const remove = async (id: string) => {
@@ -174,6 +228,104 @@ const ChargesModal = ({ hostId, token, currentMonth, onClose }: ChargesModalProp
         )}
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+          {/* Add by hand — for a fee whose stay is already gone. Sits above the
+              list because an empty month is exactly when it is wanted. */}
+          {adding ? (
+            <div className="mb-3 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5">
+              <p className="text-sm font-bold text-amber-800">New charge</p>
+              <div className="mt-2 flex flex-col gap-2">
+                <select
+                  value={newDraft.guest}
+                  onChange={(e) => setNewDraft((d) => ({ ...d, guest: e.target.value }))}
+                  className={`${inputCls} w-full font-semibold`}
+                >
+                  <option value="">Who owes it?</option>
+                  {[...guests]
+                    // AirBnB is one shared placeholder record, not a person you
+                    // can charge — AirBnB settles its own fees.
+                    .filter((g) => g.name !== "AirBnB")
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
+                      </option>
+                    ))}
+                </select>
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-400">
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      inputMode="decimal"
+                      value={newDraft.amount}
+                      onChange={(e) => setNewDraft((d) => ({ ...d, amount: e.target.value }))}
+                      placeholder="0"
+                      className={`${inputCls} w-28 pl-5 font-semibold`}
+                    />
+                  </div>
+                  <select
+                    value={newDraft.label}
+                    onChange={(e) => setNewDraft((d) => ({ ...d, label: e.target.value }))}
+                    className={`${inputCls} font-semibold`}
+                  >
+                    {CHARGE_LABELS.map((l) => (
+                      <option key={l} value={l}>
+                        {l}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <input
+                  type="text"
+                  value={newDraft.note}
+                  onChange={(e) => setNewDraft((d) => ({ ...d, note: e.target.value }))}
+                  placeholder="What it was for"
+                  className={`${inputCls} w-full`}
+                />
+                {/* A fee entered by hand is usually being recorded BECAUSE the
+                    money arrived — the stay it belonged to is long gone. */}
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={newDraft.paid}
+                    onChange={(e) => setNewDraft((d) => ({ ...d, paid: e.target.checked }))}
+                    className="h-4 w-4 rounded border-amber-300 accent-emerald-600"
+                  />
+                  <span className="text-xs font-semibold text-amber-800">Already paid</span>
+                </label>
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAdding(false)}
+                    className="rounded-lg px-3 py-1.5 text-sm font-semibold text-gray-500 hover:bg-gray-100"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={savingNew}
+                    onClick={saveNew}
+                    className="rounded-lg bg-gray-900 px-3 py-1.5 text-sm font-bold text-white disabled:bg-gray-300"
+                  >
+                    {savingNew ? "Saving…" : `Add to ${format(month, "MMMM")}`}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setAdding(true)}
+              className="mb-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-gray-300 py-2 text-sm font-semibold text-gray-500 hover:border-gray-400 hover:bg-gray-50"
+            >
+              <FaPlus size={11} /> Add a charge
+            </button>
+          )}
+
           {loading ? (
             <p className="py-8 text-center text-sm text-gray-400">Loading…</p>
           ) : monthCharges.length === 0 ? (
@@ -182,8 +334,7 @@ const ChargesModal = ({ hostId, token, currentMonth, onClose }: ChargesModalProp
                 No charges in {format(month, "MMMM")}.
               </p>
               <p className="mt-1 text-xs text-gray-400">
-                A fee is added when you unbook a stay — there's a "Fee still owed" box on that
-                screen.
+                Fees are added when you unbook a stay, or with "Add a charge" above.
               </p>
             </div>
           ) : (

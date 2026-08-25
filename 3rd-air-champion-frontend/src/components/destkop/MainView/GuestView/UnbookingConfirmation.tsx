@@ -55,6 +55,10 @@ const UnbookingConfirmation = ({
   // all still known, and written to its own charge record.
   const [feeAmount, setFeeAmount] = useState("");
   const [feeLabel, setFeeLabel] = useState<string>("Cancellation");
+  // A guest who settles up while cancelling is common enough that recording the
+  // fee and then having to go and mark it paid is a chore the app can spare —
+  // and in between it sits in "still to collect", which is simply untrue.
+  const [feePaid, setFeePaid] = useState(false);
   const [saving, setSaving] = useState(false);
   const [feeError, setFeeError] = useState<string | null>(null);
   const many = bookings.length > 1;
@@ -110,6 +114,7 @@ const UnbookingConfirmation = ({
             guest: first.guest.id,
             label: feeLabel,
             amount,
+            paid: feePaid,
             // Charged today: it belongs to the month the cancellation happened
             // in, not the month the stay would have been.
             date: format(new Date(), "yyyy-MM-dd"),
@@ -247,9 +252,18 @@ const UnbookingConfirmation = ({
                 ))}
               </select>
             </div>
+            <label className="mt-2 flex cursor-pointer items-center gap-2">
+              <input
+                type="checkbox"
+                checked={feePaid}
+                onChange={(e) => setFeePaid(e.target.checked)}
+                className="h-4 w-4 rounded border-amber-300 accent-emerald-600"
+              />
+              <span className="text-xs font-semibold text-amber-800">Already paid</span>
+            </label>
             <p className="mt-1.5 text-xs text-amber-700">
               Kept against {bookings[0]?.alias || guest?.name} after the stay is removed, and
-              counted in this month's money.
+              counted in this month's money{feePaid ? "" : " as still to collect"}.
             </p>
             {feeError && <p className="mt-1 text-xs font-semibold text-red-600">{feeError}</p>}
           </div>

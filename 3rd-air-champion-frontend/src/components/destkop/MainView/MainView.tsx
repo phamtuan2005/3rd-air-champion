@@ -1584,6 +1584,7 @@ const MainView = ({
           hostId={hostId}
           token={token as string}
           currentMonth={currentMonth}
+          guests={guests}
           onClose={() => setIsChargesOpen(false)}
         />
       )}
