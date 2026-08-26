@@ -6,6 +6,7 @@ import { z } from "zod";
 import { roomType } from "../../../../util/types/roomType";
 import { updateSync } from "../../../../util/hostOperations";
 import RoomPhotosEditor from "./RoomPhotosEditor";
+import CoverImageMaker from "./CoverImageMaker";
 
 const COLOR_OPTIONS = [
   "bg-red-500",
@@ -262,6 +263,16 @@ const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave, onAdd, onDelete,
                     setRoomPhotos(updated);
                     if (selectedRoom) onSave({ ...selectedRoom, photos: updated, color: selectedColor, checkInInstructions: roomCheckInInstructions }, (msg) => setErrorMessage(msg));
                   }}
+                />
+              </div>
+
+              {/* Straight after the photos, because it USES the first of them —
+                  reordering above changes the cover here. */}
+              <div className="border-t border-gray-200 pt-3">
+                <CoverImageMaker
+                  roomId={selectedRoom?.id ?? "misc"}
+                  roomName={selectedRoom?.name ?? "room"}
+                  photos={roomPhotos}
                 />
               </div>
 
