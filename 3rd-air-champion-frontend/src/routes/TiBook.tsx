@@ -9,6 +9,7 @@ import { hostType } from "../util/types/hostType";
 import { roomType } from "../util/types/roomType";
 import GuestCalendar from "../components/tibook/Calendar/GuestCalendar";
 import HostProfileBanner from "../components/tibook/HostProfileBanner";
+import HouseFactsStrip from "../components/tibook/HouseFactsStrip";
 import { dayType } from "../util/types/dayType";
 import { fetchDays } from "../util/dayOperations";
 import { fetchRooms } from "../util/roomOperations";
@@ -516,6 +517,16 @@ const TiBookInner = () => {
               defaultExpanded={!isKnownVisitor}
             />
           )}
+          {/* Under the host, above the rooms: the two facts that hold for
+              the whole house, put where a guest meets them before they get
+              as far as choosing a room. Who looks after the place was in
+              TiBook nowhere at all; the bathroom the AirBnB titles sell the
+              house on was readable only per-room, one tap into a gallery a
+              guest had to open a photo to reach.
+              Outside the banner's collapse on purpose: that folds shut for a
+              guest we already greet by name, and a returning guest has the
+              most claim on still seeing them. */}
+          {currentHost && <HouseFactsStrip hostName={currentHost.name} />}
           {rooms.length > 0 && (
             <RoomCards
               rooms={rooms}
