@@ -26,6 +26,29 @@ const MONTHS: Record<string, number> = {
   dec: 11, december: 11,
 };
 
+// Sunday-first, matching Date.getDay(). Short forms and plurals both appear in
+// the wild ("mon", "mondays"), and the plural is stripped before lookup.
+const WEEKDAYS: Record<string, number> = {
+  sun: 0, sunday: 0,
+  mon: 1, monday: 1,
+  tue: 2, tues: 2, tuesday: 2,
+  wed: 3, weds: 3, wednesday: 3,
+  thu: 4, thur: 4, thurs: 4, thursday: 4,
+  fri: 5, friday: 5,
+  sat: 6, saturday: 6,
+};
+
+// Longest-first, so "tuesday" is not matched as "tue" with "sday" left over.
+const WEEKDAY_ALTS = Object.keys(WEEKDAYS)
+  .sort((a, b) => b.length - a.length)
+  .join("|");
+const WEEKDAY_WORD = new RegExp(`(?:${WEEKDAY_ALTS})s?`, "g");
+// A leading run of weekday words and separators only, so "Oct mondays and we
+// have a dog" stops at "we" rather than swallowing the rest of the sentence.
+const WEEKDAY_RUN = new RegExp(
+  `^[\\s,.;&]*(?:and\\s+)?(?:(?:${WEEKDAY_ALTS})s?[\\s,.;&]*(?:and\\s+)?)+`,
+);
+
 export interface ParsedDates {
   // Unique yyyy-MM-dd, ascending. Bookable: today or later.
   dates: string[];
@@ -143,6 +166,31 @@ export const parseDateText = (text: string, today: Date = new Date()): ParsedDat
     // Everything from after the month name up to the next month name.
     const stop = monthHits[i + 1]?.index ?? lower.length;
     const tail = lower.slice(hit.end, stop);
+
+    // ── "Oct Monday & Tuesday" — a weekday named after a month means EVERY
+    //    such weekday in it, not the first one.
+    //
+    // A guest working fixed shift days says it this way: the same two nights,
+    // every week, all month. Reading it as a single Monday would book one
+    // fourth of what they asked for, and the shortfall would not show up until
+    // they arrived to a room let to somebody else.
+    //
+    // The month decides the year on its own here: there are no day numbers to
+    // anchor on, so a month already behind us is the one coming round again.
+    const weekdayRun = tail.match(WEEKDAY_RUN);
+    if (weekdayRun) {
+      used.push([hit.end, hit.end + weekdayRun[0].length]);
+      const wanted = new Set(
+        (weekdayRun[0].match(WEEKDAY_WORD) ?? []).map((w) => WEEKDAYS[w.replace(/s$/, "")]),
+      );
+      if (wanted.size > 0) {
+        const yr = hit.month < m0 ? y0 + 1 : y0;
+        for (let d = 1; d <= daysInMonth(yr, hit.month); d++) {
+          if (wanted.has(new Date(yr, hit.month, d).getDay())) addDay(hit.month, d, yr);
+        }
+      }
+    }
+
     // Numbers, ranges and separators only — the first thing that is none of
     // those ends the run, so "Aug 23 and we have a dog 4 nights" does not
     // silently swallow the 4.

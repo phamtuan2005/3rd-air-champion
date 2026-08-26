@@ -176,3 +176,48 @@ describe("tidiness", () => {
     expect(on("Aug 25-23").dates).toEqual(["2026-08-23", "2026-08-24", "2026-08-25"]);
   });
 });
+
+// A guest on fixed shift days says it this way: the same nights, every week,
+// all month. Reading it as a single Monday would book a quarter of what they
+// asked for, and nobody would find out until somebody arrived to a let room.
+describe("a weekday named after a month", () => {
+  it('reads "Oct Monday & Tuesday" as every Mon and Tue in October', () => {
+    expect(on("Oct Monday & Tuesday").dates).toEqual([
+      "2026-10-05", "2026-10-06",
+      "2026-10-12", "2026-10-13",
+      "2026-10-19", "2026-10-20",
+      "2026-10-26", "2026-10-27",
+    ]);
+  });
+
+  it("takes short forms and plurals", () => {
+    expect(on("Nov mondays").dates).toEqual([
+      "2026-11-02", "2026-11-09", "2026-11-16", "2026-11-23", "2026-11-30",
+    ]);
+    expect(on("Sept weds").dates).toEqual([
+      "2026-09-02", "2026-09-09", "2026-09-16", "2026-09-23", "2026-09-30",
+    ]);
+  });
+
+  it("does not read 'tuesday' as 'tue' with letters left over", () => {
+    expect(on("Oct tuesday").leftover).toBe("");
+  });
+
+  it("stops at the first word that is not a weekday", () => {
+    const { dates, leftover } = on("Oct mon and we have a dog");
+    expect(dates.length).toBe(4);
+    expect(leftover).toBe("we have a dog");
+  });
+
+  it("a month already gone is the one coming round again", () => {
+    // TODAY is Aug 2026, so "Jan fridays" means January 2027.
+    expect(on("Jan fridays").dates[0]).toBe("2027-01-01");
+  });
+
+  it("leaves plain day numbers exactly as they were", () => {
+    expect(on("Aug 23, 24, 25, 27, and Sept 2,3,4").dates).toEqual([
+      "2026-08-23", "2026-08-24", "2026-08-25", "2026-08-27",
+      "2026-09-02", "2026-09-03", "2026-09-04",
+    ]);
+  });
+});
