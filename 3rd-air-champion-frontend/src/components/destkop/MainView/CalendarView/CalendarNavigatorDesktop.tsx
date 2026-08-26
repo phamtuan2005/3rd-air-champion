@@ -145,7 +145,7 @@ const CalendarNavigator = ({
           <div className="flex h-full w-full items-center text-nowrap gap-2">
             {/* Room filter + view picker — the two controls that decide what the
                 calendar shows, side by side rather than at opposite ends. */}
-            <div className="basis-1/4 flex items-center gap-1.5">
+            <div className="flex shrink-0 items-center gap-1.5">
               {/* Room and guest in ONE list. They answer the same question —
                   narrow this calendar down — and two triggers side by side put
                   two dropdowns into a header already carrying the month, the
@@ -204,7 +204,7 @@ const CalendarNavigator = ({
             {/* The name is the control: switching guest or going back to
                 everyone is a tap on the thing already saying who is filtered,
                 rather than a trip back to a booking card to press Filter off. */}
-            <div className="w-56">
+            <div className="min-w-0">
               <CalendarFilterPicker
                 rooms={rooms}
                 roomValue={selectedRoomName}

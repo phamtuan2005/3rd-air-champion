@@ -93,18 +93,24 @@ const CalendarFilterPicker = ({
 
   // The trigger says what is ON. A guest narrows the calendar further than a
   // room does, so it leads when both are set.
+  // Sized for a SCREENSHOT, not just for this screen. Anh-Tuan photographs the
+  // filtered calendar and sends it to the guest, who looks first for their own
+  // name — at 12px it arrived as small grey text above a wall of bars. A picked
+  // guest is the largest thing in this control.
   const triggerContent = selectedGuest ? (
-    <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
-      <FaUser size={10} className="shrink-0" />
+    <span className="flex items-center gap-2 text-lg font-bold text-emerald-700">
+      <FaUser size={14} className="shrink-0" />
       <span className="truncate">{selectedGuest.alias || selectedGuest.name}</span>
       {selectedRoom && <RoomBadge room={selectedRoom} rooms={activeRooms} />}
     </span>
   ) : selectedRoom ? (
-    <RoomBadge room={selectedRoom} rooms={activeRooms} />
+    <span className="text-base">
+      <RoomBadge room={selectedRoom} rooms={activeRooms} />
+    </span>
   ) : (
     // "Filter" on the trigger names the control; the rows inside name what
     // choosing them does.
-    <span className="italic text-gray-500 text-xs">Filter</span>
+    <span className="italic text-gray-500 text-sm">Filter</span>
   );
 
   const modal = open
@@ -256,12 +262,16 @@ const CalendarFilterPicker = ({
 
   return (
     <>
+      {/* Hugs its content rather than filling its container — the old fixed
+          width left "Filter" floating in a box four times its length. Capped so
+          a long name cannot push the month off the header instead; past the cap
+          the name truncates. */}
       <button
         type="button"
-        className="flex w-full items-center justify-between gap-1 rounded border border-gray-300 px-2 py-1 text-left text-sm"
+        className="inline-flex max-w-[15rem] items-center gap-1.5 rounded border border-gray-300 px-2.5 py-1 text-left"
         onClick={() => setOpen(true)}
       >
-        <span className="min-w-0 flex-1">{triggerContent}</span>
+        <span className="min-w-0 truncate">{triggerContent}</span>
         <span className="flex-shrink-0 text-xs text-gray-400">▾</span>
       </button>
 
