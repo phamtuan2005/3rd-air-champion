@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { guestType } from "../../../util/types/guestType";
 import { roomType } from "../../../util/types/roomType";
 import RoomBadge from "../../shared/RoomBadge";
@@ -235,27 +235,62 @@ const BookingModal = ({
     [typedFree, freeRoomsOn],
   );
 
-  // Replace the rows outright rather than appending. What was typed IS the
-  // booking; adding to whatever happened to be on the form would leave the host
-  // deleting the leftovers of a guess they never made.
-  const applyTypedDates = () => {
-    if (typedRanges.length === 0) return;
-    const rows = typedRanges.map((r) => {
-      const common = [...freeRoomsOn(r.start)].filter((id) =>
-        Array.from({ length: r.nights }, (_, i) =>
-          format(addDays(new Date(r.start + "T00:00:00"), i), "yyyy-MM-dd"),
-        ).every((k) => freeRoomsOn(k).has(id)),
-      );
-      return {
-        // One free room for the whole run picks itself; more than one is the
-        // host's call and stays on "Any room".
-        rooms: [common.length === 1 ? common[0] : ANY_ROOM_SENTINEL],
-        date: new Date(r.start + "T00:00:00"),
-        duration: r.nights,
-      };
-    });
-    replace(rows);
-    setDateText("");
+  // Which of the stays read out of the text are actually wanted. The chips ARE
+  // the choice: pressing one picks that stay, pressing it again drops it. There
+  // is no separate "fill" step, because a preview you then have to confirm is
+  // the same decision asked twice.
+  const [pickedRanges, setPickedRanges] = useState<Set<string>>(new Set());
+  const rangeKey = (r: { start: string; nights: number }) => `${r.start}|${r.nights}`;
+  // Editing the text invalidates the picks — the stays it describes have moved.
+  useEffect(() => {
+    setPickedRanges(new Set());
+  }, [dateText]);
+
+  const rowForRange = (r: { start: string; nights: number }) => {
+    const nights = Array.from({ length: r.nights }, (_, i) =>
+      format(addDays(new Date(r.start + "T00:00:00"), i), "yyyy-MM-dd"),
+    );
+    const common = [...freeRoomsOn(r.start)].filter((id) =>
+      nights.every((k) => freeRoomsOn(k).has(id)),
+    );
+    // A room the host already chose for this exact stay is kept — rebuilding the
+    // rows must not quietly undo a decision they made on one of them.
+    const existing = (watchedBookings ?? []).find(
+      (wb) =>
+        wb?.date instanceof Date &&
+        format(wb.date, "yyyy-MM-dd") === r.start &&
+        wb?.duration === r.nights,
+    );
+    return {
+      // One free room for the whole run picks itself; more than one is the
+      // host's call and stays on "Any room".
+      rooms: existing?.rooms?.length
+        ? existing.rooms
+        : [common.length === 1 ? common[0] : ANY_ROOM_SENTINEL],
+      date: new Date(r.start + "T00:00:00"),
+      duration: r.nights,
+    };
+  };
+
+  const toggleRange = (r: { start: string; nights: number }) => {
+    const key = rangeKey(r);
+    const next = new Set(pickedRanges);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    setPickedRanges(next);
+
+    const rows = typedRanges.filter((x) => next.has(rangeKey(x))).map(rowForRange);
+    // Nothing picked leaves the form with one empty row rather than none — the
+    // booking form has to have something to submit, and an empty list reads as
+    // a broken screen.
+    replace(
+      rows.length > 0
+        ? rows
+        : [{ rooms: [ANY_ROOM_SENTINEL], date: selectedDate, duration: 1 }],
+    );
+    // Rows are addressed by index, and replacing them renumbers every one. New
+    // rows default to held, the same as the + Add Row button.
+    setReservedRows(new Set(Array.from({ length: Math.max(rows.length, 1) }, (_, i) => i)));
   };
 
   const selectedGuest = guests.find((g) => g.id === watchedGuestId) ?? null;
@@ -663,21 +698,38 @@ const BookingModal = ({
               />
               {dateText.trim() !== "" && (
                 <div className="mt-1.5 flex flex-col gap-1 text-xs">
+                  {/* Each stay is its own button, and pressing it IS picking it.
+                      A row of chips beside "4 stays" said what was found and
+                      then made the host press a separate Fill — the same
+                      decision asked twice, and all-or-nothing besides. Pressed
+                      chips are the rows on the form. */}
                   {typedRanges.length > 0 && (
-                    <p className="text-blue-900">
-                      <span className="font-bold">
-                        {typedRanges.length} stay{typedRanges.length === 1 ? "" : "s"}
-                      </span>{" "}
-                      ·{" "}
-                      {typedRanges
-                        .map(
-                          (r) =>
-                            `${format(new Date(r.start + "T00:00:00"), "MMM d")}${
-                              r.nights > 1 ? ` +${r.nights - 1}` : ""
-                            }`,
-                        )
-                        .join(", ")}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="font-bold text-blue-900">
+                        {typedRanges.length} stay{typedRanges.length === 1 ? "" : "s"} ·
+                      </span>
+                      {typedRanges.map((r) => {
+                        const on = pickedRanges.has(rangeKey(r));
+                        return (
+                          <button
+                            key={rangeKey(r)}
+                            type="button"
+                            aria-pressed={on}
+                            onClick={() => toggleRange(r)}
+                            title={`${format(new Date(r.start + "T00:00:00"), "EEE MMM d")} · ${r.nights} night${r.nights === 1 ? "" : "s"}`}
+                            className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                              on
+                                ? "border-blue-600 bg-blue-600 text-white"
+                                : "border-blue-300 bg-white text-blue-700 hover:bg-blue-100"
+                            }`}
+                          >
+                            {on ? "✓ " : ""}
+                            {format(new Date(r.start + "T00:00:00"), "MMM d")}
+                            {r.nights > 1 ? ` +${r.nights - 1}` : ""}
+                          </button>
+                        );
+                      })}
+                    </div>
                   )}
                   {/* Said rather than silently dropped. A night nobody can give
                       is the one thing the host most needs back from this box. */}
@@ -701,13 +753,11 @@ const BookingModal = ({
                     <p className="text-gray-500">No dates read from that yet.</p>
                   )}
                   {typedRanges.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={applyTypedDates}
-                      className="mt-0.5 self-start rounded-md bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700"
-                    >
-                      Fill {typedRanges.length} row{typedRanges.length === 1 ? "" : "s"}
-                    </button>
+                    <p className="text-gray-500">
+                      {pickedRanges.size === 0
+                        ? "Tap the stays you want."
+                        : `${pickedRanges.size} of ${typedRanges.length} on the form below.`}
+                    </p>
                   )}
                 </div>
               )}
