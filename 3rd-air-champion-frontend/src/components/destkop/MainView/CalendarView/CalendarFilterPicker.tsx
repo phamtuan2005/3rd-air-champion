@@ -116,11 +116,22 @@ const CalendarFilterPicker = ({
   const modal = open
     ? createPortal(
         <div
-          className="modal-type fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-[300]"
+          // Anchored to the TOP, not centred.
+          //
+          // The panel's height changes as the list filters, and centred that
+          // moved the TOP edge down to keep the middle still — carrying the
+          // search box and the first rows down behind a phone's keyboard, which
+          // is open the moment this appears because the box autofocuses.
+          // Pinned at the top, the height only ever changes at the bottom.
+          //
+          // dvh, never vh: on a phone vh is the tallest the viewport can be, so
+          // the panel would be sized for a window the browser toolbar is
+          // covering ([[project-mobile-dvh-calendar]]).
+          className="modal-type fixed inset-0 z-[300] flex items-start justify-center bg-black bg-opacity-40 pt-[8dvh]"
           onClick={close}
         >
           <div
-            className="bg-white rounded-lg shadow-xl w-80 max-h-[80vh] flex flex-col"
+            className="flex max-h-[78dvh] w-80 flex-col rounded-lg bg-white shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
