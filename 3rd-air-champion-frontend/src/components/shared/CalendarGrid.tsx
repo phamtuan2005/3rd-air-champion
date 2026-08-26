@@ -1379,7 +1379,17 @@ const CalendarGrid = ({
   const grid = (
     <div
       ref={scrollContainerRef}
-      className={`flex-1 min-h-0 ${horizontalPaging ? "flex overflow-x-scroll overflow-y-hidden snap-x overscroll-contain touch-pan-x" : "overflow-y-scroll snap-y overscroll-y-contain"} snap-mandatory`}
+      // touch-action is declared in BOTH modes, and each names only the axis
+      // scroll-snap owns. That hands the FREE axis to onTouchEnd above, which is
+      // what pages the calendar cross-axis.
+      //
+      // Vertical mode used to declare none. The browser was therefore free to
+      // read a sideways drag as its own back/forward edge swipe and never
+      // delivered it here — so the filtered calendar, which is the view that
+      // pages vertically, answered scrolling but not swiping, while the
+      // unfiltered one answered both. pan-y closes that gap; overscroll-contain
+      // stops the sideways drag chaining to the page behind it either.
+      className={`flex-1 min-h-0 ${horizontalPaging ? "flex overflow-x-scroll overflow-y-hidden snap-x overscroll-contain touch-pan-x" : "overflow-y-scroll snap-y overscroll-contain touch-pan-y"} snap-mandatory`}
       onScroll={handleScroll}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
