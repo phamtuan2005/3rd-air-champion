@@ -503,6 +503,7 @@ const MainView = ({
     getCurrentGuestBill,
     handleBookingConfirmation,
     handleHoldConfirmation,
+    handleHoldConfirmationForStays,
     buildConfirmationForBookings,
     handleSendCalEvents,
     calEventsHint,
@@ -988,6 +989,15 @@ const MainView = ({
   // Unbook the whole hold selection — route it through the same confirmation the
   // per-card Unbook uses, which expands each stay to its night ids on Confirm.
   const onUnbookHolds = () => setUnbookBookings([...allHoldStays.values()]);
+  // Text the guest about exactly the held stays picked on the calendar. Only the
+  // reserved ones: a firm stay in the selection is already paid for and has
+  // nothing to be held about.
+  const onSendHoldConfirmation = () =>
+    handleHoldConfirmationForStays(
+      [...reservedHoldStays.keys()]
+        .map((key) => allHoldStays.get(key))
+        .filter((b): b is bookingType => !!b),
+    );
 
   // The confirm bar is draggable (pointer events) so it can be pulled clear of
   // whatever panel happens to occupy the bottom of the screen.
@@ -1217,6 +1227,16 @@ const MainView = ({
                       className="bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold px-3.5 py-1.5 rounded-full disabled:opacity-50 whitespace-nowrap"
                     >
                       {isConfirmingHolds ? "Working…" : `Confirm ${reservedHoldStays.size} as booked`}
+                    </button>
+                  )}
+                  {reservedHoldStays.size > 0 && (
+                    <button
+                      type="button"
+                      onClick={holdBarClickGuard(onSendHoldConfirmation)}
+                      disabled={isConfirmingHolds}
+                      className="border border-blue-400 text-blue-600 hover:bg-blue-50 text-sm font-semibold px-3.5 py-1.5 rounded-full disabled:opacity-50 whitespace-nowrap"
+                    >
+                      💬 Confirm hold ({reservedHoldStays.size})
                     </button>
                   )}
                   {firmHoldStays.size > 0 && (

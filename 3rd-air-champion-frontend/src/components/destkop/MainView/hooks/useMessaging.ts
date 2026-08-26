@@ -264,32 +264,32 @@ export const useMessaging = ({
   // assembled from dates tapped on the calendar; a hold already knows its own
   // rooms and nights, so requiring a filter first would be a step with nothing
   // behind it.
-  const buildHoldConfirmation = (phone: string): { text: string; count: number } => {
+  // Composes the message from an explicit set of held stays. Taken as a
+  // parameter rather than gathered inside, so the SAME wording serves both "all
+  // this guest's holds" and "the ones picked on the calendar" — two entry points
+  // that must not drift into two different letters.
+  const buildHoldText = (stays: bookingType[]): { text: string; count: number } => {
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const sortedEntries = Array.from(monthMap.entries()).sort(([a], [b]) =>
-      compareAsc(toZonedTime(a, timeZone), toZonedTime(b, timeZone)),
-    );
-
     let guestName = "";
     let promised = "";
     const held: ConfirmationBooking[] = [];
-    for (const [dateStr, dayEntry] of sortedEntries) {
-      for (const b of dayEntry.bookings) {
-        // START night only — a stay is written onto every night it covers, and
-        // listing each night would quote the guest their room several times.
-        if (b.guest?.phone !== phone || !b.reserved || !b.room) continue;
-        if (b.startDate.split("T")[0] !== dateStr) continue;
-        guestName = b.guest.name;
-        if (b.expectedPayDate && (!promised || b.expectedPayDate < promised))
-          promised = b.expectedPayDate;
-        held.push({
-          startDate: b.startDate,
-          duration: b.duration,
-          roomName: b.room.name,
-          pricePerNight: b.price ?? 0,
-          fees: b.fees,
-        });
-      }
+    for (const b of [...stays].sort((x, y) =>
+      compareAsc(
+        toZonedTime(x.startDate.split("T")[0], timeZone),
+        toZonedTime(y.startDate.split("T")[0], timeZone),
+      ),
+    )) {
+      if (!b.room) continue;
+      guestName = b.guest.name;
+      if (b.expectedPayDate && (!promised || b.expectedPayDate < promised))
+        promised = b.expectedPayDate;
+      held.push({
+        startDate: b.startDate,
+        duration: b.duration,
+        roomName: b.room.name,
+        pricePerNight: b.price ?? 0,
+        fees: b.fees,
+      });
     }
     if (held.length === 0) return { text: "", count: 0 };
 
@@ -316,6 +316,37 @@ Just let me know when you'd like to send the payment.`;
         promiseLine,
       count: held.length,
     };
+  };
+
+  // Every held stay this guest has, for the card action on the main calendar.
+  const buildHoldConfirmation = (phone: string) => {
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const sortedEntries = Array.from(monthMap.entries()).sort(([a], [b]) =>
+      compareAsc(toZonedTime(a, timeZone), toZonedTime(b, timeZone)),
+    );
+    const stays: bookingType[] = [];
+    for (const [dateStr, dayEntry] of sortedEntries) {
+      for (const b of dayEntry.bookings) {
+        // START night only — a stay is written onto every night it covers, and
+        // listing each night would quote the guest their room several times.
+        if (b.guest?.phone !== phone || !b.reserved || !b.room) continue;
+        if (b.startDate.split("T")[0] !== dateStr) continue;
+        stays.push(b);
+      }
+    }
+    return buildHoldText(stays);
+  };
+
+  // Just the stays picked on the calendar in guest-filter mode. The host has
+  // already said which rooms this message is about; sending all of them instead
+  // would quote the guest rooms they did not choose to raise.
+  const handleHoldConfirmationForStays = (stays: bookingType[]) => {
+    const { text, count } = buildHoldText(stays);
+    if (count === 0) {
+      showCalEventsHint("Pick at least one held (R) stay first.");
+      return;
+    }
+    window.location.href = `sms:${stays[0].guest.phone}?&body=${encodeURIComponent(text)}`;
   };
 
   const handleHoldConfirmation = (phone: string) => {
@@ -412,6 +443,7 @@ Just let me know when you'd like to send the payment.`;
     getCurrentGuestBill,
     handleBookingConfirmation,
     handleHoldConfirmation,
+    handleHoldConfirmationForStays,
     buildConfirmationForBookings,
     handleSendCalEvents,
     calEventsHint,
