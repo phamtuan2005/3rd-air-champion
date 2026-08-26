@@ -18,10 +18,14 @@ import { roomType } from "./types/roomType";
 // notice — so keep the wording factual and re-check it when a room is redone.
 //
 // The rooms are NOT variations on one template, and the differences are the
-// ones a guest cares about most: King is the only room with kitchen access,
-// Chill and Cozy share a bathroom rather than having their own, and Cozy has
-// no air conditioning and no TV. Copying one room's list onto another would
-// promise things the house cannot deliver, which a guest finds out at 11pm.
+// ones a guest cares about most: Chill and Cozy share a bathroom rather than
+// having their own, and Cozy has no air conditioning and no TV. Copying one
+// room's list onto another would promise things the house cannot deliver,
+// which a guest finds out at 11pm.
+//
+// The kitchen is the one exception: it is the same on all five. This read
+// "King is the only room with kitchen access" until the house said otherwise
+// — see `houseKitchen` below.
 
 // What the bed actually is, kept apart from how it is written, so each bed can
 // carry its own picture. A guest skimming five rooms on a phone reads the
@@ -90,6 +94,49 @@ const listingId = (airbnbUrl?: string) => {
 // is the authority on its own kitchen — but TiBook links to those listings, so
 // a guest can read both. They want correcting.
 export const houseKitchen = "Shared kitchen, open to every guest in the house";
+
+// The other fact that belongs to the whole house rather than to any one room,
+// and the reason a guest picks a room here over a lockbox in an empty hallway:
+// the host is not a landlord somewhere else. They live in it.
+//
+// Written as a fact, not as a feeling. "Peace of mind" tells a guest how they
+// ought to feel; naming what the host IS and where they LIVE lets the guest
+// draw it themselves, which is how the rest of TiBook talks.
+//
+// Kept to ONE line on a 360px phone (a Galaxy S at default zoom), which is the
+// real constraint here: this sits in a two-line band above the calendar, and a
+// third line comes straight out of the calendar on a short screen.
+//
+// The budget is 45 characters, MEASURED rather than estimated — 45 fits on one
+// line at 360px and 46 wraps. "living here" instead of "living in the house"
+// is what buys the fit; on the house's own booking page "here" is not
+// ambiguous. Re-measure if you lengthen this or if a host name grows: the name
+// is interpolated, so it spends the same budget.
+//
+// Takes the host's first name so the sentence names the person whose face is
+// at the top of the same screen, rather than an abstract "your host".
+export const hostOnSite = (hostFirstName?: string) =>
+  `Stay with ${hostFirstName || "your host"}, an engineer living here`;
+
+// The bathroom fact the AirBnB titles sell the house on, said at house level
+// on the host's instruction.
+//
+// CHECK THIS AGAINST THE ROOMS BEFORE TRUSTING IT. The entries transcribed
+// below give a smart toilet to King, Queen and Cute only; Chill and Cozy share
+// a bathroom listed with a bidet and no smart toilet. So this line and those
+// two entries currently disagree, and a guest can see both — this on the
+// first screen, the room's own bathroom one tap into its gallery.
+//
+// It was briefly "A smart toilet or a bidet in every bathroom", the phrasing
+// true of all five. The house is the authority on its own bathrooms, exactly
+// as it is on its own kitchen — but if the shared bathroom really did get a
+// smart toilet, Chill's and Cozy's `bathroom` lines below are the stale ones
+// and want updating to match.
+//
+// "in all bathrooms" says the scope out loud rather than leaving it implied,
+// which is what makes the disagreement above worth resolving rather than
+// living with. 42 characters, inside the 45 that fit one line at 360px.
+export const houseBathrooms = "Smart toilet with a bidet in all bathrooms";
 
 const housePhotos = [
   // The front of the house, from the street.
