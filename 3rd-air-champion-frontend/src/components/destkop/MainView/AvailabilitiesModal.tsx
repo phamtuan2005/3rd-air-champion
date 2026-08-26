@@ -239,7 +239,10 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
   const [cleaningFee, setCleaningFee] = useState(0);
   const [miscFee, setMiscFee] = useState(0);
   // Guest charges landing in the viewed month (cancellation fees, damage).
-  const [charges, setCharges] = useState<ChargeType[]>([]);
+  // Kept UNFILTERED. The month card wants this month's, but the week strip wants
+  // them by day — and a week straddling a month boundary needs the neighbouring
+  // month's too, which a month-filtered list could never give it.
+  const [allCharges, setAllCharges] = useState<ChargeType[]>([]);
   // This month's assignments, and a longer history used only to price cleanings
   // that have not happened yet.
   const [monthAssignments, setMonthAssignments] = useState<CleaningAssignmentType[]>([]);
@@ -305,8 +308,8 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
     // They are real money in, so they belong in the month's total; without this
     // a fee could be recorded and still never be reported anywhere.
     fetchCharges(hostId, token)
-      .then((items) => setCharges(items.filter((c) => isChargeInMonth(c, monthKey))))
-      .catch(() => setCharges([]));
+      .then(setAllCharges)
+      .catch(() => setAllCharges([]));
   }, [hostId, token, currentMonth, timeZone, cleaners, isOpen]);
 
   // ── Trend tabs: profit & booking metrics over the last 6 months ───────────
@@ -589,6 +592,9 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
   const estimatedCleaningFee = cleaningFee + (cleaningOutlook?.cost ?? 0);
   // Guest charges with no stay behind them. Money IN, so it ADDS — the one line
   // on this card that is a cost-shaped row and yet increases the total.
+  const charges = allCharges.filter((c) =>
+    isChargeInMonth(c, format(startOfMonth(currentMonth), "yyyy-MM", { timeZone })),
+  );
   const chargesTotal = charges.reduce((s, c) => s + c.amount, 0);
   const chargesUnpaid = charges.filter((c) => !c.paid).length;
   // The month this modal is showing — the one the outlook was computed for.
@@ -623,6 +629,12 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
     );
   }, [currentMonth]);
 
+  const chargeByDay = useMemo(() => {
+    const map = new Map<string, number>();
+    allCharges.forEach((c) => map.set(c.date, (map.get(c.date) ?? 0) + c.amount));
+    return map;
+  }, [allCharges]);
+
   const weekDays = useMemo(() => {
     const rows = Array.from({ length: 7 }, (_, i) => {
       const date = addDays(weekStart, i);
@@ -630,7 +642,10 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
       const day = monthMap.get(key);
       // The same per-night formula the Daily Profit tab uses, so a day here and
       // a day there can never disagree.
-      const gross = getDayGross(day, key).total;
+      // Charges are money earned on their date with no stay behind them, so
+      // getDayGross cannot see them — without this the same day reads one way
+      // here and another in the booking list's Profit tab.
+      const gross = getDayGross(day, key).total + (chargeByDay.get(key) ?? 0);
       const roomsSold = day ? new Set(day.bookings.filter((x) => x.room).map((x) => x.room!.id)).size : 0;
       return { date, key, label: format(date, "EEE", { timeZone }), dayNum: format(date, "d", { timeZone }), gross, roomsSold };
     });
@@ -639,7 +654,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
     const best = earning.length ? earning.reduce((x, y) => (y.gross > x.gross ? y : x)) : null;
     const worst = earning.length ? earning.reduce((x, y) => (y.gross < x.gross ? y : x)) : null;
     return { rows, total, best, worst, any: earning.length > 0 };
-  }, [weekStart, monthMap, timeZone]);
+  }, [weekStart, monthMap, timeZone, chargeByDay]);
 
   const todayKey = format(startOfToday(), "yyyy-MM-dd", { timeZone });
 
