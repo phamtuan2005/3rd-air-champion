@@ -293,7 +293,26 @@ export const useMessaging = ({
     }
     if (held.length === 0) return { text: "", count: 0 };
 
-    const body = buildConfirmationForBookings(guestName, held);
+    // Composed directly rather than through buildConfirmationForBookings, which
+    // heads the list "Your additional bookings" — and, more to the point, opens
+    // with its own "Hi <name>," so wrapping it in a greeting of ours said hello
+    // to the guest twice.
+    const months = Array.from(
+      new Set(
+        held.map((b) =>
+          startOfMonth(toZonedTime(b.startDate.split("T")[0], timeZone))
+            .toISOString()
+            .split("T")[0],
+        ),
+      ),
+      (k) => toZonedTime(k, timeZone),
+    );
+    const body = composeConfirmationText(
+      guestName,
+      monthHeader(months, "The rooms I'm holding for you"),
+      held.map((b) => ({ ...b, paidNights: 0 })),
+      0,
+    );
     // Their own promised date, said back to them — a date the guest chose is a
     // firmer thing than "please pay soon". Only the soonest: several holds
     // usually share one promise.
@@ -309,11 +328,7 @@ You mentioned you'd send payment by ${format(
 Just let me know when you'd like to send the payment.`;
     return {
       text:
-        `Hi ${guestName}, these ${held.length === 1 ? "is the room" : "are the rooms"} I'm holding for you:
-
-` +
-        body +
-        promiseLine,
+        body + promiseLine,
       count: held.length,
     };
   };
