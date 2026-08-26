@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { guestType } from "../../../util/types/guestType";
 import { roomType } from "../../../util/types/roomType";
 import RoomBadge from "../../shared/RoomBadge";
@@ -239,12 +239,38 @@ const BookingModal = ({
   // the choice: pressing one picks that stay, pressing it again drops it. There
   // is no separate "fill" step, because a preview you then have to confirm is
   // the same decision asked twice.
-  const [pickedRanges, setPickedRanges] = useState<Set<string>>(new Set());
   const rangeKey = (r: { start: string; nights: number }) => `${r.start}|${r.nights}`;
-  // Editing the text invalidates the picks — the stays it describes have moved.
-  useEffect(() => {
-    setPickedRanges(new Set());
-  }, [dateText]);
+
+  // Which chips are pressed is READ OFF THE FORM, not remembered separately.
+  //
+  // It was its own Set, cleared whenever the text changed — so editing or
+  // clearing the box dropped every pick while the rows it had made stayed on
+  // the form. The chips then disagreed with the form, and the next toggle
+  // rebuilt the rows from the emptied Set and threw the earlier picks away.
+  // A picked stay IS a row; asking the form is the only answer that cannot
+  // drift from it.
+  const rowIndexOfRange = (r: { start: string; nights: number }) =>
+    (watchedBookings ?? []).findIndex(
+      (wb) =>
+        wb?.date instanceof Date &&
+        !isNaN(wb.date.getTime()) &&
+        format(wb.date, "yyyy-MM-dd") === r.start &&
+        wb?.duration === r.nights,
+    );
+  const pickedCount = typedRanges.filter((r) => rowIndexOfRange(r) >= 0).length;
+
+  // The row the form opens with, so the FIRST pick can take its place instead of
+  // landing beside it. Without this the host is left deleting a default they
+  // never chose. Captured once: it is what to compare against, not live state.
+  const openingRowRef = useRef({
+    date: format(prefill?.date ?? selectedDate, "yyyy-MM-dd"),
+    duration: prefill?.duration ?? 1,
+  });
+  const formIsUntouchedDefault = () =>
+    (watchedBookings?.length ?? 0) === 1 &&
+    watchedBookings?.[0]?.date instanceof Date &&
+    format(watchedBookings[0].date as Date, "yyyy-MM-dd") === openingRowRef.current.date &&
+    watchedBookings?.[0]?.duration === openingRowRef.current.duration;
 
   const rowForRange = (r: { start: string; nights: number }) => {
     const nights = Array.from({ length: r.nights }, (_, i) =>
@@ -273,24 +299,28 @@ const BookingModal = ({
   };
 
   const toggleRange = (r: { start: string; nights: number }) => {
-    const key = rangeKey(r);
-    const next = new Set(pickedRanges);
-    if (next.has(key)) next.delete(key);
-    else next.add(key);
-    setPickedRanges(next);
-
-    const rows = typedRanges.filter((x) => next.has(rangeKey(x))).map(rowForRange);
-    // Nothing picked leaves the form with one empty row rather than none — the
-    // booking form has to have something to submit, and an empty list reads as
-    // a broken screen.
-    replace(
-      rows.length > 0
-        ? rows
-        : [{ rooms: [ANY_ROOM_SENTINEL], date: selectedDate, duration: 1 }],
-    );
-    // Rows are addressed by index, and replacing them renumbers every one. New
-    // rows default to held, the same as the + Add Row button.
-    setReservedRows(new Set(Array.from({ length: Math.max(rows.length, 1) }, (_, i) => i)));
+    const at = rowIndexOfRange(r);
+    // Pressed again: drop just that row. Everything else on the form — other
+    // picks, rows added by hand, rooms already chosen — is left alone.
+    if (at >= 0) {
+      if ((watchedBookings?.length ?? 0) <= 1) {
+        // The form must always have a row to submit; emptying it reads as a
+        // broken screen. Reset to the row it opened with instead.
+        replace([{ rooms: [ANY_ROOM_SENTINEL], date: selectedDate, duration: 1 }]);
+        setReservedRows(new Set([0]));
+      } else {
+        remove(at);
+      }
+      return;
+    }
+    // First pick takes the place of the untouched opening row; later ones join it.
+    if (formIsUntouchedDefault()) {
+      replace([rowForRange(r)]);
+      setReservedRows(new Set([0]));
+      return;
+    }
+    append(rowForRange(r));
+    setReservedRows((prev) => new Set(prev).add(watchedBookings?.length ?? 0));
   };
 
   const selectedGuest = guests.find((g) => g.id === watchedGuestId) ?? null;
@@ -709,7 +739,7 @@ const BookingModal = ({
                         {typedRanges.length} stay{typedRanges.length === 1 ? "" : "s"} ·
                       </span>
                       {typedRanges.map((r) => {
-                        const on = pickedRanges.has(rangeKey(r));
+                        const on = rowIndexOfRange(r) >= 0;
                         return (
                           <button
                             key={rangeKey(r)}
@@ -754,9 +784,9 @@ const BookingModal = ({
                   )}
                   {typedRanges.length > 0 && (
                     <p className="text-gray-500">
-                      {pickedRanges.size === 0
+                      {pickedCount === 0
                         ? "Tap the stays you want."
-                        : `${pickedRanges.size} of ${typedRanges.length} on the form below.`}
+                        : `${pickedCount} of ${typedRanges.length} on the form below.`}
                     </p>
                   )}
                 </div>
