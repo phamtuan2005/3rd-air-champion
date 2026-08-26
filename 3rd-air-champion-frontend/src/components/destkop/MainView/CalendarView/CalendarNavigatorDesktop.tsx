@@ -6,8 +6,7 @@ import { dayType } from "../../../../util/types/dayType";
 import { roomType } from "../../../../util/types/roomType";
 import { toZonedTime } from "date-fns-tz/toZonedTime";
 import { AddPaneContext } from "../../../../context";
-import RoomSingleSelect from "./RoomSingleSelect";
-import GuestFilterPicker from "./GuestFilterPicker";
+import CalendarFilterPicker from "./CalendarFilterPicker";
 import { guestType } from "../../../../util/types/guestType";
 
 interface CalendarNavigatorProps {
@@ -147,25 +146,27 @@ const CalendarNavigator = ({
             {/* Room filter + view picker — the two controls that decide what the
                 calendar shows, side by side rather than at opposite ends. */}
             <div className="basis-1/4 flex items-center gap-1.5">
-              <RoomSingleSelect
+              {/* Room and guest in ONE list. They answer the same question —
+                  narrow this calendar down — and two triggers side by side put
+                  two dropdowns into a header already carrying the month, the
+                  lens and the page size.
+                  Clearing a room filter no longer hides the contact sheet: it
+                  is on by default now, so hiding it here would take away
+                  something the host never asked this control to touch. */}
+              <CalendarFilterPicker
                 rooms={rooms}
-                value={selectedRoomName}
-                // Clearing a room filter no longer hides the contact sheet: it
-                // is on by default now, so hiding it here would take away
-                // something the host never asked this control to touch.
-                onChange={setSelectedRoomName}
+                roomValue={selectedRoomName}
+                onRoomChange={setSelectedRoomName}
+                guests={guests}
+                monthMap={monthMap}
+                guestValue={currentGuestId}
+                onGuestChange={onGuestFilter}
               />
               {/* One view mode, not two independent flags. Gaps and Cleaners
                   each re-read the same calendar, so they were never meaningfully
                   combinable — a single picker says which lens is on. */}
               {/* Finding a guest is a decision about what the calendar shows,
                   same as the room and the lens — so it sits with them. */}
-              <GuestFilterPicker
-                guests={guests}
-                monthMap={monthMap}
-                value={currentGuestId}
-                onChange={onGuestFilter}
-              />
               <CalendarModePicker
                 mode={
                   cleanMode ? "clean" : gapsMode ? "gaps" : reservedMode ? "reserved" : "book"
@@ -203,12 +204,17 @@ const CalendarNavigator = ({
             {/* The name is the control: switching guest or going back to
                 everyone is a tap on the thing already saying who is filtered,
                 rather than a trip back to a booking card to press Filter off. */}
-            <GuestFilterPicker
-              guests={guests}
-              monthMap={monthMap}
-              value={currentGuestId}
-              onChange={onGuestFilter}
-            />
+            <div className="w-56">
+              <CalendarFilterPicker
+                rooms={rooms}
+                roomValue={selectedRoomName}
+                onRoomChange={setSelectedRoomName}
+                guests={guests}
+                monthMap={monthMap}
+                guestValue={currentGuestId}
+                onGuestChange={onGuestFilter}
+              />
+            </div>
             <div className="flex items-center gap-2">
               <div
                 className="font-bold text-xl text-gray-800"
