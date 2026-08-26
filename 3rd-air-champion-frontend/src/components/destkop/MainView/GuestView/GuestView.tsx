@@ -37,6 +37,7 @@ interface GuestViewProps {
   selectedDate: Date;
   setCurrentMonth: React.Dispatch<React.SetStateAction<Date>>;
   handleBookingConfirmation: (phone: string) => void;
+  handleHoldConfirmation: (phone: string) => void;
   handleSendCalEvents: (phone: string, email?: string) => void;
   onAirbnbPriceUpdate: (bookingId: string, airbnbPrice: number) => void;
   onDaysUpdate: (updatedDays: dayType[]) => void;
@@ -66,6 +67,7 @@ const GuestView = ({
   airBnBBookingCount,
   guestBookingCount,
   handleBookingConfirmation,
+  handleHoldConfirmation,
   handleSendCalEvents,
   onDaysUpdate,
   setIsMobileModalOpen,
@@ -161,6 +163,7 @@ const GuestView = ({
           airBnBBookingCount={airBnBBookingCount}
           guestBookingCount={guestBookingCount}
           handleBookingConfirmation={handleBookingConfirmation}
+          handleHoldConfirmation={handleHoldConfirmation}
           handleSendCalEvents={handleSendCalEvents}
           setCurrentGuest={setCurrentGuest}
           setCurrentAirBnBGuest={setCurrentAirBnBGuest}

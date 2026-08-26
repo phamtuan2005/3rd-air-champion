@@ -26,6 +26,9 @@ interface BookingCardProps {
   airBnBBookingCount: { Alias: string; Room: string; DistinctStartDateCount: number }[];
   guestBookingCount: { GuestId: string; DistinctStartDateCount: number; FirstStayDate: string }[];
   handleBookingConfirmation: (phone: string) => void;
+  // The same statement for HELD rooms. Separate because the paid confirmation
+  // deliberately excludes them.
+  handleHoldConfirmation: (phone: string) => void;
   handleSendCalEvents: (phone: string, email?: string) => void;
   setCurrentGuest: React.Dispatch<React.SetStateAction<string | null>>;
   setCurrentAirBnBGuest: React.Dispatch<React.SetStateAction<string | null>>;
@@ -55,6 +58,7 @@ const BookingCard = ({
   airBnBBookingCount,
   guestBookingCount,
   handleBookingConfirmation,
+  handleHoldConfirmation,
   handleSendCalEvents,
   setCurrentGuest,
   setCurrentAirBnBGuest,
@@ -528,9 +532,27 @@ const BookingCard = ({
                       </button>
                       {booking.guest.phone && (
                         <>
+                          {/* A held stay has nothing paid to confirm, so the
+                              paid statement skips it entirely. This sends the
+                              rooms being held instead — the rooms, the nights,
+                              what they come to, and the date the guest gave.
+                              Needs no calendar filter: a hold already knows its
+                              own nights. */}
+                          {isReserved && (
+                            <button
+                              type="button"
+                              className={rowNeutral}
+                              onClick={() =>
+                                closeThen(() => handleHoldConfirmation(booking.guest.phone))
+                              }
+                            >
+                              <FaRegCheckCircle size={16} className="shrink-0" />
+                              Send Hold Confirmation
+                            </button>
+                          )}
                           {/* Confirmation text is built from the filtered guest's
                               paid dates — only meaningful while the filter is ON */}
-                          {isFiltered && (
+                          {!isReserved && isFiltered && (
                             <button
                               type="button"
                               className={rowNeutral}

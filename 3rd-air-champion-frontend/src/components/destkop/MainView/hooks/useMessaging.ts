@@ -253,6 +253,80 @@ export const useMessaging = ({
     return composeConfirmationText(guestName, monthHeader(months, "Your additional bookings"), lineItems, totalPaidAmount);
   };
 
+  // The same statement, for the rooms being HELD rather than the ones paid for.
+  //
+  // buildBookingConfirmation deliberately skips reserved stays — you do not tell
+  // a guest a room is confirmed when nothing has arrived for it. But that left
+  // no way at all to write to somebody about a hold: the host had agreed rooms
+  // and dates with them and could send none of it back. This is that message.
+  //
+  // Not scoped to the calendar filter, unlike the paid confirmation. That one is
+  // assembled from dates tapped on the calendar; a hold already knows its own
+  // rooms and nights, so requiring a filter first would be a step with nothing
+  // behind it.
+  const buildHoldConfirmation = (phone: string): { text: string; count: number } => {
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const sortedEntries = Array.from(monthMap.entries()).sort(([a], [b]) =>
+      compareAsc(toZonedTime(a, timeZone), toZonedTime(b, timeZone)),
+    );
+
+    let guestName = "";
+    let promised = "";
+    const held: ConfirmationBooking[] = [];
+    for (const [dateStr, dayEntry] of sortedEntries) {
+      for (const b of dayEntry.bookings) {
+        // START night only — a stay is written onto every night it covers, and
+        // listing each night would quote the guest their room several times.
+        if (b.guest?.phone !== phone || !b.reserved || !b.room) continue;
+        if (b.startDate.split("T")[0] !== dateStr) continue;
+        guestName = b.guest.name;
+        if (b.expectedPayDate && (!promised || b.expectedPayDate < promised))
+          promised = b.expectedPayDate;
+        held.push({
+          startDate: b.startDate,
+          duration: b.duration,
+          roomName: b.room.name,
+          pricePerNight: b.price ?? 0,
+          fees: b.fees,
+        });
+      }
+    }
+    if (held.length === 0) return { text: "", count: 0 };
+
+    const body = buildConfirmationForBookings(guestName, held);
+    // Their own promised date, said back to them — a date the guest chose is a
+    // firmer thing than "please pay soon". Only the soonest: several holds
+    // usually share one promise.
+    const promiseLine = promised
+      ? `
+
+You mentioned you'd send payment by ${format(
+          toZonedTime(promised, timeZone),
+          "EEE, MMM d",
+        )} — thank you!`
+      : `
+
+Just let me know when you'd like to send the payment.`;
+    return {
+      text:
+        `Hi ${guestName}, these ${held.length === 1 ? "is the room" : "are the rooms"} I'm holding for you:
+
+` +
+        body +
+        promiseLine,
+      count: held.length,
+    };
+  };
+
+  const handleHoldConfirmation = (phone: string) => {
+    const { text, count } = buildHoldConfirmation(phone);
+    if (count === 0) {
+      showCalEventsHint("No held rooms for this guest to confirm.");
+      return;
+    }
+    window.location.href = `sms:${phone}?&body=${encodeURIComponent(text)}`;
+  };
+
   const handleBookingConfirmation = (phone: string) => {
     const fullBody = buildBookingConfirmation(phone);
     window.location.href = `sms:${phone}?&body=${encodeURIComponent(fullBody)}`;
@@ -337,6 +411,7 @@ export const useMessaging = ({
     setIcsModal,
     getCurrentGuestBill,
     handleBookingConfirmation,
+    handleHoldConfirmation,
     buildConfirmationForBookings,
     handleSendCalEvents,
     calEventsHint,

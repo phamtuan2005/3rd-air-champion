@@ -502,6 +502,7 @@ const MainView = ({
     setIcsModal,
     getCurrentGuestBill,
     handleBookingConfirmation,
+    handleHoldConfirmation,
     buildConfirmationForBookings,
     handleSendCalEvents,
     calEventsHint,
@@ -1385,6 +1386,7 @@ const MainView = ({
               rooms={rooms}
               selectedDate={selectedDate}
               handleBookingConfirmation={handleBookingConfirmation}
+              handleHoldConfirmation={handleHoldConfirmation}
               handleSendCalEvents={handleSendCalEvents}
               onAirbnbPriceUpdate={onAirbnbPriceUpdate}
               onDaysUpdate={onDaysUpdate}
@@ -1440,6 +1442,7 @@ const MainView = ({
           rooms={rooms}
           selectedDate={selectedDate}
           handleBookingConfirmation={handleBookingConfirmation}
+          handleHoldConfirmation={handleHoldConfirmation}
           handleSendCalEvents={handleSendCalEvents}
           onAirbnbPriceUpdate={onAirbnbPriceUpdate}
           onDaysUpdate={onDaysUpdate}
