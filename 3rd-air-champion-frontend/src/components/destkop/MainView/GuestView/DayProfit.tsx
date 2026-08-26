@@ -10,6 +10,7 @@ import {
   rateOn,
 } from "../../../../util/cleanerOperations";
 import { MiscExpenseType, fetchMiscExpenses } from "../../../../util/miscOperations";
+import { ChargeType, fetchCharges } from "../../../../util/chargeOperations";
 import { roomType } from "../../../../util/types/roomType";
 import {
   bookingNightAmount,
@@ -58,6 +59,9 @@ const DayProfit = ({ selectedDate, monthMap, rooms, hostId, token }: DayProfitPr
   const [assignments, setAssignments] = useState<CleaningAssignmentType[]>([]);
   const [expenses, setExpenses] = useState<MiscExpenseType[]>([]);
   const [cleaners, setCleaners] = useState<CleanerType[]>([]);
+  // Guest charges dated to THIS day — a cancellation fee has no stay behind it,
+  // so it appears nowhere in monthMap and getDayGross cannot see it.
+  const [charges, setCharges] = useState<ChargeType[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -71,11 +75,13 @@ const DayProfit = ({ selectedDate, monthMap, rooms, hostId, token }: DayProfitPr
       fetchAssignments(hostId, dateKey, dateKey, token).catch(() => []),
       fetchMiscExpenses(hostId, token).catch(() => []),
       fetchCleaners(hostId, token).catch(() => []),
-    ]).then(([a, m, c]) => {
+      fetchCharges(hostId, token, { start: dateKey, end: dateKey }).catch(() => []),
+    ]).then(([a, m, c, ch]) => {
       if (!live) return;
       setAssignments(a);
       setExpenses(m);
       setCleaners(c);
+      setCharges(ch);
       setLoading(false);
     });
     return () => {
@@ -88,6 +94,9 @@ const DayProfit = ({ selectedDate, monthMap, rooms, hostId, token }: DayProfitPr
     () => getDayGross(monthMap.get(dateKey), dateKey),
     [monthMap, dateKey],
   );
+  // Charges are money in, and this tab has to sum to the month — the month
+  // counts them, so a day that quietly left them out could never add up to it.
+  const chargeTotal = charges.reduce((s, c) => s + c.amount, 0);
 
   // Per-room lines, so a day's total can be read back to the rooms that earned it.
   const roomLines = useMemo(() => {
@@ -153,7 +162,11 @@ const DayProfit = ({ selectedDate, monthMap, rooms, hostId, token }: DayProfitPr
     0,
   );
 
-  const net = gross.total - cleaningFee - miscFee;
+  // Everything actually earned on the day: the nights, plus any charge dated to
+  // it. Used everywhere gross.total was, or the day stops summing to the month.
+  const grossIn = gross.total + chargeTotal;
+
+  const net = grossIn - cleaningFee - miscFee;
 
   // ── Still open ────────────────────────────────────────────────────────────
   // Today and forward. A PAST open night earned nothing, and that is a fact
@@ -178,7 +191,7 @@ const DayProfit = ({ selectedDate, monthMap, rooms, hostId, token }: DayProfitPr
   // odds stay visible per room, and a risk-adjusted total appears only if they
   // ever fall far enough for the distinction to matter.
   const hasProjection = openRooms.length > 0;
-  const projectedGross = gross.total + projectedOpen;
+  const projectedGross = grossIn + projectedOpen;
   const projectedNet = projectedGross - cleaningFee - miscFee;
   // Only worth showing when demand is genuinely soft — otherwise it is noise.
   const showRiskAdjusted = hasProjection && expectedOpen < projectedOpen * 0.95;
@@ -230,7 +243,7 @@ const DayProfit = ({ selectedDate, monthMap, rooms, hostId, token }: DayProfitPr
             <span className={`${bigAmountCls} bg-emerald-600`}>{money(projectedGross)}</span>
             {hasProjection && (
               <span className="text-xs font-semibold tabular-nums text-gray-400">
-                booked {money(gross.total)}
+                booked {money(grossIn)}
               </span>
             )}
           </div>
@@ -325,9 +338,19 @@ const DayProfit = ({ selectedDate, monthMap, rooms, hostId, token }: DayProfitPr
             <span>
               AirBnB <span className="font-semibold text-emerald-600">{money(gross.airbnb)}</span>
             </span>
+            {/* "Fees" is per-STAY extras on a booking — parking, cleaning,
+                an on-site charge. NOT guest charges, which have no booking
+                behind them and are named separately below so the two can never
+                be read as each other. */}
             {gross.fees > 0 && (
               <span>
                 Fees <span className="font-semibold text-emerald-600">{money(gross.fees)}</span>
+              </span>
+            )}
+            {chargeTotal > 0 && (
+              <span>
+                Charges{" "}
+                <span className="font-semibold text-emerald-600">{money(chargeTotal)}</span>
               </span>
             )}
           </div>
