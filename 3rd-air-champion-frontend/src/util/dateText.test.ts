@@ -221,3 +221,36 @@ describe("a weekday named after a month", () => {
     ]);
   });
 });
+
+// "Dec Tue-Fri" is how somebody describes a working week. The dash used to end
+// the run, so it read as Tuesdays alone and left "Fri" in the note — a quarter
+// of the nights asked for, booked silently.
+describe("a span of weekdays", () => {
+  it('reads "Dec Tue-Fri" as four nights every week of December', () => {
+    const { dates, leftover } = on("Dec Tue-Fri");
+    expect(leftover).toBe("");
+    expect(dates.length).toBe(19);
+    expect(dates.slice(0, 4)).toEqual([
+      "2026-12-01", "2026-12-02", "2026-12-03", "2026-12-04",
+    ]);
+  });
+
+  it("runs forward round the week rather than producing nothing", () => {
+    // Fri-Mon is Fri, Sat, Sun, Mon — not an empty span because 5 > 1.
+    const { dates } = on("Dec Fri-Mon");
+    expect(dates.slice(0, 4)).toEqual([
+      "2026-12-04", "2026-12-05", "2026-12-06", "2026-12-07",
+    ]);
+  });
+
+  it("still stops at the first word that is not a weekday", () => {
+    const { dates, leftover } = on("Dec Mon-Wed and we have a dog");
+    expect(dates.length).toBe(14);
+    expect(leftover).toBe("we have a dog");
+  });
+
+  it("leaves single weekdays and day numbers as they were", () => {
+    expect(on("Oct Monday & Tuesday").dates.length).toBe(8);
+    expect(on("Aug 23-25").dates).toEqual(["2026-08-23", "2026-08-24", "2026-08-25"]);
+  });
+});

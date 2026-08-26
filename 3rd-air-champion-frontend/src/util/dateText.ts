@@ -42,12 +42,32 @@ const WEEKDAYS: Record<string, number> = {
 const WEEKDAY_ALTS = Object.keys(WEEKDAYS)
   .sort((a, b) => b.length - a.length)
   .join("|");
-const WEEKDAY_WORD = new RegExp(`(?:${WEEKDAY_ALTS})s?`, "g");
+const WEEKDAY_ONE = `(?:${WEEKDAY_ALTS})s?`;
+// "tue-fri" — a span, which is how somebody describes a working week. Without
+// this the dash ended the run: "Dec Tue-Fri" read as Tuesdays alone and left
+// "Fri" in the note, quietly booking a quarter of the nights asked for.
+const WEEKDAY_PIECE = `${WEEKDAY_ONE}(?:\\s*-\\s*${WEEKDAY_ONE})?`;
+const WEEKDAY_PIECES = new RegExp(WEEKDAY_PIECE, "g");
 // A leading run of weekday words and separators only, so "Oct mondays and we
 // have a dog" stops at "we" rather than swallowing the rest of the sentence.
 const WEEKDAY_RUN = new RegExp(
-  `^[\\s,.;&]*(?:and\\s+)?(?:(?:${WEEKDAY_ALTS})s?[\\s,.;&]*(?:and\\s+)?)+`,
+  `^[\\s,.;&]*(?:and\\s+)?(?:${WEEKDAY_PIECE}[\\s,.;&]*(?:and\\s+)?)+`,
 );
+
+// The weekdays one written piece stands for. A span runs FORWARD round the
+// week, so "fri-mon" is Fri, Sat, Sun, Mon rather than nothing at all.
+const weekdaysIn = (piece: string): number[] => {
+  const ends = piece.split(/\s*-\s*/).map((w) => WEEKDAYS[w.replace(/s$/, "")]);
+  const [a, b] = ends;
+  if (a === undefined) return [];
+  if (b === undefined) return [a];
+  const out: number[] = [];
+  for (let d = a, guard = 0; guard < 7; guard++, d = (d + 1) % 7) {
+    out.push(d);
+    if (d === b) break;
+  }
+  return out;
+};
 
 export interface ParsedDates {
   // Unique yyyy-MM-dd, ascending. Bookable: today or later.
@@ -181,7 +201,7 @@ export const parseDateText = (text: string, today: Date = new Date()): ParsedDat
     if (weekdayRun) {
       used.push([hit.end, hit.end + weekdayRun[0].length]);
       const wanted = new Set(
-        (weekdayRun[0].match(WEEKDAY_WORD) ?? []).map((w) => WEEKDAYS[w.replace(/s$/, "")]),
+        (weekdayRun[0].match(WEEKDAY_PIECES) ?? []).flatMap(weekdaysIn),
       );
       if (wanted.size > 0) {
         const yr = hit.month < m0 ? y0 + 1 : y0;
