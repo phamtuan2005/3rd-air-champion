@@ -17,6 +17,8 @@ import {
 import { dayType } from "../../../util/types/dayType";
 import { format, addDays } from "date-fns";
 import { ANY_ROOM_SENTINEL } from "./zodBookDays";
+import { parseDateText } from "../../../util/dateText";
+import { groupConsecutiveDates } from "../../../util/cartGrouping";
 import { ConfirmationBooking } from "../MainView/hooks/useMessaging";
 
 interface BookingPrefill {
@@ -161,7 +163,7 @@ const BookingModal = ({
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control,
     name: "bookings",
   });
@@ -190,6 +192,72 @@ const BookingModal = ({
       }),
     [watchedBookings, monthMap, rooms],
   );
+  // ── Typing the dates instead of picking them ───────────────────────────
+  //
+  // The same reading TiBook does of a guest's "Write your dates" box, brought to
+  // the host's side. Anh-Tuan is told dates in a message — "Aug 23, 24, 25, 27
+  // and Sept 2,3,4" — and was re-entering them a row at a time, setting a
+  // check-in and counting nights by hand for each run. The shapes are already
+  // enumerated and tested in util/dateText; nothing here needs to guess.
+  //
+  // Deterministic, like the TiBook side: no model, no network, no cost.
+  const [dateText, setDateText] = useState("");
+  const typed = useMemo(() => parseDateText(dateText), [dateText]);
+
+  // Which rooms are genuinely free on one night — bookings, per-room blocks and
+  // a wholly blocked day all take a room out. Reserved (R) stays occupy a room
+  // too, so `bookings` covers them without a special case.
+  const freeRoomsOn = useMemo(
+    () => (dateKey: string): Set<string> => {
+      const day = monthMap.get(dateKey);
+      const free = new Set(rooms.filter((r) => r.active !== false).map((r) => r.id));
+      if (!day) return free;
+      if (day.isBlocked) return new Set();
+      day.bookings.forEach((b) => b.room && free.delete(b.room.id));
+      (day.blockedRooms ?? []).forEach((r) => free.delete(r.id));
+      return free;
+    },
+    [monthMap, rooms],
+  );
+
+  const typedFree = useMemo(
+    () => typed.dates.filter((d) => freeRoomsOn(d).size > 0),
+    [typed.dates, freeRoomsOn],
+  );
+  const typedFull = useMemo(
+    () => typed.dates.filter((d) => freeRoomsOn(d).size === 0),
+    [typed.dates, freeRoomsOn],
+  );
+  // Runs that no ONE room can cover are split: two consecutive nights free in
+  // different rooms are two stays, not one impossible stay.
+  const typedRanges = useMemo(
+    () => groupConsecutiveDates(new Set(typedFree), freeRoomsOn),
+    [typedFree, freeRoomsOn],
+  );
+
+  // Replace the rows outright rather than appending. What was typed IS the
+  // booking; adding to whatever happened to be on the form would leave the host
+  // deleting the leftovers of a guess they never made.
+  const applyTypedDates = () => {
+    if (typedRanges.length === 0) return;
+    const rows = typedRanges.map((r) => {
+      const common = [...freeRoomsOn(r.start)].filter((id) =>
+        Array.from({ length: r.nights }, (_, i) =>
+          format(addDays(new Date(r.start + "T00:00:00"), i), "yyyy-MM-dd"),
+        ).every((k) => freeRoomsOn(k).has(id)),
+      );
+      return {
+        // One free room for the whole run picks itself; more than one is the
+        // host's call and stays on "Any room".
+        rooms: [common.length === 1 ? common[0] : ANY_ROOM_SENTINEL],
+        date: new Date(r.start + "T00:00:00"),
+        duration: r.nights,
+      };
+    });
+    replace(rows);
+    setDateText("");
+  };
+
   const selectedGuest = guests.find((g) => g.id === watchedGuestId) ?? null;
   const watchedGuestName = selectedGuest?.name ?? "";
   const guestPhone = selectedGuest?.phone ?? "";
@@ -576,6 +644,73 @@ const BookingModal = ({
                   </span>
                 )}
               </div>
+            </div>
+
+            {/* Type the dates, instead of building each row by hand. Sits above
+                the cards because it FILLS them — reading it after the rows are
+                already made would be reading it too late. */}
+            <div className="mb-2 rounded-lg border border-blue-200 bg-blue-50/60 px-3 py-2">
+              <label htmlFor="book-date-text" className="text-sm font-semibold text-blue-900">
+                Paste the dates
+              </label>
+              <textarea
+                id="book-date-text"
+                value={dateText}
+                onChange={(e) => setDateText(e.target.value)}
+                rows={2}
+                placeholder={'e.g. "Aug 23, 24, 25, 27 and Sept 2,3,4"'}
+                className="mt-1 w-full resize-none rounded-md border border-blue-200 px-2.5 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
+              />
+              {dateText.trim() !== "" && (
+                <div className="mt-1.5 flex flex-col gap-1 text-xs">
+                  {typedRanges.length > 0 && (
+                    <p className="text-blue-900">
+                      <span className="font-bold">
+                        {typedRanges.length} stay{typedRanges.length === 1 ? "" : "s"}
+                      </span>{" "}
+                      ·{" "}
+                      {typedRanges
+                        .map(
+                          (r) =>
+                            `${format(new Date(r.start + "T00:00:00"), "MMM d")}${
+                              r.nights > 1 ? ` +${r.nights - 1}` : ""
+                            }`,
+                        )
+                        .join(", ")}
+                    </p>
+                  )}
+                  {/* Said rather than silently dropped. A night nobody can give
+                      is the one thing the host most needs back from this box. */}
+                  {typedFull.length > 0 && (
+                    <p className="font-semibold text-red-600">
+                      Full, nothing free:{" "}
+                      {typedFull
+                        .map((d) => format(new Date(d + "T00:00:00"), "MMM d"))
+                        .join(", ")}
+                    </p>
+                  )}
+                  {typed.past.length > 0 && (
+                    <p className="text-gray-500">
+                      Already gone:{" "}
+                      {typed.past
+                        .map((d) => format(new Date(d + "T00:00:00"), "MMM d"))
+                        .join(", ")}
+                    </p>
+                  )}
+                  {typed.dates.length === 0 && typed.past.length === 0 && (
+                    <p className="text-gray-500">No dates read from that yet.</p>
+                  )}
+                  {typedRanges.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={applyTypedDates}
+                      className="mt-0.5 self-start rounded-md bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700"
+                    >
+                      Fill {typedRanges.length} row{typedRanges.length === 1 ? "" : "s"}
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Booking cards */}
