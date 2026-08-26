@@ -1206,7 +1206,13 @@ const MainView = ({
                 onPointerMove={onHoldBarPointerMove}
                 onPointerUp={onHoldBarPointerUp}
               >
-                <div className="flex items-center gap-2.5 bg-white border border-amber-300 shadow-lg rounded-full pl-2.5 pr-2 py-1.5 cursor-grab active:cursor-grabbing">
+                {/* Two rows: what is selected on top, what you can do with it beneath.
+                    One line grew past the width of a phone once "Confirm hold"
+                    joined it, and a bar that runs off the screen hides the
+                    action at its end. rounded-2xl rather than rounded-full —
+                    a pill shape only reads right on a single line. */}
+                <div className="flex flex-col gap-1.5 bg-white border border-amber-300 shadow-lg rounded-2xl px-2.5 py-2 cursor-grab active:cursor-grabbing">
+                  <div className="flex items-center justify-center gap-2.5">
                   {/* Grip dots — signals the bar is movable */}
                   <span className="text-gray-300 text-sm leading-none select-none">⠿</span>
                   <span className="text-sm font-medium text-amber-700 whitespace-nowrap select-none">
@@ -1219,6 +1225,10 @@ const MainView = ({
                   >
                     Clear
                   </button>
+                  </div>
+
+                  {/* The actions, wrapping rather than overflowing */}
+                  <div className="flex flex-wrap items-center justify-center gap-1.5">
                   {reservedHoldStays.size > 0 && (
                     <button
                       type="button"
@@ -1258,6 +1268,7 @@ const MainView = ({
                   >
                     Unbook {totalHoldSelection}
                   </button>
+                  </div>
                 </div>
                 {confirmHoldsError && (
                   <span className="bg-white border border-red-200 text-red-500 text-xs rounded-full px-3 py-1 shadow">
