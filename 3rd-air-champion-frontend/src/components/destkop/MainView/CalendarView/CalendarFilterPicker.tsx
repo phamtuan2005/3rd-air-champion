@@ -98,13 +98,22 @@ const CalendarFilterPicker = ({
   // name — at 12px it arrived as small grey text above a wall of bars. A picked
   // guest is the largest thing in this control.
   const triggerContent = selectedGuest ? (
-    <span className="flex items-center gap-2 text-lg font-bold text-emerald-700">
-      <FaUser size={14} className="shrink-0" />
-      <span className="truncate">{selectedGuest.alias || selectedGuest.name}</span>
-      {selectedRoom && <RoomBadge room={selectedRoom} rooms={activeRooms} />}
+    // Guest and room STACK when both are on. Side by side they shared one line's
+    // width, so each had to shrink to fit the other — and the name is the half
+    // that must not. On two lines each gets its own full width at full size.
+    <span className="flex min-w-0 flex-col items-start gap-0.5 leading-tight">
+      <span className="flex w-full min-w-0 items-center gap-2 text-2xl font-bold text-emerald-700">
+        <FaUser size={17} className="shrink-0" />
+        <span className="truncate">{selectedGuest.alias || selectedGuest.name}</span>
+      </span>
+      {selectedRoom && (
+        <span className="text-lg">
+          <RoomBadge room={selectedRoom} rooms={activeRooms} />
+        </span>
+      )}
     </span>
   ) : selectedRoom ? (
-    <span className="text-base">
+    <span className="text-lg">
       <RoomBadge room={selectedRoom} rooms={activeRooms} />
     </span>
   ) : (
@@ -279,10 +288,10 @@ const CalendarFilterPicker = ({
           the name truncates. */}
       <button
         type="button"
-        className="inline-flex max-w-[15rem] items-center gap-1.5 rounded border border-gray-300 px-2.5 py-1 text-left"
+        className="inline-flex max-w-[17rem] items-center gap-1.5 rounded border border-gray-300 px-2.5 py-1 text-left"
         onClick={() => setOpen(true)}
       >
-        <span className="min-w-0 truncate">{triggerContent}</span>
+        <span className="min-w-0">{triggerContent}</span>
         <span className="flex-shrink-0 text-xs text-gray-400">▾</span>
       </button>
 
