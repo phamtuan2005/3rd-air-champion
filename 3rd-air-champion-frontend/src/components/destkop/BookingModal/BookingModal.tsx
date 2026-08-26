@@ -494,29 +494,68 @@ const BookingModal = ({
     const allBookedDays: dayType[] = [];
     const guest = guests.find((g) => g.id === data.guest);
 
-    for (const [rowIndex, booking] of data.bookings.entries()) {
+    // Rows flattened to one unit per ROOM, carrying the reserve flag its row
+    // had — beyond this point a row is no longer the unit of work.
+    type Unit = { room: string; date: Date; duration: number; reserved: boolean };
+    const units: Unit[] = [];
+    data.bookings.forEach((booking, rowIndex) => {
       // An AirBnB booking is confirmed, never a pending hold — and the reserved
       // path books through a different call that would skip the AirBnB handling
       // entirely. Rows default to reserved, so without this the toggle would
       // silently do nothing.
       const isReserved = !airbnbMode && reservedRows.has(rowIndex);
-      for (const room of booking.rooms) {
-        if (isReserved && guest) {
-          const { result, bookedDays } = await processReserved(
-            { room, date: booking.date, duration: booking.duration },
-            data.guest, data.numberOfGuests,
-          );
-          results.push(result);
-          allBookedDays.push(...bookedDays);
-        } else {
-          const { result, bookedDays } = await processBooking(
-            { room, date: booking.date, duration: booking.duration },
-            data.guest,
-            data.numberOfGuests,
-          );
-          results.push(result);
-          allBookedDays.push(...bookedDays);
-        }
+      booking.rooms.forEach((room) =>
+        units.push({ room, date: booking.date, duration: booking.duration, reserved: isReserved }),
+      );
+    });
+
+    // Touching nights in the SAME room become ONE stay.
+    //
+    // Nov 2 in Chill and Nov 3 in Chill is a guest staying two nights, and
+    // booking it as two one-night stays is wrong in the data, not just untidy:
+    // a stay is written onto every night it covers and counted by the night it
+    // STARTS, so two records mean two arrivals, two check-ins to clean for, and
+    // whole-stay fees charged twice.
+    //
+    // Only rooms actually chosen are merged. "Any room" is resolved per booking
+    // further down and may land somewhere different each night, so merging those
+    // would promise one room across nights nothing has picked a room for yet.
+    const chosen = units
+      .filter((u) => u.room !== ANY_ROOM_SENTINEL)
+      .sort((a, b) =>
+        a.room === b.room ? a.date.getTime() - b.date.getTime() : a.room.localeCompare(b.room),
+      );
+    const mergedUnits: Unit[] = [];
+    for (const u of chosen) {
+      const prev = mergedUnits[mergedUnits.length - 1];
+      const joins =
+        prev &&
+        prev.room === u.room &&
+        // A held night and a paid one are different kinds of stay and must not
+        // be folded together, however adjacent they are.
+        prev.reserved === u.reserved &&
+        format(addDays(prev.date, prev.duration), "yyyy-MM-dd") === format(u.date, "yyyy-MM-dd");
+      if (joins) prev.duration += u.duration;
+      else mergedUnits.push({ ...u });
+    }
+    const toBook = [...mergedUnits, ...units.filter((u) => u.room === ANY_ROOM_SENTINEL)];
+
+    for (const unit of toBook) {
+      if (unit.reserved && guest) {
+        const { result, bookedDays } = await processReserved(
+          { room: unit.room, date: unit.date, duration: unit.duration },
+          data.guest, data.numberOfGuests,
+        );
+        results.push(result);
+        allBookedDays.push(...bookedDays);
+      } else {
+        const { result, bookedDays } = await processBooking(
+          { room: unit.room, date: unit.date, duration: unit.duration },
+          data.guest,
+          data.numberOfGuests,
+        );
+        results.push(result);
+        allBookedDays.push(...bookedDays);
       }
     }
 
