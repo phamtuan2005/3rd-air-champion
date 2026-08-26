@@ -121,22 +121,21 @@ export const hostOnSite = (hostFirstName?: string) =>
 // The bathroom fact the AirBnB titles sell the house on, said at house level
 // on the host's instruction.
 //
-// CHECK THIS AGAINST THE ROOMS BEFORE TRUSTING IT. The entries transcribed
-// below give a smart toilet to King, Queen and Cute only; Chill and Cozy share
-// a bathroom listed with a bidet and no smart toilet. So this line and those
-// two entries currently disagree, and a guest can see both — this on the
-// first screen, the room's own bathroom one tap into its gallery.
+// SETTLED 2026-08-26: every bathroom in the house has a smart toilet, Anh-Tuan
+// confirming. This line and the room entries disagreed when it was written —
+// Chill's and Cozy's shared bathroom was transcribed with a bidet and no smart
+// toilet — and the ROOM ENTRIES were the stale side. They now say so too, so
+// the first screen and a room's own gallery no longer contradict each other.
 //
-// It was briefly "A smart toilet or a bidet in every bathroom", the phrasing
-// true of all five. The house is the authority on its own bathrooms, exactly
-// as it is on its own kitchen — but if the shared bathroom really did get a
-// smart toilet, Chill's and Cozy's `bathroom` lines below are the stale ones
-// and want updating to match.
+// The house is the authority on its own bathrooms, exactly as it is on its own
+// kitchen ([[project-shared-kitchen]]). The transcriptions came off AirBnB
+// listings, which is why they lag the house.
 //
-// "in all bathrooms" says the scope out loud rather than leaving it implied,
-// which is what makes the disagreement above worth resolving rather than
-// living with. 42 characters, inside the 45 that fit one line at 360px.
-export const houseBathrooms = "Smart toilet with a bidet in all bathrooms";
+// "every bathroom" says the scope out loud rather than leaving it implied, and
+// "built-in" is the accurate word: the bidet is part of the toilet, not a
+// second fixture beside it. 44 characters, inside the 45 that fit one line at
+// 360px — re-measure if you lengthen it.
+export const houseBathrooms = "Smart toilet, built-in bidet, every bathroom";
 
 const housePhotos = [
   // The front of the house, from the street.
@@ -155,7 +154,7 @@ const factsByListing: Record<string, roomFacts> = {
       { kind: "queen", label: "1 queen bed" },
       { kind: "sofa", label: "1 sofa bed" },
     ],
-    bathroom: "Private attached bathroom, with a smart toilet and bidet",
+    bathroom: "Private attached bathroom, with a smart toilet and built-in bidet",
     privacy: "Your own room, with a lock on the door",
     highlights: [
       "Wifi",
@@ -184,7 +183,7 @@ const factsByListing: Record<string, roomFacts> = {
       { kind: "queen", label: "1 queen bed" },
       { kind: "sofa", label: "1 sofa bed" },
     ],
-    bathroom: "Private attached bathroom, with a smart toilet and bidet",
+    bathroom: "Private attached bathroom, with a smart toilet and built-in bidet",
     // The balcony is this room's own — it is the reason a guest picks Queen
     // over King, so it belongs next to the privacy, not buried in a chip.
     privacy: "Your own room and private balcony, with a lock on the door",
@@ -210,7 +209,7 @@ const factsByListing: Record<string, roomFacts> = {
   "1144526275550691711": {
     maxGuests: 2,
     beds: [{ kind: "queen", label: "1 queen bed" }],
-    bathroom: "Private attached bathroom, with a bathtub and a heated smart toilet",
+    bathroom: "Private attached bathroom, with a bathtub and a heated smart toilet with built-in bidet",
     privacy: "Your own room, with a lock on the door",
     highlights: [
       "Wifi",
@@ -237,7 +236,7 @@ const factsByListing: Record<string, roomFacts> = {
     beds: [{ kind: "queen", label: "1 queen bed" }],
     // Shared, and said so. Guessing wrong about this is the single worst
     // surprise a guest can arrive to.
-    bathroom: "Shared bathroom, with a bathtub, bidet and hot water",
+    bathroom: "Shared bathroom, with a bathtub, hot water and a smart toilet with built-in bidet",
     privacy: "Your own room, with a lock on the door",
     highlights: [
       "Wifi",
@@ -262,7 +261,7 @@ const factsByListing: Record<string, roomFacts> = {
   "1177648203505001777": {
     maxGuests: 1,
     beds: [{ kind: "double", label: "1 double bed" }],
-    bathroom: "Shared bathroom, with a bathtub, bidet and hot water",
+    bathroom: "Shared bathroom, with a bathtub, hot water and a smart toilet with built-in bidet",
     privacy: "Your own room, with a lock on the door",
     // No air conditioning and no TV on this listing — both are listed as
     // unavailable. Do not add them back by copying another room's list.
