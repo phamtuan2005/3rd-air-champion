@@ -7,11 +7,18 @@ import { roomType } from "../../../../util/types/roomType";
 import { toZonedTime } from "date-fns-tz/toZonedTime";
 import { AddPaneContext } from "../../../../context";
 import RoomSingleSelect from "./RoomSingleSelect";
+import GuestFilterPicker from "./GuestFilterPicker";
+import { guestType } from "../../../../util/types/guestType";
 
 interface CalendarNavigatorProps {
   currentMonth: Date;
   currentAirBnBGuest: string | null;
   currentGuest: string | null;
+  // The guest list and the filtered id, for the header's own guest picker —
+  // `currentGuest` above is the NAME, which is what the header displays.
+  guests: guestType[];
+  currentGuestId: string | null;
+  onGuestFilter: (guestId: string | null) => void;
   monthMap: Map<string, dayType>;
   occupancy: {
     totalOccupancy: number;
@@ -46,6 +53,9 @@ const CalendarNavigator = ({
   currentMonth,
   currentAirBnBGuest,
   currentGuest,
+  guests,
+  currentGuestId,
+  onGuestFilter,
   monthMap,
   occupancy,
   profit,
@@ -148,6 +158,14 @@ const CalendarNavigator = ({
               {/* One view mode, not two independent flags. Gaps and Cleaners
                   each re-read the same calendar, so they were never meaningfully
                   combinable — a single picker says which lens is on. */}
+              {/* Finding a guest is a decision about what the calendar shows,
+                  same as the room and the lens — so it sits with them. */}
+              <GuestFilterPicker
+                guests={guests}
+                monthMap={monthMap}
+                value={currentGuestId}
+                onChange={onGuestFilter}
+              />
               <CalendarModePicker
                 mode={
                   cleanMode ? "clean" : gapsMode ? "gaps" : reservedMode ? "reserved" : "book"
@@ -182,8 +200,15 @@ const CalendarNavigator = ({
       ) : currentGuest ? (
         <>
           <div className="flex h-full w-full justify-between items-center">
-            {/* Guest */}
-            <span className="text-xl text-gray-800">{currentGuest}</span>
+            {/* The name is the control: switching guest or going back to
+                everyone is a tap on the thing already saying who is filtered,
+                rather than a trip back to a booking card to press Filter off. */}
+            <GuestFilterPicker
+              guests={guests}
+              monthMap={monthMap}
+              value={currentGuestId}
+              onChange={onGuestFilter}
+            />
             <div className="flex items-center gap-2">
               <div
                 className="font-bold text-xl text-gray-800"

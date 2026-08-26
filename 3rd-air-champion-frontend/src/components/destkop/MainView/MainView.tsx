@@ -564,6 +564,32 @@ const MainView = ({
     }
   };
 
+  // Filtering from the header rather than from a booking card.
+  //
+  // The calendar is also moved to the month of their next stay. Filtering and
+  // then landing on a month they are not in reads as "this guest has nothing" —
+  // which is exactly the wrong answer when the whole point was to go and look at
+  // their stays.
+  const onGuestFilter = (guestId: string | null) => {
+    setCurrentGuest(guestId);
+    if (!guestId) return;
+    setCurrentAirBnBGuest(null);
+
+    const todayKey = format(startOfToday(), "yyyy-MM-dd");
+    let next: string | null = null;
+    let last: string | null = null;
+    monthMap.forEach((day, dateKey) => {
+      if (!day.bookings.some((b) => b.guest?.id === guestId && b.room)) return;
+      if (dateKey >= todayKey) {
+        if (!next || dateKey < next) next = dateKey;
+      } else if (!last || dateKey > last) last = dateKey;
+    });
+    // Their next stay if they have one, otherwise their most recent — a guest
+    // with only past stays should still land somewhere they can be seen.
+    const target = next ?? last;
+    if (target) setCurrentMonth(new Date(target + "T00:00:00"));
+  };
+
   const shiftDate = (delta: number) => {
     const newDate = addDays(selectedDate, delta);
     setSelectedDate(newDate);
@@ -1078,6 +1104,9 @@ const MainView = ({
                   ? (guests.find((guest) => guest.id === currentGuest)?.name as string)
                   : null
               }
+              guests={guests}
+              currentGuestId={currentGuest}
+              onGuestFilter={onGuestFilter}
               currentAirBnBGuest={currentAirBnBGuest}
               monthMap={monthMap}
               occupancy={occupancy}
