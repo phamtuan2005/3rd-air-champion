@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { addDays, format, parseISO, startOfToday } from "date-fns";
 import {
+  FaChevronDown,
   FaRegCalendarAlt,
   FaRegCalendarCheck,
   FaRegCheckCircle,
@@ -15,6 +16,7 @@ import { decimalToHm, formatHrMin, hmToDecimal } from "../util/hoursFormat";
 import {
   WorkCreds,
   WorkEntryType,
+  WorkSignInFailure,
   PaySummary,
   WorkMe,
   WorkShift,
@@ -64,6 +66,15 @@ const money = (n: number) => (Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`
 const fmtDay = (key: string) => {
   try {
     return format(parseISO(key.slice(0, 10)), "EEE, MMM d");
+  } catch {
+    return key;
+  }
+};
+
+// "August 2026" from a yyyy-MM key.
+const fmtMonth = (key: string) => {
+  try {
+    return format(parseISO(key + "-01"), "MMMM yyyy");
   } catch {
     return key;
   }
@@ -159,34 +170,87 @@ const TiWork = () => {
   // signed in fine for weeks, "doesn't match" reads as their own typo, and they
   // retype it rather than asking for the new one.
   const [wasRevoked, setWasRevoked] = useState(false);
+  // Signing out of TiMag costs a password you know. Signing out of HERE costs a
+  // code Anh-Tuan issues — and the code is remembered precisely so nobody has to
+  // keep it. One stray tap on a header pill therefore strands somebody until a
+  // human answers a text, which is worth a question first.
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  // Bumped to re-run the auto sign-in with credentials we chose to KEEP after a
+  // connection failure. Without it the effect, keyed only on `creds`, would never
+  // fire again — leaving somebody holding a valid code on a screen with no way
+  // to use it short of reloading the browser, which is not an instinct anyone
+  // has on a phone.
+  const [retryTick, setRetryTick] = useState(0);
+  // In flight right now. Submitting hours had no busy state at all, and the row
+  // it creates lands BELOW the fold on a phone — so on a slow connection the
+  // screen looked identical before and after the tap, and the natural response
+  // was to tap again. For a cleaner the database refuses the second one (a
+  // cleaner's claims are unique per day); for office staff it does not, because
+  // that index is partial on `cleaner`. So the duplicate was real, and it landed
+  // in Anh-Tuan's queue for him to work out which of the two was meant.
+  const [saving, setSaving] = useState(false);
+  const [savingDate, setSavingDate] = useState<string | null>(null);
+  // Said where the person is already looking, rather than left to be inferred
+  // from a card further down the page. A new object each time so re-submitting
+  // restarts the timer instead of silently reusing the old one.
+  const [saved, setSaved] = useState<{ text: string } | null>(null);
 
-  // Sign in from remembered credentials on arrival. A failure here means the
-  // host changed the code, so the stored copy is cleared rather than left to
-  // fail silently on every action afterwards.
+  useEffect(() => {
+    if (!saved) return;
+    const t = setTimeout(() => setSaved(null), 5000);
+    return () => clearTimeout(t);
+  }, [saved]);
+
+  // Sign in from remembered credentials on arrival.
+  //
+  // ONLY workSignIn failing is evidence the code was revoked. The three fetches
+  // after it used to share this chain's catch, so any one of them hiccupping —
+  // a 500, a dropped connection, a phone with one bar — cleared the saved
+  // credentials and told the worker their access code had been replaced. It had
+  // not, and they went and asked Anh-Tuan for a new one that did not exist.
+  //
+  // That misfires hardest where this app is actually used: TiWork installs to
+  // the home screen and precaches its shell, so the icon opens instantly inside
+  // a house with no signal — the exact moment the follow-up fetches fail.
   useEffect(() => {
     if (!creds) return;
     setLoading(true);
     workSignIn(creds)
       .then((who) => {
         setMe(who);
-        return fetchMyEntries(creds);
+        // Each fetch owns its own failure now. A missing list is a gap on the
+        // screen; it is not grounds for throwing away a working session.
+        return Promise.all([
+          fetchMyEntries(creds)
+            .then((list) => setEntries(list ?? []))
+            .catch(() => {}),
+          loadSchedule(creds),
+          // Pay too. It was only fetched by reload(), which runs after LOGGING
+          // something — so arriving at the screen showed the payments list with no
+          // "still to come" or year to date above it, and the two figures people
+          // actually open TiWork for appeared only once they had typed hours.
+          fetchMyPay(creds).then(setPay).catch(() => {}),
+        ]);
       })
-      .then((list) => {
-        setEntries(list ?? []);
-        // Pay too. It was only fetched by reload(), which runs after LOGGING
-        // something — so arriving at the screen showed the payments list with no
-        // "still to come" or year to date above it, and the two figures people
-        // actually open TiWork for appeared only once they had typed hours.
-        return Promise.all([loadSchedule(creds), fetchMyPay(creds).then(setPay)]);
-      })
-      .catch((msg) => {
-        setError(String(msg));
-        setWasRevoked(true);
-        setCreds(null);
-        localStorage.removeItem(CREDS_KEY);
+      .catch((err) => {
+        const f = err as WorkSignInFailure;
+        setError(f?.message ?? String(err));
+        // Only an ANSWER from the server is evidence about the code. If we never
+        // reached it, the saved credentials stay exactly where they are — see
+        // WorkSignInFailure. Throwing them away on a dropped connection is how a
+        // cleaner standing in the house with no bars ended up locked out of an
+        // account that was never actually closed.
+        if (f?.refused) {
+          // 401 means the code itself was replaced — worth saying so, and worth
+          // saying only then. A 403 (account ended, or on leave) is a different
+          // conversation and the server already worded it.
+          setWasRevoked(!!f.codeRejected);
+          setCreds(null);
+          localStorage.removeItem(CREDS_KEY);
+        }
       })
       .finally(() => setLoading(false));
-  }, [creds]);
+  }, [creds, retryTick]);
 
   const handleSignIn = () => {
     const next = { identifier: form.identifier.trim(), code: form.code.trim() };
@@ -203,15 +267,40 @@ const TiWork = () => {
         localStorage.setItem(CREDS_KEY, JSON.stringify(next));
         setCreds(next);
       })
-      .catch((msg) => setError(String(msg)))
+      .catch((err) => setError((err as WorkSignInFailure)?.message ?? String(err)))
       .finally(() => setLoading(false));
   };
 
+  // Sign out exists for ONE reason: a shared phone. That is also the case it
+  // used to handle worst — it cleared creds, me and entries and left `pay` and
+  // `shifts` sitting in state. Signing in is two setState calls in one batch
+  // (setMe, then setCreds), so the next person's name and avatar render
+  // immediately while the previous person's rota and BALANCE are still on
+  // screen, until the refetches land a second or two later. Cindy signs out,
+  // Henry signs in, and Henry reads Cindy's wages under his own name.
+  //
+  // So everything belonging to a person goes, not just the credentials.
   const signOut = () => {
     localStorage.removeItem(CREDS_KEY);
     setCreds(null);
     setMe(null);
     setEntries([]);
+    setShifts([]);
+    setPay(null);
+    setShiftDraft({});
+    setDraft({ date: todayKey, h: "", m: "", report: "", rooms: "" });
+    setEditingId(null);
+    setDaysBack(56);
+    // Back to the screens a first arrival gets, so nothing about the last
+    // person's session — which tab they were reading, how far back they had
+    // widened their history — carries into the next.
+    setView("work");
+    setShiftTab("tolog");
+    setError("");
+    // The next person gets the same "open on a tab with something in it" pass
+    // the first one did.
+    autoTabbedRef.current = false;
+    setShowSignOutConfirm(false);
     setForm({ identifier: "", code: "" });
   };
 
@@ -248,12 +337,16 @@ const TiWork = () => {
       return;
     }
     setError("");
+    if (savingDate) return;
+    setSavingDate(shift.date);
     addMyEntry(creds, { date: shift.date, hours, report: "" })
       .then(() => {
         setShiftDraft((d) => ({ ...d, [shift.date]: { h: "", m: "" } }));
+        setSaved({ text: `Sent — ${fmtDay(shift.date)}, ${formatHrMin(hours)}.` });
         return reload(creds);
       })
-      .catch((msg) => setError(String(msg)));
+      .catch((msg) => setError(String(msg)))
+      .finally(() => setSavingDate(null));
   };
 
   const submit = () => {
@@ -264,16 +357,26 @@ const TiWork = () => {
       return;
     }
     setError("");
+    // The guard that matters most for office staff: the unique index protecting
+    // cleaners from a double-tap is partial on `cleaner`, so it does not cover
+    // them and nothing else would.
+    if (saving) return;
+    setSaving(true);
+    const wasEditing = !!editingId;
     const action = editingId
       ? editMyEntry(creds, { id: editingId, date: draft.date, hours, report: draft.report })
       : addMyEntry(creds, { date: draft.date, hours, report: draft.report });
     action
       .then(() => {
+        setSaved({
+          text: `${wasEditing ? "Saved" : "Logged"} — ${fmtDay(draft.date)}, ${formatHrMin(hours)}. Waiting on Anh-Tuan.`,
+        });
         setDraft({ date: todayKey, h: "", m: "", report: "", rooms: "" });
         setEditingId(null);
         return reload(creds);
       })
-      .catch((msg) => setError(String(msg)));
+      .catch((msg) => setError(String(msg)))
+      .finally(() => setSaving(false));
   };
 
   const remove = (id: string) => {
@@ -320,6 +423,77 @@ const TiWork = () => {
     [shifts, todayKey],
   );
 
+  // Hours submitted and not yet ruled on.
+  //
+  // The Pay tab is built entirely from APPROVED work — /work/pay-summary filters
+  // status: "approved" for both kinds, correctly, because nothing should be
+  // counted as money until the host has agreed to it. But the consequence was
+  // that logging a day changed nothing on the one screen that answers "where is
+  // my money": same balance, same month, same year, until approval. The work
+  // existed only as an amber pill on the other tab.
+  //
+  // Counted from `entries`, which /work/entries already returns UNWINDOWED for
+  // both staff and cleaners, and which TiWork already fetches on sign-in
+  // regardless of kind — for cleaners it was fetched and then thrown away, since
+  // only the office-staff history rendered it.
+  //
+  // Hours, never dollars. approvedRate is frozen at approval and a cleaner's
+  // work is billed at the rate in force on its own date, so pricing this from
+  // today's me.payRate could quote a figure the host's screen contradicts — the
+  // exact disagreement the pay-summary route goes out of its way to avoid. Hours
+  // are a fact both sides already agree on.
+  const pending = useMemo(() => {
+    const subs = entries.filter((e) => e.status === "submitted");
+    return {
+      count: subs.length,
+      hours: subs.reduce((sum, e) => sum + (e.hours || 0), 0),
+      oldest: subs.reduce<string | null>(
+        (min, e) => (!min || e.date < min ? e.date : min),
+        null,
+      ),
+    };
+  }, [entries]);
+
+  // The history, in months.
+  //
+  // /work/entries returns EVERYTHING, unwindowed, so this list only ever grows —
+  // a year in, checking last week meant scrolling past a hundred cards. Months
+  // are the unit people already think in here: the Pay tab is organised by
+  // month, and "how much did I do in July" is the question a long list makes
+  // hardest to answer.
+  //
+  // Entries arrive sorted date-descending from the route, so each month's rows
+  // are already newest-first and need no second sort — the same direction the
+  // hours-by-date list now reads.
+  const entriesByMonth = useMemo(() => {
+    const map = new Map<string, WorkEntryType[]>();
+    for (const e of entries) {
+      const key = (e.date || "").slice(0, 7);
+      const list = map.get(key);
+      if (list) list.push(e);
+      else map.set(key, [e]);
+    }
+    return [...map.entries()]
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([month, items]) => ({
+        month,
+        items,
+        hours: items.reduce((sum, e) => sum + (e.hours || 0), 0),
+        // Collapsing must never bury something that still needs attention. A
+        // waiting claim or one that was declined — with a note from Anh-Tuan
+        // explaining why — would otherwise be invisible behind a folded header,
+        // and the whole point of the header is that you can trust it.
+        waiting: items.filter((e) => e.status === "submitted").length,
+        rejected: items.filter((e) => e.status === "rejected").length,
+      }));
+  }, [entries]);
+
+  // Only the newest month starts open. Kept as an override map rather than
+  // seeded state so it needs no effect and cannot fight with entries arriving:
+  // an untouched month simply falls back to the rule.
+  const [openMonths, setOpenMonths] = useState<Record<string, boolean>>({});
+  const isMonthOpen = (month: string, index: number) => openMonths[month] ?? index === 0;
+
   const shiftsFor = (tab: "tolog" | "done" | "upcoming") =>
     tab === "done" ? shiftsDone : tab === "upcoming" ? shiftsUpcoming : shiftsToLog;
 
@@ -349,6 +523,31 @@ const TiWork = () => {
           <p className="mt-2.5 text-sm text-gray-500">
             Log your hours and tell us what you worked on.
           </p>
+
+          {/* Credentials we KEPT because the server never answered. Without this
+              the screen was indistinguishable from being signed out — same empty
+              boxes — so somebody holding a perfectly good code would conclude it
+              had stopped working and go asking for another. The whole point of
+              keeping the code is lost if we don't say we kept it. */}
+          {creds && (
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+              <p className="text-sm leading-relaxed text-amber-800">
+                Your saved code is still here — this is the connection, not your code.
+                Nothing to re-enter.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setError("");
+                  setRetryTick((t) => t + 1);
+                }}
+                disabled={loading}
+                className="mt-2 w-full rounded-lg bg-amber-600 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {loading ? "Trying…" : "Try again"}
+              </button>
+            </div>
+          )}
 
           <label className="mt-4 block text-xs font-semibold uppercase tracking-wide text-gray-400">
             Email or phone
@@ -413,7 +612,7 @@ const TiWork = () => {
         </div>
         <button
           type="button"
-          onClick={signOut}
+          onClick={() => setShowSignOutConfirm(true)}
           className="shrink-0 rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-500"
         >
           Sign out
@@ -471,6 +670,18 @@ const TiWork = () => {
                 truncated or scrolled — and the title has nothing to gain from
                 the space it was taking from them. */}
             <p className="mb-1.5 text-lg font-bold text-gray-800">Your cleanings</p>
+            {/* A cleaner could not see errors at all. Every setError in
+                submitShift — the zero-hours guard, and the server's "You weren't
+                scheduled that day" — was written to a string rendered only on the
+                signed-out screen and inside the office-staff form. So Send simply
+                did nothing, with no reason given, on the one screen a cleaner
+                uses. Same for the confirmation. */}
+            {error && <p className="mb-2 text-sm font-semibold text-red-500">{error}</p>}
+            {saved && (
+              <p className="mb-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">
+                {saved.text}
+              </p>
+            )}
             <div className="mb-2">
               <div className="flex gap-1 overflow-x-auto rounded-lg bg-gray-100 p-0.5">
                 {(["tolog", "done", "upcoming"] as const).map((k) => {
@@ -660,11 +871,12 @@ const TiWork = () => {
                               type="button"
                               onClick={() => submitShift(sh)}
                               disabled={
+                                !!savingDate ||
                                 !(shiftDraft[sh.date]?.h || shiftDraft[sh.date]?.m)
                               }
                               className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
                             >
-                              Send
+                              {savingDate === sh.date ? "Sending…" : "Send"}
                             </button>
                           </>
                         )}
@@ -702,6 +914,16 @@ const TiWork = () => {
             two screens turns a two-minute conversation into an argument. */}
         {view === "pay" && pay && (() => {
           const days = pay.days ?? [];
+          // Newest at the top. The route hands these over oldest-first, which put
+          // the day you most likely came to check at the BOTTOM of a box that
+          // scrolls — and left this list the only one on the page reading that
+          // way, since Payments already arrives newest-first from cleanerPay.
+          //
+          // Same expression, same name as the host's panel in CleanersModal, which
+          // has always shown them newest-first. The two of them read these rows to
+          // each other, so scanning in opposite directions was one more way for
+          // the same figures to feel like different figures.
+          const daysNewestFirst = [...days].reverse();
           const payments = pay.payments ?? [];
           const opening = pay.openingPaid ?? 0;
           return (
@@ -731,6 +953,31 @@ const TiWork = () => {
               </p>
             </div>
 
+            {/* Directly under the balance, and deliberately NOT part of it. The
+                green block is money the house has committed to; this is work it
+                has not agreed to yet. Blending the two would overstate what is
+                owed, which is the one number on this screen nobody may get
+                wrong. */}
+            {pending.count > 0 && (
+              <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-amber-800">
+                    Waiting on Anh-Tuan
+                  </span>
+                  <span className="text-lg font-bold text-amber-800">
+                    {formatHrMin(pending.hours)}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-[13px] text-amber-700">
+                  {pending.count} {pending.count === 1 ? "day" : "days"}
+                  {pending.oldest
+                    ? `, oldest ${format(parseISO(pending.oldest), "MMM d")}`
+                    : ""}{" "}
+                  — counted here once approved
+                </p>
+              </div>
+            )}
+
             {/* Beside the hours it prices, not in the greeting at the top: a
                 rate only means something next to the work it is multiplied by. */}
             <div className="mb-1 mt-3 flex items-baseline justify-between gap-2">
@@ -755,7 +1002,7 @@ const TiWork = () => {
                   No recorded hours this month
                 </p>
               ) : (
-                days.map((d) => (
+                daysNewestFirst.map((d) => (
                   <div key={d.date} className="flex items-center gap-2 py-0.5 text-sm">
                     <span className="flex-1 text-gray-600">
                       {format(parseISO(d.date), "EEE M/d")}
@@ -878,6 +1125,14 @@ const TiWork = () => {
             className="mt-2 w-full resize-y rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-gray-400 focus:outline-none"
           />
           {error && <p className="mt-2 text-sm font-semibold text-red-500">{error}</p>}
+          {/* Confirmation lives HERE, next to the button, not in the list below —
+              on a phone that list starts past the fold, so the only proof the tap
+              worked was a card you had to scroll to find. */}
+          {saved && (
+            <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">
+              {saved.text}
+            </p>
+          )}
           <div className="mt-2 flex justify-end gap-2">
             {editingId && (
               <button
@@ -894,9 +1149,10 @@ const TiWork = () => {
             <button
               type="button"
               onClick={submit}
-              className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white"
+              disabled={saving}
+              className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
             >
-              {editingId ? "Save" : "Submit"}
+              {saving ? "Saving…" : editingId ? "Save" : "Submit"}
             </button>
           </div>
         </div>
@@ -913,7 +1169,54 @@ const TiWork = () => {
               Nothing logged yet — your first day goes above.
             </p>
           ) : (
-            entries.map((e) => (
+            entriesByMonth.map((g, gi) => {
+              const open = isMonthOpen(g.month, gi);
+              return (
+                <div key={g.month} className="flex flex-col gap-2">
+                  {/* The header answers the month on its own, so a folded one is
+                      still informative: how many days, how long, and whether
+                      anything in there is unsettled. */}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOpenMonths((m) => ({ ...m, [g.month]: !open }))
+                    }
+                    aria-expanded={open}
+                    className="flex w-full items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-left"
+                  >
+                    <FaChevronDown
+                      size={12}
+                      className={`shrink-0 text-gray-400 transition-transform ${
+                        open ? "" : "-rotate-90"
+                      }`}
+                    />
+                    <span className="text-sm font-bold text-gray-900">
+                      {fmtMonth(g.month)}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      {g.items.length} {g.items.length === 1 ? "day" : "days"} &middot;{" "}
+                      {formatHrMin(g.hours)}
+                    </span>
+                    <span className="ml-auto flex shrink-0 items-center gap-1">
+                      {g.waiting > 0 && (
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${STATUS_STYLE.submitted}`}
+                        >
+                          {g.waiting} waiting
+                        </span>
+                      )}
+                      {g.rejected > 0 && (
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${STATUS_STYLE.rejected}`}
+                        >
+                          {g.rejected} not counted
+                        </span>
+                      )}
+                    </span>
+                  </button>
+
+                  {open &&
+                    g.items.map((e) => (
               <div key={e.id} className="rounded-2xl border border-gray-200 bg-white p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-bold text-gray-900">{fmtDay(e.date)}</span>
@@ -966,17 +1269,68 @@ const TiWork = () => {
                   </div>
                 )}
               </div>
-            ))
+                    ))}
+                </div>
+              );
+            })
           )}
         </div>
         )}
 
         {/* The worker's half of the promise, which the mark at the top states.
-            Repeating the motto itself here would make it wallpaper. */}
+            Repeating the motto itself here would make it wallpaper.
+
+            Said in terms of the work the reader ACTUALLY does. Office staff were
+            being thanked for rooms they never clean — this line sat outside every
+            me.kind branch — and a personal thank-you for somebody else's job is
+            worse than no thank-you at all. */}
         <p className="pb-6 text-center text-xs leading-relaxed text-gray-400">
-          Every room you leave ready is how we keep that promise. Thank you.
+          {me.kind === "cleaner"
+            ? "Every room you leave ready is how we keep that promise. Thank you."
+            : "The work you do behind the scenes is how we keep that promise. Thank you."}
         </p>
       </div>
+
+      {/* Same shape as TiMag's log-out confirm, so the two apps ask the same
+          question the same way — but it NAMES the cost instead of only asking.
+          "Are you sure?" stops the stray tap and nothing else; the person who
+          taps deliberately, tidying up at the end of a shift, says yes and is
+          locked out just the same. What they do not know is that getting back
+          in needs a code somebody else has to send them.
+
+          The second line answers the question anyone hovering here is really
+          asking. Until now the only place TiWork promised the hours survive was
+          the revoked-code warning on the way back IN — which is too late to
+          reassure the person deciding whether to leave. */}
+      {showSignOutConfirm && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4">
+          <div className="flex w-80 max-w-full flex-col gap-5 rounded-2xl bg-white px-6 py-6 shadow-2xl">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xl font-bold text-gray-900">Sign out?</span>
+              <span className="text-sm leading-relaxed text-gray-500">
+                You'll need your access code from Anh-Tuan to get back in. Your logged
+                hours are safe either way.
+              </span>
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowSignOutConfirm(false)}
+                className="flex-1 rounded-xl border border-gray-200 py-3 text-base font-semibold text-gray-600 transition-colors hover:bg-gray-50 active:bg-gray-100"
+              >
+                Stay signed in
+              </button>
+              <button
+                type="button"
+                onClick={signOut}
+                className="flex-1 rounded-xl bg-red-500 py-3 text-base font-semibold text-white transition-colors hover:bg-red-600 active:bg-red-700"
+              >
+                Sign out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
