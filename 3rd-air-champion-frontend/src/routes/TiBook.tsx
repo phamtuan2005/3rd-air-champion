@@ -22,6 +22,8 @@ import ReservedHoldsPopup from "../components/tibook/ReservedHoldsPopup";
 import { getGuestWishList } from "../util/wishListOperations";
 import { fetchBookingRequestsByHost, fetchCalendarBookingsByGuest } from "../util/bookingRequestOperations";
 import { fetchGuestByPhone } from "../util/guestOperations";
+import RememberMeDisclaimer from "../components/tibook/RememberMeDisclaimer";
+import { getConsent, readRememberedGuest, rememberGuest, setConsent, revokeConsent } from "../util/guestConsent";
 
 const TiBookInner = () => {
   const { theme } = useTiBookTheme();
@@ -58,8 +60,15 @@ const TiBookInner = () => {
   const collapseCal = () => setDragOffset(0);
   const [wishListDates, setWishListDates] = useState<Set<string>>(new Set());
   const [persistedWishListDates, setPersistedWishListDates] = useState<Set<string>>(new Set());
-  const [guestPhone, setGuestPhone] = useState(() => localStorage.getItem("tiBookGuestPhone") ?? "");
-  const [guestName, setGuestName] = useState(() => localStorage.getItem("tiBookGuestName") ?? "");
+  // Read through the consent gate, never straight from localStorage: a number
+  // saved before we started asking, or one belonging to a guest who has since
+  // said no, must not come back to greet them. See util/guestConsent.
+  const [guestPhone, setGuestPhone] = useState(() => readRememberedGuest().phone);
+  const [guestName, setGuestName] = useState(() => readRememberedGuest().name);
+  // The number waiting on an answer to the disclaimer. Held in memory only —
+  // nothing is written until they say yes.
+  const [pendingConsentPhone, setPendingConsentPhone] = useState<string | null>(null);
+  const pendingConsentNameRef = useRef<string>("");
   const [guestBookings, setGuestBookings] = useState<GuestBooking[]>([]);
   // A guest we already recognise by name has seen the rooms — the photo banner
   // is a first-visit pitch, and on their return it is just height taken from the
@@ -431,8 +440,26 @@ const TiBookInner = () => {
     });
   };
 
+  // Called wherever a guest has just identified themselves by phone. Saves it
+  // if they have already said yes; asks them if they have never been asked.
+  // A guest who said no is neither saved nor asked again — their answer stands
+  // until they clear this browser.
+  const rememberOrAsk = (phone: string, name?: string) => {
+    if (!phone.trim()) return;
+    const consent = getConsent();
+    if (consent === "allowed") {
+      rememberGuest(phone, name);
+      return;
+    }
+    if (consent === null) {
+      pendingConsentNameRef.current = name ?? "";
+      setPendingConsentPhone(phone);
+    }
+  };
+
   const handlePhoneConfirmed = (phone: string) => {
     setGuestPhone(phone);
+    rememberOrAsk(phone);
     if (currentHost) {
       getGuestWishList(currentHost.id, phone)
         .then((result) => {
@@ -661,7 +688,7 @@ const TiBookInner = () => {
           onToggleWishDate={(date) => setWishListDates((prev) => { const next = new Set(prev); if (next.has(date)) next.delete(date); else next.add(date); return next; })}
           onClose={() => { setMyBookingsOpen(false); setBookingsFocusKey(null); }}
           onPhoneConfirmed={handlePhoneConfirmed}
-          onClear={() => { setGuestPhone(""); setGuestName(""); setGuestBookings([]); setWishListDates(new Set()); setPersistedWishListDates(new Set()); setCartDates(new Map()); setSelectedRoomIds(null); localStorage.removeItem("tiBookGuestName"); }}
+          onClear={() => { setGuestPhone(""); setGuestName(""); setGuestBookings([]); setWishListDates(new Set()); setPersistedWishListDates(new Set()); setCartDates(new Map()); setSelectedRoomIds(null); revokeConsent(); }}
           cancellationFullRefundDays={currentHost.cancellationFullRefundDays}
           cancellationHalfRefundDays={currentHost.cancellationHalfRefundDays}
           houseRules={currentHost.houseRules}
@@ -705,9 +732,15 @@ const TiBookInner = () => {
           cancellationHalfRefundDays={currentHost.cancellationHalfRefundDays}
           houseRules={currentHost.houseRules}
           onRemoveWishDate={(date) => setWishListDates((prev) => { const next = new Set(prev); next.delete(date); return next; })}
+          onGuestIdentified={(phone, name) => {
+            setGuestPhone(phone);
+            setGuestName(name);
+            rememberOrAsk(phone, name);
+          }}
           onWishListSent={(phone, name, newDates) => {
-            localStorage.setItem("tiBookGuestPhone", phone);
-            localStorage.setItem("tiBookGuestName", name);
+            // Identity is onGuestIdentified's job now — this one only carries
+            // the wish list, so there is a single place that decides whether a
+            // guest gets remembered.
             setGuestPhone(phone);
             setGuestName(name);
             const dates = new Set<string>(newDates);
@@ -787,6 +820,32 @@ const TiBookInner = () => {
           onPick={(roomId) => addCartDateForRoom(roomPickerDate, roomId)}
           onAny={() => addCartDateAny(roomPickerDate)}
           onClose={() => setRoomPickerDate(null)}
+        />
+      )}
+
+      {/* Asked the first time a guest gives us their number, before it is
+          written anywhere. Sits above the other overlays (z-140) because it is
+          answering for the sheet the guest is already looking at.
+
+          It waits for the booking modal to close rather than rendering over it:
+          the request path fires this on success, and a storage question landing
+          on top of "All done!" steps on the one moment the guest is being told
+          their request reached the house. The ask queues; nothing is stored
+          while it waits. */}
+      {pendingConsentPhone && !isBookingModalOpen && (
+        <RememberMeDisclaimer
+          phone={pendingConsentPhone}
+          onAllow={() => {
+            setConsent("allowed");
+            rememberGuest(pendingConsentPhone, pendingConsentNameRef.current);
+            setPendingConsentPhone(null);
+          }}
+          onDeny={() => {
+            // Nothing to undo — we never wrote it. React state keeps the guest
+            // signed in for this visit; only the next visit differs.
+            setConsent("denied");
+            setPendingConsentPhone(null);
+          }}
         />
       )}
     </div>
