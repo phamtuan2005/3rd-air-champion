@@ -340,6 +340,18 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
   // FUTURE nights (per-room blended rate → room.price prior), same estimator as the
   // This-Month "Estimated Total". Past months have no open future nights, so their
   // prediction equals realized (no dashed cap). Present + future months project up.
+  // Charges by MONTH, from the same unfiltered list the week strip indexes by
+  // day. Money earned in a month with no stay behind it, so grossByMonth — which
+  // reads monthMap — can never see it.
+  const chargeByMonth = useMemo(() => {
+    const out = new Map<string, number>();
+    allCharges.forEach((c) => {
+      const mk = c.date.slice(0, 7);
+      out.set(mk, (out.get(mk) ?? 0) + c.amount);
+    });
+    return out;
+  }, [allCharges]);
+
   const predictedByMonth = useMemo(() => {
     const activeRooms = rooms.filter((r) => r.active);
     const now = startOfToday();
@@ -370,10 +382,10 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
         const avgRate = weight * (bookedNights > 0 ? bookedProfit / bookedNights : 0) + (1 - weight) * room.price;
         potential += openFutureNights * avgRate;
       }
-      out.set(mk, (grossByMonth.get(mk) ?? 0) + potential);
+      out.set(mk, (grossByMonth.get(mk) ?? 0) + (chargeByMonth.get(mk) ?? 0) + potential);
     }
     return out;
-  }, [rooms, trendMonths, monthMap, timeZone, grossByMonth]);
+  }, [rooms, trendMonths, monthMap, timeZone, grossByMonth, chargeByMonth]);
 
   const [trendData, setTrendData] = useState<TrendRow[]>([]);
   useEffect(() => {
@@ -386,18 +398,18 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
     Promise.all([
       fetchAssignments(hostId, rangeStart, rangeEnd, token).catch(() => []),
       fetchMiscExpenses(hostId, token).catch(() => []),
-      // Charges belong in the trend for the same reason they belong in Net:
-      // leave them out here and the August bar disagrees with the August card
-      // about the same month. Start-night fees taught this lesson once already.
-      fetchCharges(hostId, token).catch(() => []),
-    ]).then(([assigns, misc, chargeList]) => {
+    ]).then(([assigns, misc]) => {
       // Six months of history is a far steadier basis for "what does a cleaning
       // cost" than the handful recorded so far this month.
       setHistoryAssignments(assigns);
       setTrendData(
         trendMonths.map((mDate) => {
           const mk = format(mDate, "yyyy-MM", { timeZone });
-          const gross = grossByMonth.get(mk) ?? 0;
+          // Charges belong in GROSS, not only in net. They were added to net
+          // alone, so the Trend tab's gross bars disagreed with the same month's
+          // Total on the card and with the figure in the calendar header —
+          // money that was in the bottom line and missing from the top one.
+          const gross = (grossByMonth.get(mk) ?? 0) + (chargeByMonth.get(mk) ?? 0);
           const cleaning =
             assigns
               .filter((a) => a.date.slice(0, 7) === mk && a.hours != null && a.cleaner)
@@ -406,9 +418,6 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
           const miscTotal = misc
             .filter((e) => isExpenseInMonth(e, mk))
             .reduce((s, e) => s + e.amount, 0);
-          const chargeTotal = chargeList
-            .filter((c) => isChargeInMonth(c, mk))
-            .reduce((s, c) => s + c.amount, 0);
           return {
             month: mk,
             label: format(mDate, "MMM", { timeZone }),
@@ -416,12 +425,12 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
             gross,
             cleaning,
             misc: miscTotal,
-            net: gross + chargeTotal - cleaning - miscTotal,
+            net: gross - cleaning - miscTotal,
           };
         }),
       );
     });
-  }, [hostId, token, trendMonths, timeZone, grossByMonth, cleaners, isOpen]);
+  }, [hostId, token, trendMonths, timeZone, grossByMonth, chargeByMonth, cleaners, isOpen]);
 
   // Booking-rate (occupancy) and AirBnB-share per month, computed straight from
   // monthMap — no fetch. Occupancy = booked ÷ available room-nights (blocked
