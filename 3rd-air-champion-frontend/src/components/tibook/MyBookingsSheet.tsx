@@ -6,6 +6,7 @@ import { fetchCalendarBookingsByGuest } from "../../util/bookingRequestOperation
 import { formatCancellationPolicy } from "../../util/cancellationPolicy";
 import { fetchGuestByPhone } from "../../util/guestOperations";
 import { toggleWishListDate } from "../../util/wishListOperations";
+import { revokeConsent } from "../../util/guestConsent";
 import RoomBadge from "../shared/RoomBadge";
 import GuestLoyaltyBanner from "./GuestLoyaltyBanner";
 
@@ -185,7 +186,10 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
     setBookings(null);
     setGuestPricing(new Map());
     setError("");
-    localStorage.removeItem("tiBookGuestPhone");
+    // Clears the number, the name AND the stored answer — what the disclaimer
+    // says this button does. They are asked again next time they identify
+    // themselves, so the choice is genuinely theirs to remake.
+    revokeConsent();
     onClear?.();
   };
 
@@ -201,7 +205,9 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
       ]);
       setBookings(dedupeCalendar((calendarBookings ?? []) as GuestBooking[]));
       setGuestPricing(new Map((guest?.pricing ?? []).map((pr: { room: string; price: number }) => [pr.room, pr.price])));
-      localStorage.setItem("tiBookGuestPhone", p);
+      // Saving is the parent's call, through the consent gate: a guest who has
+      // not been asked yet gets the disclaimer here, and nothing is written
+      // until they answer it.
       onPhoneConfirmed(p);
     } catch {
       setError("Could not load bookings. Please try again.");

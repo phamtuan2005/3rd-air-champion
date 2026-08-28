@@ -35,6 +35,11 @@ interface BookingRequestModalProps {
   onClose: () => void;
   onSuccess: () => void;
   onWishListSent?: (phone: string, name: string, newDates: string[]) => void;
+  // Fired on every successful submit, wish list or not. Remembering the guest
+  // used to hang off onWishListSent, so the commonest path of all — pick rooms,
+  // send the request — never saved their number and never asked them about it.
+  // They came back a stranger, retyping a number the house already had.
+  onGuestIdentified?: (phone: string, name: string) => void;
   onRemoveWishDate?: (date: string) => void;
   onRemoveCartRange?: (dateKeys: string[]) => void;
   // Dates read out of what the guest TYPED, added to the same cart a tap on
@@ -122,6 +127,7 @@ const BookingRequestModal = ({
   onClose,
   onSuccess,
   onWishListSent,
+  onGuestIdentified,
   onRemoveWishDate,
   onRemoveCartRange,
   onAddCartDates,
@@ -538,6 +544,10 @@ const BookingRequestModal = ({
       }
 
       await Promise.all(requests);
+      // Only once the house actually has the request. Asking to remember a
+      // number attached to a submission that then failed would be storing a
+      // guest who, as far as the house is concerned, never got in touch.
+      onGuestIdentified?.(data.guestPhone, data.guestName);
       setSubmitted(true);
     } catch {
       setSubmitError(true);
