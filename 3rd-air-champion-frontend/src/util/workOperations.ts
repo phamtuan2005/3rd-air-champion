@@ -61,12 +61,53 @@ export interface WorkCreds {
 const unwrap = (err: any, fallback: string) =>
   err?.response?.data?.error ?? fallback;
 
+// WHY a sign-in failed, not merely that it did.
+//
+// Three outcomes need three different responses and TiWork could not tell them
+// apart, because unwrap() flattens everything to a string and the status code is
+// lost:
+//
+//   401 — the server answered and refused. The saved code is genuinely dead.
+//   403 — answered, code fine, but the account is ended or on leave. Nothing to
+//         re-enter; the server's own sentence is the only useful thing to say.
+//   anything else, or no response at all — the server was never reached. The
+//         saved code is almost certainly still good.
+//
+// Treating the last case like the first is expensive here. Anh-Tuan changes the
+// access code RARELY, so a failed sign-in is far more often a phone with no
+// signal than a rotation — and TiWork installs to the home screen and precaches
+// its shell, so its icon opens instantly inside a house with no bars. The app
+// was discarding a working code at exactly the moment it was least likely to be
+// the problem, then sending the worker to ask for a replacement that did not
+// exist.
+export interface WorkSignInFailure {
+  message: string;
+  // The server replied and said no. False means we never got an answer, which
+  // is not evidence about the code at all.
+  refused: boolean;
+  // A refusal of the CODE specifically (401), as opposed to an account that is
+  // closed or paused (403). Only this one means "ask for the new code".
+  codeRejected: boolean;
+}
+
 export const workSignIn = async (creds: WorkCreds): Promise<WorkMe> => {
   try {
     const res = await axios.post(`${BACKEND_ENDPOINT}/work/signin`, creds);
     return res.data;
-  } catch (err) {
-    throw unwrap(err, "Could not sign in.");
+  } catch (err: any) {
+    const status = err?.response?.status;
+    // A 5xx is the server falling over, not a judgement on the credentials.
+    const refused = status === 401 || status === 403;
+    const failure: WorkSignInFailure = {
+      message:
+        err?.response?.data?.error ??
+        (status
+          ? "Could not sign in."
+          : "Couldn't reach TiWork. Check your connection and try again."),
+      refused,
+      codeRejected: status === 401,
+    };
+    throw failure;
   }
 };
 
