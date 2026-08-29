@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { guestType } from "../../../util/types/guestType";
 import { roomType } from "../../../util/types/roomType";
 import RoomBadge from "../../shared/RoomBadge";
@@ -17,6 +17,7 @@ import {
 import { dayType } from "../../../util/types/dayType";
 import { format, addDays } from "date-fns";
 import { ANY_ROOM_SENTINEL } from "./zodBookDays";
+import { AliasGuests, guestsFromAlias, tidyAlias } from "../../../util/airbnbAlias";
 import { parseDateText } from "../../../util/dateText";
 import { groupConsecutiveDates } from "../../../util/cartGrouping";
 import { ConfirmationBooking } from "../MainView/hooks/useMessaging";
@@ -122,18 +123,11 @@ const BookingModal = ({
   // airbnbPrice. No new guest record, and it is automatically consistent with the
   // rest of the app.
   const airbnbGuest = useMemo(() => guests.find((g) => g.name === "AirBnB") ?? null, [guests]);
-  // "David" is one guest; "David's" is two or three.
-  //
-  // AirBnB writes the possessive when the reservation covers more than the
-  // person named, and the alias is COPIED STRAIGHT FROM IT — so the count is
-  // already in the text the host just pasted. They are reading the name and the
-  // payout at that moment, which is where the attention goes and why the guest
-  // count is the field that gets left at 1.
-  //
-  // Curly apostrophe as well as straight: AirBnB serves the typographic one and
-  // a paste carries it through.
-  const POSSESSIVE = /['’]s(\s|$)/;
   const [airbnbMode, setAirbnbMode] = useState(false);
+  // What the pasted AirBnB line turned out to say, kept so the note can still
+  // explain it after the name has been tidied down and the evidence is gone
+  // from the box.
+  const [aliasRead, setAliasRead] = useState<AliasGuests | null>(null);
   const [airbnbAlias, setAirbnbAlias] = useState("");
   const [airbnbPayout, setAirbnbPayout] = useState("");
 
@@ -143,18 +137,6 @@ const BookingModal = ({
       if (next.has(index)) next.delete(index); else next.add(index);
       return next;
     });
-
-  // Nudged once per distinct alias, and only up from 1.
-  //
-  // TWO, never three: the possessive means two OR three and two is the floor,
-  // so this can only ever under-count — which the host corrects — rather than
-  // silently promising a sofa bed nobody needs. It is set visibly, with the
-  // reason beside the field, because a number changed quietly is exactly the
-  // number that goes unread.
-  //
-  // The ref stops it fighting the host: set it back to 1 and it stays at 1
-  // until a different name is pasted.
-  const nudgedAliasRef = useRef<string | null>(null);
 
   const activePrefill = prefills && prefills.length > 0 ? prefills[0] : prefill;
   const defaultGuestId = activePrefill?.guestId ?? "";
@@ -346,18 +328,26 @@ const BookingModal = ({
     setReservedRows((prev) => new Set(prev).add(watchedBookings?.length ?? 0));
   };
 
-  // The possessive in the pasted name, acted on.
-  const aliasIsPossessive = airbnbMode && POSSESSIVE.test(airbnbAlias.trim());
-  useEffect(() => {
-    if (!airbnbMode) return;
-    const alias = airbnbAlias.trim();
-    if (!POSSESSIVE.test(alias)) return;
-    if (nudgedAliasRef.current === alias) return;
-    nudgedAliasRef.current = alias;
-    // Only ever from the untouched 1. A host who has already said 3 knows
-    // better than the apostrophe does.
-    if (getValues("numberOfGuests") === 1) setValue("numberOfGuests", 2);
-  }, [airbnbAlias, airbnbMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The pasted line, read and then tidied — on BLUR, never while typing.
+  //
+  // Trimming as the host types would eat the apostrophe-s the moment it
+  // appeared and fight them for the rest of the name. Blur covers the real
+  // path anyway: paste, then move to the payout.
+  const readAlias = () => {
+    const raw = airbnbAlias;
+    const read = guestsFromAlias(raw);
+    setAliasRead(read);
+    if (read) {
+      // An exact "group of 2" is AirBnB's own count and overrides whatever is
+      // in the box. A bare possessive is only a FLOOR, so it may raise an
+      // untouched 1 and must never overrule a host who has already said 3.
+      if (read.exact || getValues("numberOfGuests") === 1) {
+        setValue("numberOfGuests", read.count);
+      }
+    }
+    const tidy = tidyAlias(raw);
+    if (tidy !== raw) setAirbnbAlias(tidy);
+  };
 
   const selectedGuest = guests.find((g) => g.id === watchedGuestId) ?? null;
   const watchedGuestName = selectedGuest?.name ?? "";
@@ -715,8 +705,14 @@ const BookingModal = ({
                     id="airbnbAlias"
                     type="text"
                     value={airbnbAlias}
-                    onChange={(e) => setAirbnbAlias(e.target.value)}
-                    placeholder="As shown on AirBnB"
+                    onChange={(e) => {
+                      setAirbnbAlias(e.target.value);
+                      // The note describes the LAST reading; editing the name
+                      // makes it stale, so it goes until the next blur.
+                      setAliasRead(null);
+                    }}
+                    onBlur={readAlias}
+                    placeholder="Paste the whole AirBnB name"
                     className="border border-gray-300 rounded px-2 py-1 w-full"
                   />
                 </div>
@@ -783,13 +779,14 @@ const BookingModal = ({
                     {errors.numberOfGuests.message}
                   </span>
                 )}
-                {/* Says WHY the number moved, and that it may need to be 3.
-                    Without the reason on screen it is just a field that changed
-                    on its own. */}
-                {aliasIsPossessive && (
+                {/* Says WHY the number moved. Without the reason on screen it
+                    is just a field that changed on its own — and the line it
+                    was read from has been tidied away by then. */}
+                {aliasRead && (
                   <span className="mt-1 block text-[11px] font-medium leading-tight text-amber-700">
-                    “{airbnbAlias.trim()}” means 2 or 3 on AirBnB — set to 2, raise it if
-                    there are 3.
+                    {aliasRead.exact
+                      ? `Read ${aliasRead.count} from the AirBnB name.`
+                      : `The name says more than one — set to 2, raise it if there are 3.`}
                   </span>
                 )}
               </div>
