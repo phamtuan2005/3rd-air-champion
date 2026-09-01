@@ -4,6 +4,7 @@ import { roomType } from "../../../../util/types/roomType";
 import { getRoomColor } from "../../../../util/getRoomColor";
 import { FaRegEdit } from "react-icons/fa";
 import { useForm, Controller, SubmitHandler } from "react-hook-form";
+import { parseReservation } from "../../../../util/airbnbReservation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { addDays, format, parseISO } from "date-fns";
 
@@ -71,6 +72,9 @@ const DetailsModal = ({
   const [isWriting, setIsWriting] = useState(isAirBnB && !booking.airbnbPrice);
   const [isPricingEditing, setIsPricingEditing] = useState(startWithPricingEdit ?? false);
   const [profitInput, setProfitInput] = useState(String(booking.airbnbPrice || 0));
+  // What a pasted reservation page turned out to say. Reported back rather than
+  // three fields changing under the host's hands.
+  const [pasteNote, setPasteNote] = useState<string | null>(null);
 
   // Fees are edited in their own inline section (amounts kept as strings so a
   // partial "-" or "1." is typable; coerced on save). A negative amount is a
@@ -282,6 +286,60 @@ const DetailsModal = ({
               )}
             </p>
           </div>
+
+          {/* Paste the AirBnB page instead of retyping what it already says.
+              AirBnB stays only: a direct booking has no such page.
+
+              Above the fields it fills, because reading it after they are typed
+              is reading it too late. The name, the guest count and the payout
+              are exactly the three this modal edits, and the guest count is the
+              one that comes out wrong — the attention is on the name and the
+              money.
+
+              The page cannot be fetched from its link (host login, no CORS,
+              DataDome), so copying it is the one gesture available on a page
+              the host already has open. */}
+          {isAirBnB && (
+            <div className="rounded-lg border border-rose-200 bg-rose-50/60 px-2.5 py-2">
+              <label htmlFor="details-airbnb-paste" className="text-xs font-semibold text-rose-900">
+                Paste from AirBnB
+              </label>
+              <textarea
+                id="details-airbnb-paste"
+                rows={2}
+                placeholder="Open the reservation, select all, paste here"
+                onPaste={(e) => {
+                  const text = e.clipboardData.getData("text");
+                  const r = parseReservation(text);
+                  if (!r || !r.alias) return;
+                  e.preventDefault();
+                  // Swallowed once read: a chute, not a field. A page of text
+                  // left sitting in it invites the host to wonder if it saved.
+                  (e.target as HTMLTextAreaElement).value = "";
+                  const took: string[] = [];
+                  setValue("alias", r.alias, { shouldDirty: true });
+                  took.push(r.alias);
+                  if (r.guests) {
+                    setValue("numberOfGuests", Math.min(Math.max(r.guests, 1), 4), {
+                      shouldDirty: true,
+                    });
+                    took.push(`${r.guests} guest${r.guests === 1 ? "" : "s"}`);
+                  }
+                  if (r.payout != null) {
+                    // To the cent — the cents ARE the payout.
+                    setProfitInput(String(r.payout));
+                    setIsWriting(true);
+                    took.push(`$${r.payout.toFixed(2)}`);
+                  }
+                  setPasteNote(took.length ? `Read ${took.join(" · ")} — press Save` : null);
+                }}
+                className="mt-1 w-full resize-none rounded border border-rose-200 px-2 py-1 text-xs focus:border-rose-400 focus:outline-none"
+              />
+              {pasteNote && (
+                <p className="mt-1 text-[11px] font-semibold text-emerald-700">{pasteNote}</p>
+              )}
+            </div>
+          )}
 
           {/* Additional fees (parking, cleaning, cancellation, …) — right under
               the summary. Shown for AirBnB too: some guests pay these on-site
@@ -602,24 +660,31 @@ const DetailsModal = ({
             </div>
           )}
 
-          {/* Edit actions */}
-          {isWriting && (
-            <div className="sticky bottom-0 -mx-5 -mb-5 flex justify-end gap-2 border-t border-gray-100 bg-white px-5 py-3">
-              <button
-                onClick={handleSubmit(onSubmit)}
-                className="px-4 py-1.5 bg-green-500 hover:bg-green-600 text-white text-sm rounded-md"
-              >
-                Save
-              </button>
-              <button
-                onClick={handleCancel}
-                className="px-4 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm rounded-md"
-              >
-                Cancel
-              </button>
-            </div>
-          )}
         </div>
+
+        {/* Edit actions — a FOOTER of the panel, not a sticky bar inside the
+            scroll.
+            Sticky, it floated over whatever happened to be under it: on an
+            AirBnB stay that was the Profit field, so the one number the host had
+            opened the modal to change was hidden behind the button that saves
+            it. Out here it has its own row and the body scrolls above it, which
+            is the layout the header already uses at the other end. */}
+        {isWriting && (
+          <div className="flex shrink-0 justify-end gap-2 border-t border-gray-100 bg-white px-5 py-3">
+            <button
+              onClick={handleSubmit(onSubmit)}
+              className="px-4 py-1.5 bg-green-500 hover:bg-green-600 text-white text-sm rounded-md"
+            >
+              Save
+            </button>
+            <button
+              onClick={handleCancel}
+              className="px-4 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm rounded-md"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
