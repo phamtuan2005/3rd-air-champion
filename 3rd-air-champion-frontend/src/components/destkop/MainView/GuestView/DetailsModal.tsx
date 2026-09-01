@@ -75,6 +75,13 @@ const DetailsModal = ({
   // What a pasted reservation page turned out to say. Reported back rather than
   // three fields changing under the host's hands.
   const [pasteNote, setPasteNote] = useState<string | null>(null);
+  // The reservation's own page, out of the description the sync writes there.
+  // A stay entered by hand has no such URL ([[project-manual-airbnb-booking]]),
+  // and the tag is then a plain tag rather than a link going nowhere.
+  const airbnbUrl =
+    String(booking.description || "").match(
+      /https:\/\/www\.airbnb\.com\/hosting\/reservations\/details\/\S+/,
+    )?.[0] ?? null;
 
   // Fees are edited in their own inline section (amounts kept as strings so a
   // partial "-" or "1." is typable; coerced on save). A negative amount is a
@@ -255,11 +262,28 @@ const DetailsModal = ({
                 >
                   {booking.room?.name}
                 </span>
-                {isAirBnB && (
-                  <span className="shrink-0 rounded-full bg-[#FF5A5F] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
-                    Airbnb
-                  </span>
-                )}
+                {/* The tag IS the way to the reservation — the same thing it
+                    does on the booking card. The host has to open that page to
+                    copy it, and a second link elsewhere in the modal would be
+                    two doors to one room. Without a URL (a stay entered by
+                    hand) it stays a plain tag rather than a link going
+                    nowhere. */}
+                {isAirBnB &&
+                  (airbnbUrl ? (
+                    <a
+                      href={airbnbUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Open this reservation on AirBnB"
+                      className="shrink-0 rounded-full bg-[#FF5A5F] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white transition-opacity hover:opacity-80"
+                    >
+                      Airbnb ↗
+                    </a>
+                  ) : (
+                    <span className="shrink-0 rounded-full bg-[#FF5A5F] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                      Airbnb
+                    </span>
+                  ))}
                 <span className="shrink-0 text-xs text-gray-400">
                   {booking.duration} night{booking.duration !== 1 ? "s" : ""}
                 </span>
@@ -301,6 +325,10 @@ const DetailsModal = ({
               the host already has open. */}
           {isAirBnB && (
             <div className="rounded-lg border border-rose-200 bg-rose-50/60 px-2.5 py-2">
+              {/* The label IS the way there. The host has to open the
+                  reservation to copy it, so making them find it themselves is
+                  the one step this box cannot do for them — and the URL is
+                  already sitting in the booking. */}
               <label htmlFor="details-airbnb-paste" className="text-xs font-semibold text-rose-900">
                 Paste from AirBnB
               </label>
