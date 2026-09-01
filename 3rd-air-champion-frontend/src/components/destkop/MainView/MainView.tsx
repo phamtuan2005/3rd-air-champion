@@ -35,6 +35,7 @@ import ManageGuestModal from "../NavBar/DropDown/ManageGuestModal";
 import CleanersModal from "./CleanersModal";
 import MiscModal from "./MiscModal";
 import ChargesModal from "./ChargesModal";
+import AirbnbCheckModal from "./AirbnbCheckModal";
 import { fetchCharges, isChargeInMonth } from "../../../util/chargeOperations";
 import { updateBookingExpectedPayDate } from "../../../util/bookingOperations";
 import DefaultRateGuestsModal from "./DefaultRateGuestsModal";
@@ -148,6 +149,8 @@ const MainView = ({
     setIsCleanersOpen: React.Dispatch<React.SetStateAction<boolean>>;
     isMiscOpen: boolean;
     isChargesOpen: boolean;
+    isAirbnbCheckOpen: boolean;
+    setIsAirbnbCheckOpen: React.Dispatch<React.SetStateAction<boolean>>;
     setIsChargesOpen: React.Dispatch<React.SetStateAction<boolean>>;
     setIsMiscOpen: React.Dispatch<React.SetStateAction<boolean>>;
     isRatesOpen: boolean;
@@ -177,6 +180,8 @@ const MainView = ({
     setIsMiscOpen,
     isChargesOpen,
     setIsChargesOpen,
+    isAirbnbCheckOpen,
+    setIsAirbnbCheckOpen,
     isRatesOpen,
     setIsRatesOpen,
     isStaffingOpen,
@@ -1704,6 +1709,9 @@ const MainView = ({
             setCleanersInitialTab(undefined);
           }}
         />
+      )}
+      {isAirbnbCheckOpen && (
+        <AirbnbCheckModal monthMap={monthMap} onClose={() => setIsAirbnbCheckOpen(false)} />
       )}
       {isChargesOpen && (
         <ChargesModal

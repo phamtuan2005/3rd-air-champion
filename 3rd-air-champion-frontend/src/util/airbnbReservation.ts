@@ -127,3 +127,87 @@ export const parseReservation = (text: string): ParsedReservation | null => {
 
   return out;
 };
+
+// ── The Upcoming list ───────────────────────────────────────────────────────
+//
+// The same page carries every upcoming reservation as three lines:
+//
+//   Sep 2 – 3
+//   Xiaomin's group of 2
+//   Cute room • Smart toilet • Stay with an Engineer
+//
+// One copy of that list is what lets TiMag be checked against AirBnB at all.
+// There is no upcoming-reservations screen in TiMag — the calendar shows stays
+// as bars, which cannot be read down a column — so a guest count typed wrong
+// months ago is invisible until somebody arrives to a bed that was not made.
+//
+// No payout here; the list does not carry one. It gives the two things most
+// likely to be wrong anyway: whether the stay exists at all, and how many
+// people are in it.
+
+export interface ListedReservation {
+  alias: string;
+  guests: number;
+  roomName: string;
+  startDate: string; // yyyy-MM-dd
+  nights: number;
+}
+
+// "Sep 2 – 3" or "Sep 30 – Oct 2": the end may name its own month.
+const ROW_DATES = /^\s*([A-Z][a-z]{2})\s+(\d{1,2})\s*[–—-]\s*(?:([A-Z][a-z]{2})\s+)?(\d{1,2})\s*$/;
+const ROW_ROOM = /^\s*([A-Za-z]+) room\s*[•·]/;
+
+export const parseReservationList = (
+  text: string,
+  today: Date = new Date(),
+): ListedReservation[] => {
+  const lines = (text ?? "").replace(/\r\n/g, "\n").split("\n");
+  const out: ListedReservation[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const dates = lines[i].match(ROW_DATES);
+    if (!dates) continue;
+
+    // The next two NON-EMPTY lines are the name and the room. AirBnB pads the
+    // list with blank lines, and a row whose next lines are not a name and a
+    // room is not a row at all — the Today section above is laid out
+    // differently and must not be read as one.
+    const rest: string[] = [];
+    for (let j = i + 1; j < lines.length && rest.length < 2; j++) {
+      if (lines[j].trim()) rest.push(lines[j]);
+    }
+    if (rest.length < 2) continue;
+    const room = rest[1].match(ROW_ROOM);
+    if (!room) continue;
+
+    const startMonth = MONTHS[dates[1].toLowerCase()];
+    const endMonth = dates[3] ? MONTHS[dates[3].toLowerCase()] : startMonth;
+    if (startMonth === undefined || endMonth === undefined) continue;
+    const startDay = Number(dates[2]);
+    const endDay = Number(dates[4]);
+
+    // The list carries no year. These are UPCOMING stays, so a month already
+    // behind us is next year's — the same rule util/dateText uses.
+    const y0 = today.getFullYear();
+    const startYear = startMonth < today.getMonth() ? y0 + 1 : y0;
+    // A stay running Dec 30 – Jan 2 ends in the year after it starts.
+    const endYear = endMonth < startMonth ? startYear + 1 : startYear;
+
+    const start = new Date(startYear, startMonth, startDay);
+    const end = new Date(endYear, endMonth, endDay);
+    const nights = Math.round((end.getTime() - start.getTime()) / 86400000);
+    if (nights < 1) continue;
+
+    const name = rest[0].trim();
+    const read = guestsFromAlias(name);
+    out.push({
+      alias: tidyAlias(name),
+      guests: read ? read.count : 1,
+      roomName: room[1],
+      startDate: `${startYear}-${pad(startMonth + 1)}-${pad(startDay)}`,
+      nights,
+    });
+  }
+
+  return out;
+};

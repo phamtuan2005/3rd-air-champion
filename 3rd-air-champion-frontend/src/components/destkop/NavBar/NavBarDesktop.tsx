@@ -42,6 +42,7 @@ interface NavBarDesktopProps {
   isMiscOpen: boolean;
   setIsMiscOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setIsChargesOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsAirbnbCheckOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isRatesOpen: boolean;
   setIsRatesOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isStaffingOpen: boolean;
@@ -86,6 +87,7 @@ const NavBarDesktop = ({
   isMiscOpen,
   setIsMiscOpen,
   setIsChargesOpen,
+  setIsAirbnbCheckOpen,
   isRatesOpen,
   setIsRatesOpen,
   isStaffingOpen,
@@ -218,6 +220,16 @@ const NavBarDesktop = ({
           run: () => {
             closeAllPanels();
             setIsBlockAirBnBModalOpen(true);
+          },
+        },
+        {
+          label: "Check AirBnB",
+          desc: "Paste your Upcoming list — see what disagrees with TiMag.",
+          emoji: "🔎",
+          hover: "hover:border-rose-300 hover:text-rose-600",
+          run: () => {
+            closeAllPanels();
+            setIsAirbnbCheckOpen(true);
           },
         },
         {

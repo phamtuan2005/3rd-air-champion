@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseReservation } from "./airbnbReservation";
+import { parseReservation, parseReservationList } from "./airbnbReservation";
 
 // The real shape of the AirBnB host page, names changed — a test fixture lives
 // in git and a guest's full name does not belong there.
@@ -157,5 +157,62 @@ describe("a stay that runs into the next year", () => {
       "Booking date\nMonday, December 21, 2026",
     );
     expect(parseReservation(nextYear)?.startDate).toBe("2027-01-08");
+  });
+});
+
+// One copy of the Upcoming list is what lets TiMag be checked against AirBnB —
+// there is no upcoming-reservations screen in TiMag to read it against by eye.
+const LIST = `Upcoming
+49 reservations
+
+Sep 2 – 3
+Xiaomin’s group of 2
+Cute room • Smart toilet • Stay with an Engineer
+
+
+
+
+Sep 2 – 3
+Nadia
+Queen room • Smart toilet • Stay with an Engineer
+
+
+
+Sep 3 – 5
+David’s group of 2
+Chill room • Smart toilet • Stay with an Engineer
+
+
+
+Sep 30 – Oct 2
+Priya
+King room • Smart toilet • Stay with an Engineer
+`;
+
+describe("the Upcoming list", () => {
+  const rows = parseReservationList(LIST, new Date(2026, 7, 20));
+
+  it("reads every row", () => {
+    expect(rows).toHaveLength(4);
+  });
+
+  it("takes the name, the count and the room", () => {
+    expect(rows[0]).toEqual({
+      alias: "Xiaomin",
+      guests: 2,
+      roomName: "Cute",
+      startDate: "2026-09-02",
+      nights: 1,
+    });
+    expect(rows[1].alias).toBe("Nadia");
+    expect(rows[1].guests).toBe(1);
+  });
+
+  it("counts nights across the range", () => {
+    expect(rows[2]).toMatchObject({ alias: "David", nights: 2, startDate: "2026-09-03" });
+  });
+
+  it("handles a range that crosses a month", () => {
+    expect(rows[3]).toMatchObject({ roomName: "King", startDate: "2026-09-30", nights: 2 });
   });
 });
