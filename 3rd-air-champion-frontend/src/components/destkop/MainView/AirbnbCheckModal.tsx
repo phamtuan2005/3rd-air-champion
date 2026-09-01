@@ -4,9 +4,18 @@ import { format } from "date-fns";
 import { dayType } from "../../../util/types/dayType";
 import { getRoomColor } from "../../../util/getRoomColor";
 import { ListedReservation, parseReservationList } from "../../../util/airbnbReservation";
+import { updateBookingGuest } from "../../../util/bookingOperations";
+
+// The count at which the sofa bed is in use, and the cleaner has to prepare it.
+// Same threshold DetailsModal applies when the host edits a stay by hand — a
+// count corrected here has to carry the same consequence, or the number is
+// right and the bed is still not made.
+const SOFA_BED_FROM_GUESTS = 3;
 
 interface AirbnbCheckModalProps {
   monthMap: Map<string, dayType>;
+  token: string;
+  onDaysUpdate: (days: dayType[]) => void;
   onClose: () => void;
 }
 
@@ -26,21 +35,25 @@ interface AirbnbCheckModalProps {
 
 type Issue =
   | { kind: "missing"; row: ListedReservation }
-  | { kind: "guests"; row: ListedReservation; theirs: number; ours: number };
+  | { kind: "guests"; row: ListedReservation; theirs: number; ours: number; id: string };
 
-const AirbnbCheckModal = ({ monthMap, onClose }: AirbnbCheckModalProps) => {
+const AirbnbCheckModal = ({ monthMap, token, onDaysUpdate, onClose }: AirbnbCheckModalProps) => {
   const [text, setText] = useState("");
+  const [fixing, setFixing] = useState<string | null>(null);
+  const [fixed, setFixed] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
 
   // Every AirBnB stay TiMag holds, by its START night and room — the same key
   // AirBnB's list is written in. A stay is written onto every night it covers,
   // so start nights only, or one stay is compared several times.
   const ours = useMemo(() => {
-    const map = new Map<string, { guests: number; alias: string }>();
+    const map = new Map<string, { id: string; guests: number; alias: string }>();
     monthMap.forEach((day, dateKey) => {
       day.bookings.forEach((b) => {
         if (!b.room || b.guest?.name !== "AirBnB") return;
         if (b.startDate.split("T")[0] !== dateKey) return;
         map.set(`${dateKey}|${b.room.name.toLowerCase()}`, {
+          id: b.id,
           guests: b.numberOfGuests ?? 1,
           alias: b.alias || "",
         });
@@ -62,13 +75,53 @@ const AirbnbCheckModal = ({ monthMap, onClose }: AirbnbCheckModalProps) => {
         continue;
       }
       if (mine.guests !== row.guests) {
-        found.push({ kind: "guests", row, theirs: row.guests, ours: mine.guests });
+        found.push({ kind: "guests", row, theirs: row.guests, ours: mine.guests, id: mine.id });
       }
     }
     return { rows: parsed, issues: found };
   }, [text, ours, monthMap]);
 
   const checked = text.trim() !== "" && rows.length > 0;
+  // Only the count mismatches can be put right from here. A stay AirBnB has and
+  // TiMag does not needs a room, a payout and a decision — that is the booking
+  // form's job, not a one-tap fix.
+  const fixable = issues.filter(
+    (i): i is Extract<Issue, { kind: "guests" }> => i.kind === "guests" && !fixed.has(i.id),
+  );
+
+  // Correcting the count carries the sofa bed with it. Getting the number right
+  // and leaving the bed unmade would fix the record and none of the problem.
+  const applyOne = async (issue: Extract<Issue, { kind: "guests" }>) => {
+    setFixing(issue.id);
+    setError(null);
+    try {
+      const updated = await updateBookingGuest(
+        {
+          id: issue.id,
+          numberOfGuests: issue.theirs,
+          ...(issue.theirs >= SOFA_BED_FROM_GUESTS ? { sofaBed: true } : {}),
+        },
+        token,
+      );
+      if (!Array.isArray(updated)) throw new Error("not saved");
+      onDaysUpdate(updated);
+      setFixed((prev) => new Set(prev).add(issue.id));
+    } catch {
+      setError("That one could not be saved. Nothing else was changed.");
+    } finally {
+      setFixing(null);
+    }
+  };
+
+  // Sequentially, never in parallel: these write to shared Day documents and
+  // racing them loses updates — the same reason the hold bar confirms one stay
+  // at a time. Stops at the first failure rather than pressing on.
+  const applyAll = async () => {
+    for (const issue of fixable) {
+      // eslint-disable-next-line no-await-in-loop
+      await applyOne(issue);
+    }
+  };
 
   return createPortal(
     <div
@@ -119,6 +172,18 @@ const AirbnbCheckModal = ({ monthMap, onClose }: AirbnbCheckModalProps) => {
             </p>
           )}
 
+          {fixable.length > 0 && (
+            <button
+              type="button"
+              onClick={applyAll}
+              disabled={fixing !== null}
+              className="mt-2 w-full rounded-lg bg-gray-900 py-2 text-sm font-bold text-white disabled:bg-gray-300"
+            >
+              {fixing ? "Fixing…" : `Fix all ${fixable.length} guest counts`}
+            </button>
+          )}
+          {error && <p className="mt-2 text-xs font-semibold text-red-600">{error}</p>}
+
           <div className="mt-3 flex flex-col gap-2">
             {issues.map((issue, i) => (
               <div
@@ -137,11 +202,28 @@ const AirbnbCheckModal = ({ monthMap, onClose }: AirbnbCheckModalProps) => {
                     {issue.row.nights} night{issue.row.nights === 1 ? "" : "s"}
                   </span>
                 </div>
-                <p className="mt-1 text-xs font-semibold text-red-700">
-                  {issue.kind === "missing"
-                    ? "On AirBnB, not in TiMag"
-                    : `Guests — TiMag says ${issue.ours}, AirBnB says ${issue.theirs}`}
-                </p>
+                <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-semibold text-red-700">
+                    {issue.kind === "missing"
+                      ? "On AirBnB, not in TiMag"
+                      : `Guests — TiMag says ${issue.ours}, AirBnB says ${issue.theirs}`}
+                  </p>
+                  {issue.kind === "guests" &&
+                    (fixed.has(issue.id) ? (
+                      <span className="text-xs font-bold text-emerald-600">
+                        ✓ Set to {issue.theirs}
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => applyOne(issue)}
+                        disabled={fixing !== null}
+                        className="shrink-0 rounded-md bg-gray-900 px-2.5 py-1 text-xs font-bold text-white disabled:bg-gray-300"
+                      >
+                        {fixing === issue.id ? "…" : `Set to ${issue.theirs}`}
+                      </button>
+                    ))}
+                </div>
               </div>
             ))}
           </div>
@@ -157,9 +239,11 @@ const AirbnbCheckModal = ({ monthMap, onClose }: AirbnbCheckModalProps) => {
               list carries no payouts to check money against. */}
           {checked && (
             <p className="mt-3 border-t border-gray-100 pt-2 text-[11px] leading-relaxed text-gray-400">
-              Only stays in the months TiMag has loaded are compared, and the Upcoming list
-              carries no payouts — so this checks whether a stay exists and how many people
-              are in it, not the money.
+              Fixing a count to 3 or more also marks the sofa bed, so the cleaner prepares
+              it. Only stays in the months TiMag has loaded are compared, and the Upcoming
+              list carries no payouts — so this checks whether a stay exists and how many
+              people are in it, not the money. A stay AirBnB has and TiMag does not has to be
+              booked in properly, so it is reported rather than fixed here.
             </p>
           )}
         </div>

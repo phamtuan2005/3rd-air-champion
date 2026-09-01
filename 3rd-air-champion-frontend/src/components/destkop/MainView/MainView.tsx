@@ -1711,7 +1711,12 @@ const MainView = ({
         />
       )}
       {isAirbnbCheckOpen && (
-        <AirbnbCheckModal monthMap={monthMap} onClose={() => setIsAirbnbCheckOpen(false)} />
+        <AirbnbCheckModal
+          monthMap={monthMap}
+          token={token as string}
+          onDaysUpdate={onDaysUpdate}
+          onClose={() => setIsAirbnbCheckOpen(false)}
+        />
       )}
       {isChargesOpen && (
         <ChargesModal
