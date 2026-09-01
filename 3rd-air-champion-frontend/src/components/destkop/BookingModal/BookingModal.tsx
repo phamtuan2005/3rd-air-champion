@@ -18,6 +18,7 @@ import { dayType } from "../../../util/types/dayType";
 import { format, addDays } from "date-fns";
 import { ANY_ROOM_SENTINEL } from "./zodBookDays";
 import { AliasGuests, guestsFromAlias, tidyAlias } from "../../../util/airbnbAlias";
+import { parseReservation } from "../../../util/airbnbReservation";
 import { parseDateText } from "../../../util/dateText";
 import { groupConsecutiveDates } from "../../../util/cartGrouping";
 import { ConfirmationBooking } from "../MainView/hooks/useMessaging";
@@ -128,6 +129,9 @@ const BookingModal = ({
   // explain it after the name has been tidied down and the evidence is gone
   // from the box.
   const [aliasRead, setAliasRead] = useState<AliasGuests | null>(null);
+  // What the pasted reservation page turned out to say, so the form can report
+  // back what it took rather than silently rewriting four fields.
+  const [pasteNote, setPasteNote] = useState<string | null>(null);
   const [airbnbAlias, setAirbnbAlias] = useState("");
   const [airbnbPayout, setAirbnbPayout] = useState("");
 
@@ -326,6 +330,48 @@ const BookingModal = ({
     }
     append(rowForRange(r));
     setReservedRows((prev) => new Set(prev).add(watchedBookings?.length ?? 0));
+  };
+
+  // A whole reservation page, pasted into the name box.
+  //
+  // The detail page cannot be fetched — host login, no CORS, DataDome — so the
+  // host copies it instead, which is one gesture on a page they already have
+  // open. Anything the page does not say is left alone rather than guessed at.
+  const takeReservation = (text: string): boolean => {
+    const r = parseReservation(text);
+    if (!r || !r.alias) return false;
+
+    setAirbnbAlias(r.alias);
+    setAliasRead(null);
+    const took: string[] = [];
+    if (r.guests) {
+      setValue("numberOfGuests", Math.min(r.guests, 4));
+      took.push(`${r.guests} guest${r.guests === 1 ? "" : "s"}`);
+    }
+    if (r.payout != null) {
+      // Kept to the cent — the cents ARE the payout.
+      setAirbnbPayout(String(r.payout));
+      took.push(`$${r.payout.toFixed(2)}`);
+    }
+    if (r.startDate && r.nights) {
+      const room = rooms.find(
+        (x) => x.active && x.name.toLowerCase() === (r.roomName ?? "").toLowerCase(),
+      );
+      replace([
+        {
+          rooms: [room?.id ?? ANY_ROOM_SENTINEL],
+          date: new Date(r.startDate + "T00:00:00"),
+          duration: r.nights,
+        },
+      ]);
+      setReservedRows(new Set([0]));
+      took.push(
+        `${format(new Date(r.startDate + "T00:00:00"), "MMM d")} · ${r.nights} night${r.nights === 1 ? "" : "s"}`,
+      );
+      if (room) took.push(room.name);
+    }
+    setPasteNote(took.length ? `Read ${took.join(" · ")}` : null);
+    return true;
   };
 
   // The pasted line, read and then tidied — on BLUR, never while typing.
@@ -707,12 +753,24 @@ const BookingModal = ({
                     value={airbnbAlias}
                     onChange={(e) => {
                       setAirbnbAlias(e.target.value);
-                      // The note describes the LAST reading; editing the name
-                      // makes it stale, so it goes until the next blur.
+                      // The notes describe the LAST reading; editing the name
+                      // makes them stale, so they go until the next paste or blur.
                       setAliasRead(null);
+                      setPasteNote(null);
+                    }}
+                    // A whole page pasted in is intercepted BEFORE it reaches the
+                    // box: it would otherwise land as a wall of text in a field
+                    // meant for a name, and the host would have to clear it.
+                    // Anything that does not parse as a reservation falls
+                    // through to the normal paste.
+                    onPaste={(e) => {
+                      const text = e.clipboardData.getData("text");
+                      // Multi-line only: a name pasted on its own is just a
+                      // name and must not be run through a page parser.
+                      if (/\n/.test(text) && takeReservation(text)) e.preventDefault();
                     }}
                     onBlur={readAlias}
-                    placeholder="Paste the whole AirBnB name"
+                    placeholder="Paste the AirBnB name, or the whole page"
                     className="border border-gray-300 rounded px-2 py-1 w-full"
                   />
                 </div>
@@ -782,7 +840,12 @@ const BookingModal = ({
                 {/* Says WHY the number moved. Without the reason on screen it
                     is just a field that changed on its own — and the line it
                     was read from has been tidied away by then. */}
-                {aliasRead && (
+                {pasteNote && (
+                  <span className="mt-1 block text-[11px] font-medium leading-tight text-emerald-700">
+                    {pasteNote}
+                  </span>
+                )}
+                {!pasteNote && aliasRead && (
                   <span className="mt-1 block text-[11px] font-medium leading-tight text-amber-700">
                     {aliasRead.exact
                       ? `Read ${aliasRead.count} from the AirBnB name.`
