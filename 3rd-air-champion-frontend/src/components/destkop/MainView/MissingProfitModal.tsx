@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { parseReservation } from "../../../util/airbnbReservation";
 import { format, parseISO } from "date-fns";
 import { getRoomColor } from "../../../util/getRoomColor";
 
@@ -41,6 +42,37 @@ const Row = ({
   const [alias, setAlias] = useState(booking.alias);
   const [guests, setGuests] = useState(booking.numberOfGuests || 1);
   const [profit, setProfit] = useState("");
+  // What a pasted reservation page turned out to say, reported back rather than
+  // three fields changing under the host's hands.
+  const [pasteNote, setPasteNote] = useState<string | null>(null);
+
+  // The AirBnB page, pasted whole.
+  //
+  // This modal exists because the payout is missing, and the host is looking at
+  // the reservation page to find it. Retyping the three things it already says
+  // is the work — and the guest count is the one that gets left wrong, because
+  // the attention is on the name and the money.
+  //
+  // The page cannot be fetched from its link: host login, no CORS, DataDome.
+  // Copying it is the one gesture available on a page already open.
+  const takePastedPage = (text: string): boolean => {
+    const r = parseReservation(text);
+    if (!r || !r.alias) return false;
+    const took: string[] = [];
+    setAlias(r.alias);
+    took.push(r.alias);
+    if (r.guests) {
+      setGuests(Math.min(Math.max(r.guests, 1), 4));
+      took.push(`${r.guests} guest${r.guests === 1 ? "" : "s"}`);
+    }
+    if (r.payout != null) {
+      // To the cent. The cents ARE the payout.
+      setProfit(String(r.payout));
+      took.push(`$${r.payout.toFixed(2)}`);
+    }
+    setPasteNote(took.length ? `Read ${took.join(" · ")}` : null);
+    return true;
+  };
   const [saved, setSaved] = useState(false);
 
   const handleSave = () => {
@@ -80,6 +112,37 @@ const Row = ({
       <div className="flex items-center gap-1.5">
         <span className={`${getRoomColor(booking.roomName, booking.roomColor)} text-white text-[10px] font-semibold px-1.5 py-px rounded shrink-0`}>{booking.roomName}</span>
         <p className="text-xs text-gray-400">{checkIn} · {booking.duration}n</p>
+      </div>
+
+      {/* Paste the page instead of retyping it. Sits ABOVE the fields it
+          fills, because reading it after they are typed is reading it too
+          late. */}
+      <div className="rounded-lg border border-rose-200 bg-rose-50/60 px-2.5 py-2">
+        <label htmlFor="airbnb-paste" className="text-xs font-semibold text-rose-900">
+          Paste from AirBnB
+        </label>
+        <textarea
+          id="airbnb-paste"
+          rows={2}
+          placeholder="Open the reservation, select all, paste here"
+          onChange={(e) => {
+            if (takePastedPage(e.target.value)) e.target.value = "";
+          }}
+          onPaste={(e) => {
+            const text = e.clipboardData.getData("text");
+            if (takePastedPage(text)) {
+              // Swallowed once it has been read: the box is a chute, not a
+              // field, and leaving a page of text sitting in it invites the
+              // host to wonder whether it saved.
+              e.preventDefault();
+              (e.target as HTMLTextAreaElement).value = "";
+            }
+          }}
+          className="mt-1 w-full resize-none rounded border border-rose-200 px-2 py-1 text-xs focus:border-rose-400 focus:outline-none"
+        />
+        {pasteNote && (
+          <p className="mt-1 text-[11px] font-semibold text-emerald-700">{pasteNote}</p>
+        )}
       </div>
 
       {/* Name field */}
