@@ -367,6 +367,11 @@ const GuestCalendar = ({
       return tileWidth * nightsInRow - tileWidth * 0.2 - 8;
     };
 
+    // One origin for the whole week row, so the stripes of a held stay carry on
+    // across the seams between its nights instead of restarting at each.
+    const hatchPhase = (leftPx: number): React.CSSProperties =>
+      tileWidth ? { backgroundPosition: `${-(getDay(date) * tileWidth + leftPx)}px 0px` } : {};
+
     const numberClass = [
       // No text-* size here: the size comes from the tile, via dateSize below.
       "leading-none select-none",
@@ -491,6 +496,14 @@ const GuestCalendar = ({
         {/* (R) HOLD — same ribbon geometry, but a dashed amber outline + amber
             hatch fill + a ⏳ corner badge so it clearly reads as "pending", NOT a
             confirmed stay, while the full room name stays readable. */}
+        {/* A held stay is drawn as SEVERAL divs — an AM cap, whole days, a PM
+            start — and each would begin the -45° stripe at its own left edge,
+            so the hatching visibly breaks at every seam between nights.
+            Phase-shift each segment's background to one shared origin across
+            the week and the stripes run unbroken. Same fix TiMag's CalendarGrid
+            already carries; this calendar had the hatch copied over without it.
+            leftPx is the segment's own offset: a PM start begins 20% into its
+            tile, the others at the tile edge. */}
         {resBars?.am && !inCart && (
           <div
             className={`${getRoomColor(resBars.am.roomName, resBars.am.roomColor)} border-y-2 border-dashed border-amber-500 pointer-events-none`}
@@ -503,6 +516,7 @@ const GuestCalendar = ({
               borderTopRightRadius: barRadius,
               borderBottomRightRadius: barRadius,
               backgroundImage: HOLD_HATCH,
+              ...hatchPhase(-1),
             }}
           />
         )}
@@ -518,6 +532,7 @@ const GuestCalendar = ({
               borderTopLeftRadius: resBars.pm.isStart ? barRadius : undefined,
               borderBottomLeftRadius: resBars.pm.isStart ? barRadius : undefined,
               backgroundImage: HOLD_HATCH,
+              ...hatchPhase(resBars.pm.isStart ? tileWidth * 0.2 : -1),
               zIndex: resBars.pm.isStart ? 10 : undefined,
             }}
           >
