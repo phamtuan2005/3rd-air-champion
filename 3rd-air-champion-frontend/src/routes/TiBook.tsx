@@ -472,9 +472,10 @@ const TiBookInner = () => {
     }
   };
 
-  const handlePhoneConfirmed = (phone: string) => {
+  const handlePhoneConfirmed = (phone: string, name?: string) => {
     setGuestPhone(phone);
-    rememberOrAsk(phone);
+    if (name?.trim()) setGuestName(name);
+    rememberOrAsk(phone, name);
     if (currentHost) {
       getGuestWishList(currentHost.id, phone)
         .then((result) => {

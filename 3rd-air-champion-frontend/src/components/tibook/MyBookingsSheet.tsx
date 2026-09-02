@@ -40,7 +40,10 @@ interface MyBookingsSheetProps {
   cancellationHalfRefundDays?: number;
   houseRules?: string;
   onClose: () => void;
-  onPhoneConfirmed: (phone: string) => void;
+  // The NAME travels with the number. Saving the phone alone leaves the guest
+  // recognised but not greeted — the header pill is blank — which reads as the
+  // "remember me" they just agreed to having done nothing.
+  onPhoneConfirmed: (phone: string, name?: string) => void;
   onClear?: () => void;
 }
 
@@ -208,7 +211,13 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
       // Saving is the parent's call, through the consent gate: a guest who has
       // not been asked yet gets the disclaimer here, and nothing is written
       // until they answer it.
-      onPhoneConfirmed(p);
+      // Their own record first, then whatever the bookings carry — a guest with
+      // no Guest row yet still has their name on the stays.
+      const knownName =
+        (guest?.name as string | undefined) ||
+        ((calendarBookings ?? []) as GuestBooking[])[0]?.guestName ||
+        "";
+      onPhoneConfirmed(p, knownName);
     } catch {
       setError("Could not load bookings. Please try again.");
     } finally {
