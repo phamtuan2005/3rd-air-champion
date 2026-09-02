@@ -642,7 +642,10 @@ const TiBookInner = () => {
                 onClick={() => setReservedPopupOpen(true)}
                 className="flex shrink-0 items-center justify-center gap-1.5 border-y border-amber-200 bg-amber-50 px-4 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100"
               >
-                ⏳ {reservedStays.length} room{reservedStays.length === 1 ? "" : "s"} held for you — tap to review &amp; pay
+                {/* Bookings, not rooms — this counts held STAYS, and thirteen
+                    of them across a five-room house read as a house of
+                    thirteen. Same wording as the popup it opens. */}
+                ⏳ {reservedStays.length} booking{reservedStays.length === 1 ? "" : "s"} held for you — tap to review &amp; pay
               </button>
             )}
             {/* The floor. Six week-rows at a tappable height: below this the

@@ -42,6 +42,10 @@ const MONTHS_FORWARD = 36;
 
 // Amber diagonal hatch overlaid on a (R) hold's room color so it reads as
 // "pending / tentative", clearly different from a solid confirmed stay.
+// The square a 45° pattern of 9px period tiles into (9 / sin 45°). Needed
+// because background-position only lines segments up once the gradient has a
+// size of its own rather than the element's.
+const HOLD_HATCH_TILE = 12.728;
 const HOLD_HATCH =
   "repeating-linear-gradient(45deg, rgba(217,119,6,0.62) 0 4px, rgba(255,255,255,0) 4px 9px)";
 
@@ -369,8 +373,23 @@ const GuestCalendar = ({
 
     // One origin for the whole week row, so the stripes of a held stay carry on
     // across the seams between its nights instead of restarting at each.
+    //
+    // backgroundSize is not optional here. Without it a CSS gradient is sized to
+    // its ELEMENT, and shifting the position of an element-sized gradient just
+    // moves seams inside the bar rather than lining the segments up — which is
+    // why the shift alone changed nothing. Pinning a fixed square tile gives the
+    // pattern a period in x, and the shift then lands every segment on the same
+    // phase. Same pairing calendarStyle.css already uses for blocked bars.
+    //
+    // 12.728 = the 9px stripe period at 45°, divided by sin 45° — the square
+    // that a -45° pattern of that period tiles into.
     const hatchPhase = (leftPx: number): React.CSSProperties =>
-      tileWidth ? { backgroundPosition: `${-(getDay(date) * tileWidth + leftPx)}px 0px` } : {};
+      tileWidth
+        ? {
+            backgroundSize: `${HOLD_HATCH_TILE}px ${HOLD_HATCH_TILE}px`,
+            backgroundPosition: `${-(getDay(date) * tileWidth + leftPx)}px 0px`,
+          }
+        : {};
 
     const numberClass = [
       // No text-* size here: the size comes from the tile, via dateSize below.
