@@ -288,7 +288,17 @@ const TiBookInner = () => {
 
   const reservedStays = useMemo(
     () =>
-      guestBookings
+      // Nothing until the ROOMS are known.
+      //
+      // The rooms and this guest's bookings come from separate requests, and the
+      // bookings usually win. Room names were then resolved against an empty
+      // list, so every hold opened as a purple "Room" and repainted into "Queen"
+      // a second later — the guest watching their own booking change in front of
+      // them. Waiting costs nothing: the popup has nothing worth showing before
+      // it can name the room.
+      rooms.length === 0
+        ? []
+        : guestBookings
         .filter((b) => b.status === "reserved")
         .map((b) => {
           const room = rooms.find((r) => r.id === b.room);
