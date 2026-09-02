@@ -36,19 +36,43 @@ const getAllFiles = (dir) => {
 
 const toS3Key = (filePath) => relative(DIST_DIR, filePath).replace(/\\/g, "/");
 
-// 1. List and delete all existing objects
-console.log("🗑  Clearing bucket...");
+// 1. Retire files the new build has replaced — but NOT straight away.
+//
+// This used to empty the bucket before uploading, and that is what left phones
+// on a blank page after a deploy. A device holding the previous index.html (a
+// PWA serves it from its own cache) then asked for an assets/index-<old>.js that
+// had just been deleted — and CloudFront answers a missing path with index.html
+// and a 200, so the browser parsed HTML as JavaScript and rendered nothing.
+// Desktop never showed it: index.html is uploaded no-cache, so a plain reload
+// fetched the current hashes.
+//
+// Vite hashes every asset filename, so old and new can sit side by side without
+// colliding. Anything the new build still contains is simply overwritten below;
+// anything it does not is left alone for a GRACE PERIOD, which is the window a
+// device has to pick up the new shell before its old one stops working.
+const GRACE_DAYS = 30;
+console.log(`🗑  Retiring files older than ${GRACE_DAYS} days...`);
+
+const built = new Set(getAllFiles(DIST_DIR).map(toS3Key));
+const cutoff = Date.now() - GRACE_DAYS * 24 * 60 * 60 * 1000;
+
 let continuationToken;
 const keysToDelete = [];
 do {
   const list = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET, ContinuationToken: continuationToken }));
-  for (const obj of list.Contents ?? []) keysToDelete.push({ Key: obj.Key });
+  for (const obj of list.Contents ?? []) {
+    // Still part of the build: it is about to be overwritten, never deleted.
+    if (built.has(obj.Key)) continue;
+    if (obj.LastModified && obj.LastModified.getTime() < cutoff) keysToDelete.push({ Key: obj.Key });
+  }
   continuationToken = list.NextContinuationToken;
 } while (continuationToken);
 
 if (keysToDelete.length > 0) {
   await s3.send(new DeleteObjectsCommand({ Bucket: BUCKET, Delete: { Objects: keysToDelete } }));
-  console.log(`   Deleted ${keysToDelete.length} old file(s).`);
+  console.log(`   Deleted ${keysToDelete.length} file(s) past the grace period.`);
+} else {
+  console.log("   Nothing old enough to delete.");
 }
 
 // 2. Upload all dist files
