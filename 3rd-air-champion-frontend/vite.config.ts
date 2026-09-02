@@ -41,6 +41,18 @@ export default defineConfig({
       workbox: {
         navigateFallback: "/index.html",
         globPatterns: ["**/*.{js,css,html,png,jpg,svg}"],
+        // Throw away precaches from earlier builds when a new worker activates.
+        // Without this a browser kept serving a shell whose asset hashes no
+        // longer existed — and CloudFront answers a missing path with
+        // index.html and a 200, so the page tried to run HTML as JavaScript and
+        // came up blank. It stranded Samsung Internet while Chrome, which had
+        // already taken a fresh shell, was fine.
+        cleanupOutdatedCaches: true,
+        // Take over on the first load rather than waiting for every tab to
+        // close. A guest with TiBook open on their phone never closes the tab,
+        // so "waiting" meant waiting forever.
+        skipWaiting: true,
+        clientsClaim: true,
       },
     }),
   ],
