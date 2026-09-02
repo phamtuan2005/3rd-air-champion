@@ -68,6 +68,20 @@ const TiBookInner = () => {
   // The number waiting on an answer to the disclaimer. Held in memory only —
   // nothing is written until they say yes.
   const [pendingConsentPhone, setPendingConsentPhone] = useState<string | null>(null);
+  // Whether the ask may appear OVER the booking modal.
+  //
+  // It waited for the modal to close, so as not to land on top of "All done!".
+  // On a desktop that works — the guest clicks away and sees it. On a phone they
+  // close the app at "All done!" instead, and the ask lived in React state, so
+  // it died with the page: it was never seen on a phone at all, which is where
+  // nearly every guest is.
+  //
+  // Queued from the phone LOOKUP it still waits — that is mid-flow and
+  // interrupting a guest filling a form is what the gate was for. Queued from a
+  // request that has already SUCCEEDED it shows straight away, over the success
+  // screen: nothing is interrupted, and it is the only moment we know the guest
+  // is still there.
+  const [consentOverModal, setConsentOverModal] = useState(false);
   const pendingConsentNameRef = useRef<string>("");
   const [guestBookings, setGuestBookings] = useState<GuestBooking[]>([]);
   // A guest we already recognise by name has seen the rooms — the photo banner
@@ -444,7 +458,7 @@ const TiBookInner = () => {
   // if they have already said yes; asks them if they have never been asked.
   // A guest who said no is neither saved nor asked again — their answer stands
   // until they clear this browser.
-  const rememberOrAsk = (phone: string, name?: string) => {
+  const rememberOrAsk = (phone: string, name?: string, afterSuccess = false) => {
     if (!phone.trim()) return;
     const consent = getConsent();
     if (consent === "allowed") {
@@ -454,6 +468,7 @@ const TiBookInner = () => {
     if (consent === null) {
       pendingConsentNameRef.current = name ?? "";
       setPendingConsentPhone(phone);
+      if (afterSuccess) setConsentOverModal(true);
     }
   };
 
@@ -735,7 +750,10 @@ const TiBookInner = () => {
           onGuestIdentified={(phone, name) => {
             setGuestPhone(phone);
             setGuestName(name);
-            rememberOrAsk(phone, name);
+            // Their request is already in — asking now interrupts nothing, and
+            // waiting for them to dismiss the success screen means never asking
+            // the guests who simply close the app.
+            rememberOrAsk(phone, name, true);
           }}
           onWishListSent={(phone, name, newDates) => {
             // Identity is onGuestIdentified's job now — this one only carries
@@ -832,19 +850,21 @@ const TiBookInner = () => {
           on top of "All done!" steps on the one moment the guest is being told
           their request reached the house. The ask queues; nothing is stored
           while it waits. */}
-      {pendingConsentPhone && !isBookingModalOpen && (
+      {pendingConsentPhone && (consentOverModal || !isBookingModalOpen) && (
         <RememberMeDisclaimer
           phone={pendingConsentPhone}
           onAllow={() => {
             setConsent("allowed");
             rememberGuest(pendingConsentPhone, pendingConsentNameRef.current);
             setPendingConsentPhone(null);
+            setConsentOverModal(false);
           }}
           onDeny={() => {
             // Nothing to undo — we never wrote it. React state keeps the guest
             // signed in for this visit; only the next visit differs.
             setConsent("denied");
             setPendingConsentPhone(null);
+            setConsentOverModal(false);
           }}
         />
       )}
