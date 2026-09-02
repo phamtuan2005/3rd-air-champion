@@ -113,6 +113,14 @@ const labelRemFor = (laneHeight: number) =>
 // being seen next to any of the five room colours. The dashed edge is drawn
 // INSIDE the bar's box, so the shared PM-checkin / AM-checkout geometry is
 // untouched and no gaps open between nights.
+// The square a 45° pattern of 9px period tiles into (9 / sin 45°).
+//
+// A gradient with no background-size is sized to its ELEMENT, and shifting the
+// position of one only moves seams around inside the bar. Pinning a fixed tile
+// gives the pattern a period in x, so a phase shift can line neighbouring
+// segments up — the same pairing calendarStyle.css uses for blocked bars, where
+// the size comes from the class instead.
+const HOLD_HATCH_TILE = 12.728;
 const HOLD_HATCH =
   "repeating-linear-gradient(45deg, rgba(217,119,6,0.62) 0 4px, rgba(255,255,255,0) 4px 9px)";
 const HOLD_EDGE = "border-y-2 border-dashed border-amber-500";
@@ -824,6 +832,23 @@ const CalendarGrid = ({
     const hatchPhase = (leftPx: number): React.CSSProperties =>
       tileWidth ? { backgroundPosition: `${-(getDay(date) * tileWidth + leftPx)}px 0px` } : {};
 
+    // The HELD hatch, which is drawn inline rather than from a class and so has
+    // to bring its own size. Kept apart from hatchPhase above: that one serves
+    // the blocked bars, whose tile comes from calendarStyle.css, and handing
+    // those a different size would break them instead.
+    //
+    // A held stay is several divs — an AM cap, whole days, a PM start — each of
+    // which would otherwise begin the stripe at its own left edge, so the
+    // hatching broke at every seam between nights.
+    const holdHatch = (leftPx: number): React.CSSProperties =>
+      tileWidth
+        ? {
+            backgroundImage: HOLD_HATCH,
+            backgroundSize: `${HOLD_HATCH_TILE}px ${HOLD_HATCH_TILE}px`,
+            backgroundPosition: `${-(getDay(date) * tileWidth + leftPx)}px 0px`,
+          }
+        : { backgroundImage: HOLD_HATCH };
+
     const usedRoomIdSet = new Set(usedRooms.map((r) => r.id));
 
     // In guest mode, rows are LANES (packed by overlap), not rooms. The grid
@@ -1169,7 +1194,7 @@ const CalendarGrid = ({
                     bottom: "1px",
                     left: "-1px",
                     right: amIsEnd ? "80%" : "-1px",
-                    backgroundImage: amBooking.reserved && !amDim ? HOLD_HATCH : undefined,
+                    ...(amBooking.reserved && !amDim ? holdHatch(-1) : {}),
                     // The checkout-morning cap is the only rounded end of an AM
                     // bar; mid-stay it must stay square so it butts against the
                     // night before without a seam.
@@ -1195,7 +1220,9 @@ const CalendarGrid = ({
                     left: pmIsStart ? "20%" : "-1px",
                     right: "-1px",
                     fontSize: `${textSize}rem`,
-                    backgroundImage: pmBooking.reserved && !pmDim ? HOLD_HATCH : undefined,
+                    ...(pmBooking.reserved && !pmDim
+                      ? holdHatch(pmIsStart ? (tileWidth ?? 0) * 0.2 : -1)
+                      : {}),
                     borderTopLeftRadius: pmIsStart ? R : undefined,
                     borderBottomLeftRadius: pmIsStart ? R : undefined,
                   }}
