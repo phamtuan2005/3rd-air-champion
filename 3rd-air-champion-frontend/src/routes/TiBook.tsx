@@ -327,19 +327,27 @@ const TiBookInner = () => {
     [guestBookings, rooms, myRates],
   );
 
-  // Auto-open the holds popup ONCE per session per unique set of holds (so it
-  // nudges without nagging on every navigation; a new hold re-triggers it). The
-  // amber banner stays available to reopen it anytime.
+  // Auto-open the holds popup once per OPENING of TiBook, per unique set of
+  // holds — so it nudges without nagging as the guest moves around inside the
+  // app, and a new hold re-triggers it. The amber banner reopens it anytime.
+  //
+  // Held in a ref, NOT sessionStorage. Session storage lives as long as the
+  // browsing context, and a phone keeps that context alive when the app is
+  // backgrounded — so a guest who saw this once never saw it again until they
+  // killed TiBook outright. A ref resets on a real page load, which is what
+  // "opening TiBook" actually means, while still surviving every re-render and
+  // every sheet opened and closed in between.
+  //
+  // Money is outstanding here. Once per opening is the right side of the line
+  // between reminding somebody and pestering them.
   useEffect(() => {
     if (reservedStays.length === 0) return;
     const sig = reservedStays
       .map((s) => `${s.roomName}|${format(s.checkIn, "yyyy-MM-dd")}`)
       .sort()
       .join(",");
-    if (reservedAutoShownRef.current === sig || sessionStorage.getItem("tiBookReservedSeen") === sig)
-      return;
+    if (reservedAutoShownRef.current === sig) return;
     reservedAutoShownRef.current = sig;
-    sessionStorage.setItem("tiBookReservedSeen", sig);
     setReservedPopupOpen(true);
   }, [reservedStays]);
 
