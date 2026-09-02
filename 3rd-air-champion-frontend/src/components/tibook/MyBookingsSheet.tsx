@@ -6,7 +6,7 @@ import { fetchCalendarBookingsByGuest } from "../../util/bookingRequestOperation
 import { formatCancellationPolicy } from "../../util/cancellationPolicy";
 import { fetchGuestByPhone } from "../../util/guestOperations";
 import { toggleWishListDate } from "../../util/wishListOperations";
-import { ConsentState, getConsent, revokeConsent } from "../../util/guestConsent";
+import { revokeConsent } from "../../util/guestConsent";
 import RoomBadge from "../shared/RoomBadge";
 import GuestLoyaltyBanner from "./GuestLoyaltyBanner";
 
@@ -44,9 +44,6 @@ interface MyBookingsSheetProps {
   // recognised but not greeted — the header pill is blank — which reads as the
   // "remember me" they just agreed to having done nothing.
   onPhoneConfirmed: (phone: string, name?: string) => void;
-  // Saying yes AFTER having said no. Saving stays the parent's call, through the
-  // same consent gate everything else goes through.
-  onRememberMe?: () => void;
   onClear?: () => void;
 }
 
@@ -131,14 +128,11 @@ const statusLabel: Record<string, { label: string; color: string }> = {
   reserved:  { label: "Reserved",  color: "text-amber-700 bg-amber-100 border-amber-300" },
 };
 
-const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialPhone, initialName, focusKey, rooms, wishListDates, onToggleWishDate, cancellationFullRefundDays, cancellationHalfRefundDays, houseRules, onClose, onPhoneConfirmed, onRememberMe, onClear }: MyBookingsSheetProps) => {
+const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialPhone, initialName, focusKey, rooms, wishListDates, onToggleWishDate, cancellationFullRefundDays, cancellationHalfRefundDays, houseRules, onClose, onPhoneConfirmed, onClear }: MyBookingsSheetProps) => {
   const { theme } = useTiBookTheme();
   const activeRooms = rooms.filter((r) => r.active);
   const roomMap = new Map(rooms.map((r) => [r.id, r]));
 
-  // Their standing answer to "may we keep your number", so a guest who once said
-  // no has a way back. Kept in state because setting it has to redraw this.
-  const [consent, setConsentState] = useState<ConsentState>(() => getConsent());
   const [phone, setPhone] = useState(initialPhone);
   const [loading, setLoading] = useState(false);
   const [bookings, setBookings] = useState<GuestBooking[] | null>(null);
@@ -199,7 +193,6 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
     // says this button does. They are asked again next time they identify
     // themselves, so the choice is genuinely theirs to remake.
     revokeConsent();
-    setConsentState(null);
     onClear?.();
   };
 
@@ -503,23 +496,6 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
                 Showing bookings for <span className="font-semibold text-gray-500">{maskPhone(phone)}</span>
               </span>
             </span>
-            {/* A guest who said no is never asked again — that is the promise.
-                But the only control here said "Not you?", which nobody wanting
-                to opt IN would press, so a change of mind had no way through at
-                all. This is that way: offered quietly, only to someone who has
-                already declined, and it disappears the moment it is taken. */}
-            {consent === "denied" && (
-              <button
-                type="button"
-                onClick={() => {
-                  onRememberMe?.();
-                  setConsentState("allowed");
-                }}
-                className={`shrink-0 text-xs font-semibold ${theme.textPrimary} hover:underline`}
-              >
-                Remember me
-              </button>
-            )}
             <button
               type="button"
               onClick={handleClear}
