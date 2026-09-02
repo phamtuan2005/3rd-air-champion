@@ -66,7 +66,7 @@ const ReservedHoldsPopup = ({ holds, hostName, hostPhone, onClose }: ReservedHol
       }`;
     });
     const body =
-      `Hi ${hostFirstName}! I'd like to confirm the room${holds.length === 1 ? "" : "s"} you're holding for me:\n` +
+      `Hi ${hostFirstName}! I'd like to confirm the booking${holds.length === 1 ? "" : "s"} you're holding for me:\n` +
       lines.join("\n") +
       // The total travels in the message too, so the host and the guest are
       // quoting the same figure to each other.
@@ -94,8 +94,15 @@ const ReservedHoldsPopup = ({ holds, hostName, hostPhone, onClose }: ReservedHol
           <div className="flex items-center gap-2">
             <span className="text-xl">⏳</span>
             <div>
+              {/* BOOKINGS, not rooms. This counts held STAYS, and a guest with
+                  thirteen of them across a five-room house was told "13 rooms
+                  held for you" — which claims a house four times the size and
+                  is the first line they read. "Bookings" is also the word
+                  TiBook already uses for these, in Your Bookings. */}
               <p className="text-sm font-bold text-amber-800">
-                {holds.length === 1 ? "A room is held for you" : `${holds.length} rooms held for you`}
+                {holds.length === 1
+                  ? "A booking is held for you"
+                  : `${holds.length} bookings held for you`}
               </p>
               <p className="text-[11px] text-amber-600">Pending payment</p>
             </div>
@@ -112,7 +119,8 @@ const ReservedHoldsPopup = ({ holds, hostName, hostPhone, onClose }: ReservedHol
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-3 pt-3">
           <p className="text-xs leading-relaxed text-gray-600">
-            We're holding {holds.length === 1 ? "this room" : "these rooms"} just for you. To keep{" "}
+            We're holding {holds.length === 1 ? "this booking" : "these bookings"} just for you.
+            To keep{" "}
             {holds.length === 1 ? "it" : "them"}, please send your payment soon — unpaid holds may be
             released so other guests can book. 🙏
           </p>
