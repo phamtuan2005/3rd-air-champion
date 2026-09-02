@@ -368,7 +368,13 @@ const GuestCalendar = ({
       const nightsInRow = Math.max(1, Math.min(nights, 7 - getDay(date)));
       // Less the 20% indent the first night starts at, and a little breathing
       // room so the name never runs flush into the next stay's bar.
-      return tileWidth * nightsInRow - tileWidth * 0.2 - 8;
+      //
+      // That room used to be 8px on top of the span's own px-1, which spent 16px
+      // of a one-night bar — about a quarter of it — on air. "King" fitted and
+      // "Queen" did not, so two stays of identical length showed one name whole
+      // and the other as "Qu...". A room name is five letters at most; the bar
+      // is wide enough for it if the padding is not eating it.
+      return tileWidth * nightsInRow - tileWidth * 0.2 - 3;
     };
 
     // One origin for the whole week row, so the stripes of a held stay carry on
@@ -504,7 +510,7 @@ const GuestCalendar = ({
           >
             {bars.pm.isStart && (
               <span
-                className="shrink-0 truncate px-1 font-bold leading-none text-black"
+                className="shrink-0 truncate px-0.5 font-bold leading-none text-black"
                 style={{ fontSize: barLabelSize, maxWidth: labelWidthFor(bars.pm.nights) }}
               >
                 {bars.pm.roomName}
@@ -557,7 +563,7 @@ const GuestCalendar = ({
           >
             {resBars.pm.isStart && (
               <span
-                className="shrink-0 truncate px-1 font-bold leading-none text-black"
+                className="shrink-0 truncate px-0.5 font-bold leading-none text-black"
                 style={{ fontSize: barLabelSize, maxWidth: labelWidthFor(resBars.pm.nights) }}
               >
                 {resBars.pm.roomName}
