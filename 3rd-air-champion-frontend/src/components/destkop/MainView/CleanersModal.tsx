@@ -424,6 +424,11 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
   const [detailId, setDetailId] = useState<string | null>(null);
   const [tipDraft, setTipDraft] = useState<Record<string, string>>({});
   const [payDraft, setPayDraft] = useState("");
+  // Whether the host has typed in the pay box themselves. Until they do, it
+  // follows the statement above — balance plus any tip declared there — so the
+  // amount recorded is the amount the cleaner was told to expect. Once they
+  // override it, it is theirs and nothing moves it.
+  const [payEdited, setPayEdited] = useState(false);
   // Which logged payout is armed for removal (id) — removal takes two taps.
   const [removeArmed, setRemoveArmed] = useState<string | null>(null);
   // Payout adds to paid, Undo subtracts — phone number pads have no minus key,
@@ -2817,9 +2822,15 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                   setDetailId(entry.id);
                   setPayMode("payout");
                   setPayConfirmArmed(false);
-                  setPayDraft(
-                    entry.balance > 0.5 ? String(Math.round(entry.balance * 100) / 100) : "",
-                  );
+                  setPayEdited(false);
+                  // Balance PLUS any tip already typed into the statement
+                  // above. That box sets what the cleaner is told to expect, so
+                  // the box below has to offer the same figure — they were two
+                  // numbers for one payment, and the tip fell down the gap
+                  // between them.
+                  const declaredTip = parseFloat(tipDraft[entry.id]) || 0;
+                  const due = Math.max(0, entry.balance) + declaredTip;
+                  setPayDraft(due > 0.005 ? String(Math.round(due * 100) / 100) : "");
                 }}
                 className="mb-1.5 flex w-full items-center gap-2 rounded-xl border border-gray-200 p-2.5 text-left transition-colors hover:bg-gray-50"
               >
@@ -3418,7 +3429,18 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                       min="0"
                       placeholder="0.00"
                       value={tipDraft[entry.id] ?? ""}
-                      onChange={(e) => setTipDraft((p) => ({ ...p, [entry.id]: e.target.value }))}
+                      onChange={(e) => {
+                        setTipDraft((p) => ({ ...p, [entry.id]: e.target.value }));
+                        // The tip is typed ONCE, here, and the payout below
+                        // follows it. Two boxes for one payment is what let the
+                        // tip fall down the gap between them.
+                        if (!payEdited) {
+                          const t = parseFloat(e.target.value) || 0;
+                          const due = Math.max(0, entry.balance) + t;
+                          setPayDraft(due > 0.005 ? String(Math.round(due * 100) / 100) : "");
+                          setPayConfirmArmed(false);
+                        }
+                      }}
                     />
                   </div>
                   <div className="mt-1 flex items-center justify-between text-sm">
@@ -3449,9 +3471,12 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                   <div className="mt-4 border-t border-gray-100 pt-3">
                     <div className="mb-1.5 grid grid-cols-3 gap-1 rounded-lg bg-gray-100 p-0.5">
                       {(
+                        // No Tip tab. A payout larger than the balance records
+                        // the excess as a tip on its own, which is how the money
+                        // is actually handed over — a second place to enter one
+                        // only invited the question of which to use.
                         [
                           { key: "payout", label: "Payout" },
-                          { key: "tip", label: "Tip" },
                           { key: "undo", label: "Undo mistake" },
                         ] as const
                       ).map(({ key, label }) => (
@@ -3486,6 +3511,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                         value={payDraft}
                         onChange={(e) => {
                           setPayDraft(e.target.value);
+                          setPayEdited(true);
                           setPayConfirmArmed(false);
                         }}
                       />
@@ -3520,9 +3546,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                     <p className="mt-1 text-[12px] text-gray-400">
                       {payMode === "payout"
                         ? "Adds to this cleaner's paid total. Pay more than the balance and the rest is recorded as a tip."
-                        : payMode === "tip"
-                          ? "Recorded as a tip, on top of what was owed"
-                          : "Subtracts a mis-recorded payout from the paid total"}
+                        : "Subtracts a mis-recorded payout from the paid total"}
                     </p>
                   </div>
                 </div>
