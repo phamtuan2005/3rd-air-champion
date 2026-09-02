@@ -725,6 +725,12 @@ const TiBookInner = () => {
           onToggleWishDate={(date) => setWishListDates((prev) => { const next = new Set(prev); if (next.has(date)) next.delete(date); else next.add(date); return next; })}
           onClose={() => { setMyBookingsOpen(false); setBookingsFocusKey(null); }}
           onPhoneConfirmed={handlePhoneConfirmed}
+          // Yes, after a no. Same gate as everywhere else: the consent is set
+          // first, and rememberGuest only writes once it reads "allowed".
+          onRememberMe={() => {
+            setConsent("allowed");
+            rememberGuest(guestPhone, guestName);
+          }}
           onClear={() => { setGuestPhone(""); setGuestName(""); setGuestBookings([]); setWishListDates(new Set()); setPersistedWishListDates(new Set()); setCartDates(new Map()); setSelectedRoomIds(null); revokeConsent(); }}
           cancellationFullRefundDays={currentHost.cancellationFullRefundDays}
           cancellationHalfRefundDays={currentHost.cancellationHalfRefundDays}
