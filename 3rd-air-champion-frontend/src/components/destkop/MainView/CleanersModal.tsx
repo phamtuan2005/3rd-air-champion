@@ -1320,6 +1320,24 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
     window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(body)}`;
   };
 
+  // How one typed amount divides into a payout and a tip.
+  //
+  // Cindy pays ONE lump with the tip folded into it — that is how the money
+  // actually leaves her hand. Recorded whole as a payout it exceeded the
+  // balance, so the tab reported her as having OVERPAID and the tip vanished:
+  // the split existed in the data model and nowhere in the way she works.
+  //
+  // A tip is still its own record — recorded as a payout it inflates what the
+  // cleaner is owed and makes the tab report hours missing. So the lump is
+  // divided here instead: the balance is the payout, anything above it is the
+  // tip. Anything at or under the balance is a plain payout, untouched.
+  const splitPayment = (entry: CleanerSummaryType, amount: number) => {
+    const owed = Math.max(0, entry.balance);
+    // A hair of tolerance: floating point should not invent a one-cent tip.
+    if (payMode !== "payout" || amount <= owed + 0.005) return { payout: amount, tip: 0 };
+    return { payout: owed, tip: Math.round((amount - owed) * 100) / 100 };
+  };
+
   const handlePay = (entry: CleanerSummaryType) => {
     const amount = parseFloat(payDraft);
     if (!(amount > 0) || !isFinite(amount)) return;
@@ -1329,8 +1347,13 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
       setPayConfirmArmed(true);
       return;
     }
-    const signed = payMode === "undo" ? -amount : amount;
+    const { payout, tip } = splitPayment(entry, amount);
+    const signed = payMode === "undo" ? -payout : payout;
+    // Sequential, and the tip only once the payout is in: two writes to the same
+    // cleaner raced would lose one, and of the two the payout is the one that
+    // must not be the casualty.
     recordCleanerPayment(entry.id, signed, token, todayKey, payMode === "tip")
+      .then(() => (tip > 0 ? recordCleanerPayment(entry.id, tip, token, todayKey, true) : null))
       .then(() => {
         // Stay in the detail modal so the host sees the updated balance; just
         // reset the input and disarm the confirm.
@@ -3478,7 +3501,15 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                         onClick={() => handlePay(entry)}
                       >
                         {payConfirmArmed
-                          ? `Confirm $${parseFloat(payDraft) || 0}`
+                          ? (() => {
+                              const { payout, tip } = splitPayment(entry, parseFloat(payDraft) || 0);
+                              // Named before it is committed. A lump quietly
+                              // becoming two records is the sort of helpfulness
+                              // that reads as a bug when the totals are checked.
+                              return tip > 0
+                                ? `Confirm $${money(payout)} + $${money(tip)} tip`
+                                : `Confirm $${money(payout)}`;
+                            })()
                           : payMode === "payout"
                             ? "Record payout"
                             : payMode === "tip"
@@ -3488,8 +3519,10 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                     </div>
                     <p className="mt-1 text-[12px] text-gray-400">
                       {payMode === "payout"
-                        ? "Adds to this cleaner's paid total"
-                        : "Subtracts a mis-recorded payout from the paid total"}
+                        ? "Adds to this cleaner's paid total. Pay more than the balance and the rest is recorded as a tip."
+                        : payMode === "tip"
+                          ? "Recorded as a tip, on top of what was owed"
+                          : "Subtracts a mis-recorded payout from the paid total"}
                     </p>
                   </div>
                 </div>
