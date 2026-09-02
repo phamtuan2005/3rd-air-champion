@@ -197,6 +197,18 @@ const ReservedHoldsPopup = ({ holds, hostName, hostPhone, onClose }: ReservedHol
           >
             Got it
           </button>
+
+          {/* The way out of a room asked for by mistake.
+              Deliberately a NOTE and not a button. Removing a hold deletes every
+              night of the stay and cannot be undone, and the guest cannot see
+              what sits behind it — a rate agreed by phone, a room blocked, a
+              clean already planned. So the guest says so and the host releases
+              it, which is one tap on a screen that shows all of that.
+              Said as what WILL happen, not as what they cannot do. */}
+          <p className="mt-2.5 text-center text-[11px] leading-relaxed text-gray-400">
+            Asked for one of these by mistake? Just let {hostFirstName} know and it will be
+            released.
+          </p>
         </div>
       </div>
     </div>
