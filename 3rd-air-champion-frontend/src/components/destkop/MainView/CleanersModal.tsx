@@ -227,6 +227,18 @@ const ResendBadge = ({ className = "" }: { className?: string }) => (
   </span>
 );
 
+// Money is written to the CENT, everywhere in this modal.
+//
+// The summary at the foot of Pay rounded to whole dollars while the rows above
+// it carried cents, so a column that should add up plainly did not — Cindy reads
+// the two together and had to work out whether a missing dollar was a rounding
+// or an error. A cleaner's balance is a real amount owed to a person; it is not
+// ours to round.
+//
+// Thousands separated as well, so the hero figure stays readable at 2xl.
+const money = (n: number) =>
+  n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRules = "", senderName, planDays = CLEANING_FORECAST_DAYS, onPlanDaysChange, onClose }: CleanersModalProps) => {
   // Self-sufficient: fetches its own data so it can be opened from anywhere
   // (NavBar dropdown or the Upcoming assign popover).
@@ -1281,7 +1293,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
     const tip = parseFloat(tipDraft[entry.id]) || 0;
     const lines = days.map(
       ([date, hrs]) =>
-        `* ${format(new Date(date + "T00:00:00"), "EEE M/d")}: ${formatHrMin(hrs)} = $${(hrs * rateOn(cleaner, date)).toFixed(2)}`,
+        `* ${format(new Date(date + "T00:00:00"), "EEE M/d")}: ${formatHrMin(hrs)} = $${money(hrs * rateOn(cleaner, date))}`,
     );
     const subtotal = days.reduce((s, [date, h]) => s + h * rateOn(cleaner, date), 0);
     const totalHrs = days.reduce((s, [, h]) => s + h, 0);
@@ -1290,7 +1302,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
       `Hi ${cleaner.name}, here's your cleaning summary:`,
       // Recent detail (this month's recorded days)
       ...(lines.length
-        ? ["", `Your work this month (${monthLabel}) — ${formatHrMin(totalHrs)} = $${subtotal.toFixed(2)} gross:`, ...lines]
+        ? ["", `Your work this month (${monthLabel}) — ${formatHrMin(totalHrs)} = $${money(subtotal)} gross:`, ...lines]
         : []),
       "",
       // Lifetime "Earned so far" / "Paid" totals were removed deliberately: a
@@ -1301,7 +1313,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
       `Ready to pay whenever you'd like: $${(entry.balance + tip).toLocaleString(undefined, {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
-      })}${tip > 0 ? ` (includes a $${tip.toFixed(2)} tip 🎁)` : ""}`,
+      })}${tip > 0 ? ` (includes a $${money(tip)} tip 🎁)` : ""}`,
       "",
       cleanerSignoff(senderName),
     ].join("\n");
@@ -1519,7 +1531,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                     accent: "text-amber-600",
                     label: "Earnings so far",
                     sub: entry
-                      ? `Balance $${Math.round(entry.balance).toLocaleString()}`
+                      ? `Balance $${money(entry.balance)}`
                       : "No hours recorded yet",
                     disabled: !entry,
                     run: () => entry && textPayment(entry),
@@ -2758,12 +2770,12 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                       Cleaning cost — {format(startOfToday(), "MMMM")}
                     </p>
                     <p className="text-2xl font-bold text-emerald-700">
-                      ${Math.round(thisMonthCost).toLocaleString()}
+                      ${money(thisMonthCost)}
                     </p>
                   </div>
                   <p className="mt-0.5 text-sm text-emerald-600">
                     {owingCount > 0
-                      ? `$${Math.round(owed).toLocaleString()} owed now · ${owingCount} cleaner${owingCount === 1 ? "" : "s"} waiting`
+                      ? `$${money(owed)} owed now · ${owingCount} cleaner${owingCount === 1 ? "" : "s"} waiting`
                       : "all settled up 🎉"}
                   </p>
                 </div>
@@ -2822,7 +2834,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                       // wages by itself, so there is nothing to undo.
                       (entry.impliedTip ?? 0) > 0.005 ? (
                         <span className="text-violet-600">
-                          All paid up · ${(entry.impliedTip ?? 0).toFixed(2)} tip
+                          All paid up · ${money(entry.impliedTip ?? 0)} tip
                         </span>
                       ) : (
                         "All paid up"
@@ -2835,7 +2847,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                     entry.balance > 0.5 ? "text-emerald-600" : "text-gray-300"
                   }`}
                 >
-                  ${Math.max(0, entry.balance).toFixed(2)}
+                  ${money(Math.max(0, entry.balance))}
                 </span>
                 <span className="shrink-0 text-gray-300">›</span>
               </button>
@@ -2868,7 +2880,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                   <p className="shrink-0 text-sm text-gray-500">
                     {formatHrMin(entry.hours)} ·{" "}
                     <span className="text-sm font-bold text-emerald-600">
-                      ${Math.round(entry.pay).toLocaleString()}
+                      ${money(entry.pay)}
                     </span>
                   </p>
                 </div>
@@ -3252,7 +3264,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-semibold text-emerald-700">Balance owed</span>
                       <span className="text-2xl font-bold text-emerald-700">
-                        ${Math.max(0, entry.balance).toFixed(2)}
+                        ${money(Math.max(0, entry.balance))}
                       </span>
                     </div>
                     {/* Says what the money BUYS, not a lifetime subtraction. The
@@ -3271,7 +3283,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                             // thank-you. Said plainly rather than flagged, but said, since
                             // it can also be a cleaning that was never entered: add it in
                             // Record and the surplus becomes wages on its own.
-                            `All paid up · $${(entry.impliedTip ?? 0).toFixed(2)} counted as a tip. If a cleaning is missing, add it in Record.`
+                            `All paid up · $${money(entry.impliedTip ?? 0)} counted as a tip. If a cleaning is missing, add it in Record.`
                           : "All paid up"}
                     </p>
                   </div>
@@ -3293,7 +3305,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                           </span>
                           <span className="text-gray-500">{formatHrMin(hrs)}</span>
                           <span className="w-16 text-right font-semibold text-gray-800">
-                            ${(hrs * dayRate(date)).toFixed(2)}
+                            ${money(hrs * dayRate(date))}
                           </span>
                         </div>
                       ))
@@ -3301,11 +3313,11 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                   </div>
                   <div className="mt-1 flex items-center justify-between px-1 text-[13px] text-gray-400">
                     <span>This month's work (gross)</span>
-                    <span className="font-semibold">${subtotal.toFixed(2)}</span>
+                    <span className="font-semibold">${money(subtotal)}</span>
                   </div>
                   <div className="flex items-center justify-between px-1 text-[13px] text-gray-400">
                     <span>Paid so far (all-time)</span>
-                    <span className="font-semibold">${entry.paid.toFixed(2)}</span>
+                    <span className="font-semibold">${money(entry.paid)}</span>
                   </div>
 
                   {/* Every payout itemised. A duplicate is obvious here in a way
@@ -3329,7 +3341,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                               p.amount < 0 ? "text-red-600" : "text-gray-800"
                             }`}
                           >
-                            {p.amount < 0 ? "−" : ""}${Math.abs(p.amount).toFixed(2)}
+                            {p.amount < 0 ? "−" : ""}${money(Math.abs(p.amount))}
                           </span>
                           {/* Which money this was. A tip and a payout look the
                               same in a list of amounts, and they mean opposite
@@ -3356,7 +3368,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                         <div className="flex items-center gap-2 py-1 text-gray-400">
                           <span className="w-20 shrink-0 text-[13px]">earlier</span>
                           <span className="flex-1 text-sm font-semibold">
-                            ${entry.openingPaid!.toFixed(2)}
+                            ${money(entry.openingPaid!)}
                           </span>
                           <span
                             className="shrink-0 text-[12px]"
@@ -3391,7 +3403,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                       To pay{tip > 0 ? " (incl. tip)" : ""}
                     </span>
                     <span className="font-bold text-emerald-600">
-                      ${(Math.max(0, entry.balance) + tip).toFixed(2)}
+                      ${money(Math.max(0, entry.balance) + tip)}
                     </span>
                   </div>
 
