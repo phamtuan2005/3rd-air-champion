@@ -43,6 +43,17 @@ export interface roomFacts {
   beds: bedEntry[];
   // Whether it is private or shared is stated first, because that is the
   // question, and a guest who assumes wrong has a bad night.
+  //
+  // The warm seat and the bidet sit behind an em dash because they are parts
+  // of the smart toilet rather than two more fixtures standing beside it — and
+  // the dash is tied to "toilet" with a \u00a0 because without it the
+  // line wraps on a phone and strands the dash at the start of the second
+  // line, where it reads as a typo nobody put there. Measured in the gallery
+  // on an iPhone 13, which is where it wrapped.
+  //
+  // Written as an escape, not typed as a real non-breaking space, so it is
+  // VISIBLE in the source. An invisible one gets deleted by the next person
+  // tidying up and takes the reason with it.
   bathroom: string;
   // Said plainly, because "private" on a listing can mean either a private room
   // in a shared house or a whole place, and the difference is the thing a guest
@@ -127,6 +138,18 @@ export const hostOnSite = (hostFirstName?: string) =>
 // toilet — and the ROOM ENTRIES were the stale side. They now say so too, so
 // the first screen and a room's own gallery no longer contradict each other.
 //
+// The warm seat went the same way and had the same lag. It was added to this
+// house-level line first, so for a while the first screen named it and not one
+// room entry did — a guest who tapped a photo to check saw it disappear. All
+// five now name it, after "smart toilet" and behind an em dash, because the
+// warm seat and the bidet are parts of the toilet rather than two more
+// fixtures standing beside it in a list.
+//
+// Cute's entry already carried the fact as "a heated smart toilet", which is
+// the same thing said so vaguely a guest could read it as heated water, or a
+// heated room. It says warm seat like the other four now; nothing about that
+// bathroom changed.
+//
 // The house is the authority on its own bathrooms, exactly as it is on its own
 // kitchen ([[project-shared-kitchen]]). The transcriptions came off AirBnB
 // listings, which is why they lag the house.
@@ -165,7 +188,7 @@ const factsByListing: Record<string, roomFacts> = {
       { kind: "queen", label: "1 queen bed" },
       { kind: "sofa", label: "1 sofa bed" },
     ],
-    bathroom: "Private attached bathroom, with a smart toilet and built-in bidet",
+    bathroom: "Private attached bathroom, with a smart toilet\u00a0— warm seat and built-in bidet",
     privacy: "Your own room, with a lock on the door",
     highlights: [
       "Wifi",
@@ -194,7 +217,7 @@ const factsByListing: Record<string, roomFacts> = {
       { kind: "queen", label: "1 queen bed" },
       { kind: "sofa", label: "1 sofa bed" },
     ],
-    bathroom: "Private attached bathroom, with a smart toilet and built-in bidet",
+    bathroom: "Private attached bathroom, with a smart toilet\u00a0— warm seat and built-in bidet",
     // The balcony is this room's own — it is the reason a guest picks Queen
     // over King, so it belongs next to the privacy, not buried in a chip.
     privacy: "Your own room and private balcony, with a lock on the door",
@@ -220,7 +243,7 @@ const factsByListing: Record<string, roomFacts> = {
   "1144526275550691711": {
     maxGuests: 2,
     beds: [{ kind: "queen", label: "1 queen bed" }],
-    bathroom: "Private attached bathroom, with a bathtub and a heated smart toilet with built-in bidet",
+    bathroom: "Private attached bathroom, with a bathtub and a smart toilet\u00a0— warm seat and built-in bidet",
     privacy: "Your own room, with a lock on the door",
     highlights: [
       "Wifi",
@@ -247,7 +270,7 @@ const factsByListing: Record<string, roomFacts> = {
     beds: [{ kind: "queen", label: "1 queen bed" }],
     // Shared, and said so. Guessing wrong about this is the single worst
     // surprise a guest can arrive to.
-    bathroom: "Shared bathroom, with a bathtub, hot water and a smart toilet with built-in bidet",
+    bathroom: "Shared bathroom, with a bathtub, hot water and a smart toilet\u00a0— warm seat and built-in bidet",
     privacy: "Your own room, with a lock on the door",
     highlights: [
       "Wifi",
@@ -272,7 +295,7 @@ const factsByListing: Record<string, roomFacts> = {
   "1177648203505001777": {
     maxGuests: 1,
     beds: [{ kind: "double", label: "1 double bed" }],
-    bathroom: "Shared bathroom, with a bathtub, hot water and a smart toilet with built-in bidet",
+    bathroom: "Shared bathroom, with a bathtub, hot water and a smart toilet\u00a0— warm seat and built-in bidet",
     privacy: "Your own room, with a lock on the door",
     // No air conditioning and no TV on this listing — both are listed as
     // unavailable. Do not add them back by copying another room's list.
