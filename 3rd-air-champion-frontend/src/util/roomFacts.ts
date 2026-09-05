@@ -131,11 +131,22 @@ export const hostOnSite = (hostFirstName?: string) =>
 // kitchen ([[project-shared-kitchen]]). The transcriptions came off AirBnB
 // listings, which is why they lag the house.
 //
-// "every bathroom" says the scope out loud rather than leaving it implied, and
-// "built-in" is the accurate word: the bidet is part of the toilet, not a
-// second fixture beside it. 44 characters, inside the 45 that fit one line at
-// 360px — re-measure if you lengthen it.
-export const houseBathrooms = "Smart toilet, built-in bidet, every bathroom";
+// The scope is still said out loud — "all bathrooms" rather than left to be
+// implied — because this is the house-level line and a guest reads it before
+// they have picked a room at all.
+//
+// "built-in" stood here until the warm seat was added, and its absence is NOT
+// an oversight to be tidied back in. The seat is the thing guests ask about,
+// and the line cannot hold both — see the budget below. The bidet still reads
+// as part of the toilet from sitting directly after it. If you want
+// "built-in" back, something else has to go.
+//
+// 45 characters, and the budget IS 45 — this line has NO slack left. The
+// budget is the text width in this strip at 360px: the type is 14.4px
+// (text-xs through the 1.2 tibook-type scale, NOT 12px), and the droplet, its
+// gap and px-4 spend ~60px of the 360 before a letter is drawn. Measure it,
+// do not estimate it, and measure again if the icon or the padding changes.
+export const houseBathrooms = "Smart toilet, warm seat, bidet, all bathrooms";
 
 const housePhotos = [
   // The front of the house, from the street.
