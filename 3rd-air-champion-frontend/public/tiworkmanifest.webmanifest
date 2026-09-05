@@ -1,7 +1,7 @@
 {
   "name": "TiWork – TT House",
   "short_name": "TiWork",
-  "description": "Log your hours and what you worked on",
+  "description": "Drop your hours and what you got done",
   "start_url": "/work",
   "display": "standalone",
   "background_color": "#ffffff",
