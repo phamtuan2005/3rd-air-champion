@@ -45,16 +45,16 @@ const CREDS_KEY = "tiWorkCreds";
 // belonging to a house. Identical on every screen, so the mark is a mark.
 const PromiseMark = ({ className = "" }: { className?: string }) => (
   <div className={`flex items-center gap-2.5 ${className}`}>
-    <img src="/TiMagLogo.svg" alt="TT House" className="h-10 w-10 shrink-0" />
+    <img src="/TiMagLogo.svg" alt="TT House" className="h-11 w-11 shrink-0" />
     <div className="min-w-0">
       {/* The house is NAMED, not just pictured. A logo alone leaves "who am I
           working for" to be inferred from a small drawing, and the answer to
           that question should never need inferring on a payroll screen. */}
-      <p className="text-sm font-bold leading-tight text-gray-900">TT House</p>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-600/80">
+      <p className="text-base font-black leading-tight text-gray-900">TT House</p>
+      <p className="text-[11px] font-bold uppercase tracking-widest text-amber-700">
         Our promise to every guest
       </p>
-      <p className="text-sm font-semibold italic leading-tight text-amber-700">
+      <p className="text-sm font-bold italic leading-tight text-amber-800">
         "Your comfort. Our mission."
       </p>
     </div>
@@ -81,15 +81,15 @@ const fmtMonth = (key: string) => {
 };
 
 const STATUS_STYLE: Record<string, string> = {
-  submitted: "bg-amber-50 text-amber-700 border-amber-200",
-  approved: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  rejected: "bg-rose-50 text-rose-700 border-rose-200",
+  submitted: "bg-amber-100 text-amber-800 border-amber-200",
+  approved: "bg-emerald-100 text-emerald-800 border-emerald-200",
+  rejected: "bg-rose-100 text-rose-800 border-rose-200",
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  submitted: "Waiting",
+  submitted: "Pending",
   approved: "Approved",
-  rejected: "Not counted",
+  rejected: "Didn't count",
 };
 
 /**
@@ -255,7 +255,7 @@ const TiWork = () => {
   const handleSignIn = () => {
     const next = { identifier: form.identifier.trim(), code: form.code.trim() };
     if (!next.identifier || !next.code) {
-      setError("Enter your email or phone, and your code.");
+      setError("Pop in your email or phone, plus your code.");
       return;
     }
     setError("");
@@ -333,7 +333,7 @@ const TiWork = () => {
     const hm = shiftDraft[shift.date] ?? { h: "", m: "" };
     const hours = hmToDecimal(hm.h, hm.m);
     if (!Number.isFinite(hours) || hours <= 0) {
-      setError("How many hours? A number above zero.");
+      setError("How many hours? Anything above zero works.");
       return;
     }
     setError("");
@@ -342,7 +342,7 @@ const TiWork = () => {
     addMyEntry(creds, { date: shift.date, hours, report: "" })
       .then(() => {
         setShiftDraft((d) => ({ ...d, [shift.date]: { h: "", m: "" } }));
-        setSaved({ text: `Sent — ${fmtDay(shift.date)}, ${formatHrMin(hours)}.` });
+        setSaved({ text: `Sent it — ${fmtDay(shift.date)}, ${formatHrMin(hours)}.` });
         return reload(creds);
       })
       .catch((msg) => setError(String(msg)))
@@ -353,7 +353,7 @@ const TiWork = () => {
     if (!creds) return;
     const hours = hmToDecimal(draft.h, draft.m);
     if (!Number.isFinite(hours) || hours <= 0) {
-      setError("How many hours? A number above zero.");
+      setError("How many hours? Anything above zero works.");
       return;
     }
     setError("");
@@ -369,7 +369,7 @@ const TiWork = () => {
     action
       .then(() => {
         setSaved({
-          text: `${wasEditing ? "Saved" : "Logged"} — ${fmtDay(draft.date)}, ${formatHrMin(hours)}. Waiting on Anh-Tuan.`,
+          text: `${wasEditing ? "Updated" : "Logged"} — ${fmtDay(draft.date)}, ${formatHrMin(hours)}. Anh-Tuan's up next.`,
         });
         setDraft({ date: todayKey, h: "", m: "", report: "", rooms: "" });
         setEditingId(null);
@@ -510,18 +510,18 @@ const TiWork = () => {
   // ── Signed out ────────────────────────────────────────────────────────────
   if (!me) {
     return (
-      <div className="tibook-type flex min-h-[100dvh] flex-col items-center justify-center bg-gray-50 px-4">
-        <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div className="tibook-type flex min-h-[100dvh] flex-col items-center justify-center bg-gradient-to-b from-violet-50 via-white to-amber-50 px-4">
+        <div className="w-full max-w-sm rounded-[28px] bg-white p-6 shadow-2xl shadow-violet-300/40">
           {/* The tool names itself first — this is the screen where somebody
               checks they opened the right app. The house and its promise follow
               as their own block. */}
-          <h1 className="text-xl font-bold leading-tight text-gray-900">TiWork</h1>
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-            Hours &amp; pay for the team
+          <h1 className="text-3xl font-black tracking-tight text-gray-900">TiWork</h1>
+          <p className="text-xs font-bold uppercase tracking-widest text-violet-400">
+            Your hours, your pay
           </p>
-          <PromiseMark className="mt-3 rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-2" />
+          <PromiseMark className="mt-4 rounded-3xl bg-gradient-to-br from-amber-100 to-orange-50 px-4 py-3" />
           <p className="mt-2.5 text-sm text-gray-500">
-            Log your hours and tell us what you worked on.
+            Drop your hours, tell us what you got done.
           </p>
 
           {/* Credentials we KEPT because the server never answered. Without this
@@ -530,10 +530,10 @@ const TiWork = () => {
               had stopped working and go asking for another. The whole point of
               keeping the code is lost if we don't say we kept it. */}
           {creds && (
-            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+            <div className="mt-4 rounded-3xl bg-amber-100 px-4 py-3.5">
               <p className="text-sm leading-relaxed text-amber-800">
-                Your saved code is still here — this is the connection, not your code.
-                Nothing to re-enter.
+                Your code is still saved — this one's the connection, not you. Nothing to
+                retype.
               </p>
               <button
                 type="button"
@@ -542,14 +542,14 @@ const TiWork = () => {
                   setRetryTick((t) => t + 1);
                 }}
                 disabled={loading}
-                className="mt-2 w-full rounded-lg bg-amber-600 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                className="mt-3 w-full rounded-full bg-amber-500 py-2.5 text-sm font-bold text-white transition active:scale-95 disabled:opacity-50"
               >
-                {loading ? "Trying…" : "Try again"}
+                {loading ? "Trying…" : "Give it another go"}
               </button>
             </div>
           )}
 
-          <label className="mt-4 block text-xs font-semibold uppercase tracking-wide text-gray-400">
+          <label className="mt-5 block text-xs font-bold uppercase tracking-widest text-gray-400">
             Email or phone
           </label>
           <input
@@ -557,26 +557,26 @@ const TiWork = () => {
             onChange={(e) => setForm((f) => ({ ...f, identifier: e.target.value }))}
             placeholder="you@example.com"
             autoComplete="username"
-            className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-gray-400 focus:outline-none"
+            className="mt-1.5 w-full px-4 py-3 rounded-2xl border-2 border-gray-100 bg-gray-50 text-sm font-semibold transition focus:border-amber-400 focus:bg-white focus:outline-none"
           />
 
-          <label className="mt-3 block text-xs font-semibold uppercase tracking-wide text-gray-400">
+          <label className="mt-4 block text-xs font-bold uppercase tracking-widest text-gray-400">
             Access code
           </label>
           <input
             value={form.code}
             onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
             onKeyDown={(e) => e.key === "Enter" && handleSignIn()}
-            placeholder="from Anh-Tuan"
+            placeholder="the one from Anh-Tuan"
             autoComplete="one-time-code"
-            className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-gray-400 focus:outline-none"
+            className="mt-1.5 w-full px-4 py-3 rounded-2xl border-2 border-gray-100 bg-gray-50 text-sm font-semibold transition focus:border-amber-400 focus:bg-white focus:outline-none"
           />
 
-          {error && <p className="mt-3 text-sm font-semibold text-red-500">{error}</p>}
+          {error && <p className="mt-3 text-sm font-bold text-rose-500">{error}</p>}
           {wasRevoked && (
-            <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm leading-relaxed text-amber-800">
-              Your saved code stopped working — it was probably replaced. Ask Anh-Tuan
-              for the new one. Your logged hours are safe.
+            <p className="mt-3 rounded-2xl bg-amber-100 px-4 py-3 text-sm font-medium leading-relaxed text-amber-900">
+              That code got swapped out — text Anh-Tuan for the new one. Everything
+              you've logged is still safe.
             </p>
           )}
 
@@ -584,7 +584,7 @@ const TiWork = () => {
             type="button"
             onClick={handleSignIn}
             disabled={loading}
-            className="mt-4 w-full rounded-xl bg-gray-900 py-3 text-base font-semibold text-white disabled:opacity-50"
+            className="mt-5 w-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500 py-4 text-base font-extrabold text-white shadow-lg shadow-orange-500/40 transition active:scale-95 disabled:opacity-50"
           >
             {loading ? "…" : "Sign in"}
           </button>
@@ -595,8 +595,8 @@ const TiWork = () => {
 
   // ── Signed in ─────────────────────────────────────────────────────────────
   return (
-    <div className="tibook-type flex min-h-[100dvh] flex-col bg-gray-50">
-      <header className="flex shrink-0 items-center gap-2.5 border-b border-gray-200 bg-white px-4 py-3">
+    <div className="tibook-type flex min-h-[100dvh] flex-col bg-gradient-to-b from-violet-50 via-white to-amber-50">
+      <header className="flex shrink-0 items-center gap-3 rounded-b-[28px] bg-white px-4 py-4 shadow-lg shadow-violet-200/40">
         {/* Their own face, the one the host picked for them in TiMag — the same
             avatar on both screens, so the person and the record are visibly the
             same person. */}
@@ -604,16 +604,16 @@ const TiWork = () => {
           name={me.name}
           character={me.character}
           photo={me.photo}
-          sizeClass="h-10 w-10"
+          sizeClass="h-12 w-12"
         />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-base font-bold text-gray-900">Hi {me.name.split(" ")[0]}</p>
-          <p className="truncate text-xs text-gray-400">{me.title || "Team"}</p>
+          <p className="truncate text-xl font-black tracking-tight text-gray-900">Hey {me.name.split(" ")[0]} 👋</p>
+          <p className="truncate text-xs font-bold uppercase tracking-wider text-violet-400">{me.title || "On the team"}</p>
         </div>
         <button
           type="button"
           onClick={() => setShowSignOutConfirm(true)}
-          className="shrink-0 rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-500"
+          className="shrink-0 rounded-full bg-gray-100 px-4 py-2 text-xs font-bold text-gray-500 transition active:scale-95"
         >
           Sign out
         </button>
@@ -623,7 +623,7 @@ const TiWork = () => {
           screen a returning worker skips past with a saved code. Someone who
           stays signed in for months would otherwise never see it again. */}
       <div className="mx-auto w-full max-w-lg shrink-0 px-4 pt-3">
-        <PromiseMark className="rounded-2xl border border-amber-200 bg-amber-50/60 px-3 py-2" />
+        <PromiseMark className="rounded-3xl bg-gradient-to-br from-amber-100 to-orange-50 px-4 py-3" />
       </div>
 
       <div className="mx-auto flex w-full max-w-lg shrink-0 gap-1 px-4 pt-3">
@@ -632,10 +632,10 @@ const TiWork = () => {
             key={v}
             type="button"
             onClick={() => setView(v)}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-base font-semibold transition-colors ${
+            className={`flex flex-1 items-center justify-center gap-2 rounded-full px-3 py-3.5 text-base font-extrabold transition active:scale-95 ${
               view === v
-                ? "bg-gray-900 text-white shadow-sm"
-                : "border border-gray-200 bg-white text-gray-500"
+                ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-orange-500/40"
+                : "bg-white text-gray-400 shadow-sm"
             }`}
           >
             {/* The calendar-check is the same mark TiMag's booking cards use for
@@ -647,8 +647,8 @@ const TiWork = () => {
               <FaRegMoneyBillAlt size={17} className="shrink-0" />
             )}
             {/* "Your", not "My". Every other word on this screen speaks TO the
-                person — "Your cleanings", "Your saved code stopped working",
-                "what's coming to you" — and the house motto they read here daily
+                person — "Your cleans", "Your code is still saved", "coming your way" —
+                and the house motto they read here daily
                 is "Your comfort. Our mission." Two labels in the other voice made
                 the tabs read as a different app's, which is exactly the kind of
                 small wrongness that makes someone doubt they are in the right
@@ -664,26 +664,26 @@ const TiWork = () => {
             asking someone to retype it invites a mismatch nobody can resolve
             afterwards. */}
         {view === "work" && me.kind === "cleaner" && (
-          <div className="rounded-2xl border border-gray-200 bg-white p-3">
+          <div className="rounded-3xl bg-white p-4 shadow-lg shadow-violet-200/40">
             {/* Title on its own line, tabs on the next. Sharing one row left the
                 three tabs a sliver of a phone screen to fit in, so they either
                 truncated or scrolled — and the title has nothing to gain from
                 the space it was taking from them. */}
-            <p className="mb-1.5 text-lg font-bold text-gray-800">Your cleanings</p>
+            <p className="mb-2 text-xl font-black tracking-tight text-gray-900">Your cleans</p>
             {/* A cleaner could not see errors at all. Every setError in
                 submitShift — the zero-hours guard, and the server's "You weren't
                 scheduled that day" — was written to a string rendered only on the
                 signed-out screen and inside the office-staff form. So Send simply
                 did nothing, with no reason given, on the one screen a cleaner
                 uses. Same for the confirmation. */}
-            {error && <p className="mb-2 text-sm font-semibold text-red-500">{error}</p>}
+            {error && <p className="mb-2 text-sm font-bold text-rose-500">{error}</p>}
             {saved && (
-              <p className="mb-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">
+              <p className="mb-3 rounded-2xl bg-emerald-100 px-4 py-3 text-sm font-bold text-emerald-800">
                 {saved.text}
               </p>
             )}
             <div className="mb-2">
-              <div className="flex gap-1 overflow-x-auto rounded-lg bg-gray-100 p-0.5">
+              <div className="flex gap-1 overflow-x-auto rounded-full bg-gray-100 p-1">
                 {(["tolog", "done", "upcoming"] as const).map((k) => {
                   const n = shiftsFor(k).length;
                   return (
@@ -691,8 +691,8 @@ const TiWork = () => {
                       key={k}
                       type="button"
                       onClick={() => setShiftTab(k)}
-                      className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
-                        shiftTab === k ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+                      className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-bold transition active:scale-95 ${
+                        shiftTab === k ? "bg-white text-gray-900 shadow-md" : "text-gray-500"
                       }`}
                     >
                       {/* Waiting on you, already settled, not yet certain —
@@ -704,12 +704,12 @@ const TiWork = () => {
                       ) : (
                         <FaRegCalendarAlt size={14} className="shrink-0" />
                       )}
-                      {k === "tolog" ? "To log" : k === "done" ? "Done" : "Planned"}
+                      {k === "tolog" ? "To log" : k === "done" ? "Done" : "Coming up"}
                       {n > 0 && (
                         <span
-                          className={`rounded-full px-1.5 text-[11px] font-bold ${
+                          className={`rounded-full px-2 py-0.5 text-[11px] font-black ${
                             k === "tolog"
-                              ? "bg-amber-200 text-amber-800"
+                              ? "bg-amber-400 text-amber-950"
                               : "bg-gray-200 text-gray-600"
                           }`}
                         >
@@ -724,10 +724,10 @@ const TiWork = () => {
             {shiftsFor(shiftTab).length === 0 ? (
               <p className="py-3 text-center text-sm text-gray-400">
                 {shiftTab === "tolog"
-                  ? "Nothing waiting — every visit has its hours in."
+                  ? "All caught up 🎉 every visit has its hours in."
                   : shiftTab === "done"
-                    ? "No cleanings recorded in the last few weeks."
-                    : "No plan yet — Anh-Tuan will share one."}
+                    ? "Nothing logged in the last few weeks."
+                    : "No plan up yet — Anh-Tuan will drop one soon."}
               </p>
             ) : (
               <div className="flex flex-col gap-2">
@@ -736,9 +736,9 @@ const TiWork = () => {
                     Anh-Tuan rearrange the week and share it later, so this is a
                     plan being shown, not a commitment being made. */}
                 {shiftTab === "upcoming" && (
-                  <p className="rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium leading-relaxed text-amber-800">
-                    A plan, not a promise — it can still change. Anh-Tuan or Cindy will let
-                    you know if it does.
+                  <p className="rounded-2xl bg-amber-100 px-4 py-3 text-sm font-semibold leading-relaxed text-amber-900">
+                    Heads up — this is the plan, not a promise, so it can still shift.
+                    Anh-Tuan or Cindy will let you know if it does.
                   </p>
                 )}
                 {shiftsFor(shiftTab).map((sh) => {
@@ -749,7 +749,7 @@ const TiWork = () => {
                       key={sh.date}
                       className={
                         upcoming
-                          ? "flex flex-col gap-1.5 rounded-lg border border-dashed border-gray-300 bg-gray-50/60 px-2 py-1.5"
+                          ? "flex flex-col gap-1.5 rounded-2xl border-2 border-dashed border-violet-200 bg-violet-50/60 px-3 py-2.5"
                           : "flex flex-col gap-1.5 border-b border-gray-100 pb-2 last:border-0 last:pb-0"
                       }
                     >
@@ -770,7 +770,7 @@ const TiWork = () => {
                           <>
                             <span className="text-gray-300">&middot;</span>
                             <span
-                              className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${STATUS_STYLE[claim.status]}`}
+                              className={`rounded-full border px-3 py-1 text-xs font-black ${STATUS_STYLE[claim.status]}`}
                             >
                               {formatHrMin(claim.hours)} {STATUS_LABEL[claim.status].toLowerCase()}
                             </span>
@@ -781,14 +781,14 @@ const TiWork = () => {
                             {/* Already entered by Anh-Tuan in TiMag. Shown, not
                                 editable: two people typing the same day is how
                                 the two screens end up disagreeing. */}
-                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
-                              {formatHrMin(sh.recordedHours)} recorded
+                            <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-800">
+                              {formatHrMin(sh.recordedHours)} already in
                             </span>
                           </>
                         ) : upcoming ? (
                           <>
                             <span className="text-gray-300">&middot;</span>
-                            <span className="text-sm italic text-gray-400">planned</span>
+                            <span className="text-sm italic text-gray-400">coming up</span>
                           </>
                         ) : null}
                       </div>
@@ -845,7 +845,7 @@ const TiWork = () => {
                                   },
                                 }))
                               }
-                              className="w-16 rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:border-gray-400 focus:outline-none"
+                              className="w-16 px-2 py-2 text-center rounded-2xl border-2 border-gray-100 bg-gray-50 text-sm font-semibold transition focus:border-amber-400 focus:bg-white focus:outline-none"
                             />
                             <span className="text-sm text-gray-400">h</span>
                             <input
@@ -864,7 +864,7 @@ const TiWork = () => {
                                   },
                                 }))
                               }
-                              className="w-16 rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:border-gray-400 focus:outline-none"
+                              className="w-16 px-2 py-2 text-center rounded-2xl border-2 border-gray-100 bg-gray-50 text-sm font-semibold transition focus:border-amber-400 focus:bg-white focus:outline-none"
                             />
                             <span className="text-sm text-gray-400">m</span>
                             <button
@@ -874,20 +874,20 @@ const TiWork = () => {
                                 !!savingDate ||
                                 !(shiftDraft[sh.date]?.h || shiftDraft[sh.date]?.m)
                               }
-                              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+                              className="rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-emerald-500/40 transition active:scale-95 disabled:opacity-40"
                             >
-                              {savingDate === sh.date ? "Sending…" : "Send"}
+                              {savingDate === sh.date ? "Sending…" : "Send it"}
                             </button>
                           </>
                         )}
                         {shiftTab === "tolog" && (
                           <span className="w-full text-sm text-gray-500">
-                            Didn't work this day? Leave it — Anh-Tuan will clear it.
+                            Didn't work this one? Just leave it — Anh-Tuan will clear it.
                           </span>
                         )}
                         {claim?.hostNote && (
                           <span className="w-full text-xs text-gray-500">
-                            Note from Anh-Tuan: {claim.hostNote}
+                            Anh-Tuan says: {claim.hostNote}
                           </span>
                         )}
                       </div>
@@ -900,9 +900,9 @@ const TiWork = () => {
               <button
                 type="button"
                 onClick={showEarlier}
-                className="mt-2 w-full rounded-xl border border-dashed border-gray-300 py-2 text-xs font-semibold text-gray-500 hover:bg-gray-50"
+                className="mt-3 w-full rounded-full border-2 border-dashed border-gray-200 py-2.5 text-xs font-bold text-gray-400 transition active:scale-95"
               >
-                Show earlier — currently the last {Math.round(daysBack / 7)} weeks
+                Load more — showing the last {Math.round(daysBack / 7)} weeks
               </button>
             )}
           </div>
@@ -927,29 +927,29 @@ const TiWork = () => {
           const payments = pay.payments ?? [];
           const opening = pay.openingPaid ?? 0;
           return (
-          <div className="rounded-2xl border border-gray-200 bg-white p-3">
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+          <div className="rounded-3xl bg-white p-4 shadow-lg shadow-violet-200/40">
+            <div className="rounded-3xl bg-gradient-to-br from-emerald-400 to-teal-500 p-5 shadow-lg shadow-emerald-500/40">
               <div className="flex items-center justify-between gap-2">
                 {/* "Owed" says nothing about direction — on the host's screen
                     it means "I owe them", and read from this side it can mean
                     the opposite. "Earned" would collide with the two earnings
                     figures below; what is distinct about this number is that it
                     has not been paid yet. */}
-                <span className="text-sm font-semibold text-emerald-700">To be paid to you</span>
-                <span className="text-2xl font-bold text-emerald-700">
+                <span className="text-sm font-bold text-white/90">Coming your way</span>
+                <span className="text-4xl font-black tracking-tight text-white">
                   ${pay.owed.toFixed(2)}
                 </span>
               </div>
               {/* What the money BUYS, not a lifetime subtraction — the same
                   sentence the host reads. */}
-              <p className="mt-0.5 text-[13px] text-emerald-600">
+              <p className="mt-1 text-[13px] font-semibold text-white/80">
                 {pay.owed > 0.5
                   ? `${formatHrMin(pay.unpaidHours ?? 0)} worked${
                       pay.unpaidSince
                         ? ` since ${format(parseISO(pay.unpaidSince), "MMM d")}`
                         : ""
                     }`
-                  : "All paid up"}
+                  : "All squared up ✨"}
               </p>
             </div>
 
@@ -959,21 +959,21 @@ const TiWork = () => {
                 owed, which is the one number on this screen nobody may get
                 wrong. */}
             {pending.count > 0 && (
-              <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
+              <div className="mt-3 rounded-3xl bg-amber-100 p-4">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-semibold text-amber-800">
+                  <span className="text-sm font-bold text-amber-900">
                     Waiting on Anh-Tuan
                   </span>
-                  <span className="text-lg font-bold text-amber-800">
+                  <span className="text-xl font-black text-amber-900">
                     {formatHrMin(pending.hours)}
                   </span>
                 </div>
-                <p className="mt-0.5 text-[13px] text-amber-700">
+                <p className="mt-1 text-[13px] font-medium text-amber-800">
                   {pending.count} {pending.count === 1 ? "day" : "days"}
                   {pending.oldest
                     ? `, oldest ${format(parseISO(pending.oldest), "MMM d")}`
                     : ""}{" "}
-                  — counted here once approved
+                  — lands here once he approves
                 </p>
               </div>
             )}
@@ -981,7 +981,7 @@ const TiWork = () => {
             {/* Beside the hours it prices, not in the greeting at the top: a
                 rate only means something next to the work it is multiplied by. */}
             <div className="mb-1 mt-3 flex items-baseline justify-between gap-2">
-              <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-400">
+              <p className="text-[12px] font-bold uppercase tracking-widest text-gray-400">
                 {(() => {
                   try {
                     return format(parseISO(pay.monthLabel + "-01"), "MMMM");
@@ -989,17 +989,17 @@ const TiWork = () => {
                     return pay.monthLabel;
                   }
                 })()}{" "}
-                — hours by date
+                — hours by day
               </p>
               <span className="shrink-0 text-[13px] text-gray-500">
                 <span className="font-bold text-gray-800">{money(me.payRate)}</span>
                 {me.payType === "hourly" ? "/hr" : "/2wk"}
               </span>
             </div>
-            <div className="max-h-48 overflow-y-auto rounded-lg bg-gray-50 p-2">
+            <div className="max-h-48 overflow-y-auto rounded-2xl bg-gray-50 p-3">
               {days.length === 0 ? (
                 <p className="py-1 text-center text-[13px] text-gray-400">
-                  No recorded hours this month
+                  No hours in yet this month
                 </p>
               ) : (
                 daysNewestFirst.map((d) => (
@@ -1016,7 +1016,7 @@ const TiWork = () => {
               )}
             </div>
             <div className="mt-1 flex items-center justify-between px-1 text-[13px] text-gray-400">
-              <span>This month's work (gross)</span>
+              <span>This month so far (gross)</span>
               <span className="font-semibold">${(pay.monthGross ?? 0).toFixed(2)}</span>
             </div>
             <div className="flex items-center justify-between px-1 text-[13px] text-gray-400">
@@ -1026,10 +1026,10 @@ const TiWork = () => {
 
             {(payments.length > 0 || opening > 0.005) && (
               <>
-                <p className="mb-1 mt-3 text-[12px] font-semibold uppercase tracking-wide text-gray-400">
-                  Payments
+                <p className="mb-1.5 mt-4 text-[12px] font-bold uppercase tracking-widest text-gray-400">
+                  Paid out
                 </p>
-                <div className="max-h-40 overflow-y-auto rounded-lg bg-gray-50 p-2">
+                <div className="max-h-40 overflow-y-auto rounded-2xl bg-gray-50 p-3">
                   {payments.map((pmt) => (
                     <div key={pmt.id} className="flex items-center gap-2 py-0.5 text-sm">
                       <span className="flex-1 text-gray-600">
@@ -1048,8 +1048,8 @@ const TiWork = () => {
                       what was really paid, and the balance looks wrong. */}
                   {opening > 0.005 && (
                     <div className="flex items-center gap-2 py-0.5 text-sm">
-                      <span className="flex-1 text-gray-500">earlier</span>
-                      <span className="text-xs text-gray-400">not itemised</span>
+                      <span className="flex-1 text-gray-500">before this</span>
+                      <span className="text-xs text-gray-400">no breakdown</span>
                       <span className="w-20 text-right font-semibold text-gray-500">
                         ${opening.toFixed(2)}
                       </span>
@@ -1060,8 +1060,8 @@ const TiWork = () => {
             )}
 
             <p className="mt-2 text-[11px] leading-relaxed text-gray-400">
-              A record of your work — not the amount due. What's coming to you is the
-              figure above, already net of everything paid.
+              Just the record of your work, not the amount due. The number up top is what's
+              actually coming your way — everything already paid is taken off.
             </p>
           </div>
           );
@@ -1071,26 +1071,26 @@ const TiWork = () => {
             scheduled, in the list above — a free date box would let a cleaning
             be invented that was never on any rota. */}
         {view === "work" && me.kind === "staff" && (
-        <div className="rounded-2xl border border-gray-200 bg-white p-3">
-          <p className="mb-2 text-sm font-bold text-gray-800">
-            {editingId ? "Edit this day" : "Log a day"}
+        <div className="rounded-3xl bg-white p-4 shadow-lg shadow-violet-200/40">
+          <p className="mb-3 text-xl font-black tracking-tight text-gray-900">
+            {editingId ? "Fixing this one" : "Log a day"}
           </p>
           <div className="flex flex-wrap items-end gap-2">
             <label className="flex flex-col gap-1">
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                Day
+              <span className="text-xs font-bold uppercase tracking-widest text-gray-400">
+                Which day
               </span>
               <input
                 type="date"
                 value={draft.date}
                 max={todayKey}
                 onChange={(e) => setDraft((d) => ({ ...d, date: e.target.value }))}
-                className="rounded-xl border border-gray-200 px-2 py-2 text-sm focus:border-gray-400 focus:outline-none"
+                className="px-3 py-2.5 rounded-2xl border-2 border-gray-100 bg-gray-50 text-sm font-semibold transition focus:border-amber-400 focus:bg-white focus:outline-none"
               />
             </label>
             <label className="flex flex-col gap-1">
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                Time worked
+              <span className="text-xs font-bold uppercase tracking-widest text-gray-400">
+                How long
               </span>
               <div className="flex items-center gap-1">
                 <input
@@ -1100,7 +1100,7 @@ const TiWork = () => {
                   placeholder="0"
                   value={draft.h}
                   onChange={(e) => setDraft((d) => ({ ...d, h: e.target.value }))}
-                  className="w-16 rounded-xl border border-gray-200 px-2 py-2 text-sm focus:border-gray-400 focus:outline-none"
+                  className="w-16 px-2 py-2.5 text-center rounded-2xl border-2 border-gray-100 bg-gray-50 text-sm font-semibold transition focus:border-amber-400 focus:bg-white focus:outline-none"
                 />
                 <span className="text-sm text-gray-400">h</span>
                 <input
@@ -1111,7 +1111,7 @@ const TiWork = () => {
                   placeholder="0"
                   value={draft.m}
                   onChange={(e) => setDraft((d) => ({ ...d, m: e.target.value }))}
-                  className="w-16 rounded-xl border border-gray-200 px-2 py-2 text-sm focus:border-gray-400 focus:outline-none"
+                  className="w-16 px-2 py-2.5 text-center rounded-2xl border-2 border-gray-100 bg-gray-50 text-sm font-semibold transition focus:border-amber-400 focus:bg-white focus:outline-none"
                 />
                 <span className="text-sm text-gray-400">m</span>
               </div>
@@ -1119,17 +1119,17 @@ const TiWork = () => {
           </div>
           <textarea
             rows={3}
-            placeholder="What did you work on? A couple of lines is plenty."
+            placeholder="What'd you work on? A couple of lines is plenty."
             value={draft.report}
             onChange={(e) => setDraft((d) => ({ ...d, report: e.target.value }))}
-            className="mt-2 w-full resize-y rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-gray-400 focus:outline-none"
+            className="mt-3 w-full resize-y px-4 py-3 rounded-2xl border-2 border-gray-100 bg-gray-50 text-sm font-semibold transition focus:border-amber-400 focus:bg-white focus:outline-none"
           />
-          {error && <p className="mt-2 text-sm font-semibold text-red-500">{error}</p>}
+          {error && <p className="mt-2 text-sm font-bold text-rose-500">{error}</p>}
           {/* Confirmation lives HERE, next to the button, not in the list below —
               on a phone that list starts past the fold, so the only proof the tap
               worked was a card you had to scroll to find. */}
           {saved && (
-            <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">
+            <p className="mt-3 rounded-2xl bg-emerald-100 px-4 py-3 text-sm font-bold text-emerald-800">
               {saved.text}
             </p>
           )}
@@ -1141,18 +1141,18 @@ const TiWork = () => {
                   setEditingId(null);
                   setDraft({ date: todayKey, h: "", m: "", report: "", rooms: "" });
                 }}
-                className="rounded-xl px-3 py-2 text-sm font-semibold text-gray-500"
+                className="rounded-full px-4 py-2.5 text-sm font-bold text-gray-400 transition active:scale-95"
               >
-                Cancel
+                Never mind
               </button>
             )}
             <button
               type="button"
               onClick={submit}
               disabled={saving}
-              className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              className="rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-emerald-500/40 transition active:scale-95 disabled:opacity-50"
             >
-              {saving ? "Saving…" : editingId ? "Save" : "Submit"}
+              {saving ? "Saving…" : editingId ? "Save it" : "Send it"}
             </button>
           </div>
         </div>
@@ -1163,10 +1163,10 @@ const TiWork = () => {
         {view === "work" && me.kind === "staff" && (
         <div className="flex flex-col gap-2 pb-6">
           {loading && entries.length === 0 ? (
-            <p className="py-6 text-center text-sm text-gray-400">Loading…</p>
+            <p className="py-6 text-center text-sm text-gray-400">One sec…</p>
           ) : entries.length === 0 ? (
             <p className="py-6 text-center text-sm text-gray-400">
-              Nothing logged yet — your first day goes above.
+              Nothing here yet — log your first day up top.
             </p>
           ) : (
             entriesByMonth.map((g, gi) => {
@@ -1182,7 +1182,7 @@ const TiWork = () => {
                       setOpenMonths((m) => ({ ...m, [g.month]: !open }))
                     }
                     aria-expanded={open}
-                    className="flex w-full items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-left"
+                    className="flex w-full items-center gap-2 rounded-2xl bg-white px-4 py-3 text-left shadow-sm transition active:scale-[0.98]"
                   >
                     <FaChevronDown
                       size={12}
@@ -1200,16 +1200,16 @@ const TiWork = () => {
                     <span className="ml-auto flex shrink-0 items-center gap-1">
                       {g.waiting > 0 && (
                         <span
-                          className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${STATUS_STYLE.submitted}`}
+                          className={`rounded-full border px-2.5 py-1 text-[11px] font-black ${STATUS_STYLE.submitted}`}
                         >
-                          {g.waiting} waiting
+                          {g.waiting} pending
                         </span>
                       )}
                       {g.rejected > 0 && (
                         <span
-                          className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${STATUS_STYLE.rejected}`}
+                          className={`rounded-full border px-2.5 py-1 text-[11px] font-black ${STATUS_STYLE.rejected}`}
                         >
-                          {g.rejected} not counted
+                          {g.rejected} didn't count
                         </span>
                       )}
                     </span>
@@ -1217,14 +1217,14 @@ const TiWork = () => {
 
                   {open &&
                     g.items.map((e) => (
-              <div key={e.id} className="rounded-2xl border border-gray-200 bg-white p-3">
+              <div key={e.id} className="rounded-3xl bg-white p-4 shadow-lg shadow-violet-200/40">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-bold text-gray-900">{fmtDay(e.date)}</span>
                   <span className="text-sm font-semibold text-gray-600">
                     {formatHrMin(e.hours)}
                   </span>
                   <span
-                    className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-bold ${STATUS_STYLE[e.status]}`}
+                    className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-black ${STATUS_STYLE[e.status]}`}
                   >
                     {STATUS_LABEL[e.status]}
                   </span>
@@ -1238,8 +1238,8 @@ const TiWork = () => {
                   <p className="mt-1.5 whitespace-pre-line text-sm text-gray-600">{e.report}</p>
                 )}
                 {e.hostNote && (
-                  <p className="mt-1.5 rounded-lg bg-gray-50 px-2 py-1.5 text-xs text-gray-500">
-                    Note from Anh-Tuan: {e.hostNote}
+                  <p className="mt-2 rounded-2xl bg-gray-50 px-3 py-2 text-xs font-medium text-gray-500">
+                    Anh-Tuan says: {e.hostNote}
                   </p>
                 )}
                 {/* Only an unreviewed day can be changed. Once it is approved the
@@ -1264,7 +1264,7 @@ const TiWork = () => {
                       onClick={() => remove(e.id)}
                       className="text-xs font-semibold text-red-400 hover:text-red-600"
                     >
-                      Remove
+                      Delete
                     </button>
                   </div>
                 )}
@@ -1286,8 +1286,8 @@ const TiWork = () => {
             worse than no thank-you at all. */}
         <p className="pb-6 text-center text-xs leading-relaxed text-gray-400">
           {me.kind === "cleaner"
-            ? "Every room you leave ready is how we keep that promise. Thank you."
-            : "The work you do behind the scenes is how we keep that promise. Thank you."}
+            ? "Every room you leave ready is how we keep that promise to our guests. You're the reason it works 🤍"
+            : "Everything you do behind the scenes is how we keep that promise to our guests. You're the reason it works 🤍"}
         </p>
       </div>
 
@@ -1303,27 +1303,27 @@ const TiWork = () => {
           the revoked-code warning on the way back IN — which is too late to
           reassure the person deciding whether to leave. */}
       {showSignOutConfirm && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4">
-          <div className="flex w-80 max-w-full flex-col gap-5 rounded-2xl bg-white px-6 py-6 shadow-2xl">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm">
+          <div className="flex w-80 max-w-full flex-col gap-5 rounded-[28px] bg-white px-6 py-7 shadow-2xl">
             <div className="flex flex-col gap-1.5">
-              <span className="text-xl font-bold text-gray-900">Sign out?</span>
+              <span className="text-2xl font-black tracking-tight text-gray-900">Sign out?</span>
               <span className="text-sm leading-relaxed text-gray-500">
-                You'll need your access code from Anh-Tuan to get back in. Your logged
-                hours are safe either way.
+                You'll need your code from Anh-Tuan to get back in. Your hours are safe
+                either way — nothing disappears.
               </span>
             </div>
             <div className="flex gap-3">
               <button
                 type="button"
                 onClick={() => setShowSignOutConfirm(false)}
-                className="flex-1 rounded-xl border border-gray-200 py-3 text-base font-semibold text-gray-600 transition-colors hover:bg-gray-50 active:bg-gray-100"
+                className="flex-1 rounded-full bg-gray-100 py-3.5 text-base font-bold text-gray-600 transition active:scale-95"
               >
                 Stay signed in
               </button>
               <button
                 type="button"
                 onClick={signOut}
-                className="flex-1 rounded-xl bg-red-500 py-3 text-base font-semibold text-white transition-colors hover:bg-red-600 active:bg-red-700"
+                className="flex-1 rounded-full bg-rose-500 py-3.5 text-base font-bold text-white shadow-lg shadow-rose-500/40 transition active:scale-95"
               >
                 Sign out
               </button>

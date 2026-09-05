@@ -102,8 +102,8 @@ export const workSignIn = async (creds: WorkCreds): Promise<WorkMe> => {
       message:
         err?.response?.data?.error ??
         (status
-          ? "Could not sign in."
-          : "Couldn't reach TiWork. Check your connection and try again."),
+          ? "Couldn't sign you in."
+          : "Can't reach TiWork right now — check your connection and try again."),
       refused,
       codeRejected: status === 401,
     };
@@ -116,7 +116,7 @@ export const fetchMyEntries = async (creds: WorkCreds): Promise<WorkEntryType[]>
     const res = await axios.post(`${BACKEND_ENDPOINT}/work/entries`, creds);
     return res.data;
   } catch (err) {
-    throw unwrap(err, "Could not load your hours.");
+    throw unwrap(err, "Couldn't load your hours.");
   }
 };
 
@@ -128,7 +128,7 @@ export const fetchMySchedule = async (
     const res = await axios.post(`${BACKEND_ENDPOINT}/work/schedule`, { ...creds, ...range });
     return res.data;
   } catch (err) {
-    throw unwrap(err, "Could not load your schedule.");
+    throw unwrap(err, "Couldn't load your schedule.");
   }
 };
 
@@ -154,7 +154,7 @@ export const fetchMyPay = async (creds: WorkCreds): Promise<PaySummary> => {
     const res = await axios.post(`${BACKEND_ENDPOINT}/work/pay-summary`, creds);
     return res.data;
   } catch (err) {
-    throw unwrap(err, "Could not load your pay.");
+    throw unwrap(err, "Couldn't load your pay.");
   }
 };
 
@@ -166,7 +166,7 @@ export const addMyEntry = async (
     const res = await axios.post(`${BACKEND_ENDPOINT}/work/entry`, { ...creds, ...entry });
     return res.data;
   } catch (err) {
-    throw unwrap(err, "Could not save that.");
+    throw unwrap(err, "Couldn't save that.");
   }
 };
 
@@ -178,7 +178,7 @@ export const editMyEntry = async (
     const res = await axios.patch(`${BACKEND_ENDPOINT}/work/entry`, { ...creds, ...entry });
     return res.data;
   } catch (err) {
-    throw unwrap(err, "Could not save that change.");
+    throw unwrap(err, "Couldn't save that change.");
   }
 };
 
@@ -189,6 +189,6 @@ export const deleteMyEntry = async (creds: WorkCreds, id: string) => {
     });
     return res.data;
   } catch (err) {
-    throw unwrap(err, "Could not remove that.");
+    throw unwrap(err, "Couldn't remove that.");
   }
 };
