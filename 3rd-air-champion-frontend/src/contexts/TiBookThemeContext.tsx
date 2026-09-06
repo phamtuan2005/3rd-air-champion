@@ -24,6 +24,28 @@ export type ThemeName = "green" | "amber" | "teal" | "rose" | "indigo";
  */
 export type VibeName = "classic" | "vivid";
 
+/*
+ * A THIRD thing a guest can choose, and the first one that is not paint.
+ *
+ * "stack" is the arrangement TiBook has always had: host banner, house facts,
+ * room strip and month grid stacked down the page, with the nav across the top.
+ * "hero" is the one drawn in the Gen Z round — the rooms take the top two
+ * fifths as a swipeable card, the month takes the lower three, and the actions
+ * move to a bar under the thumb.
+ *
+ * Held apart from the skin on purpose, even though the menu currently offers
+ * them as one choice ("Hero" means vivid + hero). They are different kinds of
+ * thing: a skin is values behind tokens and reaches every screen, a layout is
+ * a different arrangement of the SAME screens. Keeping them separate is what
+ * lets the menu offer a light Hero later without any of this moving.
+ *
+ * What a layout must NOT be is a second set of rules. Hero drives the exact
+ * same selectedRoomIds the room filter has always driven, so the calendar
+ * answers "is this room free" with the one availability rule there has ever
+ * been (TIBOOK.md rule 1).
+ */
+export type LayoutName = "stack" | "hero";
+
 export interface TiBookTheme {
   name: ThemeName;
   vibe: VibeName;
@@ -648,6 +670,8 @@ interface TiBookThemeContextValue {
   setTheme: (name: ThemeName) => void;
   vibe: VibeName;
   setVibe: (vibe: VibeName) => void;
+  layout: LayoutName;
+  setLook: (vibe: VibeName, layout: LayoutName) => void;
   allThemes: TiBookTheme[];
 }
 
@@ -656,11 +680,14 @@ const TiBookThemeContext = createContext<TiBookThemeContextValue>({
   setTheme: () => {},
   vibe: "classic",
   setVibe: () => {},
+  layout: "stack",
+  setLook: () => {},
   allThemes: Object.values(themes),
 });
 
 const STORAGE_KEY = "tiBookTheme";
 const VIBE_KEY = "tiBookVibe";
+const LAYOUT_KEY = "tiBookLayout";
 
 export const TiBookThemeProvider = ({ children }: { children: ReactNode }) => {
   const saved = (localStorage.getItem(STORAGE_KEY) as ThemeName) || "green";
@@ -674,15 +701,34 @@ export const TiBookThemeProvider = ({ children }: { children: ReactNode }) => {
   const [vibe, setVibeState] = useState<VibeName>(
     savedVibe === "vivid" ? "vivid" : "classic"
   );
+  /* Also defaults to what TiBook has always been. A guest who has chosen
+     nothing gets the app they had yesterday. */
+  const savedLayout = localStorage.getItem(LAYOUT_KEY) as LayoutName | null;
+  const [layout, setLayoutState] = useState<LayoutName>(
+    savedLayout === "hero" ? "hero" : "stack"
+  );
 
   const setTheme = (name: ThemeName) => {
     setThemeName(name);
     localStorage.setItem(STORAGE_KEY, name);
   };
 
-  const setVibe = (next: VibeName) => {
-    setVibeState(next);
-    localStorage.setItem(VIBE_KEY, next);
+  const setVibe = (next: VibeName) => setLook(next, layout);
+
+  /* Skin and layout move together, because the menu offers them together. One
+     setter so a look can never land half-applied — a guest mid-switch seeing
+     the hero arrangement in the light skin for a frame is a flicker nobody
+     asked for. */
+  const setLook = (nextVibe: VibeName, nextLayout: LayoutName) => {
+    setVibeState(nextVibe);
+    setLayoutState(nextLayout);
+    try {
+      localStorage.setItem(VIBE_KEY, nextVibe);
+      localStorage.setItem(LAYOUT_KEY, nextLayout);
+    } catch {
+      // Private browsing. The choice holds for this visit and is asked again
+      // next time, which is the harmless way round.
+    }
   };
 
   return (
@@ -692,6 +738,8 @@ export const TiBookThemeProvider = ({ children }: { children: ReactNode }) => {
         setTheme,
         vibe,
         setVibe,
+        layout,
+        setLook,
         // Swatches are drawn from the skin in use, so the dots a guest picks
         // from are the colours they will actually get.
         allThemes: Object.values(BOOKS[vibe]),

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
+import type { LayoutName, VibeName } from "../../contexts/TiBookThemeContext";
 import type { hostType } from "../../util/types/hostType";
 import { getLoyaltyTier } from "./GuestLoyaltyBanner";
 
@@ -141,14 +142,20 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
  * told which generation a page thinks you belong to is a worse greeting than
  * being shown the two looks and asked which you prefer.
  */
-const LOOKS = [
-  // Named for what each one IS, and both named the same way. "Plain" was the
-  // odd one out: it describes the light skin accurately enough, but it reads as
-  // the lesser of the two, and a guest picking the look TiBook has always worn
-  // should not be told they chose the dull one. Light/dark and calm/bright are
-  // the same pair of axes, neither end of either an apology.
-  { key: "classic" as const, label: "Classic", hint: "Light and calm", dot: "bg-gray-400" },
-  { key: "vivid" as const, label: "Neon", hint: "Dark and bright", dot: "bg-gradient-to-r from-fuchsia-500 to-cyan-400" },
+/*
+ * Named for what each one IS, and all named the same way. "Plain" was once the
+ * odd one out: it describes the light skin accurately enough, but it reads as
+ * the lesser of the set, and a guest picking the look TiBook has always worn
+ * should not be told they chose the dull one.
+ *
+ * Hero is the first entry that changes the ARRANGEMENT rather than the colour,
+ * so its line says so — a guest choosing it is choosing a different screen, not
+ * a different palette, and should not be surprised by that.
+ */
+const LOOKS: { key: string; label: string; hint: string; dot: string; vibe: VibeName; layout: LayoutName }[] = [
+  { key: "classic", label: "Classic", hint: "Light and calm", dot: "bg-gray-400", vibe: "classic", layout: "stack" },
+  { key: "vivid", label: "Neon", hint: "Dark and bright", dot: "bg-gradient-to-r from-fuchsia-500 to-cyan-400", vibe: "vivid", layout: "stack" },
+  { key: "hero", label: "Hero", hint: "Neon, rooms first", dot: "bg-gradient-to-br from-rose-500 via-fuchsia-500 to-cyan-400", vibe: "vivid", layout: "hero" },
 ];
 
 /*
@@ -175,14 +182,14 @@ const readHintSeen = () => {
     // A guest with a saved look has already found this menu, in an earlier
     // visit or before the nudge existed. Telling them where it is would be the
     // app not noticing what they have already done.
-    return localStorage.getItem(HINT_KEY) === "1" || localStorage.getItem("tiBookVibe") !== null;
+    return localStorage.getItem(HINT_KEY) === "1" || localStorage.getItem("tiBookVibe") !== null || localStorage.getItem("tiBookLayout") !== null;
   } catch {
     return true;
   }
 };
 
-const AppearanceMenu = () => {
-  const { theme, setTheme, vibe, setVibe, allThemes } = useTiBookTheme();
+export const AppearanceMenu = () => {
+  const { theme, setTheme, vibe, layout, setLook, allThemes } = useTiBookTheme();
   const [open, setOpen] = useState(false);
   const [hint, setHint] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -319,14 +326,14 @@ const AppearanceMenu = () => {
             Look
           </p>
           {LOOKS.map((o) => {
-            const on = vibe === o.key;
+            const on = vibe === o.vibe && layout === o.layout;
             return (
               <button
                 key={o.key}
                 type="button"
                 role="menuitemradio"
                 aria-checked={on}
-                onClick={() => setVibe(o.key)}
+                onClick={() => setLook(o.vibe, o.layout)}
                 className={`flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors ${theme.chromeHover}`}
               >
                 <span className={`h-4 w-4 shrink-0 rounded-full ${o.dot}`} />

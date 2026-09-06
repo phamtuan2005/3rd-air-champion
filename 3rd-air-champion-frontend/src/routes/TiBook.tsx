@@ -23,10 +23,12 @@ import { getGuestWishList } from "../util/wishListOperations";
 import { fetchBookingRequestsByHost, fetchCalendarBookingsByGuest } from "../util/bookingRequestOperations";
 import { fetchGuestByPhone } from "../util/guestOperations";
 import RememberMeDisclaimer from "../components/tibook/RememberMeDisclaimer";
+import HeroShell from "../components/tibook/HeroShell";
+import RoomGalleryModal from "../components/tibook/RoomGalleryModal";
 import { getConsent, readRememberedGuest, rememberGuest, setConsent, revokeConsent } from "../util/guestConsent";
 
 const TiBookInner = () => {
-  const { theme, vibe } = useTiBookTheme();
+  const { theme, vibe, layout } = useTiBookTheme();
   useEffect(() => { document.title = "TiBook"; }, []);
   useEffect(() => {
     const link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
@@ -102,6 +104,7 @@ const TiBookInner = () => {
   const [reservedPopupOpen, setReservedPopupOpen] = useState(false);
   const reservedAutoShownRef = useRef<string | null>(null);
   const [roomPickerDate, setRoomPickerDate] = useState<Date | null>(null);
+  const [heroGalleryRoom, setHeroGalleryRoom] = useState<roomType | null>(null);
   const [bookAnother, setBookAnother] = useState<{ checkIn: Date; nights: number } | null>(null);
   const cohostNames = (import.meta.env.VITE_TI_BOOK_COHOST_NAMES as string | undefined)
     ?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
@@ -558,6 +561,42 @@ const TiBookInner = () => {
         vibe === "vivid" ? "tibook-vibe-vivid tibook-vibe-vivid-backdrop" : ""
       }`}
     >
+      {layout === "hero" && currentHost ? (
+        /* Same state, same handlers, same calendar — a different arrangement
+           of them. Everything below this block (the modals, the consent gate,
+           the popups) is shared, so a guest switching look mid-visit keeps
+           their dates, their wish list and their place in the month. */
+        <HeroShell
+          host={currentHost}
+          rooms={rooms}
+          monthMap={monthMap}
+          selectedRoomIds={selectedRoomIds}
+          onSelectRoom={(id) => setSelectedRoomIds(id ? new Set([id]) : null)}
+          myRates={myRates}
+          cartDates={cartDates}
+          wishListDates={wishListDates}
+          newWishListDates={newWishListDates}
+          myBookingDates={myBookingDates}
+          myStays={myStays}
+          reservedStays={reservedStays}
+          reservedMap={reservedMap}
+          currentMonth={currentMonth}
+          onMonthChange={setCurrentMonth}
+          onDateClick={toggleCartDate}
+          onWishListClick={handleWishListClick}
+          onMyStayClick={setStayPopupId}
+          onReservedClick={() => setReservedPopupOpen(true)}
+          scrollToTodayTrigger={scrollToTodayTrigger}
+          scrollToMonthTrigger={scrollToMonthTrigger ?? undefined}
+          onOpenPhotos={setHeroGalleryRoom}
+          onMyBookings={() => { setBookingsFocusKey(null); setMyBookingsOpen((o) => !o); }}
+          onRequest={() => openBookingModal(null)}
+          guestName={greetedName}
+          actionLabel={barLabel}
+          hasSelection={hasSelection}
+        />
+      ) : (
+      <>
       <NavBarDesktop
         onBack={isSelecting ? collapseCal : undefined}
         host={currentHost}
@@ -718,6 +757,8 @@ const TiBookInner = () => {
           </button>
         </div>
       )}
+      </>
+      )}
 
       {myBookingsOpen && currentHost && (
         <MyBookingsSheet
@@ -859,6 +900,18 @@ const TiBookInner = () => {
           />
         );
       })()}
+
+      {/* Hero opens the gallery from its own card; the stacked layout keeps
+          RoomCards' copy. Same modal either way. */}
+      {heroGalleryRoom && (
+        <RoomGalleryModal
+          room={heroGalleryRoom}
+          hostPhone={currentHost?.phone}
+          hostName={currentHost?.name}
+          myRate={myRates.get(heroGalleryRoom.id)}
+          onClose={() => setHeroGalleryRoom(null)}
+        />
+      )}
 
       {/* Tap an open date → pick the exact room right away (1-left names it) */}
       {roomPickerDate && (

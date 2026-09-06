@@ -37,7 +37,8 @@ Two things about that file:
 | `src/components/tibook/RoomCards.tsx` | The room banner, photos, and the guest's own rate |
 | `src/util/dateText.ts` | Reads dates out of what a guest types |
 | `src/util/cartGrouping.ts` | Turns chosen dates into stays |
-| `src/contexts/TiBookThemeContext.tsx` | Colour tokens and the two skins — use `theme.*`, never a hardcoded colour |
+| `src/contexts/TiBookThemeContext.tsx` | Colour tokens, the two skins and the two layouts — use `theme.*`, never a hardcoded colour |
+| `src/components/tibook/HeroShell.tsx` | The Hero layout: rooms as a swipeable deck over the month |
 
 ## Tests
 
@@ -85,7 +86,26 @@ them; this is the index.
 7. **Colour is semantic and comes from the theme.** Guests can pick a theme;
    hardcoding `bg-blue-500` breaks it for everyone who chose otherwise.
 
-8. **There are two SKINS, and neither is a second app.** A guest picks Classic
+8. **There are two LAYOUTS as well as two skins, and neither is a second
+   app.** The menu offers three looks — Classic (light, stacked), Neon (dark,
+   stacked) and Hero (dark, rooms-first). Skin and layout are separate axes
+   underneath (`vibe` and `layout`) even though the menu sets them together,
+   so a light Hero is a one-line change if it is ever wanted.
+
+   Hero is a different ARRANGEMENT of the same screens, never a second set of
+   rules. `HeroShell` computes nothing: swiping a room card sets the same
+   `selectedRoomIds` the room strip has always driven, and `GuestCalendar`
+   scopes availability by it exactly as before — so "is this room free" is
+   answered by the one availability rule there has ever been. Dates, rates,
+   holds and the wish list arrive as props from `TiBook.tsx`, and every modal
+   is shared, which is why a guest can switch look mid-visit and keep their
+   dates and their place in the month.
+
+   If you find yourself computing a date, a rate or an availability inside a
+   layout, stop: that belongs in `TiBook.tsx` where the other layout can see
+   it too.
+
+9. **There are two SKINS, and neither is a second app.** A guest picks Classic
    or Neon in the nav and the choice is remembered per device, alongside the
    palette — which survives the switch rather than being replaced by it. Both
    skins are the same screens, the same flows and the same booking rules; a
