@@ -131,7 +131,7 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
  * off the right edge and the last colour was simply unreachable — the guest
  * could see four of five and had no way to know a fifth existed.
  *
- * A menu costs one 28px button instead, so it fits at any width, and the two
+ * A menu costs one small button instead, so it fits at any width, and the two
  * choices get room for their names. Five unlabelled dots never said that a
  * colour was being chosen, and a flat dot beside a gradient one never said
  * that it was the whole look.
@@ -142,7 +142,12 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
  * being shown the two looks and asked which you prefer.
  */
 const LOOKS = [
-  { key: "classic" as const, label: "Classic", hint: "Calm and plain", dot: "bg-gray-400" },
+  // Named for what each one IS, and both named the same way. "Plain" was the
+  // odd one out: it describes the light skin accurately enough, but it reads as
+  // the lesser of the two, and a guest picking the look TiBook has always worn
+  // should not be told they chose the dull one. Light/dark and calm/bright are
+  // the same pair of axes, neither end of either an apology.
+  { key: "classic" as const, label: "Classic", hint: "Light and calm", dot: "bg-gray-400" },
   { key: "vivid" as const, label: "Neon", hint: "Dark and bright", dot: "bg-gradient-to-r from-fuchsia-500 to-cyan-400" },
 ];
 
