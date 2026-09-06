@@ -173,10 +173,18 @@ const HeroShell = ({
     return n;
   }, [monthMap, currentMonth, activeRoom, activeRooms, reservedMap]);
 
-  const rateOf = (r: roomType) => myRates?.get(r.id) ?? r.price;
-  const prices = activeRooms.map(rateOf);
-  const lo = prices.length ? Math.min(...prices) : 0;
-  const hi = prices.length ? Math.max(...prices) : 0;
+  /*
+   * A room's list price is not a price anyone pays. What a guest pays is
+   * agreed with the host, which is why the gallery says so and why the room
+   * cards have never quoted r.price to a stranger.
+   *
+   * Hero was quoting it — myRates.get(id) ?? r.price — so a first-time guest
+   * saw "$75 / night" for a number nobody had agreed with them. Only a rate
+   * THIS guest already has is a price, and that one is worth showing: it is
+   * the outcome of the conversation, and it is the one thing on this screen a
+   * returning guest cannot get anywhere else.
+   */
+  const myRate = (r: roomType) => myRates?.get(r.id);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -187,7 +195,15 @@ const HeroShell = ({
           photo you actually look at, and a scrim dark enough to keep them
           readable is a scrim dark enough to spoil the picture underneath.
           Its own row costs 46px of card and gives back a clean photograph. */}
-      <div className={`flex shrink-0 items-center gap-2 px-4 py-2 ${theme.chrome}`}>
+      <div className={`flex shrink-0 items-center gap-2 px-3 py-2 ${theme.chrome}`}>
+        {/* TiBook's own icon, not TiMag's logo: this is the guest's app, and
+            the one place in Hero where it can say so — the stacked layout says
+            it in a nav bar Hero does not have. */}
+        <img
+          src="/tibook-icon-192.png"
+          alt="TiBook"
+          className="h-7 w-7 shrink-0 rounded-lg"
+        />
         <div className="min-w-0 flex-1">
           <div className={`truncate text-sm font-extrabold leading-tight ${theme.chromeText}`}>
             {host.airbnbName || host.name}
@@ -208,8 +224,8 @@ const HeroShell = ({
         <AppearanceMenu />
       </div>
 
-      {/* ── The rooms: 3 of the 5 parts under the header ─────────────────── */}
-      <div className="relative min-h-0 flex-[3]">
+      {/* ── The rooms: half of what is under the header ──────────────────── */}
+      <div className="relative min-h-0 flex-1">
         <div
           ref={trackRef}
           onScroll={onScroll}
@@ -257,13 +273,17 @@ const HeroShell = ({
                       <span className="flex items-baseline gap-1.5">
                         {/* A guest on a deliberate $0 rate is family. Saying
                             "$0" reads as a bug, so it says what it means. */}
-                        {rateOf(room) === 0 ? (
+                        {myRate(room) === 0 ? (
                           <span className={`text-lg font-bold ${theme.textPrimary}`}>Family — no charge</span>
-                        ) : (
+                        ) : myRate(room) != null ? (
                           <>
-                            <span className={`text-2xl font-extrabold tracking-tight ${theme.textPrimary}`}>${rateOf(room)}</span>
-                            <span className="text-xs text-white/80">/ night{myRates?.get(room.id) != null ? " · your rate" : ""}</span>
+                            <span className={`text-2xl font-extrabold tracking-tight ${theme.textPrimary}`}>${myRate(room)}</span>
+                            <span className="text-xs text-white/80">/ night · your rate</span>
                           </>
+                        ) : (
+                          /* Says what will happen rather than showing a number
+                             that is not theirs. */
+                          <span className="text-xs text-white/85">Your price is agreed with {hostFirstName}</span>
                         )}
                       </span>
                     </div>
@@ -279,14 +299,11 @@ const HeroShell = ({
                     </div>
                     <div className="absolute inset-x-4 bottom-3 flex flex-col gap-1">
                       <span className={`text-xl font-extrabold tracking-tight ${theme.surfaceText}`}>Any room is fine</span>
+                      {/* Both facts in one sentence: the two lines each named
+                          the host and read as a form letter. */}
                       <span className={`text-xs leading-snug ${theme.surfaceMuted}`}>
-                        {hostFirstName} picks the room. Same house, same bathrooms.
-                      </span>
-                      <span className="mt-0.5 flex items-baseline gap-1.5">
-                        <span className={`text-xl font-extrabold tracking-tight ${theme.textPrimary}`}>
-                          {lo === hi ? `$${lo}` : `$${lo}–${hi}`}
-                        </span>
-                        <span className={`text-xs ${theme.surfaceMuted}`}>/ night · by room</span>
+                        {hostFirstName} picks the room and agrees your price. Same
+                        house, same bathrooms.
                       </span>
                     </div>
                   </>
@@ -299,8 +316,8 @@ const HeroShell = ({
 
       </div>
 
-      {/* ── The month: the other 2 ───────────────────────────────────────── */}
-      <div className={`flex min-h-0 flex-[2] flex-col border-t ${theme.line} ${theme.surface}`}>
+      {/* ── The month: the other half ────────────────────────────────────── */}
+      <div className={`flex min-h-0 flex-1 flex-col border-t ${theme.line} ${theme.surface}`}>
         <div className="flex shrink-0 items-center gap-2 px-4 pb-1 pt-1.5">
           <span
             className="h-2.5 w-2.5 shrink-0 rounded-full"

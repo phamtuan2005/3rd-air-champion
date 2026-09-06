@@ -207,6 +207,19 @@ const GuestCalendar = ({
    */
   const tightRow = rowHeight < 52;
 
+  /*
+   * Tighter still, and the words themselves have to go.
+   *
+   * A number is 13px at the floor and "sold out" another 11px; stacked with the
+   * cell's own padding that wants about 30px, and half a phone's calendar on a
+   * 320px screen leaves 28. Below this the meta line is dropped and the number
+   * carries the night on its own — struck through and grey for a night that is
+   * gone, accent-coloured for one that is free, which is the same thing the
+   * words were saying. The tick on a night the guest picked stays: that is
+   * their own doing, not a status.
+   */
+  const veryTightRow = rowHeight < 36;
+
   // The guest's own stays as bar segments per day: a PM segment on every night
   // (check-in day starts at 20%), and an AM cap on the check-out morning — the
   // same PM-checkin/AM-checkout geometry as the TiMag calendar, so a stay reads
@@ -478,7 +491,7 @@ const GuestCalendar = ({
         </span>
         {/* Availability stays visible whether or not the night is picked — it's
             info the guest wants either way; a ✓ marks it selected. */}
-        {!simplified && (status === "available" || status === "partial") && roomsLeft > 0 && (inCart || showRoomsLeft) && (
+        {!simplified && (status === "available" || status === "partial") && roomsLeft > 0 && (inCart || (showRoomsLeft && !veryTightRow)) && (
           <span
             className={`relative z-10 font-semibold leading-none ${inCart ? "text-white" : theme.tileText}`}
             style={{ fontSize: metaSize }}
@@ -486,11 +499,12 @@ const GuestCalendar = ({
             {/* The tick stays whatever the scope: it is the guest's own
                 selection, not a count. */}
             {inCart ? "✓" : ""}
-            {showRoomsLeft ? `${inCart ? " " : ""}${roomsLeft} left` : ""}
+            {showRoomsLeft && !veryTightRow ? `${inCart ? " " : ""}${roomsLeft} left` : ""}
           </span>
         )}
         {!simplified && !inCart && !isStayNight && (status === "full" || status === "blocked") && (
           <>
+            {!veryTightRow && (
             <div className="relative z-10 flex flex-col items-center gap-0.5">
               {/* Keep "sold out" visible even when wish-listed — the gray wish-list
                   overlay otherwise hides it and the date looks bookable again. */}
@@ -508,6 +522,7 @@ const GuestCalendar = ({
                 </span>
               )}
             </div>
+            )}
             {canWishList && tightRow && (
               <span
                 className="absolute bottom-0 right-0.5 z-20 cursor-pointer leading-none"
