@@ -243,3 +243,31 @@ body {
 .tibook-vibe-vivid .react-calendar__custom_tile_today::after {
   border-color: rgb(241 245 249); /* slate-100 */
 }
+
+/*
+ * The one-time nudge on the look button.
+ *
+ * A slow breath rather than a ping: it has to be noticeable in the corner of
+ * the eye while a guest is reading the room cards, without competing with the
+ * calendar for attention. It runs only while the nudge is up, and only for a
+ * guest who has never opened the menu.
+ */
+@keyframes tibook-attention {
+  0%, 100% { transform: scale(1); opacity: 0.35; }
+  50%      { transform: scale(1.35); opacity: 0; }
+}
+
+.tibook-attention {
+  animation: tibook-attention 2s ease-out infinite;
+}
+
+/*
+ * Same bargain as the gradient drift: a guest who has asked for less motion
+ * still gets the nudge, it just holds still.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .tibook-attention {
+    animation: none;
+    opacity: 0.25;
+  }
+}

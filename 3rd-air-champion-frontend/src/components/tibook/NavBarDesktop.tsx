@@ -146,43 +146,164 @@ const LOOKS = [
   { key: "vivid" as const, label: "Neon", hint: "Dark and bright", dot: "bg-gradient-to-r from-fuchsia-500 to-cyan-400" },
 ];
 
+/*
+ * Shown once, to a guest who has never opened the menu.
+ *
+ * The trigger was a bare dot with a hairline round it. It is the current
+ * palette, which is honest, but to somebody arriving for the first time a
+ * coloured circle in the corner is decoration — nothing about it says it can be
+ * pressed, and nothing says what would happen. A guest cannot choose a look
+ * they never learn is there.
+ *
+ * So the button says what it is (a caret, and the word on any screen with room
+ * for it), and this says it once in words. It is a nudge, not a gate: it sits
+ * under the button it is pointing at, it never covers the calendar, and it goes
+ * for good the moment the guest opens the menu or dismisses it.
+ */
+const HINT_KEY = "tiBookLookHintSeen";
+
+const readHintSeen = () => {
+  // Private browsing can throw on access rather than return null. A guest who
+  // cannot be remembered should still get TiBook, so a throw means "seen" —
+  // better a nudge that never shows than a nav that will not render.
+  try {
+    // A guest with a saved look has already found this menu, in an earlier
+    // visit or before the nudge existed. Telling them where it is would be the
+    // app not noticing what they have already done.
+    return localStorage.getItem(HINT_KEY) === "1" || localStorage.getItem("tiBookVibe") !== null;
+  } catch {
+    return true;
+  }
+};
+
 const AppearanceMenu = () => {
   const { theme, setTheme, vibe, setVibe, allThemes } = useTiBookTheme();
   const [open, setOpen] = useState(false);
+  const [hint, setHint] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+
+  // Held back a beat rather than shown on mount: it arrives after the page has
+  // settled, so it reads as a nudge about the button rather than as one more
+  // thing loading in.
+  useEffect(() => {
+    if (readHintSeen()) return;
+    const t = setTimeout(() => setHint(true), 1200);
+    return () => clearTimeout(t);
+  }, []);
+
+  const dismissHint = () => {
+    setHint(false);
+    try {
+      localStorage.setItem(HINT_KEY, "1");
+    } catch {
+      // Nothing to do — it shows again next visit, which is the harmless way
+      // round for a one-line nudge.
+    }
+  };
+
+  const toggle = () => {
+    setOpen((o) => !o);
+    if (hint) dismissHint();
+  };
 
   // Closes on a tap anywhere else and on Escape. Without the first, the panel
   // sits over the calendar the guest is trying to get back to, and the only way
-  // out is to find the same small button again.
+  // out is to find the same small button again. A tap outside puts the nudge
+  // away too — having answered it by ignoring it is an answer.
   useEffect(() => {
-    if (!open) return;
+    if (!open && !hint) return;
     const onDown = (e: PointerEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+      if (wrapRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+      if (hint) dismissHint();
     };
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setOpen(false);
+      if (hint) dismissHint();
+    };
     document.addEventListener("pointerdown", onDown);
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("pointerdown", onDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+  }, [open, hint]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="relative" ref={wrapRef}>
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggle}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label="Look and colour"
-        title="Look and colour"
-        className={`flex h-7 w-7 items-center justify-center rounded-full border transition-colors ${theme.chromeBorder} ${theme.chromeHover}`}
+        aria-label="Change how TiBook looks"
+        title="Change how TiBook looks"
+        className={`relative flex items-center gap-1 rounded-full border pl-1 pr-1.5 py-1 transition-colors ${theme.chromeBorder} ${theme.chromeHover} ${theme.chromeText}`}
       >
+        {/* One soft ring, only while the nudge is up, and only ever once. It
+            stops the moment the guest has seen the menu, and it bows out
+            entirely under prefers-reduced-motion — a pulsing dot beside a
+            booking calendar is exactly what that setting is turned on to
+            avoid. */}
+        {hint && (
+          <span
+            aria-hidden
+            className={`tibook-attention pointer-events-none absolute inset-0 rounded-full ${theme.btn} opacity-40`}
+          />
+        )}
         {/* The trigger wears the current answer: the palette dot in the skin it
             is currently rendered in. */}
-        <span className={`h-4 w-4 rounded-full ${theme.btn}`} />
+        <span className={`relative h-5 w-5 shrink-0 rounded-full ${theme.btn}`} />
+        <span className="relative hidden text-xs font-semibold sm:inline">Look</span>
+        {/* A caret is the part that says "this opens something". It stays on the
+            narrowest phone, where the word does not fit. */}
+        <svg
+          aria-hidden
+          className={`relative h-3 w-3 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={3}
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
       </button>
+
+      {hint && !open && (
+        <div
+          role="note"
+          className={`absolute right-0 top-full z-50 mt-2 w-56 rounded-2xl border p-3 shadow-xl ${theme.surface} ${theme.chromeBorder}`}
+        >
+          {/* Points at the button, so the sentence and the thing it is about
+              are visibly the same thing. */}
+          <span
+            aria-hidden
+            className={`absolute -top-1.5 right-4 h-3 w-3 rotate-45 border-l border-t ${theme.surface} ${theme.chromeBorder}`}
+          />
+          <div className="relative flex items-start gap-2">
+            <p className={`flex-1 text-xs leading-snug ${theme.surfaceText}`}>
+              <span className="font-bold">Make it yours.</span>{" "}
+              Tap here for Classic or Neon, in the colour you like.
+            </p>
+            <button
+              type="button"
+              onClick={dismissHint}
+              aria-label="Dismiss"
+              className={`shrink-0 text-sm leading-none ${theme.surfaceMuted} ${theme.mutedHover}`}
+            >
+              ×
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={toggle}
+            className={`relative mt-2 w-full rounded-full py-1.5 text-xs font-semibold text-white ${theme.btn} ${theme.btnHover} ${theme.glow}`}
+          >
+            Show me
+          </button>
+        </div>
+      )}
 
       {open && (
         <div
