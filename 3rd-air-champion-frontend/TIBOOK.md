@@ -37,7 +37,7 @@ Two things about that file:
 | `src/components/tibook/RoomCards.tsx` | The room banner, photos, and the guest's own rate |
 | `src/util/dateText.ts` | Reads dates out of what a guest types |
 | `src/util/cartGrouping.ts` | Turns chosen dates into stays |
-| `src/contexts/TiBookThemeContext.tsx` | Colour tokens — use `theme.*`, never a hardcoded colour |
+| `src/contexts/TiBookThemeContext.tsx` | Colour tokens and the two skins — use `theme.*`, never a hardcoded colour |
 
 ## Tests
 
@@ -84,6 +84,26 @@ them; this is the index.
 
 7. **Colour is semantic and comes from the theme.** Guests can pick a theme;
    hardcoding `bg-blue-500` breaks it for everyone who chose otherwise.
+
+8. **There are two SKINS, and neither is a second app.** A guest picks Classic
+   or Neon in the nav and the choice is remembered per device, alongside the
+   palette — which survives the switch rather than being replaced by it. Both
+   skins are the same screens, the same flows and the same booking rules; a
+   skin is only a second set of values behind the same `theme.*` tokens, so no
+   component asks which one it is wearing. If you find yourself writing
+   `if (vibe === "vivid")` inside a component, add a token instead.
+
+   Neon takes the **frame** dark — nav, month strip, action bar, host banner,
+   room cards — and leaves the **calendar grid and every modal light**. That
+   line is deliberate, not unfinished: the greys in those were picked against
+   white and are written into the markup in ~130 places, and they are where a
+   guest reads their rate, their total and their door code. The mood is worth
+   the frame; it is not worth a door code nobody can read in a hallway at 11pm.
+
+   Corner radius and the drifting gradient are **not** tokens — they hang off
+   `.tibook-vibe-vivid` in `index.css`, which redeclares Tailwind's
+   `--radius-*` steps the same way the type scale above it redeclares
+   `--text-*`. One knob, every corner, no per-element edits.
 
 ## The tone
 

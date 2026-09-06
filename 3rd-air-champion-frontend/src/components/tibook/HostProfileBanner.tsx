@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { hostType } from "../../util/types/hostType";
+import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
 
 interface HostProfileBannerProps {
   host: hostType;
@@ -9,6 +10,7 @@ interface HostProfileBannerProps {
 }
 
 const HostAvatar = ({ name, profileUrl }: { name: string; profileUrl?: string }) => {
+  const { theme } = useTiBookTheme();
   const [photoError, setPhotoError] = useState(false);
   const initials = name
     .split(" ")
@@ -34,7 +36,7 @@ const HostAvatar = ({ name, profileUrl }: { name: string; profileUrl?: string })
         </div>
         <div className="absolute bottom-0 right-0 h-2.5 w-2.5 bg-green-500 rounded-full border-2 border-white" />
       </div>
-      <span className="text-[10px] font-semibold text-gray-800">{name}</span>
+      <span className={`text-[10px] font-semibold ${theme.surfaceText}`}>{name}</span>
       <span className="text-[9px] font-semibold text-green-600 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full -mt-0.5">Verified</span>
     </div>
   );
@@ -72,14 +74,15 @@ const HostProfileBanner = ({
   useEffect(() => {
     if (!touched.current) setExpanded(defaultExpanded);
   }, [defaultExpanded]);
+  const { theme } = useTiBookTheme();
   const displayName = host.airbnbName || host.name;
 
   return (
-    <div className="tibook-type bg-white border-b border-gray-100 shrink-0">
+    <div className={`tibook-type border-b shrink-0 ${theme.surface} ${theme.surfaceBorder}`}>
       {/* Collapsed summary row — always visible */}
       <button
         type="button"
-        className="w-full px-4 py-2 flex items-center gap-2 active:bg-gray-50 transition-colors"
+        className={`w-full px-4 py-2 flex items-center gap-2 transition-colors ${theme.chromeHover}`}
         onClick={() => {
           touched.current = true;
           setExpanded((v) => !v);
@@ -107,11 +110,11 @@ const HostProfileBanner = ({
             ))}
           </div>}
           {displayName && (
-            <span className="font-bold text-gray-900 text-sm leading-tight truncate">{displayName}</span>
+            <span className={`font-bold text-sm leading-tight truncate ${theme.surfaceText}`}>{displayName}</span>
           )}
         </div>
         <svg
-          className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`}
+          className={`w-4 h-4 flex-shrink-0 transition-transform ${theme.surfaceMuted} ${expanded ? "rotate-180" : ""}`}
           fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -120,7 +123,7 @@ const HostProfileBanner = ({
 
       {/* Expanded detail panel */}
       {expanded && (
-        <div className="px-4 pb-2 flex flex-col gap-1.5 border-t border-gray-100">
+        <div className={`px-4 pb-2 flex flex-col gap-1.5 border-t ${theme.surfaceBorder}`}>
           {/* One line that scrolls, not a block that grows.
               Wrapping meant every highlight added cost a fraction of the
               calendar below — seven of them took three lines. Swiping keeps the
@@ -155,19 +158,19 @@ const HostProfileBanner = ({
                   {cohostNames.length > 0 ? "Superhosts" : "Superhost"}
                 </span>
               )}
-              <div className="flex flex-col gap-0 pl-0.5 border-l-2 border-indigo-300">
-                <span className="text-[10px] text-indigo-600 font-semibold italic leading-tight tracking-wide">
+              <div className={`flex flex-col gap-0 pl-0.5 border-l-2 ${theme.brandBorder}`}>
+                <span className={`text-[10px] font-semibold italic leading-tight tracking-wide ${theme.brandText}`}>
                   Your Comfort. Our Mission.
                 </span>
-                <span className="text-[9px] text-gray-400 leading-tight">
+                <span className={`text-[9px] leading-tight ${theme.surfaceMuted}`}>
                   Sự Thoải Mái Của Bạn. Sứ Mệnh Của Chúng Tôi.
                 </span>
-                <span className="text-[9px] text-gray-400 leading-tight">
+                <span className={`text-[9px] leading-tight ${theme.surfaceMuted}`}>
                   您的舒适，我们的使命。
                 </span>
               </div>
               {host.airbnbRating != null && (
-                <span className="flex items-center gap-1 text-xs text-gray-500 mt-0.5">
+                <span className={`flex items-center gap-1 text-xs mt-0.5 ${theme.surfaceMuted}`}>
                   <span className="flex items-center gap-0.5">
                     {[1, 2, 3, 4, 5].map((star) => {
                       const fill = Math.min(1, Math.max(0, host.airbnbRating! - (star - 1)));
@@ -195,12 +198,12 @@ const HostProfileBanner = ({
                         href={host.airbnbReviewsUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-gray-500 underline underline-offset-2 hover:text-gray-700 transition-colors"
+                        className={`underline underline-offset-2 transition-colors ${theme.surfaceMuted}`}
                       >
                         {host.airbnbReviewCount} reviews
                       </a>
                     ) : (
-                      <span className="text-gray-500">{host.airbnbReviewCount} reviews</span>
+                      <span className={theme.surfaceMuted}>{host.airbnbReviewCount} reviews</span>
                     )
                   )}
                 </span>

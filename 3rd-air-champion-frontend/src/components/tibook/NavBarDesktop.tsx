@@ -1,16 +1,7 @@
 import { useState } from "react";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
-import type { ThemeName } from "../../contexts/TiBookThemeContext";
 import type { hostType } from "../../util/types/hostType";
 import { getLoyaltyTier } from "./GuestLoyaltyBanner";
-
-const SWATCHES: { name: ThemeName; bg: string }[] = [
-  { name: "green",  bg: "bg-green-500"  },
-  { name: "amber",  bg: "bg-amber-500"  },
-  { name: "teal",   bg: "bg-teal-500"   },
-  { name: "rose",   bg: "bg-rose-500"   },
-  { name: "indigo", bg: "bg-indigo-500" },
-];
 
 interface NavBarDesktopProps {
   onBack?: () => void;
@@ -37,12 +28,16 @@ const MiniAvatar = ({ name }: { name: string }) => {
 };
 
 const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false, onMyBookings, guestName, guestStays }: NavBarDesktopProps) => {
-  const { theme, setTheme } = useTiBookTheme();
+  const { theme, setTheme, allThemes } = useTiBookTheme();
   const guestFirstName = guestName?.trim().split(" ")[0];
   const loyaltyTier = guestStays ? getLoyaltyTier(guestStays) : null;
 
   return (
-    <nav className="px-3 flex items-center gap-2 w-full h-12 sm:h-16 bg-white drop-shadow-md z-50 shrink-0">
+    <nav
+      /* bg-white was hardcoded here. It is a token now so the vivid skin can
+         take the bar dark without this component knowing a skin exists. */
+      className={`px-3 flex items-center gap-2 w-full h-12 sm:h-16 ${theme.chrome} drop-shadow-md z-50 shrink-0`}
+    >
       <img
         className="h-8 w-8 sm:h-10 sm:w-10"
         alt="TT House Logo"
@@ -50,7 +45,7 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
         src="./TiMagLogo.svg"
       />
       {isFullCalendar && host ? (
-        <div className="flex items-center gap-2 flex-1">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
           <div className="flex items-center">
             <MiniAvatar name={host.name} />
             {cohostNames.map((name) => (
@@ -59,13 +54,13 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
               </div>
             ))}
           </div>
-          <span className="text-sm sm:text-base font-bold tracking-wide text-gray-800">
+          <span className={`text-sm sm:text-base font-bold tracking-wide truncate ${theme.chromeText}`}>
             <span className="sm:hidden">TT House</span>
             <span className="hidden sm:inline">Book with TT House</span>
           </span>
         </div>
       ) : (
-        <h1 className="text-sm sm:text-base font-bold tracking-wide text-gray-800 flex-1">
+        <h1 className={`text-sm sm:text-base font-bold tracking-wide flex-1 min-w-0 truncate ${theme.chromeText}`}>
           <span className="sm:hidden">TiBook</span>
           <span className="hidden sm:inline">TiBook · Book with TT House</span>
         </h1>
@@ -81,10 +76,8 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
                bar and take that height off the calendar. The guest's own name is
                a greeting, so it reads at the same size as the house name it sits
                beside instead of at badge size. */
-            className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-sm font-semibold whitespace-nowrap transition-colors ${
-              guestFirstName
-                ? `${theme.textPrimary} border-gray-200 hover:bg-gray-50`
-                : "border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-800"
+            className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-sm font-semibold whitespace-nowrap transition-colors ${theme.chromeBorder} ${theme.chromeHover} ${
+              guestFirstName ? theme.chromeAccent : theme.chromeMuted
             }`}
           >
             {guestFirstName ? (
@@ -113,7 +106,7 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
           <button
             type="button"
             onClick={onBack}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-colors ${theme.chromeBorder} ${theme.chromeMuted} ${theme.chromeHover}`}
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -121,22 +114,82 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
             Home
           </button>
         ) : (
-          <div className="flex items-center gap-1.5">
-            {SWATCHES.map((s) => (
-              <button
-                key={s.name}
-                type="button"
-                title={s.name}
-                onClick={() => setTheme(s.name)}
-                className={`w-5 h-5 rounded-full ${s.bg} transition-transform ${
-                  theme.name === s.name ? "ring-2 ring-offset-1 ring-gray-400 scale-110" : "opacity-60 hover:opacity-100"
-                }`}
-              />
-            ))}
+          <div className="flex items-center gap-2">
+            <VibeToggle />
+            <div className="flex items-center gap-1 sm:gap-1.5">
+              {/* Drawn from the skin in use, not from a fixed list of flat
+                  colours: in the vivid skin these dots are the gradients the
+                  guest will actually get, so the swatch shows the answer rather
+                  than an approximation of it. */}
+              {allThemes.map((s) => (
+                <button
+                  key={s.name}
+                  type="button"
+                  title={s.name}
+                  aria-label={`${s.name} colour`}
+                  onClick={() => setTheme(s.name)}
+                  className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full ${s.btn} transition-transform ${
+                    theme.name === s.name
+                      ? `ring-2 ring-offset-1 ${theme.chromeRing} scale-110`
+                      : "opacity-60 hover:opacity-100"
+                  }`}
+                />
+              ))}
+            </div>
           </div>
         )}
       </div>
     </nav>
+  );
+};
+
+/*
+ * The skin chooser.
+ *
+ * Labelled by what the guest gets — "Classic" and "Neon" — rather than by who
+ * we think they are. TiBook is read by the person booking the room, and being
+ * told which generation a page thinks you belong to is a worse greeting than
+ * simply being shown the two looks and asked which you prefer.
+ *
+ * Text folds away under sm: the nav is a fixed h-12 on a phone and already
+ * carries the logo, the house name, the bookings pill and five swatches. The
+ * dot alone still says it — flat for classic, gradient for neon — and the
+ * title/aria-label carry the words for anyone who cannot see the difference.
+ */
+const OPTIONS = [
+  { key: "classic" as const, label: "Classic", dot: "bg-gray-400" },
+  { key: "vivid" as const, label: "Neon", dot: "bg-gradient-to-r from-fuchsia-500 to-cyan-400" },
+];
+
+const VibeToggle = () => {
+  const { theme, vibe, setVibe } = useTiBookTheme();
+
+  return (
+    <div
+      role="group"
+      aria-label="Look"
+      className={`flex items-center gap-0.5 rounded-full border p-0.5 ${theme.chromeBorder}`}
+    >
+      {OPTIONS.map((o) => {
+        const on = vibe === o.key;
+        return (
+          <button
+            key={o.key}
+            type="button"
+            onClick={() => setVibe(o.key)}
+            title={`${o.label} look`}
+            aria-label={`${o.label} look`}
+            aria-pressed={on}
+            className={`flex items-center gap-1 rounded-full px-1.5 py-1 text-[11px] font-semibold transition-colors ${
+              on ? `${theme.surfaceSubtle} ${theme.chromeText}` : `${theme.chromeMuted} ${theme.chromeHover}`
+            }`}
+          >
+            <span className={`h-2.5 w-2.5 rounded-full ${o.dot}`} />
+            <span className="hidden sm:inline">{o.label}</span>
+          </button>
+        );
+      })}
+    </div>
   );
 };
 

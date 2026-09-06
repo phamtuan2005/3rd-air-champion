@@ -20,10 +20,10 @@ const CalendarNavigator = ({
   const isCurrentMonth = isSameMonth(currentMonth, new Date());
 
   return (
-    <div className="flex flex-col gap-0.5 bg-white drop-shadow-sm px-2 pt-1.5 pb-1 shrink-0">
+    <div className={`flex flex-col gap-0.5 ${theme.chrome} drop-shadow-sm px-2 pt-1.5 pb-1 shrink-0`}>
       {/* Month title + Today */}
       <div className="flex items-center gap-2">
-        <span className="font-bold text-base sm:text-xl text-gray-800 flex-1">{formattedDate}</span>
+        <span className={`font-bold text-base sm:text-xl flex-1 ${theme.chromeText}`}>{formattedDate}</span>
         <TodayButton isCurrentMonth={isCurrentMonth} onScrollToToday={onScrollToToday} />
       </div>
 
@@ -33,7 +33,7 @@ const CalendarNavigator = ({
           <abbr
             key={index}
             title={day}
-            className="text-xs sm:text-sm font-medium text-gray-500 no-underline"
+            className={`text-xs sm:text-sm font-medium no-underline ${theme.chromeMuted}`}
           >
             <span className="sm:hidden">{day[0]}</span>
             <span className="hidden sm:inline">{day.substring(0, 3)}</span>
@@ -46,7 +46,7 @@ const CalendarNavigator = ({
         /* The app's primary action, and it was set at text-sm — smaller than the
            month above it and smaller than the bar it leads to. Sized to match
            that bar so the whole booking path reads at one size. */
-        className={`w-full ${theme.btn} ${theme.btnHover} ${theme.btnActive} text-white py-2.5 rounded-xl text-lg font-semibold transition-colors mt-0.5`}
+        className={`w-full ${theme.btn} ${theme.btnHover} ${theme.btnActive} ${theme.glow} ${theme.btnMotion} text-white py-2.5 rounded-xl text-lg font-semibold transition-colors mt-0.5`}
         onClick={onBookingRequest}
       >
         Request a Booking

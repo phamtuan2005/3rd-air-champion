@@ -33,7 +33,7 @@ const HouseFactsStrip = ({ hostName }: HouseFactsStripProps) => {
   const hostFirstName = (hostName ?? "").split(" ")[0];
 
   return (
-    <div className={`tibook-type shrink-0 border-b ${theme.tagBorder} ${theme.tagBg}`}>
+    <div className={`tibook-type shrink-0 border-b ${theme.bandBorder} ${theme.bandBg}`}>
       <ul className="flex flex-col gap-1 px-4 py-1.5 sm:flex-row sm:items-center sm:gap-5">
         <li className="flex min-w-0 items-center gap-1.5">
           {/* The host's own face, not a house icon. "Somebody lives here" is a
@@ -50,7 +50,7 @@ const HouseFactsStrip = ({ hostName }: HouseFactsStripProps) => {
             />
             <span className="absolute -bottom-px -right-px h-1.5 w-1.5 rounded-full border border-white bg-green-500" />
           </span>
-          <span className={`text-xs font-semibold leading-tight ${theme.tagText}`}>
+          <span className={`text-xs font-semibold leading-tight ${theme.bandText}`}>
             {hostOnSite(hostFirstName)}
           </span>
         </li>
@@ -63,7 +63,7 @@ const HouseFactsStrip = ({ hostName }: HouseFactsStripProps) => {
           <svg
             aria-hidden
             viewBox="0 0 24 24"
-            className={`h-4 w-4 shrink-0 ${theme.tagText}`}
+            className={`h-4 w-4 shrink-0 ${theme.bandText}`}
             fill="none"
             stroke="currentColor"
             strokeWidth={2}
@@ -72,7 +72,7 @@ const HouseFactsStrip = ({ hostName }: HouseFactsStripProps) => {
           >
             <path d="M12 3s6 6.5 6 10a6 6 0 0 1-12 0c0-3.5 6-10 6-10z" />
           </svg>
-          <span className={`text-xs font-semibold leading-tight ${theme.tagText}`}>
+          <span className={`text-xs font-semibold leading-tight ${theme.bandText}`}>
             {houseBathrooms}
           </span>
         </li>

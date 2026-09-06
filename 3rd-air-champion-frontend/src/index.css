@@ -131,3 +131,75 @@ body {
 .tibook-type-lg .text-\[11px\] {
   font-size: calc(12px * var(--type-scale));
 }
+
+/*
+ * TiBook vivid skin — the shape and motion half of the Gen Z look.
+ *
+ * Colour is handled by tokens in TiBookThemeContext, because components already
+ * read colour from there. Corner radius and motion are not tokens: they are set
+ * by ~200 literal `rounded-*` classes across the TiBook tree, and threading a
+ * radius prop through all of them to support one skin is a bad trade.
+ *
+ * So the same knob the type scale above uses works here. Tailwind v4 compiles
+ * `rounded-xl` to `border-radius: var(--radius-xl)`, so redeclaring the radius
+ * steps on this wrapper opens every corner beneath it in one go — no per-element
+ * edits, no specificity fight, and classic is untouched because it never carries
+ * this class.
+ *
+ * The floor matters as much as the ceiling: rounded-full stays a circle (it is a
+ * literal 3.4e38px, not a variable), and the small steps are lifted less than
+ * the large ones so a 4px badge corner does not become a lozenge.
+ */
+.tibook-vibe-vivid {
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.75rem;
+  --radius-3xl: 2rem;
+  --radius-4xl: 2.5rem;
+}
+
+/*
+ * The neon wash behind the app.
+ *
+ * Only ever visible where no panel paints over it — the calendar and the cards
+ * are opaque and stay that way, because their greys were chosen against white.
+ * This is the frame, not the page.
+ */
+.tibook-vibe-vivid-backdrop {
+  background-color: #020617;
+  background-image:
+    radial-gradient(60rem 40rem at 15% -10%, rgb(217 70 239 / 0.30), transparent 60%),
+    radial-gradient(50rem 35rem at 95% 5%, rgb(34 211 238 / 0.25), transparent 60%),
+    radial-gradient(45rem 45rem at 50% 110%, rgb(139 92 246 / 0.25), transparent 60%);
+}
+
+/*
+ * A slow drift across the primary action, so the gradient reads as alive rather
+ * than as a static two-tone fill. 8s and 200% wide: fast enough to notice on a
+ * second look, slow enough that it is not competing with the calendar for
+ * attention while someone is picking nights.
+ */
+@keyframes tibook-vivid-drift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.tibook-vivid-drift {
+  background-size: 200% 200%;
+  animation: tibook-vivid-drift 8s ease-in-out infinite;
+}
+
+/*
+ * Respect the system setting. A moving gradient behind a booking form is
+ * exactly the kind of motion someone turns this off to avoid, and the button
+ * loses nothing by holding still — it is still a gradient.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .tibook-vivid-drift {
+    animation: none;
+  }
+}

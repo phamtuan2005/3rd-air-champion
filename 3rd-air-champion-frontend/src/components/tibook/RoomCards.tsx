@@ -54,8 +54,8 @@ const RoomCard = ({
 
   return (
     <div
-      className={`flex-shrink-0 w-24 sm:w-32 rounded-xl overflow-hidden shadow-sm border-2 bg-white transition-all ${
-        selected ? `${theme.selectedBorder} ${theme.selectedShadow}` : "border-gray-100"
+      className={`flex-shrink-0 w-24 sm:w-32 rounded-xl overflow-hidden shadow-sm border-2 transition-all ${theme.surface} ${
+        selected ? `${theme.selectedBorder} ${theme.selectedShadow} ${theme.glow}` : theme.surfaceBorder
       }`}
     >
       <div
@@ -111,17 +111,17 @@ const RoomCard = ({
           ) : (
             <>
               {myRate < room.price && (
-                <span className="mr-1 text-gray-400 line-through">${room.price}</span>
+                <span className={`mr-1 line-through ${theme.surfaceMuted}`}>${room.price}</span>
               )}
-              <span className="font-bold text-gray-800">${myRate}</span>
-              <span className="text-gray-400">/night</span>
+              <span className={`font-bold ${theme.surfaceText}`}>${myRate}</span>
+              <span className={theme.surfaceMuted}>/night</span>
             </>
           )}
         </div>
       )}
 
       <div
-        className="px-2 py-1.5 cursor-pointer active:bg-gray-50 flex items-center gap-1"
+        className={`px-2 py-1.5 cursor-pointer flex items-center gap-1 ${theme.chromeHover}`}
         onClick={onSelect}
       >
         <RoomBadge room={room} rooms={allRooms} className="min-w-0" />
@@ -158,7 +158,7 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
 
   if (compact) {
     return (
-      <div className="flex shrink-0 items-center gap-2 border-b border-gray-100 bg-gray-50 px-3 py-1.5">
+      <div className={`flex shrink-0 items-center gap-2 border-b px-3 py-1.5 ${theme.surfaceBorder} ${theme.surfaceSubtle}`}>
         {/* The pills scroll; the button does NOT live among them.
             It used to, with ml-auto — which does nothing once the pills overflow,
             so with six rooms the only way to the photos sat off the right edge
@@ -168,7 +168,7 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
             type="button"
             onClick={onSelectAll}
             className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-              isAll ? `${theme.btn} text-white shadow-sm` : "bg-white text-gray-500 border border-gray-200"
+              isAll ? `${theme.btn} ${theme.glow} text-white shadow-sm` : `border ${theme.surface} ${theme.surfaceMuted} ${theme.chromeBorder}`
             }`}
           >
             All
@@ -181,7 +181,7 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
                 type="button"
                 onClick={() => onToggleRoom(room.id)}
                 className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-semibold text-white transition-all ${getRoomColor(room.name, room.color)} ${
-                  selected ? "ring-2 ring-offset-1 ring-gray-400 scale-105" : "opacity-75"
+                  selected ? `ring-2 ring-offset-1 scale-105 ${theme.chromeRing}` : "opacity-75"
                 }`}
               >
                 {room.name}
@@ -197,7 +197,7 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
             type="button"
             onClick={onToggleCompact}
             aria-label="Show room photos"
-            className="flex shrink-0 items-center gap-1 rounded-full border border-gray-300 bg-white px-2.5 py-1 text-xs font-semibold text-gray-600 shadow-sm transition-colors hover:bg-gray-50"
+            className={`flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold shadow-sm transition-colors ${theme.surface} ${theme.chromeBorder} ${theme.surfaceText} ${theme.chromeHover}`}
           >
             Photos ▾
           </button>
@@ -208,7 +208,7 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
 
   return (
     <>
-      <div className="tibook-type px-3 py-1.5 border-b border-gray-100 bg-gray-50">
+      <div className={`tibook-type px-3 py-1.5 border-b ${theme.surfaceBorder} ${theme.surfaceSubtle}`}>
         <div className="mb-2 flex items-center justify-between gap-2">
           {/* The hint that used to repeat on every card, said once — and saying
               which HALF of the card selects. The photo opens the gallery and the
@@ -217,7 +217,7 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
               No truncate: an instruction that gets cut off is worse than one
               that wraps on the narrowest phones. */}
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <p className={`text-xs font-semibold uppercase tracking-wide ${theme.surfaceMuted}`}>
               Our Rooms{" "}
               <span className="font-medium normal-case">· tap on room name to select</span>
             </p>
@@ -230,7 +230,7 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
                 until Eddie — who has a rate on every room — was still being sent
                 off to ask for a price already on his screen. Both phrased as
                 what WILL happen. */}
-            <p className="mt-0.5 text-xs text-gray-500">
+            <p className={`mt-0.5 text-xs ${theme.surfaceMuted}`}>
               {ratedCount === 0
                 ? `Every price is agreed between you and ${hostFirstName}. Open a room to ask.`
                 : ratedCount === activeRooms.length
@@ -243,7 +243,7 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
               type="button"
               onClick={onToggleCompact}
               aria-label="Hide room photos"
-              className="shrink-0 text-xs font-semibold text-gray-400 hover:text-gray-600"
+              className={`shrink-0 text-xs font-semibold ${theme.surfaceMuted}`}
             >
               Hide ▴
             </button>
@@ -255,8 +255,8 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
             onClick={onSelectAll}
             className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
               isAll
-                ? `${theme.btn} text-white shadow-sm`
-                : "bg-white text-gray-500 border border-gray-200 hover:border-gray-300"
+                ? `${theme.btn} ${theme.glow} text-white shadow-sm`
+                : `border ${theme.surface} ${theme.surfaceMuted} ${theme.chromeBorder}`
             }`}
           >
             All Rooms

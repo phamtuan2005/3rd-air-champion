@@ -26,7 +26,7 @@ import RememberMeDisclaimer from "../components/tibook/RememberMeDisclaimer";
 import { getConsent, readRememberedGuest, rememberGuest, setConsent, revokeConsent } from "../util/guestConsent";
 
 const TiBookInner = () => {
-  const { theme } = useTiBookTheme();
+  const { theme, vibe } = useTiBookTheme();
   useEffect(() => { document.title = "TiBook"; }, []);
   useEffect(() => {
     const link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
@@ -549,7 +549,15 @@ const TiBookInner = () => {
   // 100dvh tracks the visible height; h-screen stays as the fallback for
   // anything without dvh. Same fix TiMag's root already carries.
   return (
-    <div className="flex h-screen flex-col overflow-hidden supports-[height:100dvh]:h-[100dvh]">
+    <div
+      /* The vivid skin hangs off the root: the radius knob in index.css is
+         inherited, so every rounded corner below opens up at once, and the neon
+         wash sits behind the whole app rather than behind one panel. Classic
+         carries neither class and is byte-for-byte the TiBook it always was. */
+      className={`flex h-screen flex-col overflow-hidden supports-[height:100dvh]:h-[100dvh] ${
+        vibe === "vivid" ? "tibook-vibe-vivid tibook-vibe-vivid-backdrop" : ""
+      }`}
+    >
       <NavBarDesktop
         onBack={isSelecting ? collapseCal : undefined}
         host={currentHost}
@@ -618,7 +626,7 @@ const TiBookInner = () => {
             {/* Drag grip — pull up to grow the calendar over the banner & rooms
                 (all the way to full window), pull down to bring them back. */}
             <div
-              className="flex shrink-0 cursor-ns-resize touch-none select-none items-center justify-center pb-1 pt-1.5"
+              className={`flex shrink-0 cursor-ns-resize touch-none select-none items-center justify-center pb-1 pt-1.5 ${theme.chrome}`}
               onPointerDown={onGripDown}
               onPointerMove={onGripMove}
               onPointerUp={onGripUp}
@@ -699,7 +707,7 @@ const TiBookInner = () => {
           Same type step as the request modal it opens, so the last thing read
           before that modal is not smaller than what follows. */}
       {hasSelection && (
-        <div className={`tibook-type tibook-type-lg shrink-0 ${theme.btn} px-4 py-2.5 flex items-center justify-between gap-3 z-40 shadow-lg`}>
+        <div className={`tibook-type tibook-type-lg shrink-0 ${theme.btn} ${theme.glow} ${theme.btnMotion} px-4 py-2.5 flex items-center justify-between gap-3 z-40 shadow-lg`}>
           <span className="min-w-0 text-white text-sm font-medium">{barLabel}</span>
           <button
             type="button"
