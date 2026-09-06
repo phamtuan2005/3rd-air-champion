@@ -577,29 +577,29 @@ const BookingRequestModal = ({
 
   return (
     <div
-      className="tibook-type tibook-type-lg fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50"
+      className={`tibook-type tibook-type-lg fixed inset-0 ${theme.scrim} flex items-end sm:items-center justify-center z-50`}
       onClick={onClose}
     >
       <div
-        className="bg-white w-full rounded-t-2xl sm:rounded-lg shadow-lg sm:max-w-md max-h-[92vh] sm:max-h-[90vh] flex flex-col"
+        className={`${theme.surface} w-full rounded-t-2xl sm:rounded-lg shadow-lg sm:max-w-md max-h-[92vh] sm:max-h-[90vh] flex flex-col`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-gray-100">
+        <div className={`flex items-center justify-between px-4 pt-3 pb-2 border-b ${theme.surfaceBorder}`}>
           <div>
             <div className="flex items-center gap-2">
               {step === 2 && !submitted && (
                 <button
                   type="button"
                   onClick={() => setStep(1)}
-                  className="text-gray-400 hover:text-gray-600 text-sm leading-none"
+                  className={`${theme.surfaceMuted2} ${theme.mutedHover} text-sm leading-none`}
                 >
                   ←
                 </button>
               )}
               <h2 className="text-lg font-bold leading-tight">{submitted ? "All done!" : stepLabel}</h2>
             </div>
-            {!submitted && <p className="text-xs text-gray-400">{stepHint}</p>}
+            {!submitted && <p className={`text-xs ${theme.surfaceMuted2}`}>{stepHint}</p>}
           </div>
           <div className="flex items-center gap-3">
             {/* whitespace-nowrap + shrink-0: the pill is four short words and must
@@ -612,7 +612,7 @@ const BookingRequestModal = ({
             )}
             <button
               type="button"
-              className="text-gray-400 hover:text-gray-600 text-xl leading-none px-1"
+              className={`${theme.surfaceMuted2} ${theme.mutedHover} text-xl leading-none px-1`}
               onClick={() => { if (submitted) onSuccess(); onClose(); }}
             >
               &times;
@@ -621,7 +621,7 @@ const BookingRequestModal = ({
         </div>
         {/* Progress bar */}
         {!submitted && (
-          <div className="h-1 w-full bg-gray-100 flex-shrink-0">
+          <div className={`h-1 w-full ${theme.surfaceInset} flex-shrink-0`}>
             <div
               className={`h-full ${theme.btn} transition-all duration-300`}
               style={{ width: step === 1 ? "50%" : "100%" }}
@@ -637,8 +637,8 @@ const BookingRequestModal = ({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <p className="text-center font-semibold text-gray-800 text-lg">Request sent!</p>
-            <p className="text-center text-sm text-gray-500 leading-relaxed">
+            <p className={`text-center font-semibold ${theme.surfaceText} text-lg`}>Request sent!</p>
+            <p className={`text-center text-sm ${theme.surfaceMuted} leading-relaxed`}>
               {cartDates.size > 0
                 ? "We'll be in touch shortly to confirm your stay. Can't wait to host you!"
                 : "We'll let you know as soon as those dates open up!"}
@@ -653,14 +653,14 @@ const BookingRequestModal = ({
                   </svg>
                   <span className={`text-[11px] font-semibold ${theme.textPrimary}`}>While you wait — our house rules</span>
                 </div>
-                <p className="text-[11px] text-gray-500 leading-relaxed whitespace-pre-line max-h-48 overflow-y-auto">
+                <p className={`text-[11px] ${theme.surfaceMuted} leading-relaxed whitespace-pre-line max-h-48 overflow-y-auto`}>
                   {houseRules.trim()}
                 </p>
               </div>
             )}
             <button
               type="button"
-              className="mt-2 text-sm text-gray-400 underline"
+              className={`mt-2 text-sm ${theme.surfaceMuted2} underline`}
               onClick={() => { onSuccess(); onClose(); }}
             >
               Close
@@ -694,7 +694,7 @@ const BookingRequestModal = ({
                               <RoomBadge key={r.id} room={r} rooms={activeRooms} />
                             ))
                           )}
-                          <span className="text-xs text-gray-400">
+                          <span className={`text-xs ${theme.surfaceMuted2}`}>
                             {group.totalNights} night{group.totalNights > 1 ? "s" : ""}
                           </span>
                         </div>
@@ -702,30 +702,30 @@ const BookingRequestModal = ({
                           {group.ranges.map((r) => {
                             const rangeId = `${group.key}:${r.start}`;
                             return pendingRemoveCart === rangeId ? (
-                              <div key={r.start} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-50 border border-red-200">
-                                <span className="flex-1 text-sm text-red-600 font-medium">Remove {formatRangeLabel(r).split(" ·")[0]}?</span>
+                              <div key={r.start} className={`flex items-center gap-2 px-3 py-2 rounded-xl ${theme.alertFill} border ${theme.alertBorder}`}>
+                                <span className={`flex-1 text-sm ${theme.alertText} font-medium`}>Remove {formatRangeLabel(r).split(" ·")[0]}?</span>
                                 <button
                                   type="button"
                                   onClick={() => { onRemoveCartRange?.(getRangeKeys(r.start, r.end)); setPendingRemoveCart(null); }}
-                                  className="text-xs font-semibold text-red-500 hover:text-red-700 px-2 py-0.5 rounded-lg border border-red-300 hover:border-red-400 transition-colors"
+                                  className={`text-xs font-semibold ${theme.alertText2} ${theme.alertHover} px-2 py-0.5 rounded-lg border ${theme.alertBorder} ${theme.alertBorderHover} transition-colors`}
                                 >
                                   Yes, remove
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => setPendingRemoveCart(null)}
-                                  className="text-xs font-semibold text-gray-400 hover:text-gray-600 px-2 py-0.5 rounded-lg border border-gray-200 transition-colors"
+                                  className={`text-xs font-semibold ${theme.surfaceMuted2} ${theme.mutedHover} px-2 py-0.5 rounded-lg border ${theme.line} transition-colors`}
                                 >
                                   Keep
                                 </button>
                               </div>
                             ) : (
                               <div key={r.start} className="flex items-center gap-1">
-                                <p className="flex-1 text-sm text-gray-600">{formatRangeLabel(r)}</p>
+                                <p className={`flex-1 text-sm ${theme.surfaceText3}`}>{formatRangeLabel(r)}</p>
                                 <button
                                   type="button"
                                   onClick={() => setPendingRemoveCart(rangeId)}
-                                  className="text-gray-400 hover:text-red-400 transition-colors text-base leading-none px-1"
+                                  className={`${theme.surfaceMuted2} ${theme.alertHover} transition-colors text-base leading-none px-1`}
                                   aria-label="Remove"
                                 >
                                   ×
@@ -749,12 +749,12 @@ const BookingRequestModal = ({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="w-full border border-dashed border-gray-200 rounded-xl px-4 py-5 text-center bg-gray-50 active:bg-gray-100 transition-colors"
+                    className={`w-full border border-dashed ${theme.line} rounded-xl px-4 py-5 text-center ${theme.surfaceSubtle} ${theme.surfaceActive} transition-colors`}
                   >
                     <p className={`text-sm font-medium ${theme.textPrimary}`}>
                       Tap here to browse the calendar
                     </p>
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className={`text-xs ${theme.surfaceMuted2} mt-1`}>
                       Pick your dates and come back to complete your request
                     </p>
                   </button>
@@ -767,10 +767,10 @@ const BookingRequestModal = ({
                   <p className="text-sm font-medium mb-2">Sold-out dates (wish list)</p>
                   <div className="flex flex-col gap-1.5">
                     {sortedWishListDates.map((d) => (
-                      <div key={d} className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-colors ${pendingRemove === d ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"}`}>
+                      <div key={d} className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-colors ${pendingRemove === d ? `${theme.alertFill} ${theme.alertBorder}` : `${theme.warmFill} ${theme.warmBorder}`}`}>
                         {pendingRemove === d ? (
                           <>
-                            <span className="flex-1 text-sm text-red-600 font-medium">Remove {format(new Date(d + "T12:00:00"), "MMMM d")}?</span>
+                            <span className={`flex-1 text-sm ${theme.alertText} font-medium`}>Remove {format(new Date(d + "T12:00:00"), "MMMM d")}?</span>
                             <button
                               type="button"
                               onClick={() => {
@@ -778,28 +778,28 @@ const BookingRequestModal = ({
                                 onRemoveWishDate?.(d);
                                 setPendingRemove(null);
                               }}
-                              className="text-xs font-semibold text-red-500 hover:text-red-700 px-2 py-0.5 rounded-lg border border-red-300 hover:border-red-400 transition-colors"
+                              className={`text-xs font-semibold ${theme.alertText2} ${theme.alertHover} px-2 py-0.5 rounded-lg border ${theme.alertBorder} ${theme.alertBorderHover} transition-colors`}
                             >
                               Yes, remove
                             </button>
                             <button
                               type="button"
                               onClick={() => setPendingRemove(null)}
-                              className="text-xs font-semibold text-gray-400 hover:text-gray-600 px-2 py-0.5 rounded-lg border border-gray-200 transition-colors"
+                              className={`text-xs font-semibold ${theme.surfaceMuted2} ${theme.mutedHover} px-2 py-0.5 rounded-lg border ${theme.line} transition-colors`}
                             >
                               Keep
                             </button>
                           </>
                         ) : (
                           <>
-                            <span className="text-amber-500 text-sm">★</span>
-                            <span className="flex-1 text-sm text-gray-700 font-medium">
+                            <span className={`${theme.warmDim} text-sm`}>★</span>
+                            <span className={`flex-1 text-sm ${theme.surfaceText2} font-medium`}>
                               {format(new Date(d + "T12:00:00"), "EEE, MMM d yyyy")}
                             </span>
                             <button
                               type="button"
                               onClick={() => setPendingRemove(d)}
-                              className="text-gray-400 hover:text-red-400 transition-colors text-base leading-none px-1"
+                              className={`${theme.surfaceMuted2} ${theme.alertHover} transition-colors text-base leading-none px-1`}
                               aria-label="Remove"
                             >
                               ×
@@ -809,15 +809,15 @@ const BookingRequestModal = ({
                       </div>
                     ))}
                   </div>
-                  <p className="text-xs text-gray-400 mt-1.5">We'll notify you if these open up.</p>
+                  <p className={`text-xs ${theme.surfaceMuted2} mt-1.5`}>We'll notify you if these open up.</p>
                 </div>
               )}
 
               {/* Divider */}
               <div className={`flex items-center gap-2 ${cartGroups.length === 0 ? "order-2" : ""}`}>
-                <div className="flex-1 h-px bg-gray-100" />
-                <span className="text-xs text-gray-400">and / or</span>
-                <div className="flex-1 h-px bg-gray-100" />
+                <div className={`flex-1 h-px ${theme.surfaceInset}`} />
+                <span className={`text-xs ${theme.surfaceMuted2}`}>and / or</span>
+                <div className={`flex-1 h-px ${theme.surfaceInset}`} />
               </div>
 
               {/* Free text — opened as its own sheet.
@@ -832,8 +832,8 @@ const BookingRequestModal = ({
                 <button
                   type="button"
                   onClick={() => setDateSheetOpen(true)}
-                  className={`w-full rounded-xl border border-gray-300 px-3 py-2.5 text-left text-sm ${
-                    notes.trim() ? "text-gray-800" : "text-gray-400"
+                  className={`w-full rounded-xl border ${theme.lineStrong} px-3 py-2.5 text-left text-sm ${
+                    notes.trim() ? `${theme.surfaceText}` : `${theme.surfaceMuted2}`
                   }`}
                 >
                   {notes.trim() ? (
@@ -842,9 +842,9 @@ const BookingRequestModal = ({
                     "e.g. May 1, 3–5, 20–21 — or anything else you'd like us to know"
                   )}
                 </button>
-                {datesError && <p className="text-red-500 text-xs mt-1">{datesError}</p>}
+                {datesError && <p className={`${theme.alertText2} text-xs mt-1`}>{datesError}</p>}
                 {typed.dates.length > 0 && (
-                  <p className="mt-1.5 text-xs font-semibold text-gray-500">
+                  <p className={`mt-1.5 text-xs font-semibold ${theme.surfaceMuted}`}>
                     {typed.dates.length === 1
                       ? "1 date read from what you wrote"
                       : `${typed.dates.length} dates read from what you wrote`}
@@ -855,7 +855,7 @@ const BookingRequestModal = ({
                     the read-back panel lives further down and a guest fixing a
                     year should not have to go looking for the reason. */}
                 {typed.past.length > 0 && (
-                  <p className="mt-1 text-xs font-medium text-amber-700">
+                  <p className={`mt-1 text-xs font-medium ${theme.warmText2}`}>
                     {typed.past.length === 1
                       ? `${dayLabel(typed.past[0])} has already gone by`
                       : `${typed.past.length} of those nights have already gone by`}
@@ -865,7 +865,7 @@ const BookingRequestModal = ({
               </div>
 
             </div>
-            <div className="flex-shrink-0 border-t border-gray-100 px-4 py-3">
+            <div className={`flex-shrink-0 border-t ${theme.surfaceBorder} px-4 py-3`}>
               <button
                 type="button"
                 className={`w-full ${theme.btn} ${theme.btnHover} ${theme.btnActive} text-white py-3 rounded-xl font-semibold transition-colors`}
@@ -886,20 +886,20 @@ const BookingRequestModal = ({
                 <div className="relative">
                   <input
                     type="tel"
-                    className={`border border-gray-300 rounded-xl px-3 py-2 w-full text-sm focus:outline-none focus:ring-2 ${theme.focusRing}`}
+                    className={`border ${theme.lineStrong} rounded-xl px-3 py-2 w-full text-sm focus:outline-none focus:ring-2 ${theme.focusRing}`}
                     placeholder="So we can reach you"
                     {...register("guestPhone", { required: "Please enter your phone number" })}
                   />
                   {isLookingUp && (
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                    <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs ${theme.surfaceMuted2}`}>
                       looking up...
                     </span>
                   )}
                 </div>
-                {errors.guestPhone && <span className="text-red-500 text-xs">{errors.guestPhone.message}</span>}
+                {errors.guestPhone && <span className={`${theme.alertText2} text-xs`}>{errors.guestPhone.message}</span>}
                 {!isLookingUp && watchedPhone?.trim().length >= 7 && (
                   guestPricing === null && (
-                    <p className="text-xs text-gray-400 mt-0.5">We'll sort out pricing together after your request.</p>
+                    <p className={`text-xs ${theme.surfaceMuted2} mt-0.5`}>We'll sort out pricing together after your request.</p>
                   )
                 )}
               </div>
@@ -919,11 +919,11 @@ const BookingRequestModal = ({
                 <label className="block text-sm font-medium mb-1">Your name</label>
                 <input
                   type="text"
-                  className={`border border-gray-300 rounded-xl px-3 py-2 w-full text-sm focus:outline-none focus:ring-2 ${theme.focusRing}`}
+                  className={`border ${theme.lineStrong} rounded-xl px-3 py-2 w-full text-sm focus:outline-none focus:ring-2 ${theme.focusRing}`}
                   placeholder="e.g. John Smith"
                   {...register("guestName", { required: "Please enter your name" })}
                 />
-                {errors.guestName && <span className="text-red-500 text-xs">{errors.guestName.message}</span>}
+                {errors.guestName && <span className={`${theme.alertText2} text-xs`}>{errors.guestName.message}</span>}
               </div>
 
               {/* Room section — hidden when guest only has wish list dates, no cart or notes */}
@@ -937,11 +937,11 @@ const BookingRequestModal = ({
                           <p className={`text-sm font-semibold ${theme.tagText}`}>
                             {group.room?.name ?? "—"}
                           </p>
-                          <p className="text-xs text-gray-400">
+                          <p className={`text-xs ${theme.surfaceMuted2}`}>
                             {group.totalNights}n
                           </p>
                         </div>
-                        <p className="text-xs text-gray-500">
+                        <p className={`text-xs ${theme.surfaceMuted}`}>
                           {group.ranges.map(formatRangeLabel).join(" · ")}
                         </p>
                         {group.room && getRoomPrice(group.room.id) !== null && (
@@ -964,7 +964,7 @@ const BookingRequestModal = ({
                               one, hiding rooms that were perfectly available
                               for the stay actually being chosen. */}
                           {many && (
-                            <p className="text-xs text-gray-500">
+                            <p className={`text-xs ${theme.surfaceMuted}`}>
                               {anyGroup.ranges.length} separate stays — pick a room for each.
                             </p>
                           )}
@@ -977,37 +977,37 @@ const BookingRequestModal = ({
                             const price = chosen ? getRoomPrice(chosen.id) : null;
                             const open = roomDropdownOpen === key;
                             return (
-                              <div key={key} className={many ? "rounded-xl bg-gray-50 p-2" : ""}>
+                              <div key={key} className={many ? `rounded-xl ${theme.surfaceSubtle} p-2` : ""}>
                                 <div className="mb-1 flex items-baseline justify-between gap-2">
-                                  <span className="text-xs font-semibold text-gray-700">
+                                  <span className={`text-xs font-semibold ${theme.surfaceText2}`}>
                                     {formatRangeLabel(range)}
                                   </span>
-                                  <span className="shrink-0 text-xs text-gray-400">
+                                  <span className={`shrink-0 text-xs ${theme.surfaceMuted2}`}>
                                     {range.nights}n
                                   </span>
                                 </div>
                                 <button
                                   type="button"
                                   onClick={() => setRoomDropdownOpen(open ? null : key)}
-                                  className="border border-gray-300 rounded-xl px-3 py-2 w-full text-sm flex items-center justify-between gap-2 bg-white"
+                                  className={`border ${theme.lineStrong} rounded-xl px-3 py-2 w-full text-sm flex items-center justify-between gap-2 ${theme.surface}`}
                                 >
                                   {chosen ? (
                                     <RoomBadge room={chosen} rooms={activeRooms} />
                                   ) : (
-                                    <span className="text-gray-400">
+                                    <span className={`${theme.surfaceMuted2}`}>
                                       {free.length === 0 ? "No room free for these nights" : "Select a room"}
                                     </span>
                                   )}
-                                  <span className="text-gray-400 text-xs">▾</span>
+                                  <span className={`${theme.surfaceMuted2} text-xs`}>▾</span>
                                 </button>
                                 {open && free.length > 0 && (
-                                  <ul className="border border-gray-200 rounded-xl mt-1 overflow-hidden shadow-sm bg-white">
+                                  <ul className={`border ${theme.line} rounded-xl mt-1 overflow-hidden shadow-sm ${theme.surface}`}>
                                     {free.map((room) => {
                                       const rate = getRoomPrice(room.id);
                                       return (
                                         <li
                                           key={room.id}
-                                          className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-pointer"
+                                          className={`flex items-center gap-3 px-3 py-2.5 ${theme.chromeHover} cursor-pointer`}
                                           onClick={() => {
                                             setRangeRooms((prev) => ({ ...prev, [key]: room.id }));
                                             // The form's single `room` field is what
@@ -1020,7 +1020,7 @@ const BookingRequestModal = ({
                                           <input type="radio" readOnly checked={chosenId === room.id} className="pointer-events-none w-4 h-4" />
                                           <RoomBadge room={room} rooms={activeRooms} />
                                           {rate !== null && (
-                                            <span className="text-xs text-gray-400 ml-auto">${rate}/night</span>
+                                            <span className={`text-xs ${theme.surfaceMuted2} ml-auto`}>${rate}/night</span>
                                           )}
                                         </li>
                                       );
@@ -1059,7 +1059,7 @@ const BookingRequestModal = ({
                       if (!hasSomePricing) return null;
                       return (
                         <div className={`flex justify-between items-center px-3 py-2 ${theme.tagBg} border ${theme.tagBorder} rounded-xl mt-1`}>
-                          <span className="text-sm font-semibold text-gray-700">Total estimate</span>
+                          <span className={`text-sm font-semibold ${theme.surfaceText2}`}>Total estimate</span>
                           <span className={`text-sm font-bold ${theme.textPrimary}`}>~${total}</span>
                         </div>
                       );
@@ -1070,7 +1070,7 @@ const BookingRequestModal = ({
                 <div>
                   <label className="block text-sm font-medium mb-1">Which room?</label>
                   {isLoadingRooms ? (
-                    <p className="text-sm text-gray-400">Checking availability...</p>
+                    <p className={`text-sm ${theme.surfaceMuted2}`}>Checking availability...</p>
                   ) : displayRooms.length === 0 ? (
                     <p className="text-sm text-red-400">No rooms available — try different dates.</p>
                   ) : (() => {
@@ -1081,29 +1081,29 @@ const BookingRequestModal = ({
                         <button
                           type="button"
                           onClick={() => setRoomDropdownOpen((o) => (o === "single" ? null : "single"))}
-                          className="border border-gray-300 rounded-xl px-3 py-2 w-full text-sm flex items-center justify-between gap-2"
+                          className={`border ${theme.lineStrong} rounded-xl px-3 py-2 w-full text-sm flex items-center justify-between gap-2`}
                         >
                           {selectedRoom ? (
                             <RoomBadge room={selectedRoom} rooms={activeRooms} />
                           ) : (
-                            <span className="text-gray-400">Select a room</span>
+                            <span className={`${theme.surfaceMuted2}`}>Select a room</span>
                           )}
-                          <span className="text-gray-400 text-xs">▾</span>
+                          <span className={`${theme.surfaceMuted2} text-xs`}>▾</span>
                         </button>
                         {roomDropdownOpen === "single" && (
-                          <ul className="border border-gray-200 rounded-xl mt-1 overflow-hidden shadow-sm bg-white">
+                          <ul className={`border ${theme.line} rounded-xl mt-1 overflow-hidden shadow-sm ${theme.surface}`}>
                             {displayRooms.map((room) => {
                               const price = getRoomPrice(room.id);
                               return (
                                 <li
                                   key={room.id}
-                                  className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-pointer"
+                                  className={`flex items-center gap-3 px-3 py-2.5 ${theme.chromeHover} cursor-pointer`}
                                   onClick={() => { setValue("room", room.id, { shouldValidate: true }); setRoomDropdownOpen(null); }}
                                 >
                                   <input type="radio" readOnly checked={watchedRoom === room.id} className="pointer-events-none w-4 h-4" />
                                   <RoomBadge room={room} rooms={activeRooms} />
                                   {price !== null && (
-                                    <span className="text-xs text-gray-400 ml-auto">${price}/night</span>
+                                    <span className={`text-xs ${theme.surfaceMuted2} ml-auto`}>${price}/night</span>
                                   )}
                                 </li>
                               );
@@ -1113,13 +1113,13 @@ const BookingRequestModal = ({
                       </>
                     );
                   })()}
-                  {errors.room && <span className="text-red-500 text-xs">{errors.room.message}</span>}
+                  {errors.room && <span className={`${theme.alertText2} text-xs`}>{errors.room.message}</span>}
                   {watchedRoom && watchedDuration > 0 && getRoomPrice(watchedRoom) !== null && (
                     <div className={`flex justify-between items-center px-3 py-2 ${theme.tagBg} border ${theme.tagBorder} rounded-xl mt-2`}>
-                      <span className="text-sm font-semibold text-gray-700">Total estimate</span>
+                      <span className={`text-sm font-semibold ${theme.surfaceText2}`}>Total estimate</span>
                       <span className={`text-sm font-bold ${theme.textPrimary}`}>
                         ~${getRoomPrice(watchedRoom)! * watchedDuration}
-                        <span className="font-normal text-gray-400 ml-1">({watchedDuration}n × ${getRoomPrice(watchedRoom)}/night)</span>
+                        <span className={`font-normal ${theme.surfaceMuted2} ml-1`}>({watchedDuration}n × ${getRoomPrice(watchedRoom)}/night)</span>
                       </span>
                     </div>
                   )}
@@ -1133,11 +1133,11 @@ const BookingRequestModal = ({
                   <div className={`${theme.tagBg} border ${theme.tagBorder} rounded-xl px-3 py-2.5 flex flex-col gap-1`}>
                     {sortedWishListDates.map((d) => (
                       <div key={d} className="flex items-center gap-2">
-                        <span className="text-amber-400 text-sm">★</span>
-                        <span className="text-sm text-gray-700">{format(new Date(d + "T12:00:00"), "EEE, MMM d yyyy")}</span>
+                        <span className={`${theme.warmDim} text-sm`}>★</span>
+                        <span className={`text-sm ${theme.surfaceText2}`}>{format(new Date(d + "T12:00:00"), "EEE, MMM d yyyy")}</span>
                       </div>
                     ))}
-                    <p className="text-xs text-gray-400 mt-0.5">We'll notify you if these open up.</p>
+                    <p className={`text-xs ${theme.surfaceMuted2} mt-0.5`}>We'll notify you if these open up.</p>
                   </div>
                 </div>
               )}
@@ -1146,7 +1146,7 @@ const BookingRequestModal = ({
               <div className="w-44">
                 <label className="block text-sm font-medium mb-1">How many people?</label>
                 <select
-                  className={`border border-gray-300 rounded-xl px-3 py-2 w-full text-sm focus:outline-none focus:ring-2 ${theme.focusRing}`}
+                  className={`border ${theme.lineStrong} rounded-xl px-3 py-2 w-full text-sm focus:outline-none focus:ring-2 ${theme.focusRing}`}
                   {...register("numberOfGuests", { valueAsNumber: true })}
                 >
                   {[1, 2, 3, 4].map((n) => (
@@ -1156,7 +1156,7 @@ const BookingRequestModal = ({
               </div>
 
               {submitError && (
-                <p className="text-red-500 text-sm">Something went wrong — please try again.</p>
+                <p className={`${theme.alertText2} text-sm`}>Something went wrong — please try again.</p>
               )}
 
               {/* Cancellation policy — in the scroll flow, and quiet.
@@ -1167,7 +1167,7 @@ const BookingRequestModal = ({
                   and reads open, reassuring line first. Collapsing is the guest's
                   choice once they have read it, never the default. */}
               {cancellationFullRefundDays != null && cancellationHalfRefundDays != null && (
-                <div className="rounded-xl border border-gray-100 bg-gray-50">
+                <div className={`rounded-xl border ${theme.surfaceBorder} ${theme.surfaceSubtle}`}>
                   <button
                     type="button"
                     onClick={() => setPolicyOpen((o) => !o)}
@@ -1176,15 +1176,15 @@ const BookingRequestModal = ({
                     <svg className={`w-3.5 h-3.5 shrink-0 ${theme.textPrimary}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z" />
                     </svg>
-                    <span className="flex-1 text-xs text-gray-500">
+                    <span className={`flex-1 text-xs ${theme.surfaceMuted}`}>
                       {cancellationHeadline(cancellationFullRefundDays)}
                     </span>
-                    <span className="shrink-0 whitespace-nowrap text-xs font-semibold text-gray-400">
+                    <span className={`shrink-0 whitespace-nowrap text-xs font-semibold ${theme.surfaceMuted2}`}>
                       {policyOpen ? "Hide ▴" : "Details ▾"}
                     </span>
                   </button>
                   {policyOpen && (
-                    <p className="px-3 pb-2.5 text-xs leading-relaxed text-gray-500">
+                    <p className={`px-3 pb-2.5 text-xs leading-relaxed ${theme.surfaceMuted}`}>
                       {formatCancellationPolicy(cancellationFullRefundDays, cancellationHalfRefundDays)}
                     </p>
                   )}
@@ -1192,7 +1192,7 @@ const BookingRequestModal = ({
               )}
             </div>
 
-            <div className="flex-shrink-0 border-t border-gray-100 px-4 py-3">
+            <div className={`flex-shrink-0 border-t ${theme.surfaceBorder} px-4 py-3`}>
               <button
                 type="submit"
                 disabled={isSubmitting || (!isWishListOnly && cartDates.size === 0 && displayRooms.length === 0)}
@@ -1211,19 +1211,19 @@ const BookingRequestModal = ({
           is up, so there is no neighbouring button to hit by mistake. */}
       {dateSheetOpen && (
         <div
-          className="fixed inset-0 z-[60] flex flex-col justify-end bg-black/50"
+          className={`fixed inset-0 z-[60] flex flex-col justify-end ${theme.scrim}`}
           onClick={() => setDateSheetOpen(false)}
         >
           <div
-            className="flex max-h-[92svh] flex-col rounded-t-2xl bg-white"
+            className={`flex max-h-[92svh] flex-col rounded-t-2xl ${theme.surface}`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3">
-              <p className="text-base font-bold text-gray-900">Write your dates</p>
+            <div className={`flex shrink-0 items-center justify-between border-b ${theme.surfaceBorder} px-4 py-3`}>
+              <p className={`text-base font-bold ${theme.surfaceStrong}`}>Write your dates</p>
               <button
                 type="button"
                 onClick={() => setDateSheetOpen(false)}
-                className="px-1 text-xl leading-none text-gray-400"
+                className={`px-1 text-xl leading-none ${theme.surfaceMuted2}`}
                 aria-label="Close"
               >
                 &times;
@@ -1240,7 +1240,7 @@ const BookingRequestModal = ({
                   if (datesError) setDatesError("");
                 }}
                 placeholder={"e.g. May 1, 3–5, 20–21\nor anything else you'd like us to know"}
-                className={`w-full resize-none rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 ${theme.focusRing}`}
+                className={`w-full resize-none rounded-xl border ${theme.lineStrong} px-3 py-2 text-sm focus:outline-none focus:ring-2 ${theme.focusRing}`}
               />
 
               {/* What we understood, shown back before anything is acted on.
@@ -1251,9 +1251,9 @@ const BookingRequestModal = ({
                   typed last week's dates and got a blank panel would have no
                   idea whether TiBook had understood them at all. */}
               {(typed.dates.length > 0 || typed.past.length > 0) && (
-                <div className="rounded-xl border border-gray-200 bg-gray-50 p-2.5">
+                <div className={`rounded-xl border ${theme.line} ${theme.surfaceSubtle} p-2.5`}>
                   {typed.dates.length > 0 && (
-                    <p className="text-xs font-semibold text-gray-500">
+                    <p className={`text-xs font-semibold ${theme.surfaceMuted}`}>
                       {typed.dates.length === 1
                         ? "We read this date"
                         : `We read these ${typed.dates.length} dates`}
@@ -1278,10 +1278,10 @@ const BookingRequestModal = ({
                             mine
                               ? `${theme.tagBg} ${theme.tagText} ring-1 ${theme.tagBorder}`
                               : inCart
-                                ? "bg-gray-900 text-white"
+                                ? theme.chipOn
                                 : free === 0
-                                  ? "bg-white text-gray-400 line-through ring-1 ring-gray-200"
-                                  : "bg-white text-gray-800 ring-1 ring-gray-300"
+                                  ? `${theme.surface} ${theme.surfaceMuted2} line-through ring-1 ${theme.ringLine}`
+                                  : `${theme.surface} ${theme.surfaceText} ring-1 ${theme.ringLine2}`
                           }`}
                         >
                           {mine ? "✓ " : ""}
@@ -1298,8 +1298,8 @@ const BookingRequestModal = ({
                       correct — and told what to write, rather than left to
                       guess at what the app wants. */}
                   {typed.past.length > 0 && (
-                    <div className={typed.dates.length > 0 ? "mt-2 border-t border-gray-200 pt-2" : ""}>
-                      <p className="text-xs font-semibold text-amber-700">
+                    <div className={typed.dates.length > 0 ? `mt-2 border-t ${theme.line} pt-2` : ""}>
+                      <p className={`text-xs font-semibold ${theme.warmText2}`}>
                         {typed.past.length === 1
                           ? "This night has already gone by"
                           : `${typed.past.length} of these nights have already gone by`}
@@ -1308,13 +1308,13 @@ const BookingRequestModal = ({
                         {typed.past.map((d) => (
                           <span
                             key={d}
-                            className="rounded-lg bg-white px-2 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-200"
+                            className={`rounded-lg ${theme.surface} px-2 py-1 text-xs font-semibold ${theme.warmText2} ring-1 ring-amber-200`}
                           >
                             {dayLabel(d)}
                           </span>
                         ))}
                       </div>
-                      <p className="mt-1.5 text-xs leading-relaxed text-gray-500">
+                      <p className={`mt-1.5 text-xs leading-relaxed ${theme.surfaceMuted}`}>
                         {typed.dates.length > 0
                           ? "We've left those out and kept the rest."
                           : "Nothing to add from this yet."}{" "}
@@ -1337,19 +1337,19 @@ const BookingRequestModal = ({
                     </p>
                   )}
                   {typedFull.length > 0 && (
-                    <p className="mt-1.5 text-xs leading-relaxed text-gray-500">
+                    <p className={`mt-1.5 text-xs leading-relaxed ${theme.surfaceMuted}`}>
                       The crossed-out {typedFull.length === 1 ? "date is" : "dates are"} full
                       tonight — we'll watch {typedFull.length === 1 ? "it" : "them"} for you and
                       tell you the moment {typedFull.length === 1 ? "it opens" : "they open"} up.
                     </p>
                   )}
                   {typedFree.length === 0 && typedNew.length === 0 && typedMine.length === 0 && (
-                    <p className="mt-1.5 text-xs font-medium text-gray-500">
+                    <p className={`mt-1.5 text-xs font-medium ${theme.surfaceMuted}`}>
                       All of these are already in your request.
                     </p>
                   )}
                   {typed.leftover && (
-                    <p className="mt-1.5 border-l-2 border-gray-300 pl-2 text-xs italic leading-relaxed text-gray-500">
+                    <p className={`mt-1.5 border-l-2 ${theme.lineStrong} pl-2 text-xs italic leading-relaxed ${theme.surfaceMuted}`}>
                       We'll pass this on too: "{typed.leftover}"
                     </p>
                   )}
@@ -1360,7 +1360,7 @@ const BookingRequestModal = ({
             {/* The one action, pinned. Adding the dates also closes the sheet:
                 the guest has finished writing, and the next thing they want is
                 the form they came from. */}
-            <div className="shrink-0 border-t border-gray-100 p-4">
+            <div className={`shrink-0 border-t ${theme.surfaceBorder} p-4`}>
               {typedFree.length > 0 || typedFullNew.length > 0 ? (
                 <button
                   type="button"
@@ -1377,7 +1377,7 @@ const BookingRequestModal = ({
                 <button
                   type="button"
                   onClick={() => setDateSheetOpen(false)}
-                  className="w-full rounded-xl bg-gray-100 py-3 text-sm font-semibold text-gray-700"
+                  className={`w-full rounded-xl ${theme.surfaceInset} py-3 text-sm font-semibold ${theme.surfaceText2}`}
                 >
                   Done
                 </button>

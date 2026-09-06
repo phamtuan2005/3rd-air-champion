@@ -93,12 +93,23 @@ them; this is the index.
    component asks which one it is wearing. If you find yourself writing
    `if (vibe === "vivid")` inside a component, add a token instead.
 
-   Neon takes the **frame** dark — nav, month strip, action bar, host banner,
-   room cards — and leaves the **calendar grid and every modal light**. That
-   line is deliberate, not unfinished: the greys in those were picked against
-   white and are written into the markup in ~130 places, and they are where a
-   guest reads their rate, their total and their door code. The mood is worth
-   the frame; it is not worth a door code nobody can read in a hallway at 11pm.
+   Neon is dark **throughout** — nav, month strip, action bar, host banner,
+   room cards, the calendar grid, and every sheet and modal. It began at the
+   frame only, because the ~130 greys written into the markup were picked
+   against white; those became a faithful token scale instead — one token per
+   grey the light skin actually distinguished — so Classic reads back byte for
+   byte and only the dark column is new.
+
+   Two things stay bright on purpose: a small status or tier **chip**, which
+   carries its own dark text on its own pale fill, and the white pill in the
+   action bar, which sits on the gradient rather than on a sheet.
+
+   Watch for a pale card holding *themed* text. A `bg-amber-50` card whose body
+   text comes from `surfaceText` is fine on white and unreadable the moment
+   `surfaceText` goes near-white — that is what `cardWarm`, `warmFill` and the
+   `alert*` family are for. And an element with **no** colour class inherits:
+   the vivid root sets `color` for exactly that reason, after "Your Dates"
+   turned up as a black heading on a black panel.
 
    Corner radius and the drifting gradient are **not** tokens — they hang off
    `.tibook-vibe-vivid` in `index.css`, which redeclares Tailwind's

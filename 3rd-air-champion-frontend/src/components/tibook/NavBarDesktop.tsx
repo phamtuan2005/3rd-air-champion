@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import type { hostType } from "../../util/types/hostType";
 import { getLoyaltyTier } from "./GuestLoyaltyBanner";
@@ -28,7 +28,7 @@ const MiniAvatar = ({ name }: { name: string }) => {
 };
 
 const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false, onMyBookings, guestName, guestStays }: NavBarDesktopProps) => {
-  const { theme, setTheme, allThemes } = useTiBookTheme();
+  const { theme } = useTiBookTheme();
   const guestFirstName = guestName?.trim().split(" ")[0];
   const loyaltyTier = guestStays ? getLoyaltyTier(guestStays) : null;
 
@@ -114,29 +114,7 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
             Home
           </button>
         ) : (
-          <div className="flex items-center gap-2">
-            <VibeToggle />
-            <div className="flex items-center gap-1 sm:gap-1.5">
-              {/* Drawn from the skin in use, not from a fixed list of flat
-                  colours: in the vivid skin these dots are the gradients the
-                  guest will actually get, so the swatch shows the answer rather
-                  than an approximation of it. */}
-              {allThemes.map((s) => (
-                <button
-                  key={s.name}
-                  type="button"
-                  title={s.name}
-                  aria-label={`${s.name} colour`}
-                  onClick={() => setTheme(s.name)}
-                  className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full ${s.btn} transition-transform ${
-                    theme.name === s.name
-                      ? `ring-2 ring-offset-1 ${theme.chromeRing} scale-110`
-                      : "opacity-60 hover:opacity-100"
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
+          <AppearanceMenu />
         )}
       </div>
     </nav>
@@ -144,51 +122,129 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
 };
 
 /*
- * The skin chooser.
+ * Look and colour, in one menu behind one button.
+ *
+ * They used to sit inline in the bar: a two-segment toggle plus five swatches.
+ * That is about 160px of fixed width added to a bar that already carries the
+ * logo, the house name and the bookings pill, and the bar is a fixed h-12 on a
+ * phone so nothing can wrap. On anything narrower than about 400px the row ran
+ * off the right edge and the last colour was simply unreachable — the guest
+ * could see four of five and had no way to know a fifth existed.
+ *
+ * A menu costs one 28px button instead, so it fits at any width, and the two
+ * choices get room for their names. Five unlabelled dots never said that a
+ * colour was being chosen, and a flat dot beside a gradient one never said
+ * that it was the whole look.
  *
  * Labelled by what the guest gets — "Classic" and "Neon" — rather than by who
  * we think they are. TiBook is read by the person booking the room, and being
  * told which generation a page thinks you belong to is a worse greeting than
- * simply being shown the two looks and asked which you prefer.
- *
- * Text folds away under sm: the nav is a fixed h-12 on a phone and already
- * carries the logo, the house name, the bookings pill and five swatches. The
- * dot alone still says it — flat for classic, gradient for neon — and the
- * title/aria-label carry the words for anyone who cannot see the difference.
+ * being shown the two looks and asked which you prefer.
  */
-const OPTIONS = [
-  { key: "classic" as const, label: "Classic", dot: "bg-gray-400" },
-  { key: "vivid" as const, label: "Neon", dot: "bg-gradient-to-r from-fuchsia-500 to-cyan-400" },
+const LOOKS = [
+  { key: "classic" as const, label: "Classic", hint: "Calm and plain", dot: "bg-gray-400" },
+  { key: "vivid" as const, label: "Neon", hint: "Dark and bright", dot: "bg-gradient-to-r from-fuchsia-500 to-cyan-400" },
 ];
 
-const VibeToggle = () => {
-  const { theme, vibe, setVibe } = useTiBookTheme();
+const AppearanceMenu = () => {
+  const { theme, setTheme, vibe, setVibe, allThemes } = useTiBookTheme();
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  // Closes on a tap anywhere else and on Escape. Without the first, the panel
+  // sits over the calendar the guest is trying to get back to, and the only way
+  // out is to find the same small button again.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   return (
-    <div
-      role="group"
-      aria-label="Look"
-      className={`flex items-center gap-0.5 rounded-full border p-0.5 ${theme.chromeBorder}`}
-    >
-      {OPTIONS.map((o) => {
-        const on = vibe === o.key;
-        return (
-          <button
-            key={o.key}
-            type="button"
-            onClick={() => setVibe(o.key)}
-            title={`${o.label} look`}
-            aria-label={`${o.label} look`}
-            aria-pressed={on}
-            className={`flex items-center gap-1 rounded-full px-1.5 py-1 text-[11px] font-semibold transition-colors ${
-              on ? `${theme.surfaceSubtle} ${theme.chromeText}` : `${theme.chromeMuted} ${theme.chromeHover}`
-            }`}
-          >
-            <span className={`h-2.5 w-2.5 rounded-full ${o.dot}`} />
-            <span className="hidden sm:inline">{o.label}</span>
-          </button>
-        );
-      })}
+    <div className="relative" ref={wrapRef}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Look and colour"
+        title="Look and colour"
+        className={`flex h-7 w-7 items-center justify-center rounded-full border transition-colors ${theme.chromeBorder} ${theme.chromeHover}`}
+      >
+        {/* The trigger wears the current answer: the palette dot in the skin it
+            is currently rendered in. */}
+        <span className={`h-4 w-4 rounded-full ${theme.btn}`} />
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className={`absolute right-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-2xl border shadow-xl ${theme.surface} ${theme.chromeBorder}`}
+        >
+          <p className={`px-3 pt-2.5 pb-1 text-[11px] font-semibold uppercase tracking-wide ${theme.surfaceMuted}`}>
+            Look
+          </p>
+          {LOOKS.map((o) => {
+            const on = vibe === o.key;
+            return (
+              <button
+                key={o.key}
+                type="button"
+                role="menuitemradio"
+                aria-checked={on}
+                onClick={() => setVibe(o.key)}
+                className={`flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors ${theme.chromeHover}`}
+              >
+                <span className={`h-4 w-4 shrink-0 rounded-full ${o.dot}`} />
+                <span className="min-w-0 flex-1">
+                  <span className={`block text-sm font-semibold leading-tight ${theme.surfaceText}`}>{o.label}</span>
+                  <span className={`block text-[11px] leading-tight ${theme.surfaceMuted}`}>{o.hint}</span>
+                </span>
+                {on && (
+                  <svg className={`h-4 w-4 shrink-0 ${theme.chromeAccent}`} fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </button>
+            );
+          })}
+
+          <div className={`mt-1 border-t ${theme.surfaceBorder}`} />
+          <p className={`px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide ${theme.surfaceMuted}`}>
+            Colour
+          </p>
+          <div className="flex items-center gap-2 px-3 pb-3 pt-0.5">
+            {/* Drawn from the skin in use, not from a fixed list of flat
+                colours: in the neon skin these dots are the gradients the guest
+                will actually get, so the swatch shows the answer rather than an
+                approximation of it. */}
+            {allThemes.map((s) => (
+              <button
+                key={s.name}
+                type="button"
+                role="menuitemradio"
+                aria-checked={theme.name === s.name}
+                title={s.name}
+                aria-label={`${s.name} colour`}
+                onClick={() => setTheme(s.name)}
+                className={`h-6 w-6 rounded-full ${s.btn} transition-transform ${
+                  theme.name === s.name
+                    ? `ring-2 ring-offset-2 ${theme.ringOffset} ${theme.chromeRing} scale-110`
+                    : "opacity-60 hover:opacity-100"
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

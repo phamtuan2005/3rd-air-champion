@@ -59,7 +59,7 @@ const RoomCard = ({
       }`}
     >
       <div
-        className="relative w-full h-11 sm:h-20 bg-gray-100 cursor-pointer active:opacity-80"
+        className={`relative w-full h-11 sm:h-20 cursor-pointer active:opacity-80 ${theme.surfaceInset}`}
         onClick={photos.length > 0 ? onViewPhotos : undefined}
       >
         {photos.length > 0 && !imgError ? (

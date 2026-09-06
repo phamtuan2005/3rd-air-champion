@@ -401,10 +401,10 @@ const GuestCalendar = ({
       // No text-* size here: the size comes from the tile, via dateSize below.
       "leading-none select-none",
       inCart ? "font-bold text-white" :
-      isWishlisted ? "text-gray-500 line-through" :
+      isWishlisted ? `line-through ${theme.surfaceMuted}` :
       (status === "available" || status === "partial") ? `font-bold ${theme.textPrimary}` :
-      status === "past"      ? "text-gray-300" :
-                               "text-gray-300 line-through",
+      status === "past"      ? theme.dim :
+                               `line-through ${theme.dim}`,
     ].join(" ");
 
     const tileClass = [
@@ -413,13 +413,13 @@ const GuestCalendar = ({
       // overflow-visible: a room name on a multi-night stay is drawn once, on the
       // first night, and overhangs into the cells the ribbon continues through.
       // A button does not reliably let its content escape without being told to.
-      "border-r border-b border-gray-300 flex flex-col items-center justify-start gap-0.5 pt-1 w-full h-full relative overflow-visible",
+      `border-r border-b ${theme.gridLine} flex flex-col items-center justify-start gap-0.5 pt-1 w-full h-full relative overflow-visible`,
       isToday ? "react-calendar__custom_tile_today" : "",
       isOutside ? "opacity-20 pointer-events-none" : "",
       inCart ? "cursor-pointer" :
       isStayNight || isReservedNight ? "cursor-pointer" :
       canBook ? `cursor-pointer ${theme.tileHover} ${theme.tileActive} transition-colors` :
-      canWishList ? "cursor-pointer hover:bg-gray-100 transition-colors" : "cursor-default",
+      canWishList ? `cursor-pointer ${theme.tileWishHover} transition-colors` : "cursor-default",
     ].join(" ");
 
     return (
@@ -440,7 +440,7 @@ const GuestCalendar = ({
           <div className={`absolute inset-1 rounded-lg ${theme.btn} pointer-events-none`} />
         )}
         {isNewWishList && !inCart && (
-          <div className="absolute inset-1 rounded-lg bg-gray-200 pointer-events-none" />
+          <div className={`absolute inset-1 rounded-lg ${theme.tileWishBg} pointer-events-none`} />
         )}
         <span className={`${numberClass} relative z-10`} style={{ fontSize: dateSize }}>
           {date.getDate()}
@@ -449,7 +449,7 @@ const GuestCalendar = ({
             info the guest wants either way; a ✓ marks it selected. */}
         {!simplified && (status === "available" || status === "partial") && roomsLeft > 0 && (
           <span
-            className={`relative z-10 font-semibold leading-none ${inCart ? "text-white" : "text-black"}`}
+            className={`relative z-10 font-semibold leading-none ${inCart ? "text-white" : theme.tileText}`}
             style={{ fontSize: metaSize }}
           >
             {inCart ? "✓ " : ""}
@@ -460,7 +460,7 @@ const GuestCalendar = ({
           <div className="relative z-10 flex flex-col items-center gap-0.5">
             {/* Keep "sold out" visible even when wish-listed — the gray wish-list
                 overlay otherwise hides it and the date looks bookable again. */}
-            <span className="font-medium text-gray-500 leading-none" style={{ fontSize: metaSize }}>
+            <span className={`font-medium leading-none ${theme.surfaceMuted}`} style={{ fontSize: metaSize }}>
               sold out
             </span>
             {canWishList && (
@@ -607,15 +607,15 @@ const GuestCalendar = ({
                   gridTemplateRows: `repeat(${NUM_ROWS}, ${rowHeight}px)`,
                   height: "100%",
                   width: "100%",
-                  borderTop: "1px solid #d1d5db",
-                  borderLeft: "1px solid #d1d5db",
+                  borderTop: "1px solid var(--tibook-grid-line)",
+                  borderLeft: "1px solid var(--tibook-grid-line)",
                 }}
               >
                 {layout.cells.map((date, cellIdx) =>
                   date ? (
                     renderTile(date, layout.month)
                   ) : (
-                    <div key={cellIdx} className="border-r border-b border-gray-300" />
+                    <div key={cellIdx} className={`border-r border-b ${theme.gridLine}`} />
                   ),
                 )}
               </div>

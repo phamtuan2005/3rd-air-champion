@@ -82,20 +82,20 @@ const WishListModal = ({
 
   return (
     <div className="tibook-type fixed inset-0 z-[200] flex items-end sm:items-center justify-center">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm p-5 flex flex-col gap-4 shadow-xl">
+      <div className={`absolute inset-0 ${theme.scrim}`} onClick={onClose} />
+      <div className={`relative ${theme.surface} rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm p-5 flex flex-col gap-4 shadow-xl`}>
         <div className="flex items-center justify-between">
           <h2 className={`font-bold text-base ${theme.textPrimaryDark}`}>
             {isWishlisted ? "Remove from Wish List" : "Add to Wish List"}
           </h2>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">
+          <button type="button" onClick={onClose} className={`${theme.surfaceMuted2} ${theme.mutedHover} text-xl leading-none`}>
             ×
           </button>
         </div>
 
         <div className={`${theme.tagBg} ${theme.tagBorder} border rounded-xl px-4 py-2.5`}>
-          <p className="text-sm font-semibold text-gray-700">{formattedDate}</p>
-          <p className="text-xs text-gray-400 mt-0.5">
+          <p className={`text-sm font-semibold ${theme.surfaceText2}`}>{formattedDate}</p>
+          <p className={`text-xs ${theme.surfaceMuted2} mt-0.5`}>
             {isWishlisted
               ? "This date is on your wish list. Tap below to remove it."
               : "Sold out for now — we'll keep this date saved for you."}
@@ -110,11 +110,11 @@ const WishListModal = ({
                 placeholder="Your phone number"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className={`w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 ${theme.focusRing}`}
+                className={`w-full border ${theme.line} rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 ${theme.focusRing}`}
                 autoFocus
               />
               {lookingUp && (
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs ${theme.surfaceMuted2}`}>
                   looking up...
                 </span>
               )}
@@ -129,7 +129,7 @@ const WishListModal = ({
                 <span className={`text-sm font-semibold ${theme.textPrimaryDark}`}>{name}</span>
                 <button
                   type="button"
-                  className="text-xs text-gray-400 hover:text-gray-600"
+                  className={`text-xs ${theme.surfaceMuted2} ${theme.mutedHover}`}
                   onClick={() => { setFoundGuest(false); setName(""); }}
                 >
                   edit
@@ -141,7 +141,7 @@ const WishListModal = ({
                 placeholder="Your name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className={`border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 ${theme.focusRing}`}
+                className={`border ${theme.line} rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 ${theme.focusRing}`}
               />
             )}
           </div>

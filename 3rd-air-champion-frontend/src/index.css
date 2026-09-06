@@ -151,6 +151,18 @@ body {
  * the large ones so a 4px badge corner does not become a lozenge.
  */
 .tibook-vibe-vivid {
+  /*
+   * Inherited text colour, which is the one thing no token could reach.
+   *
+   * A heading written as <h2 className="text-lg font-bold"> has no colour class
+   * at all -- it inherits, and what it inherited was the browser default, which
+   * is near-black. That was invisible against a slate-900 sheet, and it hit the
+   * headings first: "Your Dates" at the top of the request form was a black
+   * heading on a black panel. Every element that DOES name a colour still wins
+   * over this, so the room name on a bright ribbon stays near-black.
+   */
+  color: rgb(241 245 249); /* slate-100 */
+
   --radius-xs: 0.25rem;
   --radius-sm: 0.5rem;
   --radius-md: 0.75rem;
@@ -164,9 +176,9 @@ body {
 /*
  * The neon wash behind the app.
  *
- * Only ever visible where no panel paints over it — the calendar and the cards
- * are opaque and stay that way, because their greys were chosen against white.
- * This is the frame, not the page.
+ * Only ever visible where no panel paints over it, which is not much now that
+ * the panels are dark too. It is what keeps the edges and any gap between them
+ * from being flat black.
  */
 .tibook-vibe-vivid-backdrop {
   background-color: #020617;
@@ -202,4 +214,32 @@ body {
   .tibook-vivid-drift {
     animation: none;
   }
+}
+
+/*
+ * The calendar grid draws its outer top and left borders as INLINE styles, and
+ * an inline style is not something a Tailwind class can reach. So the line
+ * colour is a variable: the token gridLine dresses the per-cell borders, and
+ * this dresses the two the grid draws itself. Both have to move together or the
+ * frame around the month is a different colour from the lines inside it.
+ */
+:root {
+  --tibook-grid-line: #d1d5db; /* gray-300 */
+}
+
+.tibook-vibe-vivid {
+  --tibook-grid-line: #334155; /* slate-700 */
+}
+
+/*
+ * Today lost its ring when the calendar went dark: it is drawn as a 5px
+ * slate-950 border, which was a strong mark on white and is invisible on a
+ * slate-900 grid.
+ *
+ * Overridden here rather than in calendarStyle.css because that file is shared
+ * with TiMag's calendar, where the dark ring is correct and this skin does not
+ * exist.
+ */
+.tibook-vibe-vivid .react-calendar__custom_tile_today::after {
+  border-color: rgb(241 245 249); /* slate-100 */
 }

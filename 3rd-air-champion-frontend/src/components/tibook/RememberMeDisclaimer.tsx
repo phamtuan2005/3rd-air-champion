@@ -60,12 +60,12 @@ const RememberMeDisclaimer = ({ phone, onAllow, onDeny }: RememberMeDisclaimerPr
 
   return (
     <div
-      className="tibook-type fixed inset-0 z-[140] flex items-center justify-center bg-black/40 p-4"
+      className={`tibook-type fixed inset-0 z-[140] flex items-center justify-center ${theme.scrim} p-4`}
       role="dialog"
       aria-modal="true"
       aria-labelledby="remember-me-title"
     >
-      <div ref={panelRef} className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div ref={panelRef} className={`w-full max-w-sm overflow-hidden rounded-2xl ${theme.surface} shadow-2xl`}>
         {/* Header */}
         <div className={`flex items-center gap-2 border-b ${theme.tagBorder} ${theme.tagBg} px-4 py-3`}>
           <span className="text-xl">🔒</span>
@@ -73,19 +73,19 @@ const RememberMeDisclaimer = ({ phone, onAllow, onDeny }: RememberMeDisclaimerPr
             <p id="remember-me-title" className={`text-sm font-bold ${theme.tagText}`}>
               Save your number on this device?
             </p>
-            <p className="text-[11px] text-gray-500">So you don't have to type it again</p>
+            <p className={`text-[11px] ${theme.surfaceMuted}`}>So you don't have to type it again</p>
           </div>
         </div>
 
         <div className="px-4 pb-4 pt-3">
-          <p className="text-xs leading-relaxed text-gray-600">
+          <p className={`text-xs leading-relaxed ${theme.surfaceText3}`}>
             If you say yes, we'll keep{" "}
-            <span className="font-semibold text-gray-800">{formatPhone(phone)}</span> and your name
+            <span className={`font-semibold ${theme.surfaceText}`}>{formatPhone(phone)}</span> and your name
             in this browser's storage on your own phone or computer. Next time you open TiBook,
             your stays, your wish list and your rate are already here.
           </p>
 
-          <ul className="mt-3 flex flex-col gap-1.5 text-xs text-gray-600">
+          <ul className={`mt-3 flex flex-col gap-1.5 text-xs ${theme.surfaceText3}`}>
             <li className="flex gap-2">
               <span className={theme.textPrimary}>•</span>
               <span>It stays on this device — it isn't a tracking cookie and no one else can read it.</span>
@@ -122,7 +122,7 @@ const RememberMeDisclaimer = ({ phone, onAllow, onDeny }: RememberMeDisclaimerPr
           <button
             type="button"
             onClick={onDeny}
-            className="mt-2 w-full rounded-lg border border-gray-200 py-2 text-sm font-semibold text-gray-500 hover:bg-gray-50"
+            className={`mt-2 w-full rounded-lg border ${theme.line} py-2 text-sm font-semibold ${theme.surfaceMuted} ${theme.chromeHover}`}
           >
             No, just for this visit
           </button>

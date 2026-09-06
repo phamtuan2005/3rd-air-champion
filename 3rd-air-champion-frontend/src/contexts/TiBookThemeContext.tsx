@@ -59,11 +59,11 @@ export interface TiBookTheme {
    * was always hardcoded. Naming them is what lets vivid go dark without any
    * component growing an `if (vibe === ...)`.
    *
-   * Only the chrome goes dark. The cards and sheets stay light on purpose:
-   * their greys and near-blacks are written into the markup in ~130 places,
-   * and darkening the surface under them turns a guest's check-in code and
-   * their total into grey-on-black. The frame carries the mood; the content
-   * stays readable. That is the whole trade, and it is deliberate.
+   * The chrome went dark first and the rest followed. The ~130 greys written
+   * into the markup were the reason to stop at the frame once, and they are
+   * exactly why they became tokens instead: a guest reading their total on a
+   * dark sheet needs the text to have moved WITH the surface, not to have
+   * stayed where it was chosen against white.
    */
   chrome: string;
   chromeText: string;
@@ -74,6 +74,9 @@ export interface TiBookTheme {
   // dim to sit on, so it steps up a few hundred rather than being reused.
   chromeAccent: string;
   chromeRing: string;
+  // The gap a selection ring leaves around a swatch. Defaults to white in
+  // Tailwind, which is a bright halo once the panel behind it is dark.
+  ringOffset: string;
   // Behind everything, where no panel paints over it.
   backdrop: string;
 
@@ -83,17 +86,38 @@ export interface TiBookTheme {
    * first screenful and a dark bar sitting on a white banner reads as a bug
    * rather than as a choice.
    *
-   * Where it STOPS is the calendar grid and every modal. Those carry the
+   * The calendar grid and the sheets followed. Nothing is left light, which is
+   * why the scale below is faithful rather than approximate: these carry the
    * numbers a guest acts on — the nights that are free, their rate, their
-   * total, the door code — and their contrast was tuned against white. The
-   * mood is worth the frame and the first screen; it is not worth a door code
-   * nobody can read in a hallway at 11pm.
+   * total, the door code — and every one is read on a phone in a hallway at
+   * 11pm.
    */
   surface: string;
   surfaceSubtle: string;
   surfaceBorder: string;
+  /*
+   * A faithful scale, not a rounded-off one.
+   *
+   * Every step here exists because the light skin already used that exact grey,
+   * and collapsing two of them would quietly restyle Classic — a gray-400 label
+   * becoming gray-500 across forty places is not a change anyone asked for. So
+   * the classic column reads back as the literal it replaced, and only the dark
+   * column is new.
+   */
+  surfaceStrong: string;
   surfaceText: string;
+  surfaceText2: string;
+  surfaceText3: string;
   surfaceMuted: string;
+  surfaceMuted2: string;
+  dim: string;
+  surfaceInset: string;
+  line: string;
+  lineStrong: string;
+  ringLine: string;
+  ringLine2: string;
+  surfaceHover2: string;
+  surfaceActive: string;
 
   /*
    * The house-facts band, which is its own thing in both skins: a soft tint of
@@ -114,6 +138,88 @@ export interface TiBookTheme {
    */
   brandText: string;
   brandBorder: string;
+
+  /*
+   * The calendar grid, which follows the frame down now rather than staying a
+   * lit sheet under it.
+   *
+   * Its own slots because the tile is not a card: a day number sits directly on
+   * the grid, and the two greys it used (300 for a night that is gone, 500 for
+   * "sold out") carry different meanings that both have to survive the dark.
+   * gridLine has a CSS-variable twin in index.css — the grid draws its outer
+   * two borders as inline styles, which no class can reach.
+   *
+   * tileText is for text on the TILE. The room name on a stay ribbon is not
+   * that: it sits on a bright room colour and stays near-black in both skins.
+   */
+  gridLine: string;
+  tileText: string;
+  tileWishBg: string;
+  tileWishHover: string;
+
+  /*
+   * Text fields, which cannot simply inherit: an input keeps the browser's
+   * white background and near-black text unless told otherwise, so on a dark
+   * sheet a guest types their phone number into a white slot.
+   */
+  field: string;
+  fieldFocus: string;
+  // Small furniture that is neither text nor a panel: the grab bar on a sheet,
+  // the spinner ring, and the lift a muted label gets on hover. Each needs a
+  // value in both skins and none of them is worth a component knowing why.
+  handle: string;
+  spinner: string;
+  mutedHover: string;
+  // The dimmer behind a sheet. Deeper in the dark skin, where a 30% wash over
+  // an already dark page stopped separating the sheet from the app behind it.
+  scrim: string;
+
+  /*
+   * Two whole CARDS that carry a colour rather than a tint — the stay a guest
+   * is on right now, and the "remove this date?" confirm.
+   *
+   * They cannot stay pale once the sheet is dark. Their body text comes from
+   * surfaceText, which is near-white in the dark skin, and near-white on
+   * amber-50 is a card a guest cannot read on the morning they are checking in.
+   * Held as a translucent wash of the same hue instead, so the signal survives
+   * and the text on top of it still works.
+   */
+  /*
+   * Warm (a stay being held, a stay happening now) and alert (a "remove this?"
+   * confirm). Both are whole containers with their own coloured text, and both
+   * break the same way in the dark: a pale amber panel keeps its near-black
+   * amber text, and near-black on near-black is a total a guest cannot read on
+   * the morning they check in.
+   *
+   * So the fill becomes a translucent wash of the same hue and the text lifts
+   * to meet it. The signal survives; only the direction of the contrast flips.
+   *
+   * These collapse a few neighbouring shades that the light skin distinguished
+   * (amber-700 and -800 both land on warmStrong, every red text hover on
+   * alertHover). Those differences were not visible on a pale chip; the ones
+   * that WERE visible each still have their own token.
+   */
+  // A chip that inverts to mark itself chosen. It has to flip with the skin:
+  // near-black is invisible on a near-black sheet.
+  chipOn: string;
+  cardWarm: string;
+  warmFill: string;
+  warmFill2: string;
+  warmHover: string;
+  warmBorder: string;
+  warmText2: string;
+  warmStrong: string;
+  warmDim: string;
+  alertFill: string;
+  alertBorder: string;
+  alertBorderHover: string;
+  alertText2: string;
+  alertText3: string;
+  // The label that rides on cardWarm, which has to lift with it.
+  warmText: string;
+  cardAlert: string;
+  alertText: string;
+  alertHover: string;
 
   /*
    * A coloured glow under the primary action. Empty in classic — the flat
@@ -141,16 +247,57 @@ const CLASSIC_CHROME = {
   chromeBorder: "border-gray-200",
   chromeHover: "hover:bg-gray-50",
   chromeRing: "ring-gray-400",
+  ringOffset: "ring-offset-white",
   backdrop: "bg-white",
   glow: "",
   btnMotion: "",
   surface: "bg-white",
   surfaceSubtle: "bg-gray-50",
   surfaceBorder: "border-gray-100",
+  surfaceStrong: "text-gray-900",
   surfaceText: "text-gray-800",
+  surfaceText2: "text-gray-700",
+  surfaceText3: "text-gray-600",
   surfaceMuted: "text-gray-500",
+  surfaceMuted2: "text-gray-400",
+  surfaceInset: "bg-gray-100",
+  line: "border-gray-200",
+  lineStrong: "border-gray-300",
+  ringLine: "ring-gray-200",
+  ringLine2: "ring-gray-300",
+  surfaceHover2: "hover:bg-gray-100",
+  surfaceActive: "active:bg-gray-100",
   brandText: "text-indigo-600",
   brandBorder: "border-indigo-300",
+  gridLine: "border-gray-300",
+  tileText: "text-black",
+  dim: "text-gray-300",
+  tileWishBg: "bg-gray-200",
+  tileWishHover: "hover:bg-gray-100",
+  field: "",
+  fieldFocus: "focus:border-gray-400",
+  handle: "bg-gray-300",
+  spinner: "border-gray-300 border-t-gray-500",
+  mutedHover: "hover:text-gray-600",
+  scrim: "bg-black/30",
+  chipOn: "bg-gray-900 text-white",
+  cardWarm: "bg-amber-50 border-amber-200",
+  warmFill: "bg-amber-50",
+  warmFill2: "bg-amber-100",
+  warmHover: "hover:bg-amber-100",
+  warmBorder: "border-amber-200",
+  warmText2: "text-amber-700",
+  warmStrong: "text-amber-800",
+  warmDim: "text-amber-400",
+  alertFill: "bg-red-50",
+  alertBorder: "border-red-200",
+  alertBorderHover: "hover:border-red-400",
+  alertText2: "text-red-500",
+  alertText3: "text-red-700",
+  warmText: "text-amber-600",
+  cardAlert: "bg-red-50 border-red-200",
+  alertText: "text-red-600",
+  alertHover: "hover:text-red-800",
 };
 
 /* Vivid chrome is one dark base for all five palettes — the neon comes from the
@@ -164,6 +311,7 @@ const VIVID_CHROME = {
   chromeBorder: "border-slate-700",
   chromeHover: "hover:bg-slate-800",
   chromeRing: "ring-white",
+  ringOffset: "ring-offset-slate-900",
   backdrop: "bg-slate-950",
   btnMotion: "tibook-vivid-drift",
   // Not quite the chrome black: the browse stack sits ON the chrome, and two
@@ -171,11 +319,53 @@ const VIVID_CHROME = {
   surface: "bg-slate-900",
   surfaceSubtle: "bg-slate-800",
   surfaceBorder: "border-slate-800",
+  surfaceStrong: "text-slate-50",
   surfaceText: "text-slate-100",
+  surfaceText2: "text-slate-200",
+  surfaceText3: "text-slate-300",
   surfaceMuted: "text-slate-400",
+  surfaceMuted2: "text-slate-500",
+  surfaceInset: "bg-slate-800",
+  line: "border-slate-700",
+  lineStrong: "border-slate-600",
+  ringLine: "ring-slate-700",
+  ringLine2: "ring-slate-600",
+  surfaceHover2: "hover:bg-slate-800",
+  surfaceActive: "active:bg-slate-800",
   // Same indigo, lifted until it reads on slate-900.
   brandText: "text-indigo-300",
   brandBorder: "border-indigo-400",
+  gridLine: "border-slate-700",
+  tileText: "text-slate-100",
+  // Dimmer than the muted step, not brighter: this is a night the guest cannot
+  // have, and it has to read as gone without disappearing altogether.
+  dim: "text-slate-600",
+  tileWishBg: "bg-slate-700",
+  tileWishHover: "hover:bg-slate-800",
+  field: "bg-slate-800 text-slate-100 placeholder:text-slate-500",
+  fieldFocus: "focus:border-slate-500",
+  handle: "bg-slate-600",
+  spinner: "border-slate-700 border-t-slate-300",
+  mutedHover: "hover:text-slate-200",
+  scrim: "bg-black/60",
+  chipOn: "bg-slate-100 text-slate-900",
+  cardWarm: "bg-amber-400/15 border-amber-400/40",
+  warmFill: "bg-amber-400/10",
+  warmFill2: "bg-amber-400/20",
+  warmHover: "hover:bg-amber-400/20",
+  warmBorder: "border-amber-400/40",
+  warmText2: "text-amber-300",
+  warmStrong: "text-amber-200",
+  warmDim: "text-amber-500",
+  alertFill: "bg-red-400/12",
+  alertBorder: "border-red-400/40",
+  alertBorderHover: "hover:border-red-400/80",
+  alertText2: "text-red-300",
+  alertText3: "text-red-200",
+  warmText: "text-amber-300",
+  cardAlert: "bg-red-400/15 border-red-400/40",
+  alertText: "text-red-300",
+  alertHover: "hover:text-red-200",
 };
 
 type ThemeCore = Omit<TiBookTheme, "bandBg" | "bandBorder" | "bandText">;
@@ -314,8 +504,10 @@ const classicCore: Record<ThemeName, ThemeCore> = {
  * in the stylesheet. If you add a palette, spell it out.
  *
  * Two slots stay flat on purpose:
- *   textPrimary   sits on white cards (the available-date numbers, 37 uses).
- *   reviewText    sits on a white pill inside the action bar.
+ *   textPrimary   is a date number on the grid (37 uses).
+ *   reviewText    sits on a white pill inside the action bar, so unlike the
+ *                 rest of this set it stays DARK — that pill rides on the
+ *                 gradient, not on a sheet, and does not follow the skin.
  * A gradient in either needs bg-clip-text and transparent text, which on a
  * calendar tile is a number the guest cannot read. The gradient belongs on the
  * things the guest presses, not on the things they read.
@@ -329,18 +521,18 @@ const vividCore: Record<ThemeName, ThemeCore> = {
     btn: "bg-gradient-to-r from-emerald-400 to-cyan-500",
     btnHover: "hover:from-emerald-300 hover:to-cyan-400",
     btnActive: "active:from-emerald-500 active:to-cyan-600",
-    textPrimary: "text-emerald-600",
-    textPrimaryDark: "text-emerald-700",
-    tagBg: "bg-emerald-100",
-    tagBorder: "border-emerald-300",
-    tagText: "text-emerald-800",
+    textPrimary: "text-emerald-400",
+    textPrimaryDark: "text-emerald-300",
+    tagBg: "bg-emerald-400/15",
+    tagBorder: "border-emerald-400/40",
+    tagText: "text-emerald-200",
     selectedBorder: "border-emerald-400",
     selectedShadow: "shadow-emerald-300",
     focusRing: "focus:ring-emerald-300",
     reviewText: "text-emerald-600",
-    tileHover: "hover:bg-emerald-50",
-    tileActive: "active:bg-emerald-100",
-    successBg: "bg-emerald-100",
+    tileHover: "hover:bg-emerald-400/10",
+    tileActive: "active:bg-emerald-400/20",
+    successBg: "bg-emerald-400/20",
     glow: "shadow-lg shadow-emerald-500/50",
   },
   amber: {
@@ -351,18 +543,18 @@ const vividCore: Record<ThemeName, ThemeCore> = {
     btn: "bg-gradient-to-r from-amber-400 to-pink-500",
     btnHover: "hover:from-amber-300 hover:to-pink-400",
     btnActive: "active:from-amber-500 active:to-pink-600",
-    textPrimary: "text-amber-600",
-    textPrimaryDark: "text-amber-700",
-    tagBg: "bg-amber-100",
-    tagBorder: "border-amber-300",
-    tagText: "text-amber-800",
+    textPrimary: "text-amber-400",
+    textPrimaryDark: "text-amber-300",
+    tagBg: "bg-amber-400/15",
+    tagBorder: "border-amber-400/40",
+    tagText: "text-amber-200",
     selectedBorder: "border-amber-400",
     selectedShadow: "shadow-amber-300",
     focusRing: "focus:ring-amber-300",
     reviewText: "text-amber-600",
-    tileHover: "hover:bg-amber-50",
-    tileActive: "active:bg-amber-100",
-    successBg: "bg-amber-100",
+    tileHover: "hover:bg-amber-400/10",
+    tileActive: "active:bg-amber-400/20",
+    successBg: "bg-amber-400/20",
     glow: "shadow-lg shadow-pink-500/50",
   },
   teal: {
@@ -373,18 +565,18 @@ const vividCore: Record<ThemeName, ThemeCore> = {
     btn: "bg-gradient-to-r from-cyan-400 to-blue-600",
     btnHover: "hover:from-cyan-300 hover:to-blue-500",
     btnActive: "active:from-cyan-500 active:to-blue-700",
-    textPrimary: "text-cyan-700",
-    textPrimaryDark: "text-cyan-800",
-    tagBg: "bg-cyan-100",
-    tagBorder: "border-cyan-300",
-    tagText: "text-cyan-800",
+    textPrimary: "text-cyan-400",
+    textPrimaryDark: "text-cyan-300",
+    tagBg: "bg-cyan-400/15",
+    tagBorder: "border-cyan-400/40",
+    tagText: "text-cyan-200",
     selectedBorder: "border-cyan-400",
     selectedShadow: "shadow-cyan-300",
     focusRing: "focus:ring-cyan-300",
     reviewText: "text-cyan-700",
-    tileHover: "hover:bg-cyan-50",
-    tileActive: "active:bg-cyan-100",
-    successBg: "bg-cyan-100",
+    tileHover: "hover:bg-cyan-400/10",
+    tileActive: "active:bg-cyan-400/20",
+    successBg: "bg-cyan-400/20",
     glow: "shadow-lg shadow-cyan-500/50",
   },
   rose: {
@@ -395,18 +587,18 @@ const vividCore: Record<ThemeName, ThemeCore> = {
     btn: "bg-gradient-to-r from-fuchsia-500 to-rose-500",
     btnHover: "hover:from-fuchsia-400 hover:to-rose-400",
     btnActive: "active:from-fuchsia-600 active:to-rose-600",
-    textPrimary: "text-fuchsia-600",
-    textPrimaryDark: "text-fuchsia-700",
-    tagBg: "bg-fuchsia-100",
-    tagBorder: "border-fuchsia-300",
-    tagText: "text-fuchsia-800",
+    textPrimary: "text-fuchsia-400",
+    textPrimaryDark: "text-fuchsia-300",
+    tagBg: "bg-fuchsia-400/15",
+    tagBorder: "border-fuchsia-400/40",
+    tagText: "text-fuchsia-200",
     selectedBorder: "border-fuchsia-400",
     selectedShadow: "shadow-fuchsia-300",
     focusRing: "focus:ring-fuchsia-300",
     reviewText: "text-fuchsia-600",
-    tileHover: "hover:bg-fuchsia-50",
-    tileActive: "active:bg-fuchsia-100",
-    successBg: "bg-fuchsia-100",
+    tileHover: "hover:bg-fuchsia-400/10",
+    tileActive: "active:bg-fuchsia-400/20",
+    successBg: "bg-fuchsia-400/20",
     glow: "shadow-lg shadow-fuchsia-500/50",
   },
   indigo: {
@@ -417,18 +609,18 @@ const vividCore: Record<ThemeName, ThemeCore> = {
     btn: "bg-gradient-to-r from-violet-500 to-fuchsia-500",
     btnHover: "hover:from-violet-400 hover:to-fuchsia-400",
     btnActive: "active:from-violet-600 active:to-fuchsia-600",
-    textPrimary: "text-violet-600",
-    textPrimaryDark: "text-violet-700",
-    tagBg: "bg-violet-100",
-    tagBorder: "border-violet-300",
-    tagText: "text-violet-800",
+    textPrimary: "text-violet-400",
+    textPrimaryDark: "text-violet-300",
+    tagBg: "bg-violet-400/15",
+    tagBorder: "border-violet-400/40",
+    tagText: "text-violet-200",
     selectedBorder: "border-violet-400",
     selectedShadow: "shadow-violet-300",
     focusRing: "focus:ring-violet-300",
     reviewText: "text-violet-600",
-    tileHover: "hover:bg-violet-50",
-    tileActive: "active:bg-violet-100",
-    successBg: "bg-violet-100",
+    tileHover: "hover:bg-violet-400/10",
+    tileActive: "active:bg-violet-400/20",
+    successBg: "bg-violet-400/20",
     glow: "shadow-lg shadow-violet-500/50",
   },
 };

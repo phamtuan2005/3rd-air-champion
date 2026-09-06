@@ -71,9 +71,9 @@ const StayDetailPopup = ({
     : undefined;
 
   return (
-    <div className="tibook-type fixed inset-0 z-[130] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+    <div className={`tibook-type fixed inset-0 z-[130] flex items-center justify-center ${theme.scrim} p-4`} onClick={onClose}>
       <div
-        className="w-full max-w-xs overflow-hidden rounded-2xl bg-white shadow-2xl"
+        className={`w-full max-w-xs overflow-hidden rounded-2xl ${theme.surface} shadow-2xl`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header — room + close */}
@@ -85,7 +85,7 @@ const StayDetailPopup = ({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-xl leading-none text-gray-400 hover:bg-gray-100"
+            className={`flex h-8 w-8 items-center justify-center rounded-lg text-xl leading-none ${theme.surfaceMuted2} ${theme.surfaceHover2}`}
           >
             &times;
           </button>
@@ -93,16 +93,16 @@ const StayDetailPopup = ({
 
         <div className="px-4 pb-4">
           {/* Dates + meta */}
-          <p className="text-base font-bold text-gray-900">
-            {format(checkIn, "EEE MMM d")} <span className="text-gray-300">→</span>{" "}
+          <p className={`text-base font-bold ${theme.surfaceStrong}`}>
+            {format(checkIn, "EEE MMM d")} <span className={`${theme.dim}`}>→</span>{" "}
             {format(checkOut, "EEE MMM d")}
           </p>
-          <p className="mt-0.5 text-xs text-gray-500">
+          <p className={`mt-0.5 text-xs ${theme.surfaceMuted}`}>
             {nights} night{nights === 1 ? "" : "s"} · {guests} guest{guests === 1 ? "" : "s"}
             {countdown && (
               <>
                 {" · "}
-                <span className={`font-semibold ${isStaying || daysUntil === 0 ? theme.textPrimary : "text-gray-600"}`}>
+                <span className={`font-semibold ${isStaying || daysUntil === 0 ? theme.textPrimary : `${theme.surfaceText3}`}`}>
                   {countdown}
                 </span>
               </>
@@ -115,14 +115,14 @@ const StayDetailPopup = ({
               {doorCode && (
                 <div className={`flex items-center gap-1.5 rounded-xl border ${theme.tagBorder} ${theme.tagBg} px-2.5 py-1.5`}>
                   <span className="text-sm">🔑</span>
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Door</span>
-                  <span className="text-sm font-bold tracking-widest text-gray-900">{doorCode}</span>
+                  <span className={`text-[10px] font-semibold uppercase tracking-wide ${theme.surfaceMuted}`}>Door</span>
+                  <span className={`text-sm font-bold tracking-widest ${theme.surfaceStrong}`}>{doorCode}</span>
                 </div>
               )}
               {roomCode && (
                 <div className={`flex items-center gap-1.5 rounded-xl border ${theme.tagBorder} ${theme.tagBg} px-2.5 py-1.5`}>
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Room</span>
-                  <span className="text-sm font-bold tracking-widest text-gray-900">{roomCode}</span>
+                  <span className={`text-[10px] font-semibold uppercase tracking-wide ${theme.surfaceMuted}`}>Room</span>
+                  <span className={`text-sm font-bold tracking-widest ${theme.surfaceStrong}`}>{roomCode}</span>
                 </div>
               )}
             </div>
@@ -134,13 +134,13 @@ const StayDetailPopup = ({
               href={mapsHref}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-3 flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 hover:bg-gray-50"
+              className={`mt-3 flex items-center gap-2 rounded-xl border ${theme.line} px-3 py-2 ${theme.chromeHover}`}
             >
               <span className="text-base">📍</span>
-              <span className="min-w-0 flex-1 truncate text-xs text-gray-700">
+              <span className={`min-w-0 flex-1 truncate text-xs ${theme.surfaceText2}`}>
                 {address.replace(/\n/g, ", ")}
               </span>
-              <span className="text-gray-300">›</span>
+              <span className={`${theme.dim}`}>›</span>
             </a>
           )}
 
@@ -155,7 +155,7 @@ const StayDetailPopup = ({
               View full details
             </button>
           ) : (
-            <p className="mt-3 text-center text-[11px] text-gray-400">
+            <p className={`mt-3 text-center text-[11px] ${theme.surfaceMuted2}`}>
               This stay is complete — thank you for staying with us. 🏠
             </p>
           )}
@@ -166,7 +166,7 @@ const StayDetailPopup = ({
             <button
               type="button"
               onClick={onBookAnother}
-              className={`mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border ${theme.tagBorder} py-2 text-sm font-semibold ${theme.textPrimary} hover:bg-gray-50`}
+              className={`mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border ${theme.tagBorder} py-2 text-sm font-semibold ${theme.textPrimary} ${theme.chromeHover}`}
             >
               ➕ Book another room for these dates
             </button>
@@ -177,7 +177,7 @@ const StayDetailPopup = ({
             <button
               type="button"
               onClick={textHost}
-              className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+              className={`mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border ${theme.line} py-2 text-sm font-semibold ${theme.surfaceText3} ${theme.chromeHover}`}
             >
               💬 Text {hostFirstName} about this stay
             </button>

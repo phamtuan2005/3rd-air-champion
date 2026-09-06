@@ -613,11 +613,11 @@ const TiBookInner = () => {
 
         {isLoading ? (
           <div className="flex flex-1 flex-col items-center justify-center">
-            <p className="text-gray-400 text-sm">Loading...</p>
+            <p className={`text-sm ${theme.surfaceMuted2}`}>Loading...</p>
           </div>
         ) : currentHost ? (
           <div
-            className="relative z-10 flex flex-1 min-h-0 flex-col bg-white"
+            className={`relative z-10 flex flex-1 min-h-0 flex-col ${theme.surface}`}
             style={{
               marginTop: -dragOffset,
               transition: dragging ? "none" : "margin-top 0.25s ease",
@@ -631,7 +631,7 @@ const TiBookInner = () => {
               onPointerMove={onGripMove}
               onPointerUp={onGripUp}
             >
-              <span className="h-1.5 w-10 rounded-full bg-gray-300" />
+              <span className={`h-1.5 w-10 rounded-full ${theme.handle}`} />
             </div>
             {/* Reduced room filter — kept visible once the calendar covers the
                 full room banner, so the guest can still scope rooms at full size. */}
@@ -656,7 +656,7 @@ const TiBookInner = () => {
               <button
                 type="button"
                 onClick={() => setReservedPopupOpen(true)}
-                className="flex shrink-0 items-center justify-center gap-1.5 border-y border-amber-200 bg-amber-50 px-4 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100"
+                className={`flex shrink-0 items-center justify-center gap-1.5 border-y ${theme.warmBorder} ${theme.warmFill} px-4 py-1.5 text-xs font-semibold ${theme.warmText2} ${theme.warmHover}`}
               >
                 {/* Bookings, not rooms — this counts held STAYS, and thirteen
                     of them across a five-room house read as a house of
@@ -693,7 +693,7 @@ const TiBookInner = () => {
           </div>
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center">
-            <p className="text-gray-400 text-sm">No host selected</p>
+            <p className={`text-sm ${theme.surfaceMuted2}`}>No host selected</p>
           </div>
         )}
       </div>

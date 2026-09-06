@@ -84,18 +84,18 @@ const GuestLoyaltyBanner = ({ firstName, totalStays, totalNights, memberSince }:
           <span className={`text-[11px] font-bold ${theme.textPrimary}`}>
             {totalStays} {totalStays === 1 ? "stay" : "stays"}
           </span>
-          <span className="text-gray-300 text-[10px]">·</span>
+          <span className={`${theme.dim} text-[10px]`}>·</span>
           <span className={`text-[11px] font-bold ${theme.textPrimary}`}>
             {totalNights} {totalNights === 1 ? "night" : "nights"}
           </span>
-          <span className="text-gray-300 text-[10px]">·</span>
-          <span className="text-[11px] text-gray-400">
+          <span className={`${theme.dim} text-[10px]`}>·</span>
+          <span className={`text-[11px] ${theme.surfaceMuted2}`}>
             with us since {memberSince}
           </span>
         </div>
       )}
 
-      <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
+      <p className={`text-xs ${theme.surfaceMuted} mt-1.5 leading-relaxed`}>
         {loyaltyTier
           ? loyaltyTier.message(totalStays, totalNights, memberSince)
           : "Welcome to TT House! We are so happy you are here, and we hope this stay is the first of many. Your comfort is truly our mission."}
