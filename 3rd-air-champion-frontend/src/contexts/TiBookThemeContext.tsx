@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, ReactNode } from "react";
+import { getRoomColor } from "../util/getRoomColor";
 
 export type ThemeName = "green" | "amber" | "teal" | "rose" | "indigo";
 
@@ -702,3 +703,61 @@ export const TiBookThemeProvider = ({ children }: { children: ReactNode }) => {
 };
 
 export const useTiBookTheme = () => useContext(TiBookThemeContext);
+
+/*
+ * A room's own colour, dressed for the skin it is shown in.
+ *
+ * Room colour is not a theme token and must not become one: it is per-room, it
+ * comes off the room record, and it is the one colour on the screen a guest
+ * learns rather than picks — King is red in the calendar, on the card, in the
+ * request and on the hold, and it has to stay red in both skins or it stops
+ * being an identity.
+ *
+ * So the hue is left exactly alone and the neon is added around it: a glow in
+ * the room's own colour, and a diagonal sheen across the chip. On a near-black
+ * sheet a saturated -500 already pops; the glow is what makes it read as lit
+ * rather than merely bright.
+ *
+ * The vibe check lives HERE rather than at the eight call sites, so a component
+ * still only asks "how does this room look", never "which skin am I".
+ *
+ * Every glow is spelled out because Tailwind reads the source to decide what to
+ * compile -- a shadow built from a colour name at run time would exist in the
+ * type system and nowhere in the stylesheet. The keys are what getRoomColor can
+ * return, plus whatever a room record carries; anything unrecognised still gets
+ * a glow, just a colourless one.
+ */
+const ROOM_GLOW: Record<string, string> = {
+  "bg-red-500": "shadow-[0_0_12px_-1px_rgba(239,68,68,0.9)]",
+  "bg-yellow-500": "shadow-[0_0_12px_-1px_rgba(234,179,8,0.9)]",
+  "bg-blue-500": "shadow-[0_0_12px_-1px_rgba(59,130,246,0.9)]",
+  "bg-green-500": "shadow-[0_0_12px_-1px_rgba(34,197,94,0.9)]",
+  "bg-purple-500": "shadow-[0_0_12px_-1px_rgba(168,85,247,0.9)]",
+  "bg-pink-500": "shadow-[0_0_12px_-1px_rgba(236,72,153,0.9)]",
+  "bg-indigo-500": "shadow-[0_0_12px_-1px_rgba(99,102,241,0.9)]",
+  "bg-gray-500": "shadow-[0_0_12px_-1px_rgba(107,114,128,0.9)]",
+  "bg-gray-400": "shadow-[0_0_12px_-1px_rgba(156,163,175,0.9)]",
+  "bg-teal-500": "shadow-[0_0_12px_-1px_rgba(20,184,166,0.9)]",
+  "bg-orange-500": "shadow-[0_0_12px_-1px_rgba(249,115,22,0.9)]",
+};
+const ROOM_GLOW_FALLBACK = "shadow-[0_0_12px_-1px_rgba(255,255,255,0.45)]";
+
+/*
+ * "bar" is for a stay ribbon on the calendar, which is not one element but
+ * several — an AM cap, the whole days, a PM start — laid end to end to look
+ * like one bar. A diagonal sheen restarts at each of those, so a three-night
+ * stay came out visibly banded at the seams. The bar sheen runs top-to-bottom
+ * instead: identical at every x, so the seams disappear and the ribbon reads as
+ * one lit tube rather than three tiles.
+ *
+ * The caller picks by SHAPE — chip or bar — never by skin.
+ */
+export const useRoomChip = () => {
+  const { vibe } = useTiBookTheme();
+  return (room: { name: string; color?: string }, shape: "chip" | "bar" = "chip") => {
+    const bg = getRoomColor(room.name, room.color);
+    if (vibe !== "vivid") return bg;
+    const sheen = shape === "bar" ? "tibook-room-neon-bar" : "tibook-room-neon";
+    return `${bg} ${sheen} ${ROOM_GLOW[bg] ?? ROOM_GLOW_FALLBACK}`;
+  };
+};

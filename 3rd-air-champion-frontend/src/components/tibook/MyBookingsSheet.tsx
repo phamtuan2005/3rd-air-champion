@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { roomType } from "../../util/types/roomType";
-import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
+import { useTiBookTheme, useRoomChip } from "../../contexts/TiBookThemeContext";
 import { fetchCalendarBookingsByGuest } from "../../util/bookingRequestOperations";
 import { formatCancellationPolicy } from "../../util/cancellationPolicy";
 import { fetchGuestByPhone } from "../../util/guestOperations";
@@ -130,6 +130,7 @@ const statusLabel: Record<string, { label: string; color: string }> = {
 
 const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialPhone, initialName, focusKey, rooms, wishListDates, onToggleWishDate, cancellationFullRefundDays, cancellationHalfRefundDays, houseRules, onClose, onPhoneConfirmed, onClear }: MyBookingsSheetProps) => {
   const { theme } = useTiBookTheme();
+  const roomChip = useRoomChip();
   const activeRooms = rooms.filter((r) => r.active);
   const roomMap = new Map(rooms.map((r) => [r.id, r]));
 
@@ -340,7 +341,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
             below qualifies those two, so nothing has to compete with them for
             width — which is what forced the whole stack down to 11px before. */}
         <div className="flex items-start justify-between gap-3">
-          <RoomBadge room={room ?? { name: "Room" }} rooms={activeRooms} override={room ? undefined : "bg-gray-400"} />
+          <RoomBadge room={room ?? { name: "Room" }} rooms={activeRooms} override={roomChip(room ?? { name: "Room", color: "bg-gray-400" })} />
           <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${st.color} shrink-0`}>
             {st.label}
           </span>

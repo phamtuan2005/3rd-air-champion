@@ -1,6 +1,5 @@
 import { differenceInCalendarDays, format, startOfToday } from "date-fns";
-import { getRoomColor } from "../../util/getRoomColor";
-import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
+import { useTiBookTheme, useRoomChip } from "../../contexts/TiBookThemeContext";
 
 interface StayDetailPopupProps {
   roomName: string;
@@ -39,6 +38,7 @@ const StayDetailPopup = ({
   onClose,
 }: StayDetailPopupProps) => {
   const { theme } = useTiBookTheme();
+  const roomChip = useRoomChip();
   const hostFirstName = (hostName ?? "").split(" ")[0] || "the host";
 
   // One-tap text to the host, pre-filled with the stay so changes / "add a room"
@@ -78,7 +78,7 @@ const StayDetailPopup = ({
       >
         {/* Header — room + close */}
         <div className="flex items-center justify-between gap-2 px-4 pb-2 pt-3">
-          <span className={`${getRoomColor(roomName, roomColor)} rounded-lg px-2.5 py-1 text-sm font-bold text-black`}>
+          <span className={`${roomChip({ name: roomName, color: roomColor })} rounded-lg px-2.5 py-1 text-sm font-bold text-black`}>
             {roomName}
           </span>
           <button

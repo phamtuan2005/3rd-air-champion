@@ -4,7 +4,7 @@ import { addDays, getDay, isBefore, isSameDay, isSameMonth, parseISO, startOfTod
 import { dayType } from "../../../util/types/dayType";
 import { roomType } from "../../../util/types/roomType";
 import { getRoomColor } from "../../../util/getRoomColor";
-import { useTiBookTheme } from "../../../contexts/TiBookThemeContext";
+import { useTiBookTheme, useRoomChip } from "../../../contexts/TiBookThemeContext";
 
 // A guest's own confirmed stay, drawn as a spanning bar (not a dot).
 export interface MyStay {
@@ -150,6 +150,7 @@ const GuestCalendar = ({
   onReservedClick,
 }: GuestCalendarProps) => {
   const { theme } = useTiBookTheme();
+  const roomChip = useRoomChip();
   const [months, setMonths] = useState<Date[]>([]);
   const [visibleIndex, setVisibleIndex] = useState(0);
   const [containerHeight, setContainerHeight] = useState(0);
@@ -480,7 +481,7 @@ const GuestCalendar = ({
             labelled with the room on the check-in day. */}
         {bars?.am && !inCart && (
           <div
-            className={`${getRoomColor(bars.am.roomName, bars.am.roomColor)} pointer-events-none`}
+            className={`${roomChip({ name: bars.am.roomName, color: bars.am.roomColor }, "bar")} pointer-events-none`}
             style={{
               position: "absolute",
               bottom: barBottom,
@@ -494,7 +495,7 @@ const GuestCalendar = ({
         )}
         {bars?.pm && !inCart && (
           <div
-            className={`${getRoomColor(bars.pm.roomName, bars.pm.roomColor)} pointer-events-none flex items-center`}
+            className={`${roomChip({ name: bars.pm.roomName, color: bars.pm.roomColor }, "bar")} pointer-events-none flex items-center`}
             style={{
               position: "absolute",
               bottom: barBottom,

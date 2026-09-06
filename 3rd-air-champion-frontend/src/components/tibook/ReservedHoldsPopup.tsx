@@ -1,6 +1,5 @@
 import { format, parseISO } from "date-fns";
-import { getRoomColor } from "../../util/getRoomColor";
-import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
+import { useTiBookTheme, useRoomChip } from "../../contexts/TiBookThemeContext";
 
 export interface ReservedHold {
   roomName: string;
@@ -31,6 +30,7 @@ interface ReservedHoldsPopupProps {
 // aren't released — warm, not threatening.
 const ReservedHoldsPopup = ({ holds, hostName, hostPhone, onClose }: ReservedHoldsPopupProps) => {
   const { theme } = useTiBookTheme();
+  const roomChip = useRoomChip();
   const hostFirstName = (hostName ?? "").split(" ")[0] || "the host";
 
   // What each hold costs, and what they come to together. A guest asked to send
@@ -150,7 +150,7 @@ const ReservedHoldsPopup = ({ holds, hostName, hostPhone, onClose }: ReservedHol
                 className={`flex items-center justify-between gap-2 rounded-xl border ${theme.warmBorder} ${theme.warmFill} px-3 py-2`}
               >
                 <span
-                  className={`${getRoomColor(h.roomName, h.roomColor)} shrink-0 rounded-lg px-2.5 py-1 text-sm font-bold text-black`}
+                  className={`${roomChip({ name: h.roomName, color: h.roomColor })} shrink-0 rounded-lg px-2.5 py-1 text-sm font-bold text-black`}
                 >
                   {h.roomName}
                 </span>

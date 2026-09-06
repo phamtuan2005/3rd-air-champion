@@ -2,8 +2,7 @@ import { useState } from "react";
 import { roomType } from "../../util/types/roomType";
 import RoomGalleryModal from "./RoomGalleryModal";
 import { getRoomPhotos } from "../../util/roomFacts";
-import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
-import { getRoomColor } from "../../util/getRoomColor";
+import { useTiBookTheme, useRoomChip } from "../../contexts/TiBookThemeContext";
 import RoomBadge from "../shared/RoomBadge";
 
 const BACKEND = import.meta.env.VITE_BACKEND_ENDPOINT || "";
@@ -47,6 +46,7 @@ const RoomCard = ({
   myRate?: number;
 }) => {
   const { theme } = useTiBookTheme();
+  const roomChip = useRoomChip();
   // Same list the gallery pages through, so the count badge below cannot
   // promise more pictures than the gallery actually has.
   const photos = getRoomPhotos(room).map(resolveUrl);
@@ -124,7 +124,7 @@ const RoomCard = ({
         className={`px-2 py-1.5 cursor-pointer flex items-center gap-1 ${theme.chromeHover}`}
         onClick={onSelect}
       >
-        <RoomBadge room={room} rooms={allRooms} className="min-w-0" />
+        <RoomBadge room={room} rooms={allRooms} override={roomChip(room)} className="min-w-0" />
         {room.airbnbUrl && (
           <a
             href={room.airbnbUrl}
@@ -145,6 +145,7 @@ const RoomCard = ({
 
 const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact = false, onToggleCompact, myRates, hostPhone, hostName }: RoomCardsProps) => {
   const { theme } = useTiBookTheme();
+  const roomChip = useRoomChip();
   const [galleryRoom, setGalleryRoom] = useState<roomType | null>(null);
   const hostFirstName = (hostName ?? "").split(" ")[0] || "the host";
   const activeRooms = rooms.filter((r) => r.active).sort((a, b) => b.price - a.price);
@@ -180,8 +181,8 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
                 key={room.id}
                 type="button"
                 onClick={() => onToggleRoom(room.id)}
-                className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-semibold text-white transition-all ${getRoomColor(room.name, room.color)} ${
-                  selected ? `ring-2 ring-offset-1 scale-105 ${theme.chromeRing}` : "opacity-75"
+                className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-semibold text-white transition-all ${roomChip(room)} ${
+                  selected ? `ring-2 ring-offset-1 scale-105 ${theme.chromeRing} ${theme.ringOffset}` : "opacity-75"
                 }`}
               >
                 {room.name}

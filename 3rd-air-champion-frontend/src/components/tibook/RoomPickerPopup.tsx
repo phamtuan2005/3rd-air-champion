@@ -1,6 +1,6 @@
 import { format } from "date-fns";
 import { roomType } from "../../util/types/roomType";
-import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
+import { useTiBookTheme, useRoomChip } from "../../contexts/TiBookThemeContext";
 import RoomBadge from "../shared/RoomBadge";
 
 interface RoomPickerPopupProps {
@@ -18,6 +18,7 @@ interface RoomPickerPopupProps {
 // only one is left.
 const RoomPickerPopup = ({ date, rooms, onPick, onAny, onClose, title, subtitle }: RoomPickerPopupProps) => {
   const { theme } = useTiBookTheme();
+  const roomChip = useRoomChip();
   const only = rooms.length === 1;
 
   return (
@@ -56,7 +57,7 @@ const RoomPickerPopup = ({ date, rooms, onPick, onAny, onClose, title, subtitle 
               onClick={() => onPick(r.id)}
               className={`flex items-center justify-between gap-2 rounded-xl border ${theme.line} px-2.5 py-2 ${theme.chromeHover}`}
             >
-              <RoomBadge room={r} rooms={rooms} className="text-sm" />
+              <RoomBadge room={r} rooms={rooms} override={roomChip(r)} className="text-sm" />
               <span className={`shrink-0 text-xs font-bold ${theme.textPrimary}`}>Select ›</span>
             </button>
           ))}

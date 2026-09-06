@@ -10,7 +10,7 @@ import { fetchGuestByPhone } from "../../util/guestOperations";
 import { format, parseISO } from "date-fns";
 import { parseDateText } from "../../util/dateText";
 import { groupConsecutiveDates } from "../../util/cartGrouping";
-import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
+import { useTiBookTheme, useRoomChip } from "../../contexts/TiBookThemeContext";
 import RoomBadge from "../shared/RoomBadge";
 import GuestLoyaltyBanner from "./GuestLoyaltyBanner";
 
@@ -138,6 +138,7 @@ const BookingRequestModal = ({
   houseRules,
 }: BookingRequestModalProps) => {
   const { theme } = useTiBookTheme();
+  const roomChip = useRoomChip();
   const [step, setStep] = useState<1 | 2>(1);
   // Open by default: a refund term the guest is agreeing to should be readable
   // without a tap. The collapse is there to get it out of the way once read, not
@@ -688,10 +689,10 @@ const BookingRequestModal = ({
                       <div key={group.key}>
                         <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                           {group.room ? (
-                            <RoomBadge room={group.room} rooms={activeRooms} />
+                            <RoomBadge room={group.room} rooms={activeRooms} override={roomChip(group.room)} />
                           ) : (
                             availableRoomsForAnyGroup.map((r) => (
-                              <RoomBadge key={r.id} room={r} rooms={activeRooms} />
+                              <RoomBadge key={r.id} room={r} rooms={activeRooms} override={roomChip(r)} />
                             ))
                           )}
                           <span className={`text-xs ${theme.surfaceMuted2}`}>
@@ -992,7 +993,7 @@ const BookingRequestModal = ({
                                   className={`border ${theme.lineStrong} rounded-xl px-3 py-2 w-full text-sm flex items-center justify-between gap-2 ${theme.surface}`}
                                 >
                                   {chosen ? (
-                                    <RoomBadge room={chosen} rooms={activeRooms} />
+                                    <RoomBadge room={chosen} rooms={activeRooms} override={roomChip(chosen)} />
                                   ) : (
                                     <span className={`${theme.surfaceMuted2}`}>
                                       {free.length === 0 ? "No room free for these nights" : "Select a room"}
@@ -1018,7 +1019,7 @@ const BookingRequestModal = ({
                                           }}
                                         >
                                           <input type="radio" readOnly checked={chosenId === room.id} className="pointer-events-none w-4 h-4" />
-                                          <RoomBadge room={room} rooms={activeRooms} />
+                                          <RoomBadge room={room} rooms={activeRooms} override={roomChip(room)} />
                                           {rate !== null && (
                                             <span className={`text-xs ${theme.surfaceMuted2} ml-auto`}>${rate}/night</span>
                                           )}
@@ -1084,7 +1085,7 @@ const BookingRequestModal = ({
                           className={`border ${theme.lineStrong} rounded-xl px-3 py-2 w-full text-sm flex items-center justify-between gap-2`}
                         >
                           {selectedRoom ? (
-                            <RoomBadge room={selectedRoom} rooms={activeRooms} />
+                            <RoomBadge room={selectedRoom} rooms={activeRooms} override={roomChip(selectedRoom)} />
                           ) : (
                             <span className={`${theme.surfaceMuted2}`}>Select a room</span>
                           )}
@@ -1101,7 +1102,7 @@ const BookingRequestModal = ({
                                   onClick={() => { setValue("room", room.id, { shouldValidate: true }); setRoomDropdownOpen(null); }}
                                 >
                                   <input type="radio" readOnly checked={watchedRoom === room.id} className="pointer-events-none w-4 h-4" />
-                                  <RoomBadge room={room} rooms={activeRooms} />
+                                  <RoomBadge room={room} rooms={activeRooms} override={roomChip(room)} />
                                   {price !== null && (
                                     <span className={`text-xs ${theme.surfaceMuted2} ml-auto`}>${price}/night</span>
                                   )}

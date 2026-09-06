@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type TouchEvent as ReactTouchEvent } from 
 import { createPortal } from "react-dom";
 import { roomType } from "../../util/types/roomType";
 import { getRoomFacts, getRoomPhotos, houseKitchen } from "../../util/roomFacts";
-import { getRoomColor } from "../../util/getRoomColor";
+import { useRoomChip } from "../../contexts/TiBookThemeContext";
 import BedIcon from "./BedIcon";
 
 const BACKEND = import.meta.env.VITE_BACKEND_ENDPOINT || "";
@@ -29,7 +29,7 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
   const facts = getRoomFacts(room.airbnbUrl);
   // Honours a colour set on the room record first, and falls back to the
   // house's own name-to-colour rule — the same call the room cards make.
-  const roomColor = getRoomColor(room.name, room.color);
+  const roomChipClass = useRoomChip()(room);
   const hostFirstName = (hostName ?? "").split(" ")[0] || "the host";
 
   // Same one-tap text the rest of TiBook uses: an sms: link that opens the
@@ -190,7 +190,7 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
         className="flex items-center justify-between px-4 py-3 shrink-0"
         onClick={(e) => e.stopPropagation()}
       >
-        <span className={`${roomColor} rounded px-2 py-0.5 text-sm font-medium text-white`}>
+        <span className={`${roomChipClass} rounded px-2 py-0.5 text-sm font-medium text-white`}>
           {room.name}
         </span>
         <span className="text-gray-400 text-sm">{index + 1} / {photos.length}</span>
@@ -289,7 +289,7 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
             else, and a guest deep in a gallery still knows which room this is. */}
         <div className="flex items-center justify-between gap-2">
           <span
-            className={`${roomColor} inline-block rounded px-2 py-0.5 text-sm font-semibold text-white`}
+            className={`${roomChipClass} inline-block rounded px-2 py-0.5 text-sm font-semibold text-white`}
           >
             {room.name}
           </span>
