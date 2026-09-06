@@ -589,6 +589,7 @@ const TiBookInner = () => {
           scrollToTodayTrigger={scrollToTodayTrigger}
           scrollToMonthTrigger={scrollToMonthTrigger ?? undefined}
           onOpenPhotos={setHeroGalleryRoom}
+          onScrollToToday={() => setScrollToTodayTrigger((n) => n + 1)}
           onMyBookings={() => { setBookingsFocusKey(null); setMyBookingsOpen((o) => !o); }}
           onRequest={() => openBookingModal(null)}
           guestName={greetedName}

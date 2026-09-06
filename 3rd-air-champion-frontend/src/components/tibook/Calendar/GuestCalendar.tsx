@@ -190,6 +190,23 @@ const GuestCalendar = ({
    */
   const showRoomsLeft = scopedRooms.length > 1;
 
+  /*
+   * A short row cannot hold a number, "sold out" AND a star stacked. The tile
+   * is overflow-visible (a room name on a stay ribbon has to escape its cell),
+   * so they do not clip — they spill into the row below, and a wish-list star
+   * ended up sitting on the next week's dates.
+   *
+   * Below this height the star moves to the corner of the tile, where it costs
+   * the stack no height at all. Side by side was tried first and was worse: a
+   * cell is only about 55px wide, so "sold out" wrapped to two lines to make
+   * room for it.
+   *
+   * The star keeps working at every size, which matters more than keeping it
+   * under the words: hiding it would take the wish list away from exactly the
+   * guests on the smallest screens.
+   */
+  const tightRow = rowHeight < 52;
+
   // The guest's own stays as bar segments per day: a PM segment on every night
   // (check-in day starts at 20%), and an AM cap on the check-out morning — the
   // same PM-checkin/AM-checkout geometry as the TiMag calendar, so a stay reads
@@ -473,15 +490,27 @@ const GuestCalendar = ({
           </span>
         )}
         {!simplified && !inCart && !isStayNight && (status === "full" || status === "blocked") && (
-          <div className="relative z-10 flex flex-col items-center gap-0.5">
-            {/* Keep "sold out" visible even when wish-listed — the gray wish-list
-                overlay otherwise hides it and the date looks bookable again. */}
-            <span className={`font-medium leading-none ${theme.surfaceMuted}`} style={{ fontSize: metaSize }}>
-              sold out
-            </span>
-            {canWishList && (
+          <>
+            <div className="relative z-10 flex flex-col items-center gap-0.5">
+              {/* Keep "sold out" visible even when wish-listed — the gray wish-list
+                  overlay otherwise hides it and the date looks bookable again. */}
+              <span className={`font-medium leading-none ${theme.surfaceMuted}`} style={{ fontSize: metaSize }}>
+                sold out
+              </span>
+              {canWishList && !tightRow && (
+                <span
+                  className="leading-none z-10 relative cursor-pointer"
+                  style={{ fontSize: glyphSize }}
+                  title={isWishlisted ? "Remove from wish list" : "Add to wish list"}
+                  onClick={(e) => { e.stopPropagation(); onWishListClick!(date); }}
+                >
+                  {isWishlisted ? "★" : "☆"}
+                </span>
+              )}
+            </div>
+            {canWishList && tightRow && (
               <span
-                className="leading-none z-10 relative cursor-pointer"
+                className="absolute bottom-0 right-0.5 z-20 cursor-pointer leading-none"
                 style={{ fontSize: glyphSize }}
                 title={isWishlisted ? "Remove from wish list" : "Add to wish list"}
                 onClick={(e) => { e.stopPropagation(); onWishListClick!(date); }}
@@ -489,7 +518,7 @@ const GuestCalendar = ({
                 {isWishlisted ? "★" : "☆"}
               </span>
             )}
-          </div>
+          </>
         )}
         {/* The guest's own stay — a spanning ribbon (AM checkout cap + PM
             check-in/continuing bar) that connects across cells, room-colored,

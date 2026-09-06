@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef } from "react";
+import { isSameMonth } from "date-fns";
 import { roomType } from "../../util/types/roomType";
 import { dayType } from "../../util/types/dayType";
 import { getRoomPhotos } from "../../util/roomFacts";
 import { useTiBookTheme, useRoomChip } from "../../contexts/TiBookThemeContext";
 import { AppearanceMenu } from "./NavBarDesktop";
 import GuestCalendar, { MyStay } from "./Calendar/GuestCalendar";
+import TodayButton from "./Calendar/TodayButton";
 
 const BACKEND = import.meta.env.VITE_BACKEND_ENDPOINT || "";
 const resolveUrl = (url: string) => (url.startsWith("/") ? `${BACKEND}${url}` : url);
@@ -55,6 +57,7 @@ interface HeroShellProps {
   scrollToTodayTrigger: number;
   scrollToMonthTrigger?: { month: Date; seq: number };
   onOpenPhotos: (room: roomType) => void;
+  onScrollToToday: () => void;
   onMyBookings: () => void;
   onRequest: () => void;
   guestName?: string;
@@ -67,7 +70,7 @@ const HeroShell = ({
   cartDates, wishListDates, newWishListDates, myBookingDates, myStays,
   reservedStays, reservedMap, currentMonth, onMonthChange, onDateClick,
   onWishListClick, onMyStayClick, onReservedClick, scrollToTodayTrigger,
-  scrollToMonthTrigger, onOpenPhotos, onMyBookings, onRequest, guestName,
+  scrollToMonthTrigger, onOpenPhotos, onScrollToToday, onMyBookings, onRequest, guestName,
   actionLabel, hasSelection,
 }: HeroShellProps) => {
   const { theme } = useTiBookTheme();
@@ -112,6 +115,21 @@ const HeroShell = ({
     if (scrollingTo.current && scrollingTo.current !== best) return;
     scrollingTo.current = null;
     if (best !== activeId) onSelectRoom(best === ANY ? null : best);
+  };
+
+  /*
+   * A tap means two different things depending on which card it lands on, and
+   * that is the ordinary behaviour of a deck: the first tap brings a card to
+   * the front, a second tap on the card you are already looking at opens it.
+   *
+   * Before this, every tap only selected — so tapping the room you were already
+   * on did nothing at all, and the photographs looked like buttons that were
+   * broken. The stacked layout has always opened the gallery from the picture;
+   * this is the same promise kept in a deck.
+   */
+  const tapCard = (id: string, room: roomType | null, photos: number) => {
+    if (id !== activeId) { pick(id); return; }
+    if (room && photos > 0) onOpenPhotos(room);
   };
 
   // Bring a tapped card to the front of the deck.
@@ -190,8 +208,8 @@ const HeroShell = ({
         <AppearanceMenu />
       </div>
 
-      {/* ── The rooms: 2 of the 5 parts above the bottom bar ─────────────── */}
-      <div className="relative min-h-0 flex-[2]">
+      {/* ── The rooms: 3 of the 5 parts under the header ─────────────────── */}
+      <div className="relative min-h-0 flex-[3]">
         <div
           ref={trackRef}
           onScroll={onScroll}
@@ -205,7 +223,7 @@ const HeroShell = ({
               <div
                 key={id}
                 ref={(n) => { if (n) cardRefs.current.set(id, n); else cardRefs.current.delete(id); }}
-                onClick={() => pick(id)}
+                onClick={() => tapCard(id, room, count)}
                 className={`relative w-[17rem] shrink-0 snap-start cursor-pointer overflow-hidden rounded-3xl border transition-all ${
                   on ? theme.selectedBorder : theme.surfaceBorder
                 } ${on ? theme.glow : "opacity-70"}`}
@@ -220,13 +238,16 @@ const HeroShell = ({
                     {/* The foot of the card is where the name and price live,
                         because the head is where the bar is. */}
                     <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/85 via-black/45 to-transparent" />
-                    {count > 1 && (
+                    {/* Only on the card in front: on the others the tap
+                        selects, and offering "details" for something a tap
+                        will not open is worse than offering nothing. */}
+                    {on && count > 0 && (
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); onOpenPhotos(room); }}
                         className="absolute bottom-3 right-3 flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-semibold text-white"
                       >
-                        {count} photos
+                        {count > 1 ? `${count} photos` : "Details"} ›
                       </button>
                     )}
                     <div className="absolute inset-x-3 bottom-3 flex flex-col items-start gap-1.5">
@@ -278,9 +299,9 @@ const HeroShell = ({
 
       </div>
 
-      {/* ── The month: 3 of the 5 parts ──────────────────────────────────── */}
-      <div className={`flex min-h-0 flex-[3] flex-col border-t ${theme.line} ${theme.surface}`}>
-        <div className="flex shrink-0 items-center gap-2 px-4 pb-1.5 pt-2">
+      {/* ── The month: the other 2 ───────────────────────────────────────── */}
+      <div className={`flex min-h-0 flex-[2] flex-col border-t ${theme.line} ${theme.surface}`}>
+        <div className="flex shrink-0 items-center gap-2 px-4 pb-1 pt-1.5">
           <span
             className="h-2.5 w-2.5 shrink-0 rounded-full"
             style={activeRoom
@@ -292,9 +313,20 @@ const HeroShell = ({
           <span className={`text-sm font-bold ${theme.surfaceText}`}>
             {currentMonth.toLocaleString("en-US", { month: "long" })}
           </span>
-          <span className={`truncate text-[13px] ${theme.surfaceMuted}`}>
+          <span className={`min-w-0 flex-1 truncate text-[13px] ${theme.surfaceMuted}`}>
             · {activeRoom ? `${activeRoom.name} is free ${freeNights} night${freeNights === 1 ? "" : "s"}` : `${freeNights} night${freeNights === 1 ? "" : "s"} open`}
           </span>
+          {/* The same way back to now the stacked layout has always had, and
+              the same component, so it disables itself on the current month
+              rather than pretending to be a button that does nothing. */}
+          <TodayButton isCurrentMonth={isSameMonth(currentMonth, new Date())} onScrollToToday={onScrollToToday} />
+        </div>
+
+        {/* The weekday header. GuestCalendar draws only the grid — in the
+            stacked layout these letters come from CalendarNavigator, which
+            Hero does not use, so the month was running without them. */}
+        <div className={`grid shrink-0 grid-cols-7 pb-1 text-center text-[11px] font-medium ${theme.surfaceMuted}`}>
+          <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
         </div>
 
         {reservedStays.length > 0 && (
@@ -340,7 +372,7 @@ const HeroShell = ({
           In the row it takes the space it needs and the other two keep theirs;
           the lift is cosmetic and cannot overlap anything. */}
       <div className={`flex h-[4.6rem] shrink-0 items-center gap-2 border-t px-3 ${theme.surfaceBorder} ${theme.chrome}`}>
-        <button type="button" onClick={() => onMonthChange(new Date())} className={`flex w-14 shrink-0 flex-col items-center gap-1 ${theme.chromeAccent}`}>
+        <button type="button" onClick={onScrollToToday} className={`flex w-14 shrink-0 flex-col items-center gap-1 ${theme.chromeAccent}`}>
           <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
             <rect x="3" y="5" width="18" height="16" rx="2" /><path strokeLinecap="round" d="M8 3v4M16 3v4M3 11h18" />
           </svg>
