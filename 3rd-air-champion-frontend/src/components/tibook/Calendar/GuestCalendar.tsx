@@ -177,6 +177,19 @@ const GuestCalendar = ({
     [rooms, selectedRoomIds],
   );
 
+  /*
+   * "N left" counts how many of the rooms you are LOOKING AT are free. Scoped
+   * to a single room it is always "1 left", on every open night, which tells a
+   * guest nothing they did not get from the night being open at all — and in
+   * the Hero layout, where picking one room is the normal way to read the
+   * month, it was noise on every cell.
+   *
+   * So the count appears only when there is something to count. It still does
+   * the work it was for on "all rooms", which is the case where three-left and
+   * one-left are genuinely different news.
+   */
+  const showRoomsLeft = scopedRooms.length > 1;
+
   // The guest's own stays as bar segments per day: a PM segment on every night
   // (check-in day starts at 20%), and an AM cap on the check-out morning — the
   // same PM-checkin/AM-checkout geometry as the TiMag calendar, so a stay reads
@@ -448,13 +461,15 @@ const GuestCalendar = ({
         </span>
         {/* Availability stays visible whether or not the night is picked — it's
             info the guest wants either way; a ✓ marks it selected. */}
-        {!simplified && (status === "available" || status === "partial") && roomsLeft > 0 && (
+        {!simplified && (status === "available" || status === "partial") && roomsLeft > 0 && (inCart || showRoomsLeft) && (
           <span
             className={`relative z-10 font-semibold leading-none ${inCart ? "text-white" : theme.tileText}`}
             style={{ fontSize: metaSize }}
           >
-            {inCart ? "✓ " : ""}
-            {roomsLeft} left
+            {/* The tick stays whatever the scope: it is the guest's own
+                selection, not a count. */}
+            {inCart ? "✓" : ""}
+            {showRoomsLeft ? `${inCart ? " " : ""}${roomsLeft} left` : ""}
           </span>
         )}
         {!simplified && !inCart && !isStayNight && (status === "full" || status === "blocked") && (

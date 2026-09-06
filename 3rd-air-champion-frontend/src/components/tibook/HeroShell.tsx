@@ -163,6 +163,33 @@ const HeroShell = ({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
 
+      {/* The header used to ride ON the photo, with a scrim across the top of
+          the card, to buy the picture another 46px. It bought the wrong thing:
+          a title, a subtitle and two controls sat over the part of a room
+          photo you actually look at, and a scrim dark enough to keep them
+          readable is a scrim dark enough to spoil the picture underneath.
+          Its own row costs 46px of card and gives back a clean photograph. */}
+      <div className={`flex shrink-0 items-center gap-2 px-4 py-2 ${theme.chrome}`}>
+        <div className="min-w-0 flex-1">
+          <div className={`truncate text-sm font-extrabold leading-tight ${theme.chromeText}`}>
+            {host.airbnbName || host.name}
+          </div>
+          <div className={`truncate text-[11px] leading-tight ${theme.chromeMuted}`}>
+            {activeRoom
+              ? `${activeRooms.findIndex((r) => r.id === activeId) + 1} of ${activeRooms.length} · swipe`
+              : "All rooms · swipe to pick one"}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onMyBookings}
+          className={`shrink-0 rounded-full border px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap ${theme.chromeBorder} ${theme.chromeHover} ${guestName?.trim() ? theme.chromeAccent : theme.chromeMuted}`}
+        >
+          {guestName?.trim().split(" ")[0] || "Your bookings"}
+        </button>
+        <AppearanceMenu />
+      </div>
+
       {/* ── The rooms: 2 of the 5 parts above the bottom bar ─────────────── */}
       <div className="relative min-h-0 flex-[2]">
         <div
@@ -192,7 +219,7 @@ const HeroShell = ({
                     )}
                     {/* The foot of the card is where the name and price live,
                         because the head is where the bar is. */}
-                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/90 to-transparent" />
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/85 via-black/45 to-transparent" />
                     {count > 1 && (
                       <button
                         type="button"
@@ -249,28 +276,6 @@ const HeroShell = ({
           <div className="w-3 shrink-0" />
         </div>
 
-        {/* The bar rides ON the photo, so the whole two fifths belongs to the
-            picture instead of a strip of it going to a title. */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start gap-2 bg-gradient-to-b from-black/85 via-black/45 to-transparent px-4 pb-6 pt-3">
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-base font-extrabold leading-tight text-white">
-              {host.airbnbName || host.name}
-            </div>
-            <div className="truncate text-[11px] text-white/70">
-              {activeRoom ? `${activeRooms.findIndex((r) => r.id === activeId) + 1} of ${activeRooms.length} · swipe` : "All rooms · swipe to pick one"}
-            </div>
-          </div>
-          <div className="pointer-events-auto flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onMyBookings}
-              className="rounded-full border border-white/30 bg-black/40 px-3 py-1.5 text-xs font-semibold text-white"
-            >
-              {guestName?.trim().split(" ")[0] || "Your bookings"}
-            </button>
-            <AppearanceMenu />
-          </div>
-        </div>
       </div>
 
       {/* ── The month: 3 of the 5 parts ──────────────────────────────────── */}
@@ -328,9 +333,14 @@ const HeroShell = ({
         </div>
       </div>
 
-      {/* ── The bottom bar, so nothing important sits in a top corner ────── */}
-      <div className={`relative flex h-[4.6rem] shrink-0 items-center justify-around border-t ${theme.surfaceBorder} ${theme.chrome}`}>
-        <button type="button" onClick={() => onMonthChange(new Date())} className={`flex flex-col items-center gap-1 ${theme.chromeAccent}`}>
+      {/* ── The bottom bar, so nothing important sits in a top corner ──────
+          The action is a ROW ITEM, not an absolutely-centred one. Floated, it
+          sat on top of Dates and You and ate both tap targets — and the label
+          grows ("2 dates · ★ 1 wish list"), so no fixed width would have held.
+          In the row it takes the space it needs and the other two keep theirs;
+          the lift is cosmetic and cannot overlap anything. */}
+      <div className={`flex h-[4.6rem] shrink-0 items-center gap-2 border-t px-3 ${theme.surfaceBorder} ${theme.chrome}`}>
+        <button type="button" onClick={() => onMonthChange(new Date())} className={`flex w-14 shrink-0 flex-col items-center gap-1 ${theme.chromeAccent}`}>
           <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
             <rect x="3" y="5" width="18" height="16" rx="2" /><path strokeLinecap="round" d="M8 3v4M16 3v4M3 11h18" />
           </svg>
@@ -340,17 +350,17 @@ const HeroShell = ({
         <button
           type="button"
           onClick={onRequest}
-          /* The one action, floated over the bar and centred: on a 6-inch phone
-             this is the only spot a thumb reaches without regripping. */
-          className={`absolute left-1/2 top-[-1.4rem] flex h-[3.25rem] -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full px-6 text-sm font-bold text-white ${theme.btn} ${theme.btnHover} ${theme.btnMotion} ${theme.glow} shadow-lg`}
+          /* Centre of the bar, lifted clear of it: on a 6-inch phone this is
+             the one spot a thumb reaches without regripping. */
+          className={`flex h-[3.25rem] min-w-0 flex-1 -translate-y-2 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-bold text-white ${theme.btn} ${theme.btnHover} ${theme.btnMotion} ${theme.glow} shadow-lg`}
         >
-          {hasSelection ? actionLabel : "Request a Booking"}
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.6} viewBox="0 0 24 24">
+          <span className="min-w-0 truncate">{hasSelection ? actionLabel : "Request a Booking"}</span>
+          <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.6} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14m-6-6 6 6-6 6" />
           </svg>
         </button>
 
-        <button type="button" onClick={onMyBookings} className={`flex flex-col items-center gap-1 ${theme.chromeMuted}`}>
+        <button type="button" onClick={onMyBookings} className={`flex w-14 shrink-0 flex-col items-center gap-1 ${theme.chromeMuted}`}>
           <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
             <circle cx="12" cy="8" r="4" /><path strokeLinecap="round" d="M4 21c0-4 3.6-6 8-6s8 2 8 6" />
           </svg>
