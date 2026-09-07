@@ -561,7 +561,17 @@ const TiBookInner = () => {
         vibe === "vivid" ? "tibook-vibe-vivid tibook-vibe-vivid-backdrop" : ""
       }`}
     >
-      {layout === "hero" && currentHost ? (
+      {layout === "hero" ? (
+        !currentHost ? (
+          /* Hero waits on its own. Falling through to the stacked branch while
+             the host loaded meant a guest who chose Hero got a flash of the
+             nav bar, the banner and the room strip — the layout they did not
+             pick — every time they opened the app. */
+          <div className={`flex min-h-0 flex-1 flex-col items-center justify-center gap-3 ${theme.surface}`}>
+            <span className={`h-6 w-6 animate-spin rounded-full border-2 ${theme.spinner}`} />
+            <p className={`text-sm ${theme.surfaceMuted}`}>Loading…</p>
+          </div>
+        ) : (
         /* Same state, same handlers, same calendar — a different arrangement
            of them. Everything below this block (the modals, the consent gate,
            the popups) is shared, so a guest switching look mid-visit keeps
@@ -596,6 +606,7 @@ const TiBookInner = () => {
           actionLabel={barLabel}
           hasSelection={hasSelection}
         />
+        )
       ) : (
       <>
       <NavBarDesktop

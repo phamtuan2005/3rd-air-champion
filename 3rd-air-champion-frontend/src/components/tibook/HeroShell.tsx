@@ -159,9 +159,14 @@ const HeroShell = ({
   // same monthMap the grid reads, so the sentence and the grid cannot disagree.
   const freeNights = useMemo(() => {
     let n = 0;
+    // Compared as STRINGS. Parsing "2026-09-01T00:00:00" gives local midnight,
+    // so for a guest east or west of the house the first and last night of the
+    // month fell into the wrong one and the count above the grid disagreed
+    // with the grid. The keys are already yyyy-MM-dd; the first seven
+    // characters are the month.
+    const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}`;
     monthMap.forEach((day, key) => {
-      const d = new Date(key + "T00:00:00");
-      if (d.getMonth() !== currentMonth.getMonth() || d.getFullYear() !== currentMonth.getFullYear()) return;
+      if (key.slice(0, 7) !== monthKey) return;
       if (day.isBlocked) return;
       const taken = new Set<string>(day.bookings?.map((b) => b.room?.id).filter(Boolean) as string[] ?? []);
       reservedMap.get(key)?.forEach((id) => taken.add(id));
@@ -194,7 +199,12 @@ const HeroShell = ({
           photo you actually look at, and a scrim dark enough to keep them
           readable is a scrim dark enough to spoil the picture underneath.
           Its own row costs 46px of card and gives back a clean photograph. */}
-      <div className={`flex shrink-0 items-center gap-2 px-3 py-2 ${theme.chrome}`}>
+      {/* A real <nav>. The room gallery opens itself just below the nav so a
+          guest can still see their own name while looking at the pictures, and
+          it MEASURES that bar rather than guessing — with a plain div here it
+          found nothing, fell back to a hardcoded 72px, and left a strip of the
+          room deck showing above the sheet. */}
+      <nav className={`flex shrink-0 items-center gap-2 px-3 py-2 ${theme.chrome}`}>
         {/* TiBook's own icon, not TiMag's logo: this is the guest's app, and
             the one place in Hero where it can say so — the stacked layout says
             it in a nav bar Hero does not have. */}
@@ -221,7 +231,7 @@ const HeroShell = ({
           {guestName?.trim().split(" ")[0] || "Your bookings"}
         </button>
         <AppearanceMenu />
-      </div>
+      </nav>
 
       {/* ── The rooms: 2 of the 5 parts under the header ─────────────────── */}
       <div className="relative min-h-0 flex-[2]">
@@ -256,20 +266,16 @@ const HeroShell = ({
                     {/* Only on the card in front: on the others the tap
                         selects, and offering "details" for something a tap
                         will not open is worse than offering nothing. */}
-                    {on && count > 0 && (
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); onOpenPhotos(room); }}
-                        className="absolute bottom-3 right-3 flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-semibold text-white"
-                      >
-                        {count > 1 ? `${count} photos` : "Details"} ›
-                      </button>
-                    )}
-                    <div className="absolute inset-x-3 bottom-3 flex flex-col items-start gap-1.5">
+                    {/* One row, so the pill and the price cannot land on each
+                        other. They were both absolute and bottom-3 — the text
+                        ran full width underneath the pill and "Your price is
+                        agreed with Anh-Tuan" was cut off mid-sentence by it. */}
+                    <div className="absolute inset-x-3 bottom-3 flex items-end gap-2">
+                    <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
                       <span className={`rounded-lg px-3 py-1 text-sm font-bold text-white ${roomChip(room)}`}>
                         {room.name}
                       </span>
-                      <span className="flex items-baseline gap-1.5">
+                      <span className="flex min-w-0 items-baseline gap-1.5">
                         {/* A guest on a deliberate $0 rate is family. Saying
                             "$0" reads as a bug, so it says what it means. */}
                         {myRate(room) === 0 ? (
@@ -282,9 +288,19 @@ const HeroShell = ({
                         ) : (
                           /* Says what will happen rather than showing a number
                              that is not theirs. */
-                          <span className="text-xs text-white/85">Your price is agreed with {hostFirstName}</span>
+                          <span className="text-xs leading-snug text-white/85">Your price is agreed with {hostFirstName}</span>
                         )}
                       </span>
+                    </div>
+                    {on && count > 0 && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onOpenPhotos(room); }}
+                        className="mb-0.5 shrink-0 whitespace-nowrap rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-semibold text-white"
+                      >
+                        {count > 1 ? `${count} photos` : "Details"} ›
+                      </button>
+                    )}
                     </div>
                   </>
                 ) : (

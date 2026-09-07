@@ -303,11 +303,6 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
           thumbnails a phone could only ever reach pictures 13 to 28. The
           "safe" keyword falls back to start-alignment once the row overflows,
           and still centres it when a room has only a few pictures. */}
-      {hero && (
-        <div className="flex shrink-0 justify-center pb-1 pt-2.5" onClick={(e) => e.stopPropagation()}>
-          <span className={`h-1.5 w-10 rounded-full ${theme.handle}`} />
-        </div>
-      )}
       {photos.length > 1 && (
         <div
           ref={stripRef}
