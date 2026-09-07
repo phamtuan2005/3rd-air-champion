@@ -217,19 +217,19 @@ const HeroShell = ({
           <div className={`truncate text-sm font-extrabold leading-tight ${theme.chromeText}`}>
             {host.airbnbName || host.name}
           </div>
+          {/* "1 of 5 · swipe" said what to do and never what for. Both lines
+              name the thing being swiped through now. */}
           <div className={`truncate text-[11px] leading-tight ${theme.chromeMuted}`}>
             {activeRoom
-              ? `${activeRooms.findIndex((r) => r.id === activeId) + 1} of ${activeRooms.length} · swipe`
-              : "All rooms · swipe to pick one"}
+              ? `Room ${activeRooms.findIndex((r) => r.id === activeId) + 1} of ${activeRooms.length} · swipe for more`
+              : `Any room · swipe through all ${activeRooms.length}`}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onMyBookings}
-          className={`shrink-0 rounded-full border px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap ${theme.chromeBorder} ${theme.chromeHover} ${guestName?.trim() ? theme.chromeAccent : theme.chromeMuted}`}
-        >
-          {guestName?.trim().split(" ")[0] || "Your bookings"}
-        </button>
+        {/* The bookings pill used to sit here as well as in the bottom bar,
+            which is the same door twice — and for a guest we do not know yet it
+            reads "Your bookings", 110px of a 320px bar, which is what pushed
+            the line under the house name off the end. The bottom bar keeps it,
+            where a thumb reaches it, and greets a guest we know by name. */}
         <AppearanceMenu />
       </nav>
 
@@ -249,7 +249,11 @@ const HeroShell = ({
                 key={id}
                 ref={(n) => { if (n) cardRefs.current.set(id, n); else cardRefs.current.delete(id); }}
                 onClick={() => tapCard(id, room, count)}
-                className={`relative w-[17rem] shrink-0 snap-start cursor-pointer overflow-hidden rounded-3xl border transition-all ${
+                /* 17rem is a phone's card: on a 1280px screen that left the
+                   photographs small and the deck mostly empty space. It grows
+                   with the viewport from sm upward, so a desktop gets a
+                   picture worth looking at and a phone is untouched. */
+                className={`relative w-[17rem] sm:w-[22rem] md:w-[26rem] lg:w-[32rem] shrink-0 snap-start cursor-pointer overflow-hidden rounded-3xl border transition-all ${
                   on ? theme.selectedBorder : theme.surfaceBorder
                 } ${on ? theme.glow : "opacity-70"}`}
               >
@@ -424,11 +428,11 @@ const HeroShell = ({
           </svg>
         </button>
 
-        <button type="button" onClick={onMyBookings} className={`flex w-14 shrink-0 flex-col items-center gap-1 ${theme.chromeMuted}`}>
+        <button type="button" onClick={onMyBookings} className={`flex w-16 shrink-0 flex-col items-center gap-1 ${guestName?.trim() ? theme.chromeAccent : theme.chromeMuted}`}>
           <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
             <circle cx="12" cy="8" r="4" /><path strokeLinecap="round" d="M4 21c0-4 3.6-6 8-6s8 2 8 6" />
           </svg>
-          <span className="text-[11px] font-semibold">You</span>
+          <span className="max-w-[4.5rem] truncate text-[11px] font-semibold">{guestName?.trim().split(" ")[0] || "You"}</span>
         </button>
       </div>
     </div>
