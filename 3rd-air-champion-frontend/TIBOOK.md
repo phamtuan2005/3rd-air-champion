@@ -105,6 +105,12 @@ them; this is the index.
    layout, stop: that belongs in `TiBook.tsx` where the other layout can see
    it too.
 
+   One modal knows which layout it is in: `RoomGalleryModal` reads `layout`
+   and wears a different CHROME in Hero — full-bleed photo, the facts on a
+   rounded sheet lifted over it. The facts, the amenities and the price
+   conversation are the same markup in both. That is the line: a layout may
+   change how a screen is arranged, never what it says.
+
 9. **There are two SKINS, and neither is a second app.** A guest picks Classic
    or Neon in the nav and the choice is remembered per device, alongside the
    palette — which survives the switch rather than being replaced by it. Both

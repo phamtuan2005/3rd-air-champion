@@ -14,10 +14,9 @@ const resolveUrl = (url: string) => (url.startsWith("/") ? `${BACKEND}${url}` : 
 /*
  * The Hero layout.
  *
- * The rooms take the top two fifths of everything above the bottom bar and the
- * month takes the lower three — the proportion the mockup was settled at, kept
- * here as a flex-basis rather than pixels so it holds on a short phone as well
- * as a tall one.
+ * The rooms take two fifths of everything under the header and the month takes
+ * the other three, kept as flex-grow rather than pixels so the proportion holds
+ * on a short phone as well as a tall one.
  *
  * What this component does NOT do is decide anything. Swiping a card sets
  * selectedRoomIds, which is the same filter the room strip has always driven,
@@ -224,8 +223,8 @@ const HeroShell = ({
         <AppearanceMenu />
       </div>
 
-      {/* ── The rooms: half of what is under the header ──────────────────── */}
-      <div className="relative min-h-0 flex-1">
+      {/* ── The rooms: 2 of the 5 parts under the header ─────────────────── */}
+      <div className="relative min-h-0 flex-[2]">
         <div
           ref={trackRef}
           onScroll={onScroll}
@@ -316,8 +315,8 @@ const HeroShell = ({
 
       </div>
 
-      {/* ── The month: the other half ────────────────────────────────────── */}
-      <div className={`flex min-h-0 flex-1 flex-col border-t ${theme.line} ${theme.surface}`}>
+      {/* ── The month: the other 3 ───────────────────────────────────────── */}
+      <div className={`flex min-h-0 flex-[3] flex-col border-t ${theme.line} ${theme.surface}`}>
         <div className="flex shrink-0 items-center gap-2 px-4 pb-1 pt-1.5">
           <span
             className="h-2.5 w-2.5 shrink-0 rounded-full"
