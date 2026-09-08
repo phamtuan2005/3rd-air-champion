@@ -1,6 +1,6 @@
 import { format } from "date-fns";
 import { roomType } from "../../util/types/roomType";
-import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
+import { useTiBookTheme, useRoomChip } from "../../contexts/TiBookThemeContext";
 import RoomBadge from "../shared/RoomBadge";
 
 interface RoomPickerPopupProps {
@@ -18,12 +18,13 @@ interface RoomPickerPopupProps {
 // only one is left.
 const RoomPickerPopup = ({ date, rooms, onPick, onAny, onClose, title, subtitle }: RoomPickerPopupProps) => {
   const { theme } = useTiBookTheme();
+  const roomChip = useRoomChip();
   const only = rooms.length === 1;
 
   return (
-    <div className="tibook-type fixed inset-0 z-[130] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+    <div className={`tibook-type fixed inset-0 z-[130] flex items-center justify-center ${theme.scrim} p-4`} onClick={onClose}>
       <div
-        className="w-full max-w-xs overflow-hidden rounded-2xl bg-white shadow-2xl"
+        className={`w-full max-w-xs overflow-hidden rounded-2xl ${theme.surface} shadow-2xl`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-2 px-4 pb-1 pt-3">
@@ -31,13 +32,13 @@ const RoomPickerPopup = ({ date, rooms, onPick, onAny, onClose, title, subtitle 
             <p className={`text-sm font-bold ${theme.textPrimary}`}>
               {title ?? (only ? "Only 1 room left" : "Pick your room")}
             </p>
-            <p className="text-xs text-gray-500">{subtitle ?? format(date, "EEEE, MMM d")}</p>
+            <p className={`text-xs ${theme.surfaceMuted}`}>{subtitle ?? format(date, "EEEE, MMM d")}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xl leading-none text-gray-400 hover:bg-gray-100"
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xl leading-none ${theme.surfaceMuted2} ${theme.surfaceHover2}`}
           >
             &times;
           </button>
@@ -45,7 +46,7 @@ const RoomPickerPopup = ({ date, rooms, onPick, onAny, onClose, title, subtitle 
 
         <div className="flex flex-col gap-1.5 px-4 pb-4 pt-1">
           {rooms.length === 0 && (
-            <p className="py-3 text-center text-xs text-gray-400">
+            <p className={`py-3 text-center text-xs ${theme.surfaceMuted2}`}>
               No other room is free for these dates.
             </p>
           )}
@@ -54,9 +55,9 @@ const RoomPickerPopup = ({ date, rooms, onPick, onAny, onClose, title, subtitle 
               key={r.id}
               type="button"
               onClick={() => onPick(r.id)}
-              className="flex items-center justify-between gap-2 rounded-xl border border-gray-200 px-2.5 py-2 hover:bg-gray-50"
+              className={`flex items-center justify-between gap-2 rounded-xl border ${theme.line} px-2.5 py-2 ${theme.chromeHover}`}
             >
-              <RoomBadge room={r} rooms={rooms} className="text-sm" />
+              <RoomBadge room={r} rooms={rooms} override={roomChip(r)} className="text-sm" />
               <span className={`shrink-0 text-xs font-bold ${theme.textPrimary}`}>Select ›</span>
             </button>
           ))}
@@ -66,9 +67,9 @@ const RoomPickerPopup = ({ date, rooms, onPick, onAny, onClose, title, subtitle 
             <button
               type="button"
               onClick={onAny}
-              className="flex items-center justify-between gap-2 rounded-xl border border-dashed border-gray-300 px-2.5 py-2 hover:bg-gray-50"
+              className={`flex items-center justify-between gap-2 rounded-xl border border-dashed ${theme.lineStrong} px-2.5 py-2 ${theme.chromeHover}`}
             >
-              <span className="text-sm font-semibold text-gray-600">Any available room</span>
+              <span className={`text-sm font-semibold ${theme.surfaceText3}`}>Any available room</span>
               <span className={`shrink-0 text-xs font-bold ${theme.textPrimary}`}>Select ›</span>
             </button>
           )}

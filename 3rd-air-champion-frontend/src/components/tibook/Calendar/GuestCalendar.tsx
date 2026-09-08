@@ -4,7 +4,7 @@ import { addDays, getDay, isBefore, isSameDay, isSameMonth, parseISO, startOfTod
 import { dayType } from "../../../util/types/dayType";
 import { roomType } from "../../../util/types/roomType";
 import { getRoomColor } from "../../../util/getRoomColor";
-import { useTiBookTheme } from "../../../contexts/TiBookThemeContext";
+import { useTiBookTheme, useRoomChip } from "../../../contexts/TiBookThemeContext";
 
 // A guest's own confirmed stay, drawn as a spanning bar (not a dot).
 export interface MyStay {
@@ -150,6 +150,7 @@ const GuestCalendar = ({
   onReservedClick,
 }: GuestCalendarProps) => {
   const { theme } = useTiBookTheme();
+  const roomChip = useRoomChip();
   const [months, setMonths] = useState<Date[]>([]);
   const [visibleIndex, setVisibleIndex] = useState(0);
   const [containerHeight, setContainerHeight] = useState(0);
@@ -175,6 +176,49 @@ const GuestCalendar = ({
     () => rooms.filter((r) => r.active && (selectedRoomIds === null || selectedRoomIds.has(r.id))),
     [rooms, selectedRoomIds],
   );
+
+  /*
+   * "N left" counts how many of the rooms you are LOOKING AT are free. Scoped
+   * to a single room it is always "1 left", on every open night, which tells a
+   * guest nothing they did not get from the night being open at all — and in
+   * the Hero layout, where picking one room is the normal way to read the
+   * month, it was noise on every cell.
+   *
+   * So the count appears only when there is something to count. It still does
+   * the work it was for on "all rooms", which is the case where three-left and
+   * one-left are genuinely different news.
+   */
+  const showRoomsLeft = scopedRooms.length > 1;
+
+  /*
+   * A short row cannot hold a number, "sold out" AND a star stacked. The tile
+   * is overflow-visible (a room name on a stay ribbon has to escape its cell),
+   * so they do not clip — they spill into the row below, and a wish-list star
+   * ended up sitting on the next week's dates.
+   *
+   * Below this height the star moves to the corner of the tile, where it costs
+   * the stack no height at all. Side by side was tried first and was worse: a
+   * cell is only about 55px wide, so "sold out" wrapped to two lines to make
+   * room for it.
+   *
+   * The star keeps working at every size, which matters more than keeping it
+   * under the words: hiding it would take the wish list away from exactly the
+   * guests on the smallest screens.
+   */
+  const tightRow = rowHeight < 52;
+
+  /*
+   * Tighter still, and the words themselves have to go.
+   *
+   * A number is 13px at the floor and "sold out" another 11px; stacked with the
+   * cell's own padding that wants about 30px, and half a phone's calendar on a
+   * 320px screen leaves 28. Below this the meta line is dropped and the number
+   * carries the night on its own — struck through and grey for a night that is
+   * gone, accent-coloured for one that is free, which is the same thing the
+   * words were saying. The tick on a night the guest picked stays: that is
+   * their own doing, not a status.
+   */
+  const veryTightRow = rowHeight < 36;
 
   // The guest's own stays as bar segments per day: a PM segment on every night
   // (check-in day starts at 20%), and an AM cap on the check-out morning — the
@@ -401,10 +445,10 @@ const GuestCalendar = ({
       // No text-* size here: the size comes from the tile, via dateSize below.
       "leading-none select-none",
       inCart ? "font-bold text-white" :
-      isWishlisted ? "text-gray-500 line-through" :
+      isWishlisted ? `line-through ${theme.surfaceMuted}` :
       (status === "available" || status === "partial") ? `font-bold ${theme.textPrimary}` :
-      status === "past"      ? "text-gray-300" :
-                               "text-gray-300 line-through",
+      status === "past"      ? theme.dim :
+                               `line-through ${theme.dim}`,
     ].join(" ");
 
     const tileClass = [
@@ -413,13 +457,13 @@ const GuestCalendar = ({
       // overflow-visible: a room name on a multi-night stay is drawn once, on the
       // first night, and overhangs into the cells the ribbon continues through.
       // A button does not reliably let its content escape without being told to.
-      "border-r border-b border-gray-300 flex flex-col items-center justify-start gap-0.5 pt-1 w-full h-full relative overflow-visible",
+      `border-r border-b ${theme.gridLine} flex flex-col items-center justify-start gap-0.5 pt-1 w-full h-full relative overflow-visible`,
       isToday ? "react-calendar__custom_tile_today" : "",
       isOutside ? "opacity-20 pointer-events-none" : "",
       inCart ? "cursor-pointer" :
       isStayNight || isReservedNight ? "cursor-pointer" :
       canBook ? `cursor-pointer ${theme.tileHover} ${theme.tileActive} transition-colors` :
-      canWishList ? "cursor-pointer hover:bg-gray-100 transition-colors" : "cursor-default",
+      canWishList ? `cursor-pointer ${theme.tileWishHover} transition-colors` : "cursor-default",
     ].join(" ");
 
     return (
@@ -440,32 +484,48 @@ const GuestCalendar = ({
           <div className={`absolute inset-1 rounded-lg ${theme.btn} pointer-events-none`} />
         )}
         {isNewWishList && !inCart && (
-          <div className="absolute inset-1 rounded-lg bg-gray-200 pointer-events-none" />
+          <div className={`absolute inset-1 rounded-lg ${theme.tileWishBg} pointer-events-none`} />
         )}
         <span className={`${numberClass} relative z-10`} style={{ fontSize: dateSize }}>
           {date.getDate()}
         </span>
         {/* Availability stays visible whether or not the night is picked — it's
             info the guest wants either way; a ✓ marks it selected. */}
-        {!simplified && (status === "available" || status === "partial") && roomsLeft > 0 && (
+        {!simplified && (status === "available" || status === "partial") && roomsLeft > 0 && (inCart || (showRoomsLeft && !veryTightRow)) && (
           <span
-            className={`relative z-10 font-semibold leading-none ${inCart ? "text-white" : "text-black"}`}
+            className={`relative z-10 font-semibold leading-none ${inCart ? "text-white" : theme.tileText}`}
             style={{ fontSize: metaSize }}
           >
-            {inCart ? "✓ " : ""}
-            {roomsLeft} left
+            {/* The tick stays whatever the scope: it is the guest's own
+                selection, not a count. */}
+            {inCart ? "✓" : ""}
+            {showRoomsLeft && !veryTightRow ? `${inCart ? " " : ""}${roomsLeft} left` : ""}
           </span>
         )}
         {!simplified && !inCart && !isStayNight && (status === "full" || status === "blocked") && (
-          <div className="relative z-10 flex flex-col items-center gap-0.5">
-            {/* Keep "sold out" visible even when wish-listed — the gray wish-list
-                overlay otherwise hides it and the date looks bookable again. */}
-            <span className="font-medium text-gray-500 leading-none" style={{ fontSize: metaSize }}>
-              sold out
-            </span>
-            {canWishList && (
+          <>
+            {!veryTightRow && (
+            <div className="relative z-10 flex flex-col items-center gap-0.5">
+              {/* Keep "sold out" visible even when wish-listed — the gray wish-list
+                  overlay otherwise hides it and the date looks bookable again. */}
+              <span className={`font-medium leading-none ${theme.surfaceMuted}`} style={{ fontSize: metaSize }}>
+                sold out
+              </span>
+              {canWishList && !tightRow && (
+                <span
+                  className="leading-none z-10 relative cursor-pointer"
+                  style={{ fontSize: glyphSize }}
+                  title={isWishlisted ? "Remove from wish list" : "Add to wish list"}
+                  onClick={(e) => { e.stopPropagation(); onWishListClick!(date); }}
+                >
+                  {isWishlisted ? "★" : "☆"}
+                </span>
+              )}
+            </div>
+            )}
+            {canWishList && tightRow && (
               <span
-                className="leading-none z-10 relative cursor-pointer"
+                className="absolute bottom-0 right-0.5 z-20 cursor-pointer leading-none"
                 style={{ fontSize: glyphSize }}
                 title={isWishlisted ? "Remove from wish list" : "Add to wish list"}
                 onClick={(e) => { e.stopPropagation(); onWishListClick!(date); }}
@@ -473,14 +533,14 @@ const GuestCalendar = ({
                 {isWishlisted ? "★" : "☆"}
               </span>
             )}
-          </div>
+          </>
         )}
         {/* The guest's own stay — a spanning ribbon (AM checkout cap + PM
             check-in/continuing bar) that connects across cells, room-colored,
             labelled with the room on the check-in day. */}
         {bars?.am && !inCart && (
           <div
-            className={`${getRoomColor(bars.am.roomName, bars.am.roomColor)} pointer-events-none`}
+            className={`${roomChip({ name: bars.am.roomName, color: bars.am.roomColor }, "bar")} pointer-events-none`}
             style={{
               position: "absolute",
               bottom: barBottom,
@@ -494,7 +554,7 @@ const GuestCalendar = ({
         )}
         {bars?.pm && !inCart && (
           <div
-            className={`${getRoomColor(bars.pm.roomName, bars.pm.roomColor)} pointer-events-none flex items-center`}
+            className={`${roomChip({ name: bars.pm.roomName, color: bars.pm.roomColor }, "bar")} pointer-events-none flex items-center`}
             style={{
               position: "absolute",
               bottom: barBottom,
@@ -607,15 +667,15 @@ const GuestCalendar = ({
                   gridTemplateRows: `repeat(${NUM_ROWS}, ${rowHeight}px)`,
                   height: "100%",
                   width: "100%",
-                  borderTop: "1px solid #d1d5db",
-                  borderLeft: "1px solid #d1d5db",
+                  borderTop: "1px solid var(--tibook-grid-line)",
+                  borderLeft: "1px solid var(--tibook-grid-line)",
                 }}
               >
                 {layout.cells.map((date, cellIdx) =>
                   date ? (
                     renderTile(date, layout.month)
                   ) : (
-                    <div key={cellIdx} className="border-r border-b border-gray-300" />
+                    <div key={cellIdx} className={`border-r border-b ${theme.gridLine}`} />
                   ),
                 )}
               </div>

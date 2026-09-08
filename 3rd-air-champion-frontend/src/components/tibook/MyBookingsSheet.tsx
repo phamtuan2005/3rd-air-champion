@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { roomType } from "../../util/types/roomType";
-import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
+import { useTiBookTheme, useRoomChip } from "../../contexts/TiBookThemeContext";
 import { fetchCalendarBookingsByGuest } from "../../util/bookingRequestOperations";
 import { formatCancellationPolicy } from "../../util/cancellationPolicy";
 import { fetchGuestByPhone } from "../../util/guestOperations";
@@ -75,13 +75,13 @@ const CheckInInstructionsPanel = ({ instructions, theme }: { instructions: strin
           </svg>
           <span className={`text-[11px] font-bold uppercase tracking-wide ${theme.textPrimary}`}>Check-in instructions</span>
         </div>
-        <svg className={`w-3.5 h-3.5 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+        <svg className={`w-3.5 h-3.5 ${theme.surfaceMuted2} transition-transform ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
       </button>
       {open && (
-        <div className="px-3 py-3 bg-white">
-          <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{instructions}</p>
+        <div className={`px-3 py-3 ${theme.surface}`}>
+          <p className={`text-sm ${theme.surfaceText2} leading-relaxed whitespace-pre-wrap`}>{instructions}</p>
         </div>
       )}
     </div>
@@ -130,6 +130,7 @@ const statusLabel: Record<string, { label: string; color: string }> = {
 
 const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialPhone, initialName, focusKey, rooms, wishListDates, onToggleWishDate, cancellationFullRefundDays, cancellationHalfRefundDays, houseRules, onClose, onPhoneConfirmed, onClear }: MyBookingsSheetProps) => {
   const { theme } = useTiBookTheme();
+  const roomChip = useRoomChip();
   const activeRooms = rooms.filter((r) => r.active);
   const roomMap = new Map(rooms.map((r) => [r.id, r]));
 
@@ -310,7 +311,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
     const checkIn  = parseISO(dateKey(b));
     const checkOut = addDays(checkIn, Number(b.duration) || 1);
     const room     = roomMap.get(b.room);
-    const st        = statusLabel[b.status] ?? { label: b.status, color: "text-gray-500 bg-gray-50 border-gray-200" };
+    const st        = statusLabel[b.status] ?? { label: b.status, color: `${theme.surfaceMuted} ${theme.surfaceSubtle} ${theme.line}` };
     const nightRate = guestPricing.get(b.room);
     const feeSum    = (b.fees ?? []).reduce((s, f) => s + (Number(f.amount) || 0), 0);
     const total     = nightRate !== undefined ? nightRate * (Number(b.duration) || 1) + feeSum : undefined;
@@ -322,25 +323,25 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
       <div
         key={dateKey(b) + b.room}
         ref={isFocus ? focusRowRef : undefined}
-        className={`flex flex-col gap-2 py-3 border-b border-gray-100 last:border-0 transition-shadow ${isNext ? "pb-4" : ""} ${(isToday || isStayingNow) ? `-mx-4 px-4 rounded-2xl bg-amber-50 border border-amber-200 shadow-sm` : ""} ${isFocus && focusPulse ? "-mx-4 rounded-2xl px-4 ring-2 ring-offset-2 ring-sky-400" : ""}`}
+        className={`flex flex-col gap-2 py-3 border-b ${theme.surfaceBorder} last:border-0 transition-shadow ${isNext ? "pb-4" : ""} ${(isToday || isStayingNow) ? `-mx-4 px-4 rounded-2xl ${theme.warmFill} border ${theme.warmBorder} shadow-sm` : ""} ${isFocus && focusPulse ? "-mx-4 rounded-2xl px-4 ring-2 ring-offset-2 ring-sky-400" : ""}`}
       >
         {isStayingNow && (
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-xs font-bold text-amber-600 uppercase tracking-wide">Staying now</span>
+            <span className={`text-xs font-bold ${theme.warmText} uppercase tracking-wide`}>Staying now</span>
           </div>
         )}
         {isToday && (
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-            <span className="text-xs font-bold text-amber-600 uppercase tracking-wide">Check-in today</span>
+            <span className={`text-xs font-bold ${theme.warmText} uppercase tracking-wide`}>Check-in today</span>
           </div>
         )}
         {/* The room and the status head the card on their own line. Everything
             below qualifies those two, so nothing has to compete with them for
             width — which is what forced the whole stack down to 11px before. */}
         <div className="flex items-start justify-between gap-3">
-          <RoomBadge room={room ?? { name: "Room" }} rooms={activeRooms} override={room ? undefined : "bg-gray-400"} />
+          <RoomBadge room={room ?? { name: "Room" }} rooms={activeRooms} override={roomChip(room ?? { name: "Room", color: "bg-gray-400" })} />
           <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${st.color} shrink-0`}>
             {st.label}
           </span>
@@ -350,11 +351,11 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
             guest opens the sheet to check; it was the same grey 12px as the
             fee breakdown underneath it. */}
         <div className="flex flex-col gap-1">
-          <span className="text-base font-semibold leading-snug text-gray-800">
+          <span className={`text-base font-semibold leading-snug ${theme.surfaceText}`}>
             {format(checkIn, "MMMM d")} – {format(checkOut, "MMMM d, yyyy")}
           </span>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm text-gray-500">
+            <span className={`text-sm ${theme.surfaceMuted}`}>
               {b.duration} night{b.duration !== 1 ? "s" : ""}
             </span>
             {!isToday && !isStayingNow && (
@@ -371,13 +372,13 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
         {total !== undefined && (
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
             <span className={`text-2xl font-bold leading-none ${theme.textPrimary}`}>${total}</span>
-            <span className="text-xs text-gray-400">
+            <span className={`text-xs ${theme.surfaceMuted2}`}>
               ${nightRate}/night{feeSum ? ` + $${feeSum} fees` : ""}
             </span>
           </div>
         )}
         {(b.fees?.length ?? 0) > 0 && (
-          <span className="text-xs text-gray-400">
+          <span className={`text-xs ${theme.surfaceMuted2}`}>
             {b.fees!.map((f) => `${f.label || "Fee"} $${f.amount}`).join(" · ")}
           </span>
         )}
@@ -393,10 +394,10 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
             <div className="flex flex-col min-w-0 flex-1">
-              <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wide leading-none mb-0.5">Address · tap for directions</span>
+              <span className={`text-[10px] ${theme.surfaceMuted2} font-medium uppercase tracking-wide leading-none mb-0.5`}>Address · tap for directions</span>
               <span className={`text-sm font-semibold ${theme.textPrimaryDark} leading-snug`}>{airbnbAddress}</span>
             </div>
-            <svg className="w-4 h-4 shrink-0 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <svg className={`w-4 h-4 shrink-0 ${theme.surfaceMuted2}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
             </svg>
           </a>
@@ -421,7 +422,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
             </svg>
             <div className="flex flex-col">
-              <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wide leading-none mb-0.5">Room code</span>
+              <span className={`text-[10px] ${theme.surfaceMuted2} font-medium uppercase tracking-wide leading-none mb-0.5`}>Room code</span>
               <span className={`text-lg font-bold tracking-widest ${theme.textPrimaryDark} leading-none`}>{room.roomCode}</span>
             </div>
           </div>
@@ -432,9 +433,9 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
 
   return (
     <div className={`tibook-type fixed inset-0 z-50 ${isDragging ? "select-none" : ""}`}>
-      <div className="absolute inset-0 bg-black/30" onPointerDown={onClose} />
+      <div className={`absolute inset-0 ${theme.scrim}`} onPointerDown={onClose} />
       <div
-        className="absolute inset-x-0 bottom-0 bg-white rounded-t-2xl shadow-xl overflow-hidden"
+        className={`absolute inset-x-0 bottom-0 ${theme.surface} rounded-t-2xl shadow-xl overflow-hidden`}
         style={{
           height: sheetHeight,
           transition: isDragging ? "none" : "height 0.2s ease",
@@ -449,19 +450,19 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
           className="flex justify-center pt-2.5 pb-1 cursor-row-resize touch-none"
           onPointerDown={onDragStart}
         >
-          <div className="w-10 h-1 rounded-full bg-gray-300" />
+          <div className={`w-10 h-1 rounded-full ${theme.handle}`} />
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+        <div className={`flex items-center justify-between px-4 py-3 border-b ${theme.surfaceBorder}`}>
           <span className={`text-sm font-bold ${theme.textPrimary}`}>Your Bookings</span>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+          <button type="button" onClick={onClose} className={`${theme.surfaceMuted2} ${theme.mutedHover} text-xl leading-none`}>×</button>
         </div>
 
         {/* Phone search (before recognition) / slim recognized bar (after) — one grid row either way */}
         {bookings === null && loading ? (
-          <div className="flex items-center justify-center gap-2 px-4 pt-4 pb-3 text-sm text-gray-400">
-            <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-300 border-t-gray-500" />
+          <div className={`flex items-center justify-center gap-2 px-4 pt-4 pb-3 text-sm ${theme.surfaceMuted2}`}>
+            <span className={`inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 ${theme.spinner}`} />
             Loading your bookings…
           </div>
         ) : bookings === null ? (
@@ -473,7 +474,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
                 value={phone}
                 onChange={(e) => { setPhone(e.target.value); setGuestPricing(new Map()); }}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-gray-400"
+                className={`flex-1 border ${theme.line} ${theme.field} rounded-xl px-3 py-2.5 text-sm focus:outline-none ${theme.fieldFocus}`}
               />
               <button
                 type="button"
@@ -484,16 +485,16 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
                 {loading ? "…" : "Search"}
               </button>
             </div>
-            {error && <p className="px-4 pb-2 text-xs text-red-500">{error}</p>}
+            {error && <p className={`px-4 pb-2 text-xs ${theme.alertText2}`}>{error}</p>}
           </div>
         ) : (
           <div className="flex items-center justify-between gap-2 px-4 pt-3 pb-2">
-            <span className="flex items-center gap-1.5 text-xs text-gray-400 min-w-0">
-              <svg className="w-3.5 h-3.5 shrink-0 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <span className={`flex items-center gap-1.5 text-xs ${theme.surfaceMuted2} min-w-0`}>
+              <svg className={`w-3.5 h-3.5 shrink-0 ${theme.surfaceMuted2}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
               </svg>
               <span className="truncate">
-                Showing bookings for <span className="font-semibold text-gray-500">{maskPhone(phone)}</span>
+                Showing bookings for <span className={`font-semibold ${theme.surfaceMuted}`}>{maskPhone(phone)}</span>
               </span>
             </span>
             <button
@@ -524,13 +525,13 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
         <div className="overflow-y-auto px-4 pb-4">
 
           {bookings === null ? null : bookings.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-6">
+            <p className={`text-sm ${theme.surfaceMuted2} text-center py-6`}>
               We couldn't find any bookings for this number. Please double-check the number you used when booking.
             </p>
           ) : (
             <>
               {upcoming.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-6">
+                <p className={`text-sm ${theme.surfaceMuted2} text-center py-6`}>
                   No upcoming bookings. We look forward to having you again!
                 </p>
               ) : (() => {
@@ -544,7 +545,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
                     {checkInToday.map((b) => <div key={dateKey(b) + b.room} className="pt-2">{renderRow(b, b === next)}</div>)}
                     {futureBookings.length > 0 && (
                       <>
-                        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide pt-3 pb-1">Upcoming</p>
+                        <p className={`text-[11px] font-semibold ${theme.surfaceMuted2} uppercase tracking-wide pt-3 pb-1`}>Upcoming</p>
                         {futureBookings.map((b: GuestBooking) => renderRow(b, b === next))}
                       </>
                     )}
@@ -579,14 +580,14 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
                   <span className={`text-[11px] font-semibold ${theme.textPrimary}`}>House rules</span>
                 </span>
                 <svg
-                  className={`w-3.5 h-3.5 text-gray-400 transition-transform ${rulesOpen ? "rotate-180" : ""}`}
+                  className={`w-3.5 h-3.5 ${theme.surfaceMuted2} transition-transform ${rulesOpen ? "rotate-180" : ""}`}
                   fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
               {rulesOpen && (
-                <p className="px-3 pb-2.5 text-[11px] text-gray-500 leading-relaxed whitespace-pre-line max-h-36 overflow-y-auto">
+                <p className={`px-3 pb-2.5 text-[11px] ${theme.surfaceMuted} leading-relaxed whitespace-pre-line max-h-36 overflow-y-auto`}>
                   {houseRules.trim()}
                 </p>
               )}
@@ -598,27 +599,27 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
               <svg className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${theme.textPrimary}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z" />
               </svg>
-              <p className="text-[11px] text-gray-500 leading-relaxed">
+              <p className={`text-[11px] ${theme.surfaceMuted} leading-relaxed`}>
                 {formatCancellationPolicy(cancellationFullRefundDays, cancellationHalfRefundDays)}
               </p>
             </div>
           )}
 
           {bookings !== null && sortedWishDates.length > 0 && (
-            <div className="mt-3 border-t border-gray-100 pt-2">
+            <div className={`mt-3 border-t ${theme.surfaceBorder} pt-2`}>
               <button
                 type="button"
                 onClick={() => setWishListOpen((o) => !o)}
                 className="w-full flex items-center justify-between py-1 text-left"
               >
-                <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
+                <span className={`text-[11px] font-semibold ${theme.surfaceMuted2} uppercase tracking-wide`}>
                   Wish list dates
                   <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${theme.tagBg} ${theme.textPrimary}`}>
                     {sortedWishDates.length}
                   </span>
                 </span>
                 <svg
-                  className={`w-3.5 h-3.5 text-gray-400 transition-transform ${wishListOpen ? "rotate-180" : ""}`}
+                  className={`w-3.5 h-3.5 ${theme.surfaceMuted2} transition-transform ${wishListOpen ? "rotate-180" : ""}`}
                   fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -629,9 +630,9 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
                   {sortedWishDates.map((d) => {
                     const isPending = pendingRemove === d;
                     return isPending ? (
-                      <div key={d} className="flex flex-col gap-1 px-3 py-2 rounded-xl border bg-red-50 border-red-200">
+                      <div key={d} className={`flex flex-col gap-1 px-3 py-2 rounded-xl border ${theme.alertFill} ${theme.alertBorder}`}>
                         <div className="flex items-center justify-between">
-                          <span className="text-xs text-red-600 font-medium">
+                          <span className={`text-xs ${theme.alertText} font-medium`}>
                             Remove {format(parseISO(d), "MMMM d")}?
                           </span>
                           <div className="flex items-center gap-2 ml-2">
@@ -655,20 +656,20 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
                                   setRemoving(false);
                                 }
                               }}
-                              className="text-xs font-semibold text-red-600 hover:text-red-800 disabled:opacity-50"
+                              className={`text-xs font-semibold ${theme.alertText} ${theme.alertHover} disabled:opacity-50`}
                             >
                               {removing ? "…" : "Yes, remove"}
                             </button>
                             <button
                               type="button"
                               onClick={() => { setPendingRemove(null); setRemoveError(""); }}
-                              className="text-xs text-gray-400 hover:text-gray-600"
+                              className={`text-xs ${theme.surfaceMuted2} ${theme.mutedHover}`}
                             >
                               Keep
                             </button>
                           </div>
                         </div>
-                        {removeError && <p className="text-[11px] text-red-500">{removeError}</p>}
+                        {removeError && <p className={`text-[11px] ${theme.alertText2}`}>{removeError}</p>}
                       </div>
                     ) : (
                       <div key={d} className={`flex items-center justify-between px-3 py-2 rounded-xl border ${theme.tagBg} ${theme.tagBorder}`}>
@@ -679,7 +680,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
                           <button
                             type="button"
                             onClick={() => setPendingRemove(d)}
-                            className="text-xs text-gray-400 hover:text-red-500 transition-colors ml-2"
+                            className={`text-xs ${theme.surfaceMuted2} ${theme.alertHover} transition-colors ml-2`}
                           >
                             ✕
                           </button>

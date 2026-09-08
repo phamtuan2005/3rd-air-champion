@@ -37,7 +37,8 @@ Two things about that file:
 | `src/components/tibook/RoomCards.tsx` | The room banner, photos, and the guest's own rate |
 | `src/util/dateText.ts` | Reads dates out of what a guest types |
 | `src/util/cartGrouping.ts` | Turns chosen dates into stays |
-| `src/contexts/TiBookThemeContext.tsx` | Colour tokens — use `theme.*`, never a hardcoded colour |
+| `src/contexts/TiBookThemeContext.tsx` | Colour tokens, the two skins and the two layouts — use `theme.*`, never a hardcoded colour |
+| `src/components/tibook/HeroShell.tsx` | The Hero layout: rooms as a swipeable deck over the month |
 
 ## Tests
 
@@ -84,6 +85,62 @@ them; this is the index.
 
 7. **Colour is semantic and comes from the theme.** Guests can pick a theme;
    hardcoding `bg-blue-500` breaks it for everyone who chose otherwise.
+
+8. **There are two LAYOUTS as well as two skins, and neither is a second
+   app.** The menu offers three looks — Classic (light, stacked), Neon (dark,
+   stacked) and Hero (dark, rooms-first). Skin and layout are separate axes
+   underneath (`vibe` and `layout`) even though the menu sets them together,
+   so a light Hero is a one-line change if it is ever wanted.
+
+   Hero is a different ARRANGEMENT of the same screens, never a second set of
+   rules. `HeroShell` computes nothing: swiping a room card sets the same
+   `selectedRoomIds` the room strip has always driven, and `GuestCalendar`
+   scopes availability by it exactly as before — so "is this room free" is
+   answered by the one availability rule there has ever been. Dates, rates,
+   holds and the wish list arrive as props from `TiBook.tsx`, and every modal
+   is shared, which is why a guest can switch look mid-visit and keep their
+   dates and their place in the month.
+
+   If you find yourself computing a date, a rate or an availability inside a
+   layout, stop: that belongs in `TiBook.tsx` where the other layout can see
+   it too.
+
+   One modal knows which layout it is in: `RoomGalleryModal` reads `layout`
+   and wears a different CHROME in Hero — full-bleed photo, the facts on a
+   rounded sheet lifted over it. The facts, the amenities and the price
+   conversation are the same markup in both. That is the line: a layout may
+   change how a screen is arranged, never what it says.
+
+9. **There are two SKINS, and neither is a second app.** A guest picks Classic
+   or Neon in the nav and the choice is remembered per device, alongside the
+   palette — which survives the switch rather than being replaced by it. Both
+   skins are the same screens, the same flows and the same booking rules; a
+   skin is only a second set of values behind the same `theme.*` tokens, so no
+   component asks which one it is wearing. If you find yourself writing
+   `if (vibe === "vivid")` inside a component, add a token instead.
+
+   Neon is dark **throughout** — nav, month strip, action bar, host banner,
+   room cards, the calendar grid, and every sheet and modal. It began at the
+   frame only, because the ~130 greys written into the markup were picked
+   against white; those became a faithful token scale instead — one token per
+   grey the light skin actually distinguished — so Classic reads back byte for
+   byte and only the dark column is new.
+
+   Two things stay bright on purpose: a small status or tier **chip**, which
+   carries its own dark text on its own pale fill, and the white pill in the
+   action bar, which sits on the gradient rather than on a sheet.
+
+   Watch for a pale card holding *themed* text. A `bg-amber-50` card whose body
+   text comes from `surfaceText` is fine on white and unreadable the moment
+   `surfaceText` goes near-white — that is what `cardWarm`, `warmFill` and the
+   `alert*` family are for. And an element with **no** colour class inherits:
+   the vivid root sets `color` for exactly that reason, after "Your Dates"
+   turned up as a black heading on a black panel.
+
+   Corner radius and the drifting gradient are **not** tokens — they hang off
+   `.tibook-vibe-vivid` in `index.css`, which redeclares Tailwind's
+   `--radius-*` steps the same way the type scale above it redeclares
+   `--text-*`. One knob, every corner, no per-element edits.
 
 ## The tone
 

@@ -131,3 +131,179 @@ body {
 .tibook-type-lg .text-\[11px\] {
   font-size: calc(12px * var(--type-scale));
 }
+
+/*
+ * TiBook vivid skin — the shape and motion half of the Gen Z look.
+ *
+ * Colour is handled by tokens in TiBookThemeContext, because components already
+ * read colour from there. Corner radius and motion are not tokens: they are set
+ * by ~200 literal `rounded-*` classes across the TiBook tree, and threading a
+ * radius prop through all of them to support one skin is a bad trade.
+ *
+ * So the same knob the type scale above uses works here. Tailwind v4 compiles
+ * `rounded-xl` to `border-radius: var(--radius-xl)`, so redeclaring the radius
+ * steps on this wrapper opens every corner beneath it in one go — no per-element
+ * edits, no specificity fight, and classic is untouched because it never carries
+ * this class.
+ *
+ * The floor matters as much as the ceiling: rounded-full stays a circle (it is a
+ * literal 3.4e38px, not a variable), and the small steps are lifted less than
+ * the large ones so a 4px badge corner does not become a lozenge.
+ */
+.tibook-vibe-vivid {
+  /*
+   * Inherited text colour, which is the one thing no token could reach.
+   *
+   * A heading written as <h2 className="text-lg font-bold"> has no colour class
+   * at all -- it inherits, and what it inherited was the browser default, which
+   * is near-black. That was invisible against a slate-900 sheet, and it hit the
+   * headings first: "Your Dates" at the top of the request form was a black
+   * heading on a black panel. Every element that DOES name a colour still wins
+   * over this, so the room name on a bright ribbon stays near-black.
+   */
+  color: rgb(241 245 249); /* slate-100 */
+
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.75rem;
+  --radius-3xl: 2rem;
+  --radius-4xl: 2.5rem;
+}
+
+/*
+ * The neon wash behind the app.
+ *
+ * Only ever visible where no panel paints over it, which is not much now that
+ * the panels are dark too. It is what keeps the edges and any gap between them
+ * from being flat black.
+ */
+.tibook-vibe-vivid-backdrop {
+  background-color: #020617;
+  background-image:
+    radial-gradient(60rem 40rem at 15% -10%, rgb(217 70 239 / 0.30), transparent 60%),
+    radial-gradient(50rem 35rem at 95% 5%, rgb(34 211 238 / 0.25), transparent 60%),
+    radial-gradient(45rem 45rem at 50% 110%, rgb(139 92 246 / 0.25), transparent 60%);
+}
+
+/*
+ * A slow drift across the primary action, so the gradient reads as alive rather
+ * than as a static two-tone fill. 8s and 200% wide: fast enough to notice on a
+ * second look, slow enough that it is not competing with the calendar for
+ * attention while someone is picking nights.
+ */
+@keyframes tibook-vivid-drift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.tibook-vivid-drift {
+  background-size: 200% 200%;
+  animation: tibook-vivid-drift 8s ease-in-out infinite;
+}
+
+/*
+ * Respect the system setting. A moving gradient behind a booking form is
+ * exactly the kind of motion someone turns this off to avoid, and the button
+ * loses nothing by holding still — it is still a gradient.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .tibook-vivid-drift {
+    animation: none;
+  }
+}
+
+/*
+ * The calendar grid draws its outer top and left borders as INLINE styles, and
+ * an inline style is not something a Tailwind class can reach. So the line
+ * colour is a variable: the token gridLine dresses the per-cell borders, and
+ * this dresses the two the grid draws itself. Both have to move together or the
+ * frame around the month is a different colour from the lines inside it.
+ */
+:root {
+  --tibook-grid-line: #d1d5db; /* gray-300 */
+}
+
+.tibook-vibe-vivid {
+  --tibook-grid-line: #334155; /* slate-700 */
+}
+
+/*
+ * Today lost its ring when the calendar went dark: it is drawn as a 5px
+ * slate-950 border, which was a strong mark on white and is invisible on a
+ * slate-900 grid.
+ *
+ * Overridden here rather than in calendarStyle.css because that file is shared
+ * with TiMag's calendar, where the dark ring is correct and this skin does not
+ * exist.
+ */
+.tibook-vibe-vivid .react-calendar__custom_tile_today::after {
+  border-color: rgb(241 245 249); /* slate-100 */
+}
+
+/*
+ * The one-time nudge on the look button.
+ *
+ * A slow breath rather than a ping: it has to be noticeable in the corner of
+ * the eye while a guest is reading the room cards, without competing with the
+ * calendar for attention. It runs only while the nudge is up, and only for a
+ * guest who has never opened the menu.
+ */
+@keyframes tibook-attention {
+  0%, 100% { transform: scale(1); opacity: 0.35; }
+  50%      { transform: scale(1.35); opacity: 0; }
+}
+
+.tibook-attention {
+  animation: tibook-attention 2s ease-out infinite;
+}
+
+/*
+ * Same bargain as the gradient drift: a guest who has asked for less motion
+ * still gets the nudge, it just holds still.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .tibook-attention {
+    animation: none;
+    opacity: 0.25;
+  }
+}
+
+/*
+ * The sheen on a room chip in the neon skin.
+ *
+ * background-IMAGE, so it layers over whatever background-COLOUR the room
+ * carries without needing to know it — the one part of the neon treatment that
+ * works for a colour nobody has seen yet, straight off a room record.
+ *
+ * The glow beside it is a real box-shadow rather than a blurred pseudo-element:
+ * a pseudo behind the chip has to be given a negative z-index, and it then
+ * paints behind the nearest ancestor that has a background of its own, which on
+ * a card is most of them. A shadow has no such argument with the stack.
+ */
+.tibook-room-neon {
+  background-image: linear-gradient(
+    135deg,
+    rgb(255 255 255 / 0.32),
+    rgb(255 255 255 / 0) 58%
+  );
+}
+
+/*
+ * The same sheen for a stay ribbon, run top-to-bottom.
+ *
+ * A ribbon is drawn as several elements laid end to end — an AM cap, the whole
+ * days, a PM start — so a diagonal gradient restarts at every seam and a
+ * three-night stay came out banded. Vertical is identical at every x, so the
+ * seams vanish and the bar reads as one lit tube.
+ */
+.tibook-room-neon-bar {
+  background-image: linear-gradient(
+    to bottom,
+    rgb(255 255 255 / 0.34),
+    rgb(255 255 255 / 0) 62%
+  );
+}

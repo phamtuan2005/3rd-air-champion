@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type TouchEvent as ReactTouchEvent } from 
 import { createPortal } from "react-dom";
 import { roomType } from "../../util/types/roomType";
 import { getRoomFacts, getRoomPhotos, houseKitchen } from "../../util/roomFacts";
-import { getRoomColor } from "../../util/getRoomColor";
+import { useRoomChip, useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import BedIcon from "./BedIcon";
 
 const BACKEND = import.meta.env.VITE_BACKEND_ENDPOINT || "";
@@ -29,7 +29,26 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
   const facts = getRoomFacts(room.airbnbUrl);
   // Honours a colour set on the room record first, and falls back to the
   // house's own name-to-colour rule — the same call the room cards make.
-  const roomColor = getRoomColor(room.name, room.color);
+  const roomChipClass = useRoomChip()(room);
+  /*
+   * Hero exclusively.
+   *
+   * The stacked layout opens this gallery from a small card in a strip, so a
+   * letterboxed picture on black is the right answer there — the guest came
+   * from a thumbnail and wants to see the whole frame.
+   *
+   * Hero opens it from a photograph that already fills two fifths of the
+   * screen, and dropping from that into a letterbox reads as a step DOWN. So
+   * in Hero the picture goes full-bleed and the facts ride up over it on a
+   * rounded sheet, which is the shape the rest of that layout is made of.
+   *
+   * This reads the LAYOUT, not the skin. A layout genuinely changes the
+   * arrangement of a screen, which is the one thing a token cannot carry.
+   * Every fact, every amenity and the price conversation below are the same
+   * markup in both — only the chrome around them differs.
+   */
+  const { theme, layout } = useTiBookTheme();
+  const hero = layout === "hero";
   const hostFirstName = (hostName ?? "").split(" ")[0] || "the host";
 
   // Same one-tap text the rest of TiBook uses: an sms: link that opens the
@@ -159,9 +178,9 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
       // sliding, so nothing at the bottom is pushed off the screen when it is
       // pulled down. Rounded only once it has moved, since at rest it is
       // full-bleed and a rounded corner there would just show the page behind.
-      className={`tibook-type fixed inset-x-0 bottom-0 bg-black bg-opacity-90 z-50 flex flex-col ${
-        pull > 0 ? "rounded-t-2xl" : ""
-      }`}
+      className={`tibook-type fixed inset-x-0 bottom-0 z-50 flex flex-col ${
+        hero ? `${theme.surface} rounded-t-3xl overflow-hidden` : "bg-black bg-opacity-90"
+      } ${pull > 0 && !hero ? "rounded-t-2xl" : ""}`}
       style={{ top: pull }}
       onClickCapture={(e) => {
         if (!swiped.current) return;
@@ -185,12 +204,13 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
         <span className="h-1.5 w-10 rounded-full bg-white/40" />
       </div>
 
-      {/* Header */}
+      {/* Header. In Hero the picture takes this row back: the chip and the
+          counter sit on the photograph and the close button floats over it. */}
       <div
-        className="flex items-center justify-between px-4 py-3 shrink-0"
+        className={`items-center justify-between px-4 py-3 shrink-0 ${hero ? "hidden" : "flex"}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <span className={`${roomColor} rounded px-2 py-0.5 text-sm font-medium text-white`}>
+        <span className={`${roomChipClass} rounded px-2 py-0.5 text-sm font-medium text-white`}>
           {room.name}
         </span>
         <span className="text-gray-400 text-sm">{index + 1} / {photos.length}</span>
@@ -210,7 +230,7 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
           is left believing the gallery is stuck. The ‹ › buttons and the
           thumbnails still work exactly as before; this only adds a gesture. */}
       <div
-        className="flex-1 flex items-center justify-center relative px-12 min-h-0"
+        className={`flex items-center justify-center relative min-h-0 ${hero ? "h-[42%] shrink-0" : "flex-1 px-12"}`}
         onClick={(e) => e.stopPropagation()}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
@@ -218,9 +238,33 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
         <img
           src={photos[index]}
           alt={`${room.name} ${index + 1}`}
-          className="max-w-full max-h-full object-contain rounded-lg select-none"
+          className={`select-none ${hero ? "h-full w-full object-cover" : "max-w-full max-h-full object-contain rounded-lg"}`}
           draggable={false}
         />
+
+        {hero && (
+          <>
+            {/* Enough scrim to carry the chip and the close button, and no
+                more — the picture is what the guest tapped for. */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/70 to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/70 to-transparent" />
+            <button
+              onClick={onClose}
+              aria-label="Close"
+              className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-xl leading-none text-white"
+            >
+              ×
+            </button>
+            <span className={`absolute bottom-10 left-4 rounded-lg px-3 py-1 text-sm font-bold text-white ${roomChipClass}`}>
+              {room.name}
+            </span>
+            {photos.length > 1 && (
+              <span className="absolute bottom-10 right-4 rounded-full bg-black/55 px-2.5 py-1 text-xs font-semibold text-white">
+                {index + 1} / {photos.length}
+              </span>
+            )}
+          </>
+        )}
 
         {photos.length > 1 && (
           <>
@@ -249,7 +293,9 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
           scroll within what is left rather than pushing the picture out.
           `contents` means this wrapper does not exist as far as layout is
           concerned on a normal upright phone — portrait is untouched. */}
-      <div className="contents [@media(max-height:560px)]:block [@media(max-height:560px)]:max-h-[38%] [@media(max-height:560px)]:shrink-0 [@media(max-height:560px)]:overflow-y-auto">
+      <div className={hero
+        ? `relative z-10 -mt-6 flex min-h-0 flex-1 flex-col overflow-y-auto rounded-t-3xl ${theme.surface}`
+        : "contents [@media(max-height:560px)]:block [@media(max-height:560px)]:max-h-[38%] [@media(max-height:560px)]:shrink-0 [@media(max-height:560px)]:overflow-y-auto"}>
       {/* Thumbnail strip.
           justify-center-safe, NOT justify-center. A centred flex row that
           overflows spills out of BOTH ends, and the left overflow is
@@ -260,7 +306,7 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
       {photos.length > 1 && (
         <div
           ref={stripRef}
-          className="flex gap-2 px-4 py-3 overflow-x-auto shrink-0 justify-center-safe [@media(max-height:560px)]:py-1.5"
+          className={`flex gap-2 px-4 overflow-x-auto shrink-0 justify-center-safe [@media(max-height:560px)]:py-1.5 ${hero ? "py-2" : "py-3"}`}
           onClick={(e) => e.stopPropagation()}
         >
           {photos.map((url, i) => (
@@ -269,7 +315,7 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
               onClick={() => setIndex(i)}
               // Smaller sideways, where every row of height comes straight out
               // of the picture the guest came to look at.
-              className={`shrink-0 w-14 h-14 [@media(max-height:560px)]:h-9 [@media(max-height:560px)]:w-9 rounded-md overflow-hidden border-2 transition-colors ${
+              className={`shrink-0 w-14 h-14 [@media(max-height:560px)]:h-9 [@media(max-height:560px)]:w-9 overflow-hidden border-2 transition-colors ${hero ? "rounded-xl" : "rounded-md"} ${
                 i === index ? "border-white" : "border-transparent opacity-50 hover:opacity-75"
               }`}
             >
@@ -281,7 +327,7 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
 
       {/* Footer */}
       <div
-        className="px-4 py-3 shrink-0"
+        className={`px-4 py-3 ${hero ? "" : "shrink-0"}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* The room's own colour, from the same getRoomColor the cards and
@@ -289,7 +335,7 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
             else, and a guest deep in a gallery still knows which room this is. */}
         <div className="flex items-center justify-between gap-2">
           <span
-            className={`${roomColor} inline-block rounded px-2 py-0.5 text-sm font-semibold text-white`}
+            className={`${roomChipClass} inline-block rounded px-2 py-0.5 text-sm font-semibold text-white`}
           >
             {room.name}
           </span>
@@ -384,7 +430,11 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
             </p>
             <a
               href={priceSmsHref}
-              className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-white/30 py-2 text-sm font-semibold text-white hover:bg-white/10"
+              className={`mt-2 flex w-full items-center justify-center gap-1.5 py-2.5 text-sm font-semibold text-white ${
+                hero
+                  ? `rounded-full ${theme.btn} ${theme.btnHover} ${theme.btnMotion} ${theme.glow}`
+                  : "rounded-lg border border-white/30 hover:bg-white/10"
+              }`}
             >
               💬 {hasRate ? `Message ${hostFirstName}` : `Ask ${hostFirstName} about the price`}
             </a>
