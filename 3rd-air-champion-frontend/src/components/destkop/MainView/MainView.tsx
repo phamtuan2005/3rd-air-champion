@@ -1625,11 +1625,11 @@ const MainView = ({
         onClose={() => setIsGuestInboxOpen(false)}
       >
         {isGuestInboxOpen && token && (
+          /* No onClose: MobilePanel draws the X and the grab handle itself. */
           <GuestInboxModal
             hostId={hostId}
             token={token}
             onUnreadChange={setGuestMessageUnreadCount}
-            onClose={() => setIsGuestInboxOpen(false)}
           />
         )}
       </MobilePanel>

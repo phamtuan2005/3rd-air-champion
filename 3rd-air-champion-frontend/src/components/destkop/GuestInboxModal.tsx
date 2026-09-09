@@ -16,7 +16,10 @@ import {
 interface GuestInboxModalProps {
   hostId: string;
   token: string;
-  onClose: () => void;
+  // Optional: the header draws its own close only when given one. Inside a
+  // MobilePanel it must not — that panel already puts an X and a grab handle
+  // at the top, and two X's stacked one above the other is what shipped.
+  onClose?: () => void;
   // Lets the nav badge fall as threads are read, without waiting for its own
   // poll to come round again.
   onUnreadChange?: (total: number) => void;
@@ -397,16 +400,18 @@ const GuestInboxModal = ({ hostId, token, onClose, onUnreadChange }: GuestInboxM
                 : "Questions from TiBook"}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-full p-1.5 text-gray-500 hover:bg-gray-100"
-          aria-label="Close"
-        >
-          <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-1.5 text-gray-500 hover:bg-gray-100"
+            aria-label="Close"
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {error && (
