@@ -182,7 +182,17 @@
 
   .card.back { padding: 0; }
   .band { background: #0f766e; color: #fff; padding: .9em 1.2em; display: flex; align-items: center; gap: .7em; }
-  .band img { width: 2.2em; height: 2.2em; filter: brightness(0) invert(1); }
+  /* The mark goes on a white chip, untouched.
+     It was being forced white with brightness(0) invert(1) so it would show on
+     the teal. The logo is two paths - a near-black house and a near-white
+     figure inside it - and that filter turns BOTH white, welding the figure
+     into the outline and leaving a blank silhouette. A brand mark does not get
+     recoloured to suit a background; the background gives way instead. */
+  .band .mark {
+    width: 2.5em; height: 2.5em; flex: none; background: #fff;
+    border-radius: .55em; display: flex; align-items: center; justify-content: center;
+  }
+  .band .mark img { width: 1.95em; height: 1.95em; }
   .band h2 { font-size: 1.55em; font-weight: 700; letter-spacing: -.01em; }
   .band p { font-size: .85em; opacity: .9; margin-top: .1em; }
 
@@ -392,7 +402,7 @@ function back() {
   return (
     '<div class="card back">' +
       '<div class="band">' +
-        '<img src="' + LOGO + '" alt="" />' +
+        '<span class="mark"><img src="' + LOGO + '" alt="" /></span>' +
         "<div><h2>TiBook</h2><p>TT House’s own booking app</p></div>" +
       "</div>" +
       '<div class="back-body">' +
