@@ -104,5 +104,31 @@ export const guestMessageResolvers = {
       );
       return result.modifiedCount ?? 0;
     },
+
+    // The host removing a whole conversation from their inbox. There is no
+    // guest-side counterpart on purpose: the public route must not be able to
+    // erase what the host has not read yet.
+    //
+    // Deliberately NOT phoneMatcher. That regex is unanchored, so the ten
+    // digits of one number are found inside an eleven-digit one carrying a
+    // country code — "4085551234" matches a row stored as "14085551234", and
+    // the two are different guests as far as the inbox list is concerned. On a
+    // read an extra thread is a nuisance you notice; on a delete it is somebody
+    // else's messages, gone, with no undo. So this matches on exact digit
+    // equality, which is the same key guestMessageThreads groups the list by —
+    // what gets deleted is exactly the row that was swiped, no more.
+    deleteGuestThread: async (_: unknown, { hostId, phone }: any) => {
+      const digits = (phone ?? "").replace(/\D/g, "");
+      if (!digits) throw new Error("A conversation is identified by a phone number.");
+
+      const mine = await GuestMessage.find({ host: hostId });
+      const ids = mine
+        .filter((m) => (m.guestPhone || "").replace(/\D/g, "") === digits)
+        .map((m) => m._id);
+      if (ids.length === 0) return 0;
+
+      const result = await GuestMessage.deleteMany({ _id: { $in: ids } });
+      return result.deletedCount ?? 0;
+    },
   },
 };

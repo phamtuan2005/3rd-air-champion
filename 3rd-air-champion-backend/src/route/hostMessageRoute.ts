@@ -164,4 +164,30 @@ router.post("/read", async (req: Request, res: any) => {
     });
 });
 
+// Removing a conversation. Only here, never in guestMessageRoute — the guest
+// half is public, and a delete anyone can call is a way to wipe the questions
+// the host has not answered yet.
+router.post("/thread/delete", async (req: Request, res: any) => {
+  const { hostId, phone } = req.body;
+  if (!hostId || !phone) {
+    return res.status(400).json({ error: "hostId and phone are required" });
+  }
+
+  const query = `
+    mutation DeleteGuestThread($hostId: String!, $phone: String!) {
+      deleteGuestThread(hostId: $hostId, phone: $phone)
+    }`;
+
+  sendGraphQLRequest(query, { hostId, phone })
+    .then((result: any) => {
+      if (result.errors) {
+        return res.status(400).json({ errors: result.errors[0].message });
+      }
+      res.status(200).json({ deleted: result.data.deleteGuestThread });
+    })
+    .catch((error: any) => {
+      res.status(500).json({ error: error.message });
+    });
+});
+
 export default router;

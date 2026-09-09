@@ -7,6 +7,7 @@ import {
   fetchHostThread,
   fetchHostThreads,
   markHostThreadRead,
+  deleteHostThread,
   messageDate,
   pingHostTyping,
   replyToGuest,
@@ -44,6 +45,175 @@ const readReceiptPref = (): boolean => {
 const when = (ts: string) => {
   const d = messageDate(ts);
   return isValid(d) ? format(d, "MMM d · h:mma") : "";
+};
+
+// Same numbers as the swipe on the request history rows, deliberately: these
+// two lists sit a tab apart in the same app and a gesture that snapped at a
+// different distance in each would feel like a bug.
+const SNAP_WIDTH = 72;
+const SWIPE_THRESHOLD = 32;
+
+interface SwipeableThreadRowProps {
+  thread: GuestMessageThread;
+  onOpen: () => void;
+  onDelete: () => void;
+}
+
+const SwipeableThreadRow = ({ thread: t, onOpen, onDelete }: SwipeableThreadRowProps) => {
+  const [offset, setOffset] = useState(0);
+  const [confirming, setConfirming] = useState(false);
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
+  const offsetAtStart = useRef(0);
+  const didMove = useRef(false);
+  // Locked on the first few pixels, so a swipe down the inbox list scrolls
+  // instead of dragging every row it passes over.
+  const direction = useRef<"horizontal" | "vertical" | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+    offsetAtStart.current = offset;
+    didMove.current = false;
+    direction.current = null;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const dx = e.touches[0].clientX - touchStartX.current;
+    const dy = e.touches[0].clientY - touchStartY.current;
+    if (direction.current === null && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) {
+      direction.current = Math.abs(dx) > Math.abs(dy) ? "horizontal" : "vertical";
+    }
+    if (direction.current !== "horizontal") return;
+    didMove.current = true;
+    setOffset(Math.min(0, Math.max(offsetAtStart.current + dx, -SNAP_WIDTH)));
+  };
+
+  const handleTouchEnd = () => {
+    if (!didMove.current) return; // a tap; the click below decides what it meant
+    setOffset(offset < -SWIPE_THRESHOLD ? -SNAP_WIDTH : 0);
+  };
+
+  // Opening is on click rather than touchend so the row still works with a
+  // mouse — the host reads these at the desk as well as on their phone.
+  const handleClick = () => {
+    if (didMove.current) return; // the end of a swipe, not a tap
+    if (offset !== 0) {
+      setOffset(0); // Delete is showing: put it away rather than opening
+      return;
+    }
+    onOpen();
+  };
+
+  const snapping = offset === 0 || offset === -SNAP_WIDTH;
+
+  return (
+    <div
+      className="relative overflow-hidden border-b border-gray-100"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Delete, revealed behind the row */}
+      <div className="absolute right-1 top-1 bottom-1 flex w-[68px] items-center justify-center rounded-lg bg-red-500">
+        <button
+          type="button"
+          className="h-full w-full text-xs font-semibold text-white"
+          onClick={() => setConfirming(true)}
+        >
+          Delete
+        </button>
+      </div>
+
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={handleClick}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onOpen();
+          }
+        }}
+        className="relative flex w-full cursor-pointer items-start gap-3 bg-white px-4 py-3 text-left transition-colors hover:bg-gray-50"
+        style={{
+          transform: `translateX(${offset}px)`,
+          transition: snapping ? "transform 0.18s ease" : "none",
+        }}
+      >
+        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
+          {(t.guestName || "?").slice(0, 2).toUpperCase()}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-2">
+            <span className="truncate text-sm font-semibold text-gray-800">
+              {t.guestName || "Guest"}
+            </span>
+            {t.unreadForHost > 0 && (
+              <span className="rounded-full bg-yellow-400 px-1.5 text-[10px] font-bold text-gray-900">
+                {t.unreadForHost}
+              </span>
+            )}
+          </span>
+          <span className="mt-0.5 block truncate text-xs text-gray-500">
+            {t.lastSender === "host" ? "You: " : ""}
+            {t.lastBody}
+          </span>
+        </span>
+        <span className="shrink-0 text-[10px] text-gray-400">{when(t.lastAt)}</span>
+      </div>
+
+      {confirming && (
+        <div
+          className="modal-type fixed inset-0 z-30 flex items-center justify-center bg-black/40 px-6"
+          onClick={() => { setConfirming(false); setOffset(0); }}
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
+        >
+          <div
+            className="flex w-full max-w-sm flex-col gap-5 rounded-2xl bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-col gap-1 text-center">
+              <p className="text-base font-bold text-gray-800">Delete this conversation?</p>
+              <p className="text-sm text-gray-400">
+                {t.total === 1 ? "One message" : `All ${t.total} messages`} with{" "}
+                <span className="font-medium text-gray-600">{t.guestName || "this guest"}</span>{" "}
+                will be permanently deleted.
+                {t.unreadForHost > 0 && (
+                  <>
+                    {" "}
+                    <span className="font-medium text-amber-600">
+                      {t.unreadForHost === 1
+                        ? "One of them is still waiting for an answer."
+                        : `${t.unreadForHost} of them are still waiting for an answer.`}
+                    </span>
+                  </>
+                )}
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                className="flex-1 rounded-xl bg-gray-100 py-3 text-sm font-semibold text-gray-600 hover:bg-gray-200 active:bg-gray-300"
+                onClick={() => { setConfirming(false); setOffset(0); }}
+              >
+                Keep it
+              </button>
+              <button
+                type="button"
+                className="flex-1 rounded-xl bg-red-500 py-3 text-sm font-semibold text-white hover:bg-red-600 active:bg-red-700"
+                onClick={() => { onDelete(); setOffset(0); setConfirming(false); }}
+              >
+                Yes, delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 const GuestInboxModal = ({ hostId, token, onClose, onUnreadChange }: GuestInboxModalProps) => {
@@ -177,6 +347,26 @@ const GuestInboxModal = ({ hostId, token, onClose, onUnreadChange }: GuestInboxM
     }
   };
 
+  // Removed from the list first, put back if the server says no. The alternative
+  // is a row that sits there while the request is in flight, and the poll above
+  // would refill the list under the host's finger anyway.
+  const removeThread = async (phone: string) => {
+    const before = threads;
+    const after = threads.filter((t) => t.guestPhone !== phone);
+    setThreads(after);
+    onUnreadChange?.(after.reduce((s, t) => s + (t.unreadForHost || 0), 0));
+    setError("");
+
+    try {
+      await deleteHostThread(hostId, phone, token);
+      loadThreads(true);
+    } catch {
+      setThreads(before);
+      onUnreadChange?.(before.reduce((s, t) => s + (t.unreadForHost || 0), 0));
+      setError("That conversation is still here — deleting it did not go through.");
+    }
+  };
+
   const totalUnread = threads.reduce((s, t) => s + (t.unreadForHost || 0), 0);
 
   return (
@@ -242,33 +432,12 @@ const GuestInboxModal = ({ hostId, token, onClose, onUnreadChange }: GuestInboxM
           )}
 
           {threads.map((t) => (
-            <button
+            <SwipeableThreadRow
               key={t.guestPhone}
-              type="button"
-              onClick={() => openThread(t.guestPhone, t.guestName)}
-              className="flex w-full items-start gap-3 border-b border-gray-100 px-4 py-3 text-left transition-colors hover:bg-gray-50"
-            >
-              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
-                {(t.guestName || "?").slice(0, 2).toUpperCase()}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-2">
-                  <span className="truncate text-sm font-semibold text-gray-800">
-                    {t.guestName || "Guest"}
-                  </span>
-                  {t.unreadForHost > 0 && (
-                    <span className="rounded-full bg-yellow-400 px-1.5 text-[10px] font-bold text-gray-900">
-                      {t.unreadForHost}
-                    </span>
-                  )}
-                </span>
-                <span className="mt-0.5 block truncate text-xs text-gray-500">
-                  {t.lastSender === "host" ? "You: " : ""}
-                  {t.lastBody}
-                </span>
-              </span>
-              <span className="shrink-0 text-[10px] text-gray-400">{when(t.lastAt)}</span>
-            </button>
+              thread={t}
+              onOpen={() => openThread(t.guestPhone, t.guestName)}
+              onDelete={() => removeThread(t.guestPhone)}
+            />
           ))}
         </div>
       )}
@@ -295,12 +464,25 @@ const GuestInboxModal = ({ hostId, token, onClose, onUnreadChange }: GuestInboxM
                     >
                       <p className="whitespace-pre-wrap break-words">{m.body}</p>
                     </div>
+                    {/* Who wrote it, on every bubble. Side and colour alone
+                        were not enough — scrolling back through a long thread,
+                        the host could not always tell their own words from the
+                        guest's. The name is the guest's as they signed it on
+                        THAT message, not their current one, for the same reason
+                        the row stores it per message: it is what they were
+                        called when they wrote. */}
                     <p
-                      className={`mt-0.5 text-[10px] text-gray-400 ${mine ? "text-right" : "text-left"}`}
+                      className={`mt-0.5 text-[10px] ${mine ? "text-right" : "text-left"}`}
                     >
-                      {pending ? "Sending…" : when(m.createdAt)}
+                      <span className="font-semibold text-gray-500">
+                        {mine ? "You" : m.guestName || openName || "Guest"}
+                      </span>
+                      <span className="text-gray-400">
+                        {" · "}
+                        {pending ? "Sending…" : when(m.createdAt)}
+                      </span>
                       {receipts && lastMine && !pending && (
-                        <span className={m.readByGuest ? "text-blue-500" : undefined}>
+                        <span className={m.readByGuest ? "text-blue-500" : "text-gray-400"}>
                           {" · "}
                           {m.readByGuest ? "Read" : "Sent"}
                         </span>

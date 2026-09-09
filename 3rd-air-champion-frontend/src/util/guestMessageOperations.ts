@@ -137,6 +137,22 @@ export const pingHostTyping = async (
   return response.data;
 };
 
+// Host only. There is no guest-side counterpart: the guest half of this API is
+// public, so a delete reachable from it would let anyone wipe the questions the
+// host has not answered yet.
+export const deleteHostThread = async (
+  hostId: string,
+  phone: string,
+  token: string,
+): Promise<{ deleted: number }> => {
+  const response = await axios.post(
+    `${BACKEND_ENDPOINT}/inbox/thread/delete`,
+    { hostId, phone },
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return response.data;
+};
+
 export const markHostThreadRead = async (
   hostId: string,
   phone: string,

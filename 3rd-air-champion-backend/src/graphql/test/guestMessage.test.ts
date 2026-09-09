@@ -10,6 +10,8 @@ const thread = (args: any) =>
   (guestMessageResolvers.Query.guestMessages as any)(null, args);
 const threads = (args: any) =>
   (guestMessageResolvers.Query.guestMessageThreads as any)(null, args);
+const deleteThread = (args: any) =>
+  (guestMessageResolvers.Mutation.deleteGuestThread as any)(null, args);
 
 const hostFor = async (email: string) => {
   const host = await createMockHost(email);
@@ -200,5 +202,61 @@ describe("guest messages — what will not be stored", () => {
       body: "  spaces either side  ",
     });
     expect(saved.body).toBe("spaces either side");
+  });
+});
+
+describe("guest messages — removing a conversation", () => {
+  it("removes every message in the thread and leaves the other guests alone", async () => {
+    const host = await hostFor("delete-thread@example.com");
+
+    await send({ host, guestName: "Mai", guestPhone: "4085551234", sender: "guest", body: "Is there parking?" });
+    await send({ host, guestName: "Mai", guestPhone: "(408) 555-1234", sender: "host", body: "Two spots." });
+    await send({ host, guestName: "Linh", guestPhone: "6505559999", sender: "guest", body: "Early check-in?" });
+
+    // Written one way, deleted the other — the same guest either way, exactly
+    // as the inbox list groups them.
+    const deleted = await deleteThread({ hostId: host, phone: "408-555-1234" });
+    expect(deleted).toBe(2);
+
+    expect(await thread({ hostId: host, phone: "4085551234" })).toHaveLength(0);
+    expect(await thread({ hostId: host, phone: "6505559999" })).toHaveLength(1);
+
+    const remaining = await threads({ hostId: host });
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].guestName).toBe("Linh");
+  });
+
+  // The reason this does not reuse phoneMatcher. That regex is unanchored, so
+  // the digits of a ten-digit number sit inside an eleven-digit one with a
+  // country code and it would delete both guests at once. A read showing an
+  // extra thread is a nuisance; a delete taking one is unrecoverable.
+  it("does not take a longer number that merely contains the same digits", async () => {
+    const host = await hostFor("delete-country-code@example.com");
+
+    await send({ host, guestName: "Mai", guestPhone: "4085551234", sender: "guest", body: "Ten digits." });
+    await send({ host, guestName: "Someone else", guestPhone: "14085551234", sender: "guest", body: "Eleven digits." });
+
+    const deleted = await deleteThread({ hostId: host, phone: "4085551234" });
+    expect(deleted).toBe(1);
+
+    const left = await GuestMessage.find({ host });
+    expect(left).toHaveLength(1);
+    expect(left[0].guestPhone).toBe("14085551234");
+  });
+
+  it("deletes nothing, rather than everything, when no thread matches", async () => {
+    const host = await hostFor("delete-no-match@example.com");
+    await send({ host, guestName: "Mai", guestPhone: "4085551234", sender: "guest", body: "Still here." });
+
+    expect(await deleteThread({ hostId: host, phone: "2135550000" })).toBe(0);
+    expect(await GuestMessage.find({ host })).toHaveLength(1);
+  });
+
+  it("refuses a phone with no digits in it", async () => {
+    const host = await hostFor("delete-no-digits@example.com");
+    await send({ host, guestName: "Mai", guestPhone: "4085551234", sender: "guest", body: "Still here." });
+
+    await expect(deleteThread({ hostId: host, phone: "   " })).rejects.toThrow();
+    expect(await GuestMessage.find({ host })).toHaveLength(1);
   });
 });

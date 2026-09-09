@@ -35,5 +35,8 @@ export const guestMessageDefs = gql`
   type Mutation {
     sendGuestMessage(host: String!, guestName: String!, guestPhone: String!, sender: String!, body: String!): GuestMessage!
     markGuestMessagesRead(hostId: String!, phone: String!, reader: String!): Int!
+    # Removes a whole conversation. Returns how many rows went, so the caller
+    # can tell "deleted nothing" from "deleted a thread" without a second read.
+    deleteGuestThread(hostId: String!, phone: String!): Int!
   }
 `;
