@@ -20,7 +20,6 @@
      in em, and the root em is a fraction of the card width. */
   :root { --card-w: 4in; --card-h: 6in; }
 
-  @page { size: 4in 6in; margin: 0; }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -59,16 +58,37 @@
   .trim i:nth-child(3) { bottom: 0; left: 0; border-bottom-width: .5pt; border-left-width: .5pt; }
   .trim i:nth-child(4) { bottom: 0; right: 0; border-bottom-width: .5pt; border-right-width: .5pt; }
 
-  /* On screen the cards sit on a grey desk so the trim edge is visible; in
-     print each one is its own page and the desk goes away. */
+  /* One Letter sheet per room, holding that room's front and back side by
+     side. Cut it and that room's holder is done — no sorting a stack of loose
+     cards and no chance of a room ending up with a room on both sides.
+
+     Landscape, not portrait. The pair is 8in wide: on landscape Letter that
+     leaves 1.5in each side and 1.25in top and bottom, comfortably inside any
+     home printer's unprintable margin. Portrait leaves 0.25in, which is
+     exactly where most printers stop — and the teal band on the back runs to
+     the edge, so it would come out clipped.
+
+     The two cards touch, so ONE cut down the middle separates them. A gutter
+     between them would need two. */
+  .sheet {
+    width: 11in; height: 8.5in; background: #fff;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* On screen everything sits on a grey desk so the trim edge is visible; in
+     print the desk goes away. */
   @media screen {
     body { padding: 24px; display: flex; flex-wrap: wrap; gap: 24px; justify-content: center; }
-    .card { box-shadow: 0 4px 24px rgba(0,0,0,.18); }
+    body.card .card, .sheet { box-shadow: 0 4px 24px rgba(0,0,0,.18); }
   }
   @media print {
     body { background: #fff; padding: 0; display: block; }
-    .card { box-shadow: none; page-break-after: always; }
-    .card:last-child { page-break-after: auto; }
+    .card, .sheet { box-shadow: none; }
+    /* Whichever one IS the page is the one that breaks. */
+    body.card .card { page-break-after: always; }
+    body.card .card:last-child { page-break-after: auto; }
+    body.letter .sheet { page-break-after: always; }
+    body.letter .sheet:last-child { page-break-after: auto; }
   }
 
   /* ---------- front ---------- */
@@ -229,6 +249,17 @@ const TIERS = [
   { label: "Valued",    stays: "20 stays", fg: "#7e22ce", bg: "#faf5ff", bd: "#e9d5ff" },
   { label: "Cherished", stays: "50 stays", fg: "#b45309", bg: "#fffbeb", bd: "#fde68a" },
 ];
+
+/* How they come off the printer.
+
+   "letter"  one landscape Letter sheet per room, that room's front and back
+             side by side. Five sheets, one cut each. This is the one to print
+             at home — the 4x6 pages otherwise come out one to a sheet, ten
+             sheets with 70% of each blank.
+
+   "card"    one 4x6 page per card, ten pages. For a print shop that takes a
+             card-sized PDF and trims for you. */
+const SHEET = "letter";
 
 const LOGO = "../public/TiMagLogo.svg";
 /* The QR already in the repo and already on the phones — do not crop a fresh
@@ -396,8 +427,16 @@ function back() {
 const TRIM = '<div class="trim"><i></i><i></i><i></i><i></i></div>';
 const withTrim = (html) => html.replace(/^(<div class="card[^"]*">)/, "$1" + TRIM);
 
+document.head.insertAdjacentHTML(
+  "beforeend",
+  `<style>@page { size: ${SHEET === "letter" ? "11in 8.5in" : "4in 6in"}; margin: 0; }</style>`
+);
+document.body.className = SHEET;
 document.body.innerHTML = ROOMS
-  .map((room) => withTrim(front(room)) + withTrim(back()))
+  .map((room) => {
+    const pair = withTrim(front(room)) + withTrim(back());
+    return SHEET === "letter" ? `<div class="sheet">${pair}</div>` : pair;
+  })
   .join("");
 </script>
 </body>
