@@ -501,10 +501,15 @@ const NavBarDesktop = ({
               Calendar is at six now and on a short screen the last cards fell
               past the bottom with overflow-hidden clipping them — reachable
               nowhere, since the backdrop centres the panel rather than letting
-              the page scroll. dvh, not vh, so the phone browser's toolbar does
-              not sit over the last card. */}
+              the page scroll.
+
+              Plain vh, and 85 rather than 100 minus the padding: dvh is not in
+              older Samsung Internet, and calc() inside a Tailwind arbitrary
+              value needs its spaces written as underscores or it emits
+              calc(100dvh-2rem), which is invalid CSS and silently ignored. The
+              15% left over covers the phone toolbar that dvh was there for. */}
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex max-h-[calc(100dvh-2rem)] flex-col"
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex max-h-[85vh] flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
