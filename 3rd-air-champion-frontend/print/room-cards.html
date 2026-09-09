@@ -35,11 +35,29 @@
     height: var(--card-h);
     font-size: calc(var(--card-w) / 24);   /* 12pt on a 4in card */
     background: #fff;
-    padding: 1.25em 1.5em;
+    /* The bottom padding is deliberately the deepest side. These sit in an
+       acrylic holder whose wooden base swallows the bottom strip of the sheet,
+       and the motto lives down there — set it flush like the other edges and
+       "Your comfort. Our mission." disappears into the wood. The sides lose a
+       millimetre or two to the acrylic channel, which the side padding already
+       covers. */
+    padding: 1.25em 1.5em 2.6em;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    position: relative;
   }
+
+  /* Corner marks to cut along. The card is white to the edge, so printed on a
+     letter sheet there is otherwise no line to follow — they sit exactly on the
+     trim, so cutting through them removes them, and anything left is hidden
+     under the acrylic lip. */
+  .trim { position: absolute; inset: 0; pointer-events: none; }
+  .trim i { position: absolute; width: .22in; height: .22in; border: 0 solid #b8bec7; }
+  .trim i:nth-child(1) { top: 0; left: 0; border-top-width: .5pt; border-left-width: .5pt; }
+  .trim i:nth-child(2) { top: 0; right: 0; border-top-width: .5pt; border-right-width: .5pt; }
+  .trim i:nth-child(3) { bottom: 0; left: 0; border-bottom-width: .5pt; border-left-width: .5pt; }
+  .trim i:nth-child(4) { bottom: 0; right: 0; border-bottom-width: .5pt; border-right-width: .5pt; }
 
   /* On screen the cards sit on a grey desk so the trim edge is visible; in
      print each one is its own page and the desk goes away. */
@@ -63,16 +81,16 @@
 
   h1 {
     font-family: Georgia, "Times New Roman", serif;
-    font-size: 2em;
+    font-size: 1.8em;
     line-height: 1.14;
     font-weight: 400;
     letter-spacing: -.01em;
     margin-top: .5em;
   }
 
-  .kicker { font-size: .95em; line-height: 1.5; color: #4b5563; margin-top: .55em; }
+  .kicker { font-size: .88em; line-height: 1.5; color: #4b5563; margin-top: .5em; }
 
-  .panel { border: 1px solid #e5e7eb; border-radius: .65em; padding: .75em .8em; margin-top: .85em; }
+  .panel { border: 1px solid #e5e7eb; border-radius: .65em; padding: .65em .75em; margin-top: .7em; }
   .panel-title { font-size: .95em; font-weight: 700; }
 
   .week { display: grid; grid-template-columns: repeat(7, 1fr); margin-top: .5em; }
@@ -87,7 +105,7 @@
   /* The bottom padding is the lane the bar sits in. It has to clear the bar's
      own height plus its offset, or the bar is drawn through the day it is
      meant to sit under and strikes the letter out. */
-  .day { text-align: center; padding: .5em 0 1.55em; font-size: 1.05em; font-weight: 700; }
+  .day { text-align: center; padding: .45em 0 1.4em; font-size: 1.05em; font-weight: 700; }
   .day.free { color: #047857; }
   /* Light enough to read as unavailable, dark enough to survive a print run —
      #d1d5db looked right on a backlit screen and came off the printer as
@@ -110,40 +128,41 @@
   .qr-panel {
     display: flex; align-items: center; gap: .85em;
     background: #ecfdf5; border: 1px solid #d1fae5; border-radius: .65em;
-    padding: .75em; margin-top: .85em;
+    padding: .65em; margin-top: .7em;
   }
   .qr-panel img {
-    width: 4.9em; height: 4.9em; background: #fff;
+    width: 4.3em; height: 4.3em; background: #fff;
     border: 1px solid #d1fae5; border-radius: .45em; padding: .3em;
   }
-  .qr-head { font-size: 1.15em; font-weight: 700; color: #0f766e; line-height: 1.2; }
-  .qr-sub { font-size: .82em; color: #0f766e; line-height: 1.4; margin-top: .3em; }
+  .qr-head { font-size: 1.05em; font-weight: 700; color: #0f766e; line-height: 1.2; }
+  .qr-sub { font-size: .78em; color: #0f766e; line-height: 1.4; margin-top: .3em; }
 
-  .promise { margin-top: auto; padding-top: .8em; }
+  .promise { margin-top: auto; padding-top: .6em; }
   .promise-label { font-size: .66em; letter-spacing: .18em; text-transform: uppercase; color: #6b7280; }
   .promise-line {
     font-family: Georgia, "Times New Roman", serif; font-style: italic;
-    font-size: 1.5em; color: #5b21b6; margin-top: .2em;
+    font-size: 1.35em; color: #5b21b6; margin-top: .2em;
   }
 
   /* ---------- back ---------- */
 
   .card.back { padding: 0; }
-  .band { background: #0f766e; color: #fff; padding: 1.05em 1.3em; display: flex; align-items: center; gap: .7em; }
+  .band { background: #0f766e; color: #fff; padding: .9em 1.2em; display: flex; align-items: center; gap: .7em; }
   .band img { width: 2.2em; height: 2.2em; filter: brightness(0) invert(1); }
-  .band h2 { font-size: 1.75em; font-weight: 700; letter-spacing: -.01em; }
+  .band h2 { font-size: 1.55em; font-weight: 700; letter-spacing: -.01em; }
   .band p { font-size: .85em; opacity: .9; margin-top: .1em; }
 
-  .back-body { padding: 1.1em 1.3em 1.3em; display: flex; flex-direction: column; flex: 1; }
-  .feature { display: flex; gap: .6em; margin-bottom: .8em; }
+  /* Same deep bottom as the front, for the same reason: the base eats it. */
+  .back-body { padding: .95em 1.2em 2.6em; display: flex; flex-direction: column; flex: 1; }
+  .feature { display: flex; gap: .6em; margin-bottom: .62em; }
   .feature svg { width: 1.3em; height: 1.3em; flex: none; stroke: #0f766e; fill: none; stroke-width: 1.7; margin-top: .15em; }
-  .feature p { font-size: .92em; line-height: 1.45; color: #374151; }
+  .feature p { font-size: .88em; line-height: 1.45; color: #374151; }
   .feature b { color: #111827; }
 
   .chips { display: flex; flex-wrap: wrap; gap: .35em; margin-top: .4em; }
   .chip { font-size: .8em; font-weight: 700; color: #111827; border-radius: 999px; padding: .18em .7em; }
 
-  .tiers { border: 1px solid #e5e7eb; border-radius: .65em; padding: .75em .85em; margin-top: auto; }
+  .tiers { border: 1px solid #e5e7eb; border-radius: .65em; padding: .65em .75em; margin-top: auto; }
   .tier-row { display: flex; justify-content: space-between; margin-top: .5em; text-align: center; }
   .tier b { display: block; font-size: .78em; border-radius: 999px; border: 1px solid; padding: .2em .6em; }
   .tier span { display: block; font-size: .7em; color: #6b7280; margin-top: .25em; }
@@ -339,7 +358,20 @@ function back() {
   );
 }
 
-document.body.innerHTML = ROOMS.map(front).join("") + back();
+/* One holder per room, and each holder is double-sided — so each room needs its
+   OWN copy of the back, and the two sheets go in back to back.
+
+   Hence pairs: King front, back, Queen front, back, and so on. Printed as five
+   fronts followed by a single back, cutting the stack in half gave you one
+   usable holder and four with a room on both sides. Two separate sheets rather
+   than one duplexed sheet on purpose: nothing has to line up through the paper,
+   and any printer can do it. */
+const TRIM = '<div class="trim"><i></i><i></i><i></i><i></i></div>';
+const withTrim = (html) => html.replace(/^(<div class="card[^"]*">)/, "$1" + TRIM);
+
+document.body.innerHTML = ROOMS
+  .map((room) => withTrim(front(room)) + withTrim(back()))
+  .join("");
 </script>
 </body>
 </html>
