@@ -105,7 +105,7 @@
   /* The bottom padding is the lane the bar sits in. It has to clear the bar's
      own height plus its offset, or the bar is drawn through the day it is
      meant to sit under and strikes the letter out. */
-  .day { text-align: center; padding: .45em 0 1.4em; font-size: 1.05em; font-weight: 700; }
+  .day { text-align: center; padding: .45em 0 2.15em; font-size: 1.05em; font-weight: 700; }
   .day.free { color: #047857; }
   /* Light enough to read as unavailable, dark enough to survive a print run —
      #d1d5db looked right on a backlit screen and came off the printer as
@@ -113,15 +113,29 @@
   .day.taken { color: #9ca3af; text-decoration: line-through; text-decoration-thickness: .07em; }
   .day.mine { color: #111827; }
   .bar-wrap { position: absolute; inset: 0; pointer-events: none; }
-  .bar { position: absolute; bottom: .3em; height: 1.05em; border-radius: .3em; display: flex; align-items: center; }
+  /* Every one of these is a ratio taken off GuestCalendar at its reference
+     tile, where the day number is 16px and the ribbon 26px:
+
+       bar height  = 1.63 x the day number   (26/16)
+       label       = 0.575 x the bar height   (13 x 1.15 boost, in a 26px bar)
+       radius      = 0.31 x the bar height    (8 in 26, and never past half, or
+                                               the corners meet and the bar
+                                               loses the straight edge it butts
+                                               against the next night with)
+       gap beneath = 0.19 x the bar height    (5 in 26)
+
+     Drawn the same height as the day letter, it stopped being a ribbon and
+     read as an underline. The ribbon is meant to be the loudest thing in the
+     row - the date is the quietest. */
+  .bar { position: absolute; bottom: .33em; height: 1.71em; border-radius: .53em; display: flex; align-items: center; }
   /* The name is painted straight onto the bar in black — no pill behind it.
      That is what the calendar in TiBook does (text-black, px-0.5, no
      background), and a white capsule here read as a break in the bar and as an
      element the app does not have. A guest holding the card beside the app has
      to see the same object. */
   .bar b {
-    font-size: .68em; font-weight: 700; color: #000; line-height: 1;
-    padding: 0 .3em; white-space: nowrap;
+    font-size: .98em; font-weight: 700; color: #000; line-height: 1;
+    padding: 0 .38em; white-space: nowrap;
   }
   .legend { font-size: .66em; color: #6b7280; margin-top: .6em; }
 
