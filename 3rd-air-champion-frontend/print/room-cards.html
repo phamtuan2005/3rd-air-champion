@@ -181,7 +181,7 @@
   /* ---------- back ---------- */
 
   .card.back { padding: 0; }
-  .band { background: #0f766e; color: #fff; padding: .9em 1.2em; display: flex; align-items: center; gap: .7em; }
+  .band { background: #0f766e; color: #fff; padding: .82em 1.2em; display: flex; align-items: center; gap: .7em; }
   /* The mark goes on a white chip, untouched.
      It was being forced white with brightness(0) invert(1) so it would show on
      the teal. The logo is two paths - a near-black house and a near-white
@@ -198,7 +198,7 @@
 
   /* Same deep bottom as the front, for the same reason: the base eats it. */
   .back-body { padding: .95em 1.2em 2.6em; display: flex; flex-direction: column; flex: 1; }
-  .feature { display: flex; gap: .6em; margin-bottom: .62em; }
+  .feature { display: flex; gap: .6em; margin-bottom: .5em; }
   .feature svg { width: 1.3em; height: 1.3em; flex: none; stroke: #0f766e; fill: none; stroke-width: 1.7; margin-top: .15em; }
   .feature p { font-size: .88em; line-height: 1.45; color: #374151; }
   .feature b { color: #111827; }
@@ -366,8 +366,16 @@ function front(room) {
       /* The printed version said "well under the Airbnb rate". Naming them on a
          card that lives in the room is written evidence of taking a guest they
          sourced off their platform, which their terms forbid, and one
-         photograph is all it takes. The offer survives without the name. */
-      '<p class="kicker">Book direct through our own app. No service fee, and the rate you agree with Anh-Tuan holds every visit after.</p>' +
+         photograph is all it takes.
+
+         But dropping the name for a bare "No service fee" threw the meaning
+         out with it: a guest who does not already know a fee exists learns
+         nothing from being told there is none. The saving is real and it is
+         theirs - the site charges it ON THEIR BILL, and booking here removes
+         it. So name the CATEGORY, not the company: "the booking sites" says
+         what a guest needs and puts nothing in print that can be photographed
+         and reported. */
+      '<p class="kicker">Book direct through our own app. No booking-site service fee on your bill, and the rate you agree with Anh-Tuan holds every visit after.</p>' +
       calendar(room) +
       '<div class="qr-panel">' +
         '<img src="' + QR + '" alt="" />' +
@@ -422,7 +430,7 @@ function back() {
       '<div class="back-body">' +
         feature("calendar", "See what’s really available.", "All five rooms, night by night:", '<div class="chips">' + chips + "</div>") +
         feature("chat", "Say it in your own words.", "“Next Friday, three nights” is enough.") +
-        feature("tag", "Book direct.", "No service fee, and the rate you agree with Anh-Tuan holds every visit after.") +
+        feature("tag", "Book direct.", "No booking-site service fee on your bill, and the rate you agree with Anh-Tuan holds every visit after.") +
         feature("key", "The whole stay in one place.", "Door code, directions, calendar.") +
         '<div class="tiers">' +
           '<div class="panel-title">The house keeps count.</div>' +
