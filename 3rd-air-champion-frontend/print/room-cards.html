@@ -204,7 +204,21 @@
   .feature b { color: #111827; }
 
   .chips { display: flex; flex-wrap: wrap; gap: .35em; margin-top: .4em; }
-  .chip { font-size: .8em; font-weight: 700; color: #111827; border-radius: 999px; padding: .18em .7em; }
+  /* The room chips carry the SAME corner as the stay ribbon on the front -
+     0.31 of their own height - not the fully-round pill of TiBook's room strip.
+
+     The app is entitled to both shapes because they live on different screens.
+     A card is one object a guest turns over, so Cozy on the back and Cozy on
+     the front have to read as the same thing, and side by side the pill and
+     the ribbon plainly did not.
+
+     Black label, like the ribbon. The strip's pills are white-on-colour, which
+     is fine backlit and poor on paper - white on Queen's yellow barely holds
+     together in ink. */
+  .chip {
+    font-size: .8em; font-weight: 700; color: #000;
+    border-radius: .48em; padding: .18em .7em;
+  }
 
   .tiers { border: 1px solid #e5e7eb; border-radius: .65em; padding: .65em .75em; margin-top: auto; }
   .tier-row { display: flex; justify-content: space-between; margin-top: .5em; text-align: center; }
