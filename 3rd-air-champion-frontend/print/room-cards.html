@@ -431,7 +431,14 @@ function back() {
         feature("calendar", "See what’s really available.", "All five rooms, night by night:", '<div class="chips">' + chips + "</div>") +
         feature("chat", "Say it in your own words.", "“Next Friday, three nights” is enough.") +
         feature("tag", "Book direct.", "No booking-site service fee on your bill, and the rate you agree with Anh-Tuan holds every visit after.") +
-        feature("key", "The whole stay in one place.", "Door code, directions, calendar.") +
+        /* Written as what the guest RECEIVES, not as something automatic.
+           There is no scheduler behind the reminder - TiMag raises it as a to-do
+           and the host presses send. From the guest's chair the experience is
+           the same, but a card promising the house sends it by itself is a
+           promise a forgotten button breaks.
+           "calendar" came out rather than the line growing: the first feature
+           on this card is already the calendar. */
+        feature("key", "The whole stay in one place.", "Door code, directions, and a text before you arrive.") +
         '<div class="tiers">' +
           '<div class="panel-title">The house keeps count.</div>' +
           '<div class="tier-row">' + tiers + "</div>" +
