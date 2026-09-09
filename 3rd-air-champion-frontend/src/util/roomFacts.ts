@@ -100,10 +100,17 @@ const listingId = (airbnbUrl?: string) => {
 // True of the house, not of any one room, so it is written once and shown on
 // every room rather than copied into five entries that could drift apart.
 //
-// Note this CONTRADICTS the AirBnB listings, which mark the kitchen
-// "Unavailable" on every room but King. The house says otherwise and the house
-// is the authority on its own kitchen — but TiBook links to those listings, so
-// a guest can read both. They want correcting.
+// This USED TO CONTRADICT the AirBnB listings, which marked the kitchen
+// "Unavailable" on every room but King while the house said otherwise. The
+// house was the authority on its own kitchen and the listings were the stale
+// side, exactly as they were about the smart toilets below.
+//
+// CORRECTED on the listings 2026-09-09, Anh-Tuan adding the kitchen to all
+// five. Kept as a note rather than deleted because the reason it mattered is
+// worth keeping: kitchen is a SEARCH FILTER on AirBnB, so the four rooms that
+// said "Unavailable" were not ranked low for anyone filtering on a kitchen —
+// they were excluded from those results entirely. An amenity left unticked is
+// invisibility, not a lower position.
 export const houseKitchen = "Shared kitchen, open to every guest in the house";
 
 // The other fact that belongs to the whole house rather than to any one room,
@@ -243,7 +250,12 @@ const factsByListing: Record<string, roomFacts> = {
   "1144526275550691711": {
     maxGuests: 2,
     beds: [{ kind: "queen", label: "1 queen bed" }],
-    bathroom: "Private attached bathroom, with a bathtub and a smart toilet\u00a0— warm seat and built-in bidet",
+    // NO bathtub, Anh-Tuan confirming 2026-09-09. It was transcribed as having
+    // one, off the listing itself -- so the listing was advertising a bath this
+    // room does not have, which a guest books for and discovers at bedtime.
+    // Chill and Cozy DO have one, in the bathroom they share. Do not "restore"
+    // this by copying theirs across.
+    bathroom: "Private attached bathroom, with a smart toilet\u00a0— warm seat and built-in bidet",
     privacy: "Your own room, with a lock on the door",
     highlights: [
       "Wifi",
