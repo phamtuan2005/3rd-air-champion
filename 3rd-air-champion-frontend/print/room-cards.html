@@ -182,17 +182,16 @@
 
   .card.back { padding: 0; }
   .band { background: #0f766e; color: #fff; padding: .82em 1.2em; display: flex; align-items: center; gap: .7em; }
-  /* The mark goes on a white chip, untouched.
-     It was being forced white with brightness(0) invert(1) so it would show on
-     the teal. The logo is two paths - a near-black house and a near-white
-     figure inside it - and that filter turns BOTH white, welding the figure
-     into the outline and leaving a blank silhouette. A brand mark does not get
-     recoloured to suit a background; the background gives way instead. */
-  .band .mark {
-    width: 2.5em; height: 2.5em; flex: none; background: #fff;
-    border-radius: .55em; display: flex; align-items: center; justify-content: center;
-  }
-  .band .mark img { width: 1.95em; height: 1.95em; }
+  /* The mark sits straight on the teal, untouched — which is how the TiBook
+     app icon is built: the same two-tone artwork on a teal tile, no chip.
+     Here the band IS the tile.
+
+     It was white-filtered first, which welded the black house and the white
+     figure inside it into one blank silhouette. Then it was put on a white
+     chip to undo that, which fixed the mark and invented a white square the
+     app does not have. The artwork was never the problem; both attempts were
+     the background. */
+  .band img { width: 2.55em; height: 2.55em; flex: none; }
   .band h2 { font-size: 1.55em; font-weight: 700; letter-spacing: -.01em; }
   .band p { font-size: .85em; opacity: .9; margin-top: .1em; }
 
@@ -424,7 +423,7 @@ function back() {
   return (
     '<div class="card back">' +
       '<div class="band">' +
-        '<span class="mark"><img src="' + LOGO + '" alt="" /></span>' +
+        '<img src="' + LOGO + '" alt="" />' +
         "<div><h2>TiBook</h2><p>TT House’s own booking app</p></div>" +
       "</div>" +
       '<div class="back-body">' +
