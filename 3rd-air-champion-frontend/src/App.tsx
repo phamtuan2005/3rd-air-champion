@@ -104,6 +104,11 @@ function App() {
   // now the only way to find out was to open the panel and look.
   const [staffPendingCount, setStaffPendingCount] = useState(0);
   const [isRequestManagerOpen, setIsRequestManagerOpen] = useState(false);
+  // Guests writing in from TiBook, and how many of them are still waiting on a
+  // reply — its own badge, because a question nobody has answered is a
+  // different job from a booking nobody has accepted.
+  const [isGuestInboxOpen, setIsGuestInboxOpen] = useState(false);
+  const [guestMessageUnreadCount, setGuestMessageUnreadCount] = useState(0);
   const [bookingRequestPendingCount, setBookingRequestPendingCount] =
     useState(0);
   const [wishListAvailableCount, setWishListAvailableCount] = useState(0);
@@ -310,6 +315,9 @@ function App() {
                   miscCount={miscCount}
                   isRequestManagerOpen={isRequestManagerOpen}
                   setIsRequestManagerOpen={setIsRequestManagerOpen}
+                  isGuestInboxOpen={isGuestInboxOpen}
+                  setIsGuestInboxOpen={setIsGuestInboxOpen}
+                  guestMessageUnreadCount={guestMessageUnreadCount}
                   bookingRequestPendingCount={bookingRequestPendingCount}
                   wishListAvailableCount={wishListAvailableCount}
                 />
@@ -350,6 +358,9 @@ function App() {
                     setCleanUnassignedCount={setCleanUnassignedCount}
                     isRequestManagerOpen={isRequestManagerOpen}
                     setIsRequestManagerOpen={setIsRequestManagerOpen}
+                    isGuestInboxOpen={isGuestInboxOpen}
+                    setIsGuestInboxOpen={setIsGuestInboxOpen}
+                    setGuestMessageUnreadCount={setGuestMessageUnreadCount}
                     setBookingRequestPendingCount={
                       setBookingRequestPendingCount
                     }

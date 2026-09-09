@@ -6,6 +6,7 @@ import { guestDefs } from "./guest";
 import { roomDefs } from "./room";
 import { dayDefs } from "./day";
 import { bookingRequestDefs } from "./bookingRequest";
+import { guestMessageDefs } from "./guestMessage";
 import { authenticationDefs } from "./authentication";
 
 export const typeDefs = [
@@ -17,5 +18,6 @@ export const typeDefs = [
   roomDefs,
   dayDefs,
   bookingRequestDefs,
+  guestMessageDefs,
   authenticationDefs,
 ];

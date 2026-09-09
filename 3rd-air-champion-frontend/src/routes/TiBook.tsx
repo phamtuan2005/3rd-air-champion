@@ -26,6 +26,9 @@ import RememberMeDisclaimer from "../components/tibook/RememberMeDisclaimer";
 import HeroShell from "../components/tibook/HeroShell";
 import RoomGalleryModal from "../components/tibook/RoomGalleryModal";
 import { getConsent, readRememberedGuest, rememberGuest, setConsent, revokeConsent } from "../util/guestConsent";
+import HostContactButton from "../components/tibook/HostContactButton";
+import HostChatSheet from "../components/tibook/HostChatSheet";
+import { fetchGuestThread } from "../util/guestMessageOperations";
 
 const TiBookInner = () => {
   const { theme, vibe, layout } = useTiBookTheme();
@@ -70,6 +73,11 @@ const TiBookInner = () => {
   // The number waiting on an answer to the disclaimer. Held in memory only —
   // nothing is written until they say yes.
   const [pendingConsentPhone, setPendingConsentPhone] = useState<string | null>(null);
+  // The host conversation: the sheet, and how many of his replies the guest has
+  // not read. The count rides on the floating button so a guest who closed the
+  // sheet still finds out he wrote back.
+  const [chatOpen, setChatOpen] = useState(false);
+  const [unreadFromHost, setUnreadFromHost] = useState(0);
   // Whether the ask may appear OVER the booking modal.
   //
   // It waited for the modal to close, so as not to land on top of "All done!".
@@ -203,6 +211,27 @@ const TiBookInner = () => {
     gripRef.current = null;
     setDragging(false);
   };
+
+  // How many of the host's replies the guest has not read yet.
+  //
+  // Polled rather than pushed — there is no socket in this app. Only while the
+  // chat sheet is SHUT: the sheet does its own, faster poll and marks them read
+  // as it goes, so leaving this one running would race it and flash a badge
+  // that is already cleared.
+  useEffect(() => {
+    if (!guestPhone || !currentHost || chatOpen) return;
+    const count = () =>
+      fetchGuestThread(currentHost.id, guestPhone)
+        .then((rows) =>
+          setUnreadFromHost(
+            (rows ?? []).filter((m) => m.sender === "host" && !m.readByGuest).length,
+          ),
+        )
+        .catch(() => {});
+    count();
+    const t = setInterval(count, 60000);
+    return () => clearInterval(t);
+  }, [guestPhone, currentHost, chatOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load wish list when phone + host are ready
   useEffect(() => {
@@ -544,6 +573,19 @@ const TiBookInner = () => {
   // the name: the phone is what is saved first and what every lookup keys on,
   // and a guest whose name never came back is still not a stranger.
   const isKnownVisitor = isReturningGuest || !!guestPhone.trim();
+
+  // Every overlay that takes the whole screen. The floating host button steps
+  // aside for these — see the note where it is rendered.
+  const modalOwnsScreen =
+    myBookingsOpen ||
+    isBookingModalOpen ||
+    chatOpen ||
+    reservedPopupOpen ||
+    !!stayPopupId ||
+    !!bookAnother ||
+    !!heroGalleryRoom ||
+    !!roomPickerDate ||
+    !!pendingConsentPhone;
 
   // DYNAMIC viewport height. Plain 100vh (h-screen) is the height the page would
   // have with the browser chrome hidden, so on an iPhone the layout is taller
@@ -933,6 +975,48 @@ const TiBookInner = () => {
           onPick={(roomId) => addCartDateForRoom(roomPickerDate, roomId)}
           onAny={() => addCartDateAny(roomPickerDate)}
           onClose={() => setRoomPickerDate(null)}
+        />
+      )}
+
+      {/* Reaching the host, from anywhere in TiBook.
+          Rendered HERE, outside the layout branch, so it is the same button in
+          Classic, Neon and Hero — a guest switching look keeps it, and its
+          position, exactly where it was. Fixed, so it stays put through any
+          amount of scrolling.
+          It stands down while a sheet or modal owns the screen. Those are
+          full-screen flows with their own controls, and a draggable button
+          floating over "Review Request" is something to fight rather than
+          something to use — the chat sheet carries its own call and text links
+          for a guest who needs the host mid-flow. */}
+      {currentHost && !modalOwnsScreen && (
+        <HostContactButton
+          hostName={currentHost.name}
+          hostPhone={currentHost.phone}
+          unread={unreadFromHost}
+          onOpenChat={() => setChatOpen(true)}
+        />
+      )}
+
+      {chatOpen && currentHost && (
+        <HostChatSheet
+          hostId={currentHost.id}
+          hostName={currentHost.name}
+          hostPhone={currentHost.phone}
+          savedPhone={guestPhone}
+          savedName={guestName}
+          onIdentified={(phone, name) => {
+            setGuestPhone(phone);
+            setGuestName(name);
+            // Same gate as the booking flow. Their message is already sent, so
+            // asking now interrupts nothing.
+            rememberOrAsk(phone, name, true);
+          }}
+          onClose={() => {
+            setChatOpen(false);
+            // The sheet marked them read on the way in; clear the badge with it
+            // rather than waiting a poll to catch up.
+            setUnreadFromHost(0);
+          }}
         />
       )}
 

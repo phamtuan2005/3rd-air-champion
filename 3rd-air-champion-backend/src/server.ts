@@ -18,6 +18,8 @@ import hostRoute from "./route/hostRoute";
 import syncRoute from "./route/syncRoute";
 import bookingRequestRoute from "./route/bookingRequestRoute";
 import wishListRoute from "./route/wishListRoute";
+import guestMessageRoute from "./route/guestMessageRoute";
+import hostMessageRoute from "./route/hostMessageRoute";
 import cleanerRoute from "./route/cleanerRoute";
 import miscRoute from "./route/miscRoute";
 import chargeRoute from "./route/chargeRoute";
@@ -111,6 +113,10 @@ const startServer = async () => {
     apiRouter.use("/auth", authorizationRoute);
     apiRouter.use("/booking-request", bookingRequestRoute);
     apiRouter.use("/wish-list", wishListRoute);
+    // TiBook: a guest writing to the host. Public for the same reason the
+    // booking request above it is — asking a question cannot require a login.
+    // The host half of the conversation is /inbox, below the gate.
+    apiRouter.use("/message", guestMessageRoute);
     // TiWork: staff have no TiMag login, so these sit outside the JWT gate and
     // prove identity per request with phone + access code.
     apiRouter.use("/work", workRoute);
@@ -130,6 +136,7 @@ const startServer = async () => {
     apiRouter.use("/staff", staffRoute);
     apiRouter.use("/reminder", reminderRoute);
     apiRouter.use("/ai", aiRoute);
+    apiRouter.use("/inbox", hostMessageRoute);
 
     app.use("/api", apiRouter);
 

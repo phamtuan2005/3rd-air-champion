@@ -65,6 +65,9 @@ interface NavBarDesktopProps {
   staffPendingCount: number;
   isRequestManagerOpen: boolean;
   setIsRequestManagerOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isGuestInboxOpen: boolean;
+  setIsGuestInboxOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  guestMessageUnreadCount: number;
   bookingRequestPendingCount: number;
   wishListAvailableCount: number;
   miscCount: number;
@@ -110,6 +113,9 @@ const NavBarDesktop = ({
   staffPendingCount,
   isRequestManagerOpen,
   setIsRequestManagerOpen,
+  isGuestInboxOpen,
+  setIsGuestInboxOpen,
+  guestMessageUnreadCount,
   bookingRequestPendingCount,
   wishListAvailableCount,
   miscCount,
@@ -126,6 +132,7 @@ const NavBarDesktop = ({
     setIsBlockAirBnBModalOpen(false);
     setIsBlockRoomsModalOpen(false);
     setIsRequestManagerOpen(false);
+    setIsGuestInboxOpen(false);
   };
 
   // A pending count. `pos` places it on the category button; the action cards
@@ -180,7 +187,12 @@ const NavBarDesktop = ({
       icon: <FaCalendarAlt className="text-sm" />,
       btn: "bg-blue-500",
       shadow: "drop-shadow-[0_4px_6px_rgba(59,130,246,0.5)]",
-      active: isBookModalOpen || isRequestManagerOpen || isBlockAirBnBModalOpen || isBlockRoomsModalOpen,
+      active:
+        isBookModalOpen ||
+        isRequestManagerOpen ||
+        isGuestInboxOpen ||
+        isBlockAirBnBModalOpen ||
+        isBlockRoomsModalOpen,
       // Three separate counts, not a sum: requests and blocks are different
       // jobs in different panels, and lumping them said only "something is
       // waiting". Corner tells them apart where the colour doesn't.
@@ -188,6 +200,7 @@ const NavBarDesktop = ({
         { n: bookingRequestPendingCount, cls: YELLOW, pos: "mid" }, // money coming
         { n: wishListAvailableCount, cls: GREEN, pos: "left" }, // wishes waiting
         { n: airbnbPendingCount, cls: ROSE, pos: "right" }, // blocks to push
+        { n: guestMessageUnreadCount, cls: INDIGO, pos: "mid" }, // guests waiting on a reply
       ],
       actions: [
         {
@@ -209,6 +222,17 @@ const NavBarDesktop = ({
           run: () => {
             closeAllPanels();
             setIsRequestManagerOpen(true);
+          },
+        },
+        {
+          label: "Messages",
+          desc: "Questions guests have written from TiBook.",
+          emoji: "💬",
+          hover: "hover:border-indigo-300 hover:text-indigo-600",
+          badges: [{ n: guestMessageUnreadCount, cls: INDIGO }],
+          run: () => {
+            closeAllPanels();
+            setIsGuestInboxOpen(true);
           },
         },
         {

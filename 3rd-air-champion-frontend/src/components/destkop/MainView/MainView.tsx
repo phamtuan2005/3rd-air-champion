@@ -29,6 +29,8 @@ import BlockAirBnBModal from "./BlockAirBnBModal";
 import BlockRoomsModal from "./BlockRoomsModal";
 import ModifyBookingModal from "../ModifyBookingModal";
 import BookingRequestManagerModal from "../BookingRequestManagerModal";
+import GuestInboxModal from "../GuestInboxModal";
+import { fetchHostThreads } from "../../../util/guestMessageOperations";
 import GuestAddPane from "../BookingModal/GuestAddPane";
 import EditRoomModal from "../NavBar/DropDown/EditRoomModal";
 import ManageGuestModal from "../NavBar/DropDown/ManageGuestModal";
@@ -84,6 +86,9 @@ interface MainViewProps {
   setCleanUnassignedCount: React.Dispatch<React.SetStateAction<number>>;
   isRequestManagerOpen: boolean;
   setIsRequestManagerOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isGuestInboxOpen: boolean;
+  setIsGuestInboxOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setGuestMessageUnreadCount: React.Dispatch<React.SetStateAction<number>>;
   setBookingRequestPendingCount: React.Dispatch<React.SetStateAction<number>>;
   setWishListAvailableCount: React.Dispatch<React.SetStateAction<number>>;
   setMiscCount: React.Dispatch<React.SetStateAction<number>>;
@@ -119,6 +124,9 @@ const MainView = ({
   setCleanUnassignedCount,
   isRequestManagerOpen,
   setIsRequestManagerOpen,
+  isGuestInboxOpen,
+  setIsGuestInboxOpen,
+  setGuestMessageUnreadCount,
   setBookingRequestPendingCount,
   setWishListAvailableCount,
   setMiscCount,
@@ -659,6 +667,20 @@ const MainView = ({
       .then((entries) => setWishListAvailableCount(entries.filter((e) => e.dates.length > 0).length))
       .catch(() => setWishListAvailableCount(0));
   }, [hostId, token, setWishListAvailableCount, badgeTick]);
+
+  // Guests waiting on a reply. On the shared badge tick like the rest, and
+  // recounted when the inbox closes so reading a thread drops the badge
+  // straight away instead of on the next tick.
+  useEffect(() => {
+    if (!token) return;
+    fetchHostThreads(hostId, token)
+      .then((rows) =>
+        setGuestMessageUnreadCount(
+          (rows ?? []).reduce((sum, t) => sum + (t.unreadForHost || 0), 0),
+        ),
+      )
+      .catch(() => setGuestMessageUnreadCount(0));
+  }, [hostId, token, setGuestMessageUnreadCount, badgeTick, isGuestInboxOpen]);
 
   useEffect(() => {
     if (isTodoModalOpen) {
@@ -1403,6 +1425,13 @@ const MainView = ({
             token={token}
             senderName={senderName}
           />
+        ) : isGuestInboxOpen ? (
+          <GuestInboxModal
+            hostId={hostId}
+            token={token as string}
+            onUnreadChange={setGuestMessageUnreadCount}
+            onClose={() => setIsGuestInboxOpen(false)}
+          />
         ) : isRequestManagerOpen ? (
           <BookingRequestManagerModal
             hostId={hostId}
@@ -1589,6 +1618,20 @@ const MainView = ({
           token={token as string}
           onDaysUpdate={onDaysUpdate}
         />
+      </MobilePanel>
+
+      <MobilePanel
+        isOpen={isGuestInboxOpen}
+        onClose={() => setIsGuestInboxOpen(false)}
+      >
+        {isGuestInboxOpen && token && (
+          <GuestInboxModal
+            hostId={hostId}
+            token={token}
+            onUnreadChange={setGuestMessageUnreadCount}
+            onClose={() => setIsGuestInboxOpen(false)}
+          />
+        )}
       </MobilePanel>
 
       <MobilePanel
