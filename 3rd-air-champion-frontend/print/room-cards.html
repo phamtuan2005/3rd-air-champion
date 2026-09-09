@@ -252,8 +252,21 @@ function calendar(room) {
     '<div class="day ' + state + '">' + (dates ? dates[i].getDate() : DOW[i]) + "</div>"
   ).join("");
 
-  /* Afternoon arrival to morning departure: half a cell in at each end. */
-  const left = ((first + 0.5) / 7) * 100;
+  /* Afternoon arrival, morning departure — and the departure day is the one
+     AFTER the last night, so the bar has to reach into it.
+
+     The 20% is not a look, it is the app's number. GuestCalendar draws the
+     check-in bar from 20% of the arrival cell to its right edge, and the
+     checkout cap from the left edge of the departure cell to 20% across. The
+     two fractions MUST be equal: when one guest leaves on the morning another
+     arrives, the cap ends exactly where the next bar begins and the changeover
+     is seamless. Any other pair of numbers opens a gap or an overlap on that
+     day, which is the calendar bug this house has already had.
+
+     Drawn at half a cell each end, the stay ran to the middle of Friday and
+     read as a Friday afternoon checkout. */
+  const INSET = 0.2;
+  const left = ((first + INSET) / 7) * 100;
   const width = ((last + 1 - first) / 7) * 100;
 
   return (
