@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>TT House — room cards</title>
+<!--
+  The cards left in the rooms: one front per room, one back that goes behind
+  any of them. Open this file in a browser and print to PDF.
+
+  Rebuilt from the printed PDFs because the original source was never pushed.
+  Each of those PDFs is a single flattened JPEG, so nothing could be recovered
+  out of them — if the cards change, change THIS file and reprint from it.
+
+  A card is not a screenshot of the app. It is an object a stranger reads in a
+  room for months, and every rule below comes from that one difference.
+-->
+<style>
+  /* 4x6in is the cheap standard photo-card size, and the 2:3 the original was
+     drawn at. Change these two and the whole card rescales: every size below is
+     in em, and the root em is a fraction of the card width. */
+  :root { --card-w: 4in; --card-h: 6in; }
+
+  @page { size: 4in 6in; margin: 0; }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #e5e7eb;
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    color: #111827;
+  }
+
+  .card {
+    width: var(--card-w);
+    height: var(--card-h);
+    font-size: calc(var(--card-w) / 24);   /* 12pt on a 4in card */
+    background: #fff;
+    padding: 1.25em 1.5em;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* On screen the cards sit on a grey desk so the trim edge is visible; in
+     print each one is its own page and the desk goes away. */
+  @media screen {
+    body { padding: 24px; display: flex; flex-wrap: wrap; gap: 24px; justify-content: center; }
+    .card { box-shadow: 0 4px 24px rgba(0,0,0,.18); }
+  }
+  @media print {
+    body { background: #fff; padding: 0; display: block; }
+    .card { box-shadow: none; page-break-after: always; }
+    .card:last-child { page-break-after: auto; }
+  }
+
+  /* ---------- front ---------- */
+
+  .masthead { display: flex; align-items: center; justify-content: space-between; }
+  .brand { display: flex; align-items: center; gap: .5em; }
+  .brand img { width: 1.9em; height: 1.9em; }
+  .brand span { font-size: 1.15em; font-weight: 700; letter-spacing: .12em; }
+  .locale { font-size: .72em; letter-spacing: .22em; color: #9ca3af; text-transform: uppercase; }
+
+  h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 2em;
+    line-height: 1.14;
+    font-weight: 400;
+    letter-spacing: -.01em;
+    margin-top: .5em;
+  }
+
+  .kicker { font-size: .95em; line-height: 1.5; color: #4b5563; margin-top: .55em; }
+
+  .panel { border: 1px solid #e5e7eb; border-radius: .65em; padding: .75em .8em; margin-top: .85em; }
+  .panel-title { font-size: .95em; font-weight: 700; }
+
+  .week { display: grid; grid-template-columns: repeat(7, 1fr); margin-top: .5em; }
+  .dow { text-align: center; font-size: .68em; color: #9ca3af; padding-bottom: .3em; }
+
+  /* The bar is drawn OVER the day cells rather than inside one, because a stay
+     runs from an afternoon to a morning: it starts halfway through the arrival
+     day and ends halfway through the departure day. Same geometry as the
+     calendar in TiMag — if the two disagree, a guest reading both sees a gap
+     between nights that is not there. */
+  .days { position: relative; display: grid; grid-template-columns: repeat(7, 1fr); }
+  /* The bottom padding is the lane the bar sits in. It has to clear the bar's
+     own height plus its offset, or the bar is drawn through the day it is
+     meant to sit under and strikes the letter out. */
+  .day { text-align: center; padding: .5em 0 1.55em; font-size: 1.05em; font-weight: 700; }
+  .day.free { color: #047857; }
+  /* Light enough to read as unavailable, dark enough to survive a print run —
+     #d1d5db looked right on a backlit screen and came off the printer as
+     nothing at all, taking the strike with it. */
+  .day.taken { color: #9ca3af; text-decoration: line-through; text-decoration-thickness: .07em; }
+  .day.mine { color: #111827; }
+  .bar-wrap { position: absolute; inset: 0; pointer-events: none; }
+  .bar { position: absolute; bottom: .3em; height: 1.05em; border-radius: .3em; display: flex; align-items: center; }
+  .bar b {
+    font-size: .62em; font-weight: 700; color: #111827;
+    background: #fff; border-radius: .25em; padding: 0 .35em; margin-left: .3em; white-space: nowrap;
+  }
+  .legend { font-size: .66em; color: #6b7280; margin-top: .6em; }
+
+  .qr-panel {
+    display: flex; align-items: center; gap: .85em;
+    background: #ecfdf5; border: 1px solid #d1fae5; border-radius: .65em;
+    padding: .75em; margin-top: .85em;
+  }
+  .qr-panel img {
+    width: 4.9em; height: 4.9em; background: #fff;
+    border: 1px solid #d1fae5; border-radius: .45em; padding: .3em;
+  }
+  .qr-head { font-size: 1.15em; font-weight: 700; color: #0f766e; line-height: 1.2; }
+  .qr-sub { font-size: .82em; color: #0f766e; line-height: 1.4; margin-top: .3em; }
+
+  .promise { margin-top: auto; padding-top: .8em; }
+  .promise-label { font-size: .66em; letter-spacing: .18em; text-transform: uppercase; color: #6b7280; }
+  .promise-line {
+    font-family: Georgia, "Times New Roman", serif; font-style: italic;
+    font-size: 1.5em; color: #5b21b6; margin-top: .2em;
+  }
+
+  /* ---------- back ---------- */
+
+  .card.back { padding: 0; }
+  .band { background: #0f766e; color: #fff; padding: 1.05em 1.3em; display: flex; align-items: center; gap: .7em; }
+  .band img { width: 2.2em; height: 2.2em; filter: brightness(0) invert(1); }
+  .band h2 { font-size: 1.75em; font-weight: 700; letter-spacing: -.01em; }
+  .band p { font-size: .85em; opacity: .9; margin-top: .1em; }
+
+  .back-body { padding: 1.1em 1.3em 1.3em; display: flex; flex-direction: column; flex: 1; }
+  .feature { display: flex; gap: .6em; margin-bottom: .8em; }
+  .feature svg { width: 1.3em; height: 1.3em; flex: none; stroke: #0f766e; fill: none; stroke-width: 1.7; margin-top: .15em; }
+  .feature p { font-size: .92em; line-height: 1.45; color: #374151; }
+  .feature b { color: #111827; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: .35em; margin-top: .4em; }
+  .chip { font-size: .8em; font-weight: 700; color: #111827; border-radius: 999px; padding: .18em .7em; }
+
+  .tiers { border: 1px solid #e5e7eb; border-radius: .65em; padding: .75em .85em; margin-top: auto; }
+  .tier-row { display: flex; justify-content: space-between; margin-top: .5em; text-align: center; }
+  .tier b { display: block; font-size: .78em; border-radius: 999px; border: 1px solid; padding: .2em .6em; }
+  .tier span { display: block; font-size: .7em; color: #6b7280; margin-top: .25em; }
+</style>
+</head>
+<body>
+<script>
+/* ------------------------------------------------------------------ config */
+
+/* The fault that mattered most in the printed version: the week was drawn into
+   the artwork, so a card printed in September still said September in November,
+   and the one thing the card sells — see what is really available — was the one
+   thing it was visibly wrong about.
+
+   Two ways out, and which you want depends on how long the card sits:
+
+   ILLUSTRATIVE = true    no month, no dates, just weekday letters. The calendar
+                          teaches a guest how to read TiBook and never expires.
+                          Use this for cards that live in the rooms.
+
+   ILLUSTRATIVE = false   real dates for the coming week, generated at the
+                          moment you print. Only for a card printed and handed
+                          over the same week — it goes stale exactly as fast as
+                          the old one did. */
+const ILLUSTRATIVE = true;
+
+/* Straight out of util/getRoomColor.ts. King, Queen, Cozy and Cute are named
+   cases there; Chill is NOT — it falls through to a hash of the room name over
+   a seven-colour array, which lands on purple. Do not guess this one: if a room
+   is renamed or added, run the hash. */
+const ROOMS = [
+  { name: "King",  color: "#ef4444" },
+  { name: "Queen", color: "#eab308" },
+  { name: "Cute",  color: "#22c55e" },
+  { name: "Chill", color: "#a855f7" },
+  { name: "Cozy",  color: "#3b82f6" },
+];
+
+/* Which of the seven cells read as taken, free, or the guest's own stay. The
+   stay has to be adjacent cells: the bar is drawn from the middle of the first
+   to the middle of the cell after the last. */
+const PATTERN = ["taken", "free", "free", "mine", "mine", "free", "taken"];
+
+/* The tiers and the counts that earn them are LOYALTY_TIERS in
+   components/tibook/GuestLoyaltyBanner.tsx. A card promising Valued at 20 while
+   the app says something else is a promise broken in print. */
+const TIERS = [
+  { label: "Returning", stays: "1 stay",   fg: "#15803d", bg: "#f0fdf4", bd: "#bbf7d0" },
+  { label: "Loyal",     stays: "5 stays",  fg: "#1d4ed8", bg: "#eff6ff", bd: "#bfdbfe" },
+  { label: "Valued",    stays: "20 stays", fg: "#7e22ce", bg: "#faf5ff", bd: "#e9d5ff" },
+  { label: "Cherished", stays: "50 stays", fg: "#b45309", bg: "#fffbeb", bd: "#fde68a" },
+];
+
+const LOGO = "../public/TiMagLogo.svg";
+/* The QR already in the repo and already on the phones — do not crop a fresh
+   one out of a printed PDF, and do not generate a second one that points
+   somewhere subtly different. */
+const QR = "../public/tibook-qr.svg";
+
+/* ----------------------------------------------------------------- helpers */
+
+const DOW = ["S", "M", "T", "W", "T", "F", "S"];
+
+/* The coming Sunday, so a freshly printed card opens on a week that has not
+   started yet. Only reached when ILLUSTRATIVE is off. */
+function weekDates() {
+  const d = new Date();
+  d.setDate(d.getDate() + ((7 - d.getDay()) % 7 || 7));
+  return Array.from({ length: 7 }, (_, i) => {
+    const x = new Date(d);
+    x.setDate(d.getDate() + i);
+    return x;
+  });
+}
+
+function calendar(room) {
+  const dates = ILLUSTRATIVE ? null : weekDates();
+  const title = dates ? dates[3].toLocaleString("en-US", { month: "long" }) : "Any week";
+  const first = PATTERN.indexOf("mine");
+  const last = PATTERN.lastIndexOf("mine");
+
+  /* Without dates the cells ARE the weekday letters, styled free or taken, and
+     the header row above them would just repeat itself — so it is dropped. A
+     row of anonymous dots under a row of letters showed a guest nothing; this
+     way the legend has something to point at either way. */
+  const cells = PATTERN.map((state, i) =>
+    '<div class="day ' + state + '">' + (dates ? dates[i].getDate() : DOW[i]) + "</div>"
+  ).join("");
+
+  /* Afternoon arrival to morning departure: half a cell in at each end. */
+  const left = ((first + 0.5) / 7) * 100;
+  const width = ((last + 1 - first) / 7) * 100;
+
+  return (
+    '<div class="panel">' +
+      '<div class="panel-title">' + title + "</div>" +
+      (dates ? '<div class="week">' + DOW.map((d) => '<div class="dow">' + d + "</div>").join("") + "</div>" : "") +
+      '<div class="days">' + cells +
+        '<div class="bar-wrap"><div class="bar" style="left:' + left + "%;width:" + width + "%;background:" + room.color + '">' +
+          "<b>" + room.name + "</b>" +
+        "</div></div>" +
+      "</div>" +
+      /* "your stay", not "your room". With the other two words being available
+         and taken, calling the bar a room left the barred nights in neither
+         state, so the legend never said whether they were free. */
+      '<div class="legend">Bold is available · the bar is your stay · struck is taken</div>' +
+    "</div>"
+  );
+}
+
+function front(room) {
+  return (
+    '<div class="card">' +
+      '<div class="masthead">' +
+        '<div class="brand"><img src="' + LOGO + '" alt="" /><span>TT HOUSE</span></div>' +
+        '<div class="locale">Silicon Valley</div>' +
+      "</div>" +
+      "<h1>Come back to the house that knows you, and that you love.</h1>" +
+      /* The printed version said "well under the Airbnb rate". Naming them on a
+         card that lives in the room is written evidence of taking a guest they
+         sourced off their platform, which their terms forbid, and one
+         photograph is all it takes. The offer survives without the name. */
+      '<p class="kicker">Book direct through our own app. No service fee, and the rate you agree with Anh-Tuan holds every visit after.</p>' +
+      calendar(room) +
+      '<div class="qr-panel">' +
+        '<img src="' + QR + '" alt="" />' +
+        "<div>" +
+          '<div class="qr-head">Point your camera here</div>' +
+          '<div class="qr-sub">It opens straight to TiBook. Nothing to install.</div>' +
+        "</div>" +
+      "</div>" +
+      '<div class="promise">' +
+        /* The motto is a promise TO THE GUEST and has to be named as one, or it
+           reads as a slogan about us. */
+        '<div class="promise-label">Our promise to you</div>' +
+        '<div class="promise-line">Your comfort. Our mission.</div>' +
+      "</div>" +
+    "</div>"
+  );
+}
+
+const ICONS = {
+  calendar: '<rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4M9 14l2 2 4-4"/>',
+  chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L3 21l1.9-6.4A8 8 0 1 1 21 12z"/>',
+  tag: '<path d="M20.6 13.4 12 22l-9-9V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.3"/>',
+  key: '<circle cx="7" cy="15" r="4"/><path d="M10 12 21 3M18 6l2.5 2.5M15 9l2 2"/>',
+};
+
+function feature(icon, lead, rest, extra) {
+  return (
+    '<div class="feature">' +
+      '<svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">' + ICONS[icon] + "</svg>" +
+      "<div><p><b>" + lead + "</b> " + rest + "</p>" + (extra || "") + "</div>" +
+    "</div>"
+  );
+}
+
+function back() {
+  const chips = ROOMS.map(
+    (r) => '<span class="chip" style="background:' + r.color + '">' + r.name + "</span>"
+  ).join("");
+
+  const tiers = TIERS.map(
+    (t) =>
+      '<div class="tier"><b style="color:' + t.fg + ";background:" + t.bg + ";border-color:" + t.bd + '">' +
+      t.label + "</b><span>" + t.stays + "</span></div>"
+  ).join("");
+
+  return (
+    '<div class="card back">' +
+      '<div class="band">' +
+        '<img src="' + LOGO + '" alt="" />' +
+        "<div><h2>TiBook</h2><p>TT House’s own booking app</p></div>" +
+      "</div>" +
+      '<div class="back-body">' +
+        feature("calendar", "See what’s really available.", "All five rooms, night by night:", '<div class="chips">' + chips + "</div>") +
+        feature("chat", "Say it in your own words.", "“Next Friday, three nights” is enough.") +
+        feature("tag", "Book direct.", "No service fee, and the rate you agree with Anh-Tuan holds every visit after.") +
+        feature("key", "The whole stay in one place.", "Door code, directions, calendar.") +
+        '<div class="tiers">' +
+          '<div class="panel-title">The house keeps count.</div>' +
+          '<div class="tier-row">' + tiers + "</div>" +
+        "</div>" +
+        '<div class="qr-panel">' +
+          '<img src="' + QR + '" alt="" />' +
+          "<div>" +
+            '<div class="qr-head">Scan to open TiBook</div>' +
+            '<div class="qr-sub">No app to install and no password. It knows you by your phone number.</div>' +
+          "</div>" +
+        "</div>" +
+      "</div>" +
+    "</div>"
+  );
+}
+
+document.body.innerHTML = ROOMS.map(front).join("") + back();
+</script>
+</body>
+</html>
