@@ -496,12 +496,19 @@ const NavBarDesktop = ({
           className="modal-type fixed inset-0 bg-black/40 flex items-center justify-center z-[300] p-4"
           onClick={() => setPickerGroup(null)}
         >
+          {/* Capped to the viewport, with the cards scrolling inside it. The
+              panel used to size to its content: fine at three actions, but
+              Calendar is at six now and on a short screen the last cards fell
+              past the bottom with overflow-hidden clipping them — reachable
+              nowhere, since the backdrop centres the panel rather than letting
+              the page scroll. dvh, not vh, so the phone browser's toolbar does
+              not sit over the last card. */}
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex max-h-[calc(100dvh-2rem)] flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+            <div className="flex shrink-0 items-center justify-between px-5 py-3 border-b border-gray-100">
               <h2 className="flex items-center gap-2 text-lg font-bold text-gray-800">
                 <span className="text-gray-500">{GROUPS[pickerGroup].icon}</span>
                 {GROUPS[pickerGroup].title}
@@ -514,8 +521,11 @@ const NavBarDesktop = ({
               </button>
             </div>
 
-            {/* Action cards */}
-            <div className="p-3 flex flex-col gap-2">
+            {/* Action cards. min-h-0 so this actually shrinks inside the flex
+                column instead of pushing the panel past its cap, and
+                overscroll-contain so reaching the end does not start scrolling
+                the calendar behind the backdrop. */}
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 flex flex-col gap-2">
               {GROUPS[pickerGroup].actions.map((a) => (
                 <button
                   key={a.label}
