@@ -412,10 +412,23 @@ const GuestInboxModal = ({ hostId, token, onClose, onUnreadChange }: GuestInboxM
                     >
                       <p className="whitespace-pre-wrap break-words">{m.body}</p>
                     </div>
+                    {/* Who wrote it, on every bubble. Side and colour alone
+                        were not enough — scrolling back through a long thread,
+                        the host could not always tell their own words from the
+                        guest's. The name is the guest's as they signed it on
+                        THAT message, not their current one, for the same reason
+                        the row stores it per message: it is what they were
+                        called when they wrote. */}
                     <p
-                      className={`mt-0.5 text-[10px] text-gray-400 ${mine ? "text-right" : "text-left"}`}
+                      className={`mt-0.5 text-[10px] ${mine ? "text-right" : "text-left"}`}
                     >
-                      {m.id.startsWith("pending-") ? "Sending…" : when(m.createdAt)}
+                      <span className="font-semibold text-gray-500">
+                        {mine ? "You" : m.guestName || openName || "Guest"}
+                      </span>
+                      <span className="text-gray-400">
+                        {" · "}
+                        {m.id.startsWith("pending-") ? "Sending…" : when(m.createdAt)}
+                      </span>
                     </p>
                   </div>
                 </div>

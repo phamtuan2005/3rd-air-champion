@@ -222,9 +222,18 @@ const HostChatSheet = ({
                   >
                     <p className="whitespace-pre-wrap break-words">{m.body}</p>
                   </div>
+                  {/* Who wrote it, on every bubble — the mirror of the label in
+                      the host's inbox. Side and colour alone left people
+                      scrolling a long thread unsure which words were theirs.
+                      The host is named rather than called "Him": a guest who
+                      has been writing to Anh-Tuan should see Anh-Tuan answer. */}
                   <p
                     className={`mt-0.5 text-[10px] ${theme.surfaceMuted} ${mine ? "text-right" : "text-left"}`}
                   >
+                    <span className="font-semibold">
+                      {mine ? "You" : hostName || "Your host"}
+                    </span>
+                    {" · "}
                     {m.id.startsWith("pending-") ? "Sending…" : dayLabel(m.createdAt)}
                   </p>
                 </div>
