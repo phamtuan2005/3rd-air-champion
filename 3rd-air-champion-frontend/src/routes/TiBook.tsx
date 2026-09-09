@@ -194,7 +194,19 @@ const TiBookInner = () => {
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [currentHost, rooms.length]);
+    // `layout` belongs here even though nothing in the body reads it.
+    //
+    // Hero does not render the stacked header at all, so headerRef is null
+    // while it is on and this effect bails at the guard above. Without layout
+    // in the deps it never runs again when the guest switches back to Classic
+    // or Neon: the header remounts, but headerH stays whatever it was — 0 for
+    // anyone whose first screen this visit was Hero. onGripMove clamps to
+    // Math.min(headerH, ...), so a 0 pins the calendar shut and the grip drags
+    // against nothing.
+    //
+    // Reproduced by opening in Hero, switching to Classic, and pulling the
+    // grip: the panel stayed at 346px instead of growing to 654px.
+  }, [currentHost, rooms.length, layout]);
 
   const onGripDown = (e: React.PointerEvent) => {
     gripRef.current = { y: e.clientY, start: dragOffset };
