@@ -64,6 +64,27 @@ export const markGuestThreadRead = async (hostId: string, phone: string) => {
   return response.data;
 };
 
+export interface TypingState {
+  guestTyping: boolean;
+  hostTyping: boolean;
+}
+
+// Says whether the guest is typing and answers with what BOTH sides are doing.
+// One call rather than a ping plus a poll: this runs every couple of seconds
+// while the sheet is open, and the answer wanted is always "is he writing back".
+export const pingGuestTyping = async (
+  host: string,
+  guestPhone: string,
+  typing: boolean,
+): Promise<TypingState> => {
+  const response = await axios.post(`${BACKEND_ENDPOINT}/message/typing`, {
+    host,
+    guestPhone,
+    typing,
+  });
+  return response.data;
+};
+
 /* ---- Host side (TiMag). Behind the JWT gate. ---- */
 
 export const fetchHostThreads = async (
@@ -98,6 +119,21 @@ export const replyToGuest = async (
   const response = await axios.post(`${BACKEND_ENDPOINT}/inbox/reply`, reply, {
     headers: { Authorization: `Bearer ${token}` },
   });
+  return response.data;
+};
+
+// The host half of the same ping. Same one-round-trip shape as the guest's.
+export const pingHostTyping = async (
+  host: string,
+  guestPhone: string,
+  typing: boolean,
+  token: string,
+): Promise<TypingState> => {
+  const response = await axios.post(
+    `${BACKEND_ENDPOINT}/inbox/typing`,
+    { host, guestPhone, typing },
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
   return response.data;
 };
 

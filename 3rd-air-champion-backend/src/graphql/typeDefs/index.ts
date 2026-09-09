@@ -7,6 +7,7 @@ import { roomDefs } from "./room";
 import { dayDefs } from "./day";
 import { bookingRequestDefs } from "./bookingRequest";
 import { guestMessageDefs } from "./guestMessage";
+import { chatTypingDefs } from "./chatTyping";
 import { authenticationDefs } from "./authentication";
 
 export const typeDefs = [
@@ -19,5 +20,6 @@ export const typeDefs = [
   dayDefs,
   bookingRequestDefs,
   guestMessageDefs,
+  chatTypingDefs,
   authenticationDefs,
 ];

@@ -71,6 +71,38 @@ router.post("/thread", async (req: Request, res: any) => {
     });
 });
 
+// The host half of the typing ping. sender pinned to "host".
+router.post("/typing", async (req: Request, res: any) => {
+  const { host, guestPhone, typing } = req.body;
+  if (!host || !guestPhone) {
+    return res.status(400).json({ error: "host and guestPhone are required" });
+  }
+
+  const query = `
+    mutation SetChatTyping($host: String!, $phone: String!, $sender: String!, $typing: Boolean!) {
+      setChatTyping(host: $host, phone: $phone, sender: $sender, typing: $typing) {
+        guestTyping
+        hostTyping
+      }
+    }`;
+
+  sendGraphQLRequest(query, {
+    host,
+    phone: guestPhone,
+    sender: "host", // pinned — see the note at the top of this file
+    typing: !!typing,
+  })
+    .then((result: any) => {
+      if (result.errors) {
+        return res.status(400).json({ errors: result.errors[0].message });
+      }
+      res.status(200).json(result.data.setChatTyping);
+    })
+    .catch((error: any) => {
+      res.status(500).json({ error: error.message });
+    });
+});
+
 router.post("/reply", async (req: Request, res: any) => {
   const { host, guestName, guestPhone, body } = req.body;
   if (!host || !guestPhone || !String(body ?? "").trim()) {

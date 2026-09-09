@@ -8,6 +8,7 @@ import { dayResolvers } from "./day";
 import { authenticationResolvers } from "./authentication";
 import { bookingRequestResolvers } from "./bookingRequest";
 import { guestMessageResolvers } from "./guestMessage";
+import { chatTypingResolvers } from "./chatTyping";
 
 export const resolvers = [
   generalResolvers,
@@ -20,4 +21,5 @@ export const resolvers = [
   authenticationResolvers,
   bookingRequestResolvers,
   guestMessageResolvers,
+  chatTypingResolvers,
 ];

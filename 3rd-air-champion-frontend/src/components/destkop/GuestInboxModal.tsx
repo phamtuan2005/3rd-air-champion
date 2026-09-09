@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { format, isValid } from "date-fns";
+import TypingDots from "../shared/TypingDots";
 import {
   GuestMessage,
   GuestMessageThread,
@@ -7,6 +8,7 @@ import {
   fetchHostThreads,
   markHostThreadRead,
   messageDate,
+  pingHostTyping,
   replyToGuest,
 } from "../../util/guestMessageOperations";
 
@@ -23,6 +25,22 @@ interface GuestInboxModalProps {
 // faster than the badge behind it does.
 const POLL_MS = 20000;
 
+// The typing bubble has its own, much faster clock — 20s is fine for "has a new
+// question arrived", useless for "is she writing right now". Two booleans per
+// call, and it doubles as this side's own ping.
+const TYPING_MS = 2500;
+
+// Whether to show read receipts, remembered per browser.
+const RECEIPTS_KEY = "tiMagChatReceipts";
+
+const readReceiptPref = (): boolean => {
+  try {
+    return localStorage.getItem(RECEIPTS_KEY) === "on";
+  } catch {
+    return false;
+  }
+};
+
 const when = (ts: string) => {
   const d = messageDate(ts);
   return isValid(d) ? format(d, "MMM d · h:mma") : "";
@@ -38,8 +56,14 @@ const GuestInboxModal = ({ hostId, token, onClose, onUnreadChange }: GuestInboxM
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
 
+  const [guestTyping, setGuestTyping] = useState(false);
+  const [receipts, setReceipts] = useState(readReceiptPref);
+
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const sendingRef = useRef(false);
+  // When the host last touched the reply box, so a half-written reply left on
+  // screen stops showing the guest a bubble that never ends.
+  const lastKeyRef = useRef(0);
 
   const loadThreads = (quiet = false) => {
     if (!quiet) setLoading(true);
@@ -88,10 +112,30 @@ const GuestInboxModal = ({ hostId, token, onClose, onUnreadChange }: GuestInboxM
     return () => clearInterval(t);
   }, [openPhone, hostId, token]);
 
+  // Typing, both directions, while a conversation is open. Unconditional on
+  // whether the host is writing: the same call reports him and answers with
+  // her, so he sees her start even while he is only reading.
+  useEffect(() => {
+    if (!openPhone) return;
+    const tick = () => {
+      const typingNow = Date.now() - lastKeyRef.current < TYPING_MS * 2;
+      pingHostTyping(hostId, openPhone, typingNow, token)
+        .then((s) => setGuestTyping(s.guestTyping))
+        .catch(() => {});
+    };
+    tick();
+    const t = setInterval(tick, TYPING_MS);
+    return () => {
+      clearInterval(t);
+      pingHostTyping(hostId, openPhone, false, token).catch(() => {});
+      setGuestTyping(false);
+    };
+  }, [openPhone, hostId, token]);
+
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages.length]);
+  }, [messages.length, guestTyping]);
 
   const send = async () => {
     const body = draft.trim();
@@ -118,6 +162,10 @@ const GuestInboxModal = ({ hostId, token, onClose, onUnreadChange }: GuestInboxM
       );
       const rows = await fetchHostThread(hostId, openPhone, token);
       setMessages(rows ?? []);
+      // The reply has landed, so this side has stopped typing. Cleared now
+      // rather than left to expire, so the bubble goes as the message arrives.
+      lastKeyRef.current = 0;
+      pingHostTyping(hostId, openPhone, false, token).catch(() => {});
       loadThreads(true);
     } catch {
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
@@ -229,8 +277,12 @@ const GuestInboxModal = ({ hostId, token, onClose, onUnreadChange }: GuestInboxM
       {openPhone && (
         <>
           <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
-            {messages.map((m) => {
+            {messages.map((m, i) => {
               const mine = m.sender === "host";
+              // Only the newest of his own messages carries a receipt — one
+              // under every bubble is a column of "Read" saying nothing extra.
+              const lastMine = mine && !messages.slice(i + 1).some((x) => x.sender === "host");
+              const pending = m.id.startsWith("pending-");
               return (
                 <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                   <div className="max-w-[80%]">
@@ -246,19 +298,38 @@ const GuestInboxModal = ({ hostId, token, onClose, onUnreadChange }: GuestInboxM
                     <p
                       className={`mt-0.5 text-[10px] text-gray-400 ${mine ? "text-right" : "text-left"}`}
                     >
-                      {m.id.startsWith("pending-") ? "Sending…" : when(m.createdAt)}
+                      {pending ? "Sending…" : when(m.createdAt)}
+                      {receipts && lastMine && !pending && (
+                        <span className={m.readByGuest ? "text-blue-500" : undefined}>
+                          {" · "}
+                          {m.readByGuest ? "Read" : "Sent"}
+                        </span>
+                      )}
                     </p>
                   </div>
                 </div>
               );
             })}
+
+            {/* She is writing. Sits where her next message will appear. */}
+            {guestTyping && (
+              <div className="flex justify-start">
+                <div className="rounded-2xl rounded-bl-sm border border-gray-200 bg-gray-50 px-3 py-2.5">
+                  <TypingDots dotClass="bg-gray-400" label={(openName || "The guest") + " is typing"} />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="shrink-0 border-t border-gray-200 px-4 py-3">
             <div className="flex items-end gap-2">
               <textarea
                 value={draft}
-                onChange={(e) => setDraft(e.target.value)}
+                onChange={(e) => {
+                  setDraft(e.target.value);
+                  // Just a stamp; the ping rides the interval above.
+                  lastKeyRef.current = Date.now();
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
@@ -280,7 +351,26 @@ const GuestInboxModal = ({ hostId, token, onClose, onUnreadChange }: GuestInboxM
                 {sending ? "Sending…" : "Send"}
               </button>
             </div>
-            <p className="mt-2 text-[11px] text-gray-400">
+            <label className="mt-2 flex cursor-pointer items-center gap-2">
+              <input
+                type="checkbox"
+                checked={receipts}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  setReceipts(on);
+                  try {
+                    localStorage.setItem(RECEIPTS_KEY, on ? "on" : "off");
+                  } catch {
+                    // The choice still holds for this session.
+                  }
+                }}
+                className="h-3.5 w-3.5 shrink-0 cursor-pointer accent-blue-500"
+              />
+              <span className="text-[11px] leading-tight text-gray-500">
+                Show me when the guest has read my replies
+              </span>
+            </label>
+            <p className="mt-1.5 text-[11px] text-gray-400">
               Replies appear in the guest&apos;s TiBook, on the screen they wrote from.
             </p>
           </div>

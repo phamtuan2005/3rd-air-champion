@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { format, isValid } from "date-fns";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
+import TypingDots from "../shared/TypingDots";
 import {
   GuestMessage,
   fetchGuestThread,
   markGuestThreadRead,
   messageDate,
+  pingGuestTyping,
   sendGuestMessage,
 } from "../../util/guestMessageOperations";
 
@@ -27,6 +29,28 @@ interface HostChatSheetProps {
 // reopen the sheet to find it; 15s is often enough to feel live and rare enough
 // to be nothing next to the calendar fetches on the same screen.
 const POLL_MS = 15000;
+
+// The typing bubble runs on its own, much faster clock. 15s is fine for "has a
+// reply arrived"; it is useless for "is he writing right now", which is only
+// worth showing if it appears while he is still doing it. The request is tiny —
+// two booleans — and it doubles as this side's own "still typing" ping, so the
+// faster cadence costs one small round trip rather than a second poll.
+const TYPING_MS = 2500;
+
+// Remembering whether this guest wants read receipts. Per device and per
+// browser, like the look and the palette — a preference about their own screen,
+// not something the house needs to know.
+const RECEIPTS_KEY = "tiBookChatReceipts";
+
+const readReceiptPref = (): boolean => {
+  try {
+    return localStorage.getItem(RECEIPTS_KEY) === "on";
+  } catch {
+    // Private windows throw rather than returning null. Off is the safe
+    // default: a receipt nobody asked for is a surprise, a missing one is not.
+    return false;
+  }
+};
 
 const HostChatSheet = ({
   hostId,
@@ -52,8 +76,15 @@ const HostChatSheet = ({
   const known = savedPhone.trim().length > 0;
   const [identified, setIdentified] = useState(known);
 
+  const [hostTyping, setHostTyping] = useState(false);
+  const [receipts, setReceipts] = useState(readReceiptPref);
+
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const sendingRef = useRef(false);
+  // When this guest last touched the composer. The ping says "typing" only if
+  // that was recent, so leaving a half-written message on screen and going to
+  // read the calendar does not show the host a bubble that never stops.
+  const lastKeyRef = useRef(0);
 
   const loadThread = (forPhone: string, quiet = false) => {
     if (!forPhone.trim()) return;
@@ -81,11 +112,37 @@ const HostChatSheet = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [identified, phone, hostId]);
 
-  // Pin to the newest message whenever the list grows.
+  // The typing conversation, both directions at once.
+  //
+  // Deliberately unconditional on whether this guest is typing: the same call
+  // reports them and answers with him, so a guest who is only reading still
+  // learns he has started writing. Stops with the sheet.
+  useEffect(() => {
+    if (!identified || !phone.trim()) return;
+    const tick = () => {
+      const typingNow = Date.now() - lastKeyRef.current < TYPING_MS * 2;
+      pingGuestTyping(hostId, phone, typingNow)
+        .then((s) => setHostTyping(s.hostTyping))
+        // A dropped ping is not worth telling the guest about; the bubble just
+        // does not move this beat.
+        .catch(() => {});
+    };
+    tick();
+    const t = setInterval(tick, TYPING_MS);
+    return () => {
+      clearInterval(t);
+      // Leaving the sheet is leaving the conversation.
+      pingGuestTyping(hostId, phone, false).catch(() => {});
+    };
+  }, [identified, phone, hostId]);
+
+  // Pin to the newest message whenever the list grows, or when he starts
+  // typing — the bubble appears at the bottom and would otherwise be below the
+  // fold in a long thread.
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages.length, loading]);
+  }, [messages.length, loading, hostTyping]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -132,6 +189,11 @@ const HostChatSheet = ({
       });
       if (!identified) setIdentified(true);
       onIdentified(phone, name.trim());
+      // The message has landed, so this side is no longer typing. Cleared at
+      // once rather than left to expire, so the bubble goes as the message
+      // arrives instead of hanging on beside it.
+      lastKeyRef.current = 0;
+      pingGuestTyping(hostId, phone, false).catch(() => {});
       loadThread(phone, true);
     } catch {
       // Put it back in the box rather than losing what they wrote.
@@ -208,8 +270,13 @@ const HostChatSheet = ({
             </div>
           )}
 
-          {messages.map((m) => {
+          {messages.map((m, i) => {
             const mine = m.sender === "guest";
+            // Only the newest of the guest's own messages carries a receipt.
+            // One under every bubble is a column of "Read" down the side of the
+            // thread, which says nothing the last one does not.
+            const lastMine = mine && !messages.slice(i + 1).some((x) => x.sender === "guest");
+            const pending = m.id.startsWith("pending-");
             return (
               <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                 <div className="max-w-[80%]">
@@ -225,12 +292,30 @@ const HostChatSheet = ({
                   <p
                     className={`mt-0.5 text-[10px] ${theme.surfaceMuted} ${mine ? "text-right" : "text-left"}`}
                   >
-                    {m.id.startsWith("pending-") ? "Sending…" : dayLabel(m.createdAt)}
+                    {pending ? "Sending…" : dayLabel(m.createdAt)}
+                    {receipts && lastMine && !pending && (
+                      <span className={m.readByHost ? theme.textPrimary : undefined}>
+                        {" · "}
+                        {m.readByHost ? `Read by ${hostName}` : "Sent"}
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>
             );
           })}
+
+          {/* He is writing. Sits where his next message will appear, so the
+              bubble is replaced by the thing it promised rather than moving. */}
+          {hostTyping && (
+            <div className="flex justify-start">
+              <div
+                className={`rounded-2xl rounded-bl-sm border px-3 py-2.5 ${theme.surfaceSubtle} ${theme.surfaceBorder}`}
+              >
+                <TypingDots dotClass={theme.dot} label={`${hostName} is typing`} />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Composer */}
@@ -258,7 +343,12 @@ const HostChatSheet = ({
           <div className="flex items-end gap-2">
             <textarea
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                // Just a stamp. The ping itself rides the interval above, so
+                // holding a key down cannot turn into a request per keystroke.
+                lastKeyRef.current = Date.now();
+              }}
               onKeyDown={(e) => {
                 // Enter sends on a desktop keyboard; Shift+Enter makes a new
                 // line. Left alone on touch, where Enter is how you get one.
@@ -282,6 +372,31 @@ const HostChatSheet = ({
               {sending ? "Sending…" : "Send"}
             </button>
           </div>
+
+          {/* Read receipts are off until asked for. The flags are kept either
+              way — the host's unread count depends on them — so this only
+              decides whether the guest is shown them, and it says so rather
+              than implying it changes what is recorded. */}
+          <label className="mt-2 flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={receipts}
+              onChange={(e) => {
+                const on = e.target.checked;
+                setReceipts(on);
+                try {
+                  localStorage.setItem(RECEIPTS_KEY, on ? "on" : "off");
+                } catch {
+                  // Their choice still holds for this visit; only the next one
+                  // starts over.
+                }
+              }}
+              className="h-3.5 w-3.5 shrink-0 cursor-pointer accent-current"
+            />
+            <span className={`text-[11px] leading-tight ${theme.surfaceMuted}`}>
+              Show me when {hostName} has read my messages
+            </span>
+          </label>
 
           {hostPhone && (
             <p className={`mt-2 text-[11px] ${theme.surfaceMuted}`}>

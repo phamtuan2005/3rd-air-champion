@@ -307,3 +307,35 @@ body {
     rgb(255 255 255 / 0) 62%
   );
 }
+
+/*
+ * The three dots in a "someone is typing" bubble.
+ *
+ * A wave rather than a blink: each dot is the same animation offset by a beat,
+ * which reads as a person mid-sentence instead of as something loading. 1.2s is
+ * roughly a relaxed typing rhythm — fast enough to look live, slow enough not to
+ * jitter in the corner of the eye while somebody is reading the message above it.
+ */
+@keyframes tibook-typing-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
+  30%           { transform: translateY(-4px); opacity: 1; }
+}
+
+.tibook-typing-dot {
+  animation: tibook-typing-dot 1.2s ease-in-out infinite;
+}
+.tibook-typing-dot:nth-child(2) { animation-delay: 0.15s; }
+.tibook-typing-dot:nth-child(3) { animation-delay: 0.3s; }
+
+/*
+ * Same bargain as the gradient drift and the look nudge: someone who has asked
+ * for less motion still gets the bubble, it just holds still. The dots keep a
+ * mid opacity so it still reads as "there is something here", rather than
+ * freezing on whichever frame the animation happened to stop at.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .tibook-typing-dot {
+    animation: none;
+    opacity: 0.6;
+  }
+}
