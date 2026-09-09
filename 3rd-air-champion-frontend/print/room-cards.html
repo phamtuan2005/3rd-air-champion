@@ -96,9 +96,14 @@
   .day.mine { color: #111827; }
   .bar-wrap { position: absolute; inset: 0; pointer-events: none; }
   .bar { position: absolute; bottom: .3em; height: 1.05em; border-radius: .3em; display: flex; align-items: center; }
+  /* The name is painted straight onto the bar in black — no pill behind it.
+     That is what the calendar in TiBook does (text-black, px-0.5, no
+     background), and a white capsule here read as a break in the bar and as an
+     element the app does not have. A guest holding the card beside the app has
+     to see the same object. */
   .bar b {
-    font-size: .62em; font-weight: 700; color: #111827;
-    background: #fff; border-radius: .25em; padding: 0 .35em; margin-left: .3em; white-space: nowrap;
+    font-size: .68em; font-weight: 700; color: #000; line-height: 1;
+    padding: 0 .3em; white-space: nowrap;
   }
   .legend { font-size: .66em; color: #6b7280; margin-top: .6em; }
 
