@@ -20,12 +20,18 @@
      in em, and the root em is a fraction of the card width. */
   :root { --card-w: 4in; --card-h: 6in; }
 
-  /* The pair, scaled to 0.9 -- 7.2in wide rather than the full 8in, which buys
-     .65in of margin each side instead of .25in. That is clear of any home
-     printer's unprintable edge, so the teal band on the back cannot come out
-     clipped. Everything inside scales with it: the cards stay 2:3 and the type
-     stays proportional, so this is the one number to change. */
-  :root { --pair-w: 7.2in; }
+  /* The pair, scaled twice by 0.9 off the full 8in: 8 -> 7.2 -> 6.48in. That
+     leaves just over an inch of margin each side, well clear of any home
+     printer's unprintable edge, so the teal band running to the back card's
+     edge cannot come out clipped -- the risk that made the original sheet
+     landscape.
+
+     Everything inside scales with it: the cards stay 2:3 and the type is
+     proportional to this width, so it is the one number to change and nothing
+     reflows. At 6.48in the cards are 3.24 x 4.86in and the type lands near
+     10pt, which is about the floor for something read across a room. Going
+     smaller again, set the type divisor rather than only this. */
+  :root { --pair-w: 6.48in; }
 
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
