@@ -90,6 +90,28 @@
     display: flex; align-items: center; justify-content: center;
   }
 
+  /* SHEET = "pair": the front and the back of ONE room on a single PORTRAIT
+     Letter page, side by side at 4x6 -- 8in wide by 6in tall, inside the 8x10
+     a Letter sheet actually prints. One page per room, one cut down the middle.
+
+     The two cards touch so a single cut separates them, the same reason the
+     landscape sheet has no gutter.
+
+     The old note here rejected portrait because 8in of card on 8.5in of paper
+     leaves .25in, which is where cheap printers stop, and the teal band on the
+     back runs to the card edge. That risk is real and unchanged -- print one
+     and look at the band before running five. If it clips, narrow --pair-w
+     below to 7.5in and the pair scales down whole. */
+  .duo {
+    display: flex;
+    width: var(--pair-w, 8in);
+  }
+  .duo .card {
+    width: 50%;
+    height: calc(var(--pair-w, 8in) * 0.75);   /* 4:6 keeps its shape */
+    font-size: calc(var(--pair-w, 8in) / 48);  /* = card-w / 24 */
+  }
+
   /* On screen everything sits on a grey desk so the trim edge is visible; in
      print the desk goes away. */
   @media screen {
@@ -106,6 +128,8 @@
     body.letter .sheet:last-child { page-break-after: auto; }
     body.eightbyten .page { page-break-after: always; }
     body.eightbyten .page:last-child { page-break-after: auto; }
+    body.pair .page { page-break-after: always; }
+    body.pair .page:last-child { page-break-after: auto; }
   }
 
   /* ---------- front ---------- */
@@ -299,7 +323,7 @@ const TIERS = [
 
    "card"    one 4x6 page per card, ten pages. For a print shop that takes a
              card-sized PDF and trims for you. */
-const SHEET = "8x10";
+const SHEET = "pair";
 
 const LOGO = "../public/TiMagLogo.svg";
 /* The QR already in the repo and already on the phones — do not crop a fresh
@@ -485,6 +509,7 @@ const withTrim = (html) => html.replace(/^(<div class="card[^"]*">)/, "$1" + TRI
 const PAGE_SIZE = {
   letter: "11in 8.5in",   // landscape, front + back side by side
   "8x10": "8.5in 11in",   // portrait, one 8x10 card per page
+  pair: "8.5in 11in",     // portrait, this room's front + back on one page
   card: "4in 6in",        // the bare card, for a print shop
 };
 document.head.insertAdjacentHTML(
@@ -514,6 +539,7 @@ document.body.innerHTML = ROOMS
     // Front and back each get their own page: an 8x10 pair will not sit side
     // by side on any sheet a home printer takes.
     if (SHEET === "8x10") return `<div class="page">${f}</div><div class="page">${b}</div>`;
+    if (SHEET === "pair") return `<div class="page"><div class="duo">${f + b}</div></div>`;
     return f + b;
   })
   .join("");
