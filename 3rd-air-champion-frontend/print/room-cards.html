@@ -20,6 +20,13 @@
      in em, and the root em is a fraction of the card width. */
   :root { --card-w: 4in; --card-h: 6in; }
 
+  /* The pair, scaled to 0.9 -- 7.2in wide rather than the full 8in, which buys
+     .65in of margin each side instead of .25in. That is clear of any home
+     printer's unprintable edge, so the teal band on the back cannot come out
+     clipped. Everything inside scales with it: the cards stay 2:3 and the type
+     stays proportional, so this is the one number to change. */
+  :root { --pair-w: 7.2in; }
+
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
