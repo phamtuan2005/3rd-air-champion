@@ -1038,6 +1038,17 @@ const TiWork = () => {
                       {pmt.note && (
                         <span className="truncate text-xs text-gray-400">{pmt.note}</span>
                       )}
+                      {/* The same violet pill the host sees in TiMag, because a
+                          tip and a payout are otherwise identical rows -- same
+                          date, same shape -- and only this says one was money on
+                          top of the wages rather than settling them. The person
+                          who earned it should be able to tell them apart at
+                          least as easily as the person who paid it. */}
+                      {pmt.tip && (
+                        <span className="shrink-0 rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-700">
+                          tip
+                        </span>
+                      )}
                       <span className="w-20 text-right font-semibold text-emerald-600">
                         ${pmt.amount.toFixed(2)}
                       </span>

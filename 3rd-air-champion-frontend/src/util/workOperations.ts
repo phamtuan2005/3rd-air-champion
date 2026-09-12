@@ -152,7 +152,17 @@ export interface PaySummary {
   monthGross: number;
   paid: number; // all-time, the basis of the balance
   openingPaid: number; // paid before itemised records began
-  payments: { id: string; amount: number; paidOn: string; note: string }[];
+  payments: {
+    id: string;
+    amount: number;
+    paidOn: string;
+    note: string;
+    // Money on TOP of wages, not a wage payment. computeCleanerPay has always
+    // sent this; the type here did not have it, so TiWork could not see it and
+    // a cleaner's tips looked like ordinary payouts on their own screen while
+    // the host saw them marked.
+    tip?: boolean;
+  }[];
   hours: number; // year to date
   earned: number; // year to date
   paidThisYear: number;
