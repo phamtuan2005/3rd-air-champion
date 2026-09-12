@@ -1183,6 +1183,17 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
   // Nothing renders when the room has no stays in the window -- see
   // getRoomPartySizeOdds, which returns no entry rather than a shrug with a
   // percentage on it.
+  // How often that headcount has to come up before the estimate is stated
+  // plainly rather than with a question mark.
+  //
+  // The chip carries ONE percentage and it is the room's odds of selling. The
+  // estimate's confidence used to sit beside it -- "King ~1 59% 98%" -- and
+  // two percentages a space apart, meaning entirely different things, is a
+  // puzzle rather than information. The confidence is now a single character:
+  // "~1" when this is what the room usually takes, "~1?" when its history is
+  // mixed. The exact figure and the sample size are in the hover.
+  const CONFIDENT = 0.6;
+
   const guestGuess = (roomId: string) => {
     const odds = partySizeOdds.get(roomId);
     if (!odds) return null;
@@ -1193,7 +1204,8 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
           odds.p * 100,
         )}% of ${odds.stays} ${odds.stays === 1 ? "stay" : "stays"} in this room over the last 60 days`}
       >
-        ~{odds.guests} {Math.round(odds.p * 100)}%
+        ~{odds.guests}
+        {odds.p < CONFIDENT ? "?" : ""}
       </span>
     );
   };
@@ -2390,9 +2402,10 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
               })}
 
               <p className="mb-1 mt-2 text-center text-sm text-gray-400">
-                % = odds · <span className="font-semibold">(2)</span> = guests arriving ·{" "}
-                <span className="font-semibold">~2 68%</span> = nobody booked yet, but this room
-                took 2 guests in 68% of its recent stays ·{" "}
+                % = odds the room sells · <span className="font-semibold">(2)</span> = guests
+                arriving · <span className="font-semibold">~2</span> = nobody booked yet; this room
+                usually takes 2 (<span className="font-semibold">~2?</span> = mixed history — hover
+                for the figures) ·{" "}
                 <span className="font-semibold text-red-500">solid red</span> = confirmed same-day
                 check-in · <span className="font-semibold text-red-500">dashed red</span> = empty
                 night likely sells last-minute (odds shown) · tap to assign a cleaner
