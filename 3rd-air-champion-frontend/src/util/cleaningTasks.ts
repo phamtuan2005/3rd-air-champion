@@ -194,6 +194,74 @@ export const getRoomOccupancyOdds = (
   return odds;
 };
 
+// The headcount a room is LIKELY to need, when no booking says. Same trailing
+// window as getRoomOccupancyOdds above, and deliberately so: the odds the room
+// sells and the size of the party that turns up are two halves of the same
+// question, and answering them over different periods would let the Plan tab
+// say a room probably sells but describe a party from a season that has passed.
+//
+// ONE VOTE PER STAY, counted on the night it STARTS. A stay is written onto
+// every night it covers, so counting rows would weight a five-night booking of
+// two people five times over a one-night booking of three, and the estimate
+// would describe length of stay as much as party size.
+//
+// That room's own history only. A house-wide blend was considered and left out:
+// the rooms differ in exactly the way this measures -- Cozy takes one guest and
+// King sleeps three -- so borrowing the house's average is borrowing the wrong
+// room's answer.
+//
+// A room with no stays in the window gets NO entry, and the caller shows
+// nothing. An estimate from an empty sample is a guess wearing a percentage.
+export interface PartySizeOdds {
+  guests: number; // the headcount that came up most often
+  p: number;      // its share of that room's stays, 0-1
+  stays: number;  // how many stays that share is based on
+}
+
+export const getRoomPartySizeOdds = (
+  monthMap: Map<string, dayType>,
+  windowDays = OCCUPANCY_WINDOW_DAYS,
+): Map<string, PartySizeOdds> => {
+  const today = startOfToday();
+  // roomId -> headcount -> how many stays began at that headcount
+  const counts = new Map<string, Map<number, number>>();
+
+  for (let i = 1; i <= windowDays; i++) {
+    const key = dateKey(addDays(today, -i));
+    const day = monthMap.get(key);
+    if (!day) continue;
+    day.bookings.forEach((b) => {
+      if (!b.room) return;
+      // The start night is the one vote. Everything else is the same stay.
+      if (b.startDate.split("T")[0] !== key) return;
+      const guests = b.numberOfGuests || 1;
+      const byGuests = counts.get(b.room.id) ?? new Map<number, number>();
+      byGuests.set(guests, (byGuests.get(guests) ?? 0) + 1);
+      counts.set(b.room.id, byGuests);
+    });
+  }
+
+  const odds = new Map<string, PartySizeOdds>();
+  counts.forEach((byGuests, roomId) => {
+    let stays = 0;
+    byGuests.forEach((n) => (stays += n));
+    if (stays === 0) return;
+
+    let best = 0;
+    let bestN = 0;
+    byGuests.forEach((n, guests) => {
+      // Ties go to the LARGER party. The cost is asymmetric: a spare towel is
+      // nothing, a missing bed is a guest standing in a room at 11pm.
+      if (n > bestN || (n === bestN && guests > best)) {
+        best = guests;
+        bestN = n;
+      }
+    });
+    odds.set(roomId, { guests: best, p: bestN / stays, stays });
+  });
+  return odds;
+};
+
 export interface CleaningForecastDay {
   morningKey: string; // yyyy-MM-dd of the cleaning morning
   entries: ForecastEntry[];

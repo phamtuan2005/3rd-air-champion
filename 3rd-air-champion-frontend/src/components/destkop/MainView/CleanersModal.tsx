@@ -14,6 +14,7 @@ import {
   getCheckoutsOn,
   getCleaningEntriesFor,
   getCleaningForecast,
+  getRoomPartySizeOdds,
   isStaleCleaning as isStale,
 } from "../../../util/cleaningTasks";
 import { generateAvatar } from "../../../util/avatarGen";
@@ -588,6 +589,10 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
   // Upcoming tab — the rolling cleaning forecast over the host's own window
   // (migrated from the ToDo modal). Assignments/cleaners/monthMap already live here.
   const cleaningForecast = getCleaningForecast(monthMap, planDays);
+  // How many guests each room has been taking lately, over the SAME trailing
+  // window the rebook odds come from. Only ever shown for a morning with no
+  // arrival booked yet -- where a real headcount exists, it wins.
+  const partySizeOdds = getRoomPartySizeOdds(monthMap);
   const forecastTotal = cleaningForecast.reduce((sum, d) => sum + d.entries.length, 0);
   const assignmentFor = (morningKey: string, roomId: string) =>
     assignments.find((a) => a.date === morningKey && a.room?.id === roomId);
@@ -1149,6 +1154,35 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
     if (!need) return "";
     const parts = [need.guests ? String(need.guests) : "", need.sofaBed ? "🛋" : ""].filter(Boolean);
     return parts.length ? ` (${parts.join(", ")})` : "";
+  };
+
+  // The likely headcount for a room nothing has booked yet: "~2 68%" -- this
+  // room took 2 guests in 68% of its stays over the last 60 days.
+  //
+  // Deliberately NOT part of arrivalSuffix, and so deliberately NOT in the SMS
+  // the cleaners get. That text is read as instruction: "(2)" there means two
+  // people are coming and two beds need making. A guess sent as a bare number
+  // is indistinguishable from a fact, and the cleaner has no way to know which
+  // one they were given. On screen the host can see the tilde and the
+  // percentage and decide; in a text message they could not.
+  //
+  // Nothing renders when the room has no stays in the window -- see
+  // getRoomPartySizeOdds, which returns no entry rather than a shrug with a
+  // percentage on it.
+  const guestGuess = (roomId: string, morningKey: string) => {
+    if (nextArrival(roomId, morningKey)) return null; // a real headcount exists
+    const odds = partySizeOdds.get(roomId);
+    if (!odds) return null;
+    return (
+      <span
+        className="ml-1 font-normal opacity-70"
+        title={`Most often ${odds.guests} ${odds.guests === 1 ? "guest" : "guests"} — ${Math.round(
+          odds.p * 100,
+        )}% of ${odds.stays} ${odds.stays === 1 ? "stay" : "stays"} in this room over the last 60 days`}
+      >
+        ~{odds.guests} {Math.round(odds.p * 100)}%
+      </span>
+    );
   };
 
   // Explains only what is actually in the message. A legend for a symbol that
@@ -2214,6 +2248,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                   >
                     {entry.checkoutBooking.room.name}
                     {arrivalSuffix(entry.checkoutBooking.room.id, day.morningKey)}
+                    {guestGuess(entry.checkoutBooking.room.id, day.morningKey)}
                     {entry.rebookOdds < 0.995 && (
                       <span className="ml-1 opacity-70">{Math.round(entry.rebookOdds * 100)}%</span>
                     )}
@@ -2319,9 +2354,12 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
               })}
 
               <p className="mb-1 mt-2 text-center text-sm text-gray-400">
-                % = odds · <span className="font-semibold text-red-500">solid red</span> = confirmed
-                same-day check-in · <span className="font-semibold text-red-500">dashed red</span> =
-                empty night likely sells last-minute (odds shown) · tap to assign a cleaner
+                % = odds · <span className="font-semibold">(2)</span> = guests arriving ·{" "}
+                <span className="font-semibold">~2 68%</span> = nobody booked yet, but this room
+                took 2 guests in 68% of its recent stays ·{" "}
+                <span className="font-semibold text-red-500">solid red</span> = confirmed same-day
+                check-in · <span className="font-semibold text-red-500">dashed red</span> = empty
+                night likely sells last-minute (odds shown) · tap to assign a cleaner
               </p>
             </>
           )}
