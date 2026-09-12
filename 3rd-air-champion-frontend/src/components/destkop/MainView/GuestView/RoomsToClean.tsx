@@ -6,7 +6,12 @@ import { getRoomColor } from "../../../../util/getRoomColor";
 import { fetchAssignments, CleaningAssignmentType, CleanerType } from "../../../../util/cleanerOperations";
 import CleanerAvatar from "../../../shared/CleanerAvatar";
 import { cleanerSignoff } from "../../../../util/cleanerMessage";
-import { cleaningEntryTaskId, getCleaningEntriesFor } from "../../../../util/cleaningTasks";
+import {
+  cleaningEntryTaskId,
+  getCleaningEntriesFor,
+  getRoomOccupancyOdds,
+  getRoomPartySizeOdds,
+} from "../../../../util/cleaningTasks";
 import { fetchSentReminders, markReminderSent, unmarkReminderSent } from "../../../../util/reminderOperations";
 
 interface RoomsToCleanProps {
@@ -60,6 +65,14 @@ const RoomsToClean = ({ selectedDate, monthMap, hostId, token, senderName }: Roo
   // but a confirmed arrival ahead, which at this room's occupancy rate sells
   // last-minute and checks out this morning. This tab used to list only the
   // confirmed half, so it disagreed with Plan about the same date.
+  // Same rule Plan and Week use. Where the night is likely to sell and nobody
+  // has booked it, the person this room is being made up for is a walk-in, not
+  // the guest arriving days later -- so the headcount to show is what this room
+  // usually takes.
+  const LIKELY_TO_SELL = 0.5;
+  const partySizeOdds = useMemo(() => getRoomPartySizeOdds(monthMap), [monthMap]);
+  const occupancyOdds = useMemo(() => getRoomOccupancyOdds(monthMap), [monthMap]);
+
   const items = useMemo(() => {
     return getCleaningEntriesFor(monthMap, selKey)
       .map((entry) => {
@@ -203,6 +216,15 @@ const RoomsToClean = ({ selectedDate, monthMap, hostId, token, senderName }: Roo
         const cleaner = cleanerFor(booking.room?.id);
         const arrivesSameDay = nextCheckInDate === selKey;
         const probable = !!entry.probable;
+        // Who is actually coming into this room next. A booked arrival on this
+        // very date is a fact and wins. Otherwise, if the night is more likely
+        // than not to sell, the next occupant is somebody nobody has met yet --
+        // and the party size, the sofa bed and the name all belong to a later
+        // stay, not to this clean.
+        const roomId = booking.room?.id ?? "";
+        const sellOdds = entry.rebookOdds ?? occupancyOdds.get(roomId) ?? 1;
+        const guess = partySizeOdds.get(roomId);
+        const useGuess = !arrivesSameDay && sellOdds >= LIKELY_TO_SELL && !!guess;
 
         return (
           <div
@@ -264,7 +286,19 @@ const RoomsToClean = ({ selectedDate, monthMap, hostId, token, senderName }: Roo
                 >
                   {booking.room.name}
                 </span>
-                {nextCheckIn ? (
+                {useGuess && guess ? (
+                  <span
+                    className="text-xs text-gray-500"
+                    title={`Most often ${guess.guests} ${guess.guests === 1 ? "guest" : "guests"} — ${Math.round(
+                      guess.p * 100,
+                    )}% of ${guess.stays} ${guess.stays === 1 ? "stay" : "stays"} in this room over the last 60 days`}
+                  >
+                    Nobody booked yet · usually{" "}
+                    <span className="font-semibold text-gray-700">
+                      {guess.guests} {guess.guests === 1 ? "guest" : "guests"}
+                    </span>
+                  </span>
+                ) : nextCheckIn ? (
                   <span className="text-xs text-gray-600">
                     <span className="font-semibold text-gray-800">
                       {nextCheckIn.guest.alias || nextCheckIn.alias || nextCheckIn.guest.name}
@@ -289,7 +323,17 @@ const RoomsToClean = ({ selectedDate, monthMap, hostId, token, senderName }: Roo
                 <p className={`text-xs ${arrivesSameDay ? "font-semibold text-red-500" : "text-gray-500"}`}>
                   {arrivesSameDay
                     ? "Checking in same day"
-                    : `Arrives ${format(new Date(nextCheckInDate + "T00:00:00"), "EEE, MMM d")}`}
+                    : useGuess
+                      ? /* Named as the NEXT booking, not as this clean's guest —
+                           the line above has already said nobody is booked for
+                           tonight, and "Arrives Mon" beside a name reads as who
+                           the room is being made up for. */
+                        `Next booked: ${
+                          nextCheckIn.guest.alias || nextCheckIn.alias || nextCheckIn.guest.name
+                        } · ${nextCheckIn.numberOfGuests} ${
+                          nextCheckIn.numberOfGuests === 1 ? "guest" : "guests"
+                        }, ${format(new Date(nextCheckInDate + "T00:00:00"), "EEE, MMM d")}`
+                      : `Arrives ${format(new Date(nextCheckInDate + "T00:00:00"), "EEE, MMM d")}`}
                 </p>
               )}
               {nextCheckIn?.earlyCheckin && (
@@ -300,7 +344,7 @@ const RoomsToClean = ({ selectedDate, monthMap, hostId, token, senderName }: Roo
                   who just left. It is the one request on this list that adds
                   work to the clean itself, so it is stated rather than left to
                   be inferred from "3 guests". */}
-              {nextCheckIn?.sofaBed && (
+              {nextCheckIn?.sofaBed && !useGuess && (
                 <p className="text-xs font-semibold text-violet-600">
                   🛋 Sofa bed to make up
                 </p>
