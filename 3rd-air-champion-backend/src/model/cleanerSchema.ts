@@ -73,6 +73,21 @@ const cleanerSchema = new mongoose.Schema(
           // paid then exceeded earned, the Pay tab reported "hours missing"
           // for hours that were never worked.
           tip: { type: Boolean, default: false },
+          // One intent, one payment. The client mints this when the host arms
+          // the Confirm button and sends the same value on every attempt, so a
+          // retry -- a second tap, a second device, a reload mid-request --
+          // carries the id of the payment it is retrying rather than asking for
+          // a new one.
+          //
+          // Henry's record took SEVEN identical $239.25 payouts and SEVEN $11
+          // tips on one day this way, and his balance said he was ~$1,700
+          // overpaid. A guard in the browser stops one finger; it cannot stop
+          // two phones.
+          //
+          // "" on everything recorded before this existed, and on anything a
+          // cached older bundle still posts, which is why the route also keeps
+          // a time-window check for requests that carry no id.
+          requestId: { type: String, default: "" },
         },
       ],
       default: [],

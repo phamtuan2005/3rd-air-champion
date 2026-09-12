@@ -144,8 +144,16 @@ export const recordCleanerPayment = async (
   // A tip is money on TOP of wages. Sent as an ordinary payment it settles the
   // balance, so tipping somebody quietly reduces their next wage packet.
   tip?: boolean,
+  // One intent, one payment. Minted when the host arms Confirm and sent
+  // unchanged on every attempt, so a retry names the payment it is retrying
+  // instead of asking for another one. The server treats a repeat as a no-op.
+  requestId?: string,
 ): Promise<void> => {
-  await axios.post(`${BACKEND_ENDPOINT}/cleaner/pay`, { id, amount, paidOn, tip }, auth(token));
+  await axios.post(
+    `${BACKEND_ENDPOINT}/cleaner/pay`,
+    { id, amount, paidOn, tip, requestId },
+    auth(token),
+  );
 };
 
 // Undo one logged payout rather than posting an offsetting negative, which

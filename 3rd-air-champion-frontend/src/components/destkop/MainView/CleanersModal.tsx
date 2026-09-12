@@ -452,6 +452,10 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
   // A ref rather than state because the second tap can arrive in the same tick
   // as the first, before React has re-rendered with the disabled button.
   const payingRef = useRef(false);
+  // The id THIS payment keeps until it succeeds. Minted on the arming tap, sent
+  // with every attempt, and only cleared once the server has it — so a retry
+  // after a failure or a lost reply is the same payment, not another one.
+  const payRequestIdRef = useRef<string>("");
   const [paying, setPaying] = useState(false);
   const removingRef = useRef(false);
   const [removing, setRemoving] = useState(false);
@@ -1459,6 +1463,11 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
     // button into an explicit "Confirm $X"; second tap commits.
     if (!payConfirmArmed) {
       setPayConfirmArmed(true);
+      // randomUUID is absent on older phone browsers (and on any page not
+      // served over https), where this would otherwise throw and the payment
+      // could not be recorded at all.
+      payRequestIdRef.current =
+        globalThis.crypto?.randomUUID?.() ?? `pay-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       return;
     }
     if (payingRef.current) return; // already posting this one
@@ -1469,9 +1478,15 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
     // Sequential, and the tip only once the payout is in: two writes to the same
     // cleaner raced would lose one, and of the two the payout is the one that
     // must not be the casualty.
-    recordCleanerPayment(entry.id, signed, token, todayKey, payMode === "tip")
-      .then(() => (tip > 0 ? recordCleanerPayment(entry.id, tip, token, todayKey, true) : null))
+    const reqId = payRequestIdRef.current;
+    recordCleanerPayment(entry.id, signed, token, todayKey, payMode === "tip", reqId)
+      // The tip is a SECOND payment and needs its own id, derived from the same
+      // intent so a retry of the pair repeats neither.
+      .then(() =>
+        tip > 0 ? recordCleanerPayment(entry.id, tip, token, todayKey, true, `${reqId}-tip`) : null,
+      )
       .then(() => {
+        payRequestIdRef.current = "";
         // Stay in the detail modal so the host sees the updated balance; just
         // reset the input and disarm the confirm.
         setPayConfirmArmed(false);

@@ -170,26 +170,77 @@ router.get("/summary", async (req: Request, res: any) => {
 
 // Record a payout — adjusts the cleaner's running paid total. Negative
 // amounts correct a mis-recorded payout; the total never drops below zero.
+// How recently an identical payment counts as the same tap, for clients that
+// send no requestId — an older bundle still cached on somebody's phone. Long
+// enough to cover a slow reply and an impatient finger, short enough that two
+// genuinely separate identical payments minutes apart both go in.
+const REPEAT_WINDOW_MS = 30_000;
+
 router.post("/pay", async (req: Request, res: any) => {
-  const { id, amount, paidOn, note, tip } = req.body;
+  const { id, amount, paidOn, note, tip, requestId } = req.body;
   if (!id || typeof amount !== "number" || !isFinite(amount) || amount === 0)
     return res.status(400).json({ error: "id and a non-zero numeric amount are required" });
   try {
     const cleaner: any = await Cleaner.findById(id);
     if (!cleaner) return res.status(404).json({ error: "Cleaner not found" });
+
+    const on = paidOn || new Date().toISOString().slice(0, 10);
+
+    // Already recorded under this id: say yes and change nothing. A retry must
+    // be able to succeed -- the caller cannot tell a lost reply from a lost
+    // request, and answering an error would push them to try again.
+    if (requestId && cleaner.payments.some((p: any) => p.requestId === requestId)) {
+      return res.status(200).json({ id: cleaner._id, paid: cleaner.paidAmount, duplicate: true });
+    }
+
+    // No id to go on, so fall back to "have I just been told this?". Only
+    // reachable from a bundle that predates requestId.
+    if (!requestId) {
+      const justNow = Date.now() - REPEAT_WINDOW_MS;
+      const twin = cleaner.payments.find(
+        (p: any) =>
+          p.amount === amount &&
+          p.paidOn === on &&
+          !!p.tip === !!tip &&
+          p._id?.getTimestamp?.().getTime() >= justNow,
+      );
+      if (twin) {
+        return res
+          .status(409)
+          .json({ error: "That payment was just recorded — check the list before adding it again." });
+      }
+    }
+
     // Log the payout itself, not just its effect on the total — so a duplicate
     // or a wrong figure can be seen and removed later rather than guessed at.
     // paidOn comes from the client: the server runs UTC and would date an
     // evening payout in California to the following day.
-    cleaner.payments.push({
-      amount,
-      tip: !!tip,
-      paidOn: paidOn || new Date().toISOString().slice(0, 10),
-      note: note || "",
-    });
-    cleaner.paidAmount = Math.max(0, (cleaner.paidAmount ?? 0) + amount);
-    await cleaner.save();
-    res.status(200).json({ id: cleaner._id, paid: cleaner.paidAmount });
+    //
+    // ONE atomic write, filtered on the id NOT already being present. Two
+    // requests arriving together both pass the check above -- neither has saved
+    // yet -- so the check alone is not the guard. Mongo applies this filter and
+    // update as one operation on one document, so the second finds its own id
+    // already there and matches nothing.
+    const push = await Cleaner.updateOne(
+      { _id: id, ...(requestId ? { "payments.requestId": { $ne: requestId } } : {}) },
+      {
+        $push: { payments: { amount, tip: !!tip, paidOn: on, note: note || "", requestId: requestId || "" } },
+        $inc: { paidAmount: amount },
+      },
+    );
+    if (push.matchedCount === 0) {
+      // The other request won the race. Its payment is the one that stands.
+      const now: any = await Cleaner.findById(id).select("paidAmount");
+      return res.status(200).json({ id, paid: now?.paidAmount ?? 0, duplicate: true });
+    }
+
+    // paidAmount never goes below zero -- an undo bigger than the total would
+    // otherwise leave a negative running figure. Kept as a separate clamp
+    // because $inc cannot express it.
+    await Cleaner.updateOne({ _id: id, paidAmount: { $lt: 0 } }, { $set: { paidAmount: 0 } });
+
+    const saved: any = await Cleaner.findById(id).select("paidAmount");
+    res.status(200).json({ id, paid: saved?.paidAmount ?? 0 });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
