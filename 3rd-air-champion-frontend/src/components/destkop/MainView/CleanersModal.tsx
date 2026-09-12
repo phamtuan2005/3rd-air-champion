@@ -1183,17 +1183,16 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
   // Nothing renders when the room has no stays in the window -- see
   // getRoomPartySizeOdds, which returns no entry rather than a shrug with a
   // percentage on it.
-  // How often that headcount has to come up before the estimate is stated
-  // plainly rather than with a question mark.
+  // Reads "King (~1) 98%": the same brackets a booked headcount uses, with a
+  // tilde for the one thing that differs -- nobody has booked this, it is what
+  // the room usually takes.
   //
-  // The chip carries ONE percentage and it is the room's odds of selling. The
-  // estimate's confidence used to sit beside it -- "King ~1 59% 98%" -- and
-  // two percentages a space apart, meaning entirely different things, is a
-  // puzzle rather than information. The confidence is now a single character:
-  // "~1" when this is what the room usually takes, "~1?" when its history is
-  // mixed. The exact figure and the sample size are in the hover.
-  const CONFIDENT = 0.6;
-
+  // Two earlier goes at it were worse. "~1 59% 98%" put two percentages a
+  // space apart meaning different things, which on a chip read at a glance is
+  // a puzzle. "~1?" replaced the number with a confidence mark and the mark
+  // just raised the same question the number had answered. The brackets match
+  // what is already on the chip beside it, so there is nothing new to learn --
+  // and the figures are in the hover for anyone who wants them.
   const guestGuess = (roomId: string) => {
     const odds = partySizeOdds.get(roomId);
     if (!odds) return null;
@@ -1204,8 +1203,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
           odds.p * 100,
         )}% of ${odds.stays} ${odds.stays === 1 ? "stay" : "stays"} in this room over the last 60 days`}
       >
-        ~{odds.guests}
-        {odds.p < CONFIDENT ? "?" : ""}
+        (~{odds.guests})
       </span>
     );
   };
@@ -2403,9 +2401,8 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
 
               <p className="mb-1 mt-2 text-center text-sm text-gray-400">
                 % = odds the room sells · <span className="font-semibold">(2)</span> = guests
-                arriving · <span className="font-semibold">~2</span> = nobody booked yet; this room
-                usually takes 2 (<span className="font-semibold">~2?</span> = mixed history — hover
-                for the figures) ·{" "}
+                arriving · <span className="font-semibold">(~2)</span> = nobody booked yet; this room
+                usually takes 2 — hover for the figures ·{" "}
                 <span className="font-semibold text-red-500">solid red</span> = confirmed same-day
                 check-in · <span className="font-semibold text-red-500">dashed red</span> = empty
                 night likely sells last-minute (odds shown) · tap to assign a cleaner
