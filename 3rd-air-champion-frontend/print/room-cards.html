@@ -329,9 +329,14 @@
   .poster-qr p { font-size: .92em; color: #0f766e; line-height: 1.45; margin-top: .35em; }
 
   .poster-features { margin-top: 1em; }
-  .poster .feature { margin-bottom: .55em; }
-  .poster .feature svg { width: 1.45em; height: 1.45em; }
-  .poster .feature p { font-size: .95em; }
+  /* Bigger than the card's, and bigger than this started. The gap above the
+     loyalty box was slack the auto margin was absorbing -- spent here, where a
+     line of type has to survive being read from a few feet away rather than
+     from a hand. */
+  .poster .feature { margin-bottom: .7em; }
+  .poster .feature svg { width: 1.6em; height: 1.6em; }
+  .poster .feature p { font-size: 1.12em; line-height: 1.42; }
+  .poster .chip { font-size: .95em; padding: .22em .8em; }
 
   .poster-foot { margin-top: auto; }
 
