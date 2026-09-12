@@ -6,7 +6,12 @@ import WorkEntry from "../model/workEntrySchema";
 import { findAssignments } from "../util/assignmentQuery";
 import { computeCleanerPay } from "../util/cleanerPay";
 import { arrivingNeeds } from "../util/arrivingGuests";
-import { loadArrivals } from "../util/arrivalsLookup";
+import {
+  LIKELY_TO_SELL,
+  roomOccupancyOdds,
+  roomPartySizeOdds,
+} from "../util/roomLikelihood";
+import { loadArrivals, loadRoomHistory } from "../util/arrivalsLookup";
 
 // TiWork — the staff-facing app. Mounted PUBLIC, before the JWT middleware:
 // staff have no TiMag login, the same way guests have none for TiBook.
@@ -262,20 +267,56 @@ router.post("/schedule", async (req: Request, res: any) => {
       .filter((a) => a.room?._id)
       .map((a) => ({ date: a.date, roomId: String(a.room._id) }));
     const needs = arrivingNeeds(await loadArrivals(who.doc.host, cleanings), cleanings);
+    // A booked arrival days away is the WRONG party when the night in between
+    // is going to sell. The room takes a walk-in first, and the cleaner lays
+    // out beds for somebody who arrives on Monday.
+    //
+    // So: a same-day check-in is a fact and wins. Otherwise, if this room
+    // usually sells, show what it usually TAKES and say it is an estimate.
+    // Below even odds the night probably stays empty and the booked arrival
+    // really is next, so it stands.
+    //
+    // The same rule and the same 60-day window as TiMag's Plan, Week and Clean
+    // surfaces. A cleaner and the host looking at one morning must not be shown
+    // two different numbers.
+    const firstCleaning = cleanings.map((c) => c.date).sort()[0];
+    const history = firstCleaning
+      ? await loadRoomHistory(who.doc.host, firstCleaning)
+      : { nights: [], stays: [] };
+    const sellOdds = roomOccupancyOdds(history.nights);
+    const partySizes = roomPartySizeOdds(history.stays);
+    const sameDayArrival = arrivingNeeds(
+      await loadArrivals(who.doc.host, cleanings),
+      cleanings,
+      0,
+    );
 
     const byDate = new Map<string, any>();
     for (const a of assignments as any[]) {
       const g = byDate.get(a.date) ?? { date: a.date, rooms: [], recordedHours: 0, hasHours: false };
-      const need = a.room?._id ? needs.get(`${a.date}|${String(a.room._id)}`) : undefined;
+      const roomId = a.room?._id ? String(a.room._id) : "";
+      const key = `${a.date}|${roomId}`;
+      const need = roomId ? needs.get(key) : undefined;
+      const booked = roomId ? sameDayArrival.get(key) : undefined;
+      const guess = roomId ? partySizes.get(roomId) : undefined;
+      const likelyToSell = (sellOdds.get(roomId) ?? 0) >= LIKELY_TO_SELL;
+      // Estimate only where no one is booked for THAT day and the night will
+      // probably sell to somebody nobody has met.
+      const estimating = !booked && likelyToSell && !!guess;
+
       g.rooms.push({
         name: a.room?.name ?? "",
         color: a.room?.color ?? "",
         // null, not 0, where nothing is booked yet — "no arrival on the books"
         // and "nobody is coming" are different things to tell a cleaner.
-        guests: need?.guests ?? null,
-        // Extra work, so it travels with the schedule rather than waiting for
-        // somebody to remember to mention it.
-        sofaBed: !!need?.sofaBed,
+        guests: estimating ? guess!.guests : need?.guests ?? null,
+        // Said out loud, so TiWork can word it as a likelihood rather than
+        // printing a guess in the same shape as a fact. A cleaner meets this
+        // number once a week on a phone and cannot tell one from the other.
+        guestsEstimated: estimating,
+        // The sofa bed belongs to the stay that asked for it. On a night we are
+        // not preparing for that stay, it is not this clean's work.
+        sofaBed: estimating ? false : !!need?.sofaBed,
       });
       if (a.hours != null) {
         g.recordedHours += a.hours;

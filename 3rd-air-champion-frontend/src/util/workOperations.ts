@@ -28,7 +28,16 @@ export interface WorkShift {
   date: string;
   // guests = how many people arrive in that room after the clean (the next
   // check-in, same rule as TiMag's Plan tab). null when nothing is booked yet.
-  rooms: { name: string; color: string; guests?: number | null; sofaBed?: boolean }[];
+  rooms: {
+    name: string;
+    color: string;
+    guests?: number | null;
+    // True when `guests` is what this room USUALLY takes rather than a booking:
+    // nobody is booked for that day and the night is likely to sell. TiWork
+    // words it as a likelihood; it must never be printed as a fact.
+    guestsEstimated?: boolean;
+    sofaBed?: boolean;
+  }[];
   recordedHours: number | null;
   claim: {
     id: string;

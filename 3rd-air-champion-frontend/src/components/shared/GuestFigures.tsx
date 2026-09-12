@@ -13,12 +13,26 @@ const MAX_FIGURES = 6;
  * be noticed. Shared between TiWork (the cleaner's own rota) and TiMag's Hours
  * queue (the host reviewing their claim), so both are looking at one day rather
  * than two accounts of it.
+ *
+ * `estimated` means nobody is booked for that day and this is what the room
+ * usually takes. It is worded as a likelihood and drawn lighter, because the
+ * one thing this must never do is look like the booked case -- a cleaner meets
+ * this number once a week on a phone and has no way to tell a guess from a
+ * fact unless the screen says which it is.
  */
-const GuestFigures = ({ n }: { n: number }) => {
+const GuestFigures = ({ n, estimated = false }: { n: number; estimated?: boolean }) => {
   if (!n) return null;
   return (
-    <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-600">
-      <span className="inline-flex shrink-0 items-center gap-0.5 text-gray-500">
+    <span
+      className={`inline-flex items-center gap-1.5 text-sm font-semibold ${
+        estimated ? "text-gray-500" : "text-gray-600"
+      }`}
+    >
+      <span
+        className={`inline-flex shrink-0 items-center gap-0.5 ${
+          estimated ? "text-gray-400" : "text-gray-500"
+        }`}
+      >
         {n <= MAX_FIGURES ? (
           Array.from({ length: n }, (_, i) => <FaUser key={i} size={11} className="shrink-0" />)
         ) : (
@@ -28,7 +42,15 @@ const GuestFigures = ({ n }: { n: number }) => {
           </>
         )}
       </span>
-      {n} {n === 1 ? "guest" : "guests"} arriving
+      {estimated ? (
+        <>
+          usually {n} {n === 1 ? "guest" : "guests"} — none booked yet
+        </>
+      ) : (
+        <>
+          {n} {n === 1 ? "guest" : "guests"} arriving
+        </>
+      )}
     </span>
   );
 };
