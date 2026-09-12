@@ -1133,11 +1133,25 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
   // The sofa bed rides with the headcount because it answers the same question:
   // what does this room need doing to it. A bed nobody mentions is a bed nobody
   // makes, and the cleaner finds out from the guest.
+  // How far ahead an arrival still describes THIS morning's clean. A room
+  // cleaned today for a guest arriving tomorrow is one job; a room cleaned
+  // today for a guest arriving in eight days is not -- that night will get its
+  // own cleaning morning nearer the time, because the forecast fills every
+  // empty sellable night in a gap.
+  //
+  // This was 30 days, and it silently mislabelled the Plan tab: King showed
+  // "(3, sofa)" on a Sunday with nothing booked, because a party of three was
+  // arriving the following week. The cleaner reads that as three people coming
+  // that day, and it also suppressed the likely-guests estimate -- an arrival
+  // had been "found", so the room that most needed an estimate never got one.
+  const ARRIVAL_LOOKAHEAD_NIGHTS = 2;
+
   const nextArrival = (
     roomId: string,
     morningKey: string,
+    lookahead = ARRIVAL_LOOKAHEAD_NIGHTS,
   ): { guests: number; sofaBed: boolean } | null => {
-    for (let i = 0; i <= 30; i++) {
+    for (let i = 0; i <= lookahead; i++) {
       const key = format(addDays(new Date(morningKey + "T00:00:00"), i), "yyyy-MM-dd");
       const found = monthMap
         .get(key)
@@ -1169,8 +1183,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
   // Nothing renders when the room has no stays in the window -- see
   // getRoomPartySizeOdds, which returns no entry rather than a shrug with a
   // percentage on it.
-  const guestGuess = (roomId: string, morningKey: string) => {
-    if (nextArrival(roomId, morningKey)) return null; // a real headcount exists
+  const guestGuess = (roomId: string) => {
     const odds = partySizeOdds.get(roomId);
     if (!odds) return null;
     return (
@@ -1183,6 +1196,30 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
         ~{odds.guests} {Math.round(odds.p * 100)}%
       </span>
     );
+  };
+
+  // What the Plan tab shows for a morning's headcount, which is a stricter
+  // question than the other tabs ask.
+  //
+  // A same-day arrival is a fact and always wins. Otherwise, if the night is
+  // more likely than not to sell -- and Plan already knows those odds, it
+  // prints them on the same chip -- then whoever sleeps there next is a
+  // stranger, NOT the guest booked for a later night. King showed "(3, sofa)"
+  // on a Sunday at 98% odds because Jae C was arriving on the Monday; the room
+  // was near-certain to sell to somebody else first, and the cleaner was being
+  // told to set up for the wrong party.
+  //
+  // Below even odds the night probably stays empty, so the next booked arrival
+  // really is the next occupant and its headcount is the useful one.
+  const LIKELY_TO_SELL = 0.5;
+
+  const planHeadcount = (entry: ForecastEntry, morningKey: string) => {
+    const roomId = entry.checkoutBooking.room.id;
+    if (nextArrival(roomId, morningKey, 0)) return arrivalSuffix(roomId, morningKey);
+    if (entry.rebookOdds >= LIKELY_TO_SELL) return guestGuess(roomId);
+    return nextArrival(roomId, morningKey)
+      ? arrivalSuffix(roomId, morningKey)
+      : guestGuess(roomId);
   };
 
   // Explains only what is actually in the message. A legend for a symbol that
@@ -2247,8 +2284,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                     }`}
                   >
                     {entry.checkoutBooking.room.name}
-                    {arrivalSuffix(entry.checkoutBooking.room.id, day.morningKey)}
-                    {guestGuess(entry.checkoutBooking.room.id, day.morningKey)}
+                    {planHeadcount(entry, day.morningKey)}
                     {entry.rebookOdds < 0.995 && (
                       <span className="ml-1 opacity-70">{Math.round(entry.rebookOdds * 100)}%</span>
                     )}
