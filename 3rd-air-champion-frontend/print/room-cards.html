@@ -143,6 +143,7 @@
     body.eightbyten .page:last-child { page-break-after: auto; }
     body.pair .page { page-break-after: always; }
     body.pair .page:last-child { page-break-after: auto; }
+    body.wall .page { page-break-after: auto; }
   }
 
   /* ---------- front ---------- */
@@ -273,6 +274,67 @@
     border-radius: .48em; padding: .18em .7em;
   }
 
+  /* ---------- hallway poster (SHEET = "wall") ----------
+
+     One page for the whole house, not a card for one room: a hallway is shared,
+     and a guest walking past it may be staying in any of the five.
+
+     Read STANDING, from a few feet, by somebody who is walking somewhere else.
+     That is the whole brief, and it is why this is not the 4x6 card enlarged:
+     the card is picked up and turned over, so it can afford a week grid and two
+     sides. This gets one look, so it carries one instruction -- scan this --
+     and the reasons sit underneath for anyone who stops.
+
+     Element class .poster, NOT .wall. The body carries the SHEET name as its
+     class, so a .wall rule would also be a body.wall rule; that exact collision
+     laid every page out in a single row once already.
+
+     7.5in wide on 8.5in paper: an inch of margin, outside any printer's
+     unprintable edge. Type is a fraction of that width, so the whole poster
+     scales off one number. */
+  :root { --poster-w: 7.5in; }
+
+  .poster {
+    width: var(--poster-w);
+    height: calc(var(--poster-w) * 1.3333);  /* 10in tall on a 7.5in poster */
+    /* Divisor MEASURED, not chosen: at /30 the content ran 1213px into 932px of
+       poster. This is the largest that fits with the QR at full size, and the
+       QR is the reason the sheet exists. */
+    font-size: calc(var(--poster-w) / 38);
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    padding: 1.4em 1.6em 1.2em;
+    position: relative;
+  }
+  .poster-head { display: flex; align-items: center; justify-content: space-between; }
+  .poster-head .brand span { font-size: 1.05em; }
+  .poster h1 {
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    font-size: 1.95em; line-height: 1.08; letter-spacing: -.015em;
+    margin-top: .45em;
+  }
+  .poster .kicker { font-size: 1em; line-height: 1.45; color: #4b5563; margin-top: .45em; }
+
+  /* The QR is the whole point of the sheet, so it is the biggest thing on it.
+     A phone camera picks this up from across a hallway; the card's 4.3em
+     version expects a hand holding it. */
+  .poster-qr {
+    display: flex; align-items: center; gap: 1.1em;
+    background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: .8em;
+    padding: 1em 1.1em; margin-top: .9em;
+  }
+  .poster-qr img { width: 12.4em; height: 12.4em; background: #fff; padding: .35em; border-radius: .5em; flex: none; }
+  .poster-qr h2 { font-size: 1.5em; color: #0f766e; line-height: 1.15; }
+  .poster-qr p { font-size: .92em; color: #0f766e; line-height: 1.45; margin-top: .35em; }
+
+  .poster-features { margin-top: 1em; }
+  .poster .feature { margin-bottom: .55em; }
+  .poster .feature svg { width: 1.45em; height: 1.45em; }
+  .poster .feature p { font-size: .95em; }
+
+  .poster-foot { margin-top: auto; }
+
   .tiers { border: 1px solid #e5e7eb; border-radius: .65em; padding: .65em .75em; margin-top: auto; }
   .tier-row { display: flex; justify-content: space-between; margin-top: .5em; text-align: center; }
   .tier b { display: block; font-size: .78em; border-radius: 999px; border: 1px solid; padding: .2em .6em; }
@@ -336,7 +398,7 @@ const TIERS = [
 
    "card"    one 4x6 page per card, ten pages. For a print shop that takes a
              card-sized PDF and trims for you. */
-const SHEET = "pair";
+const SHEET = "wall";
 
 const LOGO = "../public/TiMagLogo.svg";
 /* The QR already in the repo and already on the phones — do not crop a fresh
@@ -516,6 +578,65 @@ function back() {
    usable holder and four with a room on both sides. Two separate sheets rather
    than one duplexed sheet on purpose: nothing has to line up through the paper,
    and any printer can do it. */
+/* The hallway sheet. Everything on it is house-level: no room name, no week
+   grid, no per-room rate -- a guest reading this in the corridor may be in any
+   of the five rooms, or thinking about a room they have not booked yet. */
+function wall() {
+  const chips = ROOMS.map(
+    (r) => '<span class="chip" style="background:' + r.color + '">' + r.name + "</span>"
+  ).join("");
+  const tiers = TIERS.map(
+    (t) =>
+      '<div class="tier"><b style="color:' + t.fg + ";background:" + t.bg + ";border-color:" + t.bd +
+      '">' + t.label + "</b><span>" + t.stays + "</span></div>"
+  ).join("");
+
+  return (
+    '<div class="poster">' +
+      '<div class="poster-head">' +
+        '<div class="brand"><img src="' + LOGO + '" alt="" /><span>TT HOUSE</span></div>' +
+        '<div class="locale">Silicon Valley</div>' +
+      "</div>" +
+
+      "<h1>Book your next stay with us directly.</h1>" +
+      '<p class="kicker">TiBook is the house’s own booking app. No booking-site service fee on ' +
+      "your bill, and the rate you agree with Anh-Tuan holds every visit after.</p>" +
+
+      '<div class="poster-qr">' +
+        '<img src="' + QR + '" alt="" />' +
+        "<div>" +
+          "<h2>Point your camera here</h2>" +
+          "<p>It opens straight to TiBook. Nothing to install, no password — " +
+          "it knows you by your phone number.</p>" +
+        "</div>" +
+      "</div>" +
+
+      '<div class="poster-features">' +
+        feature(
+          "calendar",
+          "See what’s really available.",
+          "All five rooms, night by night:",
+          '<div class="chips">' + chips + "</div>",
+        ) +
+        feature("chat", "Say it in your own words.", "“Next Friday, three nights” is enough.") +
+        feature("tag", "Book direct.", "No booking-site service fee, and your rate is yours to keep.") +
+        feature("key", "The whole stay in one place.", "Door code, directions, and a text before you arrive.") +
+      "</div>" +
+
+      '<div class="poster-foot">' +
+        '<div class="tiers">' +
+          '<div class="panel-title">The house keeps count.</div>' +
+          '<div class="tier-row">' + tiers + "</div>" +
+        "</div>" +
+        '<div class="promise" style="margin-top:.9em">' +
+          '<div class="promise-label">Our promise to you</div>' +
+          '<div class="promise-line">Your comfort. Our mission.</div>' +
+        "</div>" +
+      "</div>" +
+    "</div>"
+  );
+}
+
 const TRIM = '<div class="trim"><i></i><i></i><i></i><i></i></div>';
 const withTrim = (html) => html.replace(/^(<div class="card[^"]*">)/, "$1" + TRIM);
 
@@ -523,6 +644,7 @@ const PAGE_SIZE = {
   letter: "11in 8.5in",   // landscape, front + back side by side
   "8x10": "8.5in 11in",   // portrait, one 8x10 card per page
   pair: "8.5in 11in",     // portrait, this room's front + back on one page
+  wall: "8.5in 11in",     // portrait, ONE house poster for the hallway
   card: "4in 6in",        // the bare card, for a print shop
 };
 document.head.insertAdjacentHTML(
@@ -544,6 +666,10 @@ if (SHEET === "8x10") {
   );
 }
 document.body.className = SHEET === "8x10" ? "eightbyten" : SHEET;
+// One sheet for the house, so it does not loop the rooms at all.
+if (SHEET === "wall") {
+  document.body.innerHTML = '<div class="page">' + wall() + "</div>";
+} else
 document.body.innerHTML = ROOMS
   .map((room) => {
     const f = withTrim(front(room));
