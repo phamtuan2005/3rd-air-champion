@@ -441,6 +441,20 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
   const [payMode, setPayMode] = useState<"payout" | "tip" | "undo">("payout");
   // Two-tap confirm rendered in-design — no browser confirm() popup
   const [payConfirmArmed, setPayConfirmArmed] = useState(false);
+  // In flight, for the two buttons that move money.
+  //
+  // Arming was never the whole guard. The confirm tap fires the request and the
+  // button stays live until the server answers, so a slow reply and an
+  // impatient finger post the payment again -- and again. Henry ended up with
+  // seven $239.25 payouts and five $11 tips on one day, none of which left
+  // anybody's hand, and his balance said he had been overpaid.
+  //
+  // A ref rather than state because the second tap can arrive in the same tick
+  // as the first, before React has re-rendered with the disabled button.
+  const payingRef = useRef(false);
+  const [paying, setPaying] = useState(false);
+  const removingRef = useRef(false);
+  const [removing, setRemoving] = useState(false);
   const [error, setError] = useState("");
 
   const todayKey = format(startOfToday(), "yyyy-MM-dd");
@@ -1447,6 +1461,9 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
       setPayConfirmArmed(true);
       return;
     }
+    if (payingRef.current) return; // already posting this one
+    payingRef.current = true;
+    setPaying(true);
     const { payout, tip } = splitPayment(entry, amount);
     const signed = payMode === "undo" ? -payout : payout;
     // Sequential, and the tip only once the payout is in: two writes to the same
@@ -1462,7 +1479,11 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
         setError("");
         reloadSummary();
       })
-      .catch((err) => setError(err.response?.data?.error ?? "Could not record payment"));
+      .catch((err) => setError(err.response?.data?.error ?? "Could not record payment"))
+      .finally(() => {
+        payingRef.current = false;
+        setPaying(false);
+      });
   };
 
   // Remove one logged payout. Two taps, like recording one — this moves money.
@@ -1471,13 +1492,20 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
       setRemoveArmed(paymentId);
       return;
     }
+    if (removingRef.current) return;
+    removingRef.current = true;
+    setRemoving(true);
     removeCleanerPayment(cleanerId, paymentId, token)
       .then(() => {
         setRemoveArmed(null);
         setError("");
         reloadSummary();
       })
-      .catch((err) => setError(err.response?.data?.error ?? "Could not remove payment"));
+      .catch((err) => setError(err.response?.data?.error ?? "Could not remove payment"))
+      .finally(() => {
+        removingRef.current = false;
+        setRemoving(false);
+      });
   };
 
   // The cleaner whose focused pay detail modal is open (fresh from summary so
@@ -3502,7 +3530,10 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                           <button
                             type="button"
                             onClick={() => handleRemovePayment(entry.id, p.id)}
+                            disabled={removing}
                             className={`shrink-0 rounded-md px-2 py-0.5 text-[12px] font-semibold transition-colors ${
+                              removing ? "opacity-40" : ""
+                            } ${
                               removeArmed === p.id
                                 ? "bg-red-600 text-white"
                                 : "text-gray-400 hover:text-red-600"
@@ -3639,8 +3670,11 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                             : `flex-1 ${pillEmerald}`
                         }
                         onClick={() => handlePay(entry)}
+                        disabled={paying}
                       >
-                        {payConfirmArmed
+                        {paying
+                          ? "Recording…"
+                          : payConfirmArmed
                           ? (() => {
                               const { payout, tip } = splitPayment(entry, parseFloat(payDraft) || 0);
                               // Named before it is committed. A lump quietly
