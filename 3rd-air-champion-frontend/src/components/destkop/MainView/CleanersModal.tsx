@@ -14,6 +14,7 @@ import {
   getCheckoutsOn,
   getCleaningEntriesFor,
   getCleaningForecast,
+  getRoomOccupancyOdds,
   getRoomPartySizeOdds,
   isStaleCleaning as isStale,
 } from "../../../util/cleaningTasks";
@@ -593,6 +594,10 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
   // window the rebook odds come from. Only ever shown for a morning with no
   // arrival booked yet -- where a real headcount exists, it wins.
   const partySizeOdds = getRoomPartySizeOdds(monthMap);
+  // The odds a room sells, for the Week tab's assigned chips -- those come from
+  // a cleaner's assignment rather than a forecast entry, so they have no
+  // rebookOdds of their own to read.
+  const occupancyOdds = getRoomOccupancyOdds(monthMap);
   const forecastTotal = cleaningForecast.reduce((sum, d) => sum + d.entries.length, 0);
   const assignmentFor = (morningKey: string, roomId: string) =>
     assignments.find((a) => a.date === morningKey && a.room?.id === roomId);
@@ -1223,14 +1228,23 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
   // really is the next occupant and its headcount is the useful one.
   const LIKELY_TO_SELL = 0.5;
 
-  const planHeadcount = (entry: ForecastEntry, morningKey: string) => {
-    const roomId = entry.checkoutBooking.room.id;
+  // Shared by Plan and Week. Both ask the same question -- what does the
+  // cleaner set this room up for -- so they must not answer it differently for
+  // the same morning, which is how the two tabs drifted apart before.
+  const headcountFor = (
+    roomId: string,
+    morningKey: string,
+    sellOdds = occupancyOdds.get(roomId) ?? 1,
+  ) => {
     if (nextArrival(roomId, morningKey, 0)) return arrivalSuffix(roomId, morningKey);
-    if (entry.rebookOdds >= LIKELY_TO_SELL) return guestGuess(roomId);
+    if (sellOdds >= LIKELY_TO_SELL) return guestGuess(roomId);
     return nextArrival(roomId, morningKey)
       ? arrivalSuffix(roomId, morningKey)
       : guestGuess(roomId);
   };
+
+  const planHeadcount = (entry: ForecastEntry, morningKey: string) =>
+    headcountFor(entry.checkoutBooking.room.id, morningKey, entry.rebookOdds);
 
   // Explains only what is actually in the message. A legend for a symbol that
   // does not appear is noise; a symbol with no legend is a puzzle.
@@ -2094,15 +2108,22 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                             from the avatar and truncated the name. */}
                         <div className="flex flex-1 flex-wrap items-center gap-1">
                           {rooms.map((room, i) => (
-                            // Same headcount the SMS carries — beds/towels to
-                            // prep — plus the sofa bed, which is extra work and
-                            // must not be discovered on arrival.
+                            // Beds and towels to prep, plus the sofa bed, which
+                            // is extra work and must not be discovered on
+                            // arrival.
+                            //
+                            // The same rule Plan uses, so one morning cannot
+                            // read two ways across two tabs. Where nobody is
+                            // booked and the night is likely to sell, this is
+                            // "(~2)" -- what the room usually takes. NOT what
+                            // the SMS carries: that still sends only real
+                            // arrivals, because a text is read as instruction.
                             <span
                               key={`${room.id}-${i}`}
                               className={`${getRoomColor(room.name, roomColorById.get(room.id))} rounded-md px-2 py-1 text-[13px] font-semibold text-black shadow-sm`}
                             >
                               {room.name}
-                              {arrivalSuffix(room.id, dateKey)}
+                              {headcountFor(room.id, dateKey)}
                             </span>
                           ))}
                         </div>
@@ -2146,7 +2167,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                               }`}
                             >
                               {entry.checkoutBooking.room.name}
-                              {arrivalSuffix(entry.checkoutBooking.room.id, dateKey)}
+                              {planHeadcount(entry, dateKey)}
                             </button>
                           ))}
                         </div>
@@ -2168,6 +2189,15 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
             {weekAssignments.length === 0
               ? "Tap an amber room to assign a cleaner"
               : "To text this schedule, open a cleaner's 💬 Message menu in the Team tab"}
+          </p>
+          {/* Plan carries the same key. Week never needed one while every
+              bracket held a booked headcount, but (~2) is a different claim and
+              a symbol nobody explains is a symbol nobody trusts. */}
+          <p className="mb-1 text-center text-sm text-gray-400">
+            <span className="font-semibold">(2)</span> = guests arriving ·{" "}
+            <span className="font-semibold">(~2)</span> = nobody booked yet; this room usually takes
+            2 — hover for the figures · <span className="font-semibold">🛋</span> = sofa bed to make
+            up
           </p>
           </>
           )}
