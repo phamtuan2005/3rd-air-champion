@@ -289,10 +289,14 @@
      class, so a .wall rule would also be a body.wall rule; that exact collision
      laid every page out in a single row once already.
 
-     7.5in wide on 8.5in paper: an inch of margin, outside any printer's
-     unprintable edge. Type is a fraction of that width, so the whole poster
-     scales off one number. */
-  :root { --poster-w: 7.5in; }
+     6in wide on 8.5in paper -- 80% of the 7.5in it was drawn at, because the
+     frame it goes in has a border of its own and the full-width sheet sat
+     under it. Prints 6 x 8in with 1.25in clear at the sides.
+
+     Type, the QR and the spacing are all fractions of this width, so the whole
+     poster scales off this ONE number and nothing reflows. Put it back to 7.5in
+     for an unframed wall. */
+  :root { --poster-w: 6in; }
 
   .poster {
     width: var(--poster-w);
