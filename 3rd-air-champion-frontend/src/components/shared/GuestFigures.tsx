@@ -14,25 +14,23 @@ const MAX_FIGURES = 6;
  * queue (the host reviewing their claim), so both are looking at one day rather
  * than two accounts of it.
  *
- * `estimated` means nobody is booked for that day and this is what the room
- * usually takes. It is worded as a likelihood and drawn lighter, because the
- * one thing this must never do is look like the booked case -- a cleaner meets
- * this number once a week on a phone and has no way to tell a guess from a
- * fact unless the screen says which it is.
+ * A LIKELY headcount reads exactly like a booked one, on the house's
+ * instruction. Two earlier versions marked it -- "usually 2 guests - none
+ * booked yet", then "likely 2 guests" -- and both were wrong for the same
+ * reason: whether a room is sold is the house's business, and a cleaner is
+ * being told how many beds to make, not how the month is going. The estimate
+ * is the best number the house has either way, so it is given plainly.
+ *
+ * The cost, recorded because it is real: a cleaner cannot tell an estimate
+ * from a confirmed arrival, so a party that turns out larger than the room
+ * usually takes will meet a bed short. The API still says which is which --
+ * see `guestsEstimated` -- if this is ever reconsidered.
  */
-const GuestFigures = ({ n, estimated = false }: { n: number; estimated?: boolean }) => {
+const GuestFigures = ({ n }: { n: number }) => {
   if (!n) return null;
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 text-sm font-semibold ${
-        estimated ? "text-gray-500" : "text-gray-600"
-      }`}
-    >
-      <span
-        className={`inline-flex shrink-0 items-center gap-0.5 ${
-          estimated ? "text-gray-400" : "text-gray-500"
-        }`}
-      >
+    <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-600">
+      <span className="inline-flex shrink-0 items-center gap-0.5 text-gray-500">
         {n <= MAX_FIGURES ? (
           Array.from({ length: n }, (_, i) => <FaUser key={i} size={11} className="shrink-0" />)
         ) : (
@@ -42,15 +40,7 @@ const GuestFigures = ({ n, estimated = false }: { n: number; estimated?: boolean
           </>
         )}
       </span>
-      {estimated ? (
-        <>
-          usually {n} {n === 1 ? "guest" : "guests"} — none booked yet
-        </>
-      ) : (
-        <>
-          {n} {n === 1 ? "guest" : "guests"} arriving
-        </>
-      )}
+      {n} {n === 1 ? "guest" : "guests"} arriving
     </span>
   );
 };

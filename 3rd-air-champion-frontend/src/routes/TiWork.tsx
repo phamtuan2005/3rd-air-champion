@@ -816,7 +816,7 @@ const TiWork = () => {
                                 knows what it means, a cleaner meets it once a week
                                 on a phone. Silent when nothing is booked yet,
                                 which is not the same as nobody coming. */}
-                            <GuestFigures n={r.guests ?? 0} estimated={!!r.guestsEstimated} />
+                            <GuestFigures n={r.guests ?? 0} />
                             <SofaBedTag on={r.sofaBed} />
                           </div>
                         ))}
