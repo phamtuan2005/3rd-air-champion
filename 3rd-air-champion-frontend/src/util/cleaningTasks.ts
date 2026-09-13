@@ -381,6 +381,16 @@ export const getCleaningEntriesFor = (
   //    Reserved (R) holds count: they occupy the room, so their checkout still
   //    needs cleaning (a lapsed hold is unbooked and drops out on its own).
   for (const b of getCheckoutsOn(monthMap, morningKey)) {
+    // A room turns over ONCE a morning, whatever the data says. Two bookings
+    // ending the same night in the same room is a double-booking, and it used
+    // to reach the Plan tab as two identical chips under one cleaner and a
+    // count of "6 rooms" in a five-room house.
+    //
+    // Deduping here is not hiding it: the room still needs exactly one clean,
+    // and a cleaner sent to do it twice is the only thing the second chip could
+    // ever mean. The overlap itself is a booking problem and shows up where
+    // bookings are shown.
+    if (covered.has(b.room.id)) continue;
     const sameDayCheckIn =
       monthMap
         .get(morningKey)
