@@ -333,6 +333,33 @@ interface ForecastContext {
 // used to each re-derive checkouts inline, so the Cleaning tab listed only
 // confirmed checkouts while Plan also showed gap turnovers, and the two screens
 // disagreed about the same morning.
+// A room turns over ONCE a morning, and when the data holds two stays for it
+// the LIVE one is the most recently booked.
+//
+// This is not a hypothetical. A guest cancels an AirBnB stay, another books the
+// same night, and the cancelled booking stays in the day's record — the house
+// keeps it deliberately. Both then end the same night, and the Plan tab showed
+// Cozy twice under one cleaner with a count of "6 rooms" in a five-room house.
+//
+// Recency by `bookedOn`, which is stamped on direct and synced bookings alike.
+// Where it ties — a cancel and a rebook on the same day, which is the common
+// case — the later entry in the array wins, because a booking is pushed onto
+// the night when it is made.
+//
+// Deduping is not hiding the overlap: the room needs exactly one clean, and a
+// second chip could only ever mean a cleaner sent to do it twice. The two
+// bookings remain in the data and remain visible where bookings are shown.
+const mostRecentPerRoom = (bookings: bookingType[]): bookingType[] => {
+  const live = new Map<string, bookingType>();
+  bookings.forEach((b) => {
+    if (!b.room) return;
+    const held = live.get(b.room.id);
+    // >= so a later array position wins a tie, including when both are "".
+    if (!held || (b.bookedOn ?? "") >= (held.bookedOn ?? "")) live.set(b.room.id, b);
+  });
+  return [...live.values()];
+};
+
 export const getCleaningEntriesFor = (
   monthMap: Map<string, dayType>,
   morningKey: string,
@@ -380,17 +407,7 @@ export const getCleaningEntriesFor = (
   //    stayed — skip the checkout scan, but the gap loop below still runs.
   //    Reserved (R) holds count: they occupy the room, so their checkout still
   //    needs cleaning (a lapsed hold is unbooked and drops out on its own).
-  for (const b of getCheckoutsOn(monthMap, morningKey)) {
-    // A room turns over ONCE a morning, whatever the data says. Two bookings
-    // ending the same night in the same room is a double-booking, and it used
-    // to reach the Plan tab as two identical chips under one cleaner and a
-    // count of "6 rooms" in a five-room house.
-    //
-    // Deduping here is not hiding it: the room still needs exactly one clean,
-    // and a cleaner sent to do it twice is the only thing the second chip could
-    // ever mean. The overlap itself is a booking problem and shows up where
-    // bookings are shown.
-    if (covered.has(b.room.id)) continue;
+  for (const b of mostRecentPerRoom(getCheckoutsOn(monthMap, morningKey))) {
     const sameDayCheckIn =
       monthMap
         .get(morningKey)

@@ -33,6 +33,14 @@ export interface bookingType {
   // yyyy-MM-dd the guest said they would send payment for a HELD stay. "" until
   // asked. Per stay, stored on every night — read it from the start night.
   expectedPayDate?: string;
+  // yyyy-MM-dd this booking was CREATED — stamped on direct bookings and on
+  // AirBnB-synced ones alike. "" on anything that predates the field.
+  //
+  // It exists here to settle which of two bookings on the same room and night
+  // is the live one: a guest cancels, another books the same night, and the
+  // cancelled stay stays in the day's record. The newer booking is the one the
+  // house is actually serving.
+  bookedOn?: string;
 }
 
 // Sum of a booking's extra fees — counted ONCE per stay (fees are stored on
