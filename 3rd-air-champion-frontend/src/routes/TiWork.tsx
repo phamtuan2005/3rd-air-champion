@@ -139,7 +139,7 @@ const TiWork = () => {
   // reads backwards from today; "what am I doing next" reads forwards. One list
   // in one order answers whichever question it was not sorted for.
   const [shiftTab, setShiftTab] = useState<"tolog" | "done" | "upcoming">("tolog");
-  // "To log" is the right tab to open on when something is waiting there, and a
+  // "To Do" is the right tab to open on when something is waiting there, and a
   // dead end when nothing is — a cleaner who is up to date was landing on an
   // empty list and had to find their way to the schedule themselves.
   //
@@ -704,7 +704,13 @@ const TiWork = () => {
                       ) : (
                         <FaRegCalendarAlt size={14} className="shrink-0" />
                       )}
-                      {k === "tolog" ? "To log" : k === "done" ? "Done" : "Coming up"}
+                      {/* "To Do", not "To log". The tab already held today's
+                          assignment -- the filter is `date <= today` -- so the
+                          rooms to clean today were in here all along under a
+                          name that described the paperwork rather than the
+                          work. A cleaner opening TiWork in the morning is
+                          asking what to do, not what to file. */}
+                      {k === "tolog" ? "To Do" : k === "done" ? "Done" : "Coming up"}
                       {n > 0 && (
                         <span
                           className={`rounded-full px-2 py-0.5 text-[11px] font-black ${
@@ -724,7 +730,7 @@ const TiWork = () => {
             {shiftsFor(shiftTab).length === 0 ? (
               <p className="py-3 text-center text-sm text-gray-400">
                 {shiftTab === "tolog"
-                  ? "All caught up 🎉 every visit has its hours in."
+                  ? "Nothing to clean today, and every visit has its hours in 🎉"
                   : shiftTab === "done"
                     ? "Nothing logged in the last few weeks."
                     : "No plan up yet — Anh-Tuan will drop one soon."}
@@ -762,6 +768,15 @@ const TiWork = () => {
                         <span className="text-base font-semibold text-gray-800">
                           {fmtDay(sh.date)}
                         </span>
+                        {/* Today is a different job from the days below it: one
+                            is rooms to clean, the rest are hours still to put
+                            in. Same card, same form -- but a cleaner should not
+                            have to work out which is which from the date. */}
+                        {sh.date === todayKey && !upcoming && (
+                          <span className="rounded-full bg-violet-600 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wide text-white">
+                            Today
+                          </span>
+                        )}
                         <span className="text-gray-300">&middot;</span>
                         <span className="text-sm font-semibold text-gray-500">
                           {sh.rooms.length} {sh.rooms.length === 1 ? "room" : "rooms"}
