@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { FaCalendarAlt, FaClipboardList, FaDollarSign } from "react-icons/fa";
 import { MdCleaningServices } from "react-icons/md";
 import ProfileDesktop from "./ProfileDesktop";
+import TiBookVisitorsModal from "../TiBookVisitorsModal";
 import { GuestModeContext } from "../../../context";
 
 interface AirBnBInfo {
@@ -125,6 +126,11 @@ const NavBarDesktop = ({
   // The toolbar groups seven actions under three category buttons; tapping one
   // opens this picker. Keeps the bar from overflowing on a narrow phone.
   const [pickerGroup, setPickerGroup] = useState<null | "calendar" | "tasks" | "money">(null);
+  // Held here rather than in App like the other overlays: nothing else opens
+  // it or reacts to it, and it needs no calendar data — the server takes the
+  // house from the token — so threading it through App and MainView would be
+  // four files of plumbing for one button.
+  const [isTiBookVisitorsOpen, setIsTiBookVisitorsOpen] = useState(false);
 
   const closeAllPanels = () => {
     setIsTodoModalOpen(false);
@@ -377,6 +383,15 @@ const NavBarDesktop = ({
           },
         },
         {
+          // Beside Stats because it answers the same kind of question — how is
+          // the business doing — for the booking page rather than the rooms.
+          label: "TiBook visitors",
+          desc: "How many people open TiBook, who comes back, and from which continent.",
+          emoji: "📈",
+          hover: "hover:border-sky-300 hover:text-sky-600",
+          run: () => setIsTiBookVisitorsOpen(true),
+        },
+        {
           label: "Misc",
           desc: "House expenses — supplies, utilities, maintenance.",
           emoji: "🧾",
@@ -568,6 +583,15 @@ const NavBarDesktop = ({
         </div>,
         document.body
       )}
+
+      {/* Portalled for the same reason as the picker: this bar's drop-shadow
+          is a CSS filter, and a filter turns `fixed` children into children of
+          the bar — the overlay would be trapped inside an 80px strip. */}
+      {isTiBookVisitorsOpen &&
+        createPortal(
+          <TiBookVisitorsModal onClose={() => setIsTiBookVisitorsOpen(false)} />,
+          document.body,
+        )}
     </div>
   );
 };

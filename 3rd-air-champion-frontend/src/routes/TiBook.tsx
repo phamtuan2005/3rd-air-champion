@@ -29,6 +29,7 @@ import { getConsent, readRememberedGuest, rememberGuest, setConsent, revokeConse
 import HostContactButton from "../components/tibook/HostContactButton";
 import HostChatSheet from "../components/tibook/HostChatSheet";
 import { fetchGuestThread } from "../util/guestMessageOperations";
+import { recordTiBookVisit } from "../util/tibookVisitOperations";
 
 const TiBookInner = () => {
   const { theme, vibe, layout } = useTiBookTheme();
@@ -38,6 +39,22 @@ const TiBookInner = () => {
     const prev = link?.getAttribute("href") ?? null;
     link?.setAttribute("href", "/tibookmanifest.webmanifest");
     return () => { if (link && prev) link.setAttribute("href", prev); };
+  }, []);
+  // Counted for the host's TiBook visitors screen in TiMag. Not waiting on the
+  // sign-in: the visit happened whether or not the calendar loads.
+  //
+  // Again whenever the page comes back to the front, because a guest keeps
+  // TiBook open on their phone for days and never reloads it (see the PWA
+  // notes in vite.config). Once a day per device; recordTiBookVisit skips the
+  // rest.
+  useEffect(() => {
+    const hostId = import.meta.env.VITE_TI_BOOK_HOST_ID;
+    recordTiBookVisit(hostId);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") recordTiBookVisit(hostId);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
 
   const [token, setToken] = useState<string | null>(localStorage.getItem("tiBookToken") ?? null);

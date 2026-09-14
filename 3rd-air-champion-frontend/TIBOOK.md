@@ -39,6 +39,19 @@ Two things about that file:
 | `src/util/cartGrouping.ts` | Turns chosen dates into stays |
 | `src/contexts/TiBookThemeContext.tsx` | Colour tokens, the two skins and the two layouts — use `theme.*`, never a hardcoded colour |
 | `src/components/tibook/HeroShell.tsx` | The Hero layout: rooms as a swipeable deck over the month |
+| `src/util/tibookVisitOperations.ts` | Counts that a guest opened TiBook, for the host's **TiBook visitors** screen in TiMag (Money menu) |
+
+### Visitor counting
+
+TiBook tells the backend once a day per device that someone is looking: a
+random id the device keeps, and the time zone it is set to (read as a
+continent). No name or phone goes with it. Two looks are skipped: a device
+signed in to TiMag (the host previewing), and the dev server, whose `/api`
+reaches production. To test counting against a **local** backend, put
+`VITE_COUNT_TIBOOK_VISITS_IN_DEV=true` in `.env.development.local`.
+
+The numbers are read only through `/api/tibook-stats`, behind the JWT gate and
+`requireManager`. Keep them out of GraphQL: `/graphql` has no login in front of it.
 
 ## Tests
 
