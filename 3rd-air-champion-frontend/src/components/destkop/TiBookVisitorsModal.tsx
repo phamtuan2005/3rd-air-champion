@@ -189,7 +189,7 @@ const SpanView = ({ span, since }: { span: SpanStats; since: string }) => {
         A visitor is one phone or computer, counted once a day however often it opens
         TiBook. "Came back" means it has opened TiBook on more than one day. The
         continent comes from the time zone the device is set to. Nobody's name or
-        number is recorded, and devices signed in to TiMag are not counted.
+        number is recorded. Everyone who opens TiBook is counted, including you.
       </p>
     </div>
   );

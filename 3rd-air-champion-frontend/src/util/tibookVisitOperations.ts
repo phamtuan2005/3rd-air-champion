@@ -1,6 +1,5 @@
 import axios from "axios";
 import { getToken } from "./authSession";
-import { isTokenValid } from "./validateJWT";
 const BACKEND_ENDPOINT = import.meta.env.VITE_BACKEND_ENDPOINT || "";
 
 /* ---- Guest side (TiBook): counting that someone opened it. No token. ---- */
@@ -42,23 +41,26 @@ export const visitorIdFrom = (
   }
 };
 
-// Whose look counts.
+// Whose look counts: EVERYONE's, whoever they are.
 //
-//  · Not the house's own. A device signed in to TiMag belongs to the host or a
-//    cohost checking how TiBook looks, and every preview would read as a guest.
-//  · Not the dev server, unless asked. `npm run dev` proxies /api to the
-//    PRODUCTION backend, so every local reload would land in the real numbers.
-//    Set VITE_COUNT_TIBOOK_VISITS_IN_DEV=true in .env.development.local when
-//    testing this against a local backend.
+// This first shipped skipping any device signed in to TiMag, on the reasoning
+// that the host previewing TiBook is not a guest. The house wants the opposite
+// and said so plainly -- "every access to TiBook will count, no matter who".
+// Anh-Tuan and Cindy opened it on a desktop and a phone, saw nothing arrive, and
+// that was the rule working as written. So there is deliberately NO login check
+// here. Do not add one back to "clean up" the numbers.
+//
+// The one exception is not a person: `npm run dev` proxies /api to the
+// PRODUCTION backend, so a developer's local reloads would land in the real
+// numbers. Set VITE_COUNT_TIBOOK_VISITS_IN_DEV=true in .env.development.local
+// when testing this against a local backend.
 export const shouldCountVisit = ({
   dev,
   countInDev,
-  managerSignedIn,
 }: {
   dev: boolean;
   countInDev: boolean;
-  managerSignedIn: boolean;
-}): boolean => !managerSignedIn && (!dev || countInDev);
+}): boolean => !dev || countInDev;
 
 const safeStorage = (): Storage | null => {
   try {
@@ -83,7 +85,6 @@ export const recordTiBookVisit = (hostId: string | undefined) => {
   const count = shouldCountVisit({
     dev: import.meta.env.DEV,
     countInDev: import.meta.env.VITE_COUNT_TIBOOK_VISITS_IN_DEV === "true",
-    managerSignedIn: isTokenValid(),
   });
   if (!count) return;
   lastCountedDay = today;

@@ -45,10 +45,11 @@ Two things about that file:
 
 TiBook tells the backend once a day per device that someone is looking: a
 random id the device keeps, and the time zone it is set to (read as a
-continent). No name or phone goes with it. Two looks are skipped: a device
-signed in to TiMag (the host previewing), and the dev server, whose `/api`
-reaches production. To test counting against a **local** backend, put
-`VITE_COUNT_TIBOOK_VISITS_IN_DEV=true` in `.env.development.local`.
+continent). No name or phone goes with it. **Every look counts, whoever is
+looking** — including the host and cohosts on a device signed in to TiMag. That
+was once skipped; the house reversed it. The only thing not counted is the dev
+server, whose `/api` reaches production. To test counting against a **local**
+backend, put `VITE_COUNT_TIBOOK_VISITS_IN_DEV=true` in `.env.development.local`.
 
 The numbers are read only through `/api/tibook-stats`, behind the JWT gate and
 `requireManager`. Keep them out of GraphQL: `/graphql` has no login in front of it.

@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { shouldCountVisit, visitorIdFrom } from "./tibookVisitOperations";
 
-// Who TiBook counts as a visitor. Both rules here protect the host's numbers
-// from reading higher than the truth.
+// Who TiBook counts as a visitor: everyone who opens it, once a day per device.
+//
+// There used to be a rule here that a device signed in to TiMag was not counted.
+// The house reversed it -- every access counts, no matter who -- so the only
+// thing still kept out is the dev server, which is not a person at all.
 
 const memoryStore = (initial: Record<string, string> = {}) => {
   const data = new Map(Object.entries(initial));
@@ -45,19 +48,17 @@ describe("a device's visitor id", () => {
 });
 
 describe("whose look is counted", () => {
-  it("counts a guest on the live site", () => {
-    expect(shouldCountVisit({ dev: false, countInDev: false, managerSignedIn: false })).toBe(true);
-  });
-
-  // The host previewing TiBook is not a guest.
-  it("does not count a device signed in to TiMag", () => {
-    expect(shouldCountVisit({ dev: false, countInDev: false, managerSignedIn: true })).toBe(false);
+  // Guest, host, cohost -- the live site counts whoever opens it. The decision
+  // takes no login at all: that absence IS the rule, and a login input
+  // reappearing here would be the old skip coming back.
+  it("counts every visit on the live site, whoever is looking", () => {
+    expect(shouldCountVisit({ dev: false, countInDev: false })).toBe(true);
   });
 
   // The dev server proxies /api to production; a developer's reloads would
   // otherwise land in the real numbers.
   it("does not count the dev server unless asked to", () => {
-    expect(shouldCountVisit({ dev: true, countInDev: false, managerSignedIn: false })).toBe(false);
-    expect(shouldCountVisit({ dev: true, countInDev: true, managerSignedIn: false })).toBe(true);
+    expect(shouldCountVisit({ dev: true, countInDev: false })).toBe(false);
+    expect(shouldCountVisit({ dev: true, countInDev: true })).toBe(true);
   });
 });
