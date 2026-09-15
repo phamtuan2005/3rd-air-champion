@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import tibookVisitRoute from "../tibookVisitRoute";
 import tibookStatsRoute from "../tibookStatsRoute";
 import TiBookVisit from "../../model/tibookVisitSchema";
+import Guest from "../../model/guestSchema";
 import { createMockHost } from "../../model/test/util/mockHost";
 
 // TiBook's visitor numbers: guests write them, only the host reads them.
@@ -113,3 +114,71 @@ describe("who can read the numbers", () => {
     expect(res.body.spans.find((s: any) => s.key === "all").visitors).toBe(0);
   });
 });
+
+describe("tying a visit to a guest who agreed", () => {
+  const post = (body: Record<string, any>) => request(guestApp).post("/tibook-visit").send(body);
+
+  it("stores the number the way guest records store it", async () => {
+    const host = String((await createMockHost("link@example.com"))._id);
+    await post({ host, visitorId: "link-device-01", timeZone: "", guestPhone: "408-555-1234" });
+    expect((await TiBookVisit.findOne({ host }))!.guestPhone).toBe("(408) 555-1234");
+  });
+
+  // Anonymous page loads send no guestPhone at all. If "absent" meant "clear",
+  // every reload after a guest agreed would quietly undo the link.
+  it("leaves an earlier link alone when a later look says nothing about the guest", async () => {
+    const host = String((await createMockHost("keep-link@example.com"))._id);
+    await post({ host, visitorId: "keep-device-01", timeZone: "", guestPhone: "4085551234" });
+    await post({ host, visitorId: "keep-device-01", timeZone: "" });
+    expect((await TiBookVisit.findOne({ host }))!.guestPhone).toBe("(408) 555-1234");
+  });
+
+  it("unlinks the visit when the guest says Not you", async () => {
+    const host = String((await createMockHost("unlink@example.com"))._id);
+    await post({ host, visitorId: "unlink-device-1", timeZone: "", guestPhone: "4085551234" });
+    await post({ host, visitorId: "unlink-device-1", timeZone: "", guestPhone: "" });
+    expect((await TiBookVisit.findOne({ host }))!.guestPhone).toBe("");
+  });
+
+  it("still counts the visit when the number does not parse", async () => {
+    const host = String((await createMockHost("bad-number@example.com"))._id);
+    const res = await post({ host, visitorId: "bad-number-dev1", timeZone: "", guestPhone: "hello" });
+    expect(res.status).toBe(204);
+    const row = await TiBookVisit.findOne({ host });
+    expect(row).not.toBeNull();
+    expect(row!.guestPhone).toBe("");
+  });
+});
+
+describe("naming the guests who visited", () => {
+  it("names a guest from the house's own records", async () => {
+    const host = String((await createMockHost("names@example.com"))._id);
+    await new Guest({ name: "Mai", phone: "408-555-1234", host }).save();
+    await request(guestApp)
+      .post("/tibook-visit")
+      .send({ host, visitorId: "names-device-01", timeZone: "", guestPhone: "4085551234" });
+
+    const res = await request(signedInAs({ hostId: host, role: "Host" })).get("/tibook-stats");
+    const all = res.body.spans.find((s: any) => s.key === "all");
+    expect(all.guests).toEqual([
+      { phone: "(408) 555-1234", days: 1, lastDay: new Date().toISOString().slice(0, 10), name: "Mai" },
+    ]);
+  });
+
+  // The lookup is scoped by the token's house. Unscoped, one house would see
+  // the name another house keeps for the same number.
+  it("does not borrow a name from another house's guest records", async () => {
+    const mine = String((await createMockHost("names-mine@example.com"))._id);
+    const theirs = String((await createMockHost("names-theirs@example.com"))._id);
+    await new Guest({ name: "Someone Else", phone: "650-555-0001", host: theirs }).save();
+    await request(guestApp)
+      .post("/tibook-visit")
+      .send({ host: mine, visitorId: "names-device-02", timeZone: "", guestPhone: "6505550001" });
+
+    const res = await request(signedInAs({ hostId: mine, role: "Host" })).get("/tibook-stats");
+    const all = res.body.spans.find((s: any) => s.key === "all");
+    expect(all.guests).toHaveLength(1);
+    expect(all.guests[0].name).toBeNull();
+  });
+});
+

@@ -13,6 +13,16 @@ export interface VisitRow {
   visitorId: string;
   day: string; // yyyy-MM-dd, UTC
   continent: string;
+  guestPhone?: string; // "" or absent when the visit is not tied to a guest
+}
+
+// A guest who let TiBook remember them, and how they used it in a span.
+export interface GuestVisits {
+  phone: string;
+  // DISTINCT days. The same guest on a phone and a laptop on one afternoon is
+  // two rows and one day.
+  days: number;
+  lastDay: string; // yyyy-MM-dd
 }
 
 export interface ContinentCount {
@@ -38,6 +48,7 @@ export interface SpanStats {
   // stretch reaches back before counting began.
   previousVisitors: number | null;
   continents: ContinentCount[];
+  guests: GuestVisits[];
   seriesUnit: "day" | "month" | null;
   series: SeriesPoint[];
 }
@@ -109,7 +120,25 @@ const summarise = (
     return b.visitors - a.visitors || a.continent.localeCompare(b.continent);
   });
 
-  return { visitors: latest.size, cameBack, continents };
+  // Every row in the window, not just each device's latest: a guest is a
+  // phone number, and they may have opened TiBook on more than one device.
+  const daysByPhone = new Map<string, Set<string>>();
+  for (const r of rows) {
+    if (!r.guestPhone || r.day < from || r.day > to) continue;
+    const days = daysByPhone.get(r.guestPhone) ?? new Set<string>();
+    days.add(r.day);
+    daysByPhone.set(r.guestPhone, days);
+  }
+  const guests = Array.from(daysByPhone, ([phone, days]) => ({
+    phone,
+    days: days.size,
+    lastDay: [...days].sort()[days.size - 1],
+  })).sort(
+    (a, b) =>
+      b.lastDay.localeCompare(a.lastDay) || b.days - a.days || a.phone.localeCompare(b.phone),
+  );
+
+  return { visitors: latest.size, cameBack, continents, guests };
 };
 
 export const tibookVisitorStats = (
@@ -130,11 +159,11 @@ export const tibookVisitorStats = (
       return {
         key, label, from: null, to: today, visitors: 0, cameBack: 0,
         previousVisitors: null,
-        continents: [], seriesUnit: null, series: [],
+        continents: [], guests: [], seriesUnit: null, series: [],
       };
     }
 
-    const { visitors, cameBack, continents } = summarise(rows, firstDayOf, from, today);
+    const { visitors, cameBack, continents, guests } = summarise(rows, firstDayOf, from, today);
 
     // Only when that earlier stretch was counted in full. Before counting began
     // it reads as zero, and "▲ 1,520 vs the 12 months before" on the first
@@ -169,7 +198,7 @@ export const tibookVisitorStats = (
 
     return {
       key, label, from, to: today, visitors, cameBack, previousVisitors,
-      continents, seriesUnit, series,
+      continents, guests, seriesUnit, series,
     };
   });
 

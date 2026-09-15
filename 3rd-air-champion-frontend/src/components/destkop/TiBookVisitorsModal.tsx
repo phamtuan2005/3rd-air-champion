@@ -185,11 +185,14 @@ const SpanView = ({ span, since }: { span: SpanStats; since: string }) => {
 
       <Continents continents={span.continents} total={span.visitors} />
 
+      <KnownGuests guests={span.guests} />
+
       <p className="border-t border-gray-100 pt-3 text-xs leading-relaxed text-gray-400">
         A visitor is one phone or computer, counted once a day however often it opens
         TiBook. "Came back" means it has opened TiBook on more than one day. The
-        continent comes from the time zone the device is set to. Nobody's name or
-        number is recorded. Everyone who opens TiBook is counted, including you.
+        continent comes from the time zone the device is set to. A visit is tied to a
+        guest only if they let TiBook remember their number; everyone else stays
+        anonymous. Everyone who opens TiBook is counted, including you.
       </p>
     </div>
   );
@@ -428,5 +431,31 @@ const Continents = ({
     </section>
   );
 };
+
+// The guests TiBook can name. Only those who let it remember their number, so
+// this list is meant to be shorter than Visitors -- it is the returning guests
+// who chose to be recognised, not a record of everyone.
+const KnownGuests = ({ guests }: { guests: SpanStats["guests"] }) => (
+  <section>
+    <h3 className="mb-2 text-sm font-semibold text-gray-800">Guests who visited</h3>
+    {guests.length === 0 ? (
+      <p className="text-sm text-gray-500">
+        No visits tied to a guest in this span. A visit is tied to a guest once they let
+        TiBook remember their number.
+      </p>
+    ) : (
+      <ul className="divide-y divide-gray-100">
+        {guests.map((g) => (
+          <li key={g.phone} className="flex items-baseline justify-between gap-3 py-1.5 text-sm">
+            <span className="min-w-0 truncate text-gray-700">{g.name ?? g.phone}</span>
+            <span className="shrink-0 tabular-nums text-gray-500">
+              {g.days} {g.days === 1 ? "day" : "days"} · last {dayLabel(g.lastDay)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    )}
+  </section>
+);
 
 export default TiBookVisitorsModal;

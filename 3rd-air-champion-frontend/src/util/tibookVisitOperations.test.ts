@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shouldCountVisit, visitorIdFrom } from "./tibookVisitOperations";
+import { consentedPhone, shouldCountVisit, visitorIdFrom } from "./tibookVisitOperations";
 
 // Who TiBook counts as a visitor: everyone who opens it, once a day per device.
 //
@@ -62,3 +62,17 @@ describe("whose look is counted", () => {
     expect(shouldCountVisit({ dev: true, countInDev: true })).toBe(true);
   });
 });
+
+describe("whose number a visit may carry", () => {
+  // The whole privacy promise rests on this: a visit names a guest only after
+  // they agreed to be remembered. If this breaks, TiMag lists guests who said no.
+  it("carries the guest's number only once they have said yes", () => {
+    expect(consentedPhone("allowed", " (408) 555-1234 ")).toBe("(408) 555-1234");
+  });
+
+  it("carries nothing for a guest who said no, or was never asked", () => {
+    expect(consentedPhone("denied", "(408) 555-1234")).toBe("");
+    expect(consentedPhone(null, "(408) 555-1234")).toBe("");
+  });
+});
+

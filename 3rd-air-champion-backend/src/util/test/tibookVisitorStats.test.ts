@@ -119,3 +119,45 @@ describe("the chart buckets", () => {
     expect(stats.spans.find((s) => s.key === "week")!.visitors).toBe(0);
   });
 });
+
+describe("which guests visited", () => {
+  // Only visits a guest agreed to have tied to them carry a number; everything
+  // else is a count. These pin that a number is a person, not a row.
+  const g = (visitorId: string, day: string, guestPhone: string): VisitRow => ({
+    ...v(visitorId, day),
+    guestPhone,
+  });
+
+  it("counts a guest's distinct days, across every device they used", () => {
+    const rows = [
+      g("phone", "2026-09-12", "(408) 555-1234"),
+      g("laptop", "2026-09-12", "(408) 555-1234"), // same guest, same day
+      g("phone", TODAY, "(408) 555-1234"),
+    ];
+    expect(span(rows, "week").guests).toEqual([
+      { phone: "(408) 555-1234", days: 2, lastDay: TODAY },
+    ]);
+  });
+
+  it("leaves anonymous visits out of the list but in the count", () => {
+    const rows = [g("a", TODAY, "(408) 555-1234"), v("b", TODAY), g("c", TODAY, "")];
+    const today = span(rows, "today");
+    expect(today.visitors).toBe(3);
+    expect(today.guests.map((x) => x.phone)).toEqual(["(408) 555-1234"]);
+  });
+
+  it("keeps each span to its own days", () => {
+    const rows = [g("a", "2026-09-01", "(408) 555-1234")];
+    expect(span(rows, "week").guests).toEqual([]);
+    expect(span(rows, "month").guests).toHaveLength(1);
+  });
+
+  it("puts the most recent visitor first", () => {
+    const rows = [g("a", "2026-09-10", "(650) 555-0001"), g("b", TODAY, "(408) 555-1234")];
+    expect(span(rows, "week").guests.map((x) => x.phone)).toEqual([
+      "(408) 555-1234",
+      "(650) 555-0001",
+    ]);
+  });
+});
+

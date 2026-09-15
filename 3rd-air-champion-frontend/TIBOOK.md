@@ -45,7 +45,9 @@ Two things about that file:
 
 TiBook tells the backend once a day per device that someone is looking: a
 random id the device keeps, and the time zone it is set to (read as a
-continent). No name or phone goes with it. **Every look counts, whoever is
+continent). No name goes with it, and a **phone number only once the guest has
+agreed to TiBook remembering it** (`guestConsent`) — that is what lets TiMag list
+which guests visited; "Not you?" unlinks the day's visit. **Every look counts, whoever is
 looking** — including the host and cohosts on a device signed in to TiMag. That
 was once skipped; the house reversed it. The only thing not counted is the dev
 server, whose `/api` reaches production. To test counting against a **local**

@@ -12,7 +12,11 @@ import Day from "./daySchema";
 // US numbers keep the national look the rest of the app is written around.
 // Anything else keeps its "+" and country code, without which the number
 // cannot be dialled or texted from here at all.
-const normalizePhone = (raw: string): string | null => {
+// Exported for TiBook visits, which store a guest's number so TiMag can put a
+// name to it. The two MUST normalise identically or the lookup quietly finds
+// nobody -- a visit tied to "408-555-1234" never meets a record kept as
+// "(408) 555-1234".
+export const normalizePhone = (raw: string): string | null => {
   const input = (raw ?? "").trim();
   if (!input) return null;
   const country = input.startsWith("+") ? undefined : "US";

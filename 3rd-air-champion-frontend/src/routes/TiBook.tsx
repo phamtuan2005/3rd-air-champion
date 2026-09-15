@@ -29,7 +29,7 @@ import { getConsent, readRememberedGuest, rememberGuest, setConsent, revokeConse
 import HostContactButton from "../components/tibook/HostContactButton";
 import HostChatSheet from "../components/tibook/HostChatSheet";
 import { fetchGuestThread } from "../util/guestMessageOperations";
-import { recordTiBookVisit } from "../util/tibookVisitOperations";
+import { linkTiBookVisitToGuest, recordTiBookVisit, unlinkTiBookVisitGuest } from "../util/tibookVisitOperations";
 
 const TiBookInner = () => {
   const { theme, vibe, layout } = useTiBookTheme();
@@ -542,6 +542,8 @@ const TiBookInner = () => {
     const consent = getConsent();
     if (consent === "allowed") {
       rememberGuest(phone, name);
+      // Their yes is already on file, so today's visit can say who it was.
+      linkTiBookVisitToGuest(import.meta.env.VITE_TI_BOOK_HOST_ID, phone);
       return;
     }
     if (consent === null) {
@@ -857,7 +859,7 @@ const TiBookInner = () => {
           onToggleWishDate={(date) => setWishListDates((prev) => { const next = new Set(prev); if (next.has(date)) next.delete(date); else next.add(date); return next; })}
           onClose={() => { setMyBookingsOpen(false); setBookingsFocusKey(null); }}
           onPhoneConfirmed={handlePhoneConfirmed}
-          onClear={() => { setGuestPhone(""); setGuestName(""); setGuestBookings([]); setWishListDates(new Set()); setPersistedWishListDates(new Set()); setCartDates(new Map()); setSelectedRoomIds(null); revokeConsent(); }}
+          onClear={() => { setGuestPhone(""); setGuestName(""); setGuestBookings([]); setWishListDates(new Set()); setPersistedWishListDates(new Set()); setCartDates(new Map()); setSelectedRoomIds(null); revokeConsent(); unlinkTiBookVisitGuest(import.meta.env.VITE_TI_BOOK_HOST_ID); }}
           cancellationFullRefundDays={currentHost.cancellationFullRefundDays}
           cancellationHalfRefundDays={currentHost.cancellationHalfRefundDays}
           houseRules={currentHost.houseRules}
@@ -1064,6 +1066,8 @@ const TiBookInner = () => {
           onAllow={() => {
             setConsent("allowed");
             rememberGuest(pendingConsentPhone, pendingConsentNameRef.current);
+            // They just agreed to be remembered -- tie today's visit to them.
+            linkTiBookVisitToGuest(import.meta.env.VITE_TI_BOOK_HOST_ID, pendingConsentPhone);
             setPendingConsentPhone(null);
             setConsentOverModal(false);
           }}

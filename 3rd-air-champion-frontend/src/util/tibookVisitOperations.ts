@@ -1,5 +1,6 @@
 import axios from "axios";
 import { getToken } from "./authSession";
+import { ConsentState, getConsent, readRememberedGuest } from "./guestConsent";
 const BACKEND_ENDPOINT = import.meta.env.VITE_BACKEND_ENDPOINT || "";
 
 /* ---- Guest side (TiBook): counting that someone opened it. No token. ---- */
@@ -75,36 +76,86 @@ const safeStorage = (): Storage | null => {
 // the front for the tenth time on the same afternoon.
 let lastCountedDay: string | null = null;
 
+const readTimeZone = (): string => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone ?? "";
+  } catch {
+    return ""; // An old browser with no Intl zone: counted, as Unknown.
+  }
+};
+
+const skippedHere = () =>
+  !shouldCountVisit({
+    dev: import.meta.env.DEV,
+    countInDev: import.meta.env.VITE_COUNT_TIBOOK_VISITS_IN_DEV === "true",
+  });
+
+// The guest's number for a visit, and ONLY with their yes on file.
+//
+// The house wants to see which guests visit. A guest who agreed to TiBook
+// remembering their number has agreed to be recognised; one who said no, or was
+// never asked, has not, and their visit stays a count. This is the single place
+// that decision is made, so no call site can send a number past it -- the same
+// shape as rememberGuest, which callers may fire without checking first.
+export const consentedPhone = (consent: ConsentState, phone: string): string =>
+  consent === "allowed" ? phone.trim() : "";
+
 // Fire and forget. Nothing a guest is doing waits on this, and a failure to
 // count must never show them an error.
 export const recordTiBookVisit = (hostId: string | undefined) => {
   if (!hostId) return;
   const today = new Date().toISOString().slice(0, 10);
   if (lastCountedDay === today) return;
-
-  const count = shouldCountVisit({
-    dev: import.meta.env.DEV,
-    countInDev: import.meta.env.VITE_COUNT_TIBOOK_VISITS_IN_DEV === "true",
-  });
-  if (!count) return;
+  if (skippedHere()) return;
   lastCountedDay = today;
 
-  let timeZone = "";
-  try {
-    timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone ?? "";
-  } catch {
-    // An old browser with no Intl zone: counted, as Unknown.
-  }
+  // A returning guest who already said yes is named from their first look of
+  // the day. Everyone else sends NO guestPhone at all -- not "" -- because ""
+  // means "unlink", and an anonymous reload must never undo a link a guest
+  // made earlier the same day.
+  const phone = consentedPhone(getConsent(), readRememberedGuest().phone);
 
   axios
     .post(`${BACKEND_ENDPOINT}/tibook-visit`, {
       host: hostId,
       visitorId: visitorIdFrom(safeStorage()),
-      timeZone,
+      timeZone: readTimeZone(),
+      ...(phone ? { guestPhone: phone } : {}),
     })
     .catch(() => {
       lastCountedDay = null; // try again next time the page comes forward
     });
+};
+
+// A guest has just said who they are, with their yes on file: tie TODAY's
+// visit to them. Past the once-a-day guard on purpose -- today's anonymous look
+// was already counted when the page opened, and without this a guest who agrees
+// mid-visit would not appear until tomorrow.
+export const linkTiBookVisitToGuest = (hostId: string | undefined, phone: string) => {
+  const guestPhone = consentedPhone(getConsent(), phone);
+  if (!hostId || !guestPhone || skippedHere()) return;
+  axios
+    .post(`${BACKEND_ENDPOINT}/tibook-visit`, {
+      host: hostId,
+      visitorId: visitorIdFrom(safeStorage()),
+      timeZone: readTimeZone(),
+      guestPhone,
+    })
+    .catch(() => {});
+};
+
+// "Not you?": the guest withdrew, so today's visit is no longer theirs. Earlier
+// days keep the link they agreed to at the time; this stops it going forward.
+export const unlinkTiBookVisitGuest = (hostId: string | undefined) => {
+  if (!hostId || skippedHere()) return;
+  axios
+    .post(`${BACKEND_ENDPOINT}/tibook-visit`, {
+      host: hostId,
+      visitorId: visitorIdFrom(safeStorage()),
+      timeZone: readTimeZone(),
+      guestPhone: "",
+    })
+    .catch(() => {});
 };
 
 /* ---- Host side (TiMag): reading the numbers. Behind the JWT gate. ---- */
@@ -127,6 +178,9 @@ export interface SpanStats {
   // Null when there is nothing fair to compare with — see tibookVisitorStats.
   previousVisitors: number | null;
   continents: { continent: string; visitors: number }[];
+  // Guests who let TiBook remember them. `name` comes from the house's own guest
+  // records; null for a number nobody has booked under yet.
+  guests: { phone: string; name: string | null; days: number; lastDay: string }[];
   seriesUnit: "day" | "month" | null;
   series: SeriesPoint[];
 }
