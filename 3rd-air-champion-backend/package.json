@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node dist/server.js",
     "dev": "nodemon",
-    "build": "tsc",
+    "build": "node scripts/sync-cleaning-rule.js && tsc",
     "test": "jest",
     "test:coverage": "jest --coverage",
     "test:watch": "jest --watch"

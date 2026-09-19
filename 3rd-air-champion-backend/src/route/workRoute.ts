@@ -12,6 +12,8 @@ import {
   roomPartySizeOdds,
 } from "../util/roomLikelihood";
 import { loadArrivals, loadRoomHistory } from "../util/arrivalsLookup";
+import { loadCleaningDays, shouldListRoom } from "../util/cleaningDays";
+import { getCleaningEntriesFor } from "../shared/generated/util/cleaningTasks";
 
 // TiWork — the staff-facing app. Mounted PUBLIC, before the JWT middleware:
 // staff have no TiMag login, the same way guests have none for TiBook.
@@ -291,10 +293,45 @@ router.post("/schedule", async (req: Request, res: any) => {
       0,
     );
 
+    // WHICH ROOMS ACTUALLY TURN OVER — TiMag's own rule, run here rather than
+    // written again (scripts/sync-cleaning-rule.js copies it in).
+    //
+    // TiMag's Plan tab never counts assignments. It walks the entries this
+    // function returns and credits whoever is assigned to each, so an
+    // assignment on a room that does not turn over is never counted there.
+    // TiWork listed every assignment it found, and showed Henry 4 rooms for a
+    // morning TiMag showed 3 — the fourth being a room whose guest was not
+    // leaving.
+    const dates = [...new Set(cleanings.map((c) => c.date))].sort();
+    const dayMap = dates.length
+      ? await loadCleaningDays(who.doc.host, dates[0], dates[dates.length - 1])
+      : new Map();
+    const turnsOver = new Map<string, Set<string>>();
+    for (const date of dates) {
+      turnsOver.set(
+        date,
+        new Set(getCleaningEntriesFor(dayMap, date).map((e: any) => e.checkoutBooking.room.id)),
+      );
+    }
+
+    // When the turnover answer is applied, and when it must not be — see
+    // shouldListRoom, where the two exceptions are spelled out and tested.
+    const stillNeedsCleaning = (a: any) =>
+      shouldListRoom({
+        hoursRecorded: a.hours != null,
+        calendarKnown: dayMap.size > 0,
+        turnsOverRoomIds: turnsOver.get(a.date),
+        roomId: a.room?._id ? String(a.room._id) : "",
+      });
+
     const byDate = new Map<string, any>();
     for (const a of assignments as any[]) {
       const g = byDate.get(a.date) ?? { date: a.date, rooms: [], recordedHours: 0, hasHours: false };
       const roomId = a.room?._id ? String(a.room._id) : "";
+      // The room drops off the list, but the DAY stays: hours below are still
+      // counted, so a cleaner keeps the day they logged even if the room that
+      // justified it has since been cancelled.
+      const listRoom = stillNeedsCleaning(a);
       const key = `${a.date}|${roomId}`;
       const need = roomId ? needs.get(key) : undefined;
       const booked = roomId ? sameDayArrival.get(key) : undefined;
@@ -304,20 +341,21 @@ router.post("/schedule", async (req: Request, res: any) => {
       // probably sell to somebody nobody has met.
       const estimating = !booked && likelyToSell && !!guess;
 
-      g.rooms.push({
-        name: a.room?.name ?? "",
-        color: a.room?.color ?? "",
+      if (listRoom)
+        g.rooms.push({
+          name: a.room?.name ?? "",
+          color: a.room?.color ?? "",
         // null, not 0, where nothing is booked yet — "no arrival on the books"
         // and "nobody is coming" are different things to tell a cleaner.
-        guests: estimating ? guess!.guests : need?.guests ?? null,
-        // Said out loud, so TiWork can word it as a likelihood rather than
-        // printing a guess in the same shape as a fact. A cleaner meets this
-        // number once a week on a phone and cannot tell one from the other.
-        guestsEstimated: estimating,
-        // The sofa bed belongs to the stay that asked for it. On a night we are
-        // not preparing for that stay, it is not this clean's work.
-        sofaBed: estimating ? false : !!need?.sofaBed,
-      });
+          guests: estimating ? guess!.guests : need?.guests ?? null,
+          // Said out loud, so TiWork can word it as a likelihood rather than
+          // printing a guess in the same shape as a fact. A cleaner meets this
+          // number once a week on a phone and cannot tell one from the other.
+          guestsEstimated: estimating,
+          // The sofa bed belongs to the stay that asked for it. On a night we
+          // are not preparing for that stay, it is not this clean's work.
+          sofaBed: estimating ? false : !!need?.sofaBed,
+        });
       if (a.hours != null) {
         g.recordedHours += a.hours;
         g.hasHours = true;
