@@ -67,6 +67,11 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], onClose }: Cha
     paid: false,
   });
   const [savingNew, setSavingNew] = useState(false);
+  // Who owes it, chosen by typing rather than by scrolling. This was a <select>
+  // of every guest the house has ever had, and a native dropdown cannot be
+  // searched -- finding somebody meant reading the whole list.
+  const [guestQuery, setGuestQuery] = useState("");
+  const [guestOpen, setGuestOpen] = useState(false);
 
   const monthKey = format(month, "yyyy-MM");
 
@@ -88,6 +93,33 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], onClose }: Cha
         .sort((a, b) => (a.date === b.date ? 0 : a.date < b.date ? 1 : -1)),
     [charges, monthKey],
   );
+
+  // AirBnB is one shared placeholder record, not a person you can charge —
+  // AirBnB settles its own fees.
+  const chargeableGuests = useMemo(
+    () =>
+      [...guests]
+        .filter((g) => g.name !== "AirBnB")
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [guests],
+  );
+
+  // Empty query lists everyone, so the picker still browses the way the old
+  // dropdown did. Name AND phone, because a charge is often being entered from
+  // a text message where the number is the only thing to hand — digits are
+  // compared stripped, so "4085551234" finds "(408) 555-1234".
+  const guestMatches = useMemo(() => {
+    const q = guestQuery.trim().toLowerCase();
+    if (!q) return chargeableGuests;
+    const digits = q.replace(/\D/g, "");
+    return chargeableGuests.filter((g) => {
+      const name = `${g.name} ${g.alias ?? ""}`.toLowerCase();
+      if (name.includes(q)) return true;
+      return digits.length >= 2 && (g.phone ?? "").replace(/\D/g, "").includes(digits);
+    });
+  }, [chargeableGuests, guestQuery]);
+
+  const chosenGuest = chargeableGuests.find((g) => g.id === newDraft.guest);
 
   const total = monthCharges.reduce((s, c) => s + c.amount, 0);
   const unpaid = monthCharges.filter((c) => !c.paid);
@@ -234,23 +266,75 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], onClose }: Cha
             <div className="mb-3 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5">
               <p className="text-sm font-bold text-amber-800">New charge</p>
               <div className="mt-2 flex flex-col gap-2">
-                <select
-                  value={newDraft.guest}
-                  onChange={(e) => setNewDraft((d) => ({ ...d, guest: e.target.value }))}
-                  className={`${inputCls} w-full font-semibold`}
-                >
-                  <option value="">Who owes it?</option>
-                  {[...guests]
-                    // AirBnB is one shared placeholder record, not a person you
-                    // can charge — AirBnB settles its own fees.
-                    .filter((g) => g.name !== "AirBnB")
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                    .map((g) => (
-                      <option key={g.id} value={g.id}>
-                        {g.name}
-                      </option>
-                    ))}
-                </select>
+                {/* Once somebody is chosen the search disappears and only they
+                    are on screen: this is a form about charging THAT person, and
+                    a list still sitting under it is a list you can misfire on.
+                    The x is how you change your mind. */}
+                {chosenGuest ? (
+                  <div className={`${inputCls} flex w-full items-center justify-between gap-2 font-semibold`}>
+                    <span className="truncate text-gray-900">
+                      {chosenGuest.alias || chosenGuest.name}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label="Choose someone else"
+                      onClick={() => {
+                        setNewDraft((d) => ({ ...d, guest: "" }));
+                        setGuestQuery("");
+                        setGuestOpen(true);
+                      }}
+                      className="shrink-0 rounded px-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={guestQuery}
+                      onChange={(e) => {
+                        setGuestQuery(e.target.value);
+                        setGuestOpen(true);
+                      }}
+                      onFocus={() => setGuestOpen(true)}
+                      // Late, so the click that picks a guest lands before the
+                      // list is taken away. Same delay GuestSearch uses.
+                      onBlur={() => setTimeout(() => setGuestOpen(false), 150)}
+                      placeholder="Who owes it? Type a name or number…"
+                      className={`${inputCls} w-full font-semibold`}
+                    />
+                    {guestOpen && (
+                      <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-xl border border-gray-100 bg-white shadow-xl">
+                        {guestMatches.length === 0 ? (
+                          <p className="px-3 py-2 text-sm text-gray-400">
+                            {chargeableGuests.length === 0
+                              ? "No guests to charge yet."
+                              : "Nobody by that name or number."}
+                          </p>
+                        ) : (
+                          guestMatches.map((g) => (
+                            <button
+                              key={g.id}
+                              type="button"
+                              // onMouseDown, not onClick: the input's blur fires
+                              // first and would close the list before a click
+                              // could land.
+                              onMouseDown={() => {
+                                setNewDraft((d) => ({ ...d, guest: g.id }));
+                                setGuestQuery("");
+                                setGuestOpen(false);
+                              }}
+                              className="block w-full truncate border-b border-gray-50 px-3 py-2 text-left text-sm text-gray-800 last:border-0 hover:bg-amber-50"
+                            >
+                              {g.alias || g.name}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
                   <div className="relative">
                     <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-400">
@@ -300,7 +384,11 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], onClose }: Cha
                 <div className="flex items-center justify-end gap-2">
                   <button
                     type="button"
-                    onClick={() => setAdding(false)}
+                    onClick={() => {
+                      setAdding(false);
+                      setGuestQuery("");
+                      setGuestOpen(false);
+                    }}
                     className="rounded-lg px-3 py-1.5 text-sm font-semibold text-gray-500 hover:bg-gray-100"
                   >
                     Cancel
@@ -319,7 +407,11 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], onClose }: Cha
           ) : (
             <button
               type="button"
-              onClick={() => setAdding(true)}
+              onClick={() => {
+                setAdding(true);
+                setGuestQuery("");
+                setGuestOpen(false);
+              }}
               className="mb-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-gray-300 py-2 text-sm font-semibold text-gray-500 hover:border-gray-400 hover:bg-gray-50"
             >
               <FaPlus size={11} /> Add a charge
