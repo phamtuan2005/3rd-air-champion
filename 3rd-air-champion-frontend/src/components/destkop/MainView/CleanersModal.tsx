@@ -17,6 +17,8 @@ import {
   getRoomOccupancyOdds,
   getRoomPartySizeOdds,
   isStaleCleaning as isStale,
+  ARRIVAL_LOOKAHEAD_NIGHTS,
+  chooseHeadcount,
 } from "../../../util/cleaningTasks";
 import { generateAvatar } from "../../../util/avatarGen";
 import CleanerAvatarBase from "../../shared/CleanerAvatar";
@@ -1156,18 +1158,8 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
   // The sofa bed rides with the headcount because it answers the same question:
   // what does this room need doing to it. A bed nobody mentions is a bed nobody
   // makes, and the cleaner finds out from the guest.
-  // How far ahead an arrival still describes THIS morning's clean. A room
-  // cleaned today for a guest arriving tomorrow is one job; a room cleaned
-  // today for a guest arriving in eight days is not -- that night will get its
-  // own cleaning morning nearer the time, because the forecast fills every
-  // empty sellable night in a gap.
-  //
-  // This was 30 days, and it silently mislabelled the Plan tab: King showed
-  // "(3, sofa)" on a Sunday with nothing booked, because a party of three was
-  // arriving the following week. The cleaner reads that as three people coming
-  // that day, and it also suppressed the likely-guests estimate -- an arrival
-  // had been "found", so the room that most needed an estimate never got one.
-  const ARRIVAL_LOOKAHEAD_NIGHTS = 2;
+  // ARRIVAL_LOOKAHEAD_NIGHTS and the reasoning behind it now live in
+  // cleaningTasks, so TiWork reads the same number.
 
   const nextArrival = (
     roomId: string,
@@ -1233,32 +1225,23 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
 
   // What the Plan tab shows for a morning's headcount, which is a stricter
   // question than the other tabs ask.
-  //
-  // A same-day arrival is a fact and always wins. Otherwise, if the night is
-  // more likely than not to sell -- and Plan already knows those odds, it
-  // prints them on the same chip -- then whoever sleeps there next is a
-  // stranger, NOT the guest booked for a later night. King showed "(3, sofa)"
-  // on a Sunday at 98% odds because Jae C was arriving on the Monday; the room
-  // was near-certain to sell to somebody else first, and the cleaner was being
-  // told to set up for the wrong party.
-  //
-  // Below even odds the night probably stays empty, so the next booked arrival
-  // really is the next occupant and its headcount is the useful one.
-  const LIKELY_TO_SELL = 0.5;
-
-  // Shared by Plan and Week. Both ask the same question -- what does the
-  // cleaner set this room up for -- so they must not answer it differently for
-  // the same morning, which is how the two tabs drifted apart before.
+  // Shared by Plan, Week AND TiWork: all three ask what the cleaner sets this
+  // room up for, so the DECISION lives in cleaningTasks (chooseHeadcount) and
+  // nobody keeps a second copy. This function is only how TiMag draws it.
   const headcountFor = (
     roomId: string,
     morningKey: string,
     sellOdds = occupancyOdds.get(roomId) ?? 1,
   ) => {
-    if (nextArrival(roomId, morningKey, 0)) return arrivalSuffix(roomId, morningKey);
-    if (sellOdds >= LIKELY_TO_SELL) return guestGuess(roomId);
-    return nextArrival(roomId, morningKey)
-      ? arrivalSuffix(roomId, morningKey)
-      : guestGuess(roomId);
+    const source = chooseHeadcount({
+      hasSameDayArrival: !!nextArrival(roomId, morningKey, 0),
+      sellOdds,
+      hasNearArrival: !!nextArrival(roomId, morningKey),
+      hasEstimate: partySizeOdds.has(roomId),
+    });
+    if (source === "arrival") return arrivalSuffix(roomId, morningKey);
+    if (source === "estimate") return guestGuess(roomId);
+    return null;
   };
 
   const planHeadcount = (entry: ForecastEntry, morningKey: string) =>

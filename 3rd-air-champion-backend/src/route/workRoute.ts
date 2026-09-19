@@ -6,14 +6,14 @@ import WorkEntry from "../model/workEntrySchema";
 import { findAssignments } from "../util/assignmentQuery";
 import { computeCleanerPay } from "../util/cleanerPay";
 import { arrivingNeeds } from "../util/arrivingGuests";
-import {
-  LIKELY_TO_SELL,
-  roomOccupancyOdds,
-  roomPartySizeOdds,
-} from "../util/roomLikelihood";
+import { roomOccupancyOdds, roomPartySizeOdds } from "../util/roomLikelihood";
 import { loadArrivals, loadRoomHistory } from "../util/arrivalsLookup";
 import { loadCleaningDays, shouldListRoom } from "../util/cleaningDays";
-import { getCleaningEntriesFor } from "../shared/generated/util/cleaningTasks";
+import {
+  ARRIVAL_LOOKAHEAD_NIGHTS,
+  chooseHeadcount,
+  getCleaningEntriesFor,
+} from "../shared/generated/util/cleaningTasks";
 
 // TiWork — the staff-facing app. Mounted PUBLIC, before the JWT middleware:
 // staff have no TiMag login, the same way guests have none for TiBook.
@@ -268,7 +268,14 @@ router.post("/schedule", async (req: Request, res: any) => {
     const cleanings = (assignments as any[])
       .filter((a) => a.room?._id)
       .map((a) => ({ date: a.date, roomId: String(a.room._id) }));
-    const needs = arrivingNeeds(await loadArrivals(who.doc.host, cleanings), cleanings);
+    // ARRIVAL_LOOKAHEAD_NIGHTS, not arrivingNeeds' own 30-day default: a guest
+    // arriving in a fortnight does not describe tomorrow's clean, and TiMag has
+    // looked only 2 nights ahead since the King "(3, sofa)" mix-up.
+    const needs = arrivingNeeds(
+      await loadArrivals(who.doc.host, cleanings),
+      cleanings,
+      ARRIVAL_LOOKAHEAD_NIGHTS,
+    );
     // A booked arrival days away is the WRONG party when the night in between
     // is going to sell. The room takes a walk-in first, and the cleaner lays
     // out beds for somebody who arrives on Monday.
@@ -336,10 +343,16 @@ router.post("/schedule", async (req: Request, res: any) => {
       const need = roomId ? needs.get(key) : undefined;
       const booked = roomId ? sameDayArrival.get(key) : undefined;
       const guess = roomId ? partySizes.get(roomId) : undefined;
-      const likelyToSell = (sellOdds.get(roomId) ?? 0) >= LIKELY_TO_SELL;
-      // Estimate only where no one is booked for THAT day and the night will
-      // probably sell to somebody nobody has met.
-      const estimating = !booked && likelyToSell && !!guess;
+      // TiMag's decision, run here rather than restated. The two used to differ
+      // by one term -- the lookahead -- and agreed on most mornings anyway,
+      // which is precisely how nobody noticed.
+      const source = chooseHeadcount({
+        hasSameDayArrival: !!booked,
+        sellOdds: sellOdds.get(roomId) ?? 0,
+        hasNearArrival: !!need,
+        hasEstimate: !!guess,
+      });
+      const estimating = source === "estimate";
 
       if (listRoom)
         g.rooms.push({

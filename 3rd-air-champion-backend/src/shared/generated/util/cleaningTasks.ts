@@ -503,3 +503,55 @@ export const getCleaningCounts = (items: CleaningItem[]) => {
     max: pending.length,
   };
 };
+
+// ── What a cleaner sets the room up for ──────────────────────────────────────
+
+// How far ahead an arrival still describes THIS morning's clean. A room cleaned
+// today for a guest arriving tomorrow is one job; a room cleaned today for a
+// guest arriving in eight days is not — that night gets its own cleaning
+// morning nearer the time, because the forecast fills every empty sellable
+// night in a gap.
+//
+// It was 30 days once, and it mislabelled the Plan tab: King showed "(3, sofa)"
+// on a Sunday with nothing booked, because a party of three was arriving the
+// following week. A cleaner reads that as three people coming that day.
+export const ARRIVAL_LOOKAHEAD_NIGHTS = 2;
+
+// Above this the night is more likely than not to sell, so whoever sleeps there
+// next is a stranger — not the guest booked for a later night.
+export const LIKELY_TO_SELL = 0.5;
+
+export type HeadcountSource = "arrival" | "estimate" | "none";
+
+// THE choice, in one place, because TiMag and TiWork have to answer it the same
+// way for the same morning. TiMag draws it as "(2)" or "(~2)"; TiWork spells it
+// out in words; the DECISION is this function, and neither app keeps a copy.
+//
+// They did keep copies, differing only in the lookahead — 2 nights in TiMag, 30
+// on the server — and on most mornings they agreed anyway. Agreeing by luck is
+// the worst way for two screens to agree: nothing looks wrong until the one
+// morning it matters, and then only to whoever is holding the phone.
+//
+// In order:
+//   · somebody checks in that very day — a fact, and it wins;
+//   · else the room will probably sell, so the next occupant is a walk-in: show
+//     what this room usually takes, or nothing if it has no history to say so;
+//   · else the night likely stays empty, so a booking within the lookahead
+//     really is the next occupant;
+//   · else fall back to what the room usually takes.
+export const chooseHeadcount = ({
+  hasSameDayArrival,
+  sellOdds,
+  hasNearArrival,
+  hasEstimate,
+}: {
+  hasSameDayArrival: boolean;
+  sellOdds: number;
+  hasNearArrival: boolean; // a booked arrival within ARRIVAL_LOOKAHEAD_NIGHTS
+  hasEstimate: boolean; // this room has enough history to guess a party size
+}): HeadcountSource => {
+  if (hasSameDayArrival) return "arrival";
+  if (sellOdds >= LIKELY_TO_SELL) return hasEstimate ? "estimate" : "none";
+  if (hasNearArrival) return "arrival";
+  return hasEstimate ? "estimate" : "none";
+};
