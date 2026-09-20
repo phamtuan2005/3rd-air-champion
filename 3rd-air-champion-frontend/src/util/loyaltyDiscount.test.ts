@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   LOYALTY_FEE_LABEL,
+  carryFeesToNewSpan,
   loyaltyFee,
   mergeAdjustments,
   splitAdjustments,
@@ -147,3 +148,50 @@ describe("typing a discount without typing a minus sign", () => {
   });
 });
 
+
+// Modify Booking deletes the stay and books it again, so the fees have to be
+// carried over by hand. Stephanie's $5-a-night came off the moment her hold
+// was confirmed this way; these guard the carry.
+describe("carrying fees across a modified stay", () => {
+  it("keeps ordinary fees as they were", () => {
+    const fees = [{ label: "Parking", amount: 40 }];
+    expect(carryFeesToNewSpan(fees, 6, 3)).toEqual(fees);
+  });
+
+  it("keeps the loyalty discount when the nights do not change", () => {
+    const fees = [{ label: LOYALTY_FEE_LABEL, amount: -30 }];
+    expect(carryFeesToNewSpan(fees, 6, 6)).toEqual(fees);
+  });
+
+  it("rebuilds the loyalty discount from its per-night rate when the nights change", () => {
+    expect(carryFeesToNewSpan([{ label: LOYALTY_FEE_LABEL, amount: -30 }], 6, 4)).toEqual([
+      { label: LOYALTY_FEE_LABEL, amount: -20 },
+    ]);
+  });
+
+  it("keeps cents exact through the rebuild", () => {
+    // $4.35 a night on 3 nights is -13.05; on 5 nights it must be -21.75, not
+    // whatever floating point makes of 13.05 / 3 * 5.
+    expect(carryFeesToNewSpan([{ label: LOYALTY_FEE_LABEL, amount: -13.05 }], 3, 5)).toEqual([
+      { label: LOYALTY_FEE_LABEL, amount: -21.75 },
+    ]);
+  });
+
+  it("puts the discount after the other fees, as the modal does", () => {
+    expect(
+      carryFeesToNewSpan(
+        [{ label: LOYALTY_FEE_LABEL, amount: -30 }, { label: "Parking", amount: 40 }],
+        6,
+        6,
+      ),
+    ).toEqual([
+      { label: "Parking", amount: 40 },
+      { label: LOYALTY_FEE_LABEL, amount: -30 },
+    ]);
+  });
+
+  it("is empty when there was nothing to carry", () => {
+    expect(carryFeesToNewSpan(undefined, 6, 3)).toEqual([]);
+    expect(carryFeesToNewSpan([], 6, 3)).toEqual([]);
+  });
+});

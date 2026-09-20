@@ -6,7 +6,14 @@ import { addDays, format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { dayType } from "../../util/types/dayType";
 import { roomType } from "../../util/types/roomType";
-import { postBooking, updateUnbookGuest } from "../../util/bookingOperations";
+import {
+  postBooking,
+  updateBookingExpectedPayDate,
+  updateBookingFees,
+  updateBookingGuest,
+  updateUnbookGuest,
+} from "../../util/bookingOperations";
+import { carryFeesToNewSpan } from "../../util/loyaltyDiscount";
 import { useMemo, useState } from "react";
 import RoomPickerDropdown from "./MainView/GuestView/RoomPickerDropdown";
 
@@ -130,7 +137,7 @@ const ModifyBookingModal = ({
 
     try {
       await unbookSequentially(bookingIds);
-      const result = await postBooking(
+      let result: dayType[] = await postBooking(
         {
           date: reqStartIso,
           room: data.room,
@@ -143,6 +150,56 @@ const ModifyBookingModal = ({
         },
         token as string,
       );
+
+      // A modify is an unbook followed by a fresh booking, and a fresh
+      // booking carries nothing the old stay had been given. The loyalty
+      // discount was the one that got noticed — it was on the guest's held
+      // (R) stay, and switching the stay to confirmed here silently dropped
+      // it — but every per-stay field went the same way. Put them back on
+      // the new rows before the calendar hears about the change.
+      const guestId = selectedModifyBooking.guest.id;
+      const newBookingId = result
+        .flatMap((d) => d.bookings)
+        .find((b) => b.room?.id === data.room && b.guest?.id === guestId)?.id;
+      if (newBookingId) {
+        const fees = carryFeesToNewSpan(
+          selectedModifyBooking.fees,
+          selectedModifyBooking.duration,
+          duration,
+        );
+        if (fees.length > 0) {
+          result = await updateBookingFees({ id: newBookingId, fees }, token as string);
+        }
+        // The promise to pay belongs to a HOLD. Once the stay is confirmed it
+        // is paid, and carrying the date would put it back under To Do.
+        if (isReserved && selectedModifyBooking.expectedPayDate) {
+          result = await updateBookingExpectedPayDate(
+            { id: newBookingId, expectedPayDate: selectedModifyBooking.expectedPayDate },
+            token as string,
+          );
+        }
+        // Early check-in, late checkout and the sofa bed are the host's
+        // decisions about THIS stay; booking afresh would reset them. The
+        // sofa bed is carried only while the headcount is unchanged — a new
+        // headcount is a new question, and the booking's own default (on
+        // from three guests) answers it.
+        const { earlyCheckin, lateCheckout, sofaBed } = selectedModifyBooking;
+        const keepSofaBed =
+          sofaBed !== undefined &&
+          data.numberOfGuests === (selectedModifyBooking.numberOfGuests || 1);
+        if (earlyCheckin || lateCheckout || keepSofaBed) {
+          result = await updateBookingGuest(
+            {
+              id: newBookingId,
+              ...(earlyCheckin ? { earlyCheckin } : {}),
+              ...(lateCheckout ? { lateCheckout } : {}),
+              ...(keepSofaBed ? { sofaBed } : {}),
+            },
+            token as string,
+          );
+        }
+      }
+
       onBooking(data.room, effectiveStart, duration, result);
       setSelectedModifyBooking(null);
     } catch (err) {
