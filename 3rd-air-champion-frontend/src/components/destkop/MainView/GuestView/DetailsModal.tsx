@@ -392,22 +392,62 @@ const DetailsModal = ({
               (booking.fees?.length ?? 0) === 0 ? (
                 <p className="text-sm italic text-gray-400">No extra fees</p>
               ) : (
-                <div className="space-y-1">
-                  {booking.fees!.map((f, i) => (
+                (() => {
+                  // A discount is NOT a fee. They share one stored list because
+                  // both are per-stay adjustments counted once on the start
+                  // night — but "Loyalty discount: -$5" filed under Additional
+                  // fees asks the host to read a minus sign and invert it in
+                  // their head. Split by SIGN, so a discount typed by hand
+                  // lands in the right place too.
+                  const charged = booking.fees!.filter((f) => (Number(f.amount) || 0) >= 0);
+                  const discounts = booking.fees!.filter((f) => (Number(f.amount) || 0) < 0);
+                  const row = (f: { label?: string; amount: number }, i: number, isDiscount: boolean) => (
                     <div key={i} className="flex items-center justify-between text-sm">
-                      <span className="text-gray-700">{f.label || "Fee"}</span>
-                      <span
-                        className={`font-semibold ${f.amount < 0 ? "text-red-500" : "text-gray-800"}`}
-                      >
-                        {f.amount < 0 ? "-" : ""}${Math.abs(f.amount).toFixed(2)}
+                      <span className="text-gray-700">
+                        {f.label || (isDiscount ? "Discount" : "Fee")}
+                      </span>
+                      <span className={`font-semibold ${isDiscount ? "text-red-500" : "text-gray-800"}`}>
+                        {isDiscount ? "-" : ""}${Math.abs(f.amount).toFixed(2)}
                       </span>
                     </div>
-                  ))}
-                  <div className="flex items-center justify-between border-t border-gray-100 pt-1 text-sm">
-                    <span className="font-semibold text-gray-700">Fees total</span>
-                    <span className="font-bold text-emerald-600">${feeSum.toFixed(2)}</span>
-                  </div>
-                </div>
+                  );
+
+                  return (
+                    <div className="space-y-1">
+                      {charged.length > 0 ? (
+                        charged.map((f, i) => row(f, i, false))
+                      ) : (
+                        <p className="text-sm italic text-gray-400">No extra fees</p>
+                      )}
+
+                      {discounts.length > 0 && (
+                        <div className="mt-2 border-t border-gray-100 pt-2">
+                          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                            Discounts
+                          </p>
+                          {discounts.map((f, i) => row(f, i, true))}
+                        </div>
+                      )}
+
+                      {/* One net line, because that is the number the month's
+                          money uses — fees less discounts, counted once. */}
+                      <div className="flex items-center justify-between border-t border-gray-100 pt-1 text-sm">
+                        <span className="font-semibold text-gray-700">
+                          {discounts.length > 0 && charged.length > 0
+                            ? "Fees less discounts"
+                            : discounts.length > 0
+                              ? "Discount total"
+                              : "Fees total"}
+                        </span>
+                        <span
+                          className={`font-bold ${feeSum < 0 ? "text-red-500" : "text-emerald-600"}`}
+                        >
+                          {feeSum < 0 ? "-" : ""}${Math.abs(feeSum).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()
               )
             ) : (
               <div>

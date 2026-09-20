@@ -11,7 +11,12 @@ export interface ReservedHold {
   // Undefined when it could not be worked out — silent beats wrong on money.
   nightly?: number;
   // Whole-stay extras, counted once for the stay rather than per night.
+  // POSITIVE only: money added to what she owes.
   fees?: number;
+  // Money that has come OFF, as a positive magnitude. Kept apart from fees
+  // because this is the screen where she decides to send money, and
+  // "+ $-5 fees" reads as a mistake sitting on top of a kindness.
+  discount?: number;
   // yyyy-MM-dd this guest told the host they would pay. Their own words, said
   // back to them — a date they chose is a firmer thing to act on than a vague
   // "pending payment", and they can see it without having to ask.
@@ -37,7 +42,7 @@ const ReservedHoldsPopup = ({ holds, hostName, hostPhone, onClose }: ReservedHol
   // money needs to know how much; without it the only way to find out was to ask,
   // which is a message and a wait standing between them and paying.
   const costOf = (h: ReservedHold) =>
-    h.nightly == null ? null : h.nightly * h.nights + (h.fees ?? 0);
+    h.nightly == null ? null : h.nightly * h.nights + (h.fees ?? 0) - (h.discount ?? 0);
   // Only totalled when EVERY hold has a price. A total missing one room still
   // reads as the whole amount, and would be quoted back short.
   const priced = holds.map(costOf);
@@ -164,6 +169,11 @@ const ReservedHoldsPopup = ({ holds, hostName, hostPhone, onClose }: ReservedHol
                     {h.nightly != null && h.nightly > 0 && ` × ${money(h.nightly)}`}
                     {!!h.fees && ` + ${money(h.fees)} fees`}
                   </p>
+                  {!!h.discount && (
+                    <p className={`text-[11px] font-semibold ${theme.textPrimary}`}>
+                      &hearts; {money(h.discount)} loyalty discount applied
+                    </p>
+                  )}
                   {costOf(h) != null && (
                     <p className={`text-sm font-bold ${theme.surfaceText}`}>{priceLabel(costOf(h)!)}</p>
                   )}

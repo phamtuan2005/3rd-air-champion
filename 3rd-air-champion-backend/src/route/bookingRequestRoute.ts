@@ -142,6 +142,7 @@ router.post("/guest-by-phone", async (req: Request, res: any) => {
         id
         name
         phone
+        loyaltyDiscountPerNight
         pricing {
           id
           price

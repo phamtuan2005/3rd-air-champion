@@ -398,7 +398,11 @@ const BookingCard = ({
                   onClick={() => onPricingEdit(booking)}
                   aria-label="Edit pricing"
                   className="group -ml-1.5 inline-flex items-center gap-1.5 rounded-lg px-1.5 py-0.5 transition-colors hover:bg-emerald-50"
-                  title={feeSum ? `Nights $${Math.round(guestRate * booking.duration)} + fees $${feeSum}` : undefined}
+                  title={
+                    feeSum
+                      ? `Nights $${Math.round(guestRate * booking.duration)} ${feeSum < 0 ? "less discounts" : "+ fees"} $${Math.abs(feeSum)}`
+                      : undefined
+                  }
                 >
                   <span className="text-2xl font-bold leading-none text-emerald-600">
                     ${Math.round(guestRate * booking.duration + feeSum).toLocaleString()}

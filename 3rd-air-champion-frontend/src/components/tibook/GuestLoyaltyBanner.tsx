@@ -63,9 +63,14 @@ interface GuestLoyaltyBannerProps {
   totalStays: number;
   totalNights: number;
   memberSince: string | null;
+  // Dollars off every night, standing, for a guest who has earned it. Shown
+  // here because a discount she only ever meets as a smaller number on an
+  // invoice is one she never knows she was given, and being told is most of
+  // the point of giving it.
+  loyaltyDiscountPerNight?: number;
 }
 
-const GuestLoyaltyBanner = ({ firstName, totalStays, totalNights, memberSince }: GuestLoyaltyBannerProps) => {
+const GuestLoyaltyBanner = ({ firstName, totalStays, totalNights, memberSince, loyaltyDiscountPerNight }: GuestLoyaltyBannerProps) => {
   const { theme } = useTiBookTheme();
   const loyaltyTier = getLoyaltyTier(totalStays);
   // Open the first time — the welcome is the point of this for a returning
@@ -137,6 +142,21 @@ const GuestLoyaltyBanner = ({ firstName, totalStays, totalNights, memberSince }:
           <span className={`text-[11px] ${theme.surfaceMuted2}`}>
             with us since {memberSince}
           </span>
+        </div>
+      )}
+
+      {/* Her discount, in words rather than as a negative number. Outside the
+          fold: it is the one thing here she may not already know, and folding
+          the welcome away should not take it with it. */}
+      {!!loyaltyDiscountPerNight && loyaltyDiscountPerNight > 0 && (
+        <div className={`mt-2 rounded-xl border ${theme.tagBorder} ${theme.tagBg} px-2.5 py-1.5`}>
+          <p className={`text-xs font-bold ${theme.textPrimary}`}>
+            Thank you &mdash; you have ${loyaltyDiscountPerNight} off every night
+          </p>
+          <p className={`text-[11px] ${theme.surfaceMuted} mt-0.5 leading-relaxed`}>
+            It is already taken off the totals below. Our way of saying we are
+            glad you keep coming back.
+          </p>
         </div>
       )}
 

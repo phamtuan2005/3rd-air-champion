@@ -138,6 +138,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
   const [loading, setLoading] = useState(false);
   const [bookings, setBookings] = useState<GuestBooking[] | null>(null);
   const [guestPricing, setGuestPricing] = useState<Map<string, number>>(new Map());
+  const [guestDiscount, setGuestDiscount] = useState(0);
   const [error, setError] = useState("");
   const [wishListOpen, setWishListOpen] = useState(false);
   // House rules start collapsed so they never crowd out the bookings list.
@@ -152,6 +153,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
     if (resolvedName || !phone || !hostId) return;
     fetchGuestByPhone(phone.trim(), hostId).then((guest) => {
       if (guest?.name) setResolvedName(guest.name);
+      setGuestDiscount(Number(guest?.loyaltyDiscountPerNight) || 0);
     }).catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -189,6 +191,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
     setPhone("");
     setBookings(null);
     setGuestPricing(new Map());
+    setGuestDiscount(0);
     setError("");
     // Clears the number, the name AND the stored answer — what the disclaimer
     // says this button does. They are asked again next time they identify
@@ -209,6 +212,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
       ]);
       setBookings(dedupeCalendar((calendarBookings ?? []) as GuestBooking[]));
       setGuestPricing(new Map((guest?.pricing ?? []).map((pr: { room: string; price: number }) => [pr.room, pr.price])));
+      setGuestDiscount(Number(guest?.loyaltyDiscountPerNight) || 0);
       // Saving is the parent's call, through the consent gate: a guest who has
       // not been asked yet gets the disclaimer here, and nothing is written
       // until they answer it.
@@ -314,6 +318,14 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
     const st        = statusLabel[b.status] ?? { label: b.status, color: `${theme.surfaceMuted} ${theme.surfaceSubtle} ${theme.line}` };
     const nightRate = guestPricing.get(b.room);
     const feeSum    = (b.fees ?? []).reduce((s, f) => s + (Number(f.amount) || 0), 0);
+    // A discount is not a fee, and a guest should never meet one under that
+    // word or as "+ $-5". Split by SIGN: what she is charged extra for on one
+    // side, what has come off on the other. The total still uses the signed
+    // sum, so the money is unchanged and only the reading of it differs.
+    const extras    = (b.fees ?? []).filter((f) => (Number(f.amount) || 0) > 0);
+    const savings   = (b.fees ?? []).filter((f) => (Number(f.amount) || 0) < 0);
+    const extrasSum = extras.reduce((s, f) => s + (Number(f.amount) || 0), 0);
+    const savedSum  = -savings.reduce((s, f) => s + (Number(f.amount) || 0), 0);
     const total     = nightRate !== undefined ? nightRate * (Number(b.duration) || 1) + feeSum : undefined;
     const daysLeft     = differenceInCalendarDays(checkIn, parseISO(today));
     const isStayingNow = daysLeft < 0;
@@ -373,14 +385,22 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
             <span className={`text-2xl font-bold leading-none ${theme.textPrimary}`}>${total}</span>
             <span className={`text-xs ${theme.surfaceMuted2}`}>
-              ${nightRate}/night{feeSum ? ` + $${feeSum} fees` : ""}
+              ${nightRate}/night{extrasSum ? ` + $${extrasSum} fees` : ""}
             </span>
           </div>
         )}
-        {(b.fees?.length ?? 0) > 0 && (
+        {extras.length > 0 && (
           <span className={`text-xs ${theme.surfaceMuted2}`}>
-            {b.fees!.map((f) => `${f.label || "Fee"} $${f.amount}`).join(" · ")}
+            {extras.map((f) => `${f.label || "Fee"} $${f.amount}`).join(" · ")}
           </span>
+        )}
+        {savedSum > 0 && (
+          <div className={`flex items-center gap-1.5 rounded-xl border ${theme.tagBorder} ${theme.tagBg} px-2.5 py-1.5`}>
+            <span aria-hidden className={`text-xs ${theme.textPrimary}`}>&hearts;</span>
+            <span className={`text-xs font-semibold ${theme.textPrimary}`}>
+              {savings.map((f) => f.label || "Discount").join(" · ")} &mdash; ${savedSum} off this stay
+            </span>
+          </div>
         )}
         {isNext && airbnbAddress && (
           <a
@@ -511,6 +531,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
         {guestFirstName ? (
           <div className="px-4 pt-3 pb-2">
             <GuestLoyaltyBanner
+            loyaltyDiscountPerNight={guestDiscount}
               firstName={guestFirstName}
               totalStays={totalStays}
               totalNights={totalNights}
