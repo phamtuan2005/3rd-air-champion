@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { bookingNightAmount, getDayGross, miscExpensesOn } from "./profit";
+import {
+  bookingNightAmount,
+  getDayGross,
+  getRoomMonthEstimates,
+  miscExpensesOn,
+} from "./profit";
+import { LOYALTY_FEE_LABEL } from "./loyaltyDiscount";
 import { bookingType } from "./types/bookingType";
 import { dayType } from "./types/dayType";
 import { MiscExpenseType } from "./miscOperations";
@@ -139,3 +145,68 @@ describe("misc expenses landing on a date", () => {
     expect(miscExpensesOn([bill], "2026-02-27")).toHaveLength(0);
   });
 });
+
+describe("a loyalty discount in the month's money", () => {
+  // The discount is a per-stay fee with a NEGATIVE amount, so it should need no
+  // special handling anywhere. That is the claim these check, on the surfaces
+  // the host actually reads rather than on the formula alone -- because the
+  // three surfaces drifted over whole-stay fees once already, and a discount
+  // that quietly failed to land would overstate every month it touched.
+  const day = (bookings: bookingType[]): dayType =>
+    ({
+      id: "d1",
+      blockedRooms: [],
+      bookings,
+      isBlocked: false,
+      isAirBnB: false,
+      date: new Date(),
+      numberOfGuests: 0,
+    }) as dayType;
+
+  const discounted = booking({ fees: [{ label: LOYALTY_FEE_LABEL, amount: -30 }] });
+
+  it("comes off the day the stay STARTS, and only that day", () => {
+    expect(getDayGross(day([discounted]), "2026-08-24").total).toBe(45); // 75 - 30
+    expect(getDayGross(day([discounted]), "2026-08-25").total).toBe(75);
+  });
+
+  it("is reported as a fee inside the day's total, not beside it", () => {
+    const g = getDayGross(day([discounted]), "2026-08-24");
+    expect(g.fees).toBe(-30);
+    expect(g.direct).toBe(45);
+  });
+
+  // The figure behind the Stats month total.
+  it("reduces the month's booked profit once, not once per night", () => {
+    const monthMap = new Map<string, dayType>([
+      ["2026-08-24", day([discounted])],
+      ["2026-08-25", day([discounted])],
+      ["2026-08-26", day([discounted])],
+    ]);
+    const [king] = getRoomMonthEstimates(monthMap, [room], "2026-08", "2026-08-24");
+
+    expect(king.bookedNights).toBe(3);
+    expect(king.bookedProfit).toBe(195); // 75 x 3, less 30 once
+  });
+
+  it("leaves the month alone when there is no discount", () => {
+    const monthMap = new Map<string, dayType>([
+      ["2026-08-24", day([booking()])],
+      ["2026-08-25", day([booking()])],
+      ["2026-08-26", day([booking()])],
+    ]);
+    expect(getRoomMonthEstimates(monthMap, [room], "2026-08", "2026-08-24")[0].bookedProfit).toBe(225);
+  });
+
+  it("discounts an AirBnB stay the same way", () => {
+    const stay = booking({
+      guest: { name: "AirBnB" } as never,
+      price: 0,
+      airbnbPrice: 300, // 100 a night over 3 nights
+      fees: [{ label: LOYALTY_FEE_LABEL, amount: -30 }],
+    });
+    expect(bookingNightAmount(stay, "2026-08-24")).toBe(70);
+    expect(bookingNightAmount(stay, "2026-08-25")).toBe(100);
+  });
+});
+
