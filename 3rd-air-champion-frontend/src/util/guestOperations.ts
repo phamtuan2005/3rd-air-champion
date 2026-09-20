@@ -118,7 +118,7 @@ export const deleteGuest = async (guestId: string, token: string) => {
 export const fetchGuestByPhone = async (phone: string, host: string) => {
   return axios
     .post(`${BACKEND_ENDPOINT}/booking-request/guest-by-phone`, { phone, host })
-    .then((result) => result.data as { id: string; name: string; phone: string; pricing: { id?: string; room: string; price: number }[] } | null)
+    .then((result) => result.data as { id: string; name: string; phone: string; loyaltyDiscountPerNight?: number; pricing: { id?: string; room: string; price: number }[] } | null)
     .catch(() => null);
 };
 

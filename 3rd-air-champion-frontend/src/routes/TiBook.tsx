@@ -380,7 +380,14 @@ const TiBookInner = () => {
             // Fees are per STAY though they are stored on every night; the
             // backend already hands back only the start night's, so this adds
             // them once and never once per night.
-            fees: (b.fees ?? []).reduce((sum, f) => sum + (Number(f.amount) || 0), 0),
+            // Split by sign: what she owes extra and what has come off are two
+            // different things to someone reading a price she is about to pay.
+            fees: (b.fees ?? [])
+              .filter((f) => (Number(f.amount) || 0) > 0)
+              .reduce((sum, f) => sum + (Number(f.amount) || 0), 0),
+            discount: -(b.fees ?? [])
+              .filter((f) => (Number(f.amount) || 0) < 0)
+              .reduce((sum, f) => sum + (Number(f.amount) || 0), 0),
             expectedPayDate: b.expectedPayDate ?? "",
           };
         })
