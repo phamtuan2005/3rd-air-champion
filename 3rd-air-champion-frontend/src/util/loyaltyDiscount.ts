@@ -96,3 +96,30 @@ export const loyaltyFee = (perNight: number, nights: number): feeType | null => 
 
   return { label: LOYALTY_FEE_LABEL, amount: -(cents / 100) };
 };
+
+// The fees a stay keeps when it is MODIFIED.
+//
+// Modify Booking does not edit a stay in place: it unbooks every night and
+// books the new span afresh, and a fresh booking has no fees. That is how a
+// nurse's loyalty discount vanished the moment her held (R) stay was switched
+// to confirmed — the discount was on the old rows, the old rows were deleted,
+// and the new ones were written by the same call a brand-new booking uses.
+//
+// Parking, cleaning and the like are per stay and come across unchanged. The
+// loyalty row is the one that depends on the span: it is dollars per NIGHT
+// agreed with the guest and stored as a whole-stay amount, so when the nights
+// change it is rebuilt from the per-night figure the old row implies.
+export const carryFeesToNewSpan = (
+  fees: feeType[] | undefined,
+  oldNights: number,
+  newNights: number,
+): feeType[] => {
+  const { loyaltySum, otherFees } = splitLoyalty(fees ?? []);
+  if (loyaltySum === 0) return otherFees;
+  // loyaltySum is negative (it is money off). Cents, as loyaltyFee does, so
+  // the rebuilt row is exactly what the booking modal would have written.
+  const perNightCents =
+    oldNights > 0 ? Math.round((-loyaltySum * 100) / oldNights) : 0;
+  const rebuilt = loyaltyFee(perNightCents / 100, newNights);
+  return rebuilt ? [...otherFees, rebuilt] : otherFees;
+};
