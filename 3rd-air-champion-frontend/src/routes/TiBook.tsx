@@ -30,6 +30,7 @@ import HostContactButton from "../components/tibook/HostContactButton";
 import HostChatSheet from "../components/tibook/HostChatSheet";
 import { fetchGuestThread } from "../util/guestMessageOperations";
 import { linkTiBookVisitToGuest, recordTiBookVisit, unlinkTiBookVisitGuest } from "../util/tibookVisitOperations";
+import { markTiBookVisited } from "../util/tibookReturning";
 
 const TiBookInner = () => {
   const { theme, vibe, layout } = useTiBookTheme();
@@ -56,6 +57,15 @@ const TiBookInner = () => {
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
+  // Remembers that TiBook has been open on this device, which is what decides
+  // the look a guest who has never chosen one gets NEXT time (Hero for someone
+  // coming back, Classic for a first look — see util/tibookReturning).
+  //
+  // Kept out of recordTiBookVisit on purpose, even though both mean "somebody
+  // opened TiBook". That one is the host's counting and is skipped on the dev
+  // server, where /api reaches production; whether this guest has been here
+  // before is a fact about their device and is true on the dev server too.
+  useEffect(() => { markTiBookVisited(); }, []);
 
   const [token, setToken] = useState<string | null>(localStorage.getItem("tiBookToken") ?? null);
   const [currentHost, setCurrentHost] = useState<hostType | null>(null);

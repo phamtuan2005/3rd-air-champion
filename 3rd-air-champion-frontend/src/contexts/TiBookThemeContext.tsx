@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, ReactNode } from "react";
 import { getRoomColor } from "../util/getRoomColor";
+import { hasVisitedTiBookBefore } from "../util/tibookReturning";
 
 export type ThemeName = "green" | "amber" | "teal" | "rose" | "indigo";
 
@@ -689,23 +690,60 @@ const STORAGE_KEY = "tiBookTheme";
 const VIBE_KEY = "tiBookVibe";
 const LAYOUT_KEY = "tiBookLayout";
 
+/* Reads here used to go straight at localStorage. Safari in a private window
+   throws on access rather than returning null, and a throw in this provider
+   takes the whole of TiBook down with it — the palette is read before anything
+   is drawn. setLook below was already wrapped; the reads were not. */
+const readKey = (key: string): string | null => {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+/*
+ * Which look a guest who has NEVER chosen one starts in.
+ *
+ * A first look gets Classic: white, stacked, quiet. Somebody coming back gets
+ * Hero — rooms first, actions under the thumb — because they already know what
+ * the house is and have come to pick a room and a date, not to be introduced
+ * to the place. The house asked for it in those words.
+ *
+ * A guest's own CHOICE beats both and always has. This only fills in the
+ * blank, so a returning guest who picked Classic keeps Classic however many
+ * times they come back, and picking Classic once is how a returning guest opts
+ * out of Hero for good.
+ *
+ * Whether they have been here before is not decided here — util/tibookReturning
+ * owns that question, and freezes its answer for the page load so nobody's app
+ * changes shape underneath them mid-visit.
+ */
+const startingLook = (): { vibe: VibeName; layout: LayoutName } =>
+  hasVisitedTiBookBefore()
+    ? { vibe: "vivid", layout: "hero" }
+    : { vibe: "classic", layout: "stack" };
+
 export const TiBookThemeProvider = ({ children }: { children: ReactNode }) => {
-  const saved = (localStorage.getItem(STORAGE_KEY) as ThemeName) || "green";
+  const saved = (readKey(STORAGE_KEY) as ThemeName) || "green";
   const [themeName, setThemeName] = useState<ThemeName>(
     Object.keys(themes).includes(saved) ? saved : "green"
   );
-  /* Defaults to classic. A guest who has never chosen gets the TiBook they had
-     yesterday rather than a surprise — the neon is opt-in, and the choice is
-     remembered per device the same way the palette is. */
-  const savedVibe = localStorage.getItem(VIBE_KEY) as VibeName | null;
+  /* Both axes come off ONE call, so a look can never land half-applied — the
+     same reason setLook writes them together. Split reads could put a guest in
+     the hero arrangement wearing the light skin, which is a real combination
+     (they are separate axes) but not one anybody asked for. */
+  const start = startingLook();
+  /* A stored answer wins, and "classic" has to be told apart from "nothing
+     stored" now that they no longer lead to the same place: the first is a
+     guest who chose the white app, the second is a guest we have yet to meet. */
+  const savedVibe = readKey(VIBE_KEY) as VibeName | null;
   const [vibe, setVibeState] = useState<VibeName>(
-    savedVibe === "vivid" ? "vivid" : "classic"
+    savedVibe === "vivid" ? "vivid" : savedVibe === "classic" ? "classic" : start.vibe
   );
-  /* Also defaults to what TiBook has always been. A guest who has chosen
-     nothing gets the app they had yesterday. */
-  const savedLayout = localStorage.getItem(LAYOUT_KEY) as LayoutName | null;
+  const savedLayout = readKey(LAYOUT_KEY) as LayoutName | null;
   const [layout, setLayoutState] = useState<LayoutName>(
-    savedLayout === "hero" ? "hero" : "stack"
+    savedLayout === "hero" ? "hero" : savedLayout === "stack" ? "stack" : start.layout
   );
 
   const setTheme = (name: ThemeName) => {
