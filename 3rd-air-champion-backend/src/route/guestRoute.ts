@@ -36,6 +36,7 @@ router.post("/create", async (req: Request, res: any) => {
             name
             email
             returning
+            loyaltyDiscountPerNight
             pricing {
               id
               price
@@ -92,7 +93,8 @@ router.put("/update", async (req: Request, res: any) => {
   if (!("user" in req))
     return res.status(401).json({ error: "Invalid or expired token" });
 
-  const { id, name, email, phone, numberOfGuests, returning, notes, character } = req.body;
+  const { id, name, email, phone, numberOfGuests, returning, notes, character, loyaltyDiscountPerNight } =
+    req.body;
 
   let variables: {
     name?: string;
@@ -102,6 +104,7 @@ router.put("/update", async (req: Request, res: any) => {
     returning?: boolean;
     notes?: string;
     character?: string;
+    loyaltyDiscountPerNight?: number;
   } = {};
 
   if (name) variables.name = name;
@@ -111,12 +114,15 @@ router.put("/update", async (req: Request, res: any) => {
   if (typeof returning !== "undefined") variables.returning = returning;
   if (notes) variables.notes = notes;
   if (typeof character !== "undefined") variables.character = character;
+  // 0 ends the discount, so this cannot be a truthiness check.
+  if (typeof loyaltyDiscountPerNight !== "undefined")
+    variables.loyaltyDiscountPerNight = loyaltyDiscountPerNight;
 
   (variables as any).id = id;
 
   const query = `
-        mutation UpdateGuest($id: String!, $name: String, $email: String, $phone: String, $numberOfGuests: Int, $returning: Boolean, $notes: String, $character: String) {
-            updateGuest(_id: $id, name: $name, email: $email, phone: $phone, numberOfGuests: $numberOfGuests, returning: $returning, notes: $notes, character: $character) {
+        mutation UpdateGuest($id: String!, $name: String, $email: String, $phone: String, $numberOfGuests: Int, $returning: Boolean, $notes: String, $character: String, $loyaltyDiscountPerNight: Float) {
+            updateGuest(_id: $id, name: $name, email: $email, phone: $phone, numberOfGuests: $numberOfGuests, returning: $returning, notes: $notes, character: $character, loyaltyDiscountPerNight: $loyaltyDiscountPerNight) {
                 host
                 email
                 alias
@@ -127,6 +133,7 @@ router.put("/update", async (req: Request, res: any) => {
                 numberOfGuests
                 phone
                 returning
+                loyaltyDiscountPerNight
                 pricing {
                   id
                   price
@@ -164,6 +171,7 @@ router.get("/get", async (req: Request, res: any) => {
             numberOfGuests
             phone
             returning
+            loyaltyDiscountPerNight
             email
             pricing {
               id
@@ -204,6 +212,7 @@ router.post("/get/one", async (req: Request, res: any) => {
               numberOfGuests
               phone
               returning
+              loyaltyDiscountPerNight
               email
               pricing {
                 id
@@ -244,6 +253,7 @@ router.post("/update/pricing", async (req: Request, res: any) => {
           numberOfGuests
           phone
           returning
+          loyaltyDiscountPerNight
           email
           pricing {
             id
@@ -284,6 +294,7 @@ router.post("/get/host", async (req: Request, res: any) => {
           numberOfGuests
           phone
           returning
+          loyaltyDiscountPerNight
           email
           pricing {
               id

@@ -21,6 +21,9 @@ export interface guestType {
   pricing: pricingType[];
   numberOfGuests: number;
   phone: string;
+  // Dollars off each night, for a guest who has earned it. 0 or absent means
+  // none. A booking turns it into one per-stay fee — see loyaltyDiscount.ts.
+  loyaltyDiscountPerNight?: number;
   returning: boolean;
   email: string;
 }

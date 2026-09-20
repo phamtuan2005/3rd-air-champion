@@ -1,5 +1,7 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { guestType } from "../../../util/types/guestType";
+import { loyaltyFee } from "../../../util/loyaltyDiscount";
+import { updateGuest } from "../../../util/guestOperations";
 import { roomType } from "../../../util/types/roomType";
 import RoomBadge from "../../shared/RoomBadge";
 import GuestInput from "./GuestInput";
@@ -8,7 +10,7 @@ import DatePickerModal from "./DatePickerModal";
 import { SubmitHandler, useForm, useFieldArray, Controller, useWatch } from "react-hook-form";
 import { bookDaySchema, bookDaysZodObject } from "./zodBookDays";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
+import { updateBookingFees,
   getAvailableRooms,
   postBooking,
   updateBookingGuest,
@@ -61,6 +63,10 @@ type BookingResult = {
   booking?: FlatBooking;
   reserved?: boolean;
   lineItem?: ConfirmationBooking; // for the text confirmation (successes only)
+  // The stay that was just created. A per-stay fee — the loyalty discount — can
+  // only be written once the booking exists, which is why step 2 is where the
+  // discount is applied rather than step 1.
+  bookingId?: string;
 };
 
 type TabId = 1 | 2 | 3;
@@ -112,6 +118,15 @@ const BookingModal = ({
   // Amount the guest has ALREADY paid (e.g. a firm/prepaid booking). Feeds the
   // confirmation text's "Total paid" line so the "To pay" balance is what's left.
   const [prepaidAmount, setPrepaidAmount] = useState("");
+  // Dollars off each night for this guest. Prefilled from what the house has
+  // already agreed with them, and editable for this stay.
+  const [loyaltyDiscount, setLoyaltyDiscount] = useState("");
+  // What has actually been WRITTEN to the stays. The confirmation text is built
+  // from this, never from the input: a number typed and not applied must not
+  // reach the guest as a discount nobody recorded.
+  const [appliedDiscount, setAppliedDiscount] = useState(0);
+  const [applyingDiscount, setApplyingDiscount] = useState(false);
+  const [discountError, setDiscountError] = useState("");
 
   // ── AirBnB booking entered by hand ────────────────────────────────────────
   // AirBnB never puts a last-minute reservation in the iCal export, so it has to
@@ -399,6 +414,50 @@ const BookingModal = ({
   const watchedGuestName = selectedGuest?.name ?? "";
   const guestPhone = selectedGuest?.phone ?? "";
 
+  // The discount the house has already agreed with this guest, offered as the
+  // starting point. Only prefills while nothing has been applied yet, so it
+  // cannot overwrite a figure the host has just written to the stays.
+  useEffect(() => {
+    if (appliedDiscount > 0) return;
+    const agreed = selectedGuest?.loyaltyDiscountPerNight ?? 0;
+    setLoyaltyDiscount(agreed > 0 ? String(agreed) : "");
+  }, [selectedGuest, appliedDiscount]);
+
+  // Write the discount onto every stay just booked, and remember it for this
+  // guest. Both, or neither: a discount the guest is told about but which is
+  // not on the stay is money the month never sees.
+  const handleApplyDiscount = async () => {
+    const rate = Number(loyaltyDiscount);
+    if (!Number.isFinite(rate) || rate < 0) {
+      setDiscountError("Enter an amount per night, or 0 for none.");
+      return;
+    }
+    setApplyingDiscount(true);
+    setDiscountError("");
+    try {
+      for (const r of successfulResults) {
+        if (!r.bookingId) continue;
+        const fee = loyaltyFee(rate, r.lineItem?.duration ?? 0);
+        // An empty array CLEARS the stay's fees, which is what removing a
+        // discount has to do.
+        await updateBookingFees({ id: r.bookingId, fees: fee ? [fee] : [] }, token as string);
+      }
+      const guestId = getValues("guest");
+      const g = guests.find((x) => x.id === guestId);
+      if (g) {
+        await updateGuest(
+          { id: g.id, name: g.name, phone: g.phone, loyaltyDiscountPerNight: rate },
+          token as string,
+        );
+      }
+      setAppliedDiscount(rate);
+    } catch {
+      setDiscountError("That did not save. The stays are unchanged.");
+    } finally {
+      setApplyingDiscount(false);
+    }
+  };
+
   const successfulResults = bookingResults.filter((r) => r.status === "success");
   const hasResults = bookingResults.length > 0;
   const hasSuccess = successfulResults.length > 0;
@@ -407,7 +466,13 @@ const BookingModal = ({
   // booked here (not the guest's whole month).
   const bookedLineItems = successfulResults
     .map((r) => r.lineItem)
-    .filter((li): li is ConfirmationBooking => Boolean(li));
+    .filter((li): li is ConfirmationBooking => Boolean(li))
+    // Built from what was APPLIED, so the text a guest reads and the fee stored
+    // on the stay are the same number or there is no discount at all.
+    .map((li) => {
+      const fee = loyaltyFee(appliedDiscount, li.duration);
+      return fee ? { ...li, fees: [...(li.fees ?? []), fee] } : li;
+    });
   const prepaid = Math.max(0, parseFloat(prepaidAmount) || 0);
   const confirmationText =
     guestPhone && bookedLineItems.length > 0
@@ -510,6 +575,13 @@ const BookingModal = ({
           roomColor,
           status: "success",
           lineItem: buildLineItem(days, roomId, roomLabel, flat, guestId),
+          // Same lookup buildLineItem does, kept for the fee patch in step 2.
+          bookingId: days
+            .flatMap((d: dayType) => d.bookings)
+            .find(
+              (b: { id: string; room?: { id: string }; guest?: { id: string } }) =>
+                b.room?.id === roomId && b.guest?.id === guestId,
+            )?.id,
         },
         bookedDays: days,
       };
@@ -1159,6 +1231,53 @@ const BookingModal = ({
                       />
                     </div>
                   </div>
+
+                  {/* The discount a long-staying guest has earned.
+                      Applied here rather than at step 1 because a per-stay fee
+                      needs a stay: the booking exists by the time this tab
+                      opens. Pressing Apply writes it to every stay just booked
+                      AND remembers it for this guest, so the next booking
+                      starts with it filled in. */}
+                  <div className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                    <label htmlFor="loyaltyDiscount" className="text-xs text-gray-600">
+                      Loyalty discount
+                      <span className="block text-[10px] text-gray-400">
+                        per night · 0 for none · saved for this guest
+                      </span>
+                    </label>
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm font-semibold text-gray-500">$</span>
+                      <input
+                        id="loyaltyDiscount"
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        inputMode="decimal"
+                        value={loyaltyDiscount}
+                        onChange={(e) => setLoyaltyDiscount(e.target.value)}
+                        placeholder="0"
+                        className="w-20 rounded-lg border border-gray-300 px-2 py-1 text-right text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleApplyDiscount}
+                        disabled={applyingDiscount}
+                        className="rounded-lg bg-gray-900 px-2.5 py-1 text-xs font-bold text-white disabled:bg-gray-300"
+                      >
+                        {applyingDiscount ? "Saving…" : "Apply"}
+                      </button>
+                    </div>
+                  </div>
+                  {discountError ? (
+                    <p className="text-xs font-semibold text-red-600">{discountError}</p>
+                  ) : appliedDiscount > 0 ? (
+                    /* Stated only once it is really on the stays — the text
+                       below is built from the same figure. */
+                    <p className="text-xs text-emerald-700">
+                      ${appliedDiscount} a night is off these stays and saved for{" "}
+                      {watchedGuestName || "this guest"}.
+                    </p>
+                  ) : null}
                   <pre className="text-xs bg-gray-50 border border-gray-200 rounded-lg p-3 whitespace-pre-wrap font-sans text-gray-700">
                     {confirmationText}
                   </pre>

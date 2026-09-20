@@ -54,6 +54,18 @@ const guestSchema = new mongoose.Schema(
     // deterministically from it plus the name, so nothing is uploaded and no
     // image sits on a disk whose filling up takes mongod down with it.
     character: { type: String, default: "" },
+    // Dollars off EACH NIGHT for a guest who has earned it — the nurses who
+    // stay for years.
+    //
+    // Deliberately NOT folded into `pricing`. A rate and a discount are
+    // different facts: "her rate is $70" and "her rate is $75, less five for
+    // loyalty" look identical once combined, and then nothing can ever end the
+    // discount without guessing what the rate was. Kept apart, ending it is
+    // setting this to 0.
+    //
+    // Per night because that is how it is agreed with the guest. A booking
+    // turns it into ONE per-stay fee (see loyaltyDiscount.ts on the frontend).
+    loyaltyDiscountPerNight: { type: Number, default: 0, min: 0 },
     host: { type: mongoose.Schema.ObjectId, ref: "Host", required: true },
   },
   { timestamps: true, optimisticConcurrency: true }

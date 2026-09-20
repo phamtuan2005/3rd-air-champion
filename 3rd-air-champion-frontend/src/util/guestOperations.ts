@@ -69,7 +69,18 @@ export const createGuest = async (
 };
 
 export const updateGuest = async (
-  guest: { id: string; name: string; phone: string; email?: string; notes?: string; returning?: boolean; character?: string },
+  guest: {
+    id: string;
+    name: string;
+    phone: string;
+    email?: string;
+    notes?: string;
+    returning?: boolean;
+    character?: string;
+    // 0 is meaningful — it ends the discount — so callers send it explicitly
+    // rather than omitting it.
+    loyaltyDiscountPerNight?: number;
+  },
   token: string
 ) => {
   return axios

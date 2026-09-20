@@ -18,6 +18,7 @@ export const guestDefs = gql`
     returning: Boolean
     notes: String
     character: String
+    loyaltyDiscountPerNight: Float
     host: ID!
     createdAt: String
     updatedAt: String
@@ -52,6 +53,7 @@ export const guestDefs = gql`
       returning: Boolean
       notes: String
       character: String
+      loyaltyDiscountPerNight: Float
     ): Guest!
   }
 `;

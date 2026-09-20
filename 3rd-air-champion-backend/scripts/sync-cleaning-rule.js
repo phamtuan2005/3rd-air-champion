@@ -75,7 +75,15 @@ for (const [relPath, source] of files) {
 
   if (check) {
     const current = fs.existsSync(outPath) ? fs.readFileSync(outPath, "utf8") : null;
-    if (current !== contents) stale.push(relPath);
+    // Line endings are normalised before comparing. Git rewrites these files to
+    // CRLF in the working tree on Windows while this script writes LF, so a byte
+    // comparison reports drift the moment anyone changes branch. Noise in THIS
+    // test is worse than no test: it is the one that says whether TiMag and
+    // TiWork still share a rule.
+    const CR = String.fromCharCode(13);
+    const sameRule =
+      current !== null && current.split(CR).join("") === contents.split(CR).join("");
+    if (!sameRule) stale.push(relPath);
     continue;
   }
 

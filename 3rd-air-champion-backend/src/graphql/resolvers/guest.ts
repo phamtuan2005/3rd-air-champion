@@ -57,7 +57,17 @@ export const guestResolvers = {
     },
     updateGuest: async (
       _: unknown,
-      { _id, name, email, phone, numberOfGuests, returning, notes, character }: any
+      {
+        _id,
+        name,
+        email,
+        phone,
+        numberOfGuests,
+        returning,
+        notes,
+        character,
+        loyaltyDiscountPerNight,
+      }: any
     ) => {
       const updateData: {
         name?: string;
@@ -67,6 +77,7 @@ export const guestResolvers = {
         returning?: boolean;
         notes?: string;
         character?: string;
+        loyaltyDiscountPerNight?: number;
       } = {};
       if (name) updateData.name = name;
       if (email) updateData.email = email;
@@ -78,6 +89,11 @@ export const guestResolvers = {
       // cleared back to plain initials, and a falsy check would silently ignore
       // exactly that.
       if (character !== undefined) updateData.character = character;
+      // Against undefined for the same reason as character above, and it
+      // matters more here: 0 is how a discount is ENDED, and a truthy check
+      // would quietly keep giving money away.
+      if (loyaltyDiscountPerNight !== undefined)
+        updateData.loyaltyDiscountPerNight = loyaltyDiscountPerNight;
 
       return await Guest.findByIdAndUpdate(_id, updateData, {
         new: true,
