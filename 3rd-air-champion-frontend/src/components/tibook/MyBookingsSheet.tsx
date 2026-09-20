@@ -43,7 +43,10 @@ interface MyBookingsSheetProps {
   // The NAME travels with the number. Saving the phone alone leaves the guest
   // recognised but not greeted — the header pill is blank — which reads as the
   // "remember me" they just agreed to having done nothing.
-  onPhoneConfirmed: (phone: string, name?: string) => void;
+  // `auto` marks the number the sheet re-submitted by itself on opening, rather
+  // than one the guest typed. The parent treats those differently — see
+  // rememberOrAsk in TiBook.tsx.
+  onPhoneConfirmed: (phone: string, name?: string, opts?: { auto?: boolean }) => void;
   onClear?: () => void;
 }
 
@@ -200,7 +203,9 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
     onClear?.();
   };
 
-  const handleSearch = async () => {
+  // Options object, not a positional flag: `onClick={handleSearch}` would hand
+  // a click event straight into a boolean parameter and read as true.
+  const handleSearch = async ({ auto = false }: { auto?: boolean } = {}) => {
     const p = phone.trim();
     if (!p) return;
     setLoading(true);
@@ -222,7 +227,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
         (guest?.name as string | undefined) ||
         ((calendarBookings ?? []) as GuestBooking[])[0]?.guestName ||
         "";
-      onPhoneConfirmed(p, knownName);
+      onPhoneConfirmed(p, knownName, { auto });
     } catch {
       setError("Could not load bookings. Please try again.");
     } finally {
@@ -237,7 +242,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
   useEffect(() => {
     if (didAutoSearchRef.current || !initialPhone.trim()) return;
     didAutoSearchRef.current = true;
-    handleSearch();
+    handleSearch({ auto: true });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // When opened for a specific stay (from the calendar's "View full details"),
@@ -499,7 +504,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
               <button
                 type="button"
                 disabled={loading || !phone.trim()}
-                onClick={handleSearch}
+                onClick={() => handleSearch()}
                 className={`px-4 py-2.5 rounded-xl text-white text-sm font-semibold ${theme.btn} disabled:opacity-50 whitespace-nowrap`}
               >
                 {loading ? "…" : "Search"}
