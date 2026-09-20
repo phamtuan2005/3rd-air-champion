@@ -171,6 +171,10 @@ const LOOKS: { key: string; label: string; hint: string; dot: string; vibe: Vibe
  * for it), and this says it once in words. It is a nudge, not a gate: it sits
  * under the button it is pointing at, it never covers the calendar, and it goes
  * for good the moment the guest opens the menu or dismisses it.
+ *
+ * It later picked up a second job. Once a returning guest started arriving in
+ * Hero without having asked for it, this became the only thing on screen that
+ * could say so — see `rearranged` below for which sentence goes to whom.
  */
 const HINT_KEY = "tiBookLookHintSeen";
 
@@ -217,6 +221,27 @@ export const AppearanceMenu = () => {
     setOpen((o) => !o);
     if (hint) dismissHint();
   };
+
+  /*
+   * Two different guests can be standing in front of this nudge, and they are
+   * owed different sentences.
+   *
+   * Somebody new is looking at Classic and has simply never been told the menu
+   * is there — an invitation. A guest coming back is looking at Hero, which
+   * TiBook picked for them (see util/tibookReturning) and which is NOT the app
+   * they left: dark, and the rooms moved. Handing that guest "make it yours"
+   * explains nothing and quietly leaves them to work out on their own what
+   * happened to their app — the one thing TiBook is not supposed to do.
+   *
+   * Keyed to the layout in front of them rather than to the rule that put them
+   * there. If the starting look is ever reconsidered, what this says stays
+   * true, because it describes the screen rather than repeating a decision
+   * made somewhere else.
+   *
+   * The nudge only ever shows to a guest with NO saved look (readHintSeen), so
+   * arriving in Hero here always means TiBook chose it, never that they did.
+   */
+  const rearranged = layout === "hero";
 
   // Closes on a tap anywhere else and on Escape. Without the first, the panel
   // sits over the calendar the guest is trying to get back to, and the only way
@@ -295,8 +320,18 @@ export const AppearanceMenu = () => {
           />
           <div className="relative flex items-start gap-2">
             <p className={`flex-1 text-xs leading-snug ${theme.surfaceText}`}>
-              <span className="font-bold">Make it yours.</span>{" "}
-              Tap here for Classic or Neon, in the colour you like.
+              {rearranged ? (
+                <>
+                  <span className="font-bold">Welcome back.</span>{" "}
+                  We put the rooms first this time. Tap here for Classic, or any
+                  look you like.
+                </>
+              ) : (
+                <>
+                  <span className="font-bold">Make it yours.</span>{" "}
+                  Tap here for Classic, Neon or Hero, in the colour you like.
+                </>
+              )}
             </p>
             <button
               type="button"
