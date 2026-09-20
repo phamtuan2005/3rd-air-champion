@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { LOYALTY_FEE_LABEL, loyaltyFee, splitLoyalty } from "./loyaltyDiscount";
+import {
+  LOYALTY_FEE_LABEL,
+  loyaltyFee,
+  mergeAdjustments,
+  splitAdjustments,
+  splitLoyalty,
+} from "./loyaltyDiscount";
 
 // Money off a stay for a guest who has earned it.
 //
@@ -70,3 +76,74 @@ describe("keeping the discount apart from the other fees", () => {
     expect(splitLoyalty([])).toEqual({ loyaltySum: 0, otherFees: [] });
   });
 });
+
+describe("typing a discount without typing a minus sign", () => {
+  // The house has a second manager and the host was plain about why this
+  // exists: "she would get confused adding a discount in the fee categories".
+  // The editor shows two lists; the store keeps one. Every test here guards
+  // the sign, because getting it backwards ADDS money to a guest's bill and
+  // nothing on screen looks wrong.
+
+  it("stores a discount typed as a plain positive as money OFF", () => {
+    expect(mergeAdjustments([], [{ label: LOYALTY_FEE_LABEL, amount: "5" }])).toEqual([
+      { label: LOYALTY_FEE_LABEL, amount: -5 },
+    ]);
+  });
+
+  // The box is already labelled with a minus. Somebody will type one anyway.
+  it("still means money off when a minus is typed as well", () => {
+    expect(mergeAdjustments([], [{ label: "Goodwill", amount: "-5" }])).toEqual([
+      { label: "Goodwill", amount: -5 },
+    ]);
+  });
+
+  it("keeps fees positive and discounts negative in one list", () => {
+    expect(
+      mergeAdjustments(
+        [{ label: "Parking", amount: "20" }],
+        [{ label: LOYALTY_FEE_LABEL, amount: "5" }],
+      ),
+    ).toEqual([
+      { label: "Parking", amount: 20 },
+      { label: LOYALTY_FEE_LABEL, amount: -5 },
+    ]);
+  });
+
+  it("drops a discount line left blank rather than writing a zero", () => {
+    expect(mergeAdjustments([], [{ label: "Long stay", amount: "" }])).toEqual([]);
+  });
+
+  it("names an unlabelled discount rather than leaving it blank on the guest's text", () => {
+    expect(mergeAdjustments([], [{ label: "  ", amount: "7.5" }])).toEqual([
+      { label: "Discount", amount: -7.5 },
+    ]);
+  });
+
+  it("reopens the editor with the discount shown as the number it was typed as", () => {
+    expect(
+      splitAdjustments([
+        { label: "Parking", amount: 20 },
+        { label: LOYALTY_FEE_LABEL, amount: -5 },
+      ]),
+    ).toEqual({
+      fees: [{ label: "Parking", amount: "20" }],
+      discounts: [{ label: LOYALTY_FEE_LABEL, amount: "5" }],
+    });
+  });
+
+  // Open the editor, change nothing, save: the stay must be worth what it was.
+  it("survives a round trip through the editor unchanged", () => {
+    const stored = [
+      { label: "Cleaning", amount: 35 },
+      { label: LOYALTY_FEE_LABEL, amount: -13.05 },
+    ];
+    const { fees, discounts } = splitAdjustments(stored);
+    expect(mergeAdjustments(fees, discounts)).toEqual(stored);
+  });
+
+  it("handles a stay with nothing on it", () => {
+    expect(splitAdjustments(undefined)).toEqual({ fees: [], discounts: [] });
+    expect(mergeAdjustments([], [])).toEqual([]);
+  });
+});
+

@@ -1,5 +1,10 @@
 ﻿import { useEffect, useRef, useState } from "react";
 import { bookingType, feeType, feesTotal } from "../../../../util/types/bookingType";
+import {
+  LOYALTY_FEE_LABEL,
+  mergeAdjustments,
+  splitAdjustments,
+} from "../../../../util/loyaltyDiscount";
 import { roomType } from "../../../../util/types/roomType";
 import { getRoomColor } from "../../../../util/getRoomColor";
 import { FaRegEdit } from "react-icons/fa";
@@ -42,6 +47,16 @@ interface DetailsModalProps {
 // Common extra charges offered as one-tap presets; "+ Custom" adds a blank line.
 const FEE_PRESETS = ["Parking", "Cleaning", "Cancellation", "Pet", "Late checkout"];
 
+// Money OFF a stay, kept as its own list with its own presets. The host asked
+// for this directly: a discount typed into a box labelled "fee", as a negative
+// number, is the same category error as reading one under that heading. Here
+// the amount is typed as a plain positive and stored negative.
+//
+// "Loyalty discount" is LOYALTY_FEE_LABEL and must stay exactly that: the
+// guest's confirmation text splits on that label to put the discount under
+// Total price instead of itemising it with the room lines.
+const DISCOUNT_PRESETS = [LOYALTY_FEE_LABEL, "Long stay", "Goodwill", "Referral"];
+
 const DetailsModal = ({
   booking,
   rooms,
@@ -83,12 +98,17 @@ const DetailsModal = ({
       /https:\/\/www\.airbnb\.com\/hosting\/reservations\/details\/\S+/,
     )?.[0] ?? null;
 
-  // Fees are edited in their own inline section (amounts kept as strings so a
-  // partial "-" or "1." is typable; coerced on save). A negative amount is a
-  // discount.
+  // Fees and discounts are edited as TWO lists and stored as one, because the
+  // stored shape is per-stay adjustments on every night, counted once. What
+  // changed is the typing: money off is entered as a plain positive amount in
+  // its own section, and the sign is this component's job, not the host's.
+  // Amounts stay strings so a partial "1." is typable; coerced on save.
   const [isFeesEditing, setIsFeesEditing] = useState(false);
   const [feeDraft, setFeeDraft] = useState<{ label: string; amount: string }[]>(
-    (booking.fees ?? []).map((f) => ({ label: f.label, amount: String(f.amount) })),
+    splitAdjustments(booking.fees).fees,
+  );
+  const [discountDraft, setDiscountDraft] = useState<{ label: string; amount: string }[]>(
+    splitAdjustments(booking.fees).discounts,
   );
   const addFeeLine = (label: string) =>
     setFeeDraft((prev) => [...prev, { label, amount: "" }]);
@@ -96,19 +116,29 @@ const DetailsModal = ({
     setFeeDraft((prev) => prev.map((f, idx) => (idx === i ? { ...f, ...patch } : f)));
   const removeFeeLine = (i: number) =>
     setFeeDraft((prev) => prev.filter((_, idx) => idx !== i));
+  const addDiscountLine = (label: string) =>
+    setDiscountDraft((prev) => [...prev, { label, amount: "" }]);
+  const setDiscountLine = (i: number, patch: Partial<{ label: string; amount: string }>) =>
+    setDiscountDraft((prev) => prev.map((f, idx) => (idx === i ? { ...f, ...patch } : f)));
+  const removeDiscountLine = (i: number) =>
+    setDiscountDraft((prev) => prev.filter((_, idx) => idx !== i));
   const cancelFees = () => {
-    setFeeDraft((booking.fees ?? []).map((f) => ({ label: f.label, amount: String(f.amount) })));
+    const { fees, discounts } = splitAdjustments(booking.fees);
+    setFeeDraft(fees);
+    setDiscountDraft(discounts);
     setIsFeesEditing(false);
   };
   const saveFees = () => {
-    const cleaned: feeType[] = feeDraft
-      .map((f) => ({ label: f.label.trim(), amount: Number(f.amount) || 0 }))
-      .filter((f) => f.label !== "" || f.amount !== 0);
+    const cleaned: feeType[] = mergeAdjustments(feeDraft, discountDraft);
     onFeesUpdate?.(booking.id, cleaned);
     setIsFeesEditing(false);
     onClose();
   };
   const draftFeesTotal = feeDraft.reduce((s, f) => s + (Number(f.amount) || 0), 0);
+  const draftDiscountTotal = discountDraft.reduce(
+    (s, d) => s + Math.abs(Number(d.amount) || 0),
+    0,
+  );
   const {
     control,
     handleSubmit,
@@ -423,7 +453,7 @@ const DetailsModal = ({
                       {discounts.length > 0 && (
                         <div className="mt-2 border-t border-gray-100 pt-2">
                           <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                            Discounts
+                            Additional discounts
                           </p>
                           {discounts.map((f, i) => row(f, i, true))}
                         </div>
@@ -506,13 +536,95 @@ const DetailsModal = ({
                   </div>
                 )}
 
-                <div className="mb-1 flex items-center justify-between text-sm">
+                <div className="mb-3 flex items-center justify-between text-sm">
                   <span className="font-semibold text-gray-700">Fees total</span>
                   <span className="font-bold text-emerald-600">${draftFeesTotal.toFixed(2)}</span>
                 </div>
-                <p className="mb-2 text-[10px] text-gray-400">
-                  Use a negative amount for a discount.
-                </p>
+
+                {/* Money off, in its own section. Nothing here is typed with a
+                    minus sign and nothing is called a fee. */}
+                <div className="mb-2 border-t border-gray-100 pt-3">
+                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    Additional discounts
+                  </p>
+                  <div className="mb-2 flex flex-wrap gap-1.5">
+                    {DISCOUNT_PRESETS.map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => addDiscountLine(p)}
+                        className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-100"
+                      >
+                        + {p}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => addDiscountLine("")}
+                      className="rounded-full border border-dashed border-gray-300 px-2.5 py-1 text-xs font-semibold text-gray-500 hover:bg-gray-50"
+                    >
+                      + Custom
+                    </button>
+                  </div>
+
+                  {discountDraft.length === 0 ? (
+                    <p className="mb-2 text-xs text-gray-400">
+                      Tap a preset above to take money off
+                    </p>
+                  ) : (
+                    <div className="mb-2 space-y-1.5">
+                      {discountDraft.map((d, i) => (
+                        <div key={i} className="flex items-center gap-1.5">
+                          <input
+                            className="min-w-0 flex-1 rounded border px-2 py-1 text-sm"
+                            placeholder="Discount label"
+                            value={d.label}
+                            onChange={(e) => setDiscountLine(i, { label: e.target.value })}
+                          />
+                          <span className="text-sm text-gray-500">- $</span>
+                          <input
+                            className="w-20 rounded border px-2 py-1 text-sm"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="0.00"
+                            value={d.amount}
+                            onChange={(e) => setDiscountLine(i, { amount: e.target.value })}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeDiscountLine(i)}
+                            aria-label="Remove discount"
+                            className="px-1 text-lg leading-none text-gray-400 hover:text-red-500"
+                          >
+                            &times;
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-semibold text-gray-700">Discounts total</span>
+                    <span className="font-bold text-rose-500">
+                      -${draftDiscountTotal.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* What the stay actually gains, which is the number the
+                    month's money will use. */}
+                <div className="mb-2 flex items-center justify-between border-t border-gray-100 pt-2 text-sm">
+                  <span className="font-semibold text-gray-700">Net</span>
+                  <span
+                    className={`font-bold ${
+                      draftFeesTotal - draftDiscountTotal < 0 ? "text-rose-500" : "text-emerald-600"
+                    }`}
+                  >
+                    {draftFeesTotal - draftDiscountTotal < 0 ? "-" : ""}$
+                    {Math.abs(draftFeesTotal - draftDiscountTotal).toFixed(2)}
+                  </span>
+                </div>
 
                 <div className="flex justify-end gap-2">
                   <button
@@ -520,7 +632,7 @@ const DetailsModal = ({
                     onClick={saveFees}
                     className="rounded-md bg-green-500 px-4 py-1.5 text-sm text-white hover:bg-green-600"
                   >
-                    Save fees
+                    Save
                   </button>
                   <button
                     type="button"

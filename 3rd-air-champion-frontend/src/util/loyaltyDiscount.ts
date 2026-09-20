@@ -39,6 +39,49 @@ export const splitLoyalty = (
   return { loyaltySum: loyaltyCents / 100, otherFees };
 };
 
+// How the host TYPES an adjustment, before it becomes money: amounts stay
+// strings so a half-finished "1." is still editable.
+export type adjustmentDraft = { label: string; amount: string };
+
+// Fees and discounts are edited as two lists and stored as one.
+//
+// The host asked for this outright, and named the reason: the house has a
+// second manager, and "she would get confused adding a discount in the fee
+// categories". So the discount box takes the plain positive number anyone
+// would say out loud - five dollars off - and the SIGN is this code's job.
+//
+// Math.abs and not a negation, deliberately: a manager who types "-5" into a
+// box already labelled with a minus means five dollars OFF. Negating that
+// would quietly add five dollars to what the guest owes, and nothing on
+// screen would look wrong.
+export const mergeAdjustments = (
+  fees: adjustmentDraft[],
+  discounts: adjustmentDraft[],
+): feeType[] => [
+  ...fees
+    .map((f) => ({ label: f.label.trim(), amount: Number(f.amount) || 0 }))
+    .filter((f) => f.label !== "" || f.amount !== 0),
+  ...discounts
+    .map((d) => ({
+      label: d.label.trim() || "Discount",
+      amount: -Math.abs(Number(d.amount) || 0),
+    }))
+    .filter((d) => d.amount !== 0),
+];
+
+// The inverse, for opening the editor: split the stored list by SIGN and show
+// every discount as the positive figure it was typed as.
+export const splitAdjustments = (
+  fees: feeType[] | undefined,
+): { fees: adjustmentDraft[]; discounts: adjustmentDraft[] } => ({
+  fees: (fees ?? [])
+    .filter((f) => (Number(f.amount) || 0) >= 0)
+    .map((f) => ({ label: f.label, amount: String(f.amount) })),
+  discounts: (fees ?? [])
+    .filter((f) => (Number(f.amount) || 0) < 0)
+    .map((f) => ({ label: f.label, amount: String(Math.abs(Number(f.amount) || 0)) })),
+});
+
 export const loyaltyFee = (perNight: number, nights: number): feeType | null => {
   // A blank input, a zero, or a negative typed by accident all mean "no
   // discount" rather than "a charge". Nothing here may ever ADD money.
