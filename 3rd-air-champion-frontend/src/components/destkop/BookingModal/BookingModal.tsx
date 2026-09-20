@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { guestType } from "../../../util/types/guestType";
 import { loyaltyFee } from "../../../util/loyaltyDiscount";
+import { getLoyaltyTier } from "../../tibook/GuestLoyaltyBanner";
 import { updateGuest } from "../../../util/guestOperations";
 import { roomType } from "../../../util/types/roomType";
 import RoomBadge from "../../shared/RoomBadge";
@@ -17,7 +18,7 @@ import { updateBookingFees,
   updateBookingAirbnbPrice,
 } from "../../../util/bookingOperations";
 import { dayType } from "../../../util/types/dayType";
-import { format, addDays } from "date-fns";
+import { format, addDays, parseISO } from "date-fns";
 import { ANY_ROOM_SENTINEL } from "./zodBookDays";
 import { AliasGuests, guestsFromAlias, tidyAlias } from "../../../util/airbnbAlias";
 import { parseReservation } from "../../../util/airbnbReservation";
@@ -39,6 +40,11 @@ interface BookingModalProps {
   rooms: roomType[];
   // Lets the room picker mute rooms already taken for the row's chosen nights.
   monthMap: Map<string, dayType>;
+  // How often each guest has stayed, all time — the same counts the guest list
+  // and the details modal show their badges from. Passed in rather than counted
+  // here: monthMap holds one month, and a nurse of two years would read as a
+  // first-timer next to the discount meant to reward her.
+  guestBookingCount: { GuestId: string; DistinctStartDateCount: number; FirstStayDate: string }[];
   selectedDate: Date;
   selectedRoom: roomType | undefined;
   showAddPane: "guest" | "room" | null;
@@ -96,6 +102,7 @@ const BookingModal = ({
   guests,
   rooms,
   monthMap,
+  guestBookingCount,
   selectedDate,
   selectedRoom,
   showAddPane,
@@ -413,6 +420,15 @@ const BookingModal = ({
   const selectedGuest = guests.find((g) => g.id === watchedGuestId) ?? null;
   const watchedGuestName = selectedGuest?.name ?? "";
   const guestPhone = selectedGuest?.phone ?? "";
+
+  // What the host is deciding the discount against: how many separate stays
+  // this guest has had, and the tier that earns. Same helper and the same
+  // thresholds as the guest list, so a guest called "Valued" there is never
+  // called something else here.
+  const guestStays =
+    guestBookingCount.find((g) => g.GuestId === selectedGuest?.id)?.DistinctStartDateCount ?? 0;
+  const guestSince = guestBookingCount.find((g) => g.GuestId === selectedGuest?.id)?.FirstStayDate;
+  const guestTier = getLoyaltyTier(guestStays);
 
   // The discount the house has already agreed with this guest, offered as the
   // starting point. Only prefills while nothing has been applied yet, so it
@@ -1268,6 +1284,29 @@ const BookingModal = ({
                       </button>
                     </div>
                   </div>
+                  {/* Who you are deciding about. The badge answers "how loyal
+                      is this guest" at the moment the discount is being set,
+                      instead of sending the host off to the guest list to look
+                      it up. Same pill, same thresholds as that list. */}
+                  {selectedGuest && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-600">
+                        &#8617; {guestStays} {guestStays === 1 ? "stay" : "stays"}
+                        {guestSince ? ` since ${format(parseISO(guestSince), "MMM yyyy")}` : ""}
+                      </span>
+                      {guestTier ? (
+                        <span
+                          className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${guestTier.color}`}
+                        >
+                          {guestTier.label}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-400">
+                          First stay
+                        </span>
+                      )}
+                    </div>
+                  )}
                   {discountError ? (
                     <p className="text-xs font-semibold text-red-600">{discountError}</p>
                   ) : appliedDiscount > 0 ? (

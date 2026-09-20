@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LOYALTY_FEE_LABEL, loyaltyFee } from "./loyaltyDiscount";
+import { LOYALTY_FEE_LABEL, loyaltyFee, splitLoyalty } from "./loyaltyDiscount";
 
 // Money off a stay for a guest who has earned it.
 //
@@ -35,5 +35,38 @@ describe("turning a nightly discount into one stay's fee", () => {
 
   it("handles a single night", () => {
     expect(loyaltyFee(12.5, 1)).toEqual({ label: LOYALTY_FEE_LABEL, amount: -12.5 });
+  });
+});
+
+describe("keeping the discount apart from the other fees", () => {
+  // Parking and cleaning are part of what the stay costs and stay itemised with
+  // the rooms; the discount comes off the total afterwards. Mixing them would
+  // either hide the discount in the room lines or double-count it.
+  it("separates the loyalty discount from ordinary fees", () => {
+    const { loyaltySum, otherFees } = splitLoyalty([
+      { label: "Parking", amount: 20 },
+      { label: LOYALTY_FEE_LABEL, amount: -30 },
+      { label: "Cleaning", amount: 15 },
+    ]);
+    expect(loyaltySum).toBe(-30);
+    expect(otherFees.map((f) => f.label)).toEqual(["Parking", "Cleaning"]);
+  });
+
+  it("adds up a discount spread across several stays", () => {
+    const { loyaltySum } = splitLoyalty([
+      { label: LOYALTY_FEE_LABEL, amount: -13.05 },
+      { label: LOYALTY_FEE_LABEL, amount: -30 },
+    ]);
+    expect(loyaltySum).toBe(-43.05);
+  });
+
+  it("is zero when nobody has a discount", () => {
+    const { loyaltySum, otherFees } = splitLoyalty([{ label: "Parking", amount: 20 }]);
+    expect(loyaltySum).toBe(0);
+    expect(otherFees).toHaveLength(1);
+  });
+
+  it("handles no fees at all", () => {
+    expect(splitLoyalty([])).toEqual({ loyaltySum: 0, otherFees: [] });
   });
 });

@@ -4,6 +4,7 @@ import { toZonedTime } from "date-fns-tz";
 import { dayType } from "../../../../util/types/dayType";
 import { bookingType, feeType, feesTotal } from "../../../../util/types/bookingType";
 import { formatCancellationPolicy } from "../../../../util/cancellationPolicy";
+import { splitLoyalty } from "../../../../util/loyaltyDiscount";
 
 // A single booking row the confirmation text bills for.
 export interface ConfirmationBooking {
@@ -130,17 +131,24 @@ export const useMessaging = ({
       })
       .join("\n");
 
-    // Per-stay extra fees, itemized after the room lines and rolled into the total.
+    // Per-stay extra fees, itemized after the room lines and rolled into the
+    // total — EXCEPT the loyalty discount, which the house wants shown under
+    // "Total price" instead, as money coming off a cost already stated.
     const allFees = lineItems.flatMap((li) => li.fees ?? []);
-    const feesSum = allFees.reduce((s, f) => s + (Number(f.amount) || 0), 0);
-    const feeLines = allFees
+    const { loyaltySum, otherFees } = splitLoyalty(allFees);
+    const feesSum = otherFees.reduce((s, f) => s + (Number(f.amount) || 0), 0);
+    const feeLines = otherFees
       .map((f) => `* ${f.label || "Fee"}: ${f.amount < 0 ? "-" : ""}$${Math.abs(f.amount)}`)
       .join("\n");
 
     const details =
       lineItems.length > 0 ? bookingDetails + (feeLines ? `\n${feeLines}` : "") + "\n" : "";
+    // "Total price" is the stay BEFORE the loyalty discount, so the lines read
+    // as arithmetic a guest can follow down the message.
     const grandTotal = totalPrice + feesSum;
-    const unpaid = grandTotal - totalPaidAmount;
+    // loyaltySum is negative or zero; it never adds to what is owed.
+    const unpaid = grandTotal + loyaltySum - totalPaidAmount;
+    const loyaltyLine = loyaltySum < 0 ? `\nLoyalty discount = -$${Math.abs(loyaltySum)}` : "";
     const politePreface = `Many thanks for your ${numberOfNights === 1 ? "inquiry" : "inquiries"}!`;
     const accomodationPreface = numberOfNights > 3 ? "I do my best to accomodate you." : "";
     // Cancellation policy sent with every confirmation so terms are clear up front.
@@ -149,9 +157,13 @@ export const useMessaging = ({
         ? `\n\n${formatCancellationPolicy(cancellationFullRefundDays, cancellationHalfRefundDays)}`
         : "";
 
-    return `${guestName === "" ? "" : `Hi ${guestName},`}\n${politePreface}${accomodationPreface ? `\n${accomodationPreface}` : ""}\n${header}${details}\nTotal price = $${grandTotal}${totalPaidAmount > 0 ? `\nTotal paid = $${totalPaidAmount}` : ""}${
+    return `${guestName === "" ? "" : `Hi ${guestName},`}\n${politePreface}${accomodationPreface ? `\n${accomodationPreface}` : ""}\n${header}${details}\nTotal price = $${grandTotal}${loyaltyLine}${totalPaidAmount > 0 ? `\nTotal paid = $${totalPaidAmount}` : ""}${
       unpaid > 0
-        ? `\nTo pay = ${totalPaidAmount > 0 ? `$${grandTotal} - $${totalPaidAmount} = $${unpaid}` : `$${unpaid}`}`
+        ? `\nTo pay = ${
+            totalPaidAmount > 0 && loyaltySum === 0
+              ? `$${grandTotal} - $${totalPaidAmount} = $${unpaid}`
+              : `$${unpaid}`
+          }`
         : ""
     }${cancellationPolicy}\n\nCould you please confirm whether everything is in order?`;
   };

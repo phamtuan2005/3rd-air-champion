@@ -15,6 +15,30 @@ import { feeType } from "./types/bookingType";
 // about what a $5 discount on six nights comes to.
 export const LOYALTY_FEE_LABEL = "Loyalty discount";
 
+// The loyalty discount sits apart from every other fee in the confirmation
+// text: parking and cleaning are itemised with the rooms and are part of what
+// the stay costs, while the discount is subtracted from that cost afterwards.
+// The house asked for it to read as arithmetic —
+//
+//   Total price = $600
+//   Loyalty discount = -$30
+//   To pay = $570
+//
+// so the composer needs the two kinds of fee apart. Splitting by label is
+// enough because the label is written in exactly one place (LOYALTY_FEE_LABEL).
+export const splitLoyalty = (
+  fees: feeType[],
+): { loyaltySum: number; otherFees: feeType[] } => {
+  let loyaltyCents = 0;
+  const otherFees: feeType[] = [];
+  for (const fee of fees) {
+    const amount = Number(fee.amount) || 0;
+    if (fee.label === LOYALTY_FEE_LABEL) loyaltyCents += Math.round(amount * 100);
+    else otherFees.push(fee);
+  }
+  return { loyaltySum: loyaltyCents / 100, otherFees };
+};
+
 export const loyaltyFee = (perNight: number, nights: number): feeType | null => {
   // A blank input, a zero, or a negative typed by accident all mean "no
   // discount" rather than "a charge". Nothing here may ever ADD money.

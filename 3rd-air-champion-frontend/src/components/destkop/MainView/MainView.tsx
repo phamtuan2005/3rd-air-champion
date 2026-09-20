@@ -1370,6 +1370,7 @@ const MainView = ({
             guests={guests}
             rooms={rooms}
             monthMap={monthMap}
+            guestBookingCount={guestBookingCount}
             selectedDate={selectedDate}
             selectedRoom={selectedRoom}
             showAddPane={showAddPane}
