@@ -419,18 +419,15 @@ const DetailsModal = ({
             </div>
 
             {!isFeesEditing ? (
-              (booking.fees?.length ?? 0) === 0 ? (
-                <p className="text-sm italic text-gray-400">No extra fees</p>
-              ) : (
-                (() => {
+              (() => {
                   // A discount is NOT a fee. They share one stored list because
                   // both are per-stay adjustments counted once on the start
                   // night — but "Loyalty discount: -$5" filed under Additional
                   // fees asks the host to read a minus sign and invert it in
                   // their head. Split by SIGN, so a discount typed by hand
                   // lands in the right place too.
-                  const charged = booking.fees!.filter((f) => (Number(f.amount) || 0) >= 0);
-                  const discounts = booking.fees!.filter((f) => (Number(f.amount) || 0) < 0);
+                  const charged = (booking.fees ?? []).filter((f) => (Number(f.amount) || 0) >= 0);
+                  const discounts = (booking.fees ?? []).filter((f) => (Number(f.amount) || 0) < 0);
                   const row = (f: { label?: string; amount: number }, i: number, isDiscount: boolean) => (
                     <div key={i} className="flex items-center justify-between text-sm">
                       <span className="text-gray-700">
@@ -450,18 +447,31 @@ const DetailsModal = ({
                         <p className="text-sm italic text-gray-400">No extra fees</p>
                       )}
 
-                      {discounts.length > 0 && (
-                        <div className="mt-2 border-t border-gray-100 pt-2">
-                          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                      <div className="mt-3 border-t border-gray-100 pt-3">
+                        <div className="mb-1 flex items-center justify-between">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                             Additional discounts
                           </p>
-                          {discounts.map((f, i) => row(f, i, true))}
+                          <button
+                            type="button"
+                            onClick={() => setIsFeesEditing(true)}
+                            className="text-xs font-semibold text-blue-500 hover:text-blue-700"
+                          >
+                            {discounts.length > 0 ? "Edit" : "+ Add"}
+                          </button>
                         </div>
-                      )}
+                        {discounts.length > 0 ? (
+                          discounts.map((f, i) => row(f, i, true))
+                        ) : (
+                          <p className="text-sm italic text-gray-400">No discounts</p>
+                        )}
+                      </div>
 
                       {/* One net line, because that is the number the month's
-                          money uses — fees less discounts, counted once. */}
-                      <div className="flex items-center justify-between border-t border-gray-100 pt-1 text-sm">
+                          money uses — fees less discounts, counted once. Only
+                          worth a line when there is something to count. */}
+                      {(booking.fees?.length ?? 0) > 0 && (
+                      <div className="mt-2 flex items-center justify-between border-t border-gray-100 pt-2 text-sm">
                         <span className="font-semibold text-gray-700">
                           {discounts.length > 0 && charged.length > 0
                             ? "Fees less discounts"
@@ -475,10 +485,10 @@ const DetailsModal = ({
                           {feeSum < 0 ? "-" : ""}${Math.abs(feeSum).toFixed(2)}
                         </span>
                       </div>
+                      )}
                     </div>
                   );
                 })()
-              )
             ) : (
               <div>
                 {/* One-tap presets + custom */}
