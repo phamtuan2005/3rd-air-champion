@@ -451,12 +451,25 @@ const BookingModal = ({
     setApplyingDiscount(true);
     setDiscountError("");
     try {
+      // Counted, not assumed. This used to `continue` past a stay with no id and
+      // then report success anyway — the exact opposite of the "both, or
+      // neither" this comment claimed. A discount the host is told was applied,
+      // and which is on no stay, is money the month never sees and nobody
+      // thinks to look for.
+      let written = 0;
       for (const r of successfulResults) {
         if (!r.bookingId) continue;
         const fee = loyaltyFee(rate, r.lineItem?.duration ?? 0);
         // An empty array CLEARS the stay's fees, which is what removing a
         // discount has to do.
         await updateBookingFees({ id: r.bookingId, fees: fee ? [fee] : [] }, token as string);
+        written += 1;
+      }
+      if (written < successfulResults.length) {
+        setDiscountError(
+          `Only ${written} of ${successfulResults.length} stays took the discount. Set it on the others from the booking itself.`,
+        );
+        return;
       }
       const guestId = getValues("guest");
       const g = guests.find((x) => x.id === guestId);
@@ -467,6 +480,11 @@ const BookingModal = ({
         );
       }
       setAppliedDiscount(rate);
+      // The fee is on the stay now, but the calendar still holds the booking as
+      // it was created. Without this the booking's own details panel says "No
+      // extra fees" until TiMag is reloaded — which reads as the discount
+      // having failed.
+      onBooking([]);
     } catch {
       setDiscountError("That did not save. The stays are unchanged.");
     } finally {
@@ -642,7 +660,28 @@ const BookingModal = ({
         { calendar: calendarId, date: format(flat.date, "yyyy-MM-dd'T'HH:mm:ss"), guest: guestId, isAirBnB: false, numberOfGuests, room: roomId, duration: flat.duration, reserved: true },
         token as string,
       );
-      return { result: { label: `${dateLabel} · ${durationLabel}`, roomName: roomLabel, roomColor, status: "success", reserved: true, lineItem: buildLineItem(days, roomId, roomLabel, flat, guestId) }, bookedDays: days };
+      return {
+        result: {
+          label: `${dateLabel} · ${durationLabel}`,
+          roomName: roomLabel,
+          roomColor,
+          status: "success",
+          reserved: true,
+          lineItem: buildLineItem(days, roomId, roomLabel, flat, guestId),
+          // A HELD stay needs its id as much as a paid one. Without it the
+          // loyalty discount skipped every reserved row — and rows in this
+          // modal default to reserved, so in practice it skipped nearly
+          // everything: Stephanie's guest record kept the $5 while her stay
+          // kept none of it, under a green "applied" line.
+          bookingId: days
+            .flatMap((d: dayType) => d.bookings)
+            .find(
+              (b: { id: string; room?: { id: string }; guest?: { id: string } }) =>
+                b.room?.id === roomId && b.guest?.id === guestId,
+            )?.id,
+        },
+        bookedDays: days,
+      };
     } catch (err) {
       return { result: { label: `${dateLabel} · ${durationLabel}`, roomName: roomLabel, roomColor, status: "error", message: humanizeError(extractErrorMessage(err)), reserved: true }, bookedDays: [] };
     }
