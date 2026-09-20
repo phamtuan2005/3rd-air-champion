@@ -1,7 +1,7 @@
 import CalendarModePicker from "./CalendarModePicker";
 import WeeksPerPagePicker from "./WeeksPerPagePicker";
 import { addDays, compareAsc, isSameDay, isSameMonth } from "date-fns";
-import { useContext, useEffect, useState } from "react";
+import { useContext, useState } from "react";
 import { dayType } from "../../../../util/types/dayType";
 import { roomType } from "../../../../util/types/roomType";
 import { toZonedTime } from "date-fns-tz/toZonedTime";
@@ -78,8 +78,6 @@ const CalendarNavigator = ({
     setRowsPerPage: React.Dispatch<React.SetStateAction<number>>;
   };
   const [showDetails, setShowDetails] = useState(false);
-  const [guestBill, setGuestBill] = useState<number | null>(null);
-  const [airBnBGuestBill, setAirBnBGuestBill] = useState<number | null>(null);
 
   // "Aug 2026", not "August 2026". The header also carries the room filter, the
   // view picker, Today and the weeks control; September through December cost
@@ -108,34 +106,40 @@ const CalendarNavigator = ({
     </button>
   );
 
-  useEffect(() => {
-    if (currentGuest) {
-      const totalBill = getCurrentGuestBill(currentGuest);
-      setGuestBill(totalBill);
-    } else {
-      setGuestBill(null);
-    }
-  }, [currentGuest, currentMonth]);
+  // Both totals are DERIVED, not stored.
+  //
+  // They used to live in state, written by an effect that read monthMap while
+  // depending on [guest, currentMonth] only. So the figure changed when the
+  // host switched guest or month, and not when the days themselves changed —
+  // and every write that goes through onDaysUpdate changes the days without
+  // touching either. Confirming a held stay repainted the header from a stale
+  // closure, which made a guest's loyalty discount look like it had been lost
+  // at the moment she paid.
+  //
+  // Derived during render, there is no dependency array to get wrong and no
+  // window where the number disagrees with the calendar under it. Both are a
+  // single pass over one month of days, which is cheaper than the re-render
+  // the effect caused.
+  const guestBill = currentGuest ? getCurrentGuestBill(currentGuest) : null;
 
-  useEffect(() => {
-    if (currentAirBnBGuest) {
-      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      let total = 0;
-      monthMap.forEach((dayEntry, dateStr) => {
-        const localDate = toZonedTime(dateStr, timeZone);
-        if (isSameMonth(localDate, currentMonth)) {
-          dayEntry.bookings.forEach((booking) => {
-            if (booking.alias === currentAirBnBGuest && booking.startDate === dateStr) {
-              total += booking.airbnbPrice ?? 0;
-            }
-          });
-        }
-      });
-      setAirBnBGuestBill(total);
-    } else {
-      setAirBnBGuestBill(null);
-    }
-  }, [currentAirBnBGuest, currentMonth]);
+  const airBnBGuestBill = (() => {
+    if (!currentAirBnBGuest) return null;
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    let total = 0;
+    monthMap.forEach((dayEntry, dateStr) => {
+      const localDate = toZonedTime(dateStr, timeZone);
+      if (isSameMonth(localDate, currentMonth)) {
+        dayEntry.bookings.forEach((booking) => {
+          // Counted on the stay's START night only — an AirBnB payout is for
+          // the whole stay though the booking sits on every night of it.
+          if (booking.alias === currentAirBnBGuest && booking.startDate === dateStr) {
+            total += booking.airbnbPrice ?? 0;
+          }
+        });
+      }
+    });
+    return total;
+  })();
 
   return (
     <div className="flex flex-col justify-between h-full max-h-[100px] bg-white drop-shadow-sm p-2 pb-1 sm:max-h-[140px] sm:pb-2">
