@@ -39,7 +39,7 @@ export const hostResolvers = {
     },
     updateHost: async (
       _: unknown,
-      { _id, email, name, password, airbnbsync, doorCode, airbnbName, airbnbAddress, airbnbRating, airbnbReviewCount, airbnbReviewsUrl, airbnbProfileUrl, cohostProfileUrls, airbnbSuperhost, highlights, houseRules, cleaningRules, phone, contactEmail, licenseNumber, cancellationFullRefundDays, cancellationHalfRefundDays }: any
+      { _id, email, name, password, airbnbsync, doorCode, airbnbName, airbnbAddress, airbnbRating, airbnbReviewCount, airbnbReviewsUrl, airbnbProfileUrl, cohostProfileUrls, airbnbSuperhost, highlights, houseRules, cleaningRules, cleaningPlanDays, phone, contactEmail, licenseNumber, cancellationFullRefundDays, cancellationHalfRefundDays }: any
     ) => {
       const updateData: {
         email?: string;
@@ -58,6 +58,7 @@ export const hostResolvers = {
         highlights?: string[];
         houseRules?: string;
         cleaningRules?: string;
+        cleaningPlanDays?: number;
         phone?: string;
         contactEmail?: string;
         licenseNumber?: string;
@@ -94,6 +95,7 @@ export const hostResolvers = {
       if (highlights !== undefined) updateData.highlights = highlights;
       if (houseRules !== undefined) updateData.houseRules = houseRules;
       if (cleaningRules !== undefined) updateData.cleaningRules = cleaningRules;
+      if (cleaningPlanDays !== undefined) updateData.cleaningPlanDays = cleaningPlanDays;
       if (phone !== undefined) updateData.phone = phone;
       if (contactEmail !== undefined) updateData.contactEmail = contactEmail;
       if (licenseNumber !== undefined) updateData.licenseNumber = licenseNumber;

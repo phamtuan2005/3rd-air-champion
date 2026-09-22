@@ -37,6 +37,7 @@ export const hostDefs = gql`
     highlights: [String]
     houseRules: String
     cleaningRules: String
+    cleaningPlanDays: Int
     phone: String
     contactEmail: String
     licenseNumber: String
@@ -71,6 +72,7 @@ export const hostDefs = gql`
       highlights: [String]
       houseRules: String
       cleaningRules: String
+      cleaningPlanDays: Int
       phone: String
       contactEmail: String
       licenseNumber: String

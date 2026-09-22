@@ -29,6 +29,7 @@ export interface hostType {
   highlights?: string[];
   houseRules?: string;
   cleaningRules?: string;
+  cleaningPlanDays?: number; // mornings past today the cleaning Plan shows — shared, not per phone
   cancellationFullRefundDays?: number;
   cancellationHalfRefundDays?: number;
 }

@@ -62,6 +62,7 @@ router.post("/get/one", async (req: Request, res: any) => {
                     highlights
                     houseRules
                     cleaningRules
+                    cleaningPlanDays
                     phone
                     contactEmail
                     licenseNumber
@@ -168,6 +169,37 @@ router.put("/update/doorcode", async (req: Request, res: any) => {
     });
 });
 
+
+// How far ahead the cleaning Plan tab shows, for every phone that opens it.
+// Its own route, like the door code, because it is tapped from the Plan tab
+// one day at a time and must not drag the whole AirBnB-info form with it.
+// Clamped here as well as in the app: a stray value would otherwise empty the
+// tab or walk the whole calendar on every phone at once.
+router.put("/update/cleanplandays", async (req: Request, res: any) => {
+  const { id, cleaningPlanDays } = req.body;
+  const n = Number(cleaningPlanDays);
+  if (!Number.isInteger(n) || n < 1 || n > 30) {
+    return res.status(400).json({ errors: "cleaningPlanDays must be a whole number from 1 to 30" });
+  }
+
+  const query = `
+            mutation UpdateHost($id: String!, $cleaningPlanDays: Int) {
+              updateHost(_id: $id, cleaningPlanDays: $cleaningPlanDays) {
+                cleaningPlanDays
+              }
+            }`;
+
+  sendGraphQLRequest(query, { id, cleaningPlanDays: n })
+    .then((result: any) => {
+      if (result.errors) {
+        return res.status(400).json({ errors: result.errors[0].message });
+      }
+      res.status(200).json(result.data.updateHost);
+    })
+    .catch((error: any) => {
+      res.status(500).json({ error: error.message });
+    });
+});
 
 router.put('/update/airbnbinfo', async (req: Request, res: any) => {
   const { id, doorCode, airbnbName, airbnbAddress, airbnbRating, airbnbReviewCount, airbnbReviewsUrl, airbnbProfileUrl, cohostProfileUrls, airbnbSuperhost, highlights, houseRules, cleaningRules, phone, contactEmail, licenseNumber, cancellationFullRefundDays, cancellationHalfRefundDays } = req.body;
