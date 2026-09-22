@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addDays, format, startOfToday } from "date-fns";
-import { getFullyBookedReach, isNightFullyBooked } from "./cleaningTasks";
+import { PLAN_DAYS_MAX, getFullyBookedReach, isNightFullyBooked } from "./cleaningTasks";
 import { dayType } from "./types/dayType";
 
 // The Plan window reaching a sold-out night on its own.
@@ -92,9 +92,9 @@ describe("how far the Plan reaches on its own", () => {
 
   it("stops at the cap", () => {
     const map = new Map<string, dayType>();
-    night(map, 31, ["king", "queen", "cozy", "twin", "loft"]);
+    night(map, PLAN_DAYS_MAX + 1, ["king", "queen", "cozy", "twin", "loft"]);
     expect(getFullyBookedReach(map, rooms, 9)).toBeNull();
-    expect(getFullyBookedReach(map, rooms, 9, 31)).toBe(31);
+    expect(getFullyBookedReach(map, rooms, 9, PLAN_DAYS_MAX + 1)).toBe(PLAN_DAYS_MAX + 1);
   });
 
   it("is nothing before the rooms have loaded", () => {

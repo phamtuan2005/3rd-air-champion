@@ -463,9 +463,12 @@ export const cleaningEntryTaskId = (entry: ForecastEntry, morningKey: string) =>
 // falling off the list on the day she was booking it.
 export const CLEANING_FORECAST_DAYS = 8;
 
-// The furthest the Plan window can be pushed, by hand or on its own. Past a
-// month the forecast is guesswork and the tab is a scroll.
-export const PLAN_DAYS_MAX = 30;
+// The furthest the Plan window can be pushed, by hand or on its own. It was
+// 30, and the first sold-out night three weeks out pulled the whole tab out to
+// meet it: every morning in between drafted with probable entries, a screen
+// of guesswork Anh-Tuan called overwhelming. Two weeks is as far as cleaners
+// are actually arranged.
+export const PLAN_DAYS_MAX = 14;
 
 // Every room the house can sell has a stay on it that night. Blocked rooms are
 // out of the count on both sides: a night with four rooms sold and the fifth
