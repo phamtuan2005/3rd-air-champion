@@ -8,6 +8,13 @@ import BedIcon from "./BedIcon";
 const BACKEND = import.meta.env.VITE_BACKEND_ENDPOINT || "";
 const resolveUrl = (url: string) => url.startsWith("/") ? `${BACKEND}${url}` : url;
 
+// How close together two taps have to land to read as one gesture, and how far
+// a finger may wander and still count as a tap at all. A tap on a touchscreen
+// always drifts a pixel or two; 12px forgives that without swallowing a drag
+// the guest actually meant.
+const DOUBLE_TAP_MS = 300;
+const TAP_SLOP = 12;
+
 interface RoomGalleryModalProps {
   room: roomType;
   initialIndex?: number;
@@ -18,10 +25,18 @@ interface RoomGalleryModalProps {
   // This guest's own agreed rate for THIS room, where they have one. Absent for
   // a stranger, and for a returning guest who has never been quoted this room.
   myRate?: number;
+  // Opens TiBook's own chat. Offered beside the text link because an sms: to a
+  // US number is the one way out of this screen that quietly fails a guest
+  // abroad — it leans on their carrier, it bills as an international text, and
+  // a guest whose message never left their phone reads the silence as the
+  // house not answering. Chat needs nothing but the page already open.
+  // Absent where the screen around it has no chat to open, and the gallery
+  // then simply does not offer it.
+  onOpenChat?: () => void;
   onClose: () => void;
 }
 
-const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate, onClose }: RoomGalleryModalProps) => {
+const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate, onOpenChat, onClose }: RoomGalleryModalProps) => {
   const photos = getRoomPhotos(room).map(resolveUrl);
   const [index, setIndex] = useState(initialIndex);
   // Undefined for any room not transcribed yet, and the footer then reads
@@ -79,6 +94,22 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
       )}`
     : undefined;
 
+  // The two ways out of this screen share a shape, so the pair reads as one
+  // offer with two doors rather than as two unrelated buttons. Only the weight
+  // differs, and CHAT is the one that carries it: it is the door that opens
+  // for every guest wherever they are, while the text link depends on a phone
+  // plan reaching a US number. So chat wears the guest's own palette colour in
+  // both layouts — this used to be the text link's, and only in Hero, which
+  // left the stacked footer with two identical outlines and nothing saying
+  // which to reach for.
+  // Where the house has no number on file there is no pair, and chat simply
+  // keeps the colour rather than the footer holding one lonely outline.
+  const contactBase =
+    "mt-2 flex w-full items-center justify-center gap-1.5 py-2.5 text-sm font-semibold text-white";
+  const contactShape = hero ? "rounded-full" : "rounded-lg";
+  const contactColoured = `${contactShape} ${theme.btn} ${theme.btnHover} ${theme.btnMotion} ${theme.glow}`;
+  const contactOutline = `${contactShape} border border-white/30 hover:bg-white/10`;
+
   const prev = () => setIndex((i) => (i - 1 + photos.length) % photos.length);
   const next = () => setIndex((i) => (i + 1) % photos.length);
 
@@ -94,23 +125,95 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
   // the click. Same for a swipe ending on a thumbnail. This flag lets the
   // click that trails a swipe be recognised and dropped.
   const swiped = useRef(false);
+
+  /*
+   * Enlarging a picture.
+   *
+   * The gallery gives the photograph two fifths of the screen in Hero, and in
+   * the stacked layout whatever is left once the thumbnails and the facts have
+   * taken theirs. That is enough to CHOOSE a room by and not enough to look
+   * into one, which is what a guest is actually doing in here. Enlarged is the
+   * whole screen, letterboxed on black, with every piece of chrome gone.
+   *
+   * Double-tap gets there, because that is the gesture a phone already answers
+   * to in every other photo app. The ⤢ button does exactly the same thing and
+   * exists because a gesture nobody can see is a feature nobody has: the house
+   * reported the pictures as too small while the picture could already fill
+   * the screen, and nothing on it ever said so.
+   */
+  const [enlarged, setEnlarged] = useState(false);
+  // When a finger last lifted from something that was a tap rather than a
+  // swipe. Two of those inside DOUBLE_TAP_MS is a double-tap.
+  const lastTap = useRef(0);
+
+  /*
+   * A touchscreen double-tap ALSO emits click, click, dblclick a moment later,
+   * for the sake of pages written before touch existed. So the gesture arrives
+   * twice: once as touch events, once as a mouse double-click.
+   *
+   * That is not harmless here, because the two ends mean opposite things. The
+   * touch handler enlarges; the layer it opens has its own onDoubleClick to
+   * close again; and the trailing dblclick lands on that freshly mounted layer
+   * and closes it in the same breath. Double-tapping appeared to do nothing at
+   * all, on a phone and in the harness alike.
+   *
+   * So the mouse handlers stand down for a moment after any touch. A real
+   * mouse never sets this, and keeps its double-click.
+   */
+  const lastTouchAt = useRef(0);
+  const MOUSE_AFTER_TOUCH_MS = 700;
+  const isRealMouse = () => Date.now() - lastTouchAt.current > MOUSE_AFTER_TOUCH_MS;
+
   const onTouchStart = (e: ReactTouchEvent<HTMLDivElement>) => {
     const t = e.changedTouches[0];
     touchStart.current = { x: t.clientX, y: t.clientY };
     swiped.current = false;
   };
   const onTouchEnd = (e: ReactTouchEvent<HTMLDivElement>) => {
+    lastTouchAt.current = Date.now();
     const start = touchStart.current;
     touchStart.current = null;
-    if (!start || photos.length < 2) return;
+    if (!start) return;
     const t = e.changedTouches[0];
     const dx = t.clientX - start.x;
     const dy = t.clientY - start.y;
-    if (Math.abs(dx) < 45 || Math.abs(dx) <= Math.abs(dy)) return;
-    swiped.current = true;
-    // Drag left, the picture moves left: the next one arrives from the right.
-    if (dx < 0) next();
-    else prev();
+
+    if (Math.abs(dx) >= 45 && Math.abs(dx) > Math.abs(dy)) {
+      // A swipe is never half of a double-tap. Without this, swiping along to
+      // picture 9 and then tapping it once to look properly would enlarge on
+      // that single tap, because the swipe still counted as the first half.
+      lastTap.current = 0;
+      if (photos.length < 2) return;
+      swiped.current = true;
+      // Drag left, the picture moves left: the next one arrives from the right.
+      if (dx < 0) next();
+      else prev();
+      return;
+    }
+
+    // Travelled, but not far enough or not flat enough to be a swipe: an
+    // abandoned drag, or a scroll this element was never going to give. Not a
+    // tap either, so it must not become half of one.
+    if (Math.abs(dx) > TAP_SLOP || Math.abs(dy) > TAP_SLOP) return;
+
+    // A tap that landed on a control belongs to the control. Pressing › twice
+    // quickly to skip two pictures along is an ordinary thing to do, and
+    // without this it also reads as a double-tap on the photograph underneath
+    // — so the guest skipping ahead gets thrown into the enlarged view, or out
+    // of it. Only the TAP is claimed this way: a SWIPE that happens to start
+    // on an arrow still turns the page, which is what the flag above is for.
+    if ((e.target as HTMLElement).closest("button")) {
+      lastTap.current = 0;
+      return;
+    }
+
+    const now = Date.now();
+    if (now - lastTap.current < DOUBLE_TAP_MS) {
+      lastTap.current = 0;
+      setEnlarged((on) => !on);
+      return;
+    }
+    lastTap.current = now;
   };
 
   // Pull-down, the same gesture the calendar uses: grab the grip and drag.
@@ -164,15 +267,22 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      // Escape backs out one layer at a time. Shutting the whole gallery from
+      // the enlarged picture would throw away the guest's place in 29 photos
+      // to answer "I have seen enough of this one".
+      if (e.key === "Escape") {
+        if (enlarged) setEnlarged(false);
+        else onClose();
+      }
       if (e.key === "ArrowLeft") prev();
       if (e.key === "ArrowRight") next();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [photos.length]);
+  }, [photos.length, enlarged]);
 
   return createPortal(
+    <>
     <div
       // Top edge moves, bottom stays pinned — the sheet SHRINKS rather than
       // sliding, so nothing at the bottom is pushed off the screen when it is
@@ -231,7 +341,17 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
           thumbnails still work exactly as before; this only adds a gesture. */}
       <div
         className={`flex items-center justify-center relative min-h-0 ${hero ? "h-[42%] shrink-0" : "flex-1 px-12"}`}
+        // touch-action: manipulation gives up the browser's OWN double-tap,
+        // which is a page zoom. Without it the gesture below is competing with
+        // a built-in one on every mobile browser, and the guest gets whichever
+        // wins — a magnified corner of a fixed overlay being the bad outcome.
+        style={{ touchAction: "manipulation" }}
         onClick={(e) => e.stopPropagation()}
+        // Mouse only — see isRealMouse. A finger's double-tap is handled in
+        // onTouchEnd, and the dblclick that trails it must not be acted on.
+        onDoubleClick={() => {
+          if (isRealMouse()) setEnlarged(true);
+        }}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
@@ -266,6 +386,24 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
           </>
         )}
 
+        {/* The gesture, said out loud. Double-tap is what a phone owner reaches
+            for, but nothing on this screen ever admitted the picture could
+            grow — so as far as anyone looking at TiBook could tell, it could
+            not. Opposite corner from the × in each layout, so neither layout
+            has two controls stacked on the same bit of photograph. */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setEnlarged(true);
+          }}
+          aria-label="Enlarge this picture"
+          className={`absolute top-3 flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-1 text-xs font-semibold text-white ${
+            hero ? "left-3" : "right-3"
+          }`}
+        >
+          ⤢ Enlarge
+        </button>
+
         {photos.length > 1 && (
           <>
             <button
@@ -284,18 +422,24 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
         )}
       </div>
 
-      {/* Everything below the picture, sharing one capped scroll area on a
-          SHORT screen — a phone held sideways. There the header, the 90px
-          thumbnail strip and the facts added up to more than the whole 390px
-          of height, and the photo, being the flex-1 child, was squeezed to
-          exactly 0 pixels: a guest opened a picture and saw no picture.
-          Capped at 38% there so the photo keeps the clear majority; the facts
-          scroll within what is left rather than pushing the picture out.
-          `contents` means this wrapper does not exist as far as layout is
-          concerned on a normal upright phone — portrait is untouched. */}
+      {/* Everything below the picture, in ONE capped scroll area.
+          The photo is the flex-1 child, so it gets whatever this block does
+          not take — which for a long time was almost nothing. Sideways, the
+          header, the 90px thumbnail strip and the facts came to more than the
+          whole 390px of height and the photo was squeezed to exactly 0 pixels:
+          a guest opened a picture and saw no picture. That was capped at 38%.
+          Upright this wrapper was `contents`, i.e. no cap at all, on the
+          reasoning that a tall phone has room for everything. It does not: on
+          a 844px screen the strip, the facts and the price conversation left
+          the photograph about 70 pixels — the house reported "the picture is
+          too small" and this was why. So the cap is unconditional now, and
+          only its size changes with the screen. The facts scroll within what
+          is left rather than pushing the picture out.
+          Both numbers are a CEILING on this block, never a floor: a room with
+          few facts still gives its spare height back to the photo. */}
       <div className={hero
         ? `relative z-10 -mt-6 flex min-h-0 flex-1 flex-col overflow-y-auto rounded-t-3xl ${theme.surface}`
-        : "contents [@media(max-height:560px)]:block [@media(max-height:560px)]:max-h-[38%] [@media(max-height:560px)]:shrink-0 [@media(max-height:560px)]:overflow-y-auto"}>
+        : "flex min-h-0 max-h-[52%] shrink-0 flex-col overflow-y-auto [@media(max-height:560px)]:max-h-[38%]"}>
       {/* Thumbnail strip.
           justify-center-safe, NOT justify-center. A centred flex row that
           overflows spills out of BOTH ends, and the left overflow is
@@ -410,7 +554,7 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
             two screens disagreeing about whether a price existed. The message
             stays offered either way: an agreed rate is still a conversation,
             it is just no longer an unanswered question. */}
-        {priceSmsHref && (
+        {(priceSmsHref || onOpenChat) && (
           <>
             <p className="mt-3 text-sm text-gray-300">
               {!hasRate ? (
@@ -428,21 +572,119 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
                 </>
               )}
             </p>
-            <a
-              href={priceSmsHref}
-              className={`mt-2 flex w-full items-center justify-center gap-1.5 py-2.5 text-sm font-semibold text-white ${
-                hero
-                  ? `rounded-full ${theme.btn} ${theme.btnHover} ${theme.btnMotion} ${theme.glow}`
-                  : "rounded-lg border border-white/30 hover:bg-white/10"
-              }`}
-            >
-              💬 {hasRate ? `Message ${hostFirstName}` : `Ask ${hostFirstName} about the price`}
-            </a>
+            {/* Chat first, and in colour. It is the route that reaches the
+                host from anywhere, so it is the one a guest should land on
+                without having to weigh the two — the text link sat here on
+                its own for so long that it read as the only way. */}
+            {onOpenChat && (
+              <>
+                <button
+                  type="button"
+                  onClick={onOpenChat}
+                  className={`${contactBase} ${contactColoured}`}
+                >
+                  💬 Chat here in TiBook
+                </button>
+                <p className="mt-1.5 text-center text-xs text-gray-400">
+                  Works from any country, on any phone — {hostFirstName} replies on this screen.
+                </p>
+              </>
+            )}
+            {/* The same conversation by text, for a guest whose phone reaches
+                a US number easily. Named by where it happens — "Chat here in
+                TiBook" above, "Text" here — because two buttons that both said
+                "message" would leave the guest picking blind. */}
+            {priceSmsHref && (
+              <a
+                href={priceSmsHref}
+                className={`${contactBase} ${onOpenChat ? contactOutline : contactColoured}`}
+              >
+                💬 {hasRate ? `Text ${hostFirstName}` : `Ask ${hostFirstName} about the price`}
+              </a>
+            )}
           </>
         )}
       </div>
       </div>
-    </div>,
+    </div>
+
+    {/* The enlarged picture.
+        A LAYER over the gallery, not a second modal: it reads and writes the
+        same `index`, so a guest who enlarges photo 7, swipes along to 9 and
+        drops back out finds the gallery sitting on 9 too. The swipe and the
+        double-tap are the very same handlers the small picture uses.
+        A SIBLING of the sheet, not a child. In Hero the sheet carries
+        `overflow-hidden` for its rounded top, and a full-screen layer inside
+        something clipped is one browser quirk away from being clipped with it.
+        Out here nothing can crop it, at the price of naming `tibook-type`
+        itself — every overlay root in TiBook does that anyway. */}
+    {enlarged && (
+        <div
+          className="tibook-type fixed inset-0 z-[70] flex items-center justify-center bg-black"
+          style={{ touchAction: "manipulation" }}
+          // The same guard the sheet carries: a swipe that ends over ‹ or ›
+          // still emits a click on it when the finger lifts, and the picture
+          // would move twice — once for the gesture, once for the click.
+          onClickCapture={(e) => {
+            if (!swiped.current) return;
+            swiped.current = false;
+            e.stopPropagation();
+          }}
+          // Mouse only, for the same reason the small picture's is: the
+          // dblclick that trails the very double-tap which OPENED this layer
+          // would otherwise close it again before the guest saw it.
+          onDoubleClick={() => {
+            if (isRealMouse()) setEnlarged(false);
+          }}
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
+        >
+          <img
+            src={photos[index]}
+            alt={`${room.name} ${index + 1}`}
+            className="max-h-full max-w-full select-none object-contain"
+            draggable={false}
+          />
+
+          <button
+            onClick={() => setEnlarged(false)}
+            aria-label="Back to the room"
+            className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-xl leading-none text-white hover:bg-white/30"
+          >
+            ×
+          </button>
+
+          {photos.length > 1 && (
+            <>
+              <button
+                onClick={prev}
+                aria-label="Previous picture"
+                className="absolute left-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-xl text-white transition-colors hover:bg-white/30"
+              >
+                ‹
+              </button>
+              <button
+                onClick={next}
+                aria-label="Next picture"
+                className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-xl text-white transition-colors hover:bg-white/30"
+              >
+                ›
+              </button>
+              <span className="absolute bottom-3 right-4 rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold text-white">
+                {index + 1} / {photos.length}
+              </span>
+            </>
+          )}
+
+          {/* The way back, said rather than left to be worked out. A guest who
+              arrived by double-tapping has no reason to assume the same
+              gesture is also the exit. */}
+          <span className="absolute bottom-3 left-4 rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium text-white">
+            Tap twice to go back
+          </span>
+        </div>
+    )}
+    </>,
     document.body,
   );
 };

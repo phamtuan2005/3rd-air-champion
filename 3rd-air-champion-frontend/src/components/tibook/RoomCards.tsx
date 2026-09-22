@@ -28,6 +28,11 @@ interface RoomCardsProps {
   // then simply does not offer it.
   hostPhone?: string;
   hostName?: string;
+  // Also straight through to the gallery, which offers chat beside the text
+  // link — the route that still works for a guest whose phone is not on a
+  // North American plan. Only TiBook.tsx owns the chat sheet, so the cards
+  // carry the opener rather than knowing anything about it.
+  onOpenChat?: () => void;
 }
 
 const RoomCard = ({
@@ -143,7 +148,7 @@ const RoomCard = ({
   );
 };
 
-const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact = false, onToggleCompact, myRates, hostPhone, hostName }: RoomCardsProps) => {
+const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact = false, onToggleCompact, myRates, hostPhone, hostName, onOpenChat }: RoomCardsProps) => {
   const { theme } = useTiBookTheme();
   const roomChip = useRoomChip();
   const [galleryRoom, setGalleryRoom] = useState<roomType | null>(null);
@@ -283,6 +288,7 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
           hostPhone={hostPhone}
           hostName={hostName}
           myRate={myRates?.get(galleryRoom.id)}
+          onOpenChat={onOpenChat}
           onClose={() => setGalleryRoom(null)}
         />
       )}
