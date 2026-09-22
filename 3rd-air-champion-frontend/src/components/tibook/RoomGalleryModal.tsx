@@ -504,25 +504,29 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
             They were only on the AirBnB listing, which meant leaving TiBook to
             find out. Capped and scrollable so a long list never squeezes the
             photo off a small phone.
-            text-sm, not text-xs: one step up the tibook-type scale rather than
-            a hardcoded size, so it still answers the same knob. */}
+            text-BASE, which is another step up the same tibook-type scale —
+            never a hardcoded size, so the whole block still answers the one
+            knob. It was text-sm, and the house asked for it bigger: this is
+            what a guest reads to decide whether the room fits them, on a
+            phone, often at night, and it was the smallest thing on the screen
+            that actually had to be read rather than glanced at. */}
         {facts && (
           <div className="mt-1.5 max-h-[34vh] overflow-y-auto">
-            <p className="text-sm text-gray-300">Accommodates up to {facts.maxGuests}</p>
+            <p className="text-base text-gray-300">Accommodates up to {facts.maxGuests}</p>
             <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
               {facts.beds.map((bed) => (
-                <li key={bed.label} className="flex items-center gap-1.5 text-sm text-gray-200">
+                <li key={bed.label} className="flex items-center gap-1.5 text-base text-gray-200">
                   <BedIcon kind={bed.kind} />
                   {bed.label}
                 </li>
               ))}
             </ul>
-            <p className="mt-1 text-sm text-gray-300">{facts.bathroom}</p>
+            <p className="mt-1 text-base text-gray-300">{facts.bathroom}</p>
             {/* Beside the bathroom, because it is the same kind of answer: what
                 in this house is yours alone and what is everybody's. Read from
                 one constant, so all five rooms say it identically. */}
-            <p className="text-sm text-gray-300">{houseKitchen}</p>
-            <p className="text-sm text-gray-300">{facts.privacy}</p>
+            <p className="text-base text-gray-300">{houseKitchen}</p>
+            <p className="text-base text-gray-300">{facts.privacy}</p>
             <ul className="mt-2 flex flex-wrap gap-1.5">
               {facts.highlights.map((highlight) => (
                 <li
@@ -531,7 +535,10 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
                   // dropped the bg-opacity-* utilities, so that pair silently
                   // renders a SOLID white pill and the white label vanishes
                   // into it. Other spots in this file still have the old form.
-                  className="rounded-full bg-white/20 px-2 py-0.5 text-sm text-white"
+                  // Sized with the lines above it: these are amenities a guest
+                  // reads down, not decoration, and a pill left a step smaller
+                  // than the sentence beside it read as a footnote.
+                  className="rounded-full bg-white/20 px-2 py-0.5 text-base text-white"
                 >
                   {highlight}
                 </li>
