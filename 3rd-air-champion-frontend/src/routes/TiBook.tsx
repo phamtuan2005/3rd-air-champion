@@ -793,6 +793,7 @@ const TiBookInner = () => {
               myRates={myRates}
               hostPhone={currentHost?.phone}
               hostName={currentHost?.name}
+              onOpenChat={() => setChatOpen(true)}
               compact={isReturningGuest && !roomsExpanded}
               onToggleCompact={isReturningGuest ? () => setRoomsExpanded((o) => !o) : undefined}
             />
@@ -831,6 +832,7 @@ const TiBookInner = () => {
                 onSelectAll={() => setSelectedRoomIds(null)}
                 hostPhone={currentHost?.phone}
                 hostName={currentHost?.name}
+                onOpenChat={() => setChatOpen(true)}
                 compact
               />
             )}
@@ -1058,6 +1060,11 @@ const TiBookInner = () => {
           hostPhone={currentHost?.phone}
           hostName={currentHost?.name}
           myRate={myRates.get(heroGalleryRoom.id)}
+          // The gallery stays open UNDERNEATH the chat sheet, which covers it
+          // whole. Closing the photos to ask a question about them would send
+          // the guest back through the room card and 29 pictures to reach the
+          // one they were looking at when they thought of it.
+          onOpenChat={() => setChatOpen(true)}
           onClose={() => setHeroGalleryRoom(null)}
         />
       )}
