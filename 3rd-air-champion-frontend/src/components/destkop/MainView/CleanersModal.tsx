@@ -10,6 +10,7 @@ import { getRoomColor } from "../../../util/getRoomColor";
 import { decimalToHm, formatHrMin, hmToDecimal } from "../../../util/hoursFormat";
 import {
   CLEANING_FORECAST_DAYS,
+  PLAN_DAYS_MAX,
   ForecastEntry,
   getCheckoutsOn,
   getCleaningEntriesFor,
@@ -59,6 +60,10 @@ interface CleanersModalProps {
   // Mornings past today the Plan tab forecasts, owned and persisted by MainView
   // so the Clean button's "unassigned" badge counts the same window.
   planDays?: number;
+  // When the window has stretched past the host's own count to reach a night
+  // every room is booked for, the offset of that night; null when it has not.
+  // Decided by MainView, which owns the count — see planReach there.
+  planReach?: number | null;
   onPlanDaysChange?: (n: number) => void;
   onClose: () => void;
 }
@@ -243,7 +248,7 @@ const ResendBadge = ({ className = "" }: { className?: string }) => (
 const money = (n: number) =>
   n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRules = "", senderName, planDays = CLEANING_FORECAST_DAYS, onPlanDaysChange, onClose }: CleanersModalProps) => {
+const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRules = "", senderName, planDays = CLEANING_FORECAST_DAYS, planReach = null, onPlanDaysChange, onClose }: CleanersModalProps) => {
   // Self-sufficient: fetches its own data so it can be opened from anywhere
   // (NavBar dropdown or the Upcoming assign popover).
   const [cleaners, setCleaners] = useState<CleanerType[]>([]);
@@ -2239,31 +2244,46 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
               can usefully look changes with the season and with how full the
               month is, and she is the one who knows — a fixed week was either
               short of the stretch she was arranging or padded with days that
-              could still change. Remembered per device. */}
+              could still change. Remembered per device.
+
+              When a night past her count is already sold out the window has
+              stretched to reach it (planReach), and planDays here is the
+              stretched count. Then − is off, with the reason under the
+              control: shrinking the count would not move the window, and a
+              button that does nothing reads as broken. + still works, from the
+              stretched count, so the next night is the one that appears. */}
           {onPlanDaysChange && (
-            <div className="mb-2 flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
-              <span className="text-sm font-semibold text-gray-500">Show</span>
-              <button
-                type="button"
-                aria-label="Fewer days"
-                onClick={() => onPlanDaysChange(planDays - 1)}
-                disabled={planDays <= 1}
-                className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 bg-white text-lg font-bold leading-none text-gray-600 disabled:opacity-40"
-              >
-                −
-              </button>
-              <span className="min-w-[4.5rem] text-center text-sm font-bold text-gray-800">
-                {planDays + 1} days
-              </span>
-              <button
-                type="button"
-                aria-label="More days"
-                onClick={() => onPlanDaysChange(planDays + 1)}
-                disabled={planDays >= 30}
-                className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 bg-white text-lg font-bold leading-none text-gray-600 disabled:opacity-40"
-              >
-                +
-              </button>
+            <div className="mb-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-sm font-semibold text-gray-500">Show</span>
+                <button
+                  type="button"
+                  aria-label="Fewer days"
+                  onClick={() => onPlanDaysChange(planDays - 1)}
+                  disabled={planDays <= 1 || planReach != null}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 bg-white text-lg font-bold leading-none text-gray-600 disabled:opacity-40"
+                >
+                  −
+                </button>
+                <span className="min-w-[4.5rem] text-center text-sm font-bold text-gray-800">
+                  {planDays + 1} days
+                </span>
+                <button
+                  type="button"
+                  aria-label="More days"
+                  onClick={() => onPlanDaysChange(planDays + 1)}
+                  disabled={planDays >= PLAN_DAYS_MAX}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 bg-white text-lg font-bold leading-none text-gray-600 disabled:opacity-40"
+                >
+                  +
+                </button>
+              </div>
+              {planReach != null && (
+                <p className="mt-1 text-center text-[13px] font-semibold text-violet-600">
+                  Reaches {format(addDays(startOfToday(), planReach), "EEE MMM d")} on its own —
+                  every room is booked that night
+                </p>
+              )}
             </div>
           )}
           {cleaningForecast.length === 0 ? (
@@ -2464,6 +2484,20 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
                 night likely sells last-minute (odds shown) · tap to assign a cleaner
               </p>
             </>
+          )}
+          {/* One more night, from the bottom of the list — where Cindy is when she
+              runs out of plan. The header control is a scroll away by then, and
+              the button names the morning it will add so she knows before she
+              taps. */}
+          {onPlanDaysChange && planDays < PLAN_DAYS_MAX && (
+            <button
+              type="button"
+              onClick={() => onPlanDaysChange(planDays + 1)}
+              className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-violet-300 bg-white py-2.5 text-sm font-semibold text-violet-600 transition-colors hover:bg-violet-50"
+            >
+              <span className="text-lg font-bold leading-none">+</span>
+              Add {format(addDays(startOfToday(), planDays + 1), "EEE MMM d")}
+            </button>
           )}
           </>
           )}

@@ -463,6 +463,56 @@ export const cleaningEntryTaskId = (entry: ForecastEntry, morningKey: string) =>
 // falling off the list on the day she was booking it.
 export const CLEANING_FORECAST_DAYS = 8;
 
+// The furthest the Plan window can be pushed, by hand or on its own. It was
+// 30, and the first sold-out night three weeks out pulled the whole tab out to
+// meet it: every morning in between drafted with probable entries, a screen
+// of guesswork Anh-Tuan called overwhelming. Two weeks is as far as cleaners
+// are actually arranged.
+export const PLAN_DAYS_MAX = 14;
+
+// Every room the house can sell has a stay on it that night. Blocked rooms are
+// out of the count on both sides: a night with four rooms sold and the fifth
+// blocked is a full house, and a night with every room blocked is not one.
+// Reserved (amber) stays count as sold ([[project-reserved-not-vacancy]]).
+export const isNightFullyBooked = (
+  monthMap: Map<string, dayType>,
+  rooms: { id: string; active: boolean }[],
+  nightKey: string,
+): boolean => {
+  const day = monthMap.get(nightKey);
+  if (!day || day.isBlocked) return false;
+  const sellable = rooms.filter(
+    (r) => r.active && !day.blockedRooms?.some((b) => b.id === r.id),
+  );
+  if (sellable.length === 0) return false;
+  return sellable.every((r) => day.bookings.some((b) => b.room?.id === r.id));
+};
+
+// How far past the host's own window the Plan has to reach on its own.
+//
+// The window was a fixed stretch, and the nights just past it were the ones
+// already sold out — every room turning over on a morning nobody had planned
+// yet, because the tab did not show it. A full house is the morning that most
+// needs its cleaners arranged in advance, so the window stretches to cover it.
+//
+// Scans nights `from`..`to` days ahead (inclusive) and returns the furthest
+// fully booked one, or null when none is. The FURTHEST, not the first run: a
+// sold-out Saturday with a half-empty Thursday before it still has to be on
+// the plan, and the days in between come along with it.
+export const getFullyBookedReach = (
+  monthMap: Map<string, dayType>,
+  rooms: { id: string; active: boolean }[],
+  from: number,
+  to: number = PLAN_DAYS_MAX,
+): number | null => {
+  const today = startOfToday();
+  let reach: number | null = null;
+  for (let d = Math.max(0, from); d <= to; d++) {
+    if (isNightFullyBooked(monthMap, rooms, dateKey(addDays(today, d)))) reach = d;
+  }
+  return reach;
+};
+
 export const getCleaningForecast = (
   monthMap: Map<string, dayType>,
   horizon = CLEANING_FORECAST_DAYS,

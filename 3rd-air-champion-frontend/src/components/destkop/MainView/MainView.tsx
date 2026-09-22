@@ -21,7 +21,7 @@ import DetailsModal from "./GuestView/DetailsModal";
 import { updateBookingGuest, updateBookingAirbnbPrice, updateBookingReserved, updateUnbookGuest } from "../../../util/bookingOperations";
 import { fetchAssignments, CleaningAssignmentType, CleanerType } from "../../../util/cleanerOperations";
 import { fetchSentReminders } from "../../../util/reminderOperations";
-import { CLEANING_FORECAST_DAYS, getCleaningForecast, isStaleCleaning } from "../../../util/cleaningTasks";
+import { CLEANING_FORECAST_DAYS, PLAN_DAYS_MAX, getCleaningForecast, getFullyBookedReach, isStaleCleaning } from "../../../util/cleaningTasks";
 import UnbookingConfirmation from "./GuestView/UnbookingConfirmation";
 import ToDoList from "./ToDoList";
 import AvailabilitiesModal from "./AvailabilitiesModal";
@@ -303,7 +303,7 @@ const MainView = ({
   // modal, the badge would go on counting a different window than the tab shows.
   // Clamped rather than trusted; a bad stored value would otherwise either empty
   // the tab or walk the whole month map.
-  const clampPlanDays = (n: number) => Math.min(30, Math.max(1, n));
+  const clampPlanDays = (n: number) => Math.min(PLAN_DAYS_MAX, Math.max(1, n));
   const [planDays, setPlanDaysState] = useState<number>(() => {
     const v = parseInt(localStorage.getItem("cleanPlanDays") || String(CLEANING_FORECAST_DAYS), 10);
     return Number.isFinite(v) ? clampPlanDays(v) : CLEANING_FORECAST_DAYS;
@@ -446,6 +446,17 @@ const MainView = ({
     return m;
   }, [cleaningAssignments]);
 
+  // The Plan reaches past the host's own window on its own when a night beyond
+  // it is already sold out — every room turning over on a morning the tab was
+  // not showing, so nobody had a cleaner arranged for it. `planReach` is the
+  // furthest such night, or null when the host's count already covers it; the
+  // window the tab AND the badge use is the wider of the two.
+  const planReach = useMemo(
+    () => getFullyBookedReach(monthMap, rooms, planDays + 1, PLAN_DAYS_MAX),
+    [monthMap, rooms, planDays],
+  );
+  const effectivePlanDays = planReach ?? planDays;
+
   // Clean button badges, refetched when the Clean modal opens/closes:
   //  • cleanTodoCount       = finished cleanings (<= today) still needing hours
   //                           logged (per cleaner-day, matches Clean → Hours)
@@ -456,7 +467,7 @@ const MainView = ({
     if (!hostId || !token) return;
     const monthStart = `${format(startOfToday(), "yyyy-MM")}-01`;
     const todayStr = format(startOfToday(), "yyyy-MM-dd");
-    const end = format(addDays(startOfToday(), planDays), "yyyy-MM-dd");
+    const end = format(addDays(startOfToday(), effectivePlanDays), "yyyy-MM-dd");
     // Shared with Clean → Hours and the calendar's day sheet, so the badge
     // counts the same cleaner-days those show rather than orphaned ones.
     const isStale = (roomId: string, morningKey: string) =>
@@ -477,7 +488,7 @@ const MainView = ({
         setCleanTodoCount(days.size);
 
         let unassigned = 0;
-        getCleaningForecast(monthMap, planDays).forEach((day) =>
+        getCleaningForecast(monthMap, effectivePlanDays).forEach((day) =>
           day.entries.forEach((e) => {
             const has = assigns.some(
               (a) =>
@@ -495,7 +506,7 @@ const MainView = ({
         setCleanUnassignedCount(0);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hostId, token, isCleanersOpen, monthMap, planDays]);
+  }, [hostId, token, isCleanersOpen, monthMap, effectivePlanDays]);
 
   // Hours submitted from TiWork and not yet ruled on — the Staffing badge.
   // Refetched when the panel opens AND when it closes, so approving the last
@@ -1746,7 +1757,8 @@ const MainView = ({
           initialTab={cleanersInitialTab}
           cleaningRules={cleaningRules}
           senderName={senderName}
-          planDays={planDays}
+          planDays={effectivePlanDays}
+          planReach={planReach}
           onPlanDaysChange={setPlanDays}
           onClose={() => {
             setIsCleanersOpen(false);
