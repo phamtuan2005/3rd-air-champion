@@ -56,6 +56,12 @@ const hostSchema = new mongoose.Schema(
     highlights: [{ type: String }],
     houseRules: { type: String, default: "" },
     cleaningRules: { type: String, default: "" },
+    // Mornings past today the cleaning Plan tab shows, shared by everyone who
+    // runs the house. It lived in each phone's localStorage first, and a
+    // stretch Anh-Tuan planned to 13 days on his phone was invisible on
+    // Cindy's, which still showed 9 — the assignments were saved, the window
+    // to see them was not. Default matches CLEANING_FORECAST_DAYS in the app.
+    cleaningPlanDays: { type: Number, default: 8 },
     phone: { type: String, default: "" },
     contactEmail: { type: String, default: "" },
     licenseNumber: { type: String, default: "" },

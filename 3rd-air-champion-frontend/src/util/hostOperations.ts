@@ -92,6 +92,25 @@ export const updateDoorCode = async (
     });
 };
 
+// The cleaning Plan's window, saved with the host so every phone shows the
+// same stretch. See MainView's planDays for why it is not per device.
+export const updateCleanPlanDays = async (
+  id: string,
+  cleaningPlanDays: number,
+  token: string
+) => {
+  return axios
+    .put(
+      `${BACKEND_ENDPOINT}/host/update/cleanplandays`,
+      { id, cleaningPlanDays },
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    .then((result) => result.data)
+    .catch((err) => {
+      if (err.response?.data?.errors) throw err.response.data.errors;
+      throw "An unexpected error occurred. Please try again.";
+    });
+};
 
 export const updateAirBnBInfo = async (
   id: string,

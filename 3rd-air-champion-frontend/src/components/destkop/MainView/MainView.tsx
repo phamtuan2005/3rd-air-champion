@@ -22,6 +22,7 @@ import { updateBookingGuest, updateBookingAirbnbPrice, updateBookingReserved, up
 import { fetchAssignments, CleaningAssignmentType, CleanerType } from "../../../util/cleanerOperations";
 import { fetchSentReminders } from "../../../util/reminderOperations";
 import { CLEANING_FORECAST_DAYS, PLAN_DAYS_MAX, getCleaningForecast, getFullyBookedReach, isStaleCleaning } from "../../../util/cleaningTasks";
+import { fetchHost, updateCleanPlanDays } from "../../../util/hostOperations";
 import UnbookingConfirmation from "./GuestView/UnbookingConfirmation";
 import ToDoList from "./ToDoList";
 import AvailabilitiesModal from "./AvailabilitiesModal";
@@ -69,6 +70,7 @@ interface MainViewProps {
   airbnbAddress: string;
   houseRules?: string;
   cleaningRules?: string;
+  cleaningPlanDays?: number; // the host's saved Plan window, from the login fetch
   isTodoModalOpen: boolean;
   setIsTodoModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isModalOpen: boolean;
@@ -107,6 +109,7 @@ const MainView = ({
   airbnbAddress,
   houseRules = "",
   cleaningRules = "",
+  cleaningPlanDays,
   isTodoModalOpen,
   setIsTodoModalOpen,
   isModalOpen,
@@ -297,21 +300,59 @@ const MainView = ({
   // booking change, and a memory that dies with it makes the jump repeat.
   const [revealedFilterKey, setRevealedFilterKey] = useState<string | null>(null);
   // How many mornings past today the cleaning Plan forecasts, host-tunable from
-  // the Plan tab and remembered per device — the same shape as the calendar's
-  // row settings. It lives HERE rather than inside the modal because the Clean
+  // the Plan tab. It lives HERE rather than inside the modal because the Clean
   // button's "unassigned" badge counts from the same forecast: owned by the
   // modal, the badge would go on counting a different window than the tab shows.
   // Clamped rather than trusted; a bad stored value would otherwise either empty
   // the tab or walk the whole month map.
+  //
+  // Saved with the HOST, not the phone. It was per device (localStorage, like
+  // the calendar's row settings), and that split the house in two: Anh-Tuan
+  // stretched his plan to 13 days and assigned cleaners out there, and Cindy's
+  // phone went on showing 9 — the assignments were on the server, the window
+  // to see them was not. localStorage stays as the value to show before the
+  // server answers, and the offline fallback.
   const clampPlanDays = (n: number) => Math.min(PLAN_DAYS_MAX, Math.max(1, n));
   const [planDays, setPlanDaysState] = useState<number>(() => {
+    if (cleaningPlanDays != null) return clampPlanDays(cleaningPlanDays);
     const v = parseInt(localStorage.getItem("cleanPlanDays") || String(CLEANING_FORECAST_DAYS), 10);
     return Number.isFinite(v) ? clampPlanDays(v) : CLEANING_FORECAST_DAYS;
   });
+  // The save trails the taps by a moment: - - + is one write, not three racing
+  // PUTs whose replies could land out of order and leave the server on a
+  // count nobody chose.
+  const planDaysSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Every phone re-reads the saved window when the Clean modal opens, so a
+  // change made on one phone is on the other the next time it looks — without
+  // anyone reloading the app. The login fetch alone left an open app stale.
+  useEffect(() => {
+    if (!isCleanersOpen || !hostId || !token) return;
+    fetchHost(hostId, token)
+      .then((h) => {
+        // A tap made while this was in flight wins: the server is about to be
+        // told the new count, so its old one must not undo the tap.
+        if (planDaysSaveTimer.current) return;
+        if (typeof h?.cleaningPlanDays === "number") {
+          const clamped = clampPlanDays(h.cleaningPlanDays);
+          setPlanDaysState(clamped);
+          localStorage.setItem("cleanPlanDays", String(clamped));
+        }
+      })
+      .catch(() => {}); // keep what we have; the tab still works from the last-known window
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCleanersOpen, hostId, token]);
   const setPlanDays = (n: number) => {
     const clamped = clampPlanDays(n);
     setPlanDaysState(clamped);
     localStorage.setItem("cleanPlanDays", String(clamped));
+    if (!hostId || !token) return;
+    if (planDaysSaveTimer.current) clearTimeout(planDaysSaveTimer.current);
+    planDaysSaveTimer.current = setTimeout(() => {
+      planDaysSaveTimer.current = null;
+      updateCleanPlanDays(hostId, clamped, token).catch((err) =>
+        console.error("Could not save the cleaning Plan window:", err),
+      );
+    }, 600);
   };
   const [pendingAcceptRequestIds, setPendingAcceptRequestIds] = useState<string[]>([]);
   const [acceptCompletedTick, setAcceptCompletedTick] = useState(0);
