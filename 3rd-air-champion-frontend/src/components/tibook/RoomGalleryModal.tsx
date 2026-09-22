@@ -96,14 +96,19 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
 
   // The two ways out of this screen share a shape, so the pair reads as one
   // offer with two doors rather than as two unrelated buttons. Only the weight
-  // differs — and where there is no number on file, chat inherits the weight
-  // rather than the footer being left with a single quiet outline.
+  // differs, and CHAT is the one that carries it: it is the door that opens
+  // for every guest wherever they are, while the text link depends on a phone
+  // plan reaching a US number. So chat wears the guest's own palette colour in
+  // both layouts — this used to be the text link's, and only in Hero, which
+  // left the stacked footer with two identical outlines and nothing saying
+  // which to reach for.
+  // Where the house has no number on file there is no pair, and chat simply
+  // keeps the colour rather than the footer holding one lonely outline.
   const contactBase =
     "mt-2 flex w-full items-center justify-center gap-1.5 py-2.5 text-sm font-semibold text-white";
-  const contactPrimary = hero
-    ? `rounded-full ${theme.btn} ${theme.btnHover} ${theme.btnMotion} ${theme.glow}`
-    : "rounded-lg border border-white/30 hover:bg-white/10";
-  const contactSecondary = `${hero ? "rounded-full" : "rounded-lg"} border border-white/30 hover:bg-white/10`;
+  const contactShape = hero ? "rounded-full" : "rounded-lg";
+  const contactColoured = `${contactShape} ${theme.btn} ${theme.btnHover} ${theme.btnMotion} ${theme.glow}`;
+  const contactOutline = `${contactShape} border border-white/30 hover:bg-white/10`;
 
   const prev = () => setIndex((i) => (i - 1 + photos.length) % photos.length);
   const next = () => setIndex((i) => (i + 1) % photos.length);
@@ -567,21 +572,16 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
                 </>
               )}
             </p>
-            {priceSmsHref && (
-              <a href={priceSmsHref} className={`${contactBase} ${contactPrimary}`}>
-                💬 {hasRate ? `Text ${hostFirstName}` : `Ask ${hostFirstName} about the price`}
-              </a>
-            )}
-            {/* The same conversation, by the route that does not depend on a
-                phone plan reaching a US number. Named by where it happens —
-                "Text" above, "Chat here in TiBook" — because two buttons that
-                both said "message" would leave the guest picking blind. */}
+            {/* Chat first, and in colour. It is the route that reaches the
+                host from anywhere, so it is the one a guest should land on
+                without having to weigh the two — the text link sat here on
+                its own for so long that it read as the only way. */}
             {onOpenChat && (
               <>
                 <button
                   type="button"
                   onClick={onOpenChat}
-                  className={`${contactBase} ${priceSmsHref ? contactSecondary : contactPrimary}`}
+                  className={`${contactBase} ${contactColoured}`}
                 >
                   💬 Chat here in TiBook
                 </button>
@@ -589,6 +589,18 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
                   Works from any country, on any phone — {hostFirstName} replies on this screen.
                 </p>
               </>
+            )}
+            {/* The same conversation by text, for a guest whose phone reaches
+                a US number easily. Named by where it happens — "Chat here in
+                TiBook" above, "Text" here — because two buttons that both said
+                "message" would leave the guest picking blind. */}
+            {priceSmsHref && (
+              <a
+                href={priceSmsHref}
+                className={`${contactBase} ${onOpenChat ? contactOutline : contactColoured}`}
+              >
+                💬 {hasRate ? `Text ${hostFirstName}` : `Ask ${hostFirstName} about the price`}
+              </a>
             )}
           </>
         )}
