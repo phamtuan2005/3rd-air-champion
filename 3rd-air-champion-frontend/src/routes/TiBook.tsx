@@ -33,7 +33,7 @@ import { linkTiBookVisitToGuest, recordTiBookVisit, unlinkTiBookVisitGuest } fro
 import { markTiBookVisited } from "../util/tibookReturning";
 
 const TiBookInner = () => {
-  const { theme, vibe, layout } = useTiBookTheme();
+  const { theme, vibe, layout, setLook } = useTiBookTheme();
   useEffect(() => { document.title = "TiBook"; }, []);
   useEffect(() => {
     const link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
@@ -141,8 +141,33 @@ const TiBookInner = () => {
   const [roomPickerDate, setRoomPickerDate] = useState<Date | null>(null);
   const [heroGalleryRoom, setHeroGalleryRoom] = useState<roomType | null>(null);
   const [bookAnother, setBookAnother] = useState<{ checkIn: Date; nights: number } | null>(null);
+  // A guest has given their number and is owed the Hero look, but is still in
+  // the middle of something. See rememberOrAsk for the rule and the effect
+  // below for why it waits.
+  const [heroOwed, setHeroOwed] = useState(false);
   const cohostNames = (import.meta.env.VITE_TI_BOOK_COHOST_NAMES as string | undefined)
     ?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
+
+  /*
+   * Held until every surface that can ask for a number is out of the way.
+   *
+   * A guest never types their phone on the bare calendar — it is always inside
+   * the bookings sheet, the request modal or the chat, and the consent
+   * disclaimer often follows it. Re-skinning the whole app underneath an open
+   * sheet, mid-sentence, reads as a glitch rather than as a welcome. So they
+   * finish what they were doing and meet the new look on the way out, which is
+   * also the moment there is enough of the app on screen for it to mean
+   * anything.
+   *
+   * setLook writes both axes and saves them, so nothing else is needed here to
+   * make it stick.
+   */
+  useEffect(() => {
+    if (!heroOwed) return;
+    if (isBookingModalOpen || myBookingsOpen || chatOpen || pendingConsentPhone) return;
+    setLook("vivid", "hero");
+    setHeroOwed(false);
+  }, [heroOwed, isBookingModalOpen, myBookingsOpen, chatOpen, pendingConsentPhone]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleToggleRoom = (id: string) => {
     setSelectedRoomIds((prev) => {
@@ -554,8 +579,30 @@ const TiBookInner = () => {
   // if they have already said yes; asks them if they have never been asked.
   // A guest who said no is neither saved nor asked again — their answer stands
   // until they clear this browser.
-  const rememberOrAsk = (phone: string, name?: string, afterSuccess = false) => {
+  const rememberOrAsk = (
+    phone: string,
+    name?: string,
+    { afterSuccess = false, auto = false }: { afterSuccess?: boolean; auto?: boolean } = {},
+  ) => {
     if (!phone.trim()) return;
+    // A guest who has just told us their number is not a stranger any more, so
+    // the house puts them in Hero. Enforced rather than offered: it overrides a
+    // look they had chosen before, and it is saved like any other choice so it
+    // is still there on their next visit.
+    //
+    // They are not stuck with it. The Look menu behaves exactly as it always
+    // has afterwards, so Classic is one tap away for anyone who wants it back.
+    //
+    // Set here, and not in the handlers that call this, because this function
+    // is already the one place that means "a guest has just identified
+    // themselves by phone" — a second list of those call sites would eventually
+    // disagree with this one.
+    //
+    // Except when `auto`: the bookings sheet re-submits a number it already had
+    // the moment it opens, and the guest typed nothing. Counting that would
+    // undo their chosen look every time they glanced at their own stays, which
+    // is the opposite of leaving the choice with them.
+    if (!auto) setHeroOwed(true);
     const consent = getConsent();
     if (consent === "allowed") {
       rememberGuest(phone, name);
@@ -570,10 +617,10 @@ const TiBookInner = () => {
     }
   };
 
-  const handlePhoneConfirmed = (phone: string, name?: string) => {
+  const handlePhoneConfirmed = (phone: string, name?: string, opts?: { auto?: boolean }) => {
     setGuestPhone(phone);
     if (name?.trim()) setGuestName(name);
-    rememberOrAsk(phone, name);
+    rememberOrAsk(phone, name, { auto: opts?.auto });
     if (currentHost) {
       getGuestWishList(currentHost.id, phone)
         .then((result) => {
@@ -926,7 +973,7 @@ const TiBookInner = () => {
             // Their request is already in — asking now interrupts nothing, and
             // waiting for them to dismiss the success screen means never asking
             // the guests who simply close the app.
-            rememberOrAsk(phone, name, true);
+            rememberOrAsk(phone, name, { afterSuccess: true });
           }}
           onWishListSent={(phone, name, newDates) => {
             // Identity is onGuestIdentified's job now — this one only carries
@@ -1057,7 +1104,7 @@ const TiBookInner = () => {
             setGuestName(name);
             // Same gate as the booking flow. Their message is already sent, so
             // asking now interrupts nothing.
-            rememberOrAsk(phone, name, true);
+            rememberOrAsk(phone, name, { afterSuccess: true });
           }}
           onClose={() => {
             setChatOpen(false);
