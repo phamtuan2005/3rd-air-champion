@@ -141,12 +141,31 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
   // swipe. Two of those inside DOUBLE_TAP_MS is a double-tap.
   const lastTap = useRef(0);
 
+  /*
+   * A touchscreen double-tap ALSO emits click, click, dblclick a moment later,
+   * for the sake of pages written before touch existed. So the gesture arrives
+   * twice: once as touch events, once as a mouse double-click.
+   *
+   * That is not harmless here, because the two ends mean opposite things. The
+   * touch handler enlarges; the layer it opens has its own onDoubleClick to
+   * close again; and the trailing dblclick lands on that freshly mounted layer
+   * and closes it in the same breath. Double-tapping appeared to do nothing at
+   * all, on a phone and in the harness alike.
+   *
+   * So the mouse handlers stand down for a moment after any touch. A real
+   * mouse never sets this, and keeps its double-click.
+   */
+  const lastTouchAt = useRef(0);
+  const MOUSE_AFTER_TOUCH_MS = 700;
+  const isRealMouse = () => Date.now() - lastTouchAt.current > MOUSE_AFTER_TOUCH_MS;
+
   const onTouchStart = (e: ReactTouchEvent<HTMLDivElement>) => {
     const t = e.changedTouches[0];
     touchStart.current = { x: t.clientX, y: t.clientY };
     swiped.current = false;
   };
   const onTouchEnd = (e: ReactTouchEvent<HTMLDivElement>) => {
+    lastTouchAt.current = Date.now();
     const start = touchStart.current;
     touchStart.current = null;
     if (!start) return;
@@ -323,11 +342,11 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
         // wins — a magnified corner of a fixed overlay being the bad outcome.
         style={{ touchAction: "manipulation" }}
         onClick={(e) => e.stopPropagation()}
-        // Sets true rather than toggling, because a tap still emits click and
-        // dblclick alongside the touch events: the touch handler has already
-        // toggled by the time this runs, and a second toggle would undo it.
-        // Both ends say what they mean, so running twice changes nothing.
-        onDoubleClick={() => setEnlarged(true)}
+        // Mouse only — see isRealMouse. A finger's double-tap is handled in
+        // onTouchEnd, and the dblclick that trails it must not be acted on.
+        onDoubleClick={() => {
+          if (isRealMouse()) setEnlarged(true);
+        }}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
@@ -398,18 +417,24 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
         )}
       </div>
 
-      {/* Everything below the picture, sharing one capped scroll area on a
-          SHORT screen — a phone held sideways. There the header, the 90px
-          thumbnail strip and the facts added up to more than the whole 390px
-          of height, and the photo, being the flex-1 child, was squeezed to
-          exactly 0 pixels: a guest opened a picture and saw no picture.
-          Capped at 38% there so the photo keeps the clear majority; the facts
-          scroll within what is left rather than pushing the picture out.
-          `contents` means this wrapper does not exist as far as layout is
-          concerned on a normal upright phone — portrait is untouched. */}
+      {/* Everything below the picture, in ONE capped scroll area.
+          The photo is the flex-1 child, so it gets whatever this block does
+          not take — which for a long time was almost nothing. Sideways, the
+          header, the 90px thumbnail strip and the facts came to more than the
+          whole 390px of height and the photo was squeezed to exactly 0 pixels:
+          a guest opened a picture and saw no picture. That was capped at 38%.
+          Upright this wrapper was `contents`, i.e. no cap at all, on the
+          reasoning that a tall phone has room for everything. It does not: on
+          a 844px screen the strip, the facts and the price conversation left
+          the photograph about 70 pixels — the house reported "the picture is
+          too small" and this was why. So the cap is unconditional now, and
+          only its size changes with the screen. The facts scroll within what
+          is left rather than pushing the picture out.
+          Both numbers are a CEILING on this block, never a floor: a room with
+          few facts still gives its spare height back to the photo. */}
       <div className={hero
         ? `relative z-10 -mt-6 flex min-h-0 flex-1 flex-col overflow-y-auto rounded-t-3xl ${theme.surface}`
-        : "contents [@media(max-height:560px)]:block [@media(max-height:560px)]:max-h-[38%] [@media(max-height:560px)]:shrink-0 [@media(max-height:560px)]:overflow-y-auto"}>
+        : "flex min-h-0 max-h-[52%] shrink-0 flex-col overflow-y-auto [@media(max-height:560px)]:max-h-[38%]"}>
       {/* Thumbnail strip.
           justify-center-safe, NOT justify-center. A centred flex row that
           overflows spills out of BOTH ends, and the left overflow is
@@ -593,7 +618,12 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
             swiped.current = false;
             e.stopPropagation();
           }}
-          onDoubleClick={() => setEnlarged(false)}
+          // Mouse only, for the same reason the small picture's is: the
+          // dblclick that trails the very double-tap which OPENED this layer
+          // would otherwise close it again before the guest saw it.
+          onDoubleClick={() => {
+            if (isRealMouse()) setEnlarged(false);
+          }}
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
         >
