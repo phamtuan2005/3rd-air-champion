@@ -63,6 +63,28 @@ export const shouldListRoom = ({
   return turnsOverRoomIds?.has(roomId) ?? true;
 };
 
+// Does a DAY with no rooms left on it still belong on a cleaner's list?
+//
+// Every room on a day can drop off — the guest extended, the booking was
+// cancelled, or the auto-planner's forecast came to nothing — and the day was
+// kept regardless, so TiWork showed "Sat, Sep 26 · 0 rooms" as an upcoming
+// shift. A cleaner reads that as a day they are wanted and nothing to do when
+// they get there. A day with nothing to clean is not a shift.
+//
+// Two exceptions, the same shape as shouldListRoom's first: the work HAPPENED.
+//  · Hours are on record for it — the host has paid, or will pay, for that day.
+//  · The cleaner has claimed hours for it and is waiting on an answer.
+// Neither can vanish because the rooms behind them were cancelled afterwards.
+export const shouldListDay = ({
+  roomCount,
+  hoursRecorded,
+  claimed,
+}: {
+  roomCount: number;
+  hoursRecorded: boolean;
+  claimed: boolean;
+}): boolean => roomCount > 0 || hoursRecorded || claimed;
+
 export const loadCleaningDays = async (
   hostId: unknown,
   fromKey: string,
