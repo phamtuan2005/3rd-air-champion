@@ -160,6 +160,40 @@ describe("a stay that runs into the next year", () => {
   });
 });
 
+describe("a stay in another year", () => {
+  // Pasted 2026-09-25: a booking for January 2027 filled nothing at all — no
+  // name, no guest count, no payout. AirBnB writes the year into the dates
+  // only when the stay is outside the current year, and no pattern here
+  // allowed for it, so the heading never matched and the read gave up.
+  const NEXT_YEAR = PAGE.replace("Show more\nNadia\nSep 2 – 3 · 1 night", "Show more\nNadia\nJan 5 – 7, 2027 · 2 nights")
+    .replace("$73.51\nTotal for 1 night", "$164.00\nTotal for 2 nights")
+    .replace("Check-in\nWed, Sep 2", "Check-in\nTue, Jan 5, 2027")
+    .replace("Checkout\nThu, Sep 3", "Checkout\nThu, Jan 7, 2027");
+
+  it("still reads the name, the count and the payout", () => {
+    const r = parseReservation(NEXT_YEAR);
+    expect(r?.alias).toBe("Nadia");
+    expect(r?.guests).toBe(1);
+    expect(r?.payout).toBe(164);
+    expect(r?.nights).toBe(2);
+  });
+
+  it("takes the year the page states, over the booking-date guess", () => {
+    // Booked in August 2026 for January: the old inference would have said
+    // 2027 here too, but the point is that the stated year is read AS stated.
+    expect(parseReservation(NEXT_YEAR)?.startDate).toBe("2027-01-05");
+    const stated2028 = NEXT_YEAR.replace("Check-in\nTue, Jan 5, 2027", "Check-in\nWed, Jan 5, 2028");
+    expect(parseReservation(stated2028)?.startDate).toBe("2028-01-05");
+  });
+
+  it("reads a heading whose range crosses a month", () => {
+    const crossing = PAGE.replace("Show more\nNadia\nSep 2 – 3 · 1 night", "Show more\nNadia\nSep 30 – Oct 2 · 2 nights");
+    const r = parseReservation(crossing);
+    expect(r?.alias).toBe("Nadia");
+    expect(r?.nights).toBe(2);
+  });
+});
+
 // One copy of the Upcoming list is what lets TiMag be checked against AirBnB —
 // there is no upcoming-reservations screen in TiMag to read it against by eye.
 const LIST = `Upcoming
@@ -187,13 +221,29 @@ Chill room • Smart toilet • Stay with an Engineer
 Sep 30 – Oct 2
 Priya
 King room • Smart toilet • Stay with an Engineer
+
+
+
+Jan 5 – 7, 2027
+Mateo’s group of 3
+Chill room • Smart toilet • Stay with an Engineer
 `;
 
 describe("the Upcoming list", () => {
   const rows = parseReservationList(LIST, new Date(2026, 7, 20));
 
   it("reads every row", () => {
-    expect(rows).toHaveLength(4);
+    expect(rows).toHaveLength(5);
+  });
+
+  // The list names the year once it reaches next year's stays; a row that
+  // does is believed as written, not inferred from today.
+  it("reads a row that states its year", () => {
+    const r = rows[4];
+    expect(r.alias).toBe("Mateo");
+    expect(r.guests).toBe(3);
+    expect(r.startDate).toBe("2027-01-05");
+    expect(r.nights).toBe(2);
   });
 
   it("takes the name, the count and the room", () => {
