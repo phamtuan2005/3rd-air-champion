@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type TouchEvent as ReactTouchEvent } from "react";
 import { createPortal } from "react-dom";
 import { roomType } from "../../util/types/roomType";
-import { getRoomFacts, getRoomPhotos, houseKitchen } from "../../util/roomFacts";
+import { getRoomFacts, getRoomPhotos, houseKitchen, houseParking } from "../../util/roomFacts";
 import { useRoomChip, useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import BedIcon from "./BedIcon";
+import ParkingIcon from "./ParkingIcon";
 
 const BACKEND = import.meta.env.VITE_BACKEND_ENDPOINT || "";
 const resolveUrl = (url: string) => url.startsWith("/") ? `${BACKEND}${url}` : url;
@@ -521,6 +522,26 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
                 </li>
               ))}
             </ul>
+            {/* Brighter and heavier than the grey lines around it, with a car
+                in front: the house asked for parking to be spotted at a
+                glance, and one more grey sentence is read, not spotted.
+                Directly under the beds, not at the foot of the facts. It sat
+                below the bathroom, kitchen and privacy lines at first, and
+                this block is capped at 34vh and scrolls — on a phone the
+                guest had to scroll the facts to find the line that was
+                meant to be seen first.
+                The car is centred on the FIRST line, not on the paragraph:
+                the sentence wrapped to three lines on a phone when it was
+                longer, and centring on all three floated the icon beside
+                nothing. Pinned to the top instead, it sat above the first
+                line's middle and looked crooked. A box one line tall (1lh)
+                centres it on that line. */}
+            <p className="mt-1 flex items-start gap-1.5 text-base font-semibold text-white">
+              <span className="flex h-[1lh] shrink-0 items-center">
+                <ParkingIcon />
+              </span>
+              {houseParking}
+            </p>
             <p className="mt-1 text-base text-gray-300">{facts.bathroom}</p>
             {/* Beside the bathroom, because it is the same kind of answer: what
                 in this house is yours alone and what is everybody's. Read from
