@@ -50,6 +50,19 @@ interface BarRow {
   predicted?: number; // projected total (booked + expected open nights); drawn as a dashed cap when > value
 }
 
+// How many months the trend tabs show, current month last. It was six, and
+// Anh-Tuan wanted the year: "I want to show you the statistic for the whole
+// year, but the window stops with just 6 months." Twelve bars in the same
+// 320-unit width means each slot is ~26 wide, so the charts below size their
+// labels from the slot rather than assuming the roomy six-bar layout.
+const TREND_MONTHS = 12;
+
+// The trend spans a year boundary now, so a bare "Jan" is ambiguous. The year
+// is written once under the first month and again under each January, rather
+// than on every label, which at twelve bars would not fit.
+const yearLabelFor = (rows: { month: string }[], i: number): string | null =>
+  i === 0 || rows[i].month.endsWith("-01") ? rows[i].month.slice(0, 4) : null;
+
 // Dependency-free SVG bar chart with a zero baseline (handles negatives), direct
 // value labels, and a native hover tooltip per bar. Unit-agnostic: pass fmt/fmtTip
 // for $ or %; pass axisMax to pin the scale (e.g. 100 for a percentage).
@@ -76,11 +89,17 @@ const TrendBars = ({
   const H = 150;
   const padX = 6;
   const padTop = 16;
-  const padBottom = 20;
+  const padBottom = 30; // month label, then the year row beneath it
   const plotH = H - padTop - padBottom;
   const n = Math.max(rows.length, 1);
   const slot = (W - padX * 2) / n;
   const bw = Math.min(30, slot * 0.62);
+  // Twelve bars leave ~26 units a slot; "$10.5k" at 9 units a glyph is wider
+  // than that and ran into its neighbours. Sized from the slot, not the count,
+  // so a wider chart or fewer months get the roomy labels back on their own.
+  const roomy = slot >= 40;
+  const valueFont = roomy ? 9 : 7;
+  const axisFont = roomy ? 9 : 8;
   const zeroY = padTop + (maxV / range) * plotH;
   return (
     <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" style={{ display: "block" }}>
@@ -115,7 +134,7 @@ const TrendBars = ({
                 <rect x={x} y={yPred} width={bw} height={Math.max(0, y - yPred)} fill={colorFor(r.predicted!)} opacity={0.13} />
                 <line x1={x - 2} x2={x + bw + 2} y1={yPred} y2={yPred} stroke={colorFor(r.predicted!)} strokeWidth="1.5" strokeDasharray="3 2" />
                 {showPredLabel && (
-                  <text x={x + bw / 2} y={yPred - 2.5} textAnchor="middle" fontSize="8" fill="#9aa0a6">
+                  <text x={x + bw / 2} y={yPred - 2.5} textAnchor="middle" fontSize={roomy ? 8 : 7} fill="#9aa0a6">
                     {fmt(r.predicted!)}
                   </text>
                 )}
@@ -128,15 +147,20 @@ const TrendBars = ({
               x={x + bw / 2}
               y={labelInside ? y + 11 : v >= 0 ? y - 3 : zeroY - 4}
               textAnchor="middle"
-              fontSize="9"
+              fontSize={valueFont}
               fontWeight="600"
               fill={labelInside ? "#ffffff" : "#52514e"}
             >
               {fmt(v)}
             </text>
-            <text x={x + bw / 2} y={H - 6} textAnchor="middle" fontSize="9" fill="#898781">
+            <text x={x + bw / 2} y={H - 16} textAnchor="middle" fontSize={axisFont} fill="#898781">
               {r.label}
             </text>
+            {yearLabelFor(rows, i) && (
+              <text x={x + bw / 2} y={H - 5} textAnchor="middle" fontSize="8" fill="#b1afa6">
+                {yearLabelFor(rows, i)}
+              </text>
+            )}
           </g>
         );
       })}
@@ -158,7 +182,7 @@ const GroupedBars = ({
   const H = 150;
   const padX = 6;
   const padTop = 18;
-  const padBottom = 20;
+  const padBottom = 30; // month label, then the year row beneath it
   const plotH = H - padTop - padBottom;
   const baseY = padTop + plotH;
   const n = Math.max(rows.length, 1);
@@ -166,13 +190,24 @@ const GroupedBars = ({
   const groupW = Math.min(38, slot * 0.66);
   const gap = 3;
   const bw = (groupW - gap * (series.length - 1)) / series.length;
+  // At twelve months each bar is ~7 units wide and two "$300" labels a group
+  // sat on top of each other. Below this width the bars keep their hover
+  // tooltips and the legend carries each series' total for the whole window,
+  // so the numbers are still on screen — just once each instead of twelve
+  // times unreadably.
+  const perBarLabels = bw >= 11;
+  const totals = series.map((_, j) => rows.reduce((sum, r) => sum + (r.values[j] ?? 0), 0));
+  const axisFont = slot >= 40 ? 9 : 8;
   return (
     <>
       <div className="mb-1 flex items-center gap-3">
-        {series.map((s) => (
+        {series.map((s, j) => (
           <span key={s.name} className="flex items-center gap-1 text-[10px] text-gray-500">
             <span className="h-2 w-2 rounded-sm" style={{ background: s.color }} />
             {s.name}
+            {!perBarLabels && (
+              <span className="font-semibold text-gray-700">{fmtShort(totals[j])} total</span>
+            )}
           </span>
         ))}
       </div>
@@ -191,22 +226,29 @@ const GroupedBars = ({
                     <rect x={x} y={baseY - h} width={bw} height={Math.max(h, 1)} rx="2" fill={s.color}>
                       <title>{`${s.name} · ${r.longLabel}: ${fmtFull(v)}`}</title>
                     </rect>
-                    <text
-                      x={x + bw / 2}
-                      y={baseY - h - 3}
-                      textAnchor="middle"
-                      fontSize="7.5"
-                      fontWeight="600"
-                      fill={s.color}
-                    >
-                      {fmtShort(v)}
-                    </text>
+                    {perBarLabels && (
+                      <text
+                        x={x + bw / 2}
+                        y={baseY - h - 3}
+                        textAnchor="middle"
+                        fontSize="7.5"
+                        fontWeight="600"
+                        fill={s.color}
+                      >
+                        {fmtShort(v)}
+                      </text>
+                    )}
                   </g>
                 );
               })}
-              <text x={gx + groupW / 2} y={H - 6} textAnchor="middle" fontSize="9" fill="#898781">
+              <text x={gx + groupW / 2} y={H - 16} textAnchor="middle" fontSize={axisFont} fill="#898781">
                 {r.label}
               </text>
+              {yearLabelFor(rows, i) && (
+                <text x={gx + groupW / 2} y={H - 5} textAnchor="middle" fontSize="8" fill="#b1afa6">
+                  {yearLabelFor(rows, i)}
+                </text>
+              )}
             </g>
           );
         })}
@@ -312,12 +354,15 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
       .catch(() => setAllCharges([]));
   }, [hostId, token, currentMonth, timeZone, cleaners, isOpen]);
 
-  // ── Trend tabs: profit & booking metrics over the last 6 months ───────────
+  // ── Trend tabs: profit & booking metrics over the last TREND_MONTHS ───────
   const [tab, setTab] = useState<"month" | "profit" | "bookings" | "weekday">("month");
 
-  // The 6-month window (oldest → current), shared by both trend tabs.
+  // The trend window (oldest → current), shared by both trend tabs.
   const trendMonths = useMemo(
-    () => Array.from({ length: 6 }, (_, i) => startOfMonth(subMonths(currentMonth, 5 - i))),
+    () =>
+      Array.from({ length: TREND_MONTHS }, (_, i) =>
+        startOfMonth(subMonths(currentMonth, TREND_MONTHS - 1 - i)),
+      ),
     [currentMonth],
   );
 
@@ -394,12 +439,12 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
       return;
     }
     const rangeStart = format(trendMonths[0], "yyyy-MM-dd", { timeZone });
-    const rangeEnd = format(endOfMonth(trendMonths[5]), "yyyy-MM-dd", { timeZone });
+    const rangeEnd = format(endOfMonth(trendMonths[trendMonths.length - 1]), "yyyy-MM-dd", { timeZone });
     Promise.all([
       fetchAssignments(hostId, rangeStart, rangeEnd, token).catch(() => []),
       fetchMiscExpenses(hostId, token).catch(() => []),
     ]).then(([assigns, misc]) => {
-      // Six months of history is a far steadier basis for "what does a cleaning
+      // A year of history is a far steadier basis for "what does a cleaning
       // cost" than the handful recorded so far this month.
       setHistoryAssignments(assigns);
       setTrendData(
@@ -1066,7 +1111,7 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
           <div>
             <div className="mb-1 flex items-baseline justify-between">
               <span className="text-xs font-semibold text-gray-700">Booking rate</span>
-              <span className="text-[10px] text-gray-400">occupancy, last 6 months</span>
+              <span className="text-[10px] text-gray-400">occupancy, last {TREND_MONTHS} months</span>
             </div>
             <TrendBars
               rows={bookingTrend.map((r) => ({ ...r, value: r.occupancy }))}
