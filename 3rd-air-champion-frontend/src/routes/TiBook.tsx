@@ -7,7 +7,8 @@ import { fetchHost } from "../util/hostOperations";
 import { authorizeUser } from "../util/authorizeUser";
 import { hostType } from "../util/types/hostType";
 import { roomType } from "../util/types/roomType";
-import GuestCalendar from "../components/tibook/Calendar/GuestCalendar";
+import GuestCalendar, { MONTHS_FORWARD } from "../components/tibook/Calendar/GuestCalendar";
+import { firstOpenMonth } from "../util/firstOpenMonth";
 import HostProfileBanner from "../components/tibook/HostProfileBanner";
 import HouseFactsStrip from "../components/tibook/HouseFactsStrip";
 import { dayType } from "../util/types/dayType";
@@ -469,13 +470,43 @@ const TiBookInner = () => {
     setScrollToMonthTrigger({ month: new Date(d.getFullYear(), d.getMonth(), 1), seq: Date.now() });
   }, [myStays, isSelecting]);
 
+  // On open, a month sold out in every room is skipped: the calendar opens on
+  // the first month, from today, with a night some room is free. See
+  // util/firstOpenMonth for why.
+  //
+  // Once only, when the rooms and nights first arrive — after that, where the
+  // calendar sits is the guest's to move. A returning guest's next stay above
+  // wins: it is where they asked to be. That jump can land after this one (their
+  // bookings load separately), in which case it simply moves the calendar on.
+  //
+  // "Free" is the grid's own rule, whole house: bookings, held (R) stays and
+  // per-room blocks through availableRoomsForDate, and a whole-day block,
+  // which the grid prints as blocked and never as bookable. The held stays
+  // arrive in the same step as the nights (one batched render, in the load
+  // above), so this never runs with the nights but without the holds — which
+  // would count a held night as free, and a held night is occupied.
+  const didSkipSoldOutRef = useRef(false);
+  useEffect(() => {
+    if (didSkipSoldOutRef.current || didNavToStayRef.current || isSelecting) return;
+    if (!rooms.some((r) => r.active) || days.length === 0) return;
+    didSkipSoldOutRef.current = true;
+    const today = startOfToday();
+    const month = firstOpenMonth(today, MONTHS_FORWARD, (key) =>
+      monthMap.get(key)?.isBlocked ? 0 : availableRoomsForDate(parseISO(key), true).length,
+    );
+    if (month.getFullYear() === today.getFullYear() && month.getMonth() === today.getMonth()) return;
+    setScrollToMonthTrigger({ month, seq: Date.now() });
+  }, [rooms, days, reservedMap, isSelecting]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const keyOfDate = (date: Date) =>
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
-  // Rooms actually free on a given date, within the current room scope.
-  const availableRoomsForDate = (date: Date) => {
+  // Rooms actually free on a given date, within the current room scope — or
+  // across the whole house with `everyRoom`, for questions about the house
+  // rather than about the rooms this guest has picked.
+  const availableRoomsForDate = (date: Date, everyRoom = false) => {
     const key = keyOfDate(date);
-    const scopedRooms = rooms.filter((r) => r.active && (selectedRoomIds === null || selectedRoomIds.has(r.id)));
+    const scopedRooms = rooms.filter((r) => r.active && (everyRoom || selectedRoomIds === null || selectedRoomIds.has(r.id)));
     const day = monthMap.get(key);
     const bookedIds = new Set<string>([
       ...(day?.bookings.map((b) => b.room?.id).filter(Boolean) as string[] ?? []),

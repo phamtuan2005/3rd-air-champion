@@ -38,7 +38,9 @@ interface GuestCalendarProps {
 }
 
 const NUM_ROWS = 6;
-const MONTHS_FORWARD = 36;
+// Exported so TiBook's choice of opening month never looks further ahead than
+// the calendar can scroll to.
+export const MONTHS_FORWARD = 36;
 
 // Amber diagonal hatch overlaid on a (R) hold's room color so it reads as
 // "pending / tentative", clearly different from a solid confirmed stay.
