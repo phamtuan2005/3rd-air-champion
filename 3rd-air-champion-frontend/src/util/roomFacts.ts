@@ -113,6 +113,41 @@ const listingId = (airbnbUrl?: string) => {
 // invisibility, not a lower position.
 export const houseKitchen = "Shared kitchen, open to every guest in the house";
 
+// Parking is the first practical question a guest arriving by car asks. Until
+// this line it was answered only by a chip among each room's highlights, in
+// the listing's own words, easy to miss in the row beside Wifi and Heating. This is the same on
+// all five rooms, so written once like the kitchen above.
+//
+// The chips were LEFT in, and all five now say "Free street parking". Queen's
+// and Cozy's said "Free parking on premises", transcribed off their AirBnB
+// listings, and disagreed with this line until the house corrected them
+// (2026-09-25): the parking is on the street for every room. The listings
+// were the stale side, as they were about the kitchen and the smart toilets —
+// if those two listings still say "on premises", it is the listings that need
+// changing, not this.
+//
+// Shown with its own sign in the gallery rather than as another grey line: the
+// house wanted it caught at a glance by a guest skimming the room, not found
+// on a second read.
+//
+// STREET parking, said on purpose. TiMag has a "Parking" fee preset for stays
+// that are charged for a space; this line is about the free kerbside parking
+// outside, not a promise that every car parks for nothing.
+//
+// ONE line on a 360px phone, measured in the gallery with the car icon beside
+// it. It first read "Free, easy street parking right outside, in a quiet and
+// safe neighbourhood", which took three lines on a phone — the longest thing
+// in the room's facts, and a paragraph where a glance was wanted.
+//
+// FREE and SAFE lead, on the house's instruction: those are the two things a
+// guest arriving by car is weighing, so they are the first two words a glance
+// lands on. "Safe" briefly went missing — cut down to "Free street parking
+// right outside" for length — and the house asked for it back ahead of
+// "right", which was the word given up to make room. Measured: "Free, safe
+// street parking right outside" wraps at 360px and 390px; this does not.
+// Re-measure if you add anything back.
+export const houseParking = "Free, safe street parking outside";
+
 // The other fact that belongs to the whole house rather than to any one room,
 // and the reason a guest picks a room here over a lockbox in an empty hallway:
 // the host is not a landlord somewhere else. They live in it.
@@ -235,7 +270,10 @@ const factsByListing: Record<string, roomFacts> = {
       "Dedicated workspace",
       "Mini fridge",
       "Microwave",
-      "Free parking on premises",
+      // Street parking, like every other room — see `houseParking`. This read
+      // "Free parking on premises", off the listing, until the house
+      // corrected it.
+      "Free street parking",
       "Self check-in",
     ],
     photos: [
@@ -317,7 +355,10 @@ const factsByListing: Record<string, roomFacts> = {
       "Portable fans",
       "Dedicated workspace",
       "Towels and bed linen",
-      "Free parking on premises",
+      // Street parking, like every other room — see `houseParking`. This read
+      // "Free parking on premises", off the listing, until the house
+      // corrected it.
+      "Free street parking",
       "Self check-in",
     ],
     photos: [

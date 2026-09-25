@@ -33,6 +33,24 @@ const resolveUrl = (url: string) => (url.startsWith("/") ? `${BACKEND}${url}` : 
 // "no room filter", so picking it is the same state the app starts in.
 const ANY = "__any__";
 
+// The mouse wheel and the deck — see the wheel handler in HeroShell for why.
+//
+// A single wheel event this big is one NOTCH of a mouse wheel (~100px in
+// Chrome and Edge, 3 lines ≈ 48px in Firefox), and every notch moves one card.
+const WHEEL_NOTCH = 40;
+// Smaller deltas are a trackpad or a smooth-scrolling wheel. They add up to a
+// deliberate push before moving a card, and a trackpad's momentum may move one
+// card at most every WHEEL_GLIDE_MS, so a flick glides a few rooms rather than
+// flinging to the end.
+const WHEEL_GLIDE_STEP = 120;
+const WHEEL_GLIDE_MS = 220;
+// How long the wheel must be still before a new gesture counts from the card
+// the deck is actually showing, rather than the one it was heading for.
+const WHEEL_IDLE_MS = 400;
+// How long the deck takes to glide to a card. Short on purpose: the outline
+// moves the instant a room is chosen, and the deck has to keep up with it.
+const DECK_GLIDE_MS = 220;
+
 interface HeroShellProps {
   host: { name: string; airbnbName?: string };
   rooms: roomType[];
@@ -98,23 +116,64 @@ const HeroShell = ({
   // the animation it triggered and snap the guest back.
   const scrollingTo = useRef<string | null>(null);
 
+  /*
+   * Where the deck scrolls to in order to bring a card to the front: the
+   * card's own left edge, or as far as the deck goes, whichever is nearer.
+   *
+   * The last cards can never reach the left edge — there is nothing after
+   * them to scroll into the space — and on a wide screen that is the last TWO
+   * rooms, not one. Everything below measured "arrived" against the card's
+   * edge, so picking one of those rooms left scrollingTo waiting for an
+   * arrival that could not happen, and every swipe and wheel after it was
+   * ignored until something else was tapped: the deck appeared to hang.
+   * Measured against where the card CAN get to, it arrives.
+   */
+  const reachOf = (node: HTMLElement, el: HTMLElement) =>
+    Math.min(node.offsetLeft, el.scrollWidth - el.clientWidth);
+
   // Which card the deck has settled on. Read from scroll rather than from a tap
   // so a SWIPE selects too — the swipe is the point of the layout, and a deck
   // that only responded to taps would be a row of buttons wearing a photo.
   const onScroll = () => {
     const el = trackRef.current;
     if (!el) return;
+    // A tap or the wheel already chose the card; wait for the deck to get
+    // there rather than selecting each card it passes on the way.
+    if (scrollingTo.current) {
+      const node = cardRefs.current.get(scrollingTo.current);
+      if (node && Math.abs(reachOf(node, el) - el.scrollLeft) > 2) return;
+      scrollingTo.current = null;
+      return;
+    }
     let best: string | null = null;
     let bestDist = Infinity;
     cardRefs.current.forEach((node, id) => {
-      const d = Math.abs(node.offsetLeft - el.scrollLeft);
-      if (d < bestDist) { bestDist = d; best = id; }
+      // <=, so where the last cards share the deck's end the LATER one wins:
+      // a guest who swiped all the way along meant the last room.
+      const d = Math.abs(reachOf(node, el) - el.scrollLeft);
+      if (d <= bestDist) { bestDist = d; best = id; }
     });
     if (!best) return;
-    if (scrollingTo.current && scrollingTo.current !== best) return;
-    scrollingTo.current = null;
-    if (best !== activeId) onSelectRoom(best === ANY ? null : best);
+    // ...unless the room already selected is one of those sharing the spot.
+    // On a wide screen the last THREE rooms share the deck's end, and a guest
+    // who clicked the middle one of them watched the deck glide over and then
+    // hand the outline to the last room instead: the scroll events after the
+    // glide landed found a tie and gave it to the later card. The selection
+    // already standing there is the one they chose; a tie never overrides it.
+    const current = cardRefs.current.get(activeId);
+    if (current && Math.abs(reachOf(current, el) - el.scrollLeft) <= bestDist + 2) return;
+    if (best !== activeId) {
+      selectedByDeck.current = best;
+      onSelectRoom(best === ANY ? null : best);
+    }
   };
+
+  // The card the deck's own scrolling just selected. The effect further down
+  // brings a card chosen ELSEWHERE into view; it must not answer the deck's
+  // own choices, or a swipe passing a card got pulled back to that card
+  // mid-flight — the deck selects each card it passes — and a fast swipe
+  // stopped a room or two short of where it was thrown.
+  const selectedByDeck = useRef<string | null>(null);
 
   /*
    * A tap means two different things depending on which card it lands on, and
@@ -133,21 +192,174 @@ const HeroShell = ({
 
   // Bring a tapped card to the front of the deck.
   const pick = (id: string) => {
-    scrollingTo.current = id;
     onSelectRoom(id === ANY ? null : id);
-    cardRefs.current.get(id)?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
+    bringToFront(id);
   };
+
+  /*
+   * The deck's own glide, instead of the browser's smooth scroll.
+   *
+   * With scrollTo({ behavior: "smooth" }) the browser starts its easing over
+   * on every retarget, slow off the mark each time, so under a continuous
+   * wheel the deck fell further and further behind the selection. The green
+   * outline — which moves the instant a notch lands — ran off ahead onto cards
+   * still out of view, and the guest lost it altogether.
+   *
+   * This eases OUT from wherever the deck is, fastest at the start, so each
+   * new notch picks the motion up at speed rather than from a standstill. A
+   * short glide with a quick start keeps the deck within about a card of the
+   * outline however fast the wheel turns.
+   *
+   * Snapping is switched off while it runs: a snap container re-snaps after
+   * every programmatic scroll, and a scrollLeft set each frame was being
+   * yanked to the nearest card each frame. It lands exactly on a card, so
+   * turning snapping back on moves nothing.
+   */
+  const glide = useRef<number | null>(null);
+  const stopGlide = () => {
+    if (glide.current != null) cancelAnimationFrame(glide.current);
+    glide.current = null;
+    if (trackRef.current) trackRef.current.style.scrollSnapType = "";
+  };
+  const glideTo = (el: HTMLElement, left: number) => {
+    stopGlide();
+    const from = el.scrollLeft;
+    const start = performance.now();
+    el.style.scrollSnapType = "none";
+    const frame = (now: number) => {
+      const t = Math.min(1, (now - start) / DECK_GLIDE_MS);
+      el.scrollLeft = from + (left - from) * (1 - Math.pow(1 - t, 3));
+      if (t < 1) glide.current = requestAnimationFrame(frame);
+      else stopGlide();
+    };
+    glide.current = requestAnimationFrame(frame);
+  };
+
+  // Scrolls, and only waits for an arrival when there is somewhere to go. On a
+  // wide screen the last two rooms share the deck's end, so moving between
+  // them scrolls nowhere, fires no scroll event, and a scrollingTo set anyway
+  // would never be cleared — the same hang as above, by another door.
+  // Stopping the glide there also stops one still heading for another card,
+  // which would otherwise land there and select it.
+  const bringToFront = (id: string) => {
+    const node = cardRefs.current.get(id);
+    const el = trackRef.current;
+    if (!node || !el) return;
+    const left = reachOf(node, el);
+    if (Math.abs(left - el.scrollLeft) <= 2) {
+      scrollingTo.current = null;
+      stopGlide();
+      return;
+    }
+    scrollingTo.current = id;
+    glideTo(el, left);
+  };
+
+  /*
+   * The mouse wheel moves through the deck, one card per notch.
+   *
+   * The deck scrolls sideways and a mouse wheel scrolls up and down, so on a
+   * desktop the wheel over the pictures did nothing at all — the only ways
+   * across were Shift+wheel, which nobody knows, or clicking the next card.
+   * A guest scrolling over five photographs expects to see the next one.
+   *
+   * One CARD per notch, not pixels: the deck snaps, and feeding deltaY into
+   * scrollLeft fought the snapping, stuttering part-way and springing back.
+   * Moving by card goes through pick(), the same path a click takes, so the
+   * month follows exactly as it does for a tap or a swipe.
+   *
+   * Notches QUEUE. The first version locked the wheel for 450ms after each
+   * card so a fast spin could not race to the end — and a fast spin is exactly
+   * what a guest does, so it felt like the deck hung, swallowing every notch
+   * but the first. Now each notch aims one card further on from where the deck
+   * is HEADING (`target`), not from where it is: the glide retargets
+   * mid-flight and three quick notches glide three rooms. Counting from the
+   * selected card instead lost notches that arrived before React re-rendered.
+   *
+   * Heard over the header bar as well as the cards. Over the pictures only,
+   * the wheel stopped working the moment the cursor drifted off a photo. The
+   * month below keeps the wheel to itself: that is how a guest scrolls it.
+   *
+   * A trackpad swiping SIDEWAYS already scrolls the deck natively, so any
+   * gesture that is mostly horizontal is left alone. At either end of the deck
+   * the wheel is let through rather than swallowed.
+   */
+  const navRef = useRef<HTMLElement>(null);
+  const deckRef = useRef<HTMLDivElement>(null);
+  const wheelState = useRef({ activeId, cards, pick });
+  wheelState.current = { activeId, cards, pick };
+
+  useEffect(() => {
+    const track = trackRef.current;
+    const areas = [navRef.current, deckRef.current].filter((n): n is HTMLElement => !!n);
+    if (!track || areas.length === 0) return;
+    let acc = 0;
+    let target: number | null = null;
+    let lastGlide = 0;
+    let idle: ReturnType<typeof setTimeout> | undefined;
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return;
+      // Firefox reports a wheel notch in LINES (deltaMode 1, deltaY ≈ 3), not
+      // pixels, which would never reach the steps above.
+      const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * track.clientHeight : e.deltaY;
+      const { activeId, cards, pick } = wheelState.current;
+      const from = target ?? cards.findIndex((c) => c.id === activeId);
+      const dir = Math.sign(dy);
+      const next = cards[from + dir];
+      if (!next) { acc = 0; return; }
+      // Non-passive (see addEventListener below), so this really does stop the
+      // page behind the deck from scrolling while the cards move.
+      e.preventDefault();
+      clearTimeout(idle);
+      idle = setTimeout(() => { target = null; acc = 0; }, WHEEL_IDLE_MS);
+      if (Math.abs(dy) < WHEEL_NOTCH) {
+        if (Math.sign(acc) !== dir) acc = 0;
+        acc += dy;
+        if (Math.abs(acc) < WHEEL_GLIDE_STEP) return;
+        if (performance.now() - lastGlide < WHEEL_GLIDE_MS) return;
+        lastGlide = performance.now();
+      }
+      acc = 0;
+      target = from + dir;
+      pick(next.id);
+    };
+    // A finger or a mouse press on the deck takes it over from the glide, so a
+    // guest who grabs the cards mid-glide is not dragged on to where it was
+    // heading. Clearing scrollingTo lets their swipe select as it goes.
+    const takeOver = () => {
+      if (glide.current == null) return;
+      stopGlide();
+      scrollingTo.current = null;
+      target = null;
+    };
+    // React's onWheel is passive and cannot preventDefault, hence the listener.
+    areas.forEach((a) => a.addEventListener("wheel", onWheel, { passive: false }));
+    track.addEventListener("pointerdown", takeOver);
+    return () => {
+      clearTimeout(idle);
+      stopGlide();
+      areas.forEach((a) => a.removeEventListener("wheel", onWheel));
+      track.removeEventListener("pointerdown", takeOver);
+    };
+  }, []);
 
   // A room chosen from somewhere else (a room picker, a stay) should bring its
   // card into view rather than leaving the deck showing something the month is
   // no longer about.
+  // Skipped while the deck is already heading somewhere: during a fast wheel
+  // spin activeId runs ahead of the scroll, and re-aiming at each card it
+  // named would drag the deck back to rooms the wheel had already passed.
   useEffect(() => {
+    if (scrollingTo.current) return;
+    if (selectedByDeck.current === activeId) { selectedByDeck.current = null; return; }
     const node = cardRefs.current.get(activeId);
-    if (!node || !trackRef.current) return;
-    if (Math.abs(node.offsetLeft - trackRef.current.scrollLeft) < 8) return;
-    scrollingTo.current = activeId;
-    node.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
-  }, [activeId]);
+    const el = trackRef.current;
+    if (!node || !el) return;
+    if (Math.abs(reachOf(node, el) - el.scrollLeft) < 8) return;
+    bringToFront(activeId);
+    // bringToFront reads only refs, so a fresh copy each render changes
+    // nothing; listing it would re-run this on every render, not on a new room.
+  }, [activeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activeRoom = activeRooms.find((r) => r.id === activeId) ?? null;
   // The HOST is the person, not the listing. airbnbName is the title of the
@@ -204,7 +416,7 @@ const HeroShell = ({
           it MEASURES that bar rather than guessing — with a plain div here it
           found nothing, fell back to a hardcoded 72px, and left a strip of the
           room deck showing above the sheet. */}
-      <nav className={`flex shrink-0 items-center gap-2 px-3 py-2 ${theme.chrome}`}>
+      <nav ref={navRef} className={`flex shrink-0 items-center gap-2 px-3 py-2 ${theme.chrome}`}>
         {/* TiBook's own icon, not TiMag's logo: this is the guest's app, and
             the one place in Hero where it can say so — the stacked layout says
             it in a nav bar Hero does not have. */}
@@ -234,7 +446,7 @@ const HeroShell = ({
       </nav>
 
       {/* ── The rooms: 2 of the 5 parts under the header ─────────────────── */}
-      <div className="relative min-h-0 flex-[2]">
+      <div ref={deckRef} className="relative min-h-0 flex-[2]">
         <div
           ref={trackRef}
           onScroll={onScroll}
@@ -253,7 +465,13 @@ const HeroShell = ({
                    photographs small and the deck mostly empty space. It grows
                    with the viewport from sm upward, so a desktop gets a
                    picture worth looking at and a phone is untouched. */
-                className={`relative w-[17rem] sm:w-[22rem] md:w-[26rem] lg:w-[32rem] shrink-0 snap-start cursor-pointer overflow-hidden rounded-3xl border transition-all ${
+                /* transition-OPACITY, not transition-all. The outline and its
+                   glow faded in over 150ms, and a wheel turning a card every
+                   50ms moved on before any card had finished fading in — the
+                   outline vanished for as long as the guest kept scrolling.
+                   It now switches instantly; only the dimming of the other
+                   cards still fades. */
+                className={`relative w-[17rem] sm:w-[22rem] md:w-[26rem] lg:w-[32rem] shrink-0 snap-start cursor-pointer overflow-hidden rounded-3xl border transition-opacity ${
                   on ? theme.selectedBorder : theme.surfaceBorder
                 } ${on ? theme.glow : "opacity-70"}`}
               >
