@@ -3,7 +3,7 @@ import Host from "../../model/hostSchema";
 import Calendar from "../../model/calendarSchema";
 import Day from "../../model/daySchema";
 import { createMockHost } from "../../model/test/util/mockHost";
-import { loadCleaningDays, shouldListRoom } from "../cleaningDays";
+import { loadCleaningDays, shouldListDay, shouldListRoom } from "../cleaningDays";
 
 // What TiWork hands TiMag's cleaning rule, and when it is allowed to act on the
 // answer.
@@ -18,6 +18,28 @@ const utcDay = (offsetDays: number): string => {
   d.setUTCDate(d.getUTCDate() + offsetDays);
   return d.toISOString().slice(0, 10);
 };
+
+describe("deciding whether a day with no rooms stays on a cleaner's list", () => {
+  // The bug: every room on Sat Sep 26 had dropped off, and TiWork still
+  // listed the day as an upcoming shift with "0 rooms".
+  it("drops a day nothing is left to clean on", () => {
+    expect(shouldListDay({ roomCount: 0, hoursRecorded: false, claimed: false })).toBe(false);
+  });
+
+  it("lists a day with a room on it", () => {
+    expect(shouldListDay({ roomCount: 1, hoursRecorded: false, claimed: false })).toBe(true);
+  });
+
+  // The plan is not always what happened. A day somebody was paid for, or has
+  // asked to be paid for, is a record, not a forecast.
+  it("keeps a day whose hours are already recorded", () => {
+    expect(shouldListDay({ roomCount: 0, hoursRecorded: true, claimed: false })).toBe(true);
+  });
+
+  it("keeps a day the cleaner has claimed hours for", () => {
+    expect(shouldListDay({ roomCount: 0, hoursRecorded: false, claimed: true })).toBe(true);
+  });
+});
 
 describe("deciding whether a room stays on a cleaner's list", () => {
   const roomId = "room-1";

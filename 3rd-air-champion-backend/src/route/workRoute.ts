@@ -8,7 +8,7 @@ import { computeCleanerPay } from "../util/cleanerPay";
 import { arrivingNeeds } from "../util/arrivingGuests";
 import { roomOccupancyOdds, roomPartySizeOdds } from "../util/roomLikelihood";
 import { loadArrivals, loadRoomHistory } from "../util/arrivalsLookup";
-import { loadCleaningDays, shouldListRoom } from "../util/cleaningDays";
+import { loadCleaningDays, shouldListDay, shouldListRoom } from "../util/cleaningDays";
 import {
   ARRIVAL_LOOKAHEAD_NIGHTS,
   chooseHeadcount,
@@ -383,7 +383,12 @@ router.post("/schedule", async (req: Request, res: any) => {
     const byDay = new Map(claims.map((c: any) => [c.date, c]));
 
     res.status(200).json(
-      [...byDate.values()].map((g: any) => {
+      [...byDate.values()]
+        // A day every room has dropped off is not a shift — see shouldListDay.
+        .filter((g: any) =>
+          shouldListDay({ roomCount: g.rooms.length, hoursRecorded: g.hasHours, claimed: byDay.has(g.date) }),
+        )
+        .map((g: any) => {
         const claim = byDay.get(g.date);
         return {
           date: g.date,
