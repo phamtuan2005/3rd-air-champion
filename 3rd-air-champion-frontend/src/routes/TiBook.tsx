@@ -7,7 +7,8 @@ import { fetchHost } from "../util/hostOperations";
 import { authorizeUser } from "../util/authorizeUser";
 import { hostType } from "../util/types/hostType";
 import { roomType } from "../util/types/roomType";
-import GuestCalendar, { MONTHS_FORWARD } from "../components/tibook/Calendar/GuestCalendar";
+import GuestCalendar from "../components/tibook/Calendar/GuestCalendar";
+import { MONTHS_FORWARD } from "../components/tibook/Calendar/calendarScroll";
 import { firstOpenMonth } from "../util/firstOpenMonth";
 import HostProfileBanner from "../components/tibook/HostProfileBanner";
 import HouseFactsStrip from "../components/tibook/HouseFactsStrip";
@@ -682,7 +683,13 @@ const TiBookInner = () => {
     setIsBookingModalOpen(true);
   };
 
-  const newWishListDates = new Set([...wishListDates].filter((d) => !persistedWishListDates.has(d)));
+  // Memoised so the calendar's list view can skip redrawing months while the
+  // guest drags the grip: a fresh Set every render looked like new wish-list
+  // news to it and redrew every row, every frame.
+  const newWishListDates = useMemo(
+    () => new Set([...wishListDates].filter((d) => !persistedWishListDates.has(d))),
+    [wishListDates, persistedWishListDates],
+  );
   const hasSelection = cartDates.size > 0 || newWishListDates.size > 0;
   const barLabel = cartDates.size > 0 && newWishListDates.size > 0
     ? `${cartDates.size} date${cartDates.size > 1 ? "s" : ""} · ★ ${newWishListDates.size} wish list`
@@ -901,6 +908,7 @@ const TiBookInner = () => {
                 myStays={myStays}
                 reservedStays={reservedStays}
                 reservedMap={reservedMap}
+                myRates={myRates}
                 scrollToTodayTrigger={scrollToTodayTrigger}
                 scrollToMonthTrigger={scrollToMonthTrigger ?? undefined}
                 simplified={!isSelecting}

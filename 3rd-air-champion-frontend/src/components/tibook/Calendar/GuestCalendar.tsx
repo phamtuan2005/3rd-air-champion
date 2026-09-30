@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "../../../styles/calendarStyle.css";
-import { addDays, getDay, isBefore, isSameDay, isSameMonth, parseISO, startOfToday } from "date-fns";
+import { addDays, getDay, isSameDay, isSameMonth, parseISO, startOfToday } from "date-fns";
 import { dayType } from "../../../util/types/dayType";
 import { roomType } from "../../../util/types/roomType";
 import { getRoomColor } from "../../../util/getRoomColor";
-import { useTiBookTheme, useRoomChip } from "../../../contexts/TiBookThemeContext";
+import { useTiBookTheme, useRoomChip, useCalendarView } from "../../../contexts/TiBookThemeContext";
+import { nightStatus } from "../../../util/nightStatus";
+import GuestDayList from "./GuestDayList";
+import { MONTHS_FORWARD, appliedMonthTrigger, HOLD_HATCH, HOLD_HATCH_TILE } from "./calendarScroll";
 
 // A guest's own confirmed stay, drawn as a spanning bar (not a dot).
 export interface MyStay {
@@ -15,7 +18,7 @@ export interface MyStay {
   roomColor?: string;
 }
 
-interface GuestCalendarProps {
+export interface GuestCalendarProps {
   currentMonth: Date;
   monthMap: Map<string, dayType>;
   rooms: roomType[];
@@ -27,6 +30,10 @@ interface GuestCalendarProps {
   myStays?: MyStay[];
   reservedStays?: MyStay[]; // (R) holds — drawn as a distinct "pending" ribbon
   reservedMap?: Map<string, Set<string>>;
+  // This guest's own agreed rate per room id, where Anh-Tuan has set one. Only
+  // the list shows it — a grid tile has no room — and a room without one
+  // shows no price at all, never its list price (see HeroShell's myRate).
+  myRates?: Map<string, number>;
   scrollToTodayTrigger?: number;
   scrollToMonthTrigger?: { month: Date; seq: number };
   simplified?: boolean;
@@ -38,18 +45,7 @@ interface GuestCalendarProps {
 }
 
 const NUM_ROWS = 6;
-// Exported so TiBook's choice of opening month never looks further ahead than
-// the calendar can scroll to.
-export const MONTHS_FORWARD = 36;
 
-// Amber diagonal hatch overlaid on a (R) hold's room color so it reads as
-// "pending / tentative", clearly different from a solid confirmed stay.
-// The square a 45° pattern of 9px period tiles into (9 / sin 45°). Needed
-// because background-position only lines segments up once the gradient has a
-// size of its own rather than the element's.
-const HOLD_HATCH_TILE = 12.728;
-const HOLD_HATCH =
-  "repeating-linear-gradient(45deg, rgba(217,119,6,0.62) 0 4px, rgba(255,255,255,0) 4px 9px)";
 
 // ── Type and bar geometry, derived from the tile height ──────────────────────
 //
@@ -129,9 +125,7 @@ const buildMonthCells = (month: Date): (Date | null)[] => {
   return cells;
 };
 
-type TileStatus = "available" | "partial" | "full" | "blocked" | "past";
-
-const GuestCalendar = ({
+const MonthGrid = ({
   currentMonth,
   monthMap,
   rooms,
@@ -306,12 +300,12 @@ const GuestCalendar = ({
   // containerHeight means a trigger that arrives before the calendar is laid out
   // (e.g. a returning guest's bookings resolving fast) still lands when it's
   // ready, instead of being silently dropped against a 0-height container.
-  const appliedTriggerSeq = useRef(0);
+  // "Once" is once per visit, not per mount — see calendarScroll.
   useEffect(() => {
-    if (!scrollToMonthTrigger || scrollToMonthTrigger.seq === appliedTriggerSeq.current) return;
+    if (!scrollToMonthTrigger || scrollToMonthTrigger.seq === appliedMonthTrigger.seq) return;
     const el = scrollContainerRef.current;
     if (!el || !months.length || el.offsetHeight <= 0) return;
-    appliedTriggerSeq.current = scrollToMonthTrigger.seq;
+    appliedMonthTrigger.seq = scrollToMonthTrigger.seq;
     const today = new Date();
     const idx = Math.max(0,
       (scrollToMonthTrigger.month.getFullYear() - today.getFullYear()) * 12 +
@@ -359,23 +353,8 @@ const GuestCalendar = ({
     }
   };
 
-  const getStatus = (date: Date): { status: TileStatus; roomsLeft: number } => {
-    if (isBefore(date, startOfToday())) return { status: "past", roomsLeft: 0 };
-    const total = scopedRooms.length;
-    const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-    const day = monthMap.get(dateKey);
-    if (day?.isBlocked) return { status: "blocked", roomsLeft: 0 };
-    // Unavailable = booked + reserved + host-blocked rooms. Per-room blocks live in day.blockedRooms
-    // (day.isBlocked only covers whole-day blocks); without them, blocked rooms stayed bookable here.
-    const unavailableIds = new Set<string>(day?.bookings.map((b) => b.room?.id).filter(Boolean) as string[] ?? []);
-    reservedMap?.get(dateKey)?.forEach((id) => unavailableIds.add(id));
-    day?.blockedRooms?.forEach((r) => { if (r?.id) unavailableIds.add(r.id); });
-    const bookedScoped = scopedRooms.filter((r) => unavailableIds.has(r.id)).length;
-    const roomsLeft = Math.max(total - bookedScoped, 0);
-    if (roomsLeft === 0) return { status: "full", roomsLeft: 0 };
-    if (bookedScoped > 0) return { status: "partial", roomsLeft };
-    return { status: "available", roomsLeft: total };
-  };
+  // The rule lives in util/nightStatus so the day-by-day list reads the same one.
+  const getStatus = (date: Date) => nightStatus(date, scopedRooms, monthMap, reservedMap);
 
   const renderTile = (date: Date, pageMonth: Date) => {
     const isOutside = !isSameMonth(date, pageMonth);
@@ -687,6 +666,21 @@ const GuestCalendar = ({
       })}
     </div>
   );
+};
+
+/*
+ * The guest's calendar, as a month grid or as a day-by-day list — whichever
+ * they last chose on this device.
+ *
+ * Both views take the same props and print from the same nightStatus rule, so
+ * switching is only a change of arrangement: the guest keeps their picked
+ * dates, their wish list and their place in the month. The switch happens here
+ * rather than where the calendar is mounted so that neither layout (stacked or
+ * Hero) needs to know there are two views.
+ */
+const GuestCalendar = (props: GuestCalendarProps) => {
+  const { calendarView } = useCalendarView();
+  return calendarView === "list" ? <GuestDayList {...props} /> : <MonthGrid {...props} />;
 };
 
 export default GuestCalendar;

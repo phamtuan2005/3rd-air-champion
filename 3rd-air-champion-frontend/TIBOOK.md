@@ -33,7 +33,8 @@ Two things about that file:
 |---|---|
 | `src/routes/TiBook.tsx` | The whole screen: state, data loading, the cart |
 | `src/components/tibook/BookingRequestModal.tsx` | The request flow — step 1 dates, step 2 details |
-| `src/components/tibook/Calendar/` | The guest calendar and its filters |
+| `src/components/tibook/Calendar/` | The guest calendar and its filters — a month grid, or a day-by-day list (`GuestDayList`) the guest switches to beside Today; the choice is remembered per device |
+| `src/util/nightStatus.ts` | Free / partly taken / sold out for one night — the one rule both calendar views print from |
 | `src/components/tibook/RoomCards.tsx` | The room banner, photos, and the guest's own rate |
 | `src/util/dateText.ts` | Reads dates out of what a guest types |
 | `src/util/cartGrouping.ts` | Turns chosen dates into stays |
