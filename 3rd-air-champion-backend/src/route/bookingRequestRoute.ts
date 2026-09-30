@@ -182,6 +182,7 @@ router.post("/get/guest/calendar", async (req: Request, res: any) => {
           amount
         }
         expectedPayDate
+        total
       }
     }`;
 

@@ -16,6 +16,9 @@ export interface MyStay {
   nights: number;
   roomName: string;
   roomColor?: string;
+  // What the guest paid for the whole stay, when the backend says. Undefined
+  // means unknown, not free — a family stay's 0 is a real answer.
+  paid?: number;
 }
 
 export interface GuestCalendarProps {

@@ -132,7 +132,7 @@ export const dayResolvers = {
       // flag + meta. Reserved (R) nights ARE included now — but status is resolved
       // PER STAY below (not once per room), so an unpaid hold is correctly labeled
       // "reserved" and can never be mislabeled "confirmed" by a same-room stay.
-      type Night = { date: Date; reserved: boolean; meta: any };
+      type Night = { date: Date; reserved: boolean; price: number; meta: any };
       const roomNights = new Map<string, Night[]>();
       for (const day of days) {
         for (const booking of day.bookings as any[]) {
@@ -142,6 +142,9 @@ export const dayResolvers = {
           roomNights.get(roomId)!.push({
             date: day.date,
             reserved: !!booking.reserved,
+            // The rate this night was booked at — its OWN, so a stay whose rate
+            // changed partway through is still added up night by night.
+            price: Number(booking.price) || 0,
             meta: {
               id: booking._id.toString(),
               numberOfGuests: booking.numberOfGuests ?? 1,
@@ -172,6 +175,20 @@ export const dayResolvers = {
             nights[j + 1].reserved === start.reserved
           )
             j++;
+          // What the stay cost: every night at the price it was booked at, and
+          // the fees ONCE. Fees are per stay but stored on every night, so they
+          // come from the start night's meta alone — adding them per night
+          // would charge a 4-night stay's cleaning fee four times.
+          //
+          // TiBook shows this to the guest as what they paid. It used to have
+          // only the guest's CURRENT agreed rate to go on, which is not what an
+          // older stay cost if the rate has changed since.
+          let nightsTotal = 0;
+          for (let k = i; k <= j; k++) nightsTotal += nights[k].price;
+          const feesTotal = (start.meta.fees as { amount: number }[]).reduce(
+            (sum, f) => sum + (Number(f.amount) || 0),
+            0,
+          );
           result.push({
             ...start.meta,
             guestName: guest.name,
@@ -179,6 +196,7 @@ export const dayResolvers = {
             room: roomId,
             duration: j - i + 1,
             status: start.reserved ? "reserved" : "confirmed",
+            total: nightsTotal + feesTotal,
           });
           i = j + 1;
         }

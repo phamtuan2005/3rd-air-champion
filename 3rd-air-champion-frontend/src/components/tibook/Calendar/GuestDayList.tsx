@@ -56,7 +56,7 @@ const BAR_RIGHT = 16;
 // Was 10px, then 16; asked to be thicker each time.
 const BAR_W = 32;
 
-interface StayNight { id: string; roomName: string; roomColor?: string; isStart: boolean; nights: number; index: number }
+interface StayNight { id: string; roomName: string; roomColor?: string; isStart: boolean; nights: number; index: number; paid?: number }
 interface Checkout { roomName: string; roomColor?: string }
 
 // A night the guest holds a stay or a hold on, keyed by yyyy-MM-dd. Only the
@@ -71,7 +71,7 @@ const nightsOf = (stays: GuestCalendarProps["myStays"]) => {
     if (!s.nights || s.nights < 1) return;
     const start = parseISO(s.startKey);
     for (let i = 0; i < s.nights; i++) {
-      nights.set(nightKey(addDays(start, i)), { id: s.id, roomName: s.roomName, roomColor: s.roomColor, isStart: i === 0, nights: s.nights, index: i });
+      nights.set(nightKey(addDays(start, i)), { id: s.id, roomName: s.roomName, roomColor: s.roomColor, isStart: i === 0, nights: s.nights, index: i, paid: s.paid });
     }
     checkouts.set(nightKey(addDays(start, s.nights)), { roomName: s.roomName, roomColor: s.roomColor });
   });
@@ -343,6 +343,20 @@ const MonthSection = memo(({ month, days, top, drawn, data, handlers }: MonthSec
     const checkIn = addDays(run[0], -first.index);
     const checkOut = addDays(checkIn, first.nights);
     const nightsText = `${first.nights} night${first.nights === 1 ? "" : "s"}`;
+    /*
+     * What the guest paid for the WHOLE stay — every night at the price it was
+     * booked at, fees once — worked out by the backend from the booking
+     * itself, never from today's rate. Said on each part of a stay that crosses
+     * a month, since the dates beside it are the whole stay's too.
+     *
+     * Only a confirmed stay has been paid; a hold has not, and says so. A $0
+     * stay is family and says what it means, as the room cards do. Unknown
+     * (a backend that does not send it yet) says nothing rather than guess.
+     */
+    const paidText =
+      held || first.paid == null ? undefined :
+      first.paid === 0 ? "Family — no charge" :
+      `Paid $${first.paid.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
     const h = handlers.current;
     const onClick = held ? () => h.onReservedClick?.() : () => h.onMyStayClick?.(first.id);
     const today = startOfToday();
@@ -400,7 +414,13 @@ const MonthSection = memo(({ month, days, top, drawn, data, handlers }: MonthSec
           <span className={`truncate text-xs ${theme.surfaceMuted}`}>
             {format(checkIn, "EEE d MMM")} – {format(checkOut, "EEE d MMM")}
             {held ? ` · ${nightsText}` : ""}
+            {/* A one-night cell has no room for a third line; the amount rides
+                on this one instead. */}
+            {paidText && run.length === 1 ? ` · ${paidText}` : ""}
           </span>
+          {paidText && run.length > 1 && (
+            <span className={`truncate text-sm font-semibold ${theme.surfaceText}`}>{paidText}</span>
+          )}
           {held && <span className={`truncate text-xs font-semibold ${theme.warmText2}`}>Tap to pay</span>}
         </span>
       </button>
