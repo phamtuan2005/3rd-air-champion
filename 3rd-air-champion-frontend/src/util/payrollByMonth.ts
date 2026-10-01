@@ -106,3 +106,10 @@ export const payrollByMonth = (
       };
     });
 };
+
+/** The month `delta` months from a yyyy-MM key — string arithmetic, so no timezone can move it. */
+export const shiftMonth = (key: string, delta: number): string => {
+  const [y, m] = key.split("-").map(Number);
+  const n = y * 12 + (m - 1) + delta;
+  return `${Math.floor(n / 12)}-${String((n % 12) + 1).padStart(2, "0")}`;
+};
