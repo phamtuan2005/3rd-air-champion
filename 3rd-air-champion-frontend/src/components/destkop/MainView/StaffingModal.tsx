@@ -257,12 +257,7 @@ const StaffingModal = ({ hostId, token, onClose, senderName }: StaffingModalProp
   const renderCard = (s: StaffType) => {
     const open = expandedId === s.id;
     const rate = rateOn(s, todayKey);
-    // Earned from APPROVED hours only, each at the rate frozen when it was
-    // approved. A submitted entry is a claim, not yet money.
-    const earned = workEntries
-      .filter((w) => w.staffId === s.id && w.status === "approved")
-      .reduce((sum, w) => sum + w.hours * (w.approvedRate || 0), 0);
-    const owed = Math.max(0, earned - (s.paidAmount ?? 0));
+
     const latest = [...(s.reviews ?? [])].sort((a, b) => b.date.localeCompare(a.date))[0];
     const rd = reviewDraft[s.id] ?? { rating: "", note: "" };
 
@@ -534,34 +529,11 @@ const StaffingModal = ({ hostId, token, onClose, senderName }: StaffingModalProp
               </div>
             </div>
 
-            {/* Paid out */}
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm text-gray-500">
-                Paid to date{" "}
-                <span className="font-bold text-gray-800">{money(s.paidAmount ?? 0)}</span>
-              </span>
-              {/* "Record pay" lived here, an amount box beside the figure. It
-                  is on the Payroll tab now — see the pay panel there for why.
-                  This takes the host there with this person already picked. */}
-              <button
-                type="button"
-                onClick={() => {
-                  setPayrollFor(s.id);
-                  setTab("payroll");
-                }}
-                className="ml-auto shrink-0 rounded-lg border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-700"
-              >
-                Record pay in Payroll ›
-              </button>
-              {earned > 0 && (
-                <span className="w-full text-xs text-gray-400">
-                  Earned {money(Math.round(earned * 100) / 100)} from approved hours
-                  {owed > 0 && (
-                    <span className="font-bold text-rose-600"> · {money(Math.round(owed * 100) / 100)} owed</span>
-                  )}
-                </span>
-              )}
-            </div>
+            {/* No money on the team card. "Paid to date", an amount box to
+                record a payout, then a button to Payroll, then an earned/owed
+                line all sat here in turn; Anh-Tuan wanted none of it on the
+                team list (2026-10-01). Hours, pay and what is owed are the
+                Hours and Payroll tabs. */}
 
             <div className="flex items-center gap-2 border-t border-gray-100 pt-2">
               {!s.endedOn && (
