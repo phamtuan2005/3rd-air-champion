@@ -26,7 +26,7 @@ import {
   deleteStaff,
   fetchStaff,
   fetchWorkEntries,
-  monthlyRunRate,
+
   payStaff,
   rateOn,
   reviewWorkEntry,
@@ -149,7 +149,7 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
   const patch = (updated: StaffType) =>
     setStaff((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
 
-  const runRate = useMemo(() => monthlyRunRate(staff, todayKey), [staff, todayKey]);
+
   const payroll = useMemo(
     () => payrollByMonth(staff, cleanerPay, workEntries, todayKey),
     [staff, cleanerPay, workEntries, todayKey],
@@ -160,8 +160,16 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
   const [payrollMonth, setPayrollMonth] = useState(todayKey.slice(0, 7));
   // Which person's paychecks are unfolded in the everyone view.
   const [openPay, setOpenPay] = useState<string | null>(null);
+  // The same face as on the Team tab, beside a name on the Hours and Payroll
+  // tabs: a cleaner's photo or drawn avatar, a staff member's drawn one. Asked
+  // for so a person reads the same in all three tabs (2026-09-30).
+  const avatarOf = (id: string, name: string, sizeClass = "h-7 w-7") => {
+    const c = cleaners.find((x) => x.id === id);
+    const s = c ? undefined : staff.find((x) => x.id === id);
+    return <CleanerAvatar name={name} photo={c?.photo} character={c?.character ?? s?.character} sizeClass={sizeClass} />;
+  };
   const payrollPeople = useMemo(() => {
-    const seen = new Map<string, { id: string; name: string; hint?: string }>();
+    const seen = new Map<string, { id: string; name: string; hint?: string; avatar?: React.ReactNode }>();
     payroll.forEach((m) =>
       m.people.forEach((p) => {
         if (seen.has(p.id)) return;
@@ -169,11 +177,12 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
           id: p.id,
           name: p.name,
           hint: p.kind === "cleaner" ? "cleaner" : staff.find((s) => s.id === p.id)?.title || undefined,
+          avatar: avatarOf(p.id, p.name),
         });
       }),
     );
     return [...seen.values()];
-  }, [payroll, staff]);
+  }, [payroll, staff, cleaners]); // eslint-disable-line react-hooks/exhaustive-deps
   const payrollPerson = payrollPeople.find((p) => p.id === payrollFor) ?? null;
   const shownPayroll = useMemo(
     () =>
@@ -707,9 +716,11 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
                 <section key={m.key} className="rounded-xl border border-gray-200 bg-white">
                   <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 border-b border-gray-100 px-3 py-2">
                     <p className="text-sm font-bold text-gray-900">{monthLabel(`${m.key}-01`)}</p>
-                    <p className="text-sm text-gray-700">
-                      {/* Rose: money out, the same colour the payroll card uses. */}
-                      <span className="font-bold text-rose-600">{money(m.paid)}</span> paid
+                    {/* The month's total is the figure this tab exists for, so
+                        it is the largest thing on the row — the size the old
+                        Monthly payroll card gave its number. Rose: money out. */}
+                    <p className="flex items-baseline gap-1.5 text-sm text-gray-700">
+                      <span className="text-2xl font-bold leading-none text-rose-600">{money(m.paid)}</span> paid
                       {m.tips > 0 && <span className="text-gray-500"> · {money(m.tips)} in tips</span>}
                     </p>
                   </div>
@@ -729,7 +740,8 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
                               onClick={() => { if (!payrollPerson) setOpenPay(open ? null : p.id); }}
                               className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-left"
                             >
-                              <p className="text-sm font-bold text-gray-900">
+                              <p className="flex items-center gap-2 text-sm font-bold text-gray-900">
+                                {avatarOf(p.id, p.name)}
                                 {p.name}
                                 {p.kind === "cleaner" && (
                                   <span className="ml-1.5 text-[11px] font-semibold uppercase text-teal-600">cleaner</span>
@@ -792,7 +804,7 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
                 <div>
                   <WorkerPicker
                     title="Whose hours"
-                    people={people.map((p) => ({ id: p.staffId, name: p.name, hint: p.title || undefined, badge: p.pending }))}
+                    people={people.map((p) => ({ id: p.staffId, name: p.name, hint: p.title || undefined, badge: p.pending, avatar: avatarOf(p.staffId, p.name) }))}
                     value={person?.staffId ?? null}
                     onChange={setHoursFor}
                   />
@@ -833,6 +845,7 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
                         TiWork shows the cleaner for the same day, so a claim and
                         the claimant's own screen read alike. */}
                     <div className="flex flex-wrap items-center gap-2">
+                      {avatarOf(w.staffId, w.staffName)}
                       <span className="text-sm font-bold text-gray-900">{w.staffName}</span>
                       <span className="text-sm text-gray-500">{fmtDate(w.date)}</span>
                       {w.kind === "cleaner" && (w.rooms?.length ?? 0) > 0 && (
@@ -924,30 +937,12 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
           </div>
         ) : (
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-          {/* Operating cost. Biweekly salaries are known now; hourly cost is
-              rate × hours and hours arrive from TiWork, so those are named
-              rather than folded in at zero — a payroll that is quietly too
-              small is worse than one that says what it does not yet know. */}
-          <div className="mb-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-              Monthly payroll
-            </p>
-            <p className="mt-1 text-2xl font-bold leading-none text-rose-600">
-              {money(Math.round(runRate.biweeklyMonthly))}
-            </p>
-            <p className="mt-1 text-xs text-gray-400">
-              Salaried staff, at 26 pay periods a year.
-              {runRate.hourly.length > 0 && (
-                <>
-                  {" "}
-                  Plus {runRate.hourly.length} hourly
-                  {runRate.hourly.length === 1 ? " person" : " people"} — their cost needs hours
-                  from TiWork.
-                </>
-              )}
-            </p>
-          </div>
-
+          {/* There was a "Monthly payroll" card here: biweekly salaries at 26
+              periods a year, hourly people named but not counted because
+              TiWork did not exist yet. With one hourly intern and the cleaners
+              paid through Clean it read $0 — Anh-Tuan asked why (2026-09-30)
+              and then that it go. What the house pays out, by month and by
+              person, is the Payroll tab now. */}
           {loading ? (
             <p className="py-8 text-center text-sm text-gray-400">Loading…</p>
           ) : (
