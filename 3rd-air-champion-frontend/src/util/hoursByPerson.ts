@@ -64,3 +64,36 @@ export const monthLabel = (dateKey: string): string => {
   const [y, m] = dateKey.split("-");
   return `${MONTHS[Number(m) - 1] ?? m} ${y}`;
 };
+
+// One month of one person's claims — the figures a month heading carries.
+//
+// The first version put a single all-time total above the person's visits.
+// Anh-Tuan: "a lump sum of all time is useless" (2026-09-30) — pay is settled
+// month by month, so the month is the unit the money has to be said in.
+export interface MonthTotals {
+  visits: number;
+  approvedHours: number;
+  approvedPay: number;
+  waitingHours: number;
+}
+
+/** Totals keyed by yyyy-MM, for the entries given (one person's, or everyone's). */
+export const totalsByMonth = (entries: HostWorkEntry[]): Map<string, MonthTotals> => {
+  const out = new Map<string, MonthTotals>();
+  for (const w of entries) {
+    const key = w.date.slice(0, 7);
+    let t = out.get(key);
+    if (!t) {
+      t = { visits: 0, approvedHours: 0, approvedPay: 0, waitingHours: 0 };
+      out.set(key, t);
+    }
+    t.visits += 1;
+    if (w.status === "approved") {
+      t.approvedHours += w.hours;
+      t.approvedPay += Math.round(w.hours * (w.approvedRate || 0) * 100) / 100;
+    } else if (w.status === "submitted") {
+      t.waitingHours += w.hours;
+    }
+  }
+  return out;
+};

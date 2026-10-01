@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { entriesFor, monthLabel, peopleFromEntries, startsMonth } from "../../../util/hoursByPerson";
+import { entriesFor, monthLabel, peopleFromEntries, startsMonth, totalsByMonth } from "../../../util/hoursByPerson";
 import { format, parseISO, startOfToday } from "date-fns";
 import CleanerAvatar from "../../shared/CleanerAvatar";
 import GuestFigures from "../../shared/GuestFigures";
@@ -9,11 +9,14 @@ import { MdCleaningServices } from "react-icons/md";
 import { GUEST_AVATAR_PRESETS } from "../../../util/guestAvatars";
 import { formatHrMin } from "../../../util/hoursFormat";
 import {
+  CleanerSummaryType,
   CleanerType,
+  fetchCleanerSummary,
   fetchCleaners,
   rateOn as cleanerRateOn,
   updateCleaner,
 } from "../../../util/cleanerOperations";
+import { payrollByMonth } from "../../../util/payrollByMonth";
 import {
   HostWorkEntry,
   StaffType,
@@ -81,7 +84,7 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
   const [adding, setAdding] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-  const [tab, setTab] = useState<"team" | "hours">("team");
+  const [tab, setTab] = useState<"team" | "hours" | "payroll">("team");
   // Which person's face grid is open. One at a time: eighteen options is the
   // largest thing on the card, and the card is mostly opened to fix a rate.
   const [avatarFor, setAvatarFor] = useState<string | null>(null);
@@ -94,6 +97,7 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
   // from the fetch) falls back to everyone rather than an empty list.
   const person = people.find((p) => p.staffId === hoursFor) ?? null;
   const shownEntries = useMemo(() => entriesFor(workEntries, person ? person.staffId : null), [workEntries, person]);
+  const shownMonths = useMemo(() => totalsByMonth(shownEntries), [shownEntries]);
   // Cleaners are staff too — they are paid by this business and log hours in the
   // same TiWork. They keep their own record because every CleaningAssignment
   // points at it and the auto-planner needs fields an office role has no use
@@ -101,6 +105,9 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
   // stay in Clean, and what belongs here is the one thing both kinds share —
   // a way into TiWork.
   const [cleaners, setCleaners] = useState<CleanerType[]>([]);
+  // Their payouts, itemised, for the Payroll tab. The cleaner list above has
+  // no payments on it; the summary route is where Clean reads them from too.
+  const [cleanerPay, setCleanerPay] = useState<CleanerSummaryType[]>([]);
 
   const todayKey = format(startOfToday(), "yyyy-MM-dd");
 
@@ -126,6 +133,11 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
       .catch(() => {
         /* the team list must survive a cleaner fetch failing */
       });
+    fetchCleanerSummary(hostId, token)
+      .then(setCleanerPay)
+      .catch(() => {
+        /* payroll then shows staff paychecks only; the rest of the modal stands */
+      });
     fetchWorkEntries(hostId, token)
       .then(setWorkEntries)
       .catch(() => {
@@ -137,6 +149,10 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
     setStaff((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
 
   const runRate = useMemo(() => monthlyRunRate(staff, todayKey), [staff, todayKey]);
+  const payroll = useMemo(
+    () => payrollByMonth(staff, cleanerPay, workEntries, todayKey),
+    [staff, cleanerPay, workEntries, todayKey],
+  );
 
   const active = staff.filter((s) => !s.endedOn || s.endedOn >= todayKey);
   const former = staff.filter((s) => s.endedOn && s.endedOn < todayKey);
@@ -580,7 +596,7 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
 
         {/* Two questions: who is on the team, and what have they claimed. */}
         <div className="mx-4 mb-1 mt-2 flex shrink-0 gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1">
-          {(["team", "hours"] as const).map((k) => {
+          {(["team", "hours", "payroll"] as const).map((k) => {
             const pending = workEntries.filter((w) => w.status === "submitted").length;
             return (
               <button
@@ -591,7 +607,7 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
                   tab === k ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
                 }`}
               >
-                {k === "team" ? "Team" : "Hours"}
+                {k === "team" ? "Team" : k === "hours" ? "Hours" : "Payroll"}
                 {k === "hours" && pending > 0 && (
                   <span
                     className={`min-w-[1.25rem] shrink-0 rounded-full px-1 py-0.5 text-center text-[12px] font-bold leading-none ${
@@ -606,7 +622,74 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
           })}
         </div>
 
-        {tab === "hours" ? (
+        {tab === "payroll" ? (
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+            {/* The ledger: each month, every paycheck, beside what each person
+                earned in it. Nothing is recorded here. A staff payout is still
+                recorded on the Team tab and a cleaner payout in Clean, so this
+                tab can never disagree with either; it only reads them.
+                See util/payrollByMonth for why it exists. */}
+            <div className="flex flex-col gap-3">
+              {payroll.map((m) => (
+                <section key={m.key} className="rounded-xl border border-gray-200 bg-white">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 border-b border-gray-100 px-3 py-2">
+                    <p className="text-sm font-bold text-gray-900">{monthLabel(`${m.key}-01`)}</p>
+                    <p className="text-sm text-gray-700">
+                      {/* Rose: money out, the same colour the payroll card uses. */}
+                      <span className="font-bold text-rose-600">{money(m.paid)}</span> paid
+                      {m.tips > 0 && <span className="text-gray-500"> · {money(m.tips)} in tips</span>}
+                    </p>
+                  </div>
+                  {m.people.length === 0 ? (
+                    <p className="px-3 py-3 text-sm text-gray-400">Nothing paid yet this month.</p>
+                  ) : (
+                    <div className="flex flex-col divide-y divide-gray-100">
+                      {m.people.map((p) => (
+                        <div key={p.id} className="px-3 py-2">
+                          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                            <p className="text-sm font-bold text-gray-900">
+                              {p.name}
+                              {p.kind === "cleaner" && (
+                                <span className="ml-1.5 text-[11px] font-semibold uppercase text-teal-600">cleaner</span>
+                              )}
+                            </p>
+                            <p className="text-sm text-gray-700">
+                              <span className="font-bold">{money(p.paid)}</span> paid
+                              {p.tips > 0 && <span className="text-gray-500"> · {money(p.tips)} tip</span>}
+                              {/* Earned beside paid, for hourly people. Amber
+                                  when the month's wages are not yet covered. A
+                                  payout can lag into the next month, so it is
+                                  a flag to look, not a debt. */}
+                              {p.earned !== null && (
+                                <span className={p.earned > p.paid ? "text-amber-700" : "text-gray-500"}>
+                                  {" · "}earned {money(p.earned)}
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                          {p.paychecks.length > 0 && (
+                            <ul className="mt-1 flex flex-col gap-0.5">
+                              {p.paychecks.map((pc, i) => (
+                                <li key={`${pc.paidOn}-${i}`} className="flex min-w-0 items-baseline gap-2 text-xs text-gray-500">
+                                  <span className="w-14 shrink-0">{fmtDate(pc.paidOn)}</span>
+                                  <span className="font-semibold text-gray-700">{money(pc.amount)}</span>
+                                  {pc.tip && (
+                                    <span className="rounded bg-amber-50 px-1 text-[10px] font-bold uppercase text-amber-700">tip</span>
+                                  )}
+                                  {pc.note && <span className="truncate">{pc.note}</span>}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              ))}
+            </div>
+          </div>
+        ) : tab === "hours" ? (
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
             {/* The gate between what someone typed and what the business owes.
                 Nothing counts toward pay until it is approved here. */}
@@ -643,39 +726,37 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
                     );
                   })}
                 </div>
-                {/* One person's whole record in a line, before their visits:
-                    what they are owed for, at the rates each claim was
-                    approved at, and what is still waiting on the host. */}
-                {person && (
-                  <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                      {person.name}
-                      {person.title ? ` · ${person.title}` : ""}
-                    </p>
-                    <p className="mt-1 text-sm text-gray-700">
-                      <span className="font-bold text-gray-900">{formatHrMin(person.approvedHours)}</span> approved ·{" "}
-                      <span className="font-bold text-emerald-700">{money(person.approvedPay)}</span>
-                      {person.waitingHours > 0 && (
-                        <>
-                          {" · "}
-                          <span className="font-semibold text-amber-700">{formatHrMin(person.waitingHours)} waiting on you</span>
-                        </>
-                      )}
-                      {" · "}
-                      {person.visits} {person.visits === 1 ? "visit" : "visits"}
-                    </p>
-                  </div>
-                )}
                 {shownEntries.map((w, i) => (
                   <Fragment key={w.id}>
                   {/* Month headings only for one person: "over time" needs the
                       months named, while everyone's list is read for what is
-                      waiting today and the headings would only push it down. */}
-                  {person && startsMonth(shownEntries, i) && (
-                    <p className="pt-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                      {monthLabel(w.date)}
-                    </p>
-                  )}
+                      waiting today and the headings would only push it down.
+                      Each heading carries ITS month's figures — hours and pay
+                      at the rates each claim was approved at, and what is
+                      still waiting on the host. There was an all-time total
+                      above the list first; see totalsByMonth for why not. */}
+                  {person && startsMonth(shownEntries, i) && (() => {
+                    const t = shownMonths.get(w.date.slice(0, 7));
+                    return (
+                      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 pt-1">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                          {monthLabel(w.date)}
+                        </p>
+                        {t && (
+                          <p className="text-sm text-gray-700">
+                            <span className="font-bold text-gray-900">{formatHrMin(t.approvedHours)}</span> approved ·{" "}
+                            <span className="font-bold text-emerald-700">{money(t.approvedPay)}</span>
+                            {t.waitingHours > 0 && (
+                              <>
+                                {" · "}
+                                <span className="font-semibold text-amber-700">{formatHrMin(t.waitingHours)} waiting on you</span>
+                              </>
+                            )}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
                   <div className="rounded-xl border border-gray-200 bg-white p-3">
                     {/* Who, when, what the visit was, and how long — the line
                         TiWork shows the cleaner for the same day, so a claim and
@@ -998,7 +1079,9 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
         )}
 
         <p className="shrink-0 border-t border-gray-100 px-4 py-2 text-[11px] leading-relaxed text-gray-400">
-          {tab === "hours"
+          {tab === "payroll"
+            ? "Every payout, by the month it was paid in. Staff pay is recorded on the Team tab, cleaner pay in Clean."
+            : tab === "hours"
             ? "Only approved hours count toward pay. Nothing here is computed from a claim."
             : "Hours and work reports arrive from TiWork, where each person enters their own."}
         </p>
