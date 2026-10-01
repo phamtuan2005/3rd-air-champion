@@ -78,3 +78,16 @@ describe("moving a month at a time", () => {
     expect(shiftMonth("2026-09", -9)).toBe("2025-12");
   });
 });
+
+describe("a staff tip", () => {
+  it("counts toward tips, never wages", () => {
+    const s = [staffer({ payments: [
+      { id: "p1", amount: 1000, paidOn: "2026-09-15", note: "" },
+      { id: "p2", amount: 50, paidOn: "2026-09-15", note: "", tip: true },
+    ] })];
+    const sep = payrollByMonth(s, [], [], "2026-09-30")[0];
+    expect(sep.paid).toBe(1000);
+    expect(sep.tips).toBe(50);
+    expect(sep.people[0].paychecks.map((p) => p.tip)).toEqual([false, true]);
+  });
+});

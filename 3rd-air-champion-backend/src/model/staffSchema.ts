@@ -65,6 +65,11 @@ const staffSchema = new mongoose.Schema(
           amount: { type: Number, required: true },
           paidOn: { type: String, required: true }, // yyyy-MM-dd
           note: { type: String, default: "" },
+          // Money on top of wages. Kept apart so a month's wages read true
+          // and a tip never looks like an overpayment — the same split the
+          // cleaner's payments make. Asked for on 2026-09-30 when recording
+          // staff pay moved to the Payroll tab.
+          tip: { type: Boolean, default: false },
         },
       ],
       default: [],

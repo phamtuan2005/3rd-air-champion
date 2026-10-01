@@ -70,8 +70,9 @@ export const payrollByMonth = (
   for (const s of staff) {
     for (const pay of s.payments ?? []) {
       const p = personIn(pay.paidOn.slice(0, 7), s.id, s.name, "staff", s.payType === "biweekly");
-      p.paid = round2(p.paid + pay.amount);
-      p.paychecks.push({ paidOn: pay.paidOn, amount: pay.amount, note: pay.note ?? "", tip: false });
+      if (pay.tip) p.tips = round2(p.tips + pay.amount);
+      else p.paid = round2(p.paid + pay.amount);
+      p.paychecks.push({ paidOn: pay.paidOn, amount: pay.amount, note: pay.note ?? "", tip: !!pay.tip });
     }
   }
   for (const c of cleaners) {

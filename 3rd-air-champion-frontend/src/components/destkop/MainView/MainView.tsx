@@ -1928,6 +1928,7 @@ const MainView = ({
         <StaffingModal
           hostId={hostId}
           token={token as string}
+          senderName={senderName}
           onClose={() => setIsStaffingOpen(false)}
         />
       )}
