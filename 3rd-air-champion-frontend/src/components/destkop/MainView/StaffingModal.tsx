@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { entriesFor, monthLabel, peopleFromEntries, startsMonth } from "../../../util/hoursByPerson";
+import { entriesFor, monthLabel, peopleFromEntries, startsMonth, totalsByMonth } from "../../../util/hoursByPerson";
 import { format, parseISO, startOfToday } from "date-fns";
 import CleanerAvatar from "../../shared/CleanerAvatar";
 import GuestFigures from "../../shared/GuestFigures";
@@ -94,6 +94,7 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
   // from the fetch) falls back to everyone rather than an empty list.
   const person = people.find((p) => p.staffId === hoursFor) ?? null;
   const shownEntries = useMemo(() => entriesFor(workEntries, person ? person.staffId : null), [workEntries, person]);
+  const shownMonths = useMemo(() => totalsByMonth(shownEntries), [shownEntries]);
   // Cleaners are staff too — they are paid by this business and log hours in the
   // same TiWork. They keep their own record because every CleaningAssignment
   // points at it and the auto-planner needs fields an office role has no use
@@ -643,39 +644,37 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
                     );
                   })}
                 </div>
-                {/* One person's whole record in a line, before their visits:
-                    what they are owed for, at the rates each claim was
-                    approved at, and what is still waiting on the host. */}
-                {person && (
-                  <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                      {person.name}
-                      {person.title ? ` · ${person.title}` : ""}
-                    </p>
-                    <p className="mt-1 text-sm text-gray-700">
-                      <span className="font-bold text-gray-900">{formatHrMin(person.approvedHours)}</span> approved ·{" "}
-                      <span className="font-bold text-emerald-700">{money(person.approvedPay)}</span>
-                      {person.waitingHours > 0 && (
-                        <>
-                          {" · "}
-                          <span className="font-semibold text-amber-700">{formatHrMin(person.waitingHours)} waiting on you</span>
-                        </>
-                      )}
-                      {" · "}
-                      {person.visits} {person.visits === 1 ? "visit" : "visits"}
-                    </p>
-                  </div>
-                )}
                 {shownEntries.map((w, i) => (
                   <Fragment key={w.id}>
                   {/* Month headings only for one person: "over time" needs the
                       months named, while everyone's list is read for what is
-                      waiting today and the headings would only push it down. */}
-                  {person && startsMonth(shownEntries, i) && (
-                    <p className="pt-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                      {monthLabel(w.date)}
-                    </p>
-                  )}
+                      waiting today and the headings would only push it down.
+                      Each heading carries ITS month's figures — hours and pay
+                      at the rates each claim was approved at, and what is
+                      still waiting on the host. There was an all-time total
+                      above the list first; see totalsByMonth for why not. */}
+                  {person && startsMonth(shownEntries, i) && (() => {
+                    const t = shownMonths.get(w.date.slice(0, 7));
+                    return (
+                      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 pt-1">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                          {monthLabel(w.date)}
+                        </p>
+                        {t && (
+                          <p className="text-sm text-gray-700">
+                            <span className="font-bold text-gray-900">{formatHrMin(t.approvedHours)}</span> approved ·{" "}
+                            <span className="font-bold text-emerald-700">{money(t.approvedPay)}</span>
+                            {t.waitingHours > 0 && (
+                              <>
+                                {" · "}
+                                <span className="font-semibold text-amber-700">{formatHrMin(t.waitingHours)} waiting on you</span>
+                              </>
+                            )}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
                   <div className="rounded-xl border border-gray-200 bg-white p-3">
                     {/* Who, when, what the visit was, and how long — the line
                         TiWork shows the cleaner for the same day, so a claim and

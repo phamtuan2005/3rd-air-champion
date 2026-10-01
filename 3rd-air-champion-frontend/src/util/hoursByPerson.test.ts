@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { entriesFor, monthLabel, peopleFromEntries, startsMonth } from "./hoursByPerson";
+import { entriesFor, monthLabel, peopleFromEntries, startsMonth, totalsByMonth } from "./hoursByPerson";
 import type { HostWorkEntry } from "./staffOperations";
 
 // The Hours tab narrowed to one worker. The figures are what that person is
@@ -56,5 +56,20 @@ describe("hours by person", () => {
   it("names a month from the key alone", () => {
     expect(monthLabel("2026-09-29")).toBe("September 2026");
     expect(monthLabel("2027-01-05")).toBe("January 2027");
+  });
+});
+
+describe("a person's months", () => {
+  it("totals each month on its own, never across months", () => {
+    const months = totalsByMonth(entriesFor(all, "a"));
+    expect([...months.keys()]).toEqual(["2026-09", "2026-08"]);
+    expect(months.get("2026-09")).toEqual({ visits: 1, approvedHours: 3, approvedPay: 60, waitingHours: 0 });
+    // August: one approved visit at $18, one declined that counts for nothing.
+    expect(months.get("2026-08")).toEqual({ visits: 2, approvedHours: 4, approvedPay: 72, waitingHours: 0 });
+  });
+
+  it("keeps a month's waiting hours apart from its approved ones", () => {
+    const months = totalsByMonth(entriesFor(all, "z"));
+    expect(months.get("2026-09")).toEqual({ visits: 2, approvedHours: 1.5, approvedPay: 33, waitingHours: 2 });
   });
 });
