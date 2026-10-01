@@ -16,7 +16,7 @@ import {
   rateOn as cleanerRateOn,
   updateCleaner,
 } from "../../../util/cleanerOperations";
-import { payrollByMonth, shiftMonth } from "../../../util/payrollByMonth";
+import { payLines, payrollByMonth, shiftMonth } from "../../../util/payrollByMonth";
 import { staffPayMessage } from "../../../util/staffPayMessage";
 import WorkerPicker from "./WorkerPicker";
 import {
@@ -923,19 +923,35 @@ const StaffingModal = ({ hostId, token, onClose, senderName }: StaffingModalProp
                                 )}
                               </p>
                             </button>
+                            {/* One line per payout date, pay and tip as two
+                                columns — a tip is its own record underneath,
+                                and as its own row it read as a second
+                                paycheck. See payLines. */}
                             {open && p.paychecks.length > 0 && (
-                              <ul className="mt-1 flex flex-col gap-0.5">
-                                {p.paychecks.map((pc, i) => (
-                                  <li key={`${pc.paidOn}-${i}`} className="flex min-w-0 items-baseline gap-2 text-xs text-gray-500">
-                                    <span className="w-14 shrink-0">{fmtDate(pc.paidOn)}</span>
-                                    <span className="font-semibold text-gray-700">{money(pc.amount)}</span>
-                                    {pc.tip && (
-                                      <span className="rounded bg-amber-50 px-1 text-[10px] font-bold uppercase text-amber-700">tip</span>
-                                    )}
-                                    {pc.note && <span className="truncate">{pc.note}</span>}
-                                  </li>
-                                ))}
-                              </ul>
+                              <table className="mt-1.5 w-full text-xs">
+                                <thead>
+                                  <tr className="text-left text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                                    <th className="w-24 whitespace-nowrap py-0.5 font-semibold">Date</th>
+                                    <th className="w-20 py-0.5 text-right font-semibold">Pay</th>
+                                    <th className="w-16 py-0.5 text-right font-semibold">Tip</th>
+                                    <th className="py-0.5 pl-3 font-semibold">Note</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {payLines(p.paychecks).map((ln) => (
+                                    <tr key={ln.paidOn} className="text-gray-500">
+                                      <td className="whitespace-nowrap py-0.5">{fmtDate(ln.paidOn)}</td>
+                                      <td className="py-0.5 text-right font-semibold text-gray-700">
+                                        {ln.wages > 0 ? money(ln.wages) : "—"}
+                                      </td>
+                                      <td className="py-0.5 text-right font-semibold text-amber-700">
+                                        {ln.tip > 0 ? money(ln.tip) : ""}
+                                      </td>
+                                      <td className="max-w-0 truncate py-0.5 pl-3">{ln.note}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
                             )}
                           </div>
                         );
