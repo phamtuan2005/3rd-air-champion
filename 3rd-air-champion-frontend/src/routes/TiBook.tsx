@@ -24,6 +24,7 @@ import RoomPickerPopup from "../components/tibook/RoomPickerPopup";
 import ReservedHoldsPopup from "../components/tibook/ReservedHoldsPopup";
 import { getGuestWishList } from "../util/wishListOperations";
 import { fetchBookingRequestsByHost, fetchCalendarBookingsByGuest } from "../util/bookingRequestOperations";
+import { mergeOverlappingStays } from "../util/overlappingStays";
 import { fetchGuestByPhone } from "../util/guestOperations";
 import RememberMeDisclaimer from "../components/tibook/RememberMeDisclaimer";
 import HeroShell from "../components/tibook/HeroShell";
@@ -324,7 +325,9 @@ const TiBookInner = () => {
     if (!guestPhone || !currentHost) return;
     fetchCalendarBookingsByGuest(currentHost.calendar, guestPhone)
       .then((calendarBookings) => {
-        setGuestBookings(calendarBookings ?? []);
+        // Folded here, once, so the grid, the list, the bookings sheet and
+        // the stay card all see the same stays — see overlappingStays.
+        setGuestBookings(mergeOverlappingStays(calendarBookings ?? []));
       })
       .catch(() => {});
   }, [guestPhone, currentHost]); // eslint-disable-line react-hooks/exhaustive-deps
