@@ -22,6 +22,10 @@ export interface GuestBooking {
   fees?: { label: string; amount: number }[];
   // yyyy-MM-dd the guest told the host they would pay, on a held stay.
   expectedPayDate?: string;
+  // What the stay cost as booked: each night at its own price, fees once.
+  // Absent from a backend that predates it — treat absent as unknown, never
+  // as 0, which for a family stay is a real and different answer.
+  total?: number;
   _source?: "calendar" | "tibook";
 }
 

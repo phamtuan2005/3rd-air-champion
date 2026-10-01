@@ -7,12 +7,14 @@ import { fetchHost } from "../util/hostOperations";
 import { authorizeUser } from "../util/authorizeUser";
 import { hostType } from "../util/types/hostType";
 import { roomType } from "../util/types/roomType";
-import GuestCalendar, { MONTHS_FORWARD } from "../components/tibook/Calendar/GuestCalendar";
+import GuestCalendar from "../components/tibook/Calendar/GuestCalendar";
+import { MONTHS_FORWARD } from "../components/tibook/Calendar/calendarScroll";
 import { firstOpenMonth } from "../util/firstOpenMonth";
 import HostProfileBanner from "../components/tibook/HostProfileBanner";
 import HouseFactsStrip from "../components/tibook/HouseFactsStrip";
 import { dayType } from "../util/types/dayType";
 import { fetchDays } from "../util/dayOperations";
+import { stayPaidFromNights } from "../util/stayPaid";
 import { fetchRooms } from "../util/roomOperations";
 import BookingRequestModal from "../components/tibook/BookingRequestModal";
 import RoomCards from "../components/tibook/RoomCards";
@@ -122,6 +124,10 @@ const TiBookInner = () => {
   const [consentOverModal, setConsentOverModal] = useState(false);
   const pendingConsentNameRef = useRef<string>("");
   const [guestBookings, setGuestBookings] = useState<GuestBooking[]>([]);
+  // The signed-in guest's own record id, set by the rates lookup further down.
+  // Only the stopgap in util/stayPaid needs it, to find this guest's nights —
+  // and it is declared up here because myStays reads it.
+  const [myGuestId, setMyGuestId] = useState<string | undefined>(undefined);
   // A guest we already recognise by name has seen the rooms — the photo banner
   // is a first-visit pitch, and on their return it is just height taken from the
   // calendar they came for. Opened by hand with "Photos ▾"; not persisted, so
@@ -351,9 +357,15 @@ const TiBookInner = () => {
             nights: b.duration,
             roomName: room?.name ?? "",
             roomColor: room?.color,
+            // A confirmed stay is a paid one — an unpaid stay is a hold, and
+            // holds are the separate list below. The backend's own total wins;
+            // stayPaidFromNights only covers a backend that predates it.
+            paid: typeof b.total === "number"
+              ? b.total
+              : stayPaidFromNights(String(b.date).slice(0, 10), b.duration, b.room, myGuestId, monthMap, b.fees),
           };
         }),
-    [guestBookings, rooms],
+    [guestBookings, rooms, myGuestId, monthMap],
   );
 
   // Reserved (R) holds — rooms the host is holding for this guest that aren't paid
@@ -368,6 +380,7 @@ const TiBookInner = () => {
   useEffect(() => {
     if (!guestPhone || !currentHost) {
       setMyRates(new Map());
+      setMyGuestId(undefined);
       return;
     }
     fetchGuestByPhone(guestPhone, currentHost.id)
@@ -377,10 +390,11 @@ const TiBookInner = () => {
           if (typeof p.price === "number") next.set(p.room, p.price);
         });
         setMyRates(next);
+        setMyGuestId(guest?.id);
       })
       // A rate we cannot fetch is simply not shown. The room's own price is
       // still there, and a wrong price is far worse than a missing one.
-      .catch(() => setMyRates(new Map()));
+      .catch(() => { setMyRates(new Map()); setMyGuestId(undefined); });
   }, [guestPhone, currentHost]);
 
   const reservedStays = useMemo(
@@ -682,7 +696,13 @@ const TiBookInner = () => {
     setIsBookingModalOpen(true);
   };
 
-  const newWishListDates = new Set([...wishListDates].filter((d) => !persistedWishListDates.has(d)));
+  // Memoised so the calendar's list view can skip redrawing months while the
+  // guest drags the grip: a fresh Set every render looked like new wish-list
+  // news to it and redrew every row, every frame.
+  const newWishListDates = useMemo(
+    () => new Set([...wishListDates].filter((d) => !persistedWishListDates.has(d))),
+    [wishListDates, persistedWishListDates],
+  );
   const hasSelection = cartDates.size > 0 || newWishListDates.size > 0;
   const barLabel = cartDates.size > 0 && newWishListDates.size > 0
     ? `${cartDates.size} date${cartDates.size > 1 ? "s" : ""} · ★ ${newWishListDates.size} wish list`
@@ -901,6 +921,7 @@ const TiBookInner = () => {
                 myStays={myStays}
                 reservedStays={reservedStays}
                 reservedMap={reservedMap}
+                myRates={myRates}
                 scrollToTodayTrigger={scrollToTodayTrigger}
                 scrollToMonthTrigger={scrollToMonthTrigger ?? undefined}
                 simplified={!isSelecting}

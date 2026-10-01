@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useMemo, useState, ReactNode } from "react";
 import { getRoomColor } from "../util/getRoomColor";
 import { hasVisitedTiBookBefore } from "../util/tibookReturning";
 
@@ -46,6 +46,16 @@ export type VibeName = "classic" | "vivid";
  * been (TIBOOK.md rule 1).
  */
 export type LayoutName = "stack" | "hero";
+
+/*
+ * How the calendar is drawn: a month grid, or one row per day to scroll down.
+ *
+ * A third axis, beside skin and layout, and chosen on its own from a switch on
+ * the calendar rather than from the look menu — a guest in any look may want
+ * either. The list reads more easily on a narrow phone, where a grid tile has
+ * room for a number and not much else.
+ */
+export type CalendarViewName = "month" | "list";
 
 export interface TiBookTheme {
   name: ThemeName;
@@ -689,6 +699,41 @@ const TiBookThemeContext = createContext<TiBookThemeContextValue>({
 const STORAGE_KEY = "tiBookTheme";
 const VIBE_KEY = "tiBookVibe";
 const LAYOUT_KEY = "tiBookLayout";
+const CALENDAR_VIEW_KEY = "tiBookCalendarView";
+
+/*
+ * The calendar view has a context of its own rather than a field on the
+ * theme's. Every themed component in TiBook reads the theme context, so while
+ * the view lived there, flipping Month/List re-rendered the whole app — nav,
+ * banner, room cards and all — to change one panel, and the switch lagged on
+ * a phone. Here only the calendar, its switch and the weekday letters hear it.
+ */
+const CalendarViewContext = createContext<{
+  calendarView: CalendarViewName;
+  setCalendarView: (view: CalendarViewName) => void;
+}>({ calendarView: "month", setCalendarView: () => {} });
+
+const CalendarViewProvider = ({ children }: { children: ReactNode }) => {
+  // Everyone starts on the month grid, the calendar TiBook has always shown;
+  // the list is there for the guest who picks it, and stays picked.
+  const [calendarView, setCalendarViewState] = useState<CalendarViewName>(
+    () => (readKey(CALENDAR_VIEW_KEY) === "list" ? "list" : "month")
+  );
+  const value = useMemo(() => ({
+    calendarView,
+    setCalendarView: (next: CalendarViewName) => {
+      setCalendarViewState(next);
+      try {
+        localStorage.setItem(CALENDAR_VIEW_KEY, next);
+      } catch {
+        // Private browsing, as with the look: kept for this visit only.
+      }
+    },
+  }), [calendarView]);
+  return <CalendarViewContext.Provider value={value}>{children}</CalendarViewContext.Provider>;
+};
+
+export const useCalendarView = () => useContext(CalendarViewContext);
 
 /* Reads here used to go straight at localStorage. Safari in a private window
    throws on access rather than returning null, and a throw in this provider
@@ -783,7 +828,7 @@ export const TiBookThemeProvider = ({ children }: { children: ReactNode }) => {
         allThemes: Object.values(BOOKS[vibe]),
       }}
     >
-      {children}
+      <CalendarViewProvider>{children}</CalendarViewProvider>
     </TiBookThemeContext.Provider>
   );
 };
@@ -840,10 +885,13 @@ const ROOM_GLOW_FALLBACK = "shadow-[0_0_12px_-1px_rgba(255,255,255,0.45)]";
  */
 export const useRoomChip = () => {
   const { vibe } = useTiBookTheme();
-  return (room: { name: string; color?: string }, shape: "chip" | "bar" = "chip") => {
+  return (room: { name: string; color?: string }, shape: "chip" | "bar" | "vbar" = "chip") => {
     const bg = getRoomColor(room.name, room.color);
     if (vibe !== "vivid") return bg;
-    const sheen = shape === "bar" ? "tibook-room-neon-bar" : "tibook-room-neon";
+    const sheen =
+      shape === "bar" ? "tibook-room-neon-bar" :
+      shape === "vbar" ? "tibook-room-neon-vbar" :
+      "tibook-room-neon";
     return `${bg} ${sheen} ${ROOM_GLOW[bg] ?? ROOM_GLOW_FALLBACK}`;
   };
 };

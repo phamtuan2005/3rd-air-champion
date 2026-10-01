@@ -309,6 +309,19 @@ body {
 }
 
 /*
+ * The same tube stood upright: the day-by-day list's stay bar, one piece per
+ * row. Its seams run ACROSS it, so the rule above banded it at the top of
+ * every night. Lit from the side instead, identical at every y.
+ */
+.tibook-room-neon-vbar {
+  background-image: linear-gradient(
+    to right,
+    rgb(255 255 255 / 0.34),
+    rgb(255 255 255 / 0) 62%
+  );
+}
+
+/*
  * The three dots in a "someone is typing" bubble.
  *
  * A wave rather than a blink: each dot is the same animation offset by a beat,

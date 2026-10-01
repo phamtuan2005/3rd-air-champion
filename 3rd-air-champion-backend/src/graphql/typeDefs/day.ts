@@ -72,6 +72,8 @@ export const dayDefs = gql`
     createdAt: String!
     fees: [Fee]
     expectedPayDate: String
+    # The stay's cost: each night at its booked price, plus the fees once.
+    total: Float
   }
 
   input UnbookBookingInput {

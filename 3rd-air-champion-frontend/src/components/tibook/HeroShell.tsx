@@ -3,10 +3,11 @@ import { isSameMonth } from "date-fns";
 import { roomType } from "../../util/types/roomType";
 import { dayType } from "../../util/types/dayType";
 import { getRoomPhotos } from "../../util/roomFacts";
-import { useTiBookTheme, useRoomChip } from "../../contexts/TiBookThemeContext";
+import { useTiBookTheme, useRoomChip, useCalendarView } from "../../contexts/TiBookThemeContext";
 import { AppearanceMenu } from "./NavBarDesktop";
 import GuestCalendar, { MyStay } from "./Calendar/GuestCalendar";
 import TodayButton from "./Calendar/TodayButton";
+import CalendarViewToggle from "./Calendar/CalendarViewToggle";
 
 const BACKEND = import.meta.env.VITE_BACKEND_ENDPOINT || "";
 const resolveUrl = (url: string) => (url.startsWith("/") ? `${BACKEND}${url}` : url);
@@ -81,6 +82,20 @@ interface HeroShellProps {
   actionLabel: string;
   hasSelection: boolean;
 }
+
+// The weekday letters over the grid, and not over the list, where every row
+// names its own day. Its own component so that flipping Month/List redraws
+// these seven letters and not the whole of Hero.
+const HeroWeekdays = () => {
+  const { theme } = useTiBookTheme();
+  const { calendarView } = useCalendarView();
+  if (calendarView !== "month") return null;
+  return (
+    <div className={`grid shrink-0 grid-cols-7 pb-1 text-center text-[11px] font-medium ${theme.surfaceMuted}`}>
+      <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+    </div>
+  );
+};
 
 const HeroShell = ({
   host, rooms, monthMap, selectedRoomIds, onSelectRoom, myRates,
@@ -573,15 +588,15 @@ const HeroShell = ({
           {/* The same way back to now the stacked layout has always had, and
               the same component, so it disables itself on the current month
               rather than pretending to be a button that does nothing. */}
+          <CalendarViewToggle />
           <TodayButton isCurrentMonth={isSameMonth(currentMonth, new Date())} onScrollToToday={onScrollToToday} />
         </div>
 
         {/* The weekday header. GuestCalendar draws only the grid — in the
             stacked layout these letters come from CalendarNavigator, which
-            Hero does not use, so the month was running without them. */}
-        <div className={`grid shrink-0 grid-cols-7 pb-1 text-center text-[11px] font-medium ${theme.surfaceMuted}`}>
-          <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
-        </div>
+            Hero does not use, so the month was running without them. Not
+            over the list, where every row names its own day. */}
+        <HeroWeekdays />
 
         {reservedStays.length > 0 && (
           <button
@@ -608,6 +623,7 @@ const HeroShell = ({
             myStays={myStays}
             reservedStays={reservedStays}
             reservedMap={reservedMap}
+            myRates={myRates}
             scrollToTodayTrigger={scrollToTodayTrigger}
             scrollToMonthTrigger={scrollToMonthTrigger}
             onMonthChange={onMonthChange}

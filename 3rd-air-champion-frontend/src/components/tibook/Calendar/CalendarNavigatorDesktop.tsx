@@ -1,6 +1,7 @@
 import { format, isSameMonth } from "date-fns";
 import TodayButton from "./TodayButton";
-import { useTiBookTheme } from "../../../contexts/TiBookThemeContext";
+import CalendarViewToggle from "./CalendarViewToggle";
+import { useTiBookTheme, useCalendarView } from "../../../contexts/TiBookThemeContext";
 
 interface CalendarNavigatorProps {
   currentMonth: Date;
@@ -16,6 +17,7 @@ const CalendarNavigator = ({
   onBookingRequest,
 }: CalendarNavigatorProps) => {
   const { theme } = useTiBookTheme();
+  const { calendarView } = useCalendarView();
   const formattedDate = format(currentMonth, "MMMM yyyy");
   const isCurrentMonth = isSameMonth(currentMonth, new Date());
 
@@ -24,22 +26,26 @@ const CalendarNavigator = ({
       {/* Month title + Today */}
       <div className="flex items-center gap-2">
         <span className={`font-bold text-base sm:text-xl flex-1 ${theme.chromeText}`}>{formattedDate}</span>
+        <CalendarViewToggle />
         <TodayButton isCurrentMonth={isCurrentMonth} onScrollToToday={onScrollToToday} />
       </div>
 
-      {/* Days of the week — 1 letter on mobile, 3 letters on sm+ */}
-      <div className="grid grid-cols-7 text-center">
-        {DAYS.map((day, index) => (
-          <abbr
-            key={index}
-            title={day}
-            className={`text-xs sm:text-sm font-medium no-underline ${theme.chromeMuted}`}
-          >
-            <span className="sm:hidden">{day[0]}</span>
-            <span className="hidden sm:inline">{day.substring(0, 3)}</span>
-          </abbr>
-        ))}
-      </div>
+      {/* Days of the week — 1 letter on mobile, 3 letters on sm+. Not over
+          the list, where every row names its own day. */}
+      {calendarView === "month" && (
+        <div className="grid grid-cols-7 text-center">
+          {DAYS.map((day, index) => (
+            <abbr
+              key={index}
+              title={day}
+              className={`text-xs sm:text-sm font-medium no-underline ${theme.chromeMuted}`}
+            >
+              <span className="sm:hidden">{day[0]}</span>
+              <span className="hidden sm:inline">{day.substring(0, 3)}</span>
+            </abbr>
+          ))}
+        </div>
+      )}
 
       <button
         type="button"
