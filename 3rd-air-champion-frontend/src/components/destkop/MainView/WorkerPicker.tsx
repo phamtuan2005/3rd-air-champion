@@ -19,6 +19,9 @@ export interface PickablePerson {
   hint?: string;
   // Something waiting on the host for this person — claims to approve.
   badge?: number;
+  // Their face, the same one the Team tab shows, so a name is recognised
+  // before it is read.
+  avatar?: React.ReactNode;
 }
 
 interface WorkerPickerProps {
@@ -101,6 +104,7 @@ const WorkerPicker = ({ title, people, value, onChange }: WorkerPickerProps) => 
               {shown.map((p) =>
                 row(p.id, value === p.id, () => onChange(p.id), (
                   <span className="flex min-w-0 flex-1 items-center gap-2">
+                    {p.avatar}
                     <span className="min-w-0">
                       <span className="block truncate font-medium text-gray-800">{p.name}</span>
                       {p.hint && <span className="block text-[11px] text-gray-400">{p.hint}</span>}
@@ -130,7 +134,7 @@ const WorkerPicker = ({ title, people, value, onChange }: WorkerPickerProps) => 
       >
         {picked ? (
           <span className="flex min-w-0 items-center gap-2 text-base font-bold text-emerald-700">
-            <FaUser size={13} className="shrink-0" />
+            {picked.avatar ?? <FaUser size={13} className="shrink-0" />}
             <span className="truncate">{picked.name}</span>
           </span>
         ) : (
