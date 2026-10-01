@@ -1,109 +1,39 @@
-import { useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import TemplateEditorModal, { TemplatePlaceholder } from "../../../shared/TemplateEditorModal";
 import { DEFAULT_TEMPLATE, loadTemplate, saveTemplate } from "../../../../util/reminderTemplate";
 
 interface ReminderTemplateModalProps {
   onClose: () => void;
 }
 
-const PLACEHOLDERS = [
-  { label: "Name", value: "{{name}}" },
-  { label: "Duration", value: "{{duration}}" },
-  { label: "Night Word", value: "{{nightWord}}" },
-  { label: "Start Date", value: "{{startDate}}" },
-  { label: "Itinerary (room-by-room)", value: "{{itinerary}}" },
-  { label: "Room", value: "{{room}}" },
-  { label: "Room Code", value: "{{roomCode}}" },
-  { label: "Door Code", value: "{{doorCode}}" },
-  { label: "AirBnB Name", value: "{{airBnBName}}" },
-  { label: "AirBnB Address", value: "{{airBnBAddress}}" },
-  { label: "House Rules", value: "{{houseRules}}" },
+// The tokens the reminder understands, each with what the preview shows for
+// it. The samples are a made-up two-night stay, not a real guest.
+const PLACEHOLDERS: TemplatePlaceholder[] = [
+  { label: "Name", value: "{{name}}", sample: "Susan" },
+  { label: "Stay length", value: "{{stayDuration}}", sample: "2 nights, starting tomorrow" },
+  { label: "Duration", value: "{{duration}}", sample: "2" },
+  { label: "Night word", value: "{{nightWord}}", sample: "nights" },
+  { label: "Start date", value: "{{startDate}}", sample: "Mon, Oct 19" },
+  { label: "Itinerary (room by room)", value: "{{itinerary}}", sample: "Mon, Oct 19 to Wed, Oct 21: King (room code 1224#)" },
+  { label: "Room", value: "{{room}}", sample: "King" },
+  { label: "Room code", value: "{{roomCode}}", sample: "1224#" },
+  { label: "Door code", value: "{{doorCode}}", sample: "4321" },
+  { label: "AirBnB name", value: "{{airBnBName}}", sample: "TT House in Silicon Valley" },
+  { label: "AirBnB address", value: "{{airBnBAddress}}", sample: "123 Example St, San Jose" },
+  { label: "House rules", value: "{{houseRules}}", sample: "(your house rules appear here)" },
 ];
 
-const ReminderTemplateModal = ({ onClose }: ReminderTemplateModalProps) => {
-  const [draft, setDraft] = useState(() => loadTemplate().template);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  // Saved as a template that knows of {{houseRules}}: leaving the placeholder
-  // out here is a choice, and the reminder honours it (see resolveTemplate).
-  const save = () => {
-    saveTemplate(draft);
-    onClose();
-  };
-
-  const insertPlaceholder = (placeholder: string) => {
-    const el = textareaRef.current;
-    if (!el) return;
-
-    const start = el.selectionStart;
-    const end = el.selectionEnd;
-    const newValue = draft.slice(0, start) + placeholder + draft.slice(end);
-    setDraft(newValue);
-
-    // Restore focus and move cursor to after the inserted placeholder
-    requestAnimationFrame(() => {
-      el.focus();
-      const cursor = start + placeholder.length;
-      el.setSelectionRange(cursor, cursor);
-    });
-  };
-
-  return createPortal(
-    <div className="modal-type fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-      <div className="bg-white rounded-lg p-4 w-full max-w-lg shadow-lg flex flex-col gap-3">
-        <div className="flex flex-col items-center gap-1">
-          <button
-            onClick={onClose}
-            className="text-gray-500 font-bold text-[1.5rem] leading-none px-6 py-0.5 rounded hover:bg-gray-100"
-          >
-            &times;
-          </button>
-          <h2 className="font-bold text-lg">Reminder Template</h2>
-        </div>
-
-        <textarea
-          ref={textareaRef}
-          className="border rounded px-2 py-1 text-sm w-full min-h-[120px]"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-        />
-
-        <div className="flex flex-wrap gap-1.5">
-          {PLACEHOLDERS.map(({ label, value }) => (
-            <button
-              key={value}
-              onClick={() => insertPlaceholder(value)}
-              className="px-2 py-0.5 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-xs rounded font-mono"
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex gap-2 justify-end">
-          <button
-            onClick={() => setDraft(DEFAULT_TEMPLATE)}
-            className="px-3 py-1 bg-blue-400 text-white text-sm rounded"
-          >
-            Reset to Default
-          </button>
-          <button
-            onClick={onClose}
-            className="px-3 py-1 bg-gray-400 text-white text-sm rounded"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={save}
-            className="px-3 py-1 bg-green-500 text-white text-sm rounded"
-          >
-            Save
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body,
-  );
-};
+const ReminderTemplateModal = ({ onClose }: ReminderTemplateModalProps) => (
+  <TemplateEditorModal
+    title="Reminder template"
+    subtitle="The text a guest gets the day before they arrive"
+    placeholders={PLACEHOLDERS}
+    initial={loadTemplate().template}
+    defaultTemplate={DEFAULT_TEMPLATE}
+    // Saved as a template that knows of {{houseRules}}: leaving the token out
+    // here is a choice, and the reminder honours it (see resolveTemplate).
+    onSave={saveTemplate}
+    onClose={onClose}
+  />
+);
 
 export default ReminderTemplateModal;
