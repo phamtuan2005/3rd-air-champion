@@ -16,7 +16,8 @@ import {
   rateOn as cleanerRateOn,
   updateCleaner,
 } from "../../../util/cleanerOperations";
-import { payrollByMonth } from "../../../util/payrollByMonth";
+import { payrollByMonth, shiftMonth } from "../../../util/payrollByMonth";
+import WorkerPicker from "./WorkerPicker";
 import {
   HostWorkEntry,
   StaffType,
@@ -152,6 +153,44 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
   const payroll = useMemo(
     () => payrollByMonth(staff, cleanerPay, workEntries, todayKey),
     [staff, cleanerPay, workEntries, todayKey],
+  );
+  // The Payroll tab's pick and month. Everyone is read a month at a time;
+  // one worker is read across all their months — see the tab for why.
+  const [payrollFor, setPayrollFor] = useState<string | null>(null);
+  const [payrollMonth, setPayrollMonth] = useState(todayKey.slice(0, 7));
+  // Which person's paychecks are unfolded in the everyone view.
+  const [openPay, setOpenPay] = useState<string | null>(null);
+  const payrollPeople = useMemo(() => {
+    const seen = new Map<string, { id: string; name: string; hint?: string }>();
+    payroll.forEach((m) =>
+      m.people.forEach((p) => {
+        if (seen.has(p.id)) return;
+        seen.set(p.id, {
+          id: p.id,
+          name: p.name,
+          hint: p.kind === "cleaner" ? "cleaner" : staff.find((s) => s.id === p.id)?.title || undefined,
+        });
+      }),
+    );
+    return [...seen.values()];
+  }, [payroll, staff]);
+  const payrollPerson = payrollPeople.find((p) => p.id === payrollFor) ?? null;
+  const shownPayroll = useMemo(
+    () =>
+      payrollPerson
+        ? payroll
+            .map((m) => {
+              const mine = m.people.filter((p) => p.id === payrollPerson.id);
+              return {
+                key: m.key,
+                paid: mine.reduce((s, p) => s + p.paid, 0),
+                tips: mine.reduce((s, p) => s + p.tips, 0),
+                people: mine,
+              };
+            })
+            .filter((m) => m.people.length > 0)
+        : [payroll.find((m) => m.key === payrollMonth) ?? { key: payrollMonth, paid: 0, tips: 0, people: [] }],
+    [payroll, payrollPerson, payrollMonth],
   );
 
   const active = staff.filter((s) => !s.endedOn || s.endedOn >= todayKey);
@@ -629,8 +668,42 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
                 recorded on the Team tab and a cleaner payout in Clean, so this
                 tab can never disagree with either; it only reads them.
                 See util/payrollByMonth for why it exists. */}
+            {/* Who, then when. Everyone: one month at a time, with a switcher,
+                because every month stacked under the last was a list with no
+                end (Anh-Tuan, 2026-09-30). One worker: all of their months,
+                newest first. The question is then "what have I paid this
+                person", and that has an end, their history. */}
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <WorkerPicker title="Whose payroll" people={payrollPeople} value={payrollPerson?.id ?? null} onChange={setPayrollFor} />
+              {!payrollPerson && (
+                <div className="ml-auto flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setPayrollMonth((k) => shiftMonth(k, -1))}
+                    aria-label="Earlier month"
+                    className="rounded-lg border border-gray-200 px-2.5 py-1 text-sm text-gray-600"
+                  >
+                    ‹
+                  </button>
+                  <span className="min-w-[8.5rem] text-center text-sm font-bold text-gray-900">{monthLabel(`${payrollMonth}-01`)}</span>
+                  {/* No later than this month: nothing is paid in a month that has not come. */}
+                  <button
+                    type="button"
+                    onClick={() => setPayrollMonth((k) => shiftMonth(k, 1))}
+                    disabled={payrollMonth >= todayKey.slice(0, 7)}
+                    aria-label="Later month"
+                    className="rounded-lg border border-gray-200 px-2.5 py-1 text-sm text-gray-600 disabled:opacity-30"
+                  >
+                    ›
+                  </button>
+                </div>
+              )}
+            </div>
             <div className="flex flex-col gap-3">
-              {payroll.map((m) => (
+              {payrollPerson && shownPayroll.length === 0 && (
+                <p className="py-6 text-center text-sm text-gray-400">Nothing paid to {payrollPerson.name} yet.</p>
+              )}
+              {shownPayroll.map((m) => (
                 <section key={m.key} className="rounded-xl border border-gray-200 bg-white">
                   <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 border-b border-gray-100 px-3 py-2">
                     <p className="text-sm font-bold text-gray-900">{monthLabel(`${m.key}-01`)}</p>
@@ -644,45 +717,58 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
                     <p className="px-3 py-3 text-sm text-gray-400">Nothing paid yet this month.</p>
                   ) : (
                     <div className="flex flex-col divide-y divide-gray-100">
-                      {m.people.map((p) => (
-                        <div key={p.id} className="px-3 py-2">
-                          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-                            <p className="text-sm font-bold text-gray-900">
-                              {p.name}
-                              {p.kind === "cleaner" && (
-                                <span className="ml-1.5 text-[11px] font-semibold uppercase text-teal-600">cleaner</span>
-                              )}
-                            </p>
-                            <p className="text-sm text-gray-700">
-                              <span className="font-bold">{money(p.paid)}</span> paid
-                              {p.tips > 0 && <span className="text-gray-500"> · {money(p.tips)} tip</span>}
-                              {/* Earned beside paid, for hourly people. Amber
-                                  when the month's wages are not yet covered. A
-                                  payout can lag into the next month, so it is
-                                  a flag to look, not a debt. */}
-                              {p.earned !== null && (
-                                <span className={p.earned > p.paid ? "text-amber-700" : "text-gray-500"}>
-                                  {" · "}earned {money(p.earned)}
-                                </span>
-                              )}
-                            </p>
+                      {m.people.map((p) => {
+                        // One worker's view unfolds every month; everyone's
+                        // keeps each person to a line until tapped, so a month
+                        // with many names stays one screen.
+                        const open = !!payrollPerson || openPay === p.id;
+                        return (
+                          <div key={p.id} className="px-3 py-2">
+                            <button
+                              type="button"
+                              onClick={() => { if (!payrollPerson) setOpenPay(open ? null : p.id); }}
+                              className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-left"
+                            >
+                              <p className="text-sm font-bold text-gray-900">
+                                {p.name}
+                                {p.kind === "cleaner" && (
+                                  <span className="ml-1.5 text-[11px] font-semibold uppercase text-teal-600">cleaner</span>
+                                )}
+                              </p>
+                              <p className="text-sm text-gray-700">
+                                <span className="font-bold">{money(p.paid)}</span> paid
+                                {p.tips > 0 && <span className="text-gray-500"> · {money(p.tips)} tip</span>}
+                                {/* Earned beside paid, for hourly people. Amber
+                                    when the month's wages are not yet covered. A
+                                    payout can lag into the next month, so it is
+                                    a flag to look, not a debt. */}
+                                {p.earned !== null && (
+                                  <span className={p.earned > p.paid ? "text-amber-700" : "text-gray-500"}>
+                                    {" · "}earned {money(p.earned)}
+                                  </span>
+                                )}
+                                {!payrollPerson && p.paychecks.length > 0 && (
+                                  <span className="ml-1.5 text-xs text-gray-400">{open ? "▾" : "›"}</span>
+                                )}
+                              </p>
+                            </button>
+                            {open && p.paychecks.length > 0 && (
+                              <ul className="mt-1 flex flex-col gap-0.5">
+                                {p.paychecks.map((pc, i) => (
+                                  <li key={`${pc.paidOn}-${i}`} className="flex min-w-0 items-baseline gap-2 text-xs text-gray-500">
+                                    <span className="w-14 shrink-0">{fmtDate(pc.paidOn)}</span>
+                                    <span className="font-semibold text-gray-700">{money(pc.amount)}</span>
+                                    {pc.tip && (
+                                      <span className="rounded bg-amber-50 px-1 text-[10px] font-bold uppercase text-amber-700">tip</span>
+                                    )}
+                                    {pc.note && <span className="truncate">{pc.note}</span>}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
                           </div>
-                          {p.paychecks.length > 0 && (
-                            <ul className="mt-1 flex flex-col gap-0.5">
-                              {p.paychecks.map((pc, i) => (
-                                <li key={`${pc.paidOn}-${i}`} className="flex min-w-0 items-baseline gap-2 text-xs text-gray-500">
-                                  <span className="w-14 shrink-0">{fmtDate(pc.paidOn)}</span>
-                                  <span className="font-semibold text-gray-700">{money(pc.amount)}</span>
-                                  {pc.tip && (
-                                    <span className="rounded bg-amber-50 px-1 text-[10px] font-bold uppercase text-amber-700">tip</span>
-                                  )}
-                                  {pc.note && <span className="truncate">{pc.note}</span>}
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </section>
@@ -699,32 +785,17 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
               </p>
             ) : (
               <div className="flex flex-col gap-2.5">
-                {/* Who to read: everyone, or one person. The same segmented
-                    row as the tabs above, so it reads as a filter and not as a
-                    second set of tabs. A badge on a name says that person has
-                    a claim waiting, so the host can go straight to it. */}
-                <div className="flex gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  {[{ staffId: null as string | null, name: "Everyone", pending: 0 }, ...people].map((p) => {
-                    const on = (person?.staffId ?? null) === p.staffId;
-                    return (
-                      <button
-                        key={p.staffId ?? "everyone"}
-                        type="button"
-                        onClick={() => setHoursFor(p.staffId)}
-                        aria-pressed={on}
-                        className={`flex min-w-fit items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-sm font-semibold transition-colors ${
-                          on ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
-                        }`}
-                      >
-                        {p.name}
-                        {p.pending > 0 && (
-                          <span className={`min-w-[1.25rem] rounded-full px-1 py-0.5 text-center text-[11px] font-bold leading-none ${on ? "bg-gray-900 text-white" : "bg-amber-200 text-amber-800"}`}>
-                            {p.pending}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
+                {/* Who to read: everyone, or one person, found by typing. This
+                    was a row of chips, one per worker — see WorkerPicker for
+                    why it is a searchable list now. A badge says that person
+                    has a claim waiting, so the host can go straight to it. */}
+                <div>
+                  <WorkerPicker
+                    title="Whose hours"
+                    people={people.map((p) => ({ id: p.staffId, name: p.name, hint: p.title || undefined, badge: p.pending }))}
+                    value={person?.staffId ?? null}
+                    onChange={setHoursFor}
+                  />
                 </div>
                 {shownEntries.map((w, i) => (
                   <Fragment key={w.id}>

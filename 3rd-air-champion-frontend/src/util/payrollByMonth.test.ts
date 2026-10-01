@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { payrollByMonth } from "./payrollByMonth";
+import { payrollByMonth, shiftMonth } from "./payrollByMonth";
 import type { HostWorkEntry, StaffType } from "./staffOperations";
 import type { CleanerSummaryType } from "./cleanerOperations";
 
@@ -68,5 +68,13 @@ describe("payroll by month", () => {
     expect(ana.earned).toBe(40);
     expect(ana.paid).toBe(0);
     expect(ana.paychecks).toEqual([]);
+  });
+});
+
+describe("moving a month at a time", () => {
+  it("steps across a year end in both directions", () => {
+    expect(shiftMonth("2026-12", 1)).toBe("2027-01");
+    expect(shiftMonth("2027-01", -1)).toBe("2026-12");
+    expect(shiftMonth("2026-09", -9)).toBe("2025-12");
   });
 });
