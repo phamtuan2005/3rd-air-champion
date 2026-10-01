@@ -2,6 +2,26 @@ import { addDays, format } from "date-fns";
 import { bookingType } from "./types/bookingType";
 
 export const TEMPLATE_KEY = "reminderMessageTemplate";
+// Set beside the template whenever it is saved through the Reminder Template
+// modal, which has offered {{houseRules}} since the placeholder existed. A
+// template with this mark and no placeholder had the rules taken OUT on
+// purpose; one without it predates the placeholder (see resolveTemplate).
+export const TEMPLATE_KNOWS_RULES_KEY = "reminderMessageTemplateKnowsRules";
+
+/** The saved template, or the default, and whether it was saved knowing of {{houseRules}}. */
+export const loadTemplate = (): { template: string; knowsRules: boolean } => {
+  const saved = localStorage.getItem(TEMPLATE_KEY);
+  return {
+    template: saved || DEFAULT_TEMPLATE,
+    // The default always knows: it carries the placeholder itself.
+    knowsRules: !saved || localStorage.getItem(TEMPLATE_KNOWS_RULES_KEY) === "1",
+  };
+};
+
+export const saveTemplate = (template: string) => {
+  localStorage.setItem(TEMPLATE_KEY, template);
+  localStorage.setItem(TEMPLATE_KNOWS_RULES_KEY, "1");
+};
 
 // {{itinerary}} expands to the room for a single-room stay, or a night-by-night
 // room breakdown when the guest's stay rolls across multiple rooms.
@@ -47,6 +67,9 @@ export const resolveTemplate = (
   airBnBName: string = "",
   airBnBAddress: string = "",
   houseRules: string = "",
+  // Whether the template was saved by someone who could see {{houseRules}}
+  // (loadTemplate). Decides what a missing placeholder means — see below.
+  templateKnowsRules: boolean = false,
 ) => {
   const chain = Array.isArray(bookingOrChain) ? bookingOrChain : [bookingOrChain];
   const primary = chain[0];
@@ -87,7 +110,13 @@ export const resolveTemplate = (
   // default forever, so fixing the default alone leaves every existing device
   // silently sending reminders with no rules — and each phone would have to be
   // reset by hand. Append them instead when the template has no placeholder.
-  if (houseRules.trim() && !template.includes("{{houseRules}}")) {
+  //
+  // ...unless the template was saved by someone who could see the
+  // placeholder and left it out. Anh-Tuan removed {{houseRules}} from his
+  // template and the rules kept arriving (2026-10-01): this rule could not
+  // tell an old template from an edited one. TEMPLATE_KNOWS_RULES_KEY now
+  // tells them apart, and a deliberate removal stays removed.
+  if (houseRules.trim() && !template.includes("{{houseRules}}") && !templateKnowsRules) {
     message += `\n\n${houseRules.trim()}`;
   }
 
