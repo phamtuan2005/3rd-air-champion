@@ -74,6 +74,7 @@ interface HeroShellProps {
   onDateClick: (d: Date) => void;
   onWishListClick: (d: Date) => void;
   onMyStayClick: (id: string) => void;
+  onMyStayDetails: (id: string) => void;
   onReservedClick: () => void;
   scrollToTodayTrigger: number;
   scrollToMonthTrigger?: { month: Date; seq: number };
@@ -104,7 +105,7 @@ const HeroShell = ({
   host, rooms, monthMap, selectedRoomIds, onSelectRoom, onToggleRoom, myRates,
   cartDates, wishListDates, newWishListDates, myBookingDates, myStays,
   reservedStays, reservedMap, currentMonth, onMonthChange, onDateClick,
-  onWishListClick, onMyStayClick, onReservedClick, scrollToTodayTrigger,
+  onWishListClick, onMyStayClick, onMyStayDetails, onReservedClick, scrollToTodayTrigger,
   scrollToMonthTrigger, onOpenPhotos, onScrollToToday, onMyBookings, onRequest, guestName,
   actionLabel, hasSelection,
 }: HeroShellProps) => {
@@ -669,6 +670,7 @@ const HeroShell = ({
             onDateClick={onDateClick}
             onWishListClick={onWishListClick}
             onMyStayClick={onMyStayClick}
+            onMyStayDetails={onMyStayDetails}
             onReservedClick={onReservedClick}
           />
         </div>

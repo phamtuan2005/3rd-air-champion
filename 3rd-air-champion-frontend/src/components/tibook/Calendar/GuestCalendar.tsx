@@ -7,7 +7,7 @@ import { getRoomColor } from "../../../util/getRoomColor";
 import { useTiBookTheme, useRoomChip, useCalendarView } from "../../../contexts/TiBookThemeContext";
 import { nightStatus } from "../../../util/nightStatus";
 import GuestDayList from "./GuestDayList";
-import { MONTHS_FORWARD, appliedMonthTrigger, HOLD_HATCH, HOLD_HATCH_TILE } from "./calendarScroll";
+import { MONTHS_FORWARD, appliedMonthTrigger, HOLD_HATCH, HOLD_HATCH_TILE, NUM_ROWS, REF_TILE, dayNumberPx } from "./calendarScroll";
 
 // A guest's own confirmed stay, drawn as a spanning bar (not a dot).
 export interface MyStay {
@@ -44,11 +44,11 @@ export interface GuestCalendarProps {
   onDateClick?: (date: Date) => void;
   onWishListClick?: (date: Date) => void;
   onMyStayClick?: (bookingId: string) => void;
+  // The list's "Details" link on a stay: straight to that booking in Your
+  // bookings, without the stay card on the way.
+  onMyStayDetails?: (bookingId: string) => void;
   onReservedClick?: () => void; // tapping a held night opens the pay-reminder popup
 }
-
-const NUM_ROWS = 6;
-
 
 // ── Type and bar geometry, derived from the tile height ──────────────────────
 //
@@ -60,7 +60,8 @@ const NUM_ROWS = 6;
 //
 // REF_TILE is the height those literals were chosen at; every ratio below
 // reproduces them exactly there, so nothing moves until the guest drags.
-const REF_TILE = 80;
+// (REF_TILE itself lives in calendarScroll, beside the day number the list
+// shares.)
 
 // One knob over every piece of type in the calendar, on top of the ratios.
 //
@@ -97,8 +98,8 @@ const barLabelFor = (barHeight: number) =>
 // it is the least useful thing in the cell. What the guest is scanning for is
 // "3 left" and the room on their ribbon — a date they can find from its column.
 // Boosted, it became the loudest thing on a page it should stay quiet on.
-const dateFor = (tile: number) =>
-  `${clamp(13, (tile / REF_TILE) * 16, 24).toFixed(1)}px`;
+// The formula is in calendarScroll, because the list sizes its type off it.
+const dateFor = (tile: number) => `${dayNumberPx(tile).toFixed(1)}px`;
 
 // "3 left" / "sold out" — was 9px, the smallest type anywhere in TiBook and the
 // line that actually answers "can I book this night".
