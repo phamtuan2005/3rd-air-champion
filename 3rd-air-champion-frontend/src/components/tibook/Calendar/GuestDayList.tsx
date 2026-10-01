@@ -7,7 +7,7 @@ import { getRoomColor } from "../../../util/getRoomColor";
 import { roomType } from "../../../util/types/roomType";
 import { dayType } from "../../../util/types/dayType";
 import type { GuestCalendarProps } from "./GuestCalendar";
-import { MONTHS_FORWARD, appliedMonthTrigger, HOLD_HATCH, HOLD_HATCH_TILE, NUM_ROWS, REF_TILE, dayNumberPx } from "./calendarScroll";
+import { MONTHS_FORWARD, appliedMonthTrigger, HOLD_HATCH, HOLD_HATCH_TILE } from "./calendarScroll";
 import { dayListMonths } from "../../../util/dayListMonths";
 
 /*
@@ -40,31 +40,31 @@ import { dayListMonths } from "../../../util/dayListMonths";
  */
 
 /*
- * The list's type and heights, in px, from the box it is drawn in.
+ * The list's type and heights, in px, from the width it is drawn in.
  *
- * The rows were 60px with 12px chips and 14px words, fixed. Beside the grid,
- * whose day number grows with the calendar (21px on a Pixel with the calendar
- * dragged open), that read as small print on a phone. Now the list's words
- * are the size the grid's day number would be in this same box — `text` — and
- * the list's own day number one step larger, as it was. Weekday and the
- * stay's dates are the quieter `small`.
+ * The rows were 60px with 12px chips and 14px words: tiring to read for any
+ * length of time on a phone. Matching the grid's day number was tried next,
+ * but that grows only as the calendar is dragged open — 13px on an iPhone SE,
+ * 21px on a Pixel fully open — so the list was still small print most of the
+ * time. The bar it was held to is Airbnb's own calendar list, which the house
+ * reads every day: about 22px words on a phone. So `text` is that, steady,
+ * and only eased down on a narrow phone so a stay's price still fits beside
+ * the stay bar. Weekday and the stay's dates are the quieter `small`; the
+ * list's own day number one step larger.
  *
  * The heights still follow from the type and nothing else — see above, the
  * list's arithmetic depends on it. 3.5 lines of text plus padding fits the
  * tallest thing a row holds: a one-night stay's room line, its price, and
  * the Details link wrapped under the price on a narrow phone.
- * Rounded to whole px so dragging the grip changes the layout a dozen times
- * between smallest and largest, not on every frame.
  */
 interface ListSize { text: number; date: number; small: number; rowH: number; headH: number }
-const listSizeFor = (boxHeight: number): ListSize => {
-  const text = Math.round(dayNumberPx(boxHeight > 0 ? Math.floor(boxHeight / NUM_ROWS) : REF_TILE));
+const listSizeFor = (boxWidth: number): ListSize => {
+  // 22px from a 411px phone up; 18px on a 320px one. 0 = not measured yet.
+  const text = boxWidth > 0 ? Math.round(Math.min(22, Math.max(18, boxWidth / 18.7))) : 22;
   return {
     text,
-    date: Math.round(text * 1.3),
-    // Never under 13 — the grid's smallest day number, and the 12px of the
-    // old chips is what was too small to read.
-    small: Math.max(13, Math.round(text * 0.8)),
+    date: Math.round(text * 1.2),
+    small: Math.round(text * 0.82),
     rowH: Math.max(60, Math.round(text * 3.5 + 20)),
     headH: Math.max(36, Math.round(text * 2.2)),
   };
@@ -321,7 +321,9 @@ const MonthSection = memo(({ month, days, top, drawn, data, size, handlers }: Mo
         // clipped this to "tap to wish…", hiding what the tap does. The row
         // is tall enough for two (see listSizeFor).
         <span className={`line-clamp-2 leading-tight ${theme.surfaceMuted}`} style={fs(size.text)}>
-          {isWishlisted ? "Sold out · on your wish list" : canWishList ? "Sold out · tap to wish-list" : "Sold out"}
+          {/* A non-breaking hyphen (U+2011): at the list's type the line wraps,
+              and it broke "wish-" from "list". */}
+          {isWishlisted ? "Sold out · on your wish list" : canWishList ? "Sold out · tap to wish‑list" : "Sold out"}
         </span>
       );
     }
@@ -594,21 +596,20 @@ const GuestDayList = ({
   const handlers = useRef<Handlers>({});
   handlers.current = { onDateClick, onWishListClick, onMyStayClick, onMyStayDetails, onReservedClick };
 
-  // The box the list fills is the box the grid fills, so its height says how
-  // big the grid's day number would be here. See listSizeFor.
-  const [boxHeight, setBoxHeight] = useState(0);
+  // The list's width decides its type. See listSizeFor.
+  const [boxWidth, setBoxWidth] = useState(0);
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const obs = new ResizeObserver(([entry]) => setBoxHeight(entry.contentRect.height));
+    const obs = new ResizeObserver(([entry]) => setBoxWidth(entry.contentRect.width));
     obs.observe(el);
-    setBoxHeight(el.clientHeight);
+    setBoxWidth(el.clientWidth);
     return () => obs.disconnect();
   }, []);
-  const textPx = listSizeFor(boxHeight).text;
+  const textPx = listSizeFor(boxWidth).text;
   // Keyed on the one number everything follows from, so a resize that does
   // not change the type does not re-lay the list or redraw its months.
-  const size = useMemo(() => listSizeFor(boxHeight), [textPx]); // eslint-disable-line react-hooks/exhaustive-deps
+  const size = useMemo(() => listSizeFor(boxWidth), [textPx]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const scopedRooms = useMemo(
     () => rooms.filter((r) => r.active && (selectedRoomIds === null || selectedRoomIds.has(r.id))),
@@ -640,8 +641,9 @@ const GuestDayList = ({
 
   /*
    * When the type changes size, every month moves — so keep the same NIGHT at
-   * the top, not the same pixel. Without this, dragging the grip open
-   * mid-list slid the guest weeks away from the night they were reading.
+   * the top, not the same pixel. Without this, turning the phone sideways
+   * mid-list would slide the guest weeks away from the night they were
+   * reading. (It also lands the first draw, made before the width is known.)
    * Worked out from the old layout's arithmetic, which is exact.
    */
   const laidOut = useRef({ sections, size });

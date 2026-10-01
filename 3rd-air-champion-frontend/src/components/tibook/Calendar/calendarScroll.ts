@@ -29,18 +29,3 @@ export const MONTHS_FORWARD = 36;
  * still unspent and still lands when one is.
  */
 export const appliedMonthTrigger = { seq: 0 };
-
-// The month grid's week-rows per page, and the tile height its type was first
-// tuned at — see GuestCalendar's "Type and bar geometry".
-export const NUM_ROWS = 6;
-export const REF_TILE = 80;
-
-/*
- * The grid's day number, in px, for a tile of this height.
- *
- * Here rather than in GuestCalendar because the list reads it too: the list's
- * type is sized off it, so on any phone the list reads at least as large as
- * the grid the guest just switched from. The list's 12px chips beside a 21px
- * day number in the grid were too small to read on a phone.
- */
-export const dayNumberPx = (tile: number) => Math.min(24, Math.max(13, (tile / REF_TILE) * 16));

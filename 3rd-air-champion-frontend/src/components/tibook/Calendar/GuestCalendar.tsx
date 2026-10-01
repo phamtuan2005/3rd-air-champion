@@ -7,7 +7,7 @@ import { getRoomColor } from "../../../util/getRoomColor";
 import { useTiBookTheme, useRoomChip, useCalendarView } from "../../../contexts/TiBookThemeContext";
 import { nightStatus } from "../../../util/nightStatus";
 import GuestDayList from "./GuestDayList";
-import { MONTHS_FORWARD, appliedMonthTrigger, HOLD_HATCH, HOLD_HATCH_TILE, NUM_ROWS, REF_TILE, dayNumberPx } from "./calendarScroll";
+import { MONTHS_FORWARD, appliedMonthTrigger, HOLD_HATCH, HOLD_HATCH_TILE } from "./calendarScroll";
 
 // A guest's own confirmed stay, drawn as a spanning bar (not a dot).
 export interface MyStay {
@@ -50,6 +50,9 @@ export interface GuestCalendarProps {
   onReservedClick?: () => void; // tapping a held night opens the pay-reminder popup
 }
 
+const NUM_ROWS = 6;
+
+
 // ── Type and bar geometry, derived from the tile height ──────────────────────
 //
 // Lifted from TiMag's CalendarGrid, which sizes a guest name and its bar's
@@ -60,8 +63,7 @@ export interface GuestCalendarProps {
 //
 // REF_TILE is the height those literals were chosen at; every ratio below
 // reproduces them exactly there, so nothing moves until the guest drags.
-// (REF_TILE itself lives in calendarScroll, beside the day number the list
-// shares.)
+const REF_TILE = 80;
 
 // One knob over every piece of type in the calendar, on top of the ratios.
 //
@@ -98,8 +100,8 @@ const barLabelFor = (barHeight: number) =>
 // it is the least useful thing in the cell. What the guest is scanning for is
 // "3 left" and the room on their ribbon — a date they can find from its column.
 // Boosted, it became the loudest thing on a page it should stay quiet on.
-// The formula is in calendarScroll, because the list sizes its type off it.
-const dateFor = (tile: number) => `${dayNumberPx(tile).toFixed(1)}px`;
+const dateFor = (tile: number) =>
+  `${clamp(13, (tile / REF_TILE) * 16, 24).toFixed(1)}px`;
 
 // "3 left" / "sold out" — was 9px, the smallest type anywhere in TiBook and the
 // line that actually answers "can I book this night".
