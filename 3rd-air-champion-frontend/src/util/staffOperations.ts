@@ -16,6 +16,8 @@ export interface StaffPaymentType {
   amount: number;
   paidOn: string; // yyyy-MM-dd
   note: string;
+  // Money on top of wages, kept apart from them — see payrollByMonth.
+  tip?: boolean;
 }
 
 export interface StaffType {
@@ -108,7 +110,7 @@ export const deleteStaffReview = async (
 };
 
 export const payStaff = async (
-  data: { id: string; amount: number; paidOn: string; note?: string },
+  data: { id: string; amount: number; paidOn: string; note?: string; tip?: boolean },
   token: string,
 ): Promise<StaffType> => {
   const response = await axios.post(`${BACKEND_ENDPOINT}/staff/pay`, data, auth(token));

@@ -38,6 +38,7 @@ const serialize = (s: any) => ({
     amount: p.amount,
     paidOn: p.paidOn,
     note: p.note ?? "",
+    tip: !!p.tip,
   })),
   note: s.note ?? "",
 });
@@ -160,14 +161,14 @@ router.delete("/review", async (req: Request, res: any) => {
 // A payment both appends to the log and moves the running total, in one write,
 // so the two can never disagree — the lesson already learned on Cleaner.
 router.post("/pay", async (req: Request, res: any) => {
-  const { id, amount, paidOn, note } = req.body;
+  const { id, amount, paidOn, note, tip } = req.body;
   if (!id || amount == null || !paidOn)
     return res.status(400).json({ error: "id, amount and paidOn are required" });
   try {
     const item = await Staff.findByIdAndUpdate(
       id,
       {
-        $push: { payments: { amount, paidOn, note: note ?? "" } },
+        $push: { payments: { amount, paidOn, note: note ?? "", tip: !!tip } },
         $inc: { paidAmount: amount },
       },
       { new: true, runValidators: true }

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { entriesFor, monthLabel, peopleFromEntries, startsMonth, totalsByMonth } from "../../../util/hoursByPerson";
 import { format, parseISO, startOfToday } from "date-fns";
 import CleanerAvatar from "../../shared/CleanerAvatar";
@@ -17,6 +17,7 @@ import {
   updateCleaner,
 } from "../../../util/cleanerOperations";
 import { payrollByMonth, shiftMonth } from "../../../util/payrollByMonth";
+import { staffPayMessage } from "../../../util/staffPayMessage";
 import WorkerPicker from "./WorkerPicker";
 import {
   HostWorkEntry,
@@ -37,6 +38,8 @@ interface StaffingModalProps {
   hostId: string;
   token: string;
   onClose: () => void;
+  // Who signs the pay text: the host, or the cohost who is logged in.
+  senderName?: string;
 }
 
 const money = (n: number) =>
@@ -78,7 +81,7 @@ const Stars = ({ value }: { value: number }) => (
  * shape of record, a different question, so a shared screen would have had to
  * hide half its fields for whichever kind you were looking at.
  */
-const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
+const StaffingModal = ({ hostId, token, onClose, senderName }: StaffingModalProps) => {
   const [staff, setStaff] = useState<StaffType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -122,7 +125,19 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
 
   // Per-person scratch state for the two append-only actions.
   const [reviewDraft, setReviewDraft] = useState<Record<string, { rating: string; note: string }>>({});
-  const [payDraft, setPayDraft] = useState<Record<string, string>>({});
+  // Recording a staff payout — on the Payroll tab, where the ledger is. It
+  // was on the Team card, an amount box beside "Paid to date"; Anh-Tuan found
+  // the team list no place for money to change hands (2026-09-30), and asked
+  // for a tip and a text to the worker with it, as the cleaner payout has.
+  const [payAmount, setPayAmount] = useState("");
+  const [payTip, setPayTip] = useState("");
+  const [payDate, setPayDate] = useState(todayKey);
+  const [payNote, setPayNote] = useState("");
+  // Two taps to move money, and a ref so the second cannot post twice while
+  // the first is in flight ([[guard-writes-in-flight]]).
+  const [payArmed, setPayArmed] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const payingRef = useRef(false);
 
   useEffect(() => {
     fetchStaff(hostId, token)
@@ -170,6 +185,10 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
   };
   const payrollPeople = useMemo(() => {
     const seen = new Map<string, { id: string; name: string; hint?: string; avatar?: React.ReactNode }>();
+    // Everyone on the books first, paid yet or not: a new hire has a first
+    // payout to record here, so they must be pickable before any payment exists.
+    staff.forEach((s) => seen.set(s.id, { id: s.id, name: s.name, hint: s.title || undefined, avatar: avatarOf(s.id, s.name) }));
+    cleaners.forEach((c) => seen.set(c.id, { id: c.id, name: c.name, hint: "cleaner", avatar: avatarOf(c.id, c.name) }));
     payroll.forEach((m) =>
       m.people.forEach((p) => {
         if (seen.has(p.id)) return;
@@ -184,6 +203,9 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
     return [...seen.values()];
   }, [payroll, staff, cleaners]); // eslint-disable-line react-hooks/exhaustive-deps
   const payrollPerson = payrollPeople.find((p) => p.id === payrollFor) ?? null;
+  // The pay panel is for staff. A cleaner is paid in Clean, which knows
+  // their balance and their hours.
+  const payStaffMember = payrollPerson ? staff.find((s) => s.id === payrollPerson.id) ?? null : null;
   const shownPayroll = useMemo(
     () =>
       payrollPerson
@@ -518,36 +540,18 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
                 Paid to date{" "}
                 <span className="font-bold text-gray-800">{money(s.paidAmount ?? 0)}</span>
               </span>
-              <div className="relative ml-auto w-28">
-                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-gray-400">
-                  $
-                </span>
-                <input
-                  type="number"
-                  min={0}
-                  placeholder="0"
-                  value={payDraft[s.id] ?? ""}
-                  onChange={(e) => setPayDraft((d) => ({ ...d, [s.id]: e.target.value }))}
-                  className={`${inputCls} w-full pl-5`}
-                />
-              </div>
+              {/* "Record pay" lived here, an amount box beside the figure. It
+                  is on the Payroll tab now — see the pay panel there for why.
+                  This takes the host there with this person already picked. */}
               <button
                 type="button"
-                disabled={!payDraft[s.id]}
-                onClick={() =>
-                  payStaff(
-                    { id: s.id, amount: parseFloat(payDraft[s.id]), paidOn: todayKey },
-                    token,
-                  )
-                    .then((u) => {
-                      patch(u);
-                      setPayDraft((d) => ({ ...d, [s.id]: "" }));
-                    })
-                    .catch(() => setError("Could not record the payment."))
-                }
-                className="shrink-0 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+                onClick={() => {
+                  setPayrollFor(s.id);
+                  setTab("payroll");
+                }}
+                className="ml-auto shrink-0 rounded-lg border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-700"
               >
-                Record pay
+                Record pay in Payroll ›
               </button>
               {earned > 0 && (
                 <span className="w-full text-xs text-gray-400">
@@ -708,6 +712,148 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
                 </div>
               )}
             </div>
+            {payStaffMember &&
+              (() => {
+                const amount = parseFloat(payAmount) || 0;
+                const tip = parseFloat(payTip) || 0;
+                const monthKey = payDate.slice(0, 7);
+                const monthName = monthLabel(`${monthKey}-01`).split(" ")[0];
+                const text = () => {
+                  if (!payStaffMember.phone) return;
+                  const body = staffPayMessage({
+                    name: payStaffMember.name,
+                    staffId: payStaffMember.id,
+                    entries: workEntries,
+                    monthKey,
+                    monthName,
+                    paid: amount,
+                    tip,
+                    sender: senderName,
+                  });
+                  window.location.href = `sms:${payStaffMember.phone}?&body=${encodeURIComponent(body)}`;
+                };
+                const record = () => {
+                  if (!payArmed) {
+                    setPayArmed(true);
+                    return;
+                  }
+                  if (payingRef.current) return;
+                  payingRef.current = true;
+                  setPaying(true);
+                  // The tip is a second payment, posted once the wages are in:
+                  // two writes to one record raced would lose one, and the
+                  // wages must not be the casualty — as the cleaner payout does it.
+                  payStaff({ id: payStaffMember.id, amount, paidOn: payDate, note: payNote }, token)
+                    .then((u) =>
+                      tip > 0
+                        ? payStaff({ id: payStaffMember.id, amount: tip, paidOn: payDate, note: "Tip", tip: true }, token)
+                        : u,
+                    )
+                    .then((u) => {
+                      patch(u);
+                      setPayAmount("");
+                      setPayTip("");
+                      setPayNote("");
+                      setPayArmed(false);
+                      setError("");
+                    })
+                    .catch(() => setError("Could not record the payment."))
+                    .finally(() => {
+                      payingRef.current = false;
+                      setPaying(false);
+                    });
+                };
+                const field = (label: string, input: React.ReactNode) => (
+                  <label className="flex min-w-0 flex-col gap-1">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{label}</span>
+                    {input}
+                  </label>
+                );
+                const dollars = (value: string, set: (v: string) => void) => (
+                  <div className="relative">
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+                    <input
+                      type="number"
+                      min={0}
+                      placeholder="0"
+                      value={value}
+                      onChange={(e) => {
+                        set(e.target.value);
+                        setPayArmed(false);
+                      }}
+                      className={`${inputCls} w-full pl-5`}
+                    />
+                  </div>
+                );
+                return (
+                  <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50/50 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                      Record pay for {payStaffMember.name}
+                    </p>
+                    <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      {field("Amount", dollars(payAmount, setPayAmount))}
+                      {/* A tip on top of wages, recorded apart from them, as a
+                          cleaner tip is: it settles nothing and must not read
+                          as an overpayment on the ledger. */}
+                      {field("Tip", dollars(payTip, setPayTip))}
+                      {field(
+                        "Paid on",
+                        <input
+                          type="date"
+                          value={payDate}
+                          onChange={(e) => {
+                            setPayDate(e.target.value);
+                            setPayArmed(false);
+                          }}
+                          className={inputCls}
+                        />,
+                      )}
+                      {field(
+                        "Note",
+                        <input
+                          type="text"
+                          value={payNote}
+                          placeholder={`${monthName} pay`}
+                          onChange={(e) => setPayNote(e.target.value)}
+                          className={inputCls}
+                        />,
+                      )}
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={amount <= 0 || paying}
+                        onClick={record}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40 ${
+                          payArmed ? "bg-emerald-700" : "bg-emerald-600"
+                        }`}
+                      >
+                        {paying ? "Recording…" : payArmed ? `Confirm ${money(amount + tip)}` : "Record pay"}
+                      </button>
+                      {payArmed && !paying && (
+                        <button type="button" onClick={() => setPayArmed(false)} className="text-xs text-gray-400">
+                          Cancel
+                        </button>
+                      )}
+                      {payStaffMember.phone ? (
+                        <button
+                          type="button"
+                          disabled={amount <= 0}
+                          onClick={text}
+                          className="rounded-lg border border-blue-300 px-3 py-1.5 text-xs font-semibold text-blue-700 disabled:opacity-40"
+                        >
+                          💬 Text {payStaffMember.name.split(" ")[0]}
+                        </button>
+                      ) : (
+                        <span className="text-xs text-gray-400">No phone on file to text them.</span>
+                      )}
+                    </div>
+                    <p className="mt-1.5 text-[11px] text-gray-400">
+                      The text lists the approved days of {monthName} and what was paid today, tip included.
+                    </p>
+                  </div>
+                );
+              })()}
             <div className="flex flex-col gap-3">
               {payrollPerson && shownPayroll.length === 0 && (
                 <p className="py-6 text-center text-sm text-gray-400">Nothing paid to {payrollPerson.name} yet.</p>
