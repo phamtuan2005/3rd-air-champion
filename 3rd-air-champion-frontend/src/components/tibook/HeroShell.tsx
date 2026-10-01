@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { isSameMonth } from "date-fns";
 import { roomType } from "../../util/types/roomType";
 import { dayType } from "../../util/types/dayType";
@@ -58,6 +58,9 @@ interface HeroShellProps {
   monthMap: Map<string, dayType>;
   selectedRoomIds: Set<string> | null;
   onSelectRoom: (id: string | null) => void;
+  // Adds a room to the pick or drops it — the classic banner's toggle, so a
+  // guest can pick two or three rooms here as they can there.
+  onToggleRoom: (id: string) => void;
   myRates?: Map<string, number>;
   cartDates: Map<string, string | null>;
   wishListDates: Set<string>;
@@ -98,7 +101,7 @@ const HeroWeekdays = () => {
 };
 
 const HeroShell = ({
-  host, rooms, monthMap, selectedRoomIds, onSelectRoom, myRates,
+  host, rooms, monthMap, selectedRoomIds, onSelectRoom, onToggleRoom, myRates,
   cartDates, wishListDates, newWishListDates, myBookingDates, myStays,
   reservedStays, reservedMap, currentMonth, onMonthChange, onDateClick,
   onWishListClick, onMyStayClick, onReservedClick, scrollToTodayTrigger,
@@ -112,13 +115,22 @@ const HeroShell = ({
     [rooms],
   );
 
-  // One id, not a Set: the deck shows one card at a time, and a card is either
-  // a room or "any". The Set lives upstream because the rest of TiBook filters
-  // by many rooms; here it is only ever none or one.
-  const activeId =
-    selectedRoomIds && selectedRoomIds.size === 1
-      ? [...selectedRoomIds][0]
-      : ANY;
+  // The rooms the month is about — the same Set the classic banner toggles.
+  const picked = selectedRoomIds ?? new Set<string>();
+  // Several rooms picked. The deck used to hold the pick to none or one — a
+  // card is either a room or "any" — and Anh-Tuan found (2026-09-30) that in
+  // the classic layout he could tap two or three room names in the banner and
+  // see the month for those rooms, while Hero let him pick one. The name on a
+  // card is now that toggle (see the card below), and the deck keeps turning.
+  const multi = picked.size > 1;
+  // The card at the front, which is one id whatever the pick: with none or one
+  // room picked it IS the pick, as it always was; with several it is only
+  // where the deck is turned to, and the outlines mark the picks.
+  const [multiFront, setMultiFront] = useState<string>(ANY);
+  const activeId = multi ? multiFront : picked.size === 1 ? [...picked][0] : ANY;
+  // So that the deck does not jump when the second room is added: the front
+  // stays on the card that was in front.
+  useEffect(() => { if (!multi) setMultiFront(activeId); }, [activeId, multi]);
 
   const cards = useMemo(
     () => [{ id: ANY, room: null as roomType | null }, ...activeRooms.map((r) => ({ id: r.id, room: r }))],
@@ -179,7 +191,11 @@ const HeroShell = ({
     if (current && Math.abs(reachOf(current, el) - el.scrollLeft) <= bestDist + 2) return;
     if (best !== activeId) {
       selectedByDeck.current = best;
-      onSelectRoom(best === ANY ? null : best);
+      // With several rooms picked a swipe is a look, not a choice: it turns
+      // the deck and leaves the picks alone, or a glance at the third card
+      // would throw away the two names the guest had just tapped.
+      if (multi) setMultiFront(best);
+      else onSelectRoom(best === ANY ? null : best);
     }
   };
 
@@ -207,7 +223,12 @@ const HeroShell = ({
 
   // Bring a tapped card to the front of the deck.
   const pick = (id: string) => {
-    onSelectRoom(id === ANY ? null : id);
+    // "Any" clears every pick, in a deck of one or of many. A room card while
+    // several are picked only turns the deck to it, as a swipe does — the
+    // names are the picks.
+    if (id === ANY) onSelectRoom(null);
+    else if (multi) setMultiFront(id);
+    else onSelectRoom(id);
     bringToFront(id);
   };
 
@@ -447,7 +468,9 @@ const HeroShell = ({
           {/* "1 of 5 · swipe" said what to do and never what for. Both lines
               name the thing being swiped through now. */}
           <div className={`truncate text-[11px] leading-tight ${theme.chromeMuted}`}>
-            {activeRoom
+            {multi
+              ? `${picked.size} rooms picked · tap a name to add or drop one`
+              : activeRoom
               ? `Room ${activeRooms.findIndex((r) => r.id === activeId) + 1} of ${activeRooms.length} · swipe for more`
               : `Any room · swipe through all ${activeRooms.length}`}
           </div>
@@ -468,7 +491,12 @@ const HeroShell = ({
           className="absolute inset-0 flex snap-x snap-mandatory gap-2 overflow-x-auto pl-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {cards.map(({ id, room }) => {
-            const on = id === activeId;
+            // Outlined: a picked room, or "any" when nothing is picked. With
+            // none or one picked that is the card in front, as it always was.
+            const on = room ? picked.has(room.id) : picked.size === 0;
+            // In front but not picked happens only with several picked: it is
+            // shown at full strength, so the guest can see what they turned to.
+            const front = id === activeId;
             const photo = room ? getRoomPhotos(room).map(resolveUrl)[0] : undefined;
             const count = room ? getRoomPhotos(room).length : 0;
             return (
@@ -488,7 +516,7 @@ const HeroShell = ({
                    cards still fades. */
                 className={`relative w-[17rem] sm:w-[22rem] md:w-[26rem] lg:w-[32rem] shrink-0 snap-start cursor-pointer overflow-hidden rounded-3xl border transition-opacity ${
                   on ? theme.selectedBorder : theme.surfaceBorder
-                } ${on ? theme.glow : "opacity-70"}`}
+                } ${on ? theme.glow : front ? "" : "opacity-70"}`}
               >
                 {room ? (
                   <>
@@ -509,9 +537,20 @@ const HeroShell = ({
                         agreed with Anh-Tuan" was cut off mid-sentence by it. */}
                     <div className="absolute inset-x-3 bottom-3 flex items-end gap-2">
                     <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
-                      <span className={`rounded-lg px-3 py-1 text-sm font-bold text-white ${roomChip(room)}`}>
-                        {room.name}
-                      </span>
+                      {/* The name is the toggle, as it is in the classic
+                          banner: a tap adds this room to the pick or drops it,
+                          and the deck stays where it is. The card around it
+                          still turns the deck and opens the photos. */}
+                      <button
+                        type="button"
+                        aria-pressed={picked.has(room.id)}
+                        onClick={(e) => { e.stopPropagation(); onToggleRoom(room.id); }}
+                        className={`rounded-lg px-3 py-1 text-sm font-bold text-white ${roomChip(room)} ${
+                          picked.has(room.id) ? `ring-2 ring-offset-1 ${theme.chromeRing} ${theme.ringOffset}` : ""
+                        }`}
+                      >
+                        {picked.has(room.id) ? `✓ ${room.name}` : room.name}
+                      </button>
                       <span className="flex min-w-0 items-baseline gap-1.5">
                         {/* A guest on a deliberate $0 rate is family. Saying
                             "$0" reads as a bug, so it says what it means. */}
@@ -529,7 +568,7 @@ const HeroShell = ({
                         )}
                       </span>
                     </div>
-                    {on && count > 0 && (
+                    {front && count > 0 && (
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); onOpenPhotos(room); }}
