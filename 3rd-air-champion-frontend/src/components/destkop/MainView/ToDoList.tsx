@@ -3,7 +3,7 @@ import { dayType } from "../../../util/types/dayType";
 import { bookingType, feesTotal } from "../../../util/types/bookingType";
 import { addDays, differenceInCalendarDays, startOfToday, format } from "date-fns";
 import { getRoomColor } from "../../../util/getRoomColor";
-import { DEFAULT_TEMPLATE, TEMPLATE_KEY, resolveTemplate } from "../../../util/reminderTemplate";
+import { loadTemplate, resolveTemplate } from "../../../util/reminderTemplate";
 import { CLEANING_LOOKBACK_DAYS, cleaningTaskId, getCleaningCounts, getCleaningItems, countPendingReminders, CleaningItem } from "../../../util/cleaningTasks";
 import { fetchAssignments, CleaningAssignmentType, CleanerType } from "../../../util/cleanerOperations";
 import CleanerAvatar from "../../shared/CleanerAvatar";
@@ -407,8 +407,8 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                       onClick={() => {
                         const phone = booking.guest.phone;
                         const startDate = format(addDays(startOfToday(), 1), "MMMM do");
-                        const currentTemplate = localStorage.getItem(TEMPLATE_KEY) || DEFAULT_TEMPLATE;
-                        const message = resolveTemplate(currentTemplate, buildStayChain(booking), startDate, doorCode, airbnbName, airbnbAddress, houseRules);
+                        const { template: currentTemplate, knowsRules } = loadTemplate();
+                        const message = resolveTemplate(currentTemplate, buildStayChain(booking), startDate, doorCode, airbnbName, airbnbAddress, houseRules, knowsRules);
                         window.location.href = `sms:${phone}?&body=${encodeURIComponent(message)}`;
                         setReminderSent(taskId, true);
                       }}

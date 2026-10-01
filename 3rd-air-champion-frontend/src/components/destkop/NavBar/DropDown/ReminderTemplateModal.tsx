@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { DEFAULT_TEMPLATE, TEMPLATE_KEY } from "../../../../util/reminderTemplate";
+import { DEFAULT_TEMPLATE, loadTemplate, saveTemplate } from "../../../../util/reminderTemplate";
 
 interface ReminderTemplateModalProps {
   onClose: () => void;
@@ -21,13 +21,13 @@ const PLACEHOLDERS = [
 ];
 
 const ReminderTemplateModal = ({ onClose }: ReminderTemplateModalProps) => {
-  const [draft, setDraft] = useState(
-    () => localStorage.getItem(TEMPLATE_KEY) || DEFAULT_TEMPLATE,
-  );
+  const [draft, setDraft] = useState(() => loadTemplate().template);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Saved as a template that knows of {{houseRules}}: leaving the placeholder
+  // out here is a choice, and the reminder honours it (see resolveTemplate).
   const save = () => {
-    localStorage.setItem(TEMPLATE_KEY, draft);
+    saveTemplate(draft);
     onClose();
   };
 
