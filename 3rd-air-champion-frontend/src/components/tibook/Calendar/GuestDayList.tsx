@@ -8,9 +8,11 @@ import { roomType } from "../../../util/types/roomType";
 import { dayType } from "../../../util/types/dayType";
 import type { GuestCalendarProps } from "./GuestCalendar";
 import { MONTHS_FORWARD, appliedMonthTrigger, HOLD_HATCH, HOLD_HATCH_TILE } from "./calendarScroll";
+import { dayListMonths } from "../../../util/dayListMonths";
 
 /*
- * The calendar as a list: one row per night, from tonight, to scroll down.
+ * The calendar as a list: one row per night, the grid's months top to
+ * bottom, opened on tonight, to scroll down.
  *
  * Same props as the month grid and the same answers, because every row asks
  * nightStatus exactly as a grid tile does. What the list adds is room to SAY
@@ -201,6 +203,7 @@ const MonthSection = memo(({ month, days, top, drawn, data, handlers }: MonthSec
     const canWishList = data.canWishList && (status === "full" || status === "blocked");
     const isToday = isSameDay(date, startOfToday());
     const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+    const gone = status === "past";
 
     const h = handlers.current;
     const onClick =
@@ -274,6 +277,12 @@ const MonthSection = memo(({ month, days, top, drawn, data, handlers }: MonthSec
           )}
         </span>
       );
+    } else if (gone) {
+      // A night already slept has nothing to offer and nothing to press. The
+      // dimmed date is the whole row, as a past tile in the grid is only its
+      // dimmed number — "Sold out" would be untrue of it, and the wish-list
+      // star never comes here because nightStatus does not call it full.
+      detail = null;
     } else {
       detail = (
         <span className={`block truncate text-sm ${theme.surfaceMuted}`}>
@@ -299,13 +308,16 @@ const MonthSection = memo(({ month, days, top, drawn, data, handlers }: MonthSec
         {/* The date column is fixed-width, so the nights line up down the list
             and the eye can run down it the way it runs down a grid column. */}
         <span className="relative z-10 flex w-12 shrink-0 flex-col items-center leading-none">
-          <span className={`text-xs font-medium uppercase ${inCart ? "text-white" : isToday ? theme.textPrimary : theme.surfaceMuted}`}>
+          <span className={`text-xs font-medium uppercase ${inCart ? "text-white" : isToday ? theme.textPrimary : gone ? theme.dim : theme.surfaceMuted}`}>
             {isToday ? "Today" : format(date, "EEE")}
           </span>
           <span
             className={`mt-0.5 text-lg font-bold ${
               inCart ? "text-white" :
               isOpen ? theme.surfaceText :
+              // Gone is dim, not struck through: struck through is "sold out",
+              // a night somebody else has — the same split the grid makes.
+              gone ? theme.dim :
               `line-through ${theme.surfaceMuted2}`
             }`}
           >
@@ -531,26 +543,14 @@ const GuestDayList = ({
     canWishList, myRates,
   }), [scopedRooms, monthMap, reservedMap, cartDates, wishListDates, newWishListDates, stays, holds, canWishList, myRates]);
 
-  // Tonight onward. Nights already gone are greyed in the grid because a grid
-  // has to fill its first week; a list does not, and a guest has no use for
-  // them. `top` is where each month starts, in px — exact, because every
-  // height in the list is fixed.
-  const sections = useMemo(() => {
-    const today = startOfToday();
-    const out: { month: Date; days: Date[]; top: number }[] = [];
-    let top = 0;
-    for (let i = 0; i <= MONTHS_FORWARD; i++) {
-      const month = new Date(today.getFullYear(), today.getMonth() + i, 1);
-      const last = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
-      const days: Date[] = [];
-      for (let d = i === 0 ? today.getDate() : 1; d <= last; d++) {
-        days.push(new Date(month.getFullYear(), month.getMonth(), d));
-      }
-      out.push({ month, days, top });
-      top += HEAD_H + days.length * ROW_H;
-    }
-    return out;
-  }, []);
+  // Every night from the 1st of this month — the grid's days — with tonight's
+  // row as the place the list opens. It began at tonight once; dayListMonths
+  // says what that cost. `top` is where each month starts, in px — exact,
+  // because every height in the list is fixed.
+  const { sections, todayTop } = useMemo(
+    () => dayListMonths(startOfToday(), MONTHS_FORWARD, HEAD_H, ROW_H),
+    [],
+  );
 
   const indexOfMonth = (m: Date) => {
     const today = new Date();
@@ -563,13 +563,19 @@ const GuestDayList = ({
   const [shownIdx, setShownIdx] = useState(() => indexOfMonth(currentMonth));
   const shownIdxRef = useRef(shownIdx);
 
+  // Where a jump to a month lands: its heading — or, for this month, tonight's
+  // row. The nights before it are drawn, for the guest mid-stay who scrolls up
+  // to the start of their stay, but nobody asked to land on them: the first
+  // thing the guest sees is still tonight, as when the list began there.
+  const landingTop = (idx: number) => (idx === 0 ? todayTop : sections[idx].top);
+
   const scrollToIndex = (idx: number) => {
     const el = scrollRef.current;
     if (!el) return;
     // Draw the destination before landing on it, rather than land on a blank.
     shownIdxRef.current = idx;
     setShownIdx(idx);
-    el.scrollTop = sections[idx].top;
+    el.scrollTop = landingTop(idx);
   };
 
   // Open where the guest was. Switching from the grid in March lands on March,
