@@ -138,6 +138,12 @@ const StaffingModal = ({ hostId, token, onClose, senderName }: StaffingModalProp
   const [payArmed, setPayArmed] = useState(false);
   const [paying, setPaying] = useState(false);
   const payingRef = useRef(false);
+  // The pay text on the clipboard, for a worker with no phone on file:
+  // SyTien is reached on WhatsApp, which an sms: link cannot open, so the
+  // message is copied and pasted there instead (Anh-Tuan, 2026-10-01).
+  // "Copied" shows for a moment so the tap is seen to have done something.
+  const [payCopied, setPayCopied] = useState(false);
+  const [payPreview, setPayPreview] = useState(false);
 
   useEffect(() => {
     fetchStaff(hostId, token)
@@ -690,19 +696,31 @@ const StaffingModal = ({ hostId, token, onClose, senderName }: StaffingModalProp
                 const tip = parseFloat(payTip) || 0;
                 const monthKey = payDate.slice(0, 7);
                 const monthName = monthLabel(`${monthKey}-01`).split(" ")[0];
+                const body = staffPayMessage({
+                  name: payStaffMember.name,
+                  staffId: payStaffMember.id,
+                  entries: workEntries,
+                  monthKey,
+                  monthName,
+                  paid: amount,
+                  tip,
+                  sender: senderName,
+                });
                 const text = () => {
                   if (!payStaffMember.phone) return;
-                  const body = staffPayMessage({
-                    name: payStaffMember.name,
-                    staffId: payStaffMember.id,
-                    entries: workEntries,
-                    monthKey,
-                    monthName,
-                    paid: amount,
-                    tip,
-                    sender: senderName,
-                  });
                   window.location.href = `sms:${payStaffMember.phone}?&body=${encodeURIComponent(body)}`;
+                };
+                const copy = () => {
+                  // The clipboard API needs a secure page; TiMag is served over
+                  // https, but if it is ever not, the preview below is the way
+                  // to select the text by hand.
+                  navigator.clipboard?.writeText(body).then(
+                    () => {
+                      setPayCopied(true);
+                      setTimeout(() => setPayCopied(false), 1500);
+                    },
+                    () => setPayPreview(true),
+                  );
                 };
                 const record = () => {
                   if (!payArmed) {
@@ -807,7 +825,7 @@ const StaffingModal = ({ hostId, token, onClose, senderName }: StaffingModalProp
                           Cancel
                         </button>
                       )}
-                      {payStaffMember.phone ? (
+                      {payStaffMember.phone && (
                         <button
                           type="button"
                           disabled={amount <= 0}
@@ -816,12 +834,35 @@ const StaffingModal = ({ hostId, token, onClose, senderName }: StaffingModalProp
                         >
                           💬 Text {payStaffMember.name.split(" ")[0]}
                         </button>
-                      ) : (
-                        <span className="text-xs text-gray-400">No phone on file to text them.</span>
                       )}
+                      <button
+                        type="button"
+                        disabled={amount <= 0}
+                        onClick={copy}
+                        className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 disabled:opacity-40"
+                      >
+                        {payCopied ? "Copied ✓" : "📋 Copy message"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPayPreview((v) => !v)}
+                        className="text-xs text-gray-400"
+                      >
+                        {payPreview ? "Hide" : "Show"} message
+                      </button>
                     </div>
+                    {payPreview && (
+                      <textarea
+                        readOnly
+                        value={body}
+                        rows={8}
+                        onFocus={(e) => e.target.select()}
+                        className="mt-2 w-full rounded-lg border border-gray-200 bg-white p-2 text-xs text-gray-700"
+                      />
+                    )}
                     <p className="mt-1.5 text-[11px] text-gray-400">
-                      The text lists the approved days of {monthName} and what was paid today, tip included.
+                      The message lists the approved days of {monthName} and what was paid today, tip included.
+                      {!payStaffMember.phone && " No phone on file, so copy it and paste it into WhatsApp."}
                     </p>
                   </div>
                 );
