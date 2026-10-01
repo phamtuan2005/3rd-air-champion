@@ -1070,6 +1070,30 @@ const MainView = ({
 
   const totalHoldSelection = reservedHoldStays.size + firmHoldStays.size;
 
+  // The nights double-tapped red: what this guest has paid for, as the host
+  // marks it. The amount is the same per-night sum the confirmation text
+  // carries, so the bar and the message cannot name two different figures.
+  //
+  // The bar below used to appear for amber picks only. A red pick had no
+  // button anywhere on the calendar: the "Send Confirmation" that reads these
+  // nights sits in the guest's card palette — single-tap a night, then "⋯" —
+  // three taps from the pick, and Anh-Tuan could not find it (2026-09-30).
+  // The amber bar is where the eye goes after a pick, so a red pick gets the
+  // same bar. The card's row stays, for whoever still reaches it that way.
+  const paidPick = useMemo(() => {
+    let count = 0;
+    let total = 0;
+    if (!currentGuest) return { count, total, phone: "" };
+    paidDates.forEach((d) => {
+      const day = monthMap.get(format(d, "yyyy-MM-dd"));
+      const b = day?.bookings.find((x) => x.guest?.id === currentGuest && !x.reserved);
+      if (!b) return;
+      count += 1;
+      total += b.price ?? 0;
+    });
+    return { count, total, phone: guests.find((g) => g.id === currentGuest)?.phone ?? "" };
+  }, [paidDates, monthMap, currentGuest, guests]);
+
   const runHoldAction = async (stays: Map<string, string>, reserved: boolean) => {
     if (stays.size === 0) return;
     setIsConfirmingHolds(true);
@@ -1301,9 +1325,11 @@ const MainView = ({
               </div>
             )}
             {/* Floating hold bar — appears once dates are double-tapped into the amber
-                selection. Confirms holds → firm, or downgrades firm → hold, per what's
-                selected. z-[60] keeps it above the guest contact panel (z-50); drag to move. */}
-            {totalHoldSelection > 0 && (
+                selection, or the red one (see paidPick). Confirms holds → firm, or
+                downgrades firm → hold, per what's selected, and sends the paid
+                confirmation for red nights. z-[60] keeps it above the guest contact
+                panel (z-50); drag to move. */}
+            {(totalHoldSelection > 0 || paidPick.count > 0) && (
               <div
                 className="fixed bottom-24 left-1/2 z-[60] flex flex-col items-center gap-1"
                 style={{
@@ -1324,11 +1350,15 @@ const MainView = ({
                   {/* Grip dots — signals the bar is movable */}
                   <span className="text-gray-300 text-sm leading-none select-none">⠿</span>
                   <span className="text-sm font-medium text-amber-700 whitespace-nowrap select-none">
-                    {totalHoldSelection} selected
+                    {totalHoldSelection > 0 && paidPick.count > 0
+                      ? `${totalHoldSelection} held · ${paidPick.count} paid`
+                      : totalHoldSelection > 0
+                      ? `${totalHoldSelection} selected`
+                      : `${paidPick.count} paid ${paidPick.count === 1 ? "night" : "nights"}`}
                   </span>
                   <button
                     type="button"
-                    onClick={holdBarClickGuard(() => { setHoldDates([]); setConfirmHoldsError(""); })}
+                    onClick={holdBarClickGuard(() => { setHoldDates([]); setPaidDates([]); setConfirmHoldsError(""); })}
                     className="text-xs text-gray-400 hover:text-gray-600"
                   >
                     Clear
@@ -1367,15 +1397,34 @@ const MainView = ({
                       {isConfirmingHolds ? "Working…" : `${firmHoldStays.size} → soft hold`}
                     </button>
                   )}
-                  {/* Batch unbook the whole selection, from the same pill */}
-                  <button
-                    type="button"
-                    onClick={holdBarClickGuard(onUnbookHolds)}
-                    disabled={isConfirmingHolds}
-                    className="bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-3.5 py-1.5 rounded-full disabled:opacity-50 whitespace-nowrap"
-                  >
-                    Unbook {totalHoldSelection}
-                  </button>
+                  {/* The paid confirmation, from the same bar as the hold
+                      actions. Same sender as the card's "Send Confirmation",
+                      so it is one message with one wording, not two. Emerald:
+                      this button is about money that has arrived. */}
+                  {paidPick.count > 0 && (
+                    <button
+                      type="button"
+                      onClick={holdBarClickGuard(() => handleBookingConfirmation(paidPick.phone))}
+                      disabled={!paidPick.phone}
+                      title={paidPick.phone ? undefined : "This guest has no phone number"}
+                      className="border border-emerald-500 text-emerald-700 hover:bg-emerald-50 text-sm font-semibold px-3.5 py-1.5 rounded-full disabled:opacity-50 whitespace-nowrap"
+                    >
+                      💬 Send confirmation · ${paidPick.total.toLocaleString("en-US", { maximumFractionDigits: 2 })}
+                    </button>
+                  )}
+                  {/* Batch unbook the whole hold selection, from the same pill.
+                      Only for amber picks: a red pick is a paid night, and
+                      "Unbook 0" is not a button anyone should be able to press. */}
+                  {totalHoldSelection > 0 && (
+                    <button
+                      type="button"
+                      onClick={holdBarClickGuard(onUnbookHolds)}
+                      disabled={isConfirmingHolds}
+                      className="bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-3.5 py-1.5 rounded-full disabled:opacity-50 whitespace-nowrap"
+                    >
+                      Unbook {totalHoldSelection}
+                    </button>
+                  )}
                   </div>
                 </div>
                 {confirmHoldsError && (
