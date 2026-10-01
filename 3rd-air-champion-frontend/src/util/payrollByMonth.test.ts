@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { payrollByMonth, shiftMonth } from "./payrollByMonth";
+import { payLines, payrollByMonth, shiftMonth } from "./payrollByMonth";
 import type { HostWorkEntry, StaffType } from "./staffOperations";
 import type { CleanerSummaryType } from "./cleanerOperations";
 
@@ -89,5 +89,24 @@ describe("a staff tip", () => {
     expect(sep.paid).toBe(1000);
     expect(sep.tips).toBe(50);
     expect(sep.people[0].paychecks.map((p) => p.tip)).toEqual([false, true]);
+  });
+});
+
+describe("a paycheck as one line", () => {
+  it("puts wages and the tip paid the same day on one line", () => {
+    const lines = payLines([
+      { paidOn: "2026-09-30", amount: 805.57, note: "September pay", tip: false },
+      { paidOn: "2026-09-30", amount: 20, note: "Tip", tip: true },
+      { paidOn: "2026-09-15", amount: 400, note: "", tip: false },
+    ]);
+    expect(lines).toEqual([
+      { paidOn: "2026-09-30", wages: 805.57, tip: 20, note: "September pay" },
+      { paidOn: "2026-09-15", wages: 400, tip: 0, note: "" },
+    ]);
+  });
+
+  it("keeps a tip on its own day as a line with no wages", () => {
+    const lines = payLines([{ paidOn: "2026-09-20", amount: 15, note: "Tip", tip: true }]);
+    expect(lines).toEqual([{ paidOn: "2026-09-20", wages: 0, tip: 15, note: "" }]);
   });
 });

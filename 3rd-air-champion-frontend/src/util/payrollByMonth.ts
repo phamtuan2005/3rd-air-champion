@@ -114,3 +114,32 @@ export const shiftMonth = (key: string, delta: number): string => {
   const n = y * 12 + (m - 1) + delta;
   return `${Math.floor(n / 12)}-${String((n % 12) + 1).padStart(2, "0")}`;
 };
+
+// A paycheck as one line: wages and tip side by side.
+//
+// A tip is stored as its own payment (see Paycheck.tip), so a payout with a
+// tip was two rows under a person, which read as two paychecks. Anh-Tuan
+// asked for one line with two columns (2026-10-01). Everything paid on one
+// date is one line: wages summed, tips summed, the notes joined.
+export interface PayLine {
+  paidOn: string;
+  wages: number;
+  tip: number;
+  note: string;
+}
+
+export const payLines = (paychecks: Paycheck[]): PayLine[] => {
+  const byDay = new Map<string, PayLine>();
+  for (const pc of paychecks) {
+    let line = byDay.get(pc.paidOn);
+    if (!line) {
+      line = { paidOn: pc.paidOn, wages: 0, tip: 0, note: "" };
+      byDay.set(pc.paidOn, line);
+    }
+    if (pc.tip) line.tip = round2(line.tip + pc.amount);
+    else line.wages = round2(line.wages + pc.amount);
+    // A tip's own note is "Tip", which the column already says.
+    if (pc.note && !pc.tip) line.note = line.note ? `${line.note} · ${pc.note}` : pc.note;
+  }
+  return [...byDay.values()].sort((a, b) => b.paidOn.localeCompare(a.paidOn));
+};
