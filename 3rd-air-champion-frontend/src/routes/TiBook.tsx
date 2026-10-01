@@ -773,6 +773,7 @@ const TiBookInner = () => {
           monthMap={monthMap}
           selectedRoomIds={selectedRoomIds}
           onSelectRoom={(id) => setSelectedRoomIds(id ? new Set([id]) : null)}
+          onToggleRoom={handleToggleRoom}
           myRates={myRates}
           cartDates={cartDates}
           wishListDates={wishListDates}
