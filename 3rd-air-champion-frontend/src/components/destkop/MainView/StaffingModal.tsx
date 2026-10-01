@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { entriesFor, monthLabel, peopleFromEntries, startsMonth } from "../../../util/hoursByPerson";
 import { format, parseISO, startOfToday } from "date-fns";
 import CleanerAvatar from "../../shared/CleanerAvatar";
 import GuestFigures from "../../shared/GuestFigures";
@@ -85,6 +86,14 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
   // largest thing on the card, and the card is mostly opened to fix a rate.
   const [avatarFor, setAvatarFor] = useState<string | null>(null);
   const [workEntries, setWorkEntries] = useState<HostWorkEntry[]>([]);
+  // The Hours tab narrowed to one person, or everyone (null). See
+  // util/hoursByPerson for why the tab is narrowed at all.
+  const [hoursFor, setHoursFor] = useState<string | null>(null);
+  const people = useMemo(() => peopleFromEntries(workEntries), [workEntries]);
+  // A pick that no longer matches anyone (their last claim declined and gone
+  // from the fetch) falls back to everyone rather than an empty list.
+  const person = people.find((p) => p.staffId === hoursFor) ?? null;
+  const shownEntries = useMemo(() => entriesFor(workEntries, person ? person.staffId : null), [workEntries, person]);
   // Cleaners are staff too — they are paid by this business and log hours in the
   // same TiWork. They keep their own record because every CleaningAssignment
   // points at it and the auto-planner needs fields an office role has no use
@@ -607,8 +616,67 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
               </p>
             ) : (
               <div className="flex flex-col gap-2.5">
-                {workEntries.map((w) => (
-                  <div key={w.id} className="rounded-xl border border-gray-200 bg-white p-3">
+                {/* Who to read: everyone, or one person. The same segmented
+                    row as the tabs above, so it reads as a filter and not as a
+                    second set of tabs. A badge on a name says that person has
+                    a claim waiting, so the host can go straight to it. */}
+                <div className="flex gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {[{ staffId: null as string | null, name: "Everyone", pending: 0 }, ...people].map((p) => {
+                    const on = (person?.staffId ?? null) === p.staffId;
+                    return (
+                      <button
+                        key={p.staffId ?? "everyone"}
+                        type="button"
+                        onClick={() => setHoursFor(p.staffId)}
+                        aria-pressed={on}
+                        className={`flex min-w-fit items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-sm font-semibold transition-colors ${
+                          on ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+                        }`}
+                      >
+                        {p.name}
+                        {p.pending > 0 && (
+                          <span className={`min-w-[1.25rem] rounded-full px-1 py-0.5 text-center text-[11px] font-bold leading-none ${on ? "bg-gray-900 text-white" : "bg-amber-200 text-amber-800"}`}>
+                            {p.pending}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                {/* One person's whole record in a line, before their visits:
+                    what they are owed for, at the rates each claim was
+                    approved at, and what is still waiting on the host. */}
+                {person && (
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                      {person.name}
+                      {person.title ? ` · ${person.title}` : ""}
+                    </p>
+                    <p className="mt-1 text-sm text-gray-700">
+                      <span className="font-bold text-gray-900">{formatHrMin(person.approvedHours)}</span> approved ·{" "}
+                      <span className="font-bold text-emerald-700">{money(person.approvedPay)}</span>
+                      {person.waitingHours > 0 && (
+                        <>
+                          {" · "}
+                          <span className="font-semibold text-amber-700">{formatHrMin(person.waitingHours)} waiting on you</span>
+                        </>
+                      )}
+                      {" · "}
+                      {person.visits} {person.visits === 1 ? "visit" : "visits"}
+                    </p>
+                  </div>
+                )}
+                {shownEntries.map((w, i) => (
+                  <Fragment key={w.id}>
+                  {/* Month headings only for one person: "over time" needs the
+                      months named, while everyone's list is read for what is
+                      waiting today and the headings would only push it down. */}
+                  {person && startsMonth(shownEntries, i) && (
+                    <p className="pt-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                      {monthLabel(w.date)}
+                    </p>
+                  )}
+                  <div className="rounded-xl border border-gray-200 bg-white p-3">
                     {/* Who, when, what the visit was, and how long — the line
                         TiWork shows the cleaner for the same day, so a claim and
                         the claimant's own screen read alike. */}
@@ -697,6 +765,7 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
                       </div>
                     )}
                   </div>
+                  </Fragment>
                 ))}
               </div>
             )}
