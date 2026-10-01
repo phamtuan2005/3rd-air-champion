@@ -716,9 +716,11 @@ const StaffingModal = ({ hostId, token, onClose }: StaffingModalProps) => {
                 <section key={m.key} className="rounded-xl border border-gray-200 bg-white">
                   <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 border-b border-gray-100 px-3 py-2">
                     <p className="text-sm font-bold text-gray-900">{monthLabel(`${m.key}-01`)}</p>
-                    <p className="text-sm text-gray-700">
-                      {/* Rose: money out, the same colour the payroll card uses. */}
-                      <span className="font-bold text-rose-600">{money(m.paid)}</span> paid
+                    {/* The month's total is the figure this tab exists for, so
+                        it is the largest thing on the row — the size the old
+                        Monthly payroll card gave its number. Rose: money out. */}
+                    <p className="flex items-baseline gap-1.5 text-sm text-gray-700">
+                      <span className="text-2xl font-bold leading-none text-rose-600">{money(m.paid)}</span> paid
                       {m.tips > 0 && <span className="text-gray-500"> · {money(m.tips)} in tips</span>}
                     </p>
                   </div>
