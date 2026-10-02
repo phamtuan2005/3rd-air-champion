@@ -56,6 +56,23 @@ export interface PlanDay {
 // line the host most needs to notice.
 export const UNASSIGNED = "(unassigned)";
 
+// How many rooms the plan holds over the range, in all and per cleaner.
+//
+// Sent with the plan rather than left for the model to add up. Its first live
+// answer listed twenty rooms for Henry and headed them "21 rooms" — the rows
+// were right and the sum was not. A count the host repeats to a cleaner has to
+// come from arithmetic, not from a model's.
+export const planCounts = (days: PlanDay[]): { rooms: number; byCleaner: Record<string, number> } => {
+  const byCleaner: Record<string, number> = {};
+  let rooms = 0;
+  for (const d of days)
+    for (const r of d.rooms) {
+      rooms++;
+      byCleaner[r.cleaner] = (byCleaner[r.cleaner] ?? 0) + 1;
+    }
+  return { rooms, byCleaner };
+};
+
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const nextKey = (key: string): string => {
