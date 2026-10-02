@@ -2,6 +2,7 @@ import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import CalendarNavigator from "./CalendarView/CalendarNavigatorDesktop";
 import CustomCalendar from "./CalendarView/CustomCalendarDesktop";
 import { dayType } from "../../../util/types/dayType";
+import { airbnbGuestList } from "../../../util/airbnbGuestList";
 import BookingModal from "../BookingModal/BookingModal";
 import { bookingType } from "../../../util/types/bookingType";
 import { addDays, endOfMonth, format, isWithinInterval, startOfMonth, startOfToday } from "date-fns";
@@ -637,8 +638,12 @@ const MainView = ({
   // their stays.
   const onGuestFilter = (guestId: string | null) => {
     setCurrentGuest(guestId);
-    if (!guestId) return;
+    // A house guest and an AirBnB guest are one choice: picking a guest, or
+    // "Everyone" (null), drops whichever AirBnB guest was filtered. Everyone
+    // used to leave an AirBnB filter standing, which did not matter while the
+    // header had no way to set one.
     setCurrentAirBnBGuest(null);
+    if (!guestId) return;
 
     const todayKey = format(startOfToday(), "yyyy-MM-dd");
     let next: string | null = null;
@@ -652,6 +657,19 @@ const MainView = ({
     // Their next stay if they have one, otherwise their most recent — a guest
     // with only past stays should still land somewhere they can be seen.
     const target = next ?? last;
+    if (target) setCurrentMonth(new Date(target + "T00:00:00"));
+  };
+
+  // The same from the header for an AirBnB guest, picked by the name AirBnB
+  // gave them. Until 2026-10-02 the only way to filter one was the Filter pill
+  // on their booking card — and half the house's guests are AirBnB's.
+  const onAirBnBGuestFilter = (alias: string) => {
+    setCurrentAirBnBGuest(alias);
+    setCurrentGuest(null);
+    // To the month of their stay, for the same reason as above: landing on a
+    // month they are not in reads as "this guest has nothing".
+    const row = airbnbGuestList(monthMap, format(startOfToday(), "yyyy-MM-dd")).find((r) => r.alias === alias);
+    const target = row?.next ?? row?.last;
     if (target) setCurrentMonth(new Date(target + "T00:00:00"));
   };
 
@@ -1210,6 +1228,7 @@ const MainView = ({
               guests={guests}
               currentGuestId={currentGuest}
               onGuestFilter={onGuestFilter}
+              onAirBnBGuestFilter={onAirBnBGuestFilter}
               currentAirBnBGuest={currentAirBnBGuest}
               monthMap={monthMap}
               occupancy={occupancy}
