@@ -103,6 +103,13 @@ describe("what it refuses to invent", () => {
     const { dates } = on("Aug 23 and we need parking for 4 cars");
     expect(dates).toEqual(["2026-08-23"]);
   });
+
+  // "Mar 2026" came back as the 20th and the 26th: the year, cut into two days.
+  it("does not cut a year into two days", () => {
+    const { dates, leftover } = on("Mar 2026");
+    expect(dates).toEqual([]);
+    expect(leftover).toBe("2026");
+  });
 });
 
 describe("nights that have already gone", () => {

@@ -11,7 +11,9 @@
 // shapes, and those shapes are enumerable. Anything not recognised is handed
 // back untouched rather than guessed at — it still reaches the host as a note.
 
-const MONTHS: Record<string, number> = {
+// Exported for TT's box, which has to recognise a month on its own ("Susan
+// Dec") — something this parser, built for whole dates, deliberately ignores.
+export const MONTHS: Record<string, number> = {
   jan: 0, january: 0,
   feb: 1, february: 1,
   mar: 2, march: 2,
@@ -214,7 +216,11 @@ export const parseDateText = (text: string, today: Date = new Date()): ParsedDat
     // Numbers, ranges and separators only — the first thing that is none of
     // those ends the run, so "Aug 23 and we have a dog 4 nights" does not
     // silently swallow the 4.
-    const run = tail.match(/^[\s,.;&]*(?:and\s+)?(?:\d{1,2}(?:st|nd|rd|th)?(?:\s*-\s*\d{1,2}(?:st|nd|rd|th)?)?[\s,.;&]*(?:and\s+)?)+/);
+    //
+    // Each number must END at a word boundary. Without that, "Mar 2026" read
+    // as the 20th and the 26th of March — a year, split into two days, which
+    // TT's box found the moment somebody typed a month with its year.
+    const run = tail.match(/^[\s,.;&]*(?:and\s+)?(?:\d{1,2}(?:st|nd|rd|th)?\b(?:\s*-\s*\d{1,2}(?:st|nd|rd|th)?\b)?[\s,.;&]*(?:and\s+)?)+/);
     if (!run) return;
     used.push([hit.end, hit.end + run[0].length]);
 
