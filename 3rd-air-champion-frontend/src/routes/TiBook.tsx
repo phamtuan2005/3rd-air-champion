@@ -144,6 +144,13 @@ const TiBookInner = () => {
   const [myBookingsOpen, setMyBookingsOpen] = useState(false);
   const [bookingsFocusKey, setBookingsFocusKey] = useState<string | null>(null);
   const [stayPopupId, setStayPopupId] = useState<string | null>(null);
+  // A stay id is `${checkIn}|${roomId}`; Your bookings focuses on the same
+  // pair without the bar. Same landing as the stay card's "View details".
+  const openStayDetails = (stayId: string) => {
+    setBookingsFocusKey(stayId.replace("|", ""));
+    setStayPopupId(null);
+    setMyBookingsOpen(true);
+  };
   const [reservedPopupOpen, setReservedPopupOpen] = useState(false);
   const reservedAutoShownRef = useRef<string | null>(null);
   const [roomPickerDate, setRoomPickerDate] = useState<Date | null>(null);
@@ -787,6 +794,7 @@ const TiBookInner = () => {
           onDateClick={toggleCartDate}
           onWishListClick={handleWishListClick}
           onMyStayClick={setStayPopupId}
+          onMyStayDetails={openStayDetails}
           onReservedClick={() => setReservedPopupOpen(true)}
           scrollToTodayTrigger={scrollToTodayTrigger}
           scrollToMonthTrigger={scrollToMonthTrigger ?? undefined}
@@ -933,6 +941,7 @@ const TiBookInner = () => {
                 onDateClick={toggleCartDate}
                 onWishListClick={handleWishListClick}
                 onMyStayClick={setStayPopupId}
+                onMyStayDetails={openStayDetails}
                 onReservedClick={() => setReservedPopupOpen(true)}
               />
             </div>
@@ -1067,11 +1076,7 @@ const TiBookInner = () => {
             doorCode={currentHost.doorCode}
             hostPhone={currentHost.phone}
             hostName={currentHost.name}
-            onViewDetails={() => {
-              setBookingsFocusKey(`${String(b.date).slice(0, 10)}${b.room}`);
-              setStayPopupId(null);
-              setMyBookingsOpen(true);
-            }}
+            onViewDetails={() => openStayDetails(stayPopupId)}
             onBookAnother={() => {
               setStayPopupId(null);
               setBookAnother({ checkIn, nights: b.duration });

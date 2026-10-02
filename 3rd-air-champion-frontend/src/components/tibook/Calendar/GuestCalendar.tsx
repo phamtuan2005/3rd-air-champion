@@ -44,6 +44,9 @@ export interface GuestCalendarProps {
   onDateClick?: (date: Date) => void;
   onWishListClick?: (date: Date) => void;
   onMyStayClick?: (bookingId: string) => void;
+  // The list's "Details" link on a stay: straight to that booking in Your
+  // bookings, without the stay card on the way.
+  onMyStayDetails?: (bookingId: string) => void;
   onReservedClick?: () => void; // tapping a held night opens the pay-reminder popup
 }
 

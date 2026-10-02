@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
 import { addDays, format, isSameDay, parseISO, startOfToday } from "date-fns";
 import { useTiBookTheme, useRoomChip } from "../../../contexts/TiBookThemeContext";
@@ -39,10 +39,36 @@ import { dayListMonths } from "../../../util/dayListMonths";
  * grip redraws nothing unless the nights themselves changed.
  */
 
-// px. Fixed rather than left to the content — see above. 60 fits the date
-// column at TiBook's type scale; a row of room chips is kept to one line.
-const ROW_H = 60;
-const HEAD_H = 36;
+/*
+ * The list's type and heights, in px, from the width it is drawn in.
+ *
+ * The rows were 60px with 12px chips and 14px words: tiring to read for any
+ * length of time on a phone. Matching the grid's day number was tried next,
+ * but that grows only as the calendar is dragged open — 13px on an iPhone SE,
+ * 21px on a Pixel fully open — so the list was still small print most of the
+ * time. The bar it was held to is Airbnb's own calendar list, which the house
+ * reads every day: about 22px words on a phone. So `text` is that, steady,
+ * and only eased down on a narrow phone so a stay's price still fits beside
+ * the stay bar. Weekday and the stay's dates are the quieter `small`; the
+ * list's own day number one step larger.
+ *
+ * The heights still follow from the type and nothing else — see above, the
+ * list's arithmetic depends on it. 3.5 lines of text plus padding fits the
+ * tallest thing a row holds: a one-night stay's room line, its price, and
+ * the Details link wrapped under the price on a narrow phone.
+ */
+interface ListSize { text: number; date: number; small: number; rowH: number; headH: number }
+const listSizeFor = (boxWidth: number): ListSize => {
+  // 22px from a 411px phone up; 18px on a 320px one. 0 = not measured yet.
+  const text = boxWidth > 0 ? Math.round(Math.min(22, Math.max(18, boxWidth / 18.7))) : 22;
+  return {
+    text,
+    date: Math.round(text * 1.2),
+    small: Math.round(text * 0.82),
+    rowH: Math.max(60, Math.round(text * 3.5 + 20)),
+    headH: Math.max(36, Math.round(text * 2.2)),
+  };
+};
 // Months drawn behind and ahead of the one at the top. More ahead, because
 // that is the way a guest reads and the way a fling carries them.
 const DRAW_BEHIND = 1;
@@ -110,7 +136,7 @@ interface NightData {
 const rateText = (rate: number | undefined): string | undefined =>
   rate == null ? undefined : rate === 0 ? "no charge" : `$${rate}`;
 
-type Handlers = Pick<GuestCalendarProps, "onDateClick" | "onWishListClick" | "onMyStayClick" | "onReservedClick">;
+type Handlers = Pick<GuestCalendarProps, "onDateClick" | "onWishListClick" | "onMyStayClick" | "onMyStayDetails" | "onReservedClick">;
 
 interface MonthSectionProps {
   month: Date;
@@ -120,14 +146,19 @@ interface MonthSectionProps {
   top: number;
   drawn: boolean;
   data: NightData;
+  size: ListSize;
   // Read at tap time, not render time: the parent passes fresh arrow
   // functions every render, and as props they would defeat the memo.
   handlers: MutableRefObject<Handlers>;
 }
 
-const MonthSection = memo(({ month, days, top, drawn, data, handlers }: MonthSectionProps) => {
+const MonthSection = memo(({ month, days, top, drawn, data, size, handlers }: MonthSectionProps) => {
   const { theme } = useTiBookTheme();
   const roomChip = useRoomChip();
+  const { rowH: ROW_H, headH: HEAD_H } = size;
+  const fs = (px: number): React.CSSProperties => ({ fontSize: px });
+  // Was w-12 (48px), sized for "TODAY" at 12px; it widens with the weekday.
+  const dateColW = Math.max(48, Math.round(size.small * 3.4));
 
   /*
    * One row's piece of a stay's bar.
@@ -237,7 +268,7 @@ const MonthSection = memo(({ month, days, top, drawn, data, handlers }: MonthSec
         <span className="flex min-w-0 items-center gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {data.nameRooms ? (
             <>
-              <span className={`mr-0.5 shrink-0 text-sm font-semibold ${inCart ? "text-white" : theme.surfaceText2}`}>
+              <span className={`mr-0.5 shrink-0 font-semibold ${inCart ? "text-white" : theme.surfaceText2}`} style={fs(size.text)}>
                 {roomsLeft} free
               </span>
               {freeRooms.map((r) => {
@@ -250,8 +281,9 @@ const MonthSection = memo(({ month, days, top, drawn, data, handlers }: MonthSec
                   <span
                     key={r.id}
                     className={`${roomChip(r)} flex shrink-0 flex-col items-center font-semibold leading-tight text-black ${
-                      price ? "rounded-lg px-1.5 py-0.5" : "rounded-full px-1.5 py-px"
-                    } text-xs`}
+                      price ? "rounded-lg px-1.5 py-0.5" : "rounded-full px-2 py-px"
+                    }`}
+                    style={fs(size.text)}
                   >
                     <span>{r.name}</span>
                     {price && <span className="font-bold">{price}</span>}
@@ -260,7 +292,7 @@ const MonthSection = memo(({ month, days, top, drawn, data, handlers }: MonthSec
               })}
             </>
           ) : (
-            <span className={`text-sm font-semibold ${inCart ? "text-white" : theme.surfaceText2}`}>
+            <span className={`font-semibold ${inCart ? "text-white" : theme.surfaceText2}`} style={fs(size.text)}>
               Free
               {/* One room in scope: room for the words the chips have to leave out. */}
               {(() => {
@@ -285,8 +317,13 @@ const MonthSection = memo(({ month, days, top, drawn, data, handlers }: MonthSec
       detail = null;
     } else {
       detail = (
-        <span className={`block truncate text-sm ${theme.surfaceMuted}`}>
-          {isWishlisted ? "Sold out · on your wish list" : canWishList ? "Sold out · tap to wish-list" : "Sold out"}
+        // Two lines, not one cut short: at the list's larger type a phone
+        // clipped this to "tap to wish…", hiding what the tap does. The row
+        // is tall enough for two (see listSizeFor).
+        <span className={`line-clamp-2 leading-tight ${theme.surfaceMuted}`} style={fs(size.text)}>
+          {/* A non-breaking hyphen (U+2011): at the list's type the line wraps,
+              and it broke "wish-" from "list". */}
+          {isWishlisted ? "Sold out · on your wish list" : canWishList ? "Sold out · tap to wish‑list" : "Sold out"}
         </span>
       );
     }
@@ -307,12 +344,13 @@ const MonthSection = memo(({ month, days, top, drawn, data, handlers }: MonthSec
         {!inCart && data.holdCheckouts.has(key) && barPiece("checkout", data.holdCheckouts.get(key)!, true, rowTop, "hold-out")}
         {/* The date column is fixed-width, so the nights line up down the list
             and the eye can run down it the way it runs down a grid column. */}
-        <span className="relative z-10 flex w-12 shrink-0 flex-col items-center leading-none">
-          <span className={`text-xs font-medium uppercase ${inCart ? "text-white" : isToday ? theme.textPrimary : gone ? theme.dim : theme.surfaceMuted}`}>
+        <span className="relative z-10 flex shrink-0 flex-col items-center leading-none" style={{ width: dateColW }}>
+          <span className={`font-medium uppercase ${inCart ? "text-white" : isToday ? theme.textPrimary : gone ? theme.dim : theme.surfaceMuted}`} style={fs(size.small)}>
             {isToday ? "Today" : format(date, "EEE")}
           </span>
           <span
-            className={`mt-0.5 text-lg font-bold ${
+            style={fs(size.date)}
+            className={`mt-0.5 font-bold ${
               inCart ? "text-white" :
               isOpen ? theme.surfaceText :
               // Gone is dim, not struck through: struck through is "sold out",
@@ -325,7 +363,7 @@ const MonthSection = memo(({ month, days, top, drawn, data, handlers }: MonthSec
           </span>
         </span>
         <span className="relative z-10 min-w-0 flex-1">{detail}</span>
-        <span className="relative z-10 shrink-0 text-lg leading-none">
+        <span className="relative z-10 shrink-0 leading-none" style={fs(size.date)}>
           {inCart ? <span className="text-white">✓</span> :
            canWishList ? (
              <span className={isWishlisted ? theme.warmText2 : theme.surfaceMuted2}>{isWishlisted ? "★" : "☆"}</span>
@@ -375,18 +413,24 @@ const MonthSection = memo(({ month, days, top, drawn, data, handlers }: MonthSec
 
     const dateStack = (d: Date, first: boolean) => (
       <span className="flex flex-col items-center leading-none">
-        <span className={`text-xs font-medium uppercase ${first && isSameDay(d, today) ? theme.textPrimary : theme.surfaceMuted}`}>
+        <span className={`font-medium uppercase ${first && isSameDay(d, today) ? theme.textPrimary : theme.surfaceMuted}`} style={fs(size.small)}>
           {first && isSameDay(d, today) ? "Today" : format(d, "EEE")}
         </span>
-        <span className={`mt-0.5 text-lg font-bold ${theme.surfaceText}`}>{d.getDate()}</span>
+        <span className={`mt-0.5 font-bold ${theme.surfaceText}`} style={fs(size.date)}>{d.getDate()}</span>
       </span>
     );
 
+    // A div acting as the button, not a <button>: the Details link inside it
+    // is a button of its own, and a button cannot hold another.
     return (
-      <button
+      <div
         key={firstKey}
-        type="button"
+        role="button"
+        tabIndex={0}
         onClick={onClick}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); }
+        }}
         className={`relative flex w-full items-stretch gap-3 border-b ${theme.line} pl-3 pr-16 text-left cursor-pointer transition-colors ${theme.surfaceHover2}`}
         style={{ height: run.length * ROW_H }}
       >
@@ -398,7 +442,7 @@ const MonthSection = memo(({ month, days, top, drawn, data, handlers }: MonthSec
 
         {/* First night at the top, last at the bottom, a line between: the
             same date column as every row, stretched over the stay. */}
-        <span className="relative z-10 flex w-12 shrink-0 flex-col items-center justify-between" style={{ paddingBlock: 10 }}>
+        <span className="relative z-10 flex shrink-0 flex-col items-center justify-between" style={{ paddingBlock: 10, width: dateColW }}>
           {dateStack(run[0], true)}
           {run.length > 1 && (
             <>
@@ -408,34 +452,61 @@ const MonthSection = memo(({ month, days, top, drawn, data, handlers }: MonthSec
           )}
         </span>
 
-        <span className="relative z-10 flex min-w-0 flex-1 flex-col justify-center gap-1">
+        <span className="relative z-10 flex min-w-0 flex-1 flex-col justify-center gap-1 leading-tight">
           <span className="flex min-w-0 items-center gap-1.5">
             <span
-              className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold text-black ${
+              className={`shrink-0 rounded-full px-2 py-0.5 font-bold text-black ${
                 held
                   ? `${getRoomColor(first.roomName, first.roomColor)} border border-dashed border-amber-500`
                   : roomChip({ name: first.roomName, color: first.roomColor })
               }`}
+              // The label line is the quieter size: at the full size, chip and
+              // "Your stay · 1 night" ran past a phone and cut to "1 ni…".
+              style={fs(size.small)}
             >
               {first.roomName}
             </span>
-            <span className={`truncate text-sm font-semibold ${held ? theme.warmText2 : theme.surfaceText}`}>
+            <span className={`truncate font-semibold ${held ? theme.warmText2 : theme.surfaceText}`} style={fs(size.small)}>
               {held ? "⏳ Held for you" : first.index === 0 ? `Your stay · ${nightsText}` : "Your stay, continued"}
             </span>
           </span>
-          <span className={`truncate text-xs ${theme.surfaceMuted}`}>
-            {format(checkIn, "EEE d MMM")} – {format(checkOut, "EEE d MMM")}
-            {held ? ` · ${nightsText}` : ""}
-            {/* A one-night cell has no room for a third line; the amount rides
-                on this one instead. */}
-            {paidText && run.length === 1 ? ` · ${paidText}` : ""}
-          </span>
-          {paidText && run.length > 1 && (
-            <span className={`truncate text-sm font-semibold ${theme.surfaceText}`}>{paidText}</span>
+          {/* Left out of a confirmed one-night cell, whose date column already
+              says the night: that cell has room for three lines, and the price
+              with its link may need two. A hold keeps it — it has no price. */}
+          {(held || run.length > 1) && (
+            <span className={`truncate ${theme.surfaceMuted}`} style={fs(size.small)}>
+              {format(checkIn, "EEE d MMM")} – {format(checkOut, "EEE d MMM")}
+              {held ? ` · ${nightsText}` : ""}
+            </span>
           )}
-          {held && <span className={`truncate text-xs font-semibold ${theme.warmText2}`}>Tap to pay</span>}
+          {/* The price, and beside it the way to the booking itself. The
+              price is never cut short — "Family — …" hid the one word that
+              says why it is $0. When both do not fit a phone's width, the
+              link drops under the price instead. */}
+          {!held && (
+            <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+              {paidText && (
+                <span className={`whitespace-nowrap font-semibold ${theme.surfaceText}`} style={fs(size.text)}>{paidText}</span>
+              )}
+              {h.onMyStayDetails && (
+                <button
+                  type="button"
+                  aria-label={`Booking details, ${first.roomName}, ${format(checkIn, "d MMM")}`}
+                  // The cell's own tap opens the stay card; this goes past it,
+                  // to the booking in Your bookings.
+                  onClick={(e) => { e.stopPropagation(); h.onMyStayDetails?.(first.id); }}
+                  onKeyDown={(e) => e.stopPropagation()}
+                  className={`shrink-0 whitespace-nowrap font-semibold underline underline-offset-2 ${theme.textPrimary}`}
+                  style={fs(size.text)}
+                >
+                  Details ›
+                </button>
+              )}
+            </span>
+          )}
+          {held && <span className={`truncate font-semibold ${theme.warmText2}`} style={fs(size.small)}>Tap to pay</span>}
         </span>
-      </button>
+      </div>
     );
   };
 
@@ -481,8 +552,8 @@ const MonthSection = memo(({ month, days, top, drawn, data, handlers }: MonthSec
           sit over nights that are not in the stay. The month title above the
           list already follows the scroll, so sticking only repeated it. */}
       <h3
-        className={`relative flex items-center border-b ${theme.line} ${theme.surface} pl-3 pr-16 text-sm font-bold ${theme.surfaceText}`}
-        style={{ height: HEAD_H }}
+        className={`relative flex items-center border-b ${theme.line} ${theme.surface} pl-3 pr-16 font-bold ${theme.surfaceText}`}
+        style={{ height: HEAD_H, fontSize: size.text }}
       >
         {stayThrough && barPiece("night", stayThrough, false, top, "stay")}
         {holdThrough && barPiece("night", holdThrough, true, top, "hold")}
@@ -490,7 +561,7 @@ const MonthSection = memo(({ month, days, top, drawn, data, handlers }: MonthSec
         {/* Says once a month what the "$65" on a chip is: this guest's own
             rate, per night — not a total, not a list price. */}
         {data.nameRooms && (data.myRates?.size ?? 0) > 0 && (
-          <span className={`text-xs font-normal ${theme.surfaceMuted}`}>Prices are yours, a night</span>
+          <span className={`font-normal ${theme.surfaceMuted}`} style={fs(size.small)}>Prices are yours, a night</span>
         )}
       </h3>
       {drawn ? renderDays() : <div style={{ height: days.length * ROW_H }} />}
@@ -516,13 +587,29 @@ const GuestDayList = ({
   onDateClick,
   onWishListClick,
   onMyStayClick,
+  onMyStayDetails,
   onReservedClick,
 }: GuestCalendarProps) => {
   const { theme } = useTiBookTheme();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const handlers = useRef<Handlers>({});
-  handlers.current = { onDateClick, onWishListClick, onMyStayClick, onReservedClick };
+  handlers.current = { onDateClick, onWishListClick, onMyStayClick, onMyStayDetails, onReservedClick };
+
+  // The list's width decides its type. See listSizeFor.
+  const [boxWidth, setBoxWidth] = useState(0);
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const obs = new ResizeObserver(([entry]) => setBoxWidth(entry.contentRect.width));
+    obs.observe(el);
+    setBoxWidth(el.clientWidth);
+    return () => obs.disconnect();
+  }, []);
+  const textPx = listSizeFor(boxWidth).text;
+  // Keyed on the one number everything follows from, so a resize that does
+  // not change the type does not re-lay the list or redraw its months.
+  const size = useMemo(() => listSizeFor(boxWidth), [textPx]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const scopedRooms = useMemo(
     () => rooms.filter((r) => r.active && (selectedRoomIds === null || selectedRoomIds.has(r.id))),
@@ -548,9 +635,33 @@ const GuestDayList = ({
   // says what that cost. `top` is where each month starts, in px — exact,
   // because every height in the list is fixed.
   const { sections, todayTop } = useMemo(
-    () => dayListMonths(startOfToday(), MONTHS_FORWARD, HEAD_H, ROW_H),
-    [],
+    () => dayListMonths(startOfToday(), MONTHS_FORWARD, size.headH, size.rowH),
+    [size],
   );
+
+  /*
+   * When the type changes size, every month moves — so keep the same NIGHT at
+   * the top, not the same pixel. Without this, turning the phone sideways
+   * mid-list would slide the guest weeks away from the night they were
+   * reading. (It also lands the first draw, made before the width is known.)
+   * Worked out from the old layout's arithmetic, which is exact.
+   */
+  const laidOut = useRef({ sections, size });
+  useLayoutEffect(() => {
+    const prev = laidOut.current;
+    laidOut.current = { sections, size };
+    const el = scrollRef.current;
+    if (!el || prev.size === size) return;
+    const y = el.scrollTop;
+    let idx = 0;
+    while (idx + 1 < prev.sections.length && prev.sections[idx + 1].top <= y) idx++;
+    const into = y - prev.sections[idx].top;
+    el.scrollTop = sections[idx].top + (
+      into < prev.size.headH
+        ? (into / prev.size.headH) * size.headH
+        : size.headH + ((into - prev.size.headH) / prev.size.rowH) * size.rowH
+    );
+  }, [sections, size]);
 
   const indexOfMonth = (m: Date) => {
     const today = new Date();
@@ -637,6 +748,7 @@ const GuestDayList = ({
             top={top}
             drawn={i >= shownIdx - DRAW_BEHIND && i <= shownIdx + DRAW_AHEAD}
             data={data}
+            size={size}
             handlers={handlers}
           />
         ))}
