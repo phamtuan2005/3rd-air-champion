@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { FaUser } from "react-icons/fa";
 import { format, startOfToday } from "date-fns";
@@ -7,6 +7,7 @@ import { guestType } from "../../../../util/types/guestType";
 import { dayType } from "../../../../util/types/dayType";
 import RoomBadge from "../../../shared/RoomBadge";
 import { airbnbGuestList } from "../../../../util/airbnbGuestList";
+import { houseGuestList, isPhoneQuery, matchesTyped, topMatches } from "../../../../util/houseGuestList";
 
 interface CalendarFilterPickerProps {
   rooms: roomType[];
@@ -22,28 +23,40 @@ interface CalendarFilterPickerProps {
   onAirBnBChange: (alias: string) => void;
 }
 
-// With no search typed, the AirBnB section lists only who is here or coming.
-// The calendar holds several hundred AirBnB names going back years; the rest
-// are a search away.
-const AIRBNB_SEARCH_LIMIT = 40;
+// The most results a search draws under each heading. Past a handful nobody
+// reads a list; they type another letter, and the line under the results says
+// how many more there are.
+const RESULT_LIMIT = 8;
 
-// The one control that decides WHO and WHAT the calendar shows.
-//
-// Room and guest began as two separate triggers side by side, which put two
-// dropdowns in a header already carrying the month, the view lens and the page
-// size. They answer the same question — narrow this calendar down — so they are
-// one list with sections rather than controls competing for the same corner.
-//
-// Room stays INDEPENDENT of who: filtering to King and to Eddie at once is a
-// reasonable thing to want, and each has its own way back to everything.
-//
-// A third section, AirBnB guests, came later (2026-10-02). The list had rooms
-// and the house's own guests only, because every AirBnB stay hangs off one
-// placeholder guest record and so there was nobody to list — but half the
-// house's guests arrive through AirBnB, and the only way to filter one was to
-// find their booking card first. They are listed by the name AirBnB gives
-// them; see util/airbnbGuestList. A house guest and an AirBnB guest are one
-// choice, not two: picking either clears the other.
+/*
+ * The one control that decides WHO and WHAT the calendar shows — a search box.
+ *
+ * How it got here, since each step was a design that worked until it did not:
+ *
+ *  1. Room and guest were two dropdowns side by side in a header already
+ *     carrying the month, the lens and the page size. They became one list
+ *     with two sections, every room and then every guest.
+ *  2. AirBnB guests were missing from it entirely — every AirBnB stay hangs
+ *     off one placeholder guest record — though half the house's guests come
+ *     through AirBnB. They were added as a third list behind a switch
+ *     (2026-10-02).
+ *  3. The same day Anh-Tuan asked what a thousand guests would do to it. A
+ *     list that long is bad design, and trimming it was not the answer either:
+ *     "even when the list is more than 10-15, I no longer [use] the drop down
+ *     list. Instead, I type the name directly." His design, which this is:
+ *     remove every item, and give the host a text box. Type a room, a guest's
+ *     name, or a phone number.
+ *
+ * So nothing is listed until something is typed, and what is typed is looked
+ * for in all three at once — a host typing "King" wants the room and one
+ * typing "Eddie" wants the guest, and which it is does not need asking.
+ *
+ * Room stays INDEPENDENT of who: filtering to King and to Eddie at once is a
+ * reasonable thing to want. A house guest and an AirBnB guest are one choice:
+ * picking either clears the other. With the box empty, the panel shows what is
+ * filtered now, each with its own way off — the lists used to carry "All
+ * rooms" and "Everyone" for that.
+ */
 const CalendarFilterPicker = ({
   rooms,
   roomValue,
@@ -60,69 +73,45 @@ const CalendarFilterPicker = ({
   const activeRooms = useMemo(() => rooms.filter((r) => r.active), [rooms]);
   const selectedRoom = activeRooms.find((r) => r.name === roomValue) ?? null;
   const selectedGuest = guests.find((g) => g.id === guestValue) ?? null;
-  const airbnbRows = useMemo(
-    () => airbnbGuestList(monthMap, format(startOfToday(), "yyyy-MM-dd")),
-    [monthMap],
-  );
 
-  // Each guest's next night from today, and the most recent one before it.
-  // Ordering on this is what makes eighty names usable: the guest a host is
-  // looking for is nearly always one who is here soon.
-  const ordered = useMemo(() => {
-    const todayKey = format(startOfToday(), "yyyy-MM-dd");
-    const next = new Map<string, string>();
-    const last = new Map<string, string>();
-    monthMap.forEach((day, dateKey) => {
-      day.bookings.forEach((b) => {
-        const id = b.guest?.id;
-        if (!id || !b.room) return;
-        if (dateKey >= todayKey) {
-          const seen = next.get(id);
-          if (!seen || dateKey < seen) next.set(id, dateKey);
-        } else {
-          const seen = last.get(id);
-          if (!seen || dateKey > seen) last.set(id, dateKey);
-        }
-      });
-    });
-    // AirBnB is one shared placeholder record, not a person — it has its own
-    // filter and does not belong in a list of guests.
-    return guests
-      .filter((g) => g.name !== "AirBnB")
-      .map((g) => ({ g, next: next.get(g.id), last: last.get(g.id) }))
-      .sort((a, b) => {
-        if (a.next && b.next) return a.next < b.next ? -1 : 1;
-        if (a.next) return -1;
-        if (b.next) return 1;
-        if (a.last && b.last) return a.last > b.last ? -1 : 1;
-        if (a.last) return -1;
-        if (b.last) return 1;
-        return a.g.name.localeCompare(b.g.name);
-      });
-  }, [guests, monthMap]);
+  const todayKey = format(startOfToday(), "yyyy-MM-dd");
+  // The rows a search runs over, each list already in "who is here soonest"
+  // order, so the likeliest match is the first one shown.
+  const airbnbRows = useMemo(() => airbnbGuestList(monthMap, todayKey), [monthMap, todayKey]);
+  const houseRows = useMemo(() => houseGuestList(guests, monthMap, todayKey), [guests, monthMap, todayKey]);
 
-  const q = query.trim().toLowerCase();
-  const shownGuests = q
-    ? ordered.filter(({ g }) => (g.alias || g.name).toLowerCase().includes(q))
-    : ordered;
-  const shownRooms = q
-    ? activeRooms.filter((r) => r.name.toLowerCase().includes(q))
-    : activeRooms;
-  // Typed: every AirBnB guest the calendar has ever held, best first, capped.
-  // Not typed: who is here tonight or still to come.
-  const airbnbMatches = q
-    ? airbnbRows.filter((r) => r.alias.toLowerCase().includes(q))
-    : airbnbRows.filter((r) => r.next);
-  const shownAirbnb = q ? airbnbMatches.slice(0, AIRBNB_SEARCH_LIMIT) : airbnbMatches;
-  // Which list of names is showing. Opens on AirBnB when an AirBnB guest is
-  // the one filtered, so the radio that is on is on screen; otherwise it stays
-  // where the host last left it.
-  const [who, setWho] = useState<"house" | "airbnb">(airbnbValue ? "airbnb" : "house");
+  const q = query.trim();
+  const roomHits = q ? activeRooms.filter((r) => matchesTyped(q, r.name)) : [];
+  const house = topMatches(houseRows, (r) => matchesTyped(q, r.name, r.phone), RESULT_LIMIT);
+  // AirBnB gives no phone number, so those are found by name alone.
+  const airbnb = topMatches(airbnbRows, (r) => matchesTyped(q, r.alias), RESULT_LIMIT);
+  const byPhone = isPhoneQuery(q);
 
   const close = () => {
     setOpen(false);
     setQuery("");
   };
+  const pickRoom = (name: string | null) => {
+    onRoomChange(name);
+    close();
+  };
+  const pickGuest = (id: string | null) => {
+    onGuestChange(id);
+    close();
+  };
+  const pickAirBnB = (alias: string) => {
+    onAirBnBChange(alias);
+    close();
+  };
+  // Enter takes the first thing found, in the order it is shown: for a host at
+  // a keyboard, "ki" and Enter is the whole gesture.
+  const pickFirst = () => {
+    if (roomHits[0]) pickRoom(roomHits[0].name);
+    else if (house.shown[0]) pickGuest(house.shown[0].id);
+    else if (airbnb.shown[0]) pickAirBnB(airbnb.shown[0].alias);
+  };
+
+  const day = (key: string, pattern: string) => format(new Date(key + "T00:00:00"), pattern);
 
   // The trigger says what is ON. A guest narrows the calendar further than a
   // room does, so it leads when both are set.
@@ -154,21 +143,32 @@ const CalendarFilterPicker = ({
       <RoomBadge room={selectedRoom} rooms={activeRooms} />
     </span>
   ) : (
-    // "Filter" on the trigger names the control; the rows inside name what
-    // choosing them does.
+    // "Filter" on the trigger names the control.
     <span className="italic text-gray-500 text-sm">Filter</span>
   );
+
+  const heading = "px-4 pb-1 pt-3 text-[11px] font-bold uppercase tracking-wide text-gray-400";
+  const rowClass = "flex w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-gray-50";
+  const tick = <span className="ml-auto shrink-0 text-sm font-bold text-emerald-600">✓</span>;
+  const more = (shown: number, total: number) =>
+    total > shown ? (
+      <p className="px-4 pb-1 text-[11px] text-gray-400">
+        {total - shown} more. Type more of the name to narrow it.
+      </p>
+    ) : null;
+
+  const nothingFound = q && roomHits.length === 0 && house.total === 0 && airbnb.total === 0;
 
   const modal = open
     ? createPortal(
         <div
           // Anchored to the TOP, not centred.
           //
-          // The panel's height changes as the list filters, and centred that
+          // The panel's height changes as results come and go, and centred that
           // moved the TOP edge down to keep the middle still — carrying the
-          // search box and the first rows down behind a phone's keyboard, which
-          // is open the moment this appears because the box autofocuses.
-          // Pinned at the top, the height only ever changes at the bottom.
+          // search box down behind a phone's keyboard, which is open the
+          // moment this appears because the box autofocuses. Pinned at the
+          // top, the height only ever changes at the bottom.
           //
           // dvh, never vh: on a phone vh is the tallest the viewport can be, so
           // the panel would be sized for a window the browser toolbar is
@@ -191,209 +191,139 @@ const CalendarFilterPicker = ({
               </button>
             </div>
 
-            {/* One box over both sections — a host typing "King" wants the room
-                and one typing "Eddie" wants the guest, and which of the two it
-                is does not need asking. */}
             <div className="px-4 pt-3">
               <input
                 autoFocus
                 type="text"
+                // A name or a number: the plain keyboard, with nothing
+                // "corrected" on the way.
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Room or guest…"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") pickFirst();
+                }}
+                placeholder="Room, guest name or phone…"
                 className="w-full rounded border border-gray-300 px-2.5 py-1.5 text-sm focus:border-gray-400 focus:outline-none"
               />
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto py-1">
-              {shownRooms.length > 0 && (
-                <>
-                  <p className="px-4 pb-1 pt-2 text-[11px] font-bold uppercase tracking-wide text-gray-400">
-                    Room
-                  </p>
-                  {!q && (
-                    <li
-                      className="flex list-none items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 cursor-pointer"
-                      onClick={() => {
-                        onRoomChange(null);
-                        close();
-                      }}
-                    >
-                      <input
-                        type="radio"
-                        readOnly
-                        checked={roomValue === null}
-                        className="pointer-events-none h-4 w-4"
-                      />
-                      <span className="italic text-gray-500">All rooms</span>
-                    </li>
-                  )}
-                  {shownRooms.map((room) => (
-                    <li
-                      key={room.id}
-                      className="flex list-none items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 cursor-pointer"
-                      onClick={() => {
-                        onRoomChange(room.name);
-                        close();
-                      }}
-                    >
-                      <input
-                        type="radio"
-                        readOnly
-                        checked={roomValue === room.name}
-                        className="pointer-events-none h-4 w-4"
-                      />
-                      <RoomBadge room={room} rooms={activeRooms} />
-                    </li>
-                  ))}
-                </>
-              )}
-
-              {/* Who: the house's own guests, or AirBnB's — a switch, so either
-                  list starts at the top. One under the other was tried first
-                  and measured against the live calendar: 45 house guests above
-                  38 AirBnB arrivals put half the house's guests a long scroll
-                  down. Searching looks through both and needs no switch. */}
+            <div className="min-h-0 flex-1 overflow-y-auto pb-2 pt-1">
               {!q && (
                 <>
-                  <div className="border-t border-gray-100 px-4 pb-1 pt-3">
-                    <div className="flex gap-1 rounded-xl bg-gray-100 p-1">
-                      {(["house", "airbnb"] as const).map((k) => (
-                        <button
-                          key={k}
-                          type="button"
-                          onClick={() => setWho(k)}
-                          aria-pressed={who === k}
-                          className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-semibold transition-colors ${
-                            who === k ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
-                          }`}
-                        >
-                          {k === "house" ? "House guests" : "AirBnB"}
-                          <span className="text-[11px] font-bold text-gray-400">
-                            {k === "house" ? ordered.length : airbnbMatches.length}
+                  {/* What is on now, each with its own way off. */}
+                  {(selectedRoom || filteredName) && (
+                    <>
+                      <p className={heading}>Showing now</p>
+                      {filteredName && (
+                        <div className="flex items-center gap-3 px-4 py-2 text-sm">
+                          <FaUser size={13} className="shrink-0 text-emerald-700" />
+                          <span className="min-w-0 truncate font-semibold text-gray-800">
+                            {filteredName}
+                            {!selectedGuest && <span className="ml-1 font-semibold text-gray-400">(A)</span>}
                           </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <li
-                    className="flex list-none items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 cursor-pointer"
-                    onClick={() => {
-                      onGuestChange(null);
-                      close();
-                    }}
-                  >
-                    {/* Everyone means nobody is filtered: no house guest and
-                        no AirBnB guest. */}
-                    <input
-                      type="radio"
-                      readOnly
-                      checked={guestValue === null && airbnbValue === null}
-                      className="pointer-events-none h-4 w-4"
-                    />
-                    <span className="italic text-gray-500">Everyone</span>
-                  </li>
+                          <button
+                            type="button"
+                            onClick={() => pickGuest(null)}
+                            className="ml-auto shrink-0 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                          >
+                            Show everyone
+                          </button>
+                        </div>
+                      )}
+                      {selectedRoom && (
+                        <div className="flex items-center gap-3 px-4 py-2 text-sm">
+                          <RoomBadge room={selectedRoom} rooms={activeRooms} />
+                          <button
+                            type="button"
+                            onClick={() => pickRoom(null)}
+                            className="ml-auto shrink-0 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                          >
+                            Show all rooms
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  <p className="px-4 pb-2 pt-3 text-sm text-gray-400">
+                    Type a room, a guest's name, or a phone number.
+                  </p>
                 </>
               )}
 
-              {(q || who === "house") && shownGuests.length > 0 && (
+              {roomHits.length > 0 && (
                 <>
-                  {q && (
-                    <p className="border-t border-gray-100 px-4 pb-1 pt-3 text-[11px] font-bold uppercase tracking-wide text-gray-400">
-                      Guest
-                    </p>
-                  )}
-                  {shownGuests.map(({ g, next, last }) => (
-                    <li
-                      key={g.id}
-                      className="flex list-none items-center gap-3 px-4 py-2 text-sm hover:bg-gray-50 cursor-pointer"
-                      onClick={() => {
-                        onGuestChange(g.id);
-                        close();
-                      }}
-                    >
-                      <input
-                        type="radio"
-                        readOnly
-                        checked={guestValue === g.id}
-                        className="pointer-events-none h-4 w-4 shrink-0"
-                      />
-                      <span className="min-w-0">
-                        <span className="block truncate font-medium text-gray-800">
-                          {g.alias || g.name}
-                        </span>
-                        {/* When they are next in, which is how a host recognises
-                            somebody far faster than by surname. */}
-                        <span className="block text-[11px] text-gray-400">
-                          {next
-                            ? `Next stay ${format(new Date(next + "T00:00:00"), "EEE MMM d")}`
-                            : last
-                              ? `Last stayed ${format(new Date(last + "T00:00:00"), "MMM d, yyyy")}`
-                              : "No stays on the calendar"}
-                        </span>
-                      </span>
-                    </li>
+                  <p className={heading}>Room</p>
+                  {roomHits.map((room) => (
+                    <button key={room.id} type="button" className={rowClass} onClick={() => pickRoom(room.name)}>
+                      <RoomBadge room={room} rooms={activeRooms} />
+                      {roomValue === room.name && tick}
+                    </button>
                   ))}
                 </>
               )}
 
-              {!q && who === "airbnb" && shownAirbnb.length === 0 && (
-                <p className="px-4 py-3 text-sm text-gray-400">
-                  No AirBnB guest is here or arriving. Type a name to find an earlier one.
-                </p>
+              {house.shown.length > 0 && (
+                <>
+                  <p className={`${heading} ${roomHits.length > 0 ? "border-t border-gray-100" : ""}`}>Guest</p>
+                  {house.shown.map((r) => (
+                    <button key={r.id} type="button" className={rowClass} onClick={() => pickGuest(r.id)}>
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium text-gray-800">{r.name}</span>
+                        {/* When they are next in, and where — how a host tells
+                            one Susan from another faster than by surname. The
+                            number shows when a number is what was typed, so the
+                            host sees why this guest came up. */}
+                        <span className="block truncate text-[11px] text-gray-400">
+                          {r.next === todayKey
+                            ? "Here now"
+                            : r.next
+                              ? `Next stay ${day(r.next, "EEE MMM d")}`
+                              : r.last
+                                ? `Last stayed ${day(r.last, "MMM d, yyyy")}`
+                                : "No stays on the calendar"}
+                          {r.room ? ` · ${r.room}` : ""}
+                          {byPhone && r.phone ? ` · ${r.phone}` : ""}
+                        </span>
+                      </span>
+                      {guestValue === r.id && tick}
+                    </button>
+                  ))}
+                  {more(house.shown.length, house.total)}
+                </>
               )}
 
-              {(q || who === "airbnb") && shownAirbnb.length > 0 && (
+              {airbnb.shown.length > 0 && (
                 <>
-                  {q && (
-                    <p className="border-t border-gray-100 px-4 pb-1 pt-3 text-[11px] font-bold uppercase tracking-wide text-gray-400">
-                      AirBnB guest
-                    </p>
-                  )}
-                  {shownAirbnb.map((r) => (
-                    <li
-                      key={r.alias}
-                      className="flex list-none items-center gap-3 px-4 py-2 text-sm hover:bg-gray-50 cursor-pointer"
-                      onClick={() => {
-                        onAirBnBChange(r.alias);
-                        close();
-                      }}
-                    >
-                      <input
-                        type="radio"
-                        readOnly
-                        checked={airbnbValue === r.alias}
-                        className="pointer-events-none h-4 w-4 shrink-0"
-                      />
+                  <p className={`${heading} ${roomHits.length > 0 || house.shown.length > 0 ? "border-t border-gray-100" : ""}`}>
+                    AirBnB guest
+                  </p>
+                  {airbnb.shown.map((r) => (
+                    <button key={r.alias} type="button" className={rowClass} onClick={() => pickAirBnB(r.alias)}>
                       <span className="min-w-0">
                         <span className="block truncate font-medium text-gray-800">{r.alias}</span>
-                        {/* When, and which room: an AirBnB name is a first
-                            name, and the room is what tells two Dannys apart. */}
-                        <span className="block text-[11px] text-gray-400">
+                        {/* An AirBnB name is a first name, and the room is what
+                            tells two Dannys apart. */}
+                        <span className="block truncate text-[11px] text-gray-400">
                           {r.inHouse
                             ? "Here now"
                             : r.next
-                              ? `Arrives ${format(new Date(r.next + "T00:00:00"), "EEE MMM d")}`
-                              : `Last stayed ${format(new Date((r.last ?? "") + "T00:00:00"), "MMM d, yyyy")}`}
+                              ? `Arrives ${day(r.next, "EEE MMM d")}`
+                              : `Last stayed ${day(r.last ?? todayKey, "MMM d, yyyy")}`}
                           {r.room ? ` · ${r.room}` : ""}
                           {r.stays > 1 ? ` · ${r.stays} stays` : ""}
                         </span>
                       </span>
-                    </li>
+                      {airbnbValue === r.alias && tick}
+                    </button>
                   ))}
-                  {/* Says where the rest are, rather than letting a short list
-                      read as "these are all of them". */}
-                  {(!q || airbnbMatches.length > shownAirbnb.length) && (
-                    <p className="px-4 pb-2 pt-1 text-[11px] text-gray-400">
-                      {q
-                        ? `Showing ${shownAirbnb.length} of ${airbnbMatches.length}. Type more of the name to narrow it.`
-                        : "Here now or arriving. Type a name to find an earlier AirBnB guest."}
-                    </p>
-                  )}
+                  {more(airbnb.shown.length, airbnb.total)}
                 </>
               )}
 
-              {shownRooms.length === 0 && shownGuests.length === 0 && shownAirbnb.length === 0 && (
+              {nothingFound && (
                 <p className="px-4 py-6 text-center text-sm text-gray-400">
                   Nothing matches “{query}”.
                 </p>
