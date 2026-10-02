@@ -11,7 +11,8 @@ import { roomType } from "../../../util/types/roomType";
 import { createRoom, deleteRoom, fetchRooms, updateRoom } from "../../../util/roomOperations";
 import { guestType } from "../../../util/types/guestType";
 import { createGuest, deleteGuest, updateGuest, updateGuestPricing } from "../../../util/guestOperations";
-import { fetchWorkEntries } from "../../../util/staffOperations";
+import { fetchStaff, fetchWorkEntries } from "../../../util/staffOperations";
+import { SearchWorker, workersForSearch } from "../../../util/searchWorkers";
 import UrgentActionModal from "./UrgentActionModal";
 import AskTiMagModal from "./AskTiMagModal";
 import GuestView from "./GuestView/GuestView";
@@ -20,7 +21,7 @@ import { AddPaneContext, FooterContext, GuestModeContext, isSyncModalOpenContext
 import { formatPhone } from "../../../util/formatPhone";
 import DetailsModal from "./GuestView/DetailsModal";
 import { updateBookingGuest, updateBookingAirbnbPrice, updateBookingReserved, updateUnbookGuest } from "../../../util/bookingOperations";
-import { fetchAssignments, CleaningAssignmentType, CleanerType } from "../../../util/cleanerOperations";
+import { fetchAssignments, fetchCleaners, CleaningAssignmentType, CleanerType } from "../../../util/cleanerOperations";
 import { fetchSentReminders } from "../../../util/reminderOperations";
 import { CLEANING_FORECAST_DAYS, PLAN_DAYS_MAX, getCleaningForecast, getFullyBookedReach, isStaleCleaning } from "../../../util/cleaningTasks";
 import { fetchHost, updateCleanPlanDays } from "../../../util/hostOperations";
@@ -287,7 +288,24 @@ const MainView = ({
   // Set only when the Cleaners modal is opened with a destination in mind (the
   // day sheet's Change button wants Plan); cleared on close so the next open
   // goes back to choosing for itself.
-  const [cleanersInitialTab, setCleanersInitialTab] = useState<"upcoming" | undefined>(undefined);
+  const [cleanersInitialTab, setCleanersInitialTab] = useState<"upcoming" | "pay" | undefined>(undefined);
+  // The house's staff and cleaners, for the search box, and the one it was
+  // asked to open a window on. Loaded here because the search lives in the
+  // calendar's header, while Staffing and Clean each load their own people
+  // only once they are open. Refetched when either closes: a name, a phone or
+  // a new hire changed in there should be findable straight away.
+  const [workers, setWorkers] = useState<SearchWorker[]>([]);
+  const [staffingFocus, setStaffingFocus] = useState<string | undefined>(undefined);
+  const [cleanerFocus, setCleanerFocus] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    if (!hostId || !token || isStaffingOpen || isCleanersOpen) return;
+    const todayKey = format(startOfToday(), "yyyy-MM-dd");
+    // Either list failing leaves the other searchable.
+    Promise.all([
+      fetchStaff(hostId, token).catch(() => []),
+      fetchCleaners(hostId, token).catch(() => []),
+    ]).then(([staff, cleaners]) => setWorkers(workersForSearch(staff, cleaners, todayKey)));
+  }, [hostId, token, isStaffingOpen, isCleanersOpen]);
   const [editingRoomId, setEditingRoomId] = useState<string>("");
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
   const [scrollToTodayTrigger, setScrollToTodayTrigger] = useState(0);
@@ -671,6 +689,24 @@ const MainView = ({
     const row = airbnbGuestList(monthMap, format(startOfToday(), "yyyy-MM-dd")).find((r) => r.alias === alias);
     const target = row?.next ?? row?.last;
     if (target) setCurrentMonth(new Date(target + "T00:00:00"));
+  };
+
+  // One of the house's own people, picked in the search. The calendar is left
+  // exactly as it is — whoever is filtered stays filtered — and their window
+  // opens on them: Staffing for staff, Clean for a cleaner. "Depending on the
+  // target, you will display either the calendar or the staffing modal or the
+  // cleaner modal" (Anh-Tuan, 2026-10-02).
+  const onWorkerPick = (worker: SearchWorker) => {
+    if (worker.kind === "cleaner") {
+      setCleanerFocus(worker.id);
+      // Pay is where a cleaner's own page is: their hours, what is owed, and
+      // the payouts.
+      setCleanersInitialTab("pay");
+      setIsCleanersOpen(true);
+    } else {
+      setStaffingFocus(worker.id);
+      setIsStaffingOpen(true);
+    }
   };
 
   const shiftDate = (delta: number) => {
@@ -1229,6 +1265,8 @@ const MainView = ({
               currentGuestId={currentGuest}
               onGuestFilter={onGuestFilter}
               onAirBnBGuestFilter={onAirBnBGuestFilter}
+              workers={workers}
+              onWorkerPick={onWorkerPick}
               currentAirBnBGuest={currentAirBnBGuest}
               monthMap={monthMap}
               occupancy={occupancy}
@@ -1864,6 +1902,7 @@ const MainView = ({
           monthMap={monthMap}
           rooms={rooms}
           initialTab={cleanersInitialTab}
+          focusCleanerId={cleanerFocus}
           cleaningRules={cleaningRules}
           senderName={senderName}
           planDays={effectivePlanDays}
@@ -1872,6 +1911,8 @@ const MainView = ({
           onClose={() => {
             setIsCleanersOpen(false);
             setCleanersInitialTab(undefined);
+            // So the next open, from the Clean button, is not still on them.
+            setCleanerFocus(undefined);
           }}
         />
       )}
@@ -1948,7 +1989,11 @@ const MainView = ({
           hostId={hostId}
           token={token as string}
           senderName={senderName}
-          onClose={() => setIsStaffingOpen(false)}
+          focusId={staffingFocus}
+          onClose={() => {
+            setIsStaffingOpen(false);
+            setStaffingFocus(undefined);
+          }}
         />
       )}
       {cleanDayKey && (

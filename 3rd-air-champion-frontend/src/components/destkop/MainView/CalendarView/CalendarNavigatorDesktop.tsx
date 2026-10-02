@@ -8,6 +8,7 @@ import { toZonedTime } from "date-fns-tz/toZonedTime";
 import { AddPaneContext } from "../../../../context";
 import CalendarFilterPicker from "./CalendarFilterPicker";
 import { guestType } from "../../../../util/types/guestType";
+import type { SearchWorker } from "../../../../util/searchWorkers";
 
 interface CalendarNavigatorProps {
   currentMonth: Date;
@@ -20,6 +21,9 @@ interface CalendarNavigatorProps {
   onGuestFilter: (guestId: string | null) => void;
   // Filtering to an AirBnB guest by the name AirBnB gave them.
   onAirBnBGuestFilter: (alias: string) => void;
+  // The house's staff and cleaners, for the search, and where picking one goes.
+  workers: SearchWorker[];
+  onWorkerPick: (worker: SearchWorker) => void;
   monthMap: Map<string, dayType>;
   occupancy: {
     totalOccupancy: number;
@@ -58,6 +62,8 @@ const CalendarNavigator = ({
   currentGuestId,
   onGuestFilter,
   onAirBnBGuestFilter,
+  workers,
+  onWorkerPick,
   monthMap,
   occupancy,
   profit,
@@ -170,6 +176,8 @@ const CalendarNavigator = ({
                 onGuestChange={onGuestFilter}
                 airbnbValue={currentAirBnBGuest}
                 onAirBnBChange={onAirBnBGuestFilter}
+                workers={workers}
+                onWorkerPick={onWorkerPick}
               />
               {/* One view mode, not two independent flags. Gaps and Cleaners
                   each re-read the same calendar, so they were never meaningfully
@@ -224,6 +232,8 @@ const CalendarNavigator = ({
                 onGuestChange={onGuestFilter}
                 airbnbValue={currentAirBnBGuest}
                 onAirBnBChange={onAirBnBGuestFilter}
+                workers={workers}
+                onWorkerPick={onWorkerPick}
               />
             </div>
             <div className="flex items-center gap-2">
@@ -299,6 +309,8 @@ const CalendarNavigator = ({
                 onGuestChange={onGuestFilter}
                 airbnbValue={currentAirBnBGuest}
                 onAirBnBChange={onAirBnBGuestFilter}
+                workers={workers}
+                onWorkerPick={onWorkerPick}
               />
             </div>
             <div className="flex items-center gap-2 mx-auto">
