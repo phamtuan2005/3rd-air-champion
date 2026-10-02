@@ -25,6 +25,7 @@ import {
   addStaffReview,
   createStaff,
   deleteStaff,
+  editWorkEntry,
   fetchStaff,
   fetchWorkEntries,
 
@@ -144,6 +145,63 @@ const StaffingModal = ({ hostId, token, onClose, senderName }: StaffingModalProp
   // "Copied" shows for a moment so the tap is seen to have done something.
   const [payCopied, setPayCopied] = useState(false);
   const [payPreview, setPayPreview] = useState(false);
+
+  // Correcting an entry from the Hours tab: its day, its hours, or what was
+  // written. A staff member can fix their own in TiWork only while it waits;
+  // once approved it locks for them, and the host had no edit at all — so a
+  // wrong date that had been approved could be fixed by nobody. Anh-Tuan asked
+  // for the chance to correct it here (2026-10-01).
+  //
+  // One entry at a time, edited in its own card. Hours as h and m, the way
+  // TiWork takes them, so both sides type the same thing.
+  const [editEntry, setEditEntry] = useState<{
+    id: string;
+    date: string;
+    h: string;
+    m: string;
+    report: string;
+  } | null>(null);
+  const [editError, setEditError] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  // A ref as well as the flag: the flag disables the button a render later,
+  // and a second tap can land in between ([[guard-writes-in-flight]]).
+  const editSavingRef = useRef(false);
+
+  const openEdit = (w: HostWorkEntry) => {
+    let h = Math.floor(w.hours);
+    let m = Math.round((w.hours - h) * 60);
+    if (m === 60) {
+      h += 1;
+      m = 0;
+    }
+    setEditError("");
+    setEditEntry({ id: w.id, date: w.date, h: String(h), m: String(m), report: w.report ?? "" });
+  };
+
+  const saveEdit = () => {
+    if (!editEntry || editSavingRef.current) return;
+    const hours = (parseInt(editEntry.h || "0", 10) || 0) + (parseInt(editEntry.m || "0", 10) || 0) / 60;
+    if (hours <= 0) {
+      setEditError("Enter how long they worked.");
+      return;
+    }
+    editSavingRef.current = true;
+    setEditSaving(true);
+    setEditError("");
+    editWorkEntry(
+      { id: editEntry.id, date: editEntry.date, hours: Math.round(hours * 10000) / 10000, report: editEntry.report },
+      token,
+    )
+      .then(() => fetchWorkEntries(hostId, token).then(setWorkEntries))
+      .then(() => setEditEntry(null))
+      // The server says why in a sentence the host can act on: a day before
+      // the hire date, a cleaner's unscheduled day.
+      .catch((err) => setEditError(err?.response?.data?.error ?? "Could not save that."))
+      .finally(() => {
+        editSavingRef.current = false;
+        setEditSaving(false);
+      });
+  };
 
   useEffect(() => {
     fetchStaff(hostId, token)
@@ -1055,6 +1113,18 @@ const StaffingModal = ({ hostId, token, onClose, senderName }: StaffingModalProp
                             ? "Not counted"
                             : "Waiting on you"}
                       </span>
+                      {/* Quiet, and at the far end of the line: it is the rare
+                          action on a card whose everyday ones are Approve and
+                          Decline. */}
+                      {editEntry?.id !== w.id && (
+                        <button
+                          type="button"
+                          onClick={() => openEdit(w)}
+                          className="ml-auto shrink-0 text-xs font-semibold text-gray-400 hover:text-gray-700"
+                        >
+                          Edit
+                        </button>
+                      )}
                     </div>
                     {/* What the day actually consisted of. Reviewing an hours
                         claim used to mean opening the Clean panel to remember
@@ -1072,10 +1142,90 @@ const StaffingModal = ({ hostId, token, onClose, senderName }: StaffingModalProp
                         ))}
                       </div>
                     )}
-                    {w.report && (
+                    {editEntry?.id === w.id && (
+                      <div className="mt-2 rounded-xl border border-gray-200 bg-gray-50 p-2.5">
+                        <div className="flex flex-wrap items-end gap-2">
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Day worked</span>
+                            <input
+                              type="date"
+                              max={todayKey}
+                              value={editEntry.date}
+                              onChange={(e) => setEditEntry((d) => (d ? { ...d, date: e.target.value } : d))}
+                              className={inputCls}
+                            />
+                          </label>
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">How long</span>
+                            <span className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                inputMode="numeric"
+                                min={0}
+                                value={editEntry.h}
+                                onChange={(e) => setEditEntry((d) => (d ? { ...d, h: e.target.value } : d))}
+                                className={`${inputCls} w-14 text-center`}
+                              />
+                              <span className="text-sm text-gray-400">h</span>
+                              <input
+                                type="number"
+                                inputMode="numeric"
+                                min={0}
+                                max={59}
+                                value={editEntry.m}
+                                onChange={(e) => setEditEntry((d) => (d ? { ...d, m: e.target.value } : d))}
+                                className={`${inputCls} w-14 text-center`}
+                              />
+                              <span className="text-sm text-gray-400">m</span>
+                            </span>
+                          </label>
+                        </div>
+                        <label className="mt-2 flex flex-col gap-1">
+                          <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">What they did</span>
+                          <textarea
+                            rows={3}
+                            value={editEntry.report}
+                            onChange={(e) => setEditEntry((d) => (d ? { ...d, report: e.target.value } : d))}
+                            className={`${inputCls} w-full`}
+                          />
+                        </label>
+                        {/* Said before Save, not discovered after: on an
+                            approved entry the correction changes what is owed. */}
+                        <p className="mt-1.5 text-[11px] text-gray-400">
+                          {w.status === "approved"
+                            ? "Already approved: pay follows the corrected day and hours, at the rate in force that day."
+                            : "Stays as it is until you approve or decline it."}
+                          {w.kind === "cleaner" && " A cleaner can only be moved to a day they were scheduled."}
+                        </p>
+                        {editError && <p className="mt-1.5 text-xs font-semibold text-red-500">{editError}</p>}
+                        <div className="mt-2 flex gap-2">
+                          <button
+                            type="button"
+                            onClick={saveEdit}
+                            disabled={editSaving}
+                            className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+                          >
+                            {editSaving ? "Saving…" : "Save"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditEntry(null)}
+                            disabled={editSaving}
+                            className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {/* While an entry is being corrected, its old report and
+                        its Approve and Decline step aside: approving the
+                        figure on screen while a different one is being typed
+                        would approve the wrong thing. */}
+                    {editEntry?.id !== w.id && w.report && (
                       <p className="mt-1.5 whitespace-pre-line text-sm text-gray-600">{w.report}</p>
                     )}
-                    {w.status === "submitted" && (
+                    {editEntry?.id !== w.id && w.status === "submitted" && (
                       <div className="mt-2 flex gap-2">
                         <button
                           type="button"

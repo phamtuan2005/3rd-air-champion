@@ -203,6 +203,18 @@ export const reviewWorkEntry = async (
   return res.data;
 };
 
+// The host corrects an entry's day, hours or report, whatever its status. The
+// server keeps pay consistent with the correction — see /staff/hours/edit for
+// what that takes. A refusal comes back as { error } with a sentence the host
+// can read: a day before the hire date, a cleaner's unscheduled day.
+export const editWorkEntry = async (
+  data: { id: string; date?: string; hours?: number; report?: string },
+  token: string,
+) => {
+  const res = await axios.patch(`${BACKEND_ENDPOINT}/staff/hours/edit`, data, auth(token));
+  return res.data;
+};
+
 // What approved hours have earned, at the rate frozen when each was approved.
 // Only approved entries count: a submitted one is a claim, and a rejected one
 // was seen and declined.
