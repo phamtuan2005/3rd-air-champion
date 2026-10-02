@@ -91,26 +91,56 @@ const barBottomFor = (tile: number) => Math.round(clamp(4, (tile / REF_TILE) * 5
 const barRadiusFor = (barHeight: number) =>
   `${Math.min(barHeight / 2, barHeight * (8 / 26)).toFixed(1)}px`;
 
+/*
+ * The grid's type, a size up (2026-10-01).
+ *
+ * The list was lifted to Airbnb's size that morning — about 22px on a phone —
+ * and beside it the grid read small: at a phone's default calendar a row is
+ * about 55px, where every formula below sat on its floor, the day number at
+ * 13px and "3 left" at 11. Anh-Tuan asked for the month to be raised as well.
+ *
+ * A tile cannot go to 22px: it is about 55px wide on a phone, and "sold out"
+ * at 22px is 80. So each piece is raised to what its own space allows, and
+ * the two meta lines are capped by the tile's WIDTH as well as scaled by its
+ * height (see widthCap) — the height ratios alone would let a tall, narrow
+ * tile push the words out of the sides.
+ *
+ * Numbers, not px strings: the tight-row rules further down add them up to
+ * know when a row is too short for what it is asked to stack.
+ */
+const px = (n: number) => Math.round(n * 10) / 10;
+
 // The room name is sized FROM its bar, not from the tile, so a taller ribbon can
-// never leave a small name floating in the middle of it. Was 13px in a 26px bar.
-const barLabelFor = (barHeight: number) =>
-  `${clamp(13, barHeight * 0.5 * TYPE_BOOST, 26).toFixed(1)}px`;
+// never leave a small name floating in the middle of it. Was 13px in a 26px
+// bar, then 15; a 24px bar is the floor, and 15.5px still sits inside it.
+const barLabelFor = (barHeight: number) => px(clamp(15.5, barHeight * 0.58 * TYPE_BOOST, 28));
 
-// The day number. Deliberately NOT boosted, and capped well below the others:
-// it is the least useful thing in the cell. What the guest is scanning for is
-// "3 left" and the room on their ribbon — a date they can find from its column.
-// Boosted, it became the loudest thing on a page it should stay quiet on.
-const dateFor = (tile: number) =>
-  `${clamp(13, (tile / REF_TILE) * 16, 24).toFixed(1)}px`;
+// The day number. It was deliberately left unboosted — "the least useful thing
+// in the cell", found from its column — and at 13px it was also the hardest
+// thing on the page to read. It is the anchor the eye lands on first in a
+// month, so it leads now: 19px at the floor, 22 at the reference tile.
+const dateFor = (tile: number) => px(clamp(19, (tile / REF_TILE) * 22, 30));
 
-// "3 left" / "sold out" — was 9px, the smallest type anywhere in TiBook and the
-// line that actually answers "can I book this night".
-const metaFor = (tile: number) =>
-  `${clamp(11, (tile / REF_TILE) * 9 * TYPE_BOOST, 19).toFixed(1)}px`;
+// "3 left" / "sold out" — was 9px, then 11 at the floor: the smallest type in
+// TiBook and the line that actually answers "can I book this night".
+const metaFor = (tile: number) => px(clamp(15, (tile / REF_TILE) * 13 * TYPE_BOOST, 22));
 
-// The wish-list star and the ⏳ hold badge — was 11px.
-const glyphFor = (tile: number) =>
-  `${clamp(13, (tile / REF_TILE) * 11 * TYPE_BOOST, 24).toFixed(1)}px`;
+// The wish-list star and the ⏳ hold badge — was 11px, then 13 at the floor.
+const glyphFor = (tile: number) => px(clamp(15, (tile / REF_TILE) * 14 * TYPE_BOOST, 26));
+
+// The largest size at which a line `ems` wide still fits across a tile, with
+// a pixel of air each side. Before the tile has been measured there is no cap.
+const widthCap = (size: number, tileWidth: number, ems: number) =>
+  tileWidth > 0 ? px(Math.min(size, (tileWidth - 2) / ems)) : size;
+// How wide each line is, in ems — measured in Chromium on the rendered tile
+// (3.71, 2.35 and 3.22), each rounded up a little for other faces. On a 320px
+// phone a tile is 45.6px, where "sold out" comes to 11.6px: above the 11 it
+// was, which is the one rule these caps must never break — never smaller.
+const SOLD_OUT_EMS = 3.75; // "sold out"
+const LEFT_EMS = 2.45; // "3 left"
+const PICKED_EMS = 3.25; // "✓ 3 left", on a night the guest has picked
+// A room name on a ribbon, per letter, at bold: "King" measured 2.32em.
+const BAR_LABEL_EMS_PER_CHAR = 0.6;
 
 const buildMonthCells = (month: Date): (Date | null)[] => {
   const cells: (Date | null)[] = Array(NUM_ROWS * 7).fill(null);
@@ -173,6 +203,16 @@ const MonthGrid = ({
   const dateSize = dateFor(rowHeight);
   const metaSize = metaFor(rowHeight);
   const glyphSize = glyphFor(rowHeight);
+  // The two meta lines, each as large as the tile is wide enough for.
+  const leftSize = widthCap(metaSize, tileWidth, LEFT_EMS);
+  const soldSize = widthCap(metaSize, tileWidth, SOLD_OUT_EMS);
+  // A picked night is a green box inset 4px each side, so its line has that
+  // much less to fit in. Capped against the tile it poked out of the box on a
+  // 320px phone, and lost the edge of its tick.
+  const pickedSize = widthCap(metaSize, tileWidth > 0 ? tileWidth - 7 : 0, PICKED_EMS);
+  // What a ribbon's name was before the grid went a size up: half the bar,
+  // boosted. The floor barLabelSizeFor never goes under.
+  const barLabelFloor = px(clamp(13, barHeight * 0.5 * TYPE_BOOST, 26));
 
   const scopedRooms = useMemo(
     () => rooms.filter((r) => r.active && (selectedRoomIds === null || selectedRoomIds.has(r.id))),
@@ -206,8 +246,16 @@ const MonthGrid = ({
    * The star keeps working at every size, which matters more than keeping it
    * under the words: hiding it would take the wish list away from exactly the
    * guests on the smallest screens.
+   *
+   * The height is added up from the sizes themselves now. It was a literal 52,
+   * true for a 13px number over an 11px line; with the type a size up, a fixed
+   * number would have let the star spill again on every row between the old
+   * threshold and the new stack height.
    */
-  const tightRow = rowHeight < 52;
+  const TILE_PAD = 4; // the tile's own pt-1
+  const STACK_GAP = 2; // gap-0.5 between stacked lines
+  const tightRow =
+    rowHeight < TILE_PAD + dateSize + STACK_GAP + soldSize + STACK_GAP + glyphSize + STACK_GAP;
 
   /*
    * Tighter still, and the words themselves have to go.
@@ -219,8 +267,25 @@ const MonthGrid = ({
    * gone, accent-coloured for one that is free, which is the same thing the
    * words were saying. The tick on a night the guest picked stays: that is
    * their own doing, not a status.
+   *
+   * Added up from the sizes, like tightRow, and for the same reason. It was 36.
    */
-  const veryTightRow = rowHeight < 36;
+  const veryTightRow = rowHeight < TILE_PAD + dateSize + STACK_GAP + soldSize + STACK_GAP;
+
+  /*
+   * A night under the guest's own ribbon has three things to stack: the
+   * number, "N left" and the ribbon itself. At the old sizes the words and the
+   * ribbon overlapped by 3px, which nobody saw; a size up, "5 left" was drawn
+   * across the ribbon and the room name — caught in a browser at a phone's
+   * default calendar, where a row is 55px and the three want 68.
+   *
+   * So on those nights the count shows only when the row is tall enough to
+   * hold all three. It is the line to give up: the ribbon already says the
+   * guest has this night, and how many OTHER rooms are free on it is the least
+   * of what they came to read there. Drag the calendar taller and it is back.
+   */
+  const metaFitsOverBar =
+    rowHeight >= TILE_PAD + dateSize + STACK_GAP + leftSize + STACK_GAP + barHeight + barBottom;
 
   // The guest's own stays as bar segments per day: a PM segment on every night
   // (check-in day starts at 20%), and an AM cap on the check-out morning — the
@@ -408,6 +473,20 @@ const MonthGrid = ({
       return tileWidth * nightsInRow - tileWidth * 0.2 - 3;
     };
 
+    // The name on a ribbon is a size up with the rest of the grid, but only as
+    // far as its own run of nights has room for, and never below what it was.
+    // A one-cell ribbon is about 45px on a phone, and at the new size "King"
+    // came out as "Ki…" where it had fitted before — seen in a browser on a
+    // stay starting on a Saturday. A stay across several cells has the room
+    // and takes the larger size.
+    const barLabelSizeFor = (name: string, nights: number) => {
+      const room = labelWidthFor(nights);
+      if (!room) return barLabelSize;
+      // Less the span's own px-1 each side.
+      const fit = (room - 8) / (Math.max(1, name.length) * BAR_LABEL_EMS_PER_CHAR);
+      return px(Math.max(barLabelFloor, Math.min(barLabelSize, fit)));
+    };
+
     // One origin for the whole week row, so the stripes of a held stay carry on
     // across the seams between its nights instead of restarting at each.
     //
@@ -478,10 +557,12 @@ const MonthGrid = ({
         </span>
         {/* Availability stays visible whether or not the night is picked — it's
             info the guest wants either way; a ✓ marks it selected. */}
-        {!simplified && (status === "available" || status === "partial") && roomsLeft > 0 && (inCart || (showRoomsLeft && !veryTightRow)) && (
+        {!simplified && (status === "available" || status === "partial") && roomsLeft > 0 && (inCart || (showRoomsLeft && !veryTightRow && (metaFitsOverBar || !(isStayNight || isReservedNight)))) && (
           <span
             className={`relative z-10 font-semibold leading-none ${inCart ? "text-white" : theme.tileText}`}
-            style={{ fontSize: metaSize }}
+            // A picked night carries the tick as well, a wider line with its
+            // own cap.
+            style={{ fontSize: inCart ? pickedSize : leftSize }}
           >
             {/* The tick stays whatever the scope: it is the guest's own
                 selection, not a count. */}
@@ -495,7 +576,7 @@ const MonthGrid = ({
             <div className="relative z-10 flex flex-col items-center gap-0.5">
               {/* Keep "sold out" visible even when wish-listed — the gray wish-list
                   overlay otherwise hides it and the date looks bookable again. */}
-              <span className={`font-medium leading-none ${theme.surfaceMuted}`} style={{ fontSize: metaSize }}>
+              <span className={`whitespace-nowrap font-medium leading-none ${theme.surfaceMuted}`} style={{ fontSize: soldSize }}>
                 sold out
               </span>
               {canWishList && !tightRow && (
@@ -558,7 +639,7 @@ const MonthGrid = ({
             {bars.pm.isStart && (
               <span
                 className="shrink-0 truncate px-0.5 font-bold leading-none text-black"
-                style={{ fontSize: barLabelSize, maxWidth: labelWidthFor(bars.pm.nights) }}
+                style={{ fontSize: barLabelSizeFor(bars.pm.roomName, bars.pm.nights), maxWidth: labelWidthFor(bars.pm.nights) }}
               >
                 {bars.pm.roomName}
               </span>
@@ -611,7 +692,7 @@ const MonthGrid = ({
             {resBars.pm.isStart && (
               <span
                 className="shrink-0 truncate px-0.5 font-bold leading-none text-black"
-                style={{ fontSize: barLabelSize, maxWidth: labelWidthFor(resBars.pm.nights) }}
+                style={{ fontSize: barLabelSizeFor(resBars.pm.roomName, resBars.pm.nights), maxWidth: labelWidthFor(resBars.pm.nights) }}
               >
                 {resBars.pm.roomName}
               </span>
