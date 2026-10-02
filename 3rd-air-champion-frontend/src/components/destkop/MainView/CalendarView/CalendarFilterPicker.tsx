@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { FaUser } from "react-icons/fa";
+import { HiSparkles } from "react-icons/hi2";
 import { format, startOfToday } from "date-fns";
 import { roomType } from "../../../../util/types/roomType";
 import { guestType } from "../../../../util/types/guestType";
@@ -159,6 +160,16 @@ const CalendarFilterPicker = ({
   // An AirBnB guest reads the same way as a house guest, with "(A)" after the
   // name — the mark the header has always used for an AirBnB filter.
   const filteredName = selectedGuest ? selectedGuest.alias || selectedGuest.name : airbnbValue;
+  // TT's mark: a sparkle on the gradient the Clean window's brand bar uses, so
+  // the assistant looks like part of this house and not a stock icon.
+  const ttBadge = (box: string, icon: number) => (
+    <span
+      aria-hidden
+      className={`flex ${box} shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 via-blue-500 to-violet-500 text-white shadow-sm`}
+    >
+      <HiSparkles size={icon} />
+    </span>
+  );
   const triggerContent = filteredName ? (
     // Guest and room STACK when both are on. Side by side they shared one line's
     // width, so each had to shrink to fit the other — and the name is the half
@@ -181,16 +192,18 @@ const CalendarFilterPicker = ({
     </span>
   ) : (
     // Nothing filtered: the trigger names the control. It said "Filter" while
-    // it was a list to choose from, then "Search" once it was a place to type.
-    // Anh-Tuan asked for "? TT" — ask TT (2026-10-02): the box is where the
-    // host asks the house for a room, a guest or one of the team, and the
-    // name should say that rather than name a mechanism. The question mark
-    // stands where the magnifier stood.
-    <span className="flex items-center gap-1 text-sm font-semibold text-gray-600" aria-label="Ask TT">
-      <span className="text-base font-bold leading-none text-emerald-700">?</span>
-      TT
+    // it was a list to choose from, then "Search" once it was a place to type,
+    // then "? TT" when Anh-Tuan named the house's assistant TT (2026-10-02).
+    // He found the bare "? TT" ugly and asked for an AI icon in it: so it is
+    // TT's badge now, the sparkle that marks an assistant, beside its name.
+    <span className="flex items-center gap-1.5" aria-label="Ask TT">
+      {ttBadge("h-6 w-6", 14)}
+      <span className="text-sm font-extrabold tracking-wide text-gray-800">TT</span>
     </span>
   );
+  // A room or a guest is filtered: the trigger is a name to tap, with a caret.
+  // Otherwise it is TT's own pill and needs none.
+  const isFiltered = !!filteredName || !!selectedRoom;
 
   const heading = "px-4 pb-1 pt-3 text-[11px] font-bold uppercase tracking-wide text-gray-400";
   const rowClass = "flex w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-gray-50";
@@ -226,7 +239,10 @@ const CalendarFilterPicker = ({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-              <h3 className="text-sm font-semibold text-gray-700">Ask TT</h3>
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                {ttBadge("h-6 w-6", 14)}
+                Ask TT
+              </h3>
               <button
                 type="button"
                 className="text-gray-400 hover:text-gray-600 text-xl leading-none px-1"
@@ -428,11 +444,18 @@ const CalendarFilterPicker = ({
           the name truncates. */}
       <button
         type="button"
-        className="inline-flex max-w-[17rem] items-center gap-1.5 rounded border border-gray-300 px-2.5 py-1 text-left"
+        title={isFiltered ? undefined : "Ask TT"}
+        className={
+          isFiltered
+            ? "inline-flex max-w-[17rem] items-center gap-1.5 rounded border border-gray-300 px-2.5 py-1 text-left"
+            : // TT's pill: rounded, on a faint wash of its own gradient, so it
+              // reads as somebody to talk to and not as one more form control.
+              "inline-flex items-center rounded-full border border-emerald-200 bg-gradient-to-r from-emerald-50 to-violet-50 py-0.5 pl-0.5 pr-3 text-left shadow-sm transition-shadow hover:shadow"
+        }
         onClick={() => setOpen(true)}
       >
         <span className="min-w-0">{triggerContent}</span>
-        <span className="flex-shrink-0 text-xs text-gray-400">▾</span>
+        {isFiltered && <span className="flex-shrink-0 text-xs text-gray-400">▾</span>}
       </button>
 
       {modal}
