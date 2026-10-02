@@ -26,6 +26,8 @@ interface CalendarFilterPickerProps {
   // their window instead: Staffing for staff, Clean for a cleaner.
   workers: SearchWorker[];
   onWorkerPick: (worker: SearchWorker) => void;
+  // Who is signed in, for TT's greeting: the host, or a cohost.
+  hostName?: string;
 }
 
 // The most results a search draws under each heading. Past a handful nobody
@@ -87,7 +89,10 @@ const CalendarFilterPicker = ({
   onAirBnBChange,
   workers,
   onWorkerPick,
+  hostName,
 }: CalendarFilterPickerProps) => {
+  // The first name only: "Anh-Tuan", not the full account name.
+  const greetName = (hostName ?? "").trim().split(/\s+/)[0] ?? "";
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const activeRooms = useMemo(() => rooms.filter((r) => r.active), [rooms]);
@@ -230,6 +235,16 @@ const CalendarFilterPicker = ({
                 &times;
               </button>
             </div>
+
+            {/* TT introduces itself, in Anh-Tuan's words (2026-10-02). TT is
+                the house's assistant, and this box is where the host speaks to
+                it, so it greets whoever is signed in — the host, or a cohost
+                such as Cindy — by name. Above the box and always there, so the
+                box does not jump when the first letter is typed. */}
+            <p className="px-4 pt-3 text-sm leading-snug text-gray-600">
+              Hello{greetName ? ` ${greetName}` : ""}, TT is your assistant. I will do my best to assist you.
+              What can I do for you today?
+            </p>
 
             <div className="px-4 pt-3">
               <input

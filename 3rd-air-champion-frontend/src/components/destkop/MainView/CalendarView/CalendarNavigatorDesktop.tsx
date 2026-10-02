@@ -24,6 +24,8 @@ interface CalendarNavigatorProps {
   // The house's staff and cleaners, for the search, and where picking one goes.
   workers: SearchWorker[];
   onWorkerPick: (worker: SearchWorker) => void;
+  // Who is signed in, for TT's greeting.
+  hostName?: string;
   monthMap: Map<string, dayType>;
   occupancy: {
     totalOccupancy: number;
@@ -64,6 +66,7 @@ const CalendarNavigator = ({
   onAirBnBGuestFilter,
   workers,
   onWorkerPick,
+  hostName,
   monthMap,
   occupancy,
   profit,
@@ -178,6 +181,7 @@ const CalendarNavigator = ({
                 onAirBnBChange={onAirBnBGuestFilter}
                 workers={workers}
                 onWorkerPick={onWorkerPick}
+                hostName={hostName}
               />
               {/* One view mode, not two independent flags. Gaps and Cleaners
                   each re-read the same calendar, so they were never meaningfully
@@ -234,6 +238,7 @@ const CalendarNavigator = ({
                 onAirBnBChange={onAirBnBGuestFilter}
                 workers={workers}
                 onWorkerPick={onWorkerPick}
+                hostName={hostName}
               />
             </div>
             <div className="flex items-center gap-2">
@@ -311,6 +316,7 @@ const CalendarNavigator = ({
                 onAirBnBChange={onAirBnBGuestFilter}
                 workers={workers}
                 onWorkerPick={onWorkerPick}
+                hostName={hostName}
               />
             </div>
             <div className="flex items-center gap-2 mx-auto">
