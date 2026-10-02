@@ -15,6 +15,9 @@ import { fetchStaff, fetchWorkEntries } from "../../../util/staffOperations";
 import { SearchWorker, workersForSearch } from "../../../util/searchWorkers";
 import UrgentActionModal from "./UrgentActionModal";
 import AskTiMagModal from "./AskTiMagModal";
+import ReminderTemplateModal from "../NavBar/DropDown/ReminderTemplateModal";
+import BookingTemplateModal from "../NavBar/DropDown/BookingTemplateModal";
+import TiBookVisitorsModal from "../TiBookVisitorsModal";
 import GuestView from "./GuestView/GuestView";
 import BookButton from "../BookButton";
 import { AddPaneContext, FooterContext, GuestModeContext, isSyncModalOpenContext } from "../../../context";
@@ -709,6 +712,60 @@ const MainView = ({
     }
   };
 
+  // ── The rest of what TT understands (util/ttIntents) ─────────────────────
+  //
+  // A day, a screen, a question. Each was a button or a menu item and still
+  // is; TT is a second way to the same place, by naming it.
+
+  // A day asked for by name: the calendar goes to its month, brings the day on
+  // screen, and opens it — the same as tapping that day, which is what the
+  // host would have done once they had paged to it.
+  const [jumpDate, setJumpDate] = useState<{ key: string; seq: number } | null>(null);
+  const onDateJump = (dateKey: string) => {
+    const [y, m, d] = dateKey.split("-").map(Number);
+    setCurrentMonth(new Date(y, m - 1, 1));
+    setJumpDate((prev) => ({ key: dateKey, seq: (prev?.seq ?? 0) + 1 }));
+    setSelectedDate(new Date(y, m - 1, d));
+    setCurrentBookings(monthMap.get(dateKey)?.bookings ?? null);
+    setIsMobileModalOpen(true);
+  };
+
+  // Three screens have no open-state out here: the two templates live in the
+  // profile menu and the visitors chart in the nav bar. Each is a
+  // self-contained modal, so TT mounts its own copy rather than reaching into
+  // those components for their switches.
+  const [ttModal, setTtModal] = useState<"reminderTemplate" | "bookingTemplate" | "visitors" | null>(null);
+  const onScreen = (key: string) => {
+    const open: Record<string, () => void> = {
+      book: () => setIsModalOpen(true),
+      requests: () => setIsRequestManagerOpen(true),
+      messages: () => setIsGuestInboxOpen(true),
+      blockAirbnb: () => setIsBlockAirBnBModalOpen(true),
+      checkAirbnb: () => setIsAirbnbCheckOpen(true),
+      blockRooms: () => setIsBlockRoomsModalOpen(true),
+      todo: () => setIsTodoModalOpen(true),
+      clean: () => setIsCleanersOpen(true),
+      urgent: () => setIsUrgentActionOpen(true),
+      staffing: () => setIsStaffingOpen(true),
+      stats: () => setIsAvailabilitiesModalOpen(true),
+      misc: () => setIsMiscOpen(true),
+      charges: () => setIsChargesOpen(true),
+      rates: () => setIsRatesOpen(true),
+      reminderTemplate: () => setTtModal("reminderTemplate"),
+      bookingTemplate: () => setTtModal("bookingTemplate"),
+      visitors: () => setTtModal("visitors"),
+    };
+    open[key]?.();
+  };
+
+  // A question, handed to the assistant with the words already typed, so the
+  // host is not asked to type them twice.
+  const [ttQuestion, setTtQuestion] = useState<string | undefined>(undefined);
+  const onAsk = (question: string) => {
+    setTtQuestion(question);
+    setIsAskTiMagOpen(true);
+  };
+
   const shiftDate = (delta: number) => {
     const newDate = addDays(selectedDate, delta);
     setSelectedDate(newDate);
@@ -1268,6 +1325,9 @@ const MainView = ({
               workers={workers}
               onWorkerPick={onWorkerPick}
               hostName={senderName}
+              onDateJump={onDateJump}
+              onScreen={onScreen}
+              onAsk={onAsk}
               currentAirBnBGuest={currentAirBnBGuest}
               monthMap={monthMap}
               occupancy={occupancy}
@@ -1307,6 +1367,7 @@ const MainView = ({
               holdDates={holdDates}
               setHoldDates={setHoldDates}
               scrollToTodayTrigger={scrollToTodayTrigger}
+              jumpDate={jumpDate}
               anchorDate={calendarAnchorDate}
               onAnchorDateChange={setCalendarAnchorDate}
               revealedFilterKey={revealedFilterKey}
@@ -1970,8 +2031,19 @@ const MainView = ({
         />
       )}
       {isAskTiMagOpen && (
-        <AskTiMagModal token={token as string} onClose={() => setIsAskTiMagOpen(false)} />
+        <AskTiMagModal
+          token={token as string}
+          initialQuestion={ttQuestion}
+          onClose={() => {
+            setIsAskTiMagOpen(false);
+            // So the next open, from the menu, starts on an empty conversation.
+            setTtQuestion(undefined);
+          }}
+        />
       )}
+      {ttModal === "reminderTemplate" && <ReminderTemplateModal onClose={() => setTtModal(null)} />}
+      {ttModal === "bookingTemplate" && <BookingTemplateModal onClose={() => setTtModal(null)} />}
+      {ttModal === "visitors" && <TiBookVisitorsModal onClose={() => setTtModal(null)} />}
       {isUrgentActionOpen && (
         <UrgentActionModal
           monthMap={monthMap}

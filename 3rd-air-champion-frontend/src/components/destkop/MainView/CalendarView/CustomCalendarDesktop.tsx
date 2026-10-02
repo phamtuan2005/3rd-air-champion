@@ -44,6 +44,11 @@ interface CustomCalendarProps {
   revealedFilterKey?: string | null;
   onRevealedFilterKeyChange?: (key: string | null) => void;
   onAnchorDateChange?: (key: string) => void;
+  // A day the host asked TT for by name ("Oct 19"). The grid brings it on
+  // screen the way it brings a filtered guest's stay — a month can span two
+  // pages on a phone, so being in the right month is not being on the day.
+  // `seq` so asking for the same day twice still moves.
+  jumpDate?: { key: string; seq: number } | null;
 }
 
 const CustomCalendar = ({
@@ -75,12 +80,19 @@ const CustomCalendar = ({
   revealedFilterKey = null,
   onRevealedFilterKeyChange,
   onAnchorDateChange,
+  jumpDate = null,
 }: CustomCalendarProps) => {
   const [useMonthMap, setUseMonthMap] = useState<Map<string, dayType>>(monthMap);
   // The filtered guest's stay to bring on screen (yyyy-MM-dd), or null when no
   // filter is on. Held as a string so an unchanged target cannot re-fire the
   // scroll on every monthMap refresh the way a new Date object would.
   const [revealDate, setRevealDate] = useState<string | null>(null);
+
+  // A day asked for by name: reveal it, through the same door as a filtered
+  // guest's stay.
+  useEffect(() => {
+    if (jumpDate) setRevealDate(jumpDate.key);
+  }, [jumpDate?.seq]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Rooms visible in guest mode: only rooms that had bookings for this guest
   const overrideRooms = useMemo(() => {

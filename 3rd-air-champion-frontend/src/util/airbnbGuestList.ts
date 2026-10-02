@@ -1,5 +1,6 @@
 import type { dayType } from "./types/dayType";
 import type { bookingType } from "./types/bookingType";
+import { airbnbReservationDetails } from "./ttIntents";
 
 // The AirBnB guests the calendar's Filter can offer, by name.
 //
@@ -36,6 +37,13 @@ export interface AirBnBGuestRow {
   // Sleeping here tonight.
   inHouse: boolean;
   stays: number;
+  // What AirBnB's feed says about each of their stays: the reservation code,
+  // and the last four digits of the phone — all of the number AirBnB gives.
+  // So a guest can be found by the code on an AirBnB message or by the four
+  // digits, not only by a first name several guests share. Empty for a
+  // hand-entered stay, which carries neither.
+  codes: string[];
+  last4s: string[];
 }
 
 const day10 = (s: string | undefined) => String(s ?? "").slice(0, 10);
@@ -62,10 +70,13 @@ export const airbnbGuestList = (monthMap: Map<string, dayType>, todayKey: string
       const end = day10(b.endDate) || start;
       let row = rows.get(b.alias);
       if (!row) {
-        row = { alias: b.alias, room: "", inHouse: false, stays: 0 };
+        row = { alias: b.alias, room: "", inHouse: false, stays: 0, codes: [], last4s: [] };
         rows.set(b.alias, row);
       }
       row.stays += 1;
+      const { code, last4 } = airbnbReservationDetails(b.description);
+      if (code && !row.codes.includes(code)) row.codes.push(code);
+      if (last4 && !row.last4s.includes(last4)) row.last4s.push(last4);
       if (end >= todayKey) {
         if (!row.next || start < row.next) {
           row.next = start;
