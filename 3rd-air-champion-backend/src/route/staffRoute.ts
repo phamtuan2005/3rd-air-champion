@@ -5,6 +5,7 @@ import Cleaner from "../model/cleanerSchema";
 import CleaningAssignment from "../model/cleaningAssignmentSchema";
 import { arrivingNeeds } from "../util/arrivingGuests";
 import { loadArrivals } from "../util/arrivalsLookup";
+import { rateOn } from "../util/cleanerPay";
 
 // All routes here are mounted behind the JWT middleware in server.ts.
 // REST rather than GraphQL, matching /cleaner and /misc.
@@ -330,6 +331,107 @@ router.patch("/hours/review", async (req: Request, res: any) => {
     res.status(200).json({ ok: true, id: entry._id, status: entry.status });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// The host corrects an entry: the day, the hours, or what was written.
+//
+// A staff member can edit their own entry in TiWork only while it is still
+// waiting; once reviewed it locks for them, because an approved figure has
+// been counted. That left a wrong date that had been approved fixable by
+// nobody — the worker locked out, the host never given a way in. Anh-Tuan
+// asked for the chance to correct it in TiMag (2026-10-01).
+//
+// The host is the one who approves, so the host may change an entry in any
+// status. What must not happen is the correction leaving pay inconsistent:
+//
+//  - An APPROVED entry is re-priced at the rate in force on the corrected
+//    day. The rate is frozen at approval for the day worked; move the day and
+//    the frozen rate has to move with it, or a day shifted across a raise is
+//    paid at the wrong side of it.
+//  - A CLEANER's approved hours live on that day's assignments (the total on
+//    the first room, 0 on the rest), which is what pay and profit read. So a
+//    corrected cleaner entry rewrites them, and clears the day it left.
+//  - A cleaner can only be moved onto a day they were scheduled, the same
+//    rule their own claim obeys, and never onto a day they already claimed.
+const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/;
+router.patch("/hours/edit", async (req: Request, res: any) => {
+  const { id, date, hours, report } = req.body;
+  if (!id) return res.status(400).json({ error: "id is required" });
+  if (date !== undefined && !DAY_KEY.test(String(date)))
+    return res.status(400).json({ error: "The day must be a yyyy-MM-dd date." });
+  try {
+    const entry: any = await WorkEntry.findById(id);
+    if (!entry) return res.status(404).json({ error: "Entry not found" });
+
+    const oldDate: string = entry.date;
+    const newDate: string = date ?? oldDate;
+    const moved = newDate !== oldDate;
+    const worker: any = entry.cleaner
+      ? await Cleaner.findById(entry.cleaner)
+      : await Staff.findById(entry.staff);
+
+    if (entry.staff && worker?.hiredOn && newDate < worker.hiredOn)
+      return res.status(400).json({ error: "That day is before their start date." });
+
+    let newDayRooms: any[] = [];
+    if (entry.cleaner) {
+      newDayRooms = await CleaningAssignment.find({
+        host: entry.host,
+        cleaner: entry.cleaner,
+        date: newDate,
+      }).sort({ _id: 1 });
+      if (moved) {
+        if (newDayRooms.length === 0)
+          return res.status(400).json({
+            error: "They weren't scheduled that day — add it in Clean first.",
+          });
+        const taken = await WorkEntry.exists({
+          cleaner: entry.cleaner,
+          date: newDate,
+          _id: { $ne: entry._id },
+        });
+        if (taken)
+          return res.status(400).json({ error: "They already have an entry for that day." });
+      }
+    }
+
+    entry.date = newDate;
+    if (hours !== undefined) entry.hours = hours;
+    if (report !== undefined) entry.report = report;
+    // Validated BEFORE anything else is written: a bad figure (zero hours,
+    // more than a day) must not leave the assignments changed and the entry
+    // not.
+    await entry.validate();
+
+    if (entry.status === "approved") {
+      entry.approvedRate = rateOn(worker, newDate);
+      if (entry.cleaner) {
+        if (moved)
+          await CleaningAssignment.updateMany(
+            { cleaner: entry.cleaner, date: oldDate },
+            { hours: null },
+          );
+        for (let i = 0; i < newDayRooms.length; i++) {
+          await CleaningAssignment.findByIdAndUpdate(newDayRooms[i]._id, {
+            hours: i === 0 ? entry.hours : 0,
+          });
+        }
+      }
+    }
+
+    await entry.save();
+    res.status(200).json({
+      ok: true,
+      id: entry._id,
+      date: entry.date,
+      hours: entry.hours,
+      report: entry.report,
+      status: entry.status,
+      approvedRate: entry.approvedRate,
+    });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
   }
 });
 
