@@ -175,6 +175,40 @@ export const whoAndWhen = (query: string, today: Date = new Date()): { who: stri
   return { who, when };
 };
 
+// ── A week of cleaning ──────────────────────────────────────────────────────
+
+// "next week", "this week", "week", or the words for a rota.
+const WEEK_WORD = /\b(?:(this|next|coming)\s+)?(?:week['’]?s?|schedule|rota)\b/i;
+// What is left of "Henry clean plan for next week" once the week and the
+// filler are gone: the cleaner's name, or nothing when the whole week is meant.
+const WEEK_FILLER = /\b(clean|cleans|cleaning|cleanings|plan|plans|shift|shifts|work|working|schedule|rota)\b/gi;
+
+/**
+ * A week of cleaning — "Henry next week", "next week", "Henry schedule" — as
+ * the week to show and whose it is.
+ *
+ * Anh-Tuan, after TT answered Henry's week through the model: "Henry nxt week
+ * schedule would work without API?" It does if the box reads it: the Clean
+ * window's Week tab already shows this week and next with no model at all,
+ * and it is instant, free, and the same screen the week is arranged on.
+ *
+ * `who` is left for the caller to match against the cleaners; "" means
+ * everyone. The caller decides what to do with a name that is nobody's.
+ */
+export const weekTyped = (query: string): { offset: 0 | 1; who: string } | null => {
+  const hit = query.match(WEEK_WORD);
+  if (!hit) return null;
+  const offset: 0 | 1 = hit[1] && hit[1].toLowerCase() !== "this" ? 1 : 0;
+  const who = query
+    .replace(hit[0], " ")
+    .replace(/['’]s\b/g, "")
+    .replace(WEEK_FILLER, " ")
+    .replace(FILLER, " ")
+    .replace(/[\s,.;:!?-]+/g, " ")
+    .trim();
+  return { offset, who };
+};
+
 // ── A question ──────────────────────────────────────────────────────────────
 
 /**

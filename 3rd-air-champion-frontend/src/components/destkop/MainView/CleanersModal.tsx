@@ -58,6 +58,12 @@ interface CleanersModalProps {
   // Opened from the search on one cleaner: their pay detail is open as the
   // window appears, the same detail a tap on their row in Pay brings up.
   focusCleanerId?: string;
+  // Opened from TT on a week of cleaning ("Henry next week"): the Week tab
+  // starts on this week (0) or next (1), and on one cleaner's rows when a
+  // cleaner was named. The host asked for a week, not a model's account of
+  // it, so this is the same tab they arrange the week on, instantly.
+  initialWeek?: 0 | 1;
+  weekCleanerId?: string;
   cleaningRules?: string; // host's private note to the cleaning team (texted, not shown to guests)
   senderName?: string; // who's logged in (Anh-Tuan or a cohost like Cindy) — signs the texts
   // Mornings past today the Plan tab forecasts, owned and persisted by MainView
@@ -251,7 +257,7 @@ const ResendBadge = ({ className = "" }: { className?: string }) => (
 const money = (n: number) =>
   n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleanerId, cleaningRules = "", senderName, planDays = CLEANING_FORECAST_DAYS, planReach = null, onPlanDaysChange, onClose }: CleanersModalProps) => {
+const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleanerId, initialWeek, weekCleanerId, cleaningRules = "", senderName, planDays = CLEANING_FORECAST_DAYS, planReach = null, onPlanDaysChange, onClose }: CleanersModalProps) => {
   // Self-sufficient: fetches its own data so it can be opened from anywhere
   // (NavBar dropdown or the Upcoming assign popover).
   const [cleaners, setCleaners] = useState<CleanerType[]>([]);
@@ -294,7 +300,12 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
   // The cleaner-facing schedule is a FIXED Mon–Sun week (unlike the rolling
   // Upcoming forecast) — texted schedules must not shift under the cleaner's
   // feet as days pass. 0 = this week, 1 = next week.
-  const [weekOffset, setWeekOffset] = useState<0 | 1>(0);
+  const [weekOffset, setWeekOffset] = useState<0 | 1>(initialWeek ?? 0);
+  // One cleaner's rows only on the Week tab, when TT was asked about theirs.
+  // The rooms nobody is on stay in view: they are the gap the host would be
+  // asked to fill next, whoever's week was asked about. Everybody's chips stay
+  // too, and tapping one switches to that person; "Everyone" clears it.
+  const [weekOnly, setWeekOnly] = useState<string | null>(weekCleanerId ?? null);
 
   // Floating window: draggable via the header, resizable via the corner grip,
   // no backdrop — the calendar stays visible behind it.
@@ -2025,21 +2036,45 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
             <div className="mb-2 flex flex-wrap items-center justify-center gap-1.5">
               {weekTabTotals.map(([name, count]) => {
                 const cl = cleaners.find((c) => c.name === name);
+                const only = !!cl && weekOnly === cl.id;
                 return (
-                  <span
+                  // A chip is also the way to one person's week: tap Henry and
+                  // only Henry's rows are left, tap again for everyone.
+                  <button
                     key={name}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white py-0.5 pl-0.5 pr-2 text-sm font-semibold text-gray-700"
+                    type="button"
+                    onClick={() => cl && setWeekOnly(only ? null : cl.id)}
+                    className={`inline-flex items-center gap-1.5 rounded-full border py-0.5 pl-0.5 pr-2 text-sm font-semibold ${
+                      only
+                        ? "border-gray-900 bg-gray-900 text-white"
+                        : weekOnly
+                          ? "border-gray-200 bg-white text-gray-400"
+                          : "border-gray-200 bg-white text-gray-700"
+                    }`}
                   >
                     {cl && (
                       <CleanerAvatar id={cl.id} name={name} sizeClass="h-5 w-5" textClass="text-[11px]" />
                     )}
                     {name.split(" ")[0]}
-                    <span className="rounded-full bg-gray-900 px-1.5 py-0.5 text-[12px] font-bold leading-none text-white">
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-[12px] font-bold leading-none ${
+                        only ? "bg-white text-gray-900" : "bg-gray-900 text-white"
+                      }`}
+                    >
                       {count}
                     </span>
-                  </span>
+                  </button>
                 );
               })}
+              {weekOnly && (
+                <button
+                  type="button"
+                  onClick={() => setWeekOnly(null)}
+                  className="rounded-full px-2 py-0.5 text-sm font-semibold text-blue-700"
+                >
+                  Everyone
+                </button>
+              )}
             </div>
           )}
 
@@ -2070,7 +2105,10 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                 : cleaningEntriesFor(dateKey).filter(
                     (e) => !assignedRoomIds.has(e.checkoutBooking.room.id),
                   );
-            const totalRooms = dayAssignments.length + unassigned.length;
+            // One person's week counts their rooms and the open ones only;
+            // a header saying "4 rooms" above two of Henry's would be wrong.
+            const shownGroups = [...groups.values()].filter((g) => !weekOnly || g.cleaner.id === weekOnly);
+            const totalRooms = shownGroups.reduce((n, g) => n + g.rooms.length, 0) + unassigned.length;
             return (
               <div
                 key={dateKey}
@@ -2113,7 +2151,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                 {/* One aligned row per cleaner (avatar + fixed-width name → chips line up) */}
                 {totalRooms > 0 && (
                   <div className="divide-y divide-gray-100">
-                    {[...groups.values()].map(({ cleaner, rooms }) => (
+                    {shownGroups.map(({ cleaner, rooms }) => (
                       <div key={cleaner.id} className="flex items-center gap-2 px-3 py-1.5">
                         {/* Tap the cleaner to text them THIS displayed week's plan */}
                         <button

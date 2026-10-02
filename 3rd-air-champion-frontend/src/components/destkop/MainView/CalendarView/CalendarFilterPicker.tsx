@@ -9,7 +9,7 @@ import { dayType } from "../../../../util/types/dayType";
 import RoomBadge from "../../../shared/RoomBadge";
 import { airbnbGuestList } from "../../../../util/airbnbGuestList";
 import { houseGuestList, isPhoneQuery, matchesTyped, topMatches } from "../../../../util/houseGuestList";
-import { matchesReservation, screensMatching, whenTyped, whoAndWhen, worthAsking, When } from "../../../../util/ttIntents";
+import { matchesReservation, screensMatching, weekTyped, whenTyped, whoAndWhen, worthAsking, When } from "../../../../util/ttIntents";
 import type { SearchWorker } from "../../../../util/searchWorkers";
 
 interface CalendarFilterPickerProps {
@@ -35,6 +35,9 @@ interface CalendarFilterPickerProps {
   // the assistant.
   onDateJump: (dateKey: string) => void;
   onMonthJump: (dateKey: string) => void;
+  // A week of cleaning: Clean opens on its Week tab, this week (0) or next
+  // (1), on one cleaner's rows when one was named.
+  onWeek: (offset: 0 | 1, cleanerId?: string) => void;
   onScreen: (key: string) => void;
   onAsk: (question: string) => void;
 }
@@ -101,6 +104,7 @@ const CalendarFilterPicker = ({
   hostName,
   onDateJump,
   onMonthJump,
+  onWeek,
   onScreen,
   onAsk,
 }: CalendarFilterPickerProps) => {
@@ -136,6 +140,15 @@ const CalendarFilterPicker = ({
   );
   // A day or a month, when the whole of what was typed is one.
   const when = q && !split ? whenTyped(q) : null;
+  // A week of cleaning — "next week", "Henry next week", "Henry's schedule".
+  // Anh-Tuan: "Henry nxt week schedule would work without API?" It does: the
+  // Clean window's Week tab is the answer, with no model in the way. A name
+  // that is no cleaner's is not a week; it falls through to a question.
+  const weekAsked = q ? weekTyped(q) : null;
+  const weekCleaner = weekAsked?.who
+    ? workers.find((w) => w.kind === "cleaner" && !w.former && matchesTyped(weekAsked.who, w.name))
+    : undefined;
+  const week = weekAsked && (!weekAsked.who || weekCleaner) ? weekAsked : null;
   // A screen, by its name or another word for it.
   const screens = q ? screensMatching(q) : [];
   // Staff and cleaners, by name or phone like a guest — and by what they do,
@@ -148,7 +161,7 @@ const CalendarFilterPicker = ({
   );
   const byPhone = isPhoneQuery(who);
   const foundAnything =
-    !!when || screens.length > 0 || roomHits.length > 0 || house.total > 0 || airbnb.total > 0 || team.total > 0;
+    !!when || !!week || screens.length > 0 || roomHits.length > 0 || house.total > 0 || airbnb.total > 0 || team.total > 0;
   // A guest called May, or June: her exact name beats the month on Enter.
   const exactGuest = when?.month ? house.shown.find((r) => r.name.toLowerCase() === q.toLowerCase()) : undefined;
   // A sentence, or a word that found nothing, is offered to TT as a question.
@@ -185,6 +198,10 @@ const CalendarFilterPicker = ({
     goTo(w);
     close();
   };
+  const pickWeek = () => {
+    if (week) onWeek(week.offset, weekCleaner?.id);
+    close();
+  };
   const pickScreen = (key: string) => {
     onScreen(key);
     close();
@@ -198,6 +215,7 @@ const CalendarFilterPicker = ({
   const pickFirst = () => {
     if (exactGuest) pickGuest(exactGuest.id);
     else if (when) pickWhen(when);
+    else if (week) pickWeek();
     else if (screens[0]) pickScreen(screens[0].key);
     else if (roomHits[0]) pickRoom(roomHits[0].name);
     else if (house.shown[0]) pickGuest(house.shown[0].id);
@@ -416,10 +434,31 @@ const CalendarFilterPicker = ({
                 </>
               )}
 
-              {/* A screen, by its name or another word for it. */}
-              {screens.length > 0 && (
+              {/* A week of cleaning, in Clean. */}
+              {week && (
                 <>
                   {sectionHeading("Open")}
+                  <button type="button" className={rowClass} onClick={pickWeek}>
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium text-gray-800">
+                        {week.offset ? "Next week" : "This week"}
+                        {weekCleaner ? ` · ${weekCleaner.name.split(" ")[0]}` : ""}
+                      </span>
+                      <span className="block truncate text-[11px] text-gray-400">
+                        {weekCleaner ? `${weekCleaner.name.split(" ")[0]}'s rooms, morning by morning` : "Who cleans what, morning by morning"}
+                      </span>
+                    </span>
+                    <span className="ml-auto shrink-0 text-[11px] font-semibold text-gray-400">Clean ›</span>
+                  </button>
+                </>
+              )}
+
+              {/* A screen, by its name or another word for it. Under the
+                  week's heading when there is one: "cleaning schedule" is a
+                  week and the Clean screen, and one "Open" covers both. */}
+              {screens.length > 0 && (
+                <>
+                  {!week && sectionHeading("Open")}
                   {screens.map((s) => (
                     <button key={s.key} type="button" className={rowClass} onClick={() => pickScreen(s.key)}>
                       <span className="min-w-0">
