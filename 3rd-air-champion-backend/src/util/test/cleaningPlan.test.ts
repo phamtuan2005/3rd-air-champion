@@ -1,6 +1,6 @@
 import { addDays, startOfToday } from "date-fns";
 import { dayType } from "../../shared/generated/util/types/dayType";
-import { cleaningPlan, PlanAssignment, UNASSIGNED } from "../cleaningPlan";
+import { cleaningPlan, planCounts, PlanAssignment, UNASSIGNED } from "../cleaningPlan";
 
 // What TT says when asked for the cleaning plan.
 //
@@ -107,6 +107,17 @@ describe("the cleaning plan TT reads", () => {
       new Date(`${key(3)}T12:00:00.000Z`).getUTCDay()
     ];
     expect(days[0].day).toBe(weekday);
+  });
+
+  // Twenty rows for Henry were headed "21 rooms". The sum travels with the
+  // rows, so the model repeats it rather than working it out.
+  it("counts the rooms, in all and per cleaner, so the model does not", () => {
+    const map = new Map<string, dayType>();
+    stay(map, "king", 1, 2);
+    stay(map, "queen", 1, 2);
+    stay(map, "cozy", 2, 2);
+    const days = planFor(map, [on(3, "king", "Henry"), on(3, "queen", "Henry")], 3);
+    expect(planCounts(days)).toEqual({ rooms: 3, byCleaner: { Henry: 2, [UNASSIGNED]: 1 } });
   });
 
   // No day records means the calendar could not be read, not an empty house.

@@ -8,7 +8,7 @@ import Guest from "../model/guestSchema";
 import { dayKey } from "../util/arrivingGuests";
 import { findAssignments } from "../util/assignmentQuery";
 import { loadCleaningDays } from "../util/cleaningDays";
-import { cleaningPlan, UNASSIGNED } from "../util/cleaningPlan";
+import { cleaningPlan, planCounts, UNASSIGNED } from "../util/cleaningPlan";
 
 // TiMag's agent — a conversation with somebody who can actually see the books.
 //
@@ -250,7 +250,10 @@ const buildTools = (hostId: string) => {
       });
       return JSON.stringify({
         range: { from: start, to: end },
-        note: "Mornings absent from this list have nothing to clean.",
+        note:
+          "Mornings absent from this list have nothing to clean. Use 'counts' for any " +
+          "total; do not add the rows up yourself.",
+        counts: planCounts(days),
         days,
       });
     },
