@@ -247,6 +247,10 @@ const StaffingModal = ({ hostId, token, onClose, senderName }: StaffingModalProp
     const s = c ? undefined : staff.find((x) => x.id === id);
     return <CleanerAvatar name={name} photo={c?.photo} character={c?.character ?? s?.character} sizeClass={sizeClass} />;
   };
+  // What a person does, for the tag after their name on Payroll: "cleaner",
+  // or a staff member's own title. "" when a staff member has none yet.
+  const roleOf = (id: string, kind: "staff" | "cleaner") =>
+    kind === "cleaner" ? "cleaner" : (staff.find((s) => s.id === id)?.title ?? "");
   const payrollPeople = useMemo(() => {
     const seen = new Map<string, { id: string; name: string; hint?: string; avatar?: React.ReactNode }>();
     // Everyone on the books first, paid yet or not: a new hire has a first
@@ -837,6 +841,10 @@ const StaffingModal = ({ hostId, token, onClose, senderName }: StaffingModalProp
                   <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50/50 p-3">
                     <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                       Record pay for {payStaffMember.name}
+                      {/* The same tag as on their row below. */}
+                      {payStaffMember.title && (
+                        <span className="ml-1.5 text-[11px] font-semibold text-teal-600">{payStaffMember.title}</span>
+                      )}
                     </p>
                     <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
                       {field("Amount", dollars(payAmount, setPayAmount))}
@@ -960,8 +968,14 @@ const StaffingModal = ({ hostId, token, onClose, senderName }: StaffingModalProp
                               <p className="flex items-center gap-2 text-sm font-bold text-gray-900">
                                 {avatarOf(p.id, p.name)}
                                 {p.name}
-                                {p.kind === "cleaner" && (
-                                  <span className="ml-1.5 text-[11px] font-semibold uppercase text-teal-600">cleaner</span>
+                                {/* What they do, after the name: "cleaner", or a
+                                    staff member's own title. Only cleaners had
+                                    the tag at first, so "AI prompt intern" was a
+                                    bare name in a list where everyone else was
+                                    labelled (Anh-Tuan, 2026-10-02). A staff
+                                    member with no title yet shows none. */}
+                                {roleOf(p.id, p.kind) && (
+                                  <span className="ml-1.5 text-[11px] font-semibold uppercase text-teal-600">{roleOf(p.id, p.kind)}</span>
                                 )}
                               </p>
                               <p className="text-sm text-gray-700">
