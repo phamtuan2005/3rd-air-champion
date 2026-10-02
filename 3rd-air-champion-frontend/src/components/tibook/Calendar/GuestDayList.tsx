@@ -52,10 +52,12 @@ import { dayListMonths } from "../../../util/dayListMonths";
  * the stay bar. Weekday and the stay's dates are the quieter `small`; the
  * list's own day number one step larger.
  *
- * The heights still follow from the type and nothing else — see above, the
- * list's arithmetic depends on it. 3.5 lines of text plus padding fits the
- * tallest thing a row holds: a one-night stay's room line, its price, and
- * the Details link wrapped under the price on a narrow phone.
+ * The heights follow from the type — see above, the list's arithmetic depends
+ * on every row being one height. 3.5 lines of text plus padding fits a
+ * one-night stay's room line, its price, and the Details link wrapped under
+ * the price on a narrow phone. The one thing that can ask for more is a night
+ * with many rooms free, whose chips wrap: GuestDayList measures those and
+ * raises rowH for every row alike (see FreeRooms).
  */
 interface ListSize { text: number; date: number; small: number; rowH: number; headH: number }
 const listSizeFor = (boxWidth: number): ListSize => {
@@ -152,13 +154,69 @@ interface MonthSectionProps {
   handlers: MutableRefObject<Handlers>;
 }
 
+// The date column's width. Was w-12 (48px), sized for "TODAY" at 12px; it
+// widens with the weekday. Shared with the measuring row in GuestDayList,
+// which has to be exactly as wide as a real one.
+const dateColWidthFor = (size: ListSize) => Math.max(48, Math.round(size.small * 3.4));
+
+// The air above and below what a row holds — the "+ 20" in listSizeFor.
+const ROW_PAD_Y = 20;
+
+/*
+ * "3 free" and a chip for each free room, on as many lines as they need.
+ *
+ * It was one line that slid sideways: the row's height is fixed, so chips that
+ * wrapped would have spilled into the next night. At the list's larger type
+ * that line held "4 free" and three chips, with the fourth room off the edge
+ * behind a swipe nobody knew to make — Anh-Tuan sent the screenshot
+ * (2026-10-01): three and a half chips under "4 free".
+ *
+ * The chips wrap now, and the row is made tall enough for them instead: the
+ * list measures this same strip at its fullest (every room in scope free) and
+ * sets the row height from that. Every row still has ONE height, so the
+ * list's arithmetic holds; see the measuring row in GuestDayList.
+ */
+const FreeRooms = ({ count, rooms, myRates, text, picked }: {
+  count: number;
+  rooms: roomType[];
+  myRates?: Map<string, number>;
+  text: number;
+  picked: boolean;
+}) => {
+  const { theme } = useTiBookTheme();
+  const roomChip = useRoomChip();
+  return (
+    <span className="flex flex-wrap items-center gap-1" style={{ fontSize: text }}>
+      <span className={`mr-0.5 shrink-0 font-semibold ${picked ? "text-white" : theme.surfaceText2}`}>
+        {count} free
+      </span>
+      {rooms.map((r) => {
+        // The price sits UNDER the name, inside the chip. Beside it, a chip
+        // was twice as wide and fewer fitted a line; stacked, a chip is only
+        // as wide as its longer line.
+        const price = rateText(myRates?.get(r.id));
+        return (
+          <span
+            key={r.id}
+            className={`${roomChip(r)} flex shrink-0 flex-col items-center font-semibold leading-tight text-black ${
+              price ? "rounded-lg px-1.5 py-0.5" : "rounded-full px-2 py-px"
+            }`}
+          >
+            <span>{r.name}</span>
+            {price && <span className="font-bold">{price}</span>}
+          </span>
+        );
+      })}
+    </span>
+  );
+};
+
 const MonthSection = memo(({ month, days, top, drawn, data, size, handlers }: MonthSectionProps) => {
   const { theme } = useTiBookTheme();
   const roomChip = useRoomChip();
   const { rowH: ROW_H, headH: HEAD_H } = size;
   const fs = (px: number): React.CSSProperties => ({ fontSize: px });
-  // Was w-12 (48px), sized for "TODAY" at 12px; it widens with the weekday.
-  const dateColW = Math.max(48, Math.round(size.small * 3.4));
+  const dateColW = dateColWidthFor(size);
 
   /*
    * One row's piece of a stay's bar.
@@ -258,40 +316,13 @@ const MonthSection = memo(({ month, days, top, drawn, data, size, handlers }: Mo
     // (The guest's own nights never come here — see renderStay.)
     let detail: React.ReactNode;
     if (isOpen) {
-      detail = (
-        // One line, whatever the width: the row's height is fixed (see top of
-        // file), so chips that wrapped would spill into the next night. On a
-        // 320px phone five rooms with prices do not fit, and clipping lost the
-        // last one — Queen's "no charge", which is exactly what a family guest
-        // is looking for. So the chips slide sideways instead, the same hidden-
-        // scrollbar strip the room filter uses.
+      detail = data.nameRooms ? (
+        // Every free room, wrapped onto as many lines as it takes. See FreeRooms.
+        <FreeRooms count={roomsLeft} rooms={freeRooms} myRates={data.myRates} text={size.text} picked={inCart} />
+      ) : (
+        // One room in scope is one line of words, which may still slide on a
+        // narrow phone: the same hidden-scrollbar strip the room filter uses.
         <span className="flex min-w-0 items-center gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {data.nameRooms ? (
-            <>
-              <span className={`mr-0.5 shrink-0 font-semibold ${inCart ? "text-white" : theme.surfaceText2}`} style={fs(size.text)}>
-                {roomsLeft} free
-              </span>
-              {freeRooms.map((r) => {
-                // The price sits UNDER the name, inside the chip. Beside it,
-                // five rooms with prices ran past a phone's width and the last
-                // ones were cut off; stacked, a chip is only as wide as its
-                // longer line, and two lines still fit the fixed row height.
-                const price = rateText(data.myRates?.get(r.id));
-                return (
-                  <span
-                    key={r.id}
-                    className={`${roomChip(r)} flex shrink-0 flex-col items-center font-semibold leading-tight text-black ${
-                      price ? "rounded-lg px-1.5 py-0.5" : "rounded-full px-2 py-px"
-                    }`}
-                    style={fs(size.text)}
-                  >
-                    <span>{r.name}</span>
-                    {price && <span className="font-bold">{price}</span>}
-                  </span>
-                );
-              })}
-            </>
-          ) : (
             <span className={`font-semibold ${inCart ? "text-white" : theme.surfaceText2}`} style={fs(size.text)}>
               Free
               {/* One room in scope: room for the words the chips have to leave out. */}
@@ -306,7 +337,6 @@ const MonthSection = memo(({ month, days, top, drawn, data, size, handlers }: Mo
                 );
               })()}
             </span>
-          )}
         </span>
       );
     } else if (gone) {
@@ -364,11 +394,24 @@ const MonthSection = memo(({ month, days, top, drawn, data, size, handlers }: Mo
         </span>
         <span className="relative z-10 min-w-0 flex-1">{detail}</span>
         <span className="relative z-10 shrink-0 leading-none" style={fs(size.date)}>
-          {inCart ? <span className="text-white">✓</span> :
-           canWishList ? (
-             <span className={isWishlisted ? theme.warmText2 : theme.surfaceMuted2}>{isWishlisted ? "★" : "☆"}</span>
-           ) : null}
+          {!inCart && canWishList ? (
+            <span className={isWishlisted ? theme.warmText2 : theme.surfaceMuted2}>{isWishlisted ? "★" : "☆"}</span>
+          ) : null}
         </span>
+        {/* The tick of a picked night, in the stay-bar lane: a picked night
+            draws no bar, so the lane is empty there. It used to sit in the
+            row beside the chips, and took its width from them — on a picked
+            night the last chip wrapped to a line of its own, and since every
+            row is one height, the whole list grew a line taller for it. */}
+        {inCart && (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute z-10 -translate-y-1/2 text-center leading-none text-white"
+            style={{ ...fs(size.date), right: BAR_RIGHT, width: BAR_W, top: "50%" }}
+          >
+            ✓
+          </span>
+        )}
       </button>
     );
   };
@@ -609,7 +652,18 @@ const GuestDayList = ({
   const textPx = listSizeFor(boxWidth).text;
   // Keyed on the one number everything follows from, so a resize that does
   // not change the type does not re-lay the list or redraw its months.
-  const size = useMemo(() => listSizeFor(boxWidth), [textPx]); // eslint-disable-line react-hooks/exhaustive-deps
+  const baseSize = useMemo(() => listSizeFor(boxWidth), [textPx]); // eslint-disable-line react-hooks/exhaustive-deps
+  // How tall the room chips are at their fullest, measured (see the measuring
+  // row at the bottom). 0 until measured, or when one room is in scope and
+  // there are no chips.
+  const [chipsH, setChipsH] = useState(0);
+  // The row grows to hold the chips when they need more than the type alone
+  // asks for — and only then, so a list whose chips fit keeps the height it
+  // had. Still one height for every row: the arithmetic depends on it.
+  const size = useMemo<ListSize>(() => {
+    const need = chipsH > 0 ? chipsH + ROW_PAD_Y : 0;
+    return need > baseSize.rowH ? { ...baseSize, rowH: need } : baseSize;
+  }, [baseSize, chipsH]);
 
   const scopedRooms = useMemo(
     () => rooms.filter((r) => r.active && (selectedRoomIds === null || selectedRoomIds.has(r.id))),
@@ -629,6 +683,22 @@ const GuestDayList = ({
     stayCheckouts: stays.checkouts, holdCheckouts: holds.checkouts,
     canWishList, myRates,
   }), [scopedRooms, monthMap, reservedMap, cartDates, wishListDates, newWishListDates, stays, holds, canWishList, myRates]);
+
+  // Measure the fullest chip strip, and again whenever it changes shape: the
+  // list's width, the rooms in scope, or the guest's rates arriving.
+  const chipsRef = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const el = chipsRef.current;
+    if (!el) {
+      setChipsH(0);
+      return;
+    }
+    const read = () => setChipsH(Math.ceil(el.getBoundingClientRect().height));
+    const obs = new ResizeObserver(read);
+    obs.observe(el);
+    read();
+    return () => obs.disconnect();
+  }, [data.nameRooms]);
 
   // Every night from the 1st of this month — the grid's days — with tonight's
   // row as the place the list opens. It began at tonight once; dayListMonths
@@ -739,7 +809,24 @@ const GuestDayList = ({
     >
       {/* The last rows scroll up clear of the floating chat button, which
           otherwise sits over their wish-list star. */}
-      <div className="pb-20">
+      <div className="relative pb-20">
+        {/* The measuring row: an invisible copy of the fullest row this list
+            can draw — every room in scope free. Laid out exactly as a real
+            row is (same padding, same date column, same stay-bar lane, the
+            same three children and so the same gaps), so the chips wrap here
+            where they wrap there; its height is what every row is made tall
+            enough for. Estimating the wrap from character counts was the
+            alternative, and an estimate that is one chip out puts a room on a
+            line the row has no room for. */}
+        {data.nameRooms && (
+          <div aria-hidden className="pointer-events-none invisible absolute inset-x-0 top-0 flex items-center gap-3 pl-3 pr-16">
+            <span className="shrink-0" style={{ width: dateColWidthFor(baseSize) }} />
+            <span ref={chipsRef} className="min-w-0 flex-1">
+              <FreeRooms count={scopedRooms.length} rooms={scopedRooms} myRates={myRates} text={baseSize.text} picked={false} />
+            </span>
+            <span className="shrink-0" />
+          </div>
+        )}
         {sections.map(({ month, days, top }, i) => (
           <MonthSection
             key={i}
