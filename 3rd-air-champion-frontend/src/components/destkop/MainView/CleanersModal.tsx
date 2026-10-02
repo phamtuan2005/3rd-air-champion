@@ -55,6 +55,9 @@ interface CleanersModalProps {
   // Tab to land on. Set when opened from somewhere with intent (the calendar's
   // day sheet wants Plan); otherwise the modal picks for itself.
   initialTab?: "roster" | "hours" | "pay" | "week" | "upcoming";
+  // Opened from the search on one cleaner: their pay detail is open as the
+  // window appears, the same detail a tap on their row in Pay brings up.
+  focusCleanerId?: string;
   cleaningRules?: string; // host's private note to the cleaning team (texted, not shown to guests)
   senderName?: string; // who's logged in (Anh-Tuan or a cohost like Cindy) — signs the texts
   // Mornings past today the Plan tab forecasts, owned and persisted by MainView
@@ -248,7 +251,7 @@ const ResendBadge = ({ className = "" }: { className?: string }) => (
 const money = (n: number) =>
   n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRules = "", senderName, planDays = CLEANING_FORECAST_DAYS, planReach = null, onPlanDaysChange, onClose }: CleanersModalProps) => {
+const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleanerId, cleaningRules = "", senderName, planDays = CLEANING_FORECAST_DAYS, planReach = null, onPlanDaysChange, onClose }: CleanersModalProps) => {
   // Self-sufficient: fetches its own data so it can be opened from anywhere
   // (NavBar dropdown or the Upcoming assign popover).
   const [cleaners, setCleaners] = useState<CleanerType[]>([]);
@@ -430,7 +433,9 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, cleaningRul
   // Pay tab: tapping a cleaner row opens a focused detail modal holding the
   // breakdown, tip, text, and payout/undo controls — keeps the list itself
   // clean no matter how many recorded days a cleaner has.
-  const [detailId, setDetailId] = useState<string | null>(null);
+  // Starts on the cleaner the search asked for, when it asked for one. The
+  // detail waits for the pay summary to load, since it is drawn from it.
+  const [detailId, setDetailId] = useState<string | null>(focusCleanerId ?? null);
   const [tipDraft, setTipDraft] = useState<Record<string, string>>({});
   const [payDraft, setPayDraft] = useState("");
   // Whether the host has typed in the pay box themselves. Until they do, it

@@ -8,6 +8,8 @@ import { dayType } from "../../../../util/types/dayType";
 import RoomBadge from "../../../shared/RoomBadge";
 import { airbnbGuestList } from "../../../../util/airbnbGuestList";
 import { houseGuestList, isPhoneQuery, matchesTyped, topMatches } from "../../../../util/houseGuestList";
+import type { SearchWorker } from "../../../../util/searchWorkers";
+import { FaSearch } from "react-icons/fa";
 
 interface CalendarFilterPickerProps {
   rooms: roomType[];
@@ -21,6 +23,10 @@ interface CalendarFilterPickerProps {
   // The AirBnB guest filtered on, by the name AirBnB gave them (the alias).
   airbnbValue: string | null;
   onAirBnBChange: (alias: string) => void;
+  // The house's own people. Picking one leaves the calendar as it is and opens
+  // their window instead: Staffing for staff, Clean for a cleaner.
+  workers: SearchWorker[];
+  onWorkerPick: (worker: SearchWorker) => void;
 }
 
 // The most results a search draws under each heading. Past a handful nobody
@@ -56,6 +62,19 @@ const RESULT_LIMIT = 8;
  * picking either clears the other. With the box empty, the panel shows what is
  * filtered now, each with its own way off — the lists used to carry "All
  * rooms" and "Everyone" for that.
+ *
+ *  4. Then it stopped being only a filter. Anh-Tuan: "That filter function I
+ *     want to promote to a general search" — staff by name or phone as well,
+ *     and "depending on the target, you will display either the calendar or
+ *     the staffing modal or the cleaner modal". So the control is called
+ *     Search now, and WHAT is picked decides where the host lands: a room or
+ *     a guest narrows the calendar, as before; a staff member opens Staffing
+ *     on them; a cleaner opens Clean on them. One box in place of a button
+ *     for each destination — his words, "the modern UI design with
+ *     simplification of buttons, drop down etc".
+ *
+ * The component keeps its old name. It is still the thing that filters the
+ * calendar, and renaming the file would only move every line of its history.
  */
 const CalendarFilterPicker = ({
   rooms,
@@ -67,6 +86,8 @@ const CalendarFilterPicker = ({
   onGuestChange,
   airbnbValue,
   onAirBnBChange,
+  workers,
+  onWorkerPick,
 }: CalendarFilterPickerProps) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -85,6 +106,13 @@ const CalendarFilterPicker = ({
   const house = topMatches(houseRows, (r) => matchesTyped(q, r.name, r.phone), RESULT_LIMIT);
   // AirBnB gives no phone number, so those are found by name alone.
   const airbnb = topMatches(airbnbRows, (r) => matchesTyped(q, r.alias), RESULT_LIMIT);
+  // Staff and cleaners, by name or phone like a guest — and by what they do,
+  // so "cleaner" brings up the cleaners and "intern" the intern.
+  const team = topMatches(
+    workers,
+    (w) => matchesTyped(q, w.name, w.phone) || matchesTyped(q, w.role),
+    RESULT_LIMIT,
+  );
   const byPhone = isPhoneQuery(q);
 
   const close = () => {
@@ -103,12 +131,17 @@ const CalendarFilterPicker = ({
     onAirBnBChange(alias);
     close();
   };
+  const pickWorker = (worker: SearchWorker) => {
+    onWorkerPick(worker);
+    close();
+  };
   // Enter takes the first thing found, in the order it is shown: for a host at
   // a keyboard, "ki" and Enter is the whole gesture.
   const pickFirst = () => {
     if (roomHits[0]) pickRoom(roomHits[0].name);
     else if (house.shown[0]) pickGuest(house.shown[0].id);
     else if (airbnb.shown[0]) pickAirBnB(airbnb.shown[0].alias);
+    else if (team.shown[0]) pickWorker(team.shown[0]);
   };
 
   const day = (key: string, pattern: string) => format(new Date(key + "T00:00:00"), pattern);
@@ -143,8 +176,13 @@ const CalendarFilterPicker = ({
       <RoomBadge room={selectedRoom} rooms={activeRooms} />
     </span>
   ) : (
-    // "Filter" on the trigger names the control.
-    <span className="italic text-gray-500 text-sm">Filter</span>
+    // Nothing filtered: the trigger names the control. It said "Filter" while
+    // it was a list to choose from; it is a place to type now, and finds more
+    // than the calendar's guests.
+    <span className="flex items-center gap-1.5 text-sm text-gray-500">
+      <FaSearch size={12} className="shrink-0" />
+      Search
+    </span>
   );
 
   const heading = "px-4 pb-1 pt-3 text-[11px] font-bold uppercase tracking-wide text-gray-400";
@@ -157,7 +195,7 @@ const CalendarFilterPicker = ({
       </p>
     ) : null;
 
-  const nothingFound = q && roomHits.length === 0 && house.total === 0 && airbnb.total === 0;
+  const nothingFound = q && roomHits.length === 0 && house.total === 0 && airbnb.total === 0 && team.total === 0;
 
   const modal = open
     ? createPortal(
@@ -181,7 +219,7 @@ const CalendarFilterPicker = ({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-              <h3 className="text-sm font-semibold text-gray-700">Filter the calendar</h3>
+              <h3 className="text-sm font-semibold text-gray-700">Search</h3>
               <button
                 type="button"
                 className="text-gray-400 hover:text-gray-600 text-xl leading-none px-1"
@@ -205,7 +243,7 @@ const CalendarFilterPicker = ({
                 onKeyDown={(e) => {
                   if (e.key === "Enter") pickFirst();
                 }}
-                placeholder="Room, guest name or phone…"
+                placeholder="Room, guest, staff or phone…"
                 className="w-full rounded border border-gray-300 px-2.5 py-1.5 text-sm focus:border-gray-400 focus:outline-none"
               />
             </div>
@@ -248,7 +286,7 @@ const CalendarFilterPicker = ({
                     </>
                   )}
                   <p className="px-4 pb-2 pt-3 text-sm text-gray-400">
-                    Type a room, a guest's name, or a phone number.
+                    Type a room, the name of a guest or one of your team, or a phone number.
                   </p>
                 </>
               )}
@@ -320,6 +358,36 @@ const CalendarFilterPicker = ({
                     </button>
                   ))}
                   {more(airbnb.shown.length, airbnb.total)}
+                </>
+              )}
+
+              {team.shown.length > 0 && (
+                <>
+                  <p
+                    className={`${heading} ${
+                      roomHits.length > 0 || house.shown.length > 0 || airbnb.shown.length > 0 ? "border-t border-gray-100" : ""
+                    }`}
+                  >
+                    Your team
+                  </p>
+                  {team.shown.map((w) => (
+                    <button key={`${w.kind}-${w.id}`} type="button" className={rowClass} onClick={() => pickWorker(w)}>
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium text-gray-800">{w.name}</span>
+                        <span className="block truncate text-[11px] text-gray-400">
+                          {w.role}
+                          {w.former ? " · left the team" : ""}
+                          {byPhone && w.phone ? ` · ${w.phone}` : ""}
+                        </span>
+                      </span>
+                      {/* Said on the row, because this result leaves the
+                          calendar: where the tap goes. */}
+                      <span className="ml-auto shrink-0 text-[11px] font-semibold text-gray-400">
+                        {w.kind === "cleaner" ? "Clean ›" : "Staffing ›"}
+                      </span>
+                    </button>
+                  ))}
+                  {more(team.shown.length, team.total)}
                 </>
               )}
 

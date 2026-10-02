@@ -41,6 +41,10 @@ interface StaffingModalProps {
   onClose: () => void;
   // Who signs the pay text: the host, or the cohost who is logged in.
   senderName?: string;
+  // Opened from the search on one staff member: their Team card is open and
+  // in view, and Hours and Payroll are already on them, so whichever tab the
+  // host turns to next is about the person they searched for.
+  focusId?: string;
 }
 
 const money = (n: number) =>
@@ -82,12 +86,12 @@ const Stars = ({ value }: { value: number }) => (
  * shape of record, a different question, so a shared screen would have had to
  * hide half its fields for whichever kind you were looking at.
  */
-const StaffingModal = ({ hostId, token, onClose, senderName }: StaffingModalProps) => {
+const StaffingModal = ({ hostId, token, onClose, senderName, focusId }: StaffingModalProps) => {
   const [staff, setStaff] = useState<StaffType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [adding, setAdding] = useState(false);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(focusId ?? null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [tab, setTab] = useState<"team" | "hours" | "payroll">("team");
   // Which person's face grid is open. One at a time: eighteen options is the
@@ -96,7 +100,7 @@ const StaffingModal = ({ hostId, token, onClose, senderName }: StaffingModalProp
   const [workEntries, setWorkEntries] = useState<HostWorkEntry[]>([]);
   // The Hours tab narrowed to one person, or everyone (null). See
   // util/hoursByPerson for why the tab is narrowed at all.
-  const [hoursFor, setHoursFor] = useState<string | null>(null);
+  const [hoursFor, setHoursFor] = useState<string | null>(focusId ?? null);
   const people = useMemo(() => peopleFromEntries(workEntries), [workEntries]);
   // A pick that no longer matches anyone (their last claim declined and gone
   // from the fetch) falls back to everyone rather than an empty list.
@@ -228,6 +232,14 @@ const StaffingModal = ({ hostId, token, onClose, senderName }: StaffingModalProp
   const patch = (updated: StaffType) =>
     setStaff((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
 
+  // Opened on one person from the search: once the team has loaded, bring
+  // their card into view. Open is not enough on a long team — an open card
+  // below the fold is a search that seems to have found nothing.
+  useEffect(() => {
+    if (!focusId || loading) return;
+    document.querySelector(`[data-staff-card="${focusId}"]`)?.scrollIntoView({ block: "center" });
+  }, [focusId, loading]);
+
 
   const payroll = useMemo(
     () => payrollByMonth(staff, cleanerPay, workEntries, todayKey),
@@ -235,7 +247,7 @@ const StaffingModal = ({ hostId, token, onClose, senderName }: StaffingModalProp
   );
   // The Payroll tab's pick and month. Everyone is read a month at a time;
   // one worker is read across all their months — see the tab for why.
-  const [payrollFor, setPayrollFor] = useState<string | null>(null);
+  const [payrollFor, setPayrollFor] = useState<string | null>(focusId ?? null);
   const [payrollMonth, setPayrollMonth] = useState(todayKey.slice(0, 7));
   // Which person's paychecks are unfolded in the everyone view.
   const [openPay, setOpenPay] = useState<string | null>(null);
@@ -330,7 +342,7 @@ const StaffingModal = ({ hostId, token, onClose, senderName }: StaffingModalProp
     const rd = reviewDraft[s.id] ?? { rating: "", note: "" };
 
     return (
-      <div key={s.id} className="rounded-xl border border-gray-200 bg-white">
+      <div key={s.id} data-staff-card={s.id} className="rounded-xl border border-gray-200 bg-white">
         <button
           type="button"
           onClick={() => setExpandedId(open ? null : s.id)}
