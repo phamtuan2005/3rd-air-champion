@@ -752,6 +752,13 @@ const StaffingModal = ({ hostId, token, onClose, senderName }: StaffingModalProp
                 </div>
               )}
             </div>
+            {/* Said once, above the list: where recording a payout lives. The
+                list alone never said it. */}
+            {!payrollPerson && (
+              <p className="-mt-1.5 mb-2.5 text-[11px] text-gray-400">
+                Tap a name to see only that person, and to record a staff payout.
+              </p>
+            )}
             {payStaffMember &&
               (() => {
                 const amount = parseFloat(payAmount) || 0;
@@ -960,12 +967,33 @@ const StaffingModal = ({ hostId, token, onClose, senderName }: StaffingModalProp
                         const open = !!payrollPerson || openPay === p.id;
                         return (
                           <div key={p.id} className="px-3 py-2">
-                            <button
-                              type="button"
-                              onClick={() => { if (!payrollPerson) setOpenPay(open ? null : p.id); }}
-                              className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-left"
-                            >
-                              <p className="flex items-center gap-2 text-sm font-bold text-gray-900">
+                            {/* Two taps in one line. The NAME (or the face) goes to
+                                that person's own Payroll: all their months, and
+                                for staff the Record pay panel. The amounts unfold
+                                the month's paychecks in place.
+
+                                The whole line used to be the unfold. Recording
+                                a payout meant picking the person from the
+                                dropdown first, which nothing on this list said
+                                — Anh-Tuan took it for a bug, "I cannot record
+                                the payout", before finding the dropdown
+                                (2026-10-02). The name is what one reaches for,
+                                so the name is the way in. */}
+                            <div className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                              <button
+                                type="button"
+                                // Already on this person: nothing to switch to.
+                                disabled={!!payrollPerson}
+                                title={payrollPerson ? undefined : `Show only ${p.name}`}
+                                onClick={(e) => {
+                                  setPayrollFor(p.id);
+                                  setOpenPay(null);
+                                  // Their view opens at its top, where the pay
+                                  // panel is, not wherever this row was.
+                                  e.currentTarget.closest(".overflow-y-auto")?.scrollTo({ top: 0 });
+                                }}
+                                className="flex items-center gap-2 text-left text-sm font-bold text-gray-900 disabled:cursor-default"
+                              >
                                 {avatarOf(p.id, p.name)}
                                 {p.name}
                                 {/* What they do, after the name: "cleaner", or a
@@ -977,8 +1005,12 @@ const StaffingModal = ({ hostId, token, onClose, senderName }: StaffingModalProp
                                 {roleOf(p.id, p.kind) && (
                                   <span className="ml-1.5 text-[11px] font-semibold uppercase text-teal-600">{roleOf(p.id, p.kind)}</span>
                                 )}
-                              </p>
-                              <p className="text-sm text-gray-700">
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { if (!payrollPerson) setOpenPay(open ? null : p.id); }}
+                                className={`text-right text-sm text-gray-700 ${payrollPerson ? "cursor-default" : ""}`}
+                              >
                                 <span className="font-bold">{money(p.paid)}</span> paid
                                 {p.tips > 0 && <span className="text-gray-500"> · {money(p.tips)} tip</span>}
                                 {/* Earned beside paid, for hourly people. Amber
@@ -993,8 +1025,8 @@ const StaffingModal = ({ hostId, token, onClose, senderName }: StaffingModalProp
                                 {!payrollPerson && p.paychecks.length > 0 && (
                                   <span className="ml-1.5 text-xs text-gray-400">{open ? "▾" : "›"}</span>
                                 )}
-                              </p>
-                            </button>
+                              </button>
+                            </div>
                             {/* One line per payout date, pay and tip as two
                                 columns — a tip is its own record underneath,
                                 and as its own row it read as a second
@@ -1485,7 +1517,7 @@ const StaffingModal = ({ hostId, token, onClose, senderName }: StaffingModalProp
 
         <p className="shrink-0 border-t border-gray-100 px-4 py-2 text-[11px] leading-relaxed text-gray-400">
           {tab === "payroll"
-            ? "Every payout, by the month it was paid in. Staff pay is recorded on the Team tab, cleaner pay in Clean."
+            ? "Every payout, by the month it was paid in. Staff pay is recorded here, in a person's own view. Cleaner pay is recorded in Clean."
             : tab === "hours"
             ? "Only approved hours count toward pay. Nothing here is computed from a claim."
             : "Hours and work reports arrive from TiWork, where each person enters their own."}
