@@ -1267,6 +1267,7 @@ const MainView = ({
               onAirBnBGuestFilter={onAirBnBGuestFilter}
               workers={workers}
               onWorkerPick={onWorkerPick}
+              hostName={senderName}
               currentAirBnBGuest={currentAirBnBGuest}
               monthMap={monthMap}
               occupancy={occupancy}
