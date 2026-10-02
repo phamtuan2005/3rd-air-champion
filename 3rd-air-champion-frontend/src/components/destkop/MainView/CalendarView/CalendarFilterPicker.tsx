@@ -9,7 +9,6 @@ import RoomBadge from "../../../shared/RoomBadge";
 import { airbnbGuestList } from "../../../../util/airbnbGuestList";
 import { houseGuestList, isPhoneQuery, matchesTyped, topMatches } from "../../../../util/houseGuestList";
 import type { SearchWorker } from "../../../../util/searchWorkers";
-import { FaSearch } from "react-icons/fa";
 
 interface CalendarFilterPickerProps {
   rooms: roomType[];
@@ -177,11 +176,14 @@ const CalendarFilterPicker = ({
     </span>
   ) : (
     // Nothing filtered: the trigger names the control. It said "Filter" while
-    // it was a list to choose from; it is a place to type now, and finds more
-    // than the calendar's guests.
-    <span className="flex items-center gap-1.5 text-sm text-gray-500">
-      <FaSearch size={12} className="shrink-0" />
-      Search
+    // it was a list to choose from, then "Search" once it was a place to type.
+    // Anh-Tuan asked for "? TT" — ask TT (2026-10-02): the box is where the
+    // host asks the house for a room, a guest or one of the team, and the
+    // name should say that rather than name a mechanism. The question mark
+    // stands where the magnifier stood.
+    <span className="flex items-center gap-1 text-sm font-semibold text-gray-600" aria-label="Ask TT">
+      <span className="text-base font-bold leading-none text-emerald-700">?</span>
+      TT
     </span>
   );
 
@@ -219,7 +221,7 @@ const CalendarFilterPicker = ({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-              <h3 className="text-sm font-semibold text-gray-700">Search</h3>
+              <h3 className="text-sm font-semibold text-gray-700">Ask TT</h3>
               <button
                 type="button"
                 className="text-gray-400 hover:text-gray-600 text-xl leading-none px-1"
