@@ -18,6 +18,8 @@ interface CalendarNavigatorProps {
   guests: guestType[];
   currentGuestId: string | null;
   onGuestFilter: (guestId: string | null) => void;
+  // Filtering to an AirBnB guest by the name AirBnB gave them.
+  onAirBnBGuestFilter: (alias: string) => void;
   monthMap: Map<string, dayType>;
   occupancy: {
     totalOccupancy: number;
@@ -55,6 +57,7 @@ const CalendarNavigator = ({
   guests,
   currentGuestId,
   onGuestFilter,
+  onAirBnBGuestFilter,
   monthMap,
   occupancy,
   profit,
@@ -165,6 +168,8 @@ const CalendarNavigator = ({
                 monthMap={monthMap}
                 guestValue={currentGuestId}
                 onGuestChange={onGuestFilter}
+                airbnbValue={currentAirBnBGuest}
+                onAirBnBChange={onAirBnBGuestFilter}
               />
               {/* One view mode, not two independent flags. Gaps and Cleaners
                   each re-read the same calendar, so they were never meaningfully
@@ -217,6 +222,8 @@ const CalendarNavigator = ({
                 monthMap={monthMap}
                 guestValue={currentGuestId}
                 onGuestChange={onGuestFilter}
+                airbnbValue={currentAirBnBGuest}
+                onAirBnBChange={onAirBnBGuestFilter}
               />
             </div>
             <div className="flex items-center gap-2">
@@ -277,9 +284,23 @@ const CalendarNavigator = ({
       ) : (
         <>
           <div className="flex h-full w-full items-center">
-            <span className="text-xl text-gray-800">
-              {currentAirBnBGuest} (A)
-            </span>
+            {/* The name is the control here too. This was plain text, "Kyle
+                (A)", with no way to switch guest or go back to everyone short
+                of finding the booking card that set the filter and pressing
+                it off. The same picker as the house-guest header above. */}
+            <div className="min-w-0">
+              <CalendarFilterPicker
+                rooms={rooms}
+                roomValue={selectedRoomName}
+                onRoomChange={setSelectedRoomName}
+                guests={guests}
+                monthMap={monthMap}
+                guestValue={currentGuestId}
+                onGuestChange={onGuestFilter}
+                airbnbValue={currentAirBnBGuest}
+                onAirBnBChange={onAirBnBGuestFilter}
+              />
+            </div>
             <div className="flex items-center gap-2 mx-auto">
               <span className="font-bold text-xl text-gray-800">{formattedDate}</span>
             </div>
