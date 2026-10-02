@@ -48,6 +48,9 @@ export interface GuestCalendarProps {
   // bookings, without the stay card on the way.
   onMyStayDetails?: (bookingId: string) => void;
   onReservedClick?: () => void; // tapping a held night opens the pay-reminder popup
+  // The month grid a size up. Only the Hero layout asks for it — see the note
+  // on the type formulas below for why the classic layout does not.
+  largeType?: boolean;
 }
 
 const NUM_ROWS = 6;
@@ -92,18 +95,20 @@ const barRadiusFor = (barHeight: number) =>
   `${Math.min(barHeight / 2, barHeight * (8 / 26)).toFixed(1)}px`;
 
 /*
- * The grid's type, a size up (2026-10-01).
+ * Two sizes of type: the classic layout's, and Hero's a size up (2026-10-01).
  *
  * The list was lifted to Airbnb's size that morning — about 22px on a phone —
- * and beside it the grid read small: at a phone's default calendar a row is
- * about 55px, where every formula below sat on its floor, the day number at
- * 13px and "3 left" at 11. Anh-Tuan asked for the month to be raised as well.
+ * and Anh-Tuan asked for the month to be raised as well. It was raised in both
+ * layouts and shipped; he had meant Hero only, and asked for the classic
+ * layout back as it was. So each formula takes `large`: false is the classic
+ * grid exactly as it stood before that day, and true is Hero's.
  *
- * A tile cannot go to 22px: it is about 55px wide on a phone, and "sold out"
- * at 22px is 80. So each piece is raised to what its own space allows, and
- * the two meta lines are capped by the tile's WIDTH as well as scaled by its
- * height (see widthCap) — the height ratios alone would let a tall, narrow
- * tile push the words out of the sides.
+ * In the classic sizes a phone's default calendar (a row about 55px) sits on
+ * every floor: the day number at 13px, "3 left" at 11. In the large ones a
+ * tile still cannot go to the list's 22px — it is about 55px wide, and "sold
+ * out" at 22px is 80 — so each piece is raised to what its own space allows,
+ * and the meta lines are capped by the tile's WIDTH as well as scaled by its
+ * height (see widthCap).
  *
  * Numbers, not px strings: the tight-row rules further down add them up to
  * know when a row is too short for what it is asked to stack.
@@ -111,22 +116,33 @@ const barRadiusFor = (barHeight: number) =>
 const px = (n: number) => Math.round(n * 10) / 10;
 
 // The room name is sized FROM its bar, not from the tile, so a taller ribbon can
-// never leave a small name floating in the middle of it. Was 13px in a 26px
-// bar, then 15; a 24px bar is the floor, and 15.5px still sits inside it.
-const barLabelFor = (barHeight: number) => px(clamp(15.5, barHeight * 0.58 * TYPE_BOOST, 28));
+// never leave a small name floating in the middle of it. Classic: 13px in a
+// 26px bar, boosted. Large: a 24px bar is the floor, and 15.5px sits inside it.
+const barLabelFor = (barHeight: number, large: boolean) =>
+  large
+    ? px(clamp(15.5, barHeight * 0.58 * TYPE_BOOST, 28))
+    : px(clamp(13, barHeight * 0.5 * TYPE_BOOST, 26));
 
-// The day number. It was deliberately left unboosted — "the least useful thing
-// in the cell", found from its column — and at 13px it was also the hardest
-// thing on the page to read. It is the anchor the eye lands on first in a
-// month, so it leads now: 19px at the floor, 22 at the reference tile.
-const dateFor = (tile: number) => px(clamp(19, (tile / REF_TILE) * 22, 30));
+// The day number. Classic leaves it unboosted and capped below the others:
+// "the least useful thing in the cell", found from its column, and boosted it
+// became the loudest thing on a page it should stay quiet on. In Hero the
+// month is the larger part of the screen and the number leads: 19px at the
+// floor, 22 at the reference tile.
+const dateFor = (tile: number, large: boolean) =>
+  large ? px(clamp(19, (tile / REF_TILE) * 22, 30)) : px(clamp(13, (tile / REF_TILE) * 16, 24));
 
-// "3 left" / "sold out" — was 9px, then 11 at the floor: the smallest type in
-// TiBook and the line that actually answers "can I book this night".
-const metaFor = (tile: number) => px(clamp(15, (tile / REF_TILE) * 13 * TYPE_BOOST, 22));
+// "3 left" / "sold out" — the line that actually answers "can I book this
+// night". Classic: was 9px, the smallest type in TiBook, now 11 at the floor.
+const metaFor = (tile: number, large: boolean) =>
+  large
+    ? px(clamp(15, (tile / REF_TILE) * 13 * TYPE_BOOST, 22))
+    : px(clamp(11, (tile / REF_TILE) * 9 * TYPE_BOOST, 19));
 
-// The wish-list star and the ⏳ hold badge — was 11px, then 13 at the floor.
-const glyphFor = (tile: number) => px(clamp(15, (tile / REF_TILE) * 14 * TYPE_BOOST, 26));
+// The wish-list star and the ⏳ hold badge — classic was 11px, 13 at the floor.
+const glyphFor = (tile: number, large: boolean) =>
+  large
+    ? px(clamp(15, (tile / REF_TILE) * 14 * TYPE_BOOST, 26))
+    : px(clamp(13, (tile / REF_TILE) * 11 * TYPE_BOOST, 24));
 
 // The largest size at which a line `ems` wide still fits across a tile, with
 // a pixel of air each side. Before the tile has been measured there is no cap.
@@ -180,6 +196,7 @@ const MonthGrid = ({
   onWishListClick,
   onMyStayClick,
   onReservedClick,
+  largeType = false,
 }: GuestCalendarProps) => {
   const { theme } = useTiBookTheme();
   const roomChip = useRoomChip();
@@ -199,20 +216,24 @@ const MonthGrid = ({
   const barHeight = barHeightFor(rowHeight);
   const barBottom = barBottomFor(rowHeight);
   const barRadius = barRadiusFor(barHeight);
-  const barLabelSize = barLabelFor(barHeight);
-  const dateSize = dateFor(rowHeight);
-  const metaSize = metaFor(rowHeight);
-  const glyphSize = glyphFor(rowHeight);
-  // The two meta lines, each as large as the tile is wide enough for.
-  const leftSize = widthCap(metaSize, tileWidth, LEFT_EMS);
-  const soldSize = widthCap(metaSize, tileWidth, SOLD_OUT_EMS);
+  const barLabelSize = barLabelFor(barHeight, largeType);
+  const dateSize = dateFor(rowHeight, largeType);
+  const metaSize = metaFor(rowHeight, largeType);
+  const glyphSize = glyphFor(rowHeight, largeType);
+  // The two meta lines, each as large as the tile is wide enough for. Only the
+  // large sizes need the cap; the classic ones fit a tile at every width and
+  // are left exactly as they were.
+  const leftSize = largeType ? widthCap(metaSize, tileWidth, LEFT_EMS) : metaSize;
+  const soldSize = largeType ? widthCap(metaSize, tileWidth, SOLD_OUT_EMS) : metaSize;
   // A picked night is a green box inset 4px each side, so its line has that
   // much less to fit in. Capped against the tile it poked out of the box on a
   // 320px phone, and lost the edge of its tick.
-  const pickedSize = widthCap(metaSize, tileWidth > 0 ? tileWidth - 7 : 0, PICKED_EMS);
-  // What a ribbon's name was before the grid went a size up: half the bar,
-  // boosted. The floor barLabelSizeFor never goes under.
-  const barLabelFloor = px(clamp(13, barHeight * 0.5 * TYPE_BOOST, 26));
+  const pickedSize = largeType
+    ? widthCap(metaSize, tileWidth > 0 ? tileWidth - 7 : 0, PICKED_EMS)
+    : metaSize;
+  // The classic size of a ribbon's name: half the bar, boosted. The floor
+  // barLabelSizeFor never goes under, and in the classic layout the size itself.
+  const barLabelFloor = barLabelFor(barHeight, false);
 
   const scopedRooms = useMemo(
     () => rooms.filter((r) => r.active && (selectedRoomIds === null || selectedRoomIds.has(r.id))),
@@ -247,15 +268,16 @@ const MonthGrid = ({
    * under the words: hiding it would take the wish list away from exactly the
    * guests on the smallest screens.
    *
-   * The height is added up from the sizes themselves now. It was a literal 52,
-   * true for a 13px number over an 11px line; with the type a size up, a fixed
-   * number would have let the star spill again on every row between the old
-   * threshold and the new stack height.
+   * In the classic sizes this is the literal 52 it always was, true for a 13px
+   * number over an 11px line. In the large ones it is added up from the sizes
+   * themselves: a fixed number would let the star spill again on every row
+   * between the old threshold and the taller stack.
    */
   const TILE_PAD = 4; // the tile's own pt-1
   const STACK_GAP = 2; // gap-0.5 between stacked lines
-  const tightRow =
-    rowHeight < TILE_PAD + dateSize + STACK_GAP + soldSize + STACK_GAP + glyphSize + STACK_GAP;
+  const tightRow = largeType
+    ? rowHeight < TILE_PAD + dateSize + STACK_GAP + soldSize + STACK_GAP + glyphSize + STACK_GAP
+    : rowHeight < 52;
 
   /*
    * Tighter still, and the words themselves have to go.
@@ -268,9 +290,12 @@ const MonthGrid = ({
    * words were saying. The tick on a night the guest picked stays: that is
    * their own doing, not a status.
    *
-   * Added up from the sizes, like tightRow, and for the same reason. It was 36.
+   * 36 in the classic sizes, as it always was; added up from the sizes in the
+   * large ones, like tightRow and for the same reason.
    */
-  const veryTightRow = rowHeight < TILE_PAD + dateSize + STACK_GAP + soldSize + STACK_GAP;
+  const veryTightRow = largeType
+    ? rowHeight < TILE_PAD + dateSize + STACK_GAP + soldSize + STACK_GAP
+    : rowHeight < 36;
 
   /*
    * A night under the guest's own ribbon has three things to stack: the
@@ -283,8 +308,12 @@ const MonthGrid = ({
    * hold all three. It is the line to give up: the ribbon already says the
    * guest has this night, and how many OTHER rooms are free on it is the least
    * of what they came to read there. Drag the calendar taller and it is back.
+   *
+   * Large sizes only. The classic layout keeps the count on those nights, as
+   * it always has.
    */
   const metaFitsOverBar =
+    !largeType ||
     rowHeight >= TILE_PAD + dateSize + STACK_GAP + leftSize + STACK_GAP + barHeight + barBottom;
 
   // The guest's own stays as bar segments per day: a PM segment on every night
@@ -576,7 +605,7 @@ const MonthGrid = ({
             <div className="relative z-10 flex flex-col items-center gap-0.5">
               {/* Keep "sold out" visible even when wish-listed — the gray wish-list
                   overlay otherwise hides it and the date looks bookable again. */}
-              <span className={`whitespace-nowrap font-medium leading-none ${theme.surfaceMuted}`} style={{ fontSize: soldSize }}>
+              <span className={`${largeType ? "whitespace-nowrap " : ""}font-medium leading-none ${theme.surfaceMuted}`} style={{ fontSize: soldSize }}>
                 sold out
               </span>
               {canWishList && !tightRow && (
