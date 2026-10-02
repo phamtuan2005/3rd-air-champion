@@ -658,6 +658,7 @@ const MainView = ({
   // which is exactly the wrong answer when the whole point was to go and look at
   // their stays.
   const onGuestFilter = (guestId: string | null) => {
+    filterJustSet.current = guestId;
     setCurrentGuest(guestId);
     // A house guest and an AirBnB guest are one choice: picking a guest, or
     // "Everyone" (null), drops whichever AirBnB guest was filtered. Everyone
@@ -685,6 +686,7 @@ const MainView = ({
   // gave them. Until 2026-10-02 the only way to filter one was the Filter pill
   // on their booking card — and half the house's guests are AirBnB's.
   const onAirBnBGuestFilter = (alias: string) => {
+    filterJustSet.current = alias;
     setCurrentAirBnBGuest(alias);
     setCurrentGuest(null);
     // To the month of their stay, for the same reason as above: landing on a
@@ -721,8 +723,20 @@ const MainView = ({
   // screen, and opens it — the same as tapping that day, which is what the
   // host would have done once they had paged to it.
   const [jumpDate, setJumpDate] = useState<{ key: string; seq: number } | null>(null);
+  // The guest the box filtered a moment ago, when a time was typed beside the
+  // name ("Susan Dec"). The calendar jumps to a newly filtered guest's next
+  // stay in an effect, which runs AFTER this handler and overrode the month
+  // asked for: Anh-Tuan tapped "Susan · December" and was shown Susan's
+  // October stay. Marking the filter as already revealed, in the same render,
+  // stops that jump, and the host's own choice of month stands.
+  const filterJustSet = useRef<string | null>(null);
+  const settleFilterJump = () => {
+    if (filterJustSet.current) setRevealedFilterKey(filterJustSet.current);
+    filterJustSet.current = null;
+  };
   const onDateJump = (dateKey: string) => {
     const [y, m, d] = dateKey.split("-").map(Number);
+    settleFilterJump();
     setCurrentMonth(new Date(y, m - 1, 1));
     setJumpDate((prev) => ({ key: dateKey, seq: (prev?.seq ?? 0) + 1 }));
     setSelectedDate(new Date(y, m - 1, d));
@@ -734,6 +748,7 @@ const MainView = ({
   // opened; the host asked for the month's page, not one night.
   const onMonthJump = (dateKey: string) => {
     const [y, m] = dateKey.split("-").map(Number);
+    settleFilterJump();
     setCurrentMonth(new Date(y, m - 1, 1));
     setJumpDate((prev) => ({ key: dateKey, seq: (prev?.seq ?? 0) + 1 }));
   };
