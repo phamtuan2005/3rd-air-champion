@@ -5,8 +5,10 @@ import Host from "../model/hostSchema";
 import Day from "../model/daySchema";
 import Room from "../model/roomSchema";
 import Guest from "../model/guestSchema";
-import CleaningAssignment from "../model/cleaningAssignmentSchema";
 import { dayKey } from "../util/arrivingGuests";
+import { findAssignments } from "../util/assignmentQuery";
+import { loadCleaningDays } from "../util/cleaningDays";
+import { cleaningPlan, UNASSIGNED } from "../util/cleaningPlan";
 
 // TiMag's agent — a conversation with somebody who can actually see the books.
 //
@@ -205,8 +207,13 @@ const buildTools = (hostId: string) => {
   const getCleanings = betaTool({
     name: "get_cleanings",
     description:
-      "Cleaning assignments between two dates: which cleaner, which room, which morning, " +
-      "and the hours recorded against it. No 'hours' field means none recorded yet.",
+      "The cleaning plan between two dates, one entry per morning: each room that turns " +
+      "over, who is assigned to it, and the hours recorded. This is what Clean → Plan " +
+      "shows and what a cleaner sees in TiWork. No 'hours' field means none recorded yet. " +
+      "'likely: true' means no booking ends that morning — the night before is empty and " +
+      "expected to sell — so it is a forecast, not a booked clean. 'arrivalSameDay: true' " +
+      "means a guest checks in that day. Cleaner '(unassigned)' means the room turns over " +
+      "and nobody is on it. Mornings with nothing to clean are left out.",
     inputSchema: {
       type: "object",
       properties: {
@@ -218,26 +225,34 @@ const buildTools = (hostId: string) => {
     },
     run: async (input: any) => {
       const { start, end } = clampRange(input?.from, input?.to);
-      const rows: any[] = await CleaningAssignment.find({
-        host: hostId,
-        date: { $gte: start, $lte: end },
-      })
-        .populate("room", "name")
-        .populate("cleaner", "name")
-        .sort({ date: 1 });
-      return JSON.stringify(
-        rows.map((a) => {
-          const row: Record<string, unknown> = {
-            date: a.date,
-            room: a.room?.name ?? "",
-            cleaner: a.cleaner?.name ?? "(unassigned)",
-          };
-          // Absent means no hours recorded. A null on every unworked row is
-          // pure weight.
-          if (a.hours != null) row.hours = a.hours;
-          return row;
-        }),
-      );
+      // The assignments table is NOT the plan — the auto-planner writes its
+      // forecasts into it as real rows. This used to return the table, and
+      // would have told the host Henry was cleaning a room whose guest was
+      // staying on. cleaningPlan runs TiMag's own rule over it instead; the
+      // why, with the morning it was measured on, is at the top of that file.
+      const [assignments, dayMap, rooms] = await Promise.all([
+        findAssignments({ host: hostId, start, end }),
+        loadCleaningDays(hostId, start, end),
+        Room.find({ host: hostId }).select("name"),
+      ]);
+      const days = cleaningPlan({
+        dayMap,
+        from: start,
+        to: end,
+        roomNames: new Map((rooms as any[]).map((r) => [String(r._id), r.name ?? ""])),
+        assignments: (assignments as any[]).map((a) => ({
+          date: a.date,
+          roomId: a.room?._id ? String(a.room._id) : "",
+          room: a.room?.name ?? "",
+          cleaner: a.cleaner?.name ?? UNASSIGNED,
+          hours: a.hours ?? null,
+        })),
+      });
+      return JSON.stringify({
+        range: { from: start, to: end },
+        note: "Mornings absent from this list have nothing to clean.",
+        days,
+      });
     },
   });
 
@@ -280,12 +295,20 @@ const systemPrompt = (today: string) =>
     "THINGS THIS BUSINESS KNOWS THAT YOU SHOULD NOT RE-DERIVE",
     "- A booking marked reservedUnpaid is HELD, not free. It is not a vacancy.",
     "- Some guests are on deliberate $0 rates (family). That is not an error.",
-    "- A stay is stored on every night it covers; arrivesToday marks the night it",
-    "  began. Count arrivals with arrivesToday, not with every row.",
+    "- A stay is stored on every night it covers; 'arrives' marks the night it",
+    "  began. Count arrivals with 'arrives', not with every row.",
     "- An arrival in the small hours belongs to the night BEFORE that calendar",
     "  day. A guest saying '1am Tuesday' usually means the Monday night booking.",
     "  Twelve-hour misreadings of a guest's message have cost this house a room",
     "  before, so if a time could be read two ways, say so rather than pick one.",
+    "- A cleaning marked likely is a forecast: no guest is booked to leave that",
+    "  morning, the night before is only expected to sell. Say 'likely' on that",
+    "  line. A cleaner may be told this plan, and a forecast told as a booking",
+    "  is a wasted drive.",
+    "- A room that turns over with cleaner '(unassigned)' has nobody on it. Say",
+    "  so plainly, even when the question was about one cleaner — it is the",
+    "  line the host most needs. It is fixed in Clean, on the Plan tab.",
+    "- When asked about a week, say which dates you looked at.",
   ].join("\n");
 
 router.post("/chat", async (req: Request, res: any) => {

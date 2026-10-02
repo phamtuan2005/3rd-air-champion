@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { airbnbReservationDetails, dateTyped, matchesReservation, screensMatching, worthAsking } from "./ttIntents";
+import { airbnbReservationDetails, dateTyped, matchesReservation, screensMatching, whenTyped, whoAndWhen, worthAsking } from "./ttIntents";
 
 // What TT understands beyond names. A box that guesses wrong sends the host
 // somewhere they did not ask to go, so each rule is pinned.
@@ -115,5 +115,57 @@ describe("an AirBnB reservation", () => {
     expect(matchesReservation("9448", [], ["9448"])).toBe("last4");
     expect(matchesReservation("944", [], ["9448"])).toBeNull();
     expect(matchesReservation("9449", [], ["9448"])).toBeNull();
+  });
+});
+
+describe("a month on its own", () => {
+  it("reads a month as its first day, in the year it comes round", () => {
+    expect(whenTyped("Dec", today)).toEqual({ key: "2026-12-01", month: true });
+    expect(whenTyped("december", today)).toEqual({ key: "2026-12-01", month: true });
+    // March has been and gone this year.
+    expect(whenTyped("Mar", today)).toEqual({ key: "2027-03-01", month: true });
+    // The month we are in is this one.
+    expect(whenTyped("Oct", today)).toEqual({ key: "2026-10-01", month: true });
+    expect(whenTyped("Mar 2026", today)).toEqual({ key: "2026-03-01", month: true });
+  });
+
+  it("still reads a whole date as a day", () => {
+    expect(whenTyped("Oct 19", today)).toEqual({ key: "2026-10-19", month: false });
+  });
+
+  it("is not a month when there is a name beside it", () => {
+    expect(whenTyped("Susan Dec", today)).toBeNull();
+    expect(whenTyped("Decker", today)).toBeNull();
+  });
+});
+
+describe("a name with a time beside it", () => {
+  it("splits a name and a month", () => {
+    expect(whoAndWhen("Susan Dec", today)).toEqual({ who: "Susan", when: { key: "2026-12-01", month: true } });
+  });
+
+  // Anh-Tuan's example, as typed.
+  it("drops the words that carry nothing", () => {
+    expect(whoAndWhen("Susan stay in Dec", today)?.who).toBe("Susan");
+    expect(whoAndWhen("Susan's booking in December", today)?.who).toBe("Susan");
+    expect(whoAndWhen("King in Dec", today)?.who).toBe("King");
+  });
+
+  it("splits a name and a day", () => {
+    expect(whoAndWhen("Susan Oct 19", today)).toEqual({ who: "Susan", when: { key: "2026-10-19", month: false } });
+    expect(whoAndWhen("Susan tomorrow", today)).toEqual({ who: "Susan", when: { key: "2026-10-03", month: false } });
+  });
+
+  it("is nothing without both halves", () => {
+    expect(whoAndWhen("Susan", today)).toBeNull();
+    expect(whoAndWhen("Dec", today)).toBeNull();
+    expect(whoAndWhen("Oct 19", today)).toBeNull();
+    expect(whoAndWhen("in Dec", today)).toBeNull();
+    expect(whoAndWhen("Henry clean plan for next week", today)).toBeNull();
+  });
+
+  // "in" is a filler word; it is also most of "Austin".
+  it("takes whole words out only", () => {
+    expect(whoAndWhen("Austin Dec", today)?.who).toBe("Austin");
   });
 });

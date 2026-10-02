@@ -29,6 +29,7 @@ interface CalendarNavigatorProps {
   // The rest of what TT understands: a day to go to, a screen to open, and a
   // question for the assistant. Passed straight through to the box.
   onDateJump: (dateKey: string) => void;
+  onMonthJump: (dateKey: string) => void;
   onScreen: (key: string) => void;
   onAsk: (question: string) => void;
   monthMap: Map<string, dayType>;
@@ -73,6 +74,7 @@ const CalendarNavigator = ({
   onWorkerPick,
   hostName,
   onDateJump,
+  onMonthJump,
   onScreen,
   onAsk,
   monthMap,
@@ -191,6 +193,7 @@ const CalendarNavigator = ({
                 onWorkerPick={onWorkerPick}
                 hostName={hostName}
                 onDateJump={onDateJump}
+                onMonthJump={onMonthJump}
                 onScreen={onScreen}
                 onAsk={onAsk}
               />
@@ -251,6 +254,7 @@ const CalendarNavigator = ({
                 onWorkerPick={onWorkerPick}
                 hostName={hostName}
                 onDateJump={onDateJump}
+                onMonthJump={onMonthJump}
                 onScreen={onScreen}
                 onAsk={onAsk}
               />
@@ -332,6 +336,7 @@ const CalendarNavigator = ({
                 onWorkerPick={onWorkerPick}
                 hostName={hostName}
                 onDateJump={onDateJump}
+                onMonthJump={onMonthJump}
                 onScreen={onScreen}
                 onAsk={onAsk}
               />

@@ -9,7 +9,7 @@ import { dayType } from "../../../../util/types/dayType";
 import RoomBadge from "../../../shared/RoomBadge";
 import { airbnbGuestList } from "../../../../util/airbnbGuestList";
 import { houseGuestList, isPhoneQuery, matchesTyped, topMatches } from "../../../../util/houseGuestList";
-import { dateTyped, matchesReservation, screensMatching, worthAsking } from "../../../../util/ttIntents";
+import { matchesReservation, screensMatching, whenTyped, whoAndWhen, worthAsking, When } from "../../../../util/ttIntents";
 import type { SearchWorker } from "../../../../util/searchWorkers";
 
 interface CalendarFilterPickerProps {
@@ -30,9 +30,11 @@ interface CalendarFilterPickerProps {
   onWorkerPick: (worker: SearchWorker) => void;
   // Who is signed in, for TT's greeting: the host, or a cohost.
   hostName?: string;
-  // The rest of what TT understands (util/ttIntents): a day to go to, a
-  // screen to open by its key, and a question to put to the assistant.
+  // The rest of what TT understands (util/ttIntents): a day to go to and open,
+  // a month to turn to, a screen to open by its key, and a question to put to
+  // the assistant.
   onDateJump: (dateKey: string) => void;
+  onMonthJump: (dateKey: string) => void;
   onScreen: (key: string) => void;
   onAsk: (question: string) => void;
 }
@@ -98,6 +100,7 @@ const CalendarFilterPicker = ({
   onWorkerPick,
   hostName,
   onDateJump,
+  onMonthJump,
   onScreen,
   onAsk,
 }: CalendarFilterPickerProps) => {
@@ -116,29 +119,38 @@ const CalendarFilterPicker = ({
   const houseRows = useMemo(() => houseGuestList(guests, monthMap, todayKey), [guests, monthMap, todayKey]);
 
   const q = query.trim();
-  const roomHits = q ? activeRooms.filter((r) => matchesTyped(q, r.name)) : [];
-  const house = topMatches(houseRows, (r) => matchesTyped(q, r.name, r.phone), RESULT_LIMIT);
+  // "Susan Dec": a name with a time beside it. The name is what the rooms and
+  // guests are searched for, and the time is where the calendar opens once one
+  // is picked. Anh-Tuan's example (2026-10-02): "Susan stay in Dec" — a thing
+  // the calendar shows on its own, without a question to the assistant.
+  const split = q ? whoAndWhen(q) : null;
+  const who = split?.who ?? q;
+  const roomHits = who ? activeRooms.filter((r) => matchesTyped(who, r.name)) : [];
+  const house = topMatches(houseRows, (r) => matchesTyped(who, r.name, r.phone), RESULT_LIMIT);
   // AirBnB gives a first name, a reservation code and the last four digits of
   // a phone — so those are what an AirBnB guest is found by.
   const airbnb = topMatches(
     airbnbRows,
-    (r) => matchesTyped(q, r.alias) || !!matchesReservation(q, r.codes, r.last4s),
+    (r) => matchesTyped(who, r.alias) || !!matchesReservation(who, r.codes, r.last4s),
     RESULT_LIMIT,
   );
-  // A day, when the whole of what was typed is one.
-  const typedDate = q ? dateTyped(q) : null;
+  // A day or a month, when the whole of what was typed is one.
+  const when = q && !split ? whenTyped(q) : null;
   // A screen, by its name or another word for it.
   const screens = q ? screensMatching(q) : [];
   // Staff and cleaners, by name or phone like a guest — and by what they do,
-  // so "cleaner" brings up the cleaners and "intern" the intern.
+  // so "cleaner" brings up the cleaners and "intern" the intern. Not with a
+  // time beside the name: the team has no page on the calendar to open.
   const team = topMatches(
     workers,
-    (w) => matchesTyped(q, w.name, w.phone) || matchesTyped(q, w.role),
+    (w) => !split && (matchesTyped(q, w.name, w.phone) || matchesTyped(q, w.role)),
     RESULT_LIMIT,
   );
-  const byPhone = isPhoneQuery(q);
+  const byPhone = isPhoneQuery(who);
   const foundAnything =
-    !!typedDate || screens.length > 0 || roomHits.length > 0 || house.total > 0 || airbnb.total > 0 || team.total > 0;
+    !!when || screens.length > 0 || roomHits.length > 0 || house.total > 0 || airbnb.total > 0 || team.total > 0;
+  // A guest called May, or June: her exact name beats the month on Enter.
+  const exactGuest = when?.month ? house.shown.find((r) => r.name.toLowerCase() === q.toLowerCase()) : undefined;
   // A sentence, or a word that found nothing, is offered to TT as a question.
   const askable = worthAsking(q, foundAnything);
 
@@ -146,24 +158,31 @@ const CalendarFilterPicker = ({
     setOpen(false);
     setQuery("");
   };
+  const goTo = (w: When) => (w.month ? onMonthJump(w.key) : onDateJump(w.key));
+  // A room or a guest picked with a time beside the name: the filter is set,
+  // then the calendar turns to that time. In that order, because setting a
+  // guest moves the calendar to their next stay, and the time typed wins.
   const pickRoom = (name: string | null) => {
     onRoomChange(name);
+    if (split) goTo(split.when);
     close();
   };
   const pickGuest = (id: string | null) => {
     onGuestChange(id);
+    if (split) goTo(split.when);
     close();
   };
   const pickAirBnB = (alias: string) => {
     onAirBnBChange(alias);
+    if (split) goTo(split.when);
     close();
   };
   const pickWorker = (worker: SearchWorker) => {
     onWorkerPick(worker);
     close();
   };
-  const pickDate = (key: string) => {
-    onDateJump(key);
+  const pickWhen = (w: When) => {
+    goTo(w);
     close();
   };
   const pickScreen = (key: string) => {
@@ -177,7 +196,8 @@ const CalendarFilterPicker = ({
   // Enter takes the first thing found, in the order it is shown: for a host at
   // a keyboard, "ki" and Enter is the whole gesture.
   const pickFirst = () => {
-    if (typedDate) pickDate(typedDate);
+    if (exactGuest) pickGuest(exactGuest.id);
+    else if (when) pickWhen(when);
     else if (screens[0]) pickScreen(screens[0].key);
     else if (roomHits[0]) pickRoom(roomHits[0].name);
     else if (house.shown[0]) pickGuest(house.shown[0].id);
@@ -187,6 +207,12 @@ const CalendarFilterPicker = ({
   };
 
   const day = (key: string, pattern: string) => format(new Date(key + "T00:00:00"), pattern);
+  // Where a room or guest row will take the calendar, said on the row.
+  const thenLabel = split ? (
+    <span className="ml-auto shrink-0 text-[11px] font-semibold text-gray-400">
+      {day(split.when.key, split.when.month ? "MMMM" : "MMM d")} ›
+    </span>
+  ) : null;
 
   // The trigger says what is ON. A guest narrows the calendar further than a
   // room does, so it leads when both are set.
@@ -365,20 +391,25 @@ const CalendarFilterPicker = ({
                       list of rules to read. */}
                   <p className="px-4 pb-2 pt-3 text-sm leading-relaxed text-gray-400">
                     Try a room or a name, a phone number, an AirBnB code, a date such as
-                    “Oct 19”, a screen such as “stats” — or ask me a question.
+                    “Oct 19”, a name and a month such as “Susan Dec”, a screen such as
+                    “stats” — or ask me a question.
                   </p>
                 </>
               )}
 
               {/* A day: the calendar goes there. First, because when the whole
                   of what was typed is a date it can be nothing else. */}
-              {typedDate && (
+              {when && (
                 <>
                   {sectionHeading("Go to")}
-                  <button type="button" className={rowClass} onClick={() => pickDate(typedDate)}>
+                  <button type="button" className={rowClass} onClick={() => pickWhen(when)}>
                     <span className="min-w-0">
-                      <span className="block truncate font-medium text-gray-800">{day(typedDate, "EEEE, MMM d, yyyy")}</span>
-                      <span className="block truncate text-[11px] text-gray-400">Show this day on the calendar</span>
+                      <span className="block truncate font-medium text-gray-800">
+                        {day(when.key, when.month ? "MMMM yyyy" : "EEEE, MMM d, yyyy")}
+                      </span>
+                      <span className="block truncate text-[11px] text-gray-400">
+                        {when.month ? "Turn the calendar to this month" : "Show this day on the calendar"}
+                      </span>
                     </span>
                     <span className="ml-auto shrink-0 text-[11px] font-semibold text-gray-400">Calendar ›</span>
                   </button>
@@ -408,6 +439,7 @@ const CalendarFilterPicker = ({
                     <button key={room.id} type="button" className={rowClass} onClick={() => pickRoom(room.name)}>
                       <RoomBadge room={room} rooms={activeRooms} />
                       {roomValue === room.name && tick}
+                      {thenLabel}
                     </button>
                   ))}
                 </>
@@ -437,6 +469,7 @@ const CalendarFilterPicker = ({
                         </span>
                       </span>
                       {guestValue === r.id && tick}
+                      {thenLabel}
                     </button>
                   ))}
                   {more(house.shown.length, house.total)}
@@ -449,7 +482,7 @@ const CalendarFilterPicker = ({
                   {airbnb.shown.map((r) => {
                     // Found by the code or the four digits rather than by
                     // name: say which, so the host sees why this guest came up.
-                    const via = matchesReservation(q, r.codes, r.last4s);
+                    const via = matchesReservation(who, r.codes, r.last4s);
                     return (
                     <button key={r.alias} type="button" className={rowClass} onClick={() => pickAirBnB(r.alias)}>
                       <span className="min-w-0">
@@ -465,13 +498,14 @@ const CalendarFilterPicker = ({
                           {r.room ? ` · ${r.room}` : ""}
                           {r.stays > 1 ? ` · ${r.stays} stays` : ""}
                           {via === "code"
-                            ? ` · code ${r.codes.find((c) => c.startsWith(q.toUpperCase())) ?? ""}`
+                            ? ` · code ${r.codes.find((c) => c.startsWith(who.toUpperCase())) ?? ""}`
                             : via === "last4"
-                              ? ` · phone ends ${q}`
+                              ? ` · phone ends ${who}`
                               : ""}
                         </span>
                       </span>
                       {airbnbValue === r.alias && tick}
+                      {thenLabel}
                     </button>
                     );
                   })}

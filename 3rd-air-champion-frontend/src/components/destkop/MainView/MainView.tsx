@@ -729,6 +729,14 @@ const MainView = ({
     setCurrentBookings(monthMap.get(dateKey)?.bookings ?? null);
     setIsMobileModalOpen(true);
   };
+  // A month asked for by name — "Dec", or "Susan Dec" once Susan is filtered:
+  // the calendar turns to it and brings its first day on screen. No day is
+  // opened; the host asked for the month's page, not one night.
+  const onMonthJump = (dateKey: string) => {
+    const [y, m] = dateKey.split("-").map(Number);
+    setCurrentMonth(new Date(y, m - 1, 1));
+    setJumpDate((prev) => ({ key: dateKey, seq: (prev?.seq ?? 0) + 1 }));
+  };
 
   // Three screens have no open-state out here: the two templates live in the
   // profile menu and the visitors chart in the nav bar. Each is a
@@ -1326,6 +1334,7 @@ const MainView = ({
               onWorkerPick={onWorkerPick}
               hostName={senderName}
               onDateJump={onDateJump}
+              onMonthJump={onMonthJump}
               onScreen={onScreen}
               onAsk={onAsk}
               currentAirBnBGuest={currentAirBnBGuest}
