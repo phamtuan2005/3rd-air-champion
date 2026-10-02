@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { airbnbReservationDetails, dateTyped, matchesReservation, screensMatching, whenTyped, whoAndWhen, worthAsking } from "./ttIntents";
+import { airbnbReservationDetails, dateTyped, matchesReservation, screensMatching, weekTyped, whenTyped, whoAndWhen, worthAsking } from "./ttIntents";
 
 // What TT understands beyond names. A box that guesses wrong sends the host
 // somewhere they did not ask to go, so each rule is pinned.
@@ -167,5 +167,27 @@ describe("a name with a time beside it", () => {
   // "in" is a filler word; it is also most of "Austin".
   it("takes whole words out only", () => {
     expect(whoAndWhen("Austin Dec", today)?.who).toBe("Austin");
+  });
+});
+
+describe("a week of cleaning", () => {
+  // Anh-Tuan's question, as he typed it to TT.
+  it("reads whose week, and which", () => {
+    expect(weekTyped("Henry clean plan for next week")).toEqual({ offset: 1, who: "Henry" });
+    expect(weekTyped("Henry next week")).toEqual({ offset: 1, who: "Henry" });
+    expect(weekTyped("Henry's schedule")).toEqual({ offset: 0, who: "Henry" });
+    expect(weekTyped("henry this week")).toEqual({ offset: 0, who: "henry" });
+  });
+
+  it("reads a week with nobody named as everyone's", () => {
+    expect(weekTyped("next week")).toEqual({ offset: 1, who: "" });
+    expect(weekTyped("cleaning schedule")).toEqual({ offset: 0, who: "" });
+    expect(weekTyped("coming week")).toEqual({ offset: 1, who: "" });
+  });
+
+  it("is nothing without a week in it", () => {
+    expect(weekTyped("Henry")).toBeNull();
+    expect(weekTyped("Susan Dec")).toBeNull();
+    expect(weekTyped("weekend rates")).toBeNull();
   });
 });

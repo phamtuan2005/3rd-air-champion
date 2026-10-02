@@ -30,6 +30,7 @@ interface CalendarNavigatorProps {
   // question for the assistant. Passed straight through to the box.
   onDateJump: (dateKey: string) => void;
   onMonthJump: (dateKey: string) => void;
+  onWeek: (offset: 0 | 1, cleanerId?: string) => void;
   onScreen: (key: string) => void;
   onAsk: (question: string) => void;
   monthMap: Map<string, dayType>;
@@ -75,6 +76,7 @@ const CalendarNavigator = ({
   hostName,
   onDateJump,
   onMonthJump,
+  onWeek,
   onScreen,
   onAsk,
   monthMap,
@@ -194,6 +196,7 @@ const CalendarNavigator = ({
                 hostName={hostName}
                 onDateJump={onDateJump}
                 onMonthJump={onMonthJump}
+                onWeek={onWeek}
                 onScreen={onScreen}
                 onAsk={onAsk}
               />
@@ -255,6 +258,7 @@ const CalendarNavigator = ({
                 hostName={hostName}
                 onDateJump={onDateJump}
                 onMonthJump={onMonthJump}
+                onWeek={onWeek}
                 onScreen={onScreen}
                 onAsk={onAsk}
               />
@@ -337,6 +341,7 @@ const CalendarNavigator = ({
                 hostName={hostName}
                 onDateJump={onDateJump}
                 onMonthJump={onMonthJump}
+                onWeek={onWeek}
                 onScreen={onScreen}
                 onAsk={onAsk}
               />

@@ -291,7 +291,10 @@ const MainView = ({
   // Set only when the Cleaners modal is opened with a destination in mind (the
   // day sheet's Change button wants Plan); cleared on close so the next open
   // goes back to choosing for itself.
-  const [cleanersInitialTab, setCleanersInitialTab] = useState<"upcoming" | "pay" | undefined>(undefined);
+  const [cleanersInitialTab, setCleanersInitialTab] = useState<"upcoming" | "pay" | "week" | undefined>(undefined);
+  // A week of cleaning asked of TT ("Henry next week"): which week the Clean
+  // window opens on, and whose rows, if a cleaner was named.
+  const [cleanersWeek, setCleanersWeek] = useState<{ offset: 0 | 1; cleanerId?: string } | undefined>(undefined);
   // The house's staff and cleaners, for the search box, and the one it was
   // asked to open a window on. Loaded here because the search lives in the
   // calendar's header, while Staffing and Clean each load their own people
@@ -783,6 +786,15 @@ const MainView = ({
 
   // A question, handed to the assistant with the words already typed, so the
   // host is not asked to type them twice.
+  // A week of cleaning, this one or next, for everyone or for one cleaner:
+  // Clean opens on its Week tab, which is where the week is arranged. Asked
+  // of the model it took nine seconds and a tool call; here it is instant,
+  // and the rooms nobody is on are already amber on the same screen.
+  const onWeek = (offset: 0 | 1, cleanerId?: string) => {
+    setCleanersWeek({ offset, cleanerId });
+    setCleanersInitialTab("week");
+    setIsCleanersOpen(true);
+  };
   const [ttQuestion, setTtQuestion] = useState<string | undefined>(undefined);
   const onAsk = (question: string) => {
     setTtQuestion(question);
@@ -1350,6 +1362,7 @@ const MainView = ({
               hostName={senderName}
               onDateJump={onDateJump}
               onMonthJump={onMonthJump}
+              onWeek={onWeek}
               onScreen={onScreen}
               onAsk={onAsk}
               currentAirBnBGuest={currentAirBnBGuest}
@@ -1989,6 +2002,8 @@ const MainView = ({
           rooms={rooms}
           initialTab={cleanersInitialTab}
           focusCleanerId={cleanerFocus}
+          initialWeek={cleanersWeek?.offset}
+          weekCleanerId={cleanersWeek?.cleanerId}
           cleaningRules={cleaningRules}
           senderName={senderName}
           planDays={effectivePlanDays}
@@ -1997,6 +2012,7 @@ const MainView = ({
           onClose={() => {
             setIsCleanersOpen(false);
             setCleanersInitialTab(undefined);
+            setCleanersWeek(undefined);
             // So the next open, from the Clean button, is not still on them.
             setCleanerFocus(undefined);
           }}
