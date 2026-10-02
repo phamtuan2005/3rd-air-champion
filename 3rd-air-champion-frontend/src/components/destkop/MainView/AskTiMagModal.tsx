@@ -5,6 +5,9 @@ import { ChatTurn, askTiMag } from "../../../util/aiOperations";
 interface AskTiMagModalProps {
   token: string;
   onClose: () => void;
+  // A question typed into the header's "TT" box and handed over. It is asked
+  // as the window opens, so the host does not type it a second time.
+  initialQuestion?: string;
 }
 
 // What each tool is, said the way the host would say it. A waiting line that
@@ -36,8 +39,13 @@ const STARTERS = [
  * a deliberate line, not a missing feature. A wrong sentence costs a
  * conversation; a wrong write costs a guest at a door at 1am, which this house
  * has already paid for once.
+ *
+ * This is TT. It was "Ask TiMag" until Anh-Tuan named the house's assistant
+ * (2026-10-02: "TT will be the name of AI assistant within TT house") and the
+ * header's box became its door. The file and the route keep the old name; what
+ * the host reads says TT, so the assistant has one name wherever it is met.
  */
-const AskTiMagModal = ({ token, onClose }: AskTiMagModalProps) => {
+const AskTiMagModal = ({ token, onClose, initialQuestion }: AskTiMagModalProps) => {
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -76,6 +84,16 @@ const AskTiMagModal = ({ token, onClose }: AskTiMagModalProps) => {
     }
   };
 
+  // A question handed over from the header's box is asked once, as the window
+  // opens. The ref is what makes it once: `busy` is state, and a second run of
+  // this effect would still see it false and ask the same thing twice.
+  const askedInitial = useRef(false);
+  useEffect(() => {
+    if (askedInitial.current || !initialQuestion?.trim()) return;
+    askedInitial.current = true;
+    send(initialQuestion);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   return createPortal(
     <div
       className="modal-type fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -87,9 +105,9 @@ const AskTiMagModal = ({ token, onClose }: AskTiMagModalProps) => {
       >
         <div className="flex shrink-0 items-start justify-between gap-2 border-b border-gray-100 px-4 py-3">
           <div>
-            <h2 className="text-base font-bold text-gray-900">Ask TiMag</h2>
+            <h2 className="text-base font-bold text-gray-900">Ask TT</h2>
             <p className="text-xs text-gray-500">
-              It reads your calendar, guests and cleanings. It changes nothing.
+              TT reads your calendar, guests and cleanings. It changes nothing.
             </p>
           </div>
           <button

@@ -9,6 +9,7 @@ import { dayType } from "../../../../util/types/dayType";
 import RoomBadge from "../../../shared/RoomBadge";
 import { airbnbGuestList } from "../../../../util/airbnbGuestList";
 import { houseGuestList, isPhoneQuery, matchesTyped, topMatches } from "../../../../util/houseGuestList";
+import { dateTyped, matchesReservation, screensMatching, worthAsking } from "../../../../util/ttIntents";
 import type { SearchWorker } from "../../../../util/searchWorkers";
 
 interface CalendarFilterPickerProps {
@@ -29,6 +30,11 @@ interface CalendarFilterPickerProps {
   onWorkerPick: (worker: SearchWorker) => void;
   // Who is signed in, for TT's greeting: the host, or a cohost.
   hostName?: string;
+  // The rest of what TT understands (util/ttIntents): a day to go to, a
+  // screen to open by its key, and a question to put to the assistant.
+  onDateJump: (dateKey: string) => void;
+  onScreen: (key: string) => void;
+  onAsk: (question: string) => void;
 }
 
 // The most results a search draws under each heading. Past a handful nobody
@@ -91,6 +97,9 @@ const CalendarFilterPicker = ({
   workers,
   onWorkerPick,
   hostName,
+  onDateJump,
+  onScreen,
+  onAsk,
 }: CalendarFilterPickerProps) => {
   // The first name only: "Anh-Tuan", not the full account name.
   const greetName = (hostName ?? "").trim().split(/\s+/)[0] ?? "";
@@ -109,8 +118,17 @@ const CalendarFilterPicker = ({
   const q = query.trim();
   const roomHits = q ? activeRooms.filter((r) => matchesTyped(q, r.name)) : [];
   const house = topMatches(houseRows, (r) => matchesTyped(q, r.name, r.phone), RESULT_LIMIT);
-  // AirBnB gives no phone number, so those are found by name alone.
-  const airbnb = topMatches(airbnbRows, (r) => matchesTyped(q, r.alias), RESULT_LIMIT);
+  // AirBnB gives a first name, a reservation code and the last four digits of
+  // a phone — so those are what an AirBnB guest is found by.
+  const airbnb = topMatches(
+    airbnbRows,
+    (r) => matchesTyped(q, r.alias) || !!matchesReservation(q, r.codes, r.last4s),
+    RESULT_LIMIT,
+  );
+  // A day, when the whole of what was typed is one.
+  const typedDate = q ? dateTyped(q) : null;
+  // A screen, by its name or another word for it.
+  const screens = q ? screensMatching(q) : [];
   // Staff and cleaners, by name or phone like a guest — and by what they do,
   // so "cleaner" brings up the cleaners and "intern" the intern.
   const team = topMatches(
@@ -119,6 +137,10 @@ const CalendarFilterPicker = ({
     RESULT_LIMIT,
   );
   const byPhone = isPhoneQuery(q);
+  const foundAnything =
+    !!typedDate || screens.length > 0 || roomHits.length > 0 || house.total > 0 || airbnb.total > 0 || team.total > 0;
+  // A sentence, or a word that found nothing, is offered to TT as a question.
+  const askable = worthAsking(q, foundAnything);
 
   const close = () => {
     setOpen(false);
@@ -140,13 +162,28 @@ const CalendarFilterPicker = ({
     onWorkerPick(worker);
     close();
   };
+  const pickDate = (key: string) => {
+    onDateJump(key);
+    close();
+  };
+  const pickScreen = (key: string) => {
+    onScreen(key);
+    close();
+  };
+  const ask = () => {
+    onAsk(q);
+    close();
+  };
   // Enter takes the first thing found, in the order it is shown: for a host at
   // a keyboard, "ki" and Enter is the whole gesture.
   const pickFirst = () => {
-    if (roomHits[0]) pickRoom(roomHits[0].name);
+    if (typedDate) pickDate(typedDate);
+    else if (screens[0]) pickScreen(screens[0].key);
+    else if (roomHits[0]) pickRoom(roomHits[0].name);
     else if (house.shown[0]) pickGuest(house.shown[0].id);
     else if (airbnb.shown[0]) pickAirBnB(airbnb.shown[0].alias);
     else if (team.shown[0]) pickWorker(team.shown[0]);
+    else if (askable) ask();
   };
 
   const day = (key: string, pattern: string) => format(new Date(key + "T00:00:00"), pattern);
@@ -215,7 +252,13 @@ const CalendarFilterPicker = ({
       </p>
     ) : null;
 
-  const nothingFound = q && roomHits.length === 0 && house.total === 0 && airbnb.total === 0 && team.total === 0;
+  // Nothing found and too short to be a question: the only dead end left.
+  const nothingFound = q && !foundAnything && !askable;
+  // Each section after the first gets a rule above it.
+  let sectionsShown = 0;
+  const sectionHeading = (text: string) => (
+    <p className={`${heading} ${sectionsShown++ > 0 ? "border-t border-gray-100" : ""}`}>{text}</p>
+  );
 
   const modal = open
     ? createPortal(
@@ -276,7 +319,7 @@ const CalendarFilterPicker = ({
                 onKeyDown={(e) => {
                   if (e.key === "Enter") pickFirst();
                 }}
-                placeholder="Room, guest, staff or phone…"
+                placeholder="A name, a date, a screen, a question…"
                 className="w-full rounded border border-gray-300 px-2.5 py-1.5 text-sm focus:border-gray-400 focus:outline-none"
               />
             </div>
@@ -318,15 +361,49 @@ const CalendarFilterPicker = ({
                       )}
                     </>
                   )}
-                  <p className="px-4 pb-2 pt-3 text-sm text-gray-400">
-                    Type a room, the name of a guest or one of your team, or a phone number.
+                  {/* What TT can be asked, as examples to type rather than a
+                      list of rules to read. */}
+                  <p className="px-4 pb-2 pt-3 text-sm leading-relaxed text-gray-400">
+                    Try a room or a name, a phone number, an AirBnB code, a date such as
+                    “Oct 19”, a screen such as “stats” — or ask me a question.
                   </p>
+                </>
+              )}
+
+              {/* A day: the calendar goes there. First, because when the whole
+                  of what was typed is a date it can be nothing else. */}
+              {typedDate && (
+                <>
+                  {sectionHeading("Go to")}
+                  <button type="button" className={rowClass} onClick={() => pickDate(typedDate)}>
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium text-gray-800">{day(typedDate, "EEEE, MMM d, yyyy")}</span>
+                      <span className="block truncate text-[11px] text-gray-400">Show this day on the calendar</span>
+                    </span>
+                    <span className="ml-auto shrink-0 text-[11px] font-semibold text-gray-400">Calendar ›</span>
+                  </button>
+                </>
+              )}
+
+              {/* A screen, by its name or another word for it. */}
+              {screens.length > 0 && (
+                <>
+                  {sectionHeading("Open")}
+                  {screens.map((s) => (
+                    <button key={s.key} type="button" className={rowClass} onClick={() => pickScreen(s.key)}>
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium text-gray-800">{s.label}</span>
+                        <span className="block truncate text-[11px] text-gray-400">{s.hint}</span>
+                      </span>
+                      <span className="ml-auto shrink-0 text-[11px] font-semibold text-gray-400">Open ›</span>
+                    </button>
+                  ))}
                 </>
               )}
 
               {roomHits.length > 0 && (
                 <>
-                  <p className={heading}>Room</p>
+                  {sectionHeading("Room")}
                   {roomHits.map((room) => (
                     <button key={room.id} type="button" className={rowClass} onClick={() => pickRoom(room.name)}>
                       <RoomBadge room={room} rooms={activeRooms} />
@@ -338,7 +415,7 @@ const CalendarFilterPicker = ({
 
               {house.shown.length > 0 && (
                 <>
-                  <p className={`${heading} ${roomHits.length > 0 ? "border-t border-gray-100" : ""}`}>Guest</p>
+                  {sectionHeading("Guest")}
                   {house.shown.map((r) => (
                     <button key={r.id} type="button" className={rowClass} onClick={() => pickGuest(r.id)}>
                       <span className="min-w-0">
@@ -368,10 +445,12 @@ const CalendarFilterPicker = ({
 
               {airbnb.shown.length > 0 && (
                 <>
-                  <p className={`${heading} ${roomHits.length > 0 || house.shown.length > 0 ? "border-t border-gray-100" : ""}`}>
-                    AirBnB guest
-                  </p>
-                  {airbnb.shown.map((r) => (
+                  {sectionHeading("AirBnB guest")}
+                  {airbnb.shown.map((r) => {
+                    // Found by the code or the four digits rather than by
+                    // name: say which, so the host sees why this guest came up.
+                    const via = matchesReservation(q, r.codes, r.last4s);
+                    return (
                     <button key={r.alias} type="button" className={rowClass} onClick={() => pickAirBnB(r.alias)}>
                       <span className="min-w-0">
                         <span className="block truncate font-medium text-gray-800">{r.alias}</span>
@@ -385,24 +464,24 @@ const CalendarFilterPicker = ({
                               : `Last stayed ${day(r.last ?? todayKey, "MMM d, yyyy")}`}
                           {r.room ? ` · ${r.room}` : ""}
                           {r.stays > 1 ? ` · ${r.stays} stays` : ""}
+                          {via === "code"
+                            ? ` · code ${r.codes.find((c) => c.startsWith(q.toUpperCase())) ?? ""}`
+                            : via === "last4"
+                              ? ` · phone ends ${q}`
+                              : ""}
                         </span>
                       </span>
                       {airbnbValue === r.alias && tick}
                     </button>
-                  ))}
+                    );
+                  })}
                   {more(airbnb.shown.length, airbnb.total)}
                 </>
               )}
 
               {team.shown.length > 0 && (
                 <>
-                  <p
-                    className={`${heading} ${
-                      roomHits.length > 0 || house.shown.length > 0 || airbnb.shown.length > 0 ? "border-t border-gray-100" : ""
-                    }`}
-                  >
-                    Your team
-                  </p>
+                  {sectionHeading("Your team")}
                   {team.shown.map((w) => (
                     <button key={`${w.kind}-${w.id}`} type="button" className={rowClass} onClick={() => pickWorker(w)}>
                       <span className="min-w-0">
@@ -421,6 +500,27 @@ const CalendarFilterPicker = ({
                     </button>
                   ))}
                   {more(team.shown.length, team.total)}
+                </>
+              )}
+
+              {/* A question, handed to TT. Last, so a name that also happens
+                  to be three words long still shows its matches first; and
+                  shown in place of "nothing matches" when nothing did, since
+                  that was a dead end and this is not. TT reads the books and
+                  changes nothing — said here, before the tap. */}
+              {askable && (
+                <>
+                  {sectionHeading("Ask TT")}
+                  <button type="button" className={rowClass} onClick={ask}>
+                    {ttBadge("h-6 w-6", 14)}
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium text-gray-800">“{q}”</span>
+                      <span className="block truncate text-[11px] text-gray-400">
+                        TT looks it up in your calendar, guests and cleanings
+                      </span>
+                    </span>
+                    <span className="ml-auto shrink-0 text-[11px] font-semibold text-gray-400">Ask ›</span>
+                  </button>
                 </>
               )}
 

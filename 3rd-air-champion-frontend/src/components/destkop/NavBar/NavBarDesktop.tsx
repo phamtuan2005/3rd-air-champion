@@ -318,7 +318,7 @@ const NavBarDesktop = ({
           run: () => setIsCleanersOpen(true),
         },
         {
-          label: "Ask TiMag",
+          label: "Ask TT",
           desc: "A conversation with your books — occupancy, money, guests, cleanings.",
           emoji: "💬",
           hover: "hover:border-violet-300 hover:text-violet-600",

@@ -26,6 +26,11 @@ interface CalendarNavigatorProps {
   onWorkerPick: (worker: SearchWorker) => void;
   // Who is signed in, for TT's greeting.
   hostName?: string;
+  // The rest of what TT understands: a day to go to, a screen to open, and a
+  // question for the assistant. Passed straight through to the box.
+  onDateJump: (dateKey: string) => void;
+  onScreen: (key: string) => void;
+  onAsk: (question: string) => void;
   monthMap: Map<string, dayType>;
   occupancy: {
     totalOccupancy: number;
@@ -67,6 +72,9 @@ const CalendarNavigator = ({
   workers,
   onWorkerPick,
   hostName,
+  onDateJump,
+  onScreen,
+  onAsk,
   monthMap,
   occupancy,
   profit,
@@ -182,6 +190,9 @@ const CalendarNavigator = ({
                 workers={workers}
                 onWorkerPick={onWorkerPick}
                 hostName={hostName}
+                onDateJump={onDateJump}
+                onScreen={onScreen}
+                onAsk={onAsk}
               />
               {/* One view mode, not two independent flags. Gaps and Cleaners
                   each re-read the same calendar, so they were never meaningfully
@@ -239,6 +250,9 @@ const CalendarNavigator = ({
                 workers={workers}
                 onWorkerPick={onWorkerPick}
                 hostName={hostName}
+                onDateJump={onDateJump}
+                onScreen={onScreen}
+                onAsk={onAsk}
               />
             </div>
             <div className="flex items-center gap-2">
@@ -317,6 +331,9 @@ const CalendarNavigator = ({
                 workers={workers}
                 onWorkerPick={onWorkerPick}
                 hostName={hostName}
+                onDateJump={onDateJump}
+                onScreen={onScreen}
+                onAsk={onAsk}
               />
             </div>
             <div className="flex items-center gap-2 mx-auto">
