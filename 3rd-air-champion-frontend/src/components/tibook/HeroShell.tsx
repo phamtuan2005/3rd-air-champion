@@ -649,9 +649,12 @@ const HeroShell = ({
         )}
 
         {/* The same calendar the stacked layout uses, scoped by the same
-            selectedRoomIds. Nothing about availability is re-decided here. */}
+            selectedRoomIds. Nothing about availability is re-decided here.
+            Only its type differs: Hero's month reads a size up (largeType),
+            which Anh-Tuan asked for in this layout and not in the classic. */}
         <div className="flex min-h-0 flex-1 flex-col">
           <GuestCalendar
+            largeType
             currentMonth={currentMonth}
             monthMap={monthMap}
             rooms={rooms}
