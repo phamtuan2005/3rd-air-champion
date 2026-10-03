@@ -95,7 +95,7 @@ export const fetchMonthSpend = async (
       // key. Everything else is Anthropic's day, not his.
       throw new Error(
         res.status === 401
-          ? "Anthropic rejected the admin key. It must be an Admin API key (sk-ant-admin01-…)."
+          ? "Anthropic will not show the spend to this key. It needs an Admin API key (sk-ant-admin01-…) as ANTHROPIC_ADMIN_KEY, which the Console offers once an organization is set up."
           : `Anthropic's cost report is unavailable (${res.status}).`,
       );
     }

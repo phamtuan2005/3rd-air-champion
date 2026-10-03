@@ -436,11 +436,16 @@ const SPEND_CACHE_MS = 5 * 60 * 1000;
 
 router.get("/spend", async (req: Request, res: any) => {
   if (!("user" in req)) return res.status(401).json({ error: "Invalid or expired token" });
-  const adminKey = process.env.ANTHROPIC_ADMIN_KEY;
+  // An Admin key when there is one. Anh-Tuan's Console is an individual
+  // organization, which has no Admin keys page, and the docs allow the cost
+  // report to "a personal key that isn't scoped to a workspace" — so the key
+  // TT answers with is tried in its place rather than sending him to set up
+  // an organization on a guess. If Anthropic turns it down, the 401 below
+  // says so in words.
+  const adminKey = process.env.ANTHROPIC_ADMIN_KEY || process.env.ANTHROPIC_API_KEY;
   if (!adminKey) {
-    // Said as the step that makes it work, since that step is the host's.
     return res.status(503).json({
-      error: "Spend needs an Admin API key on the server: add ANTHROPIC_ADMIN_KEY to the backend .env.",
+      error: "Spend needs a key on the server: ANTHROPIC_ADMIN_KEY, or the ANTHROPIC_API_KEY TT answers with.",
     });
   }
   try {
