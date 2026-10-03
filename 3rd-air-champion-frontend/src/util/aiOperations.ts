@@ -102,3 +102,31 @@ export const askTiMag = async (
   if (!result) throw "The assistant stopped before answering.";
   return result;
 };
+
+export interface Spend {
+  month: string; // yyyy-MM-dd, the first of the month covered
+  monthUsd: number;
+  todayUsd: number;
+  days: { date: string; usd: number }[];
+}
+
+/**
+ * What TT has cost this month, in dollars, from Anthropic's own cost report.
+ *
+ * Resolves to a message instead of a figure when the server cannot say — most
+ * often because the Admin key is not set up yet, which the message names as
+ * the step to take. A string, not a throw: the spend line is a courtesy under
+ * the title, and a courtesy must never break the window it sits in.
+ */
+export const fetchSpend = async (token: string): Promise<Spend | string> => {
+  try {
+    const res = await fetch(`${BACKEND_ENDPOINT}/ai/spend`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const body = await res.json().catch(() => null);
+    if (!res.ok) return body?.error ?? `Spend is unavailable (${res.status}).`;
+    return body as Spend;
+  } catch {
+    return "Could not reach the server for the spend.";
+  }
+};

@@ -42,6 +42,8 @@ export const TT_SCREENS: TTScreen[] = [
   { key: "rates", label: "Rates", hint: "Guest and room rates", words: ["prices", "pricing", "rate"] },
   { key: "reminderTemplate", label: "Reminder template", hint: "The text a guest gets the day before", words: ["template", "reminder message", "reminder text"] },
   { key: "bookingTemplate", label: "Booking template", hint: "The confirmation text for a booking", words: ["template", "confirmation message", "booking message"] },
+  // TT's own window, which also carries what TT has cost this month.
+  { key: "assistant", label: "Ask TT", hint: "The assistant, and what it has cost this month", words: ["spend", "spending", "api cost", "api credit", "credit", "usage", "tt cost"] },
 ];
 
 /**

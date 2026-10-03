@@ -777,6 +777,7 @@ const MainView = ({
       misc: () => setIsMiscOpen(true),
       charges: () => setIsChargesOpen(true),
       rates: () => setIsRatesOpen(true),
+      assistant: () => setIsAskTiMagOpen(true),
       reminderTemplate: () => setTtModal("reminderTemplate"),
       bookingTemplate: () => setTtModal("bookingTemplate"),
       visitors: () => setTtModal("visitors"),
