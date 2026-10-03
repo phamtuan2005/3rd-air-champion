@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChatTurn, askTiMag } from "../../../util/aiOperations";
+import { ChatTurn, Spend, askTiMag, fetchSpend } from "../../../util/aiOperations";
 
 interface AskTiMagModalProps {
   token: string;
@@ -52,6 +52,20 @@ const AskTiMagModal = ({ token, onClose, initialQuestion }: AskTiMagModalProps) 
   const [doing, setDoing] = useState<string>("");
   const [error, setError] = useState("");
   const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  // What TT has cost this month, under the title. Anh-Tuan asked to know his
+  // remaining API credit; the balance is only in the Anthropic Console, but
+  // the spend is readable, and spend against a known top-up is the same
+  // answer. Fetched once per opening; the server caches it for five minutes.
+  const [spend, setSpend] = useState<Spend | string | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetchSpend(token).then((s) => live && setSpend(s));
+    return () => {
+      live = false;
+    };
+  }, [token]);
+  const usd = (n: number) => `$${n.toFixed(2)}`;
 
   // Follow the conversation down as it grows, including while an answer is
   // being waited on — the "thinking" line is the thing worth seeing.
@@ -109,6 +123,15 @@ const AskTiMagModal = ({ token, onClose, initialQuestion }: AskTiMagModalProps) 
             <p className="text-xs text-gray-500">
               TT reads your calendar, guests and cleanings. It changes nothing.
             </p>
+            {/* The month's spend, or the one step that would show it. Figures
+                are Anthropic's own and about five minutes behind. */}
+            {spend !== null && (
+              <p className="mt-0.5 text-xs text-gray-400" title={typeof spend === "string" ? undefined : "From Anthropic's cost report, about five minutes behind"}>
+                {typeof spend === "string"
+                  ? spend
+                  : `Spent ${usd(spend.monthUsd)} this month · ${usd(spend.todayUsd)} today`}
+              </p>
+            )}
           </div>
           <button
             type="button"

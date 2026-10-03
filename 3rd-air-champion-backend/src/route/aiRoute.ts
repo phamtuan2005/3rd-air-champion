@@ -9,6 +9,7 @@ import { dayKey } from "../util/arrivingGuests";
 import { findAssignments } from "../util/assignmentQuery";
 import { loadCleaningDays } from "../util/cleaningDays";
 import { cleaningPlan, planCounts, UNASSIGNED } from "../util/cleaningPlan";
+import { fetchMonthSpend } from "../util/apiSpend";
 
 // TiMag's agent — a conversation with somebody who can actually see the books.
 //
@@ -420,6 +421,40 @@ router.post("/chat", async (req: Request, res: any) => {
   } finally {
     clearInterval(heartbeat);
     res.end();
+  }
+});
+
+// ── What TT has cost ─────────────────────────────────────────────────────────
+//
+// "Can I also know API remaining credit?" The balance is the Console's alone;
+// this is the spend, this month and today, from the Admin API's cost report.
+// It needs ANTHROPIC_ADMIN_KEY on the server — a different key from the one
+// TT answers with. Cached for five minutes: Anthropic asks for at most one
+// poll a minute, and the figure is five minutes behind anyway.
+let spendCache: { at: number; spend: Awaited<ReturnType<typeof fetchMonthSpend>> } | null = null;
+const SPEND_CACHE_MS = 5 * 60 * 1000;
+
+router.get("/spend", async (req: Request, res: any) => {
+  if (!("user" in req)) return res.status(401).json({ error: "Invalid or expired token" });
+  // An Admin key when there is one. Anh-Tuan's Console is an individual
+  // organization, which has no Admin keys page, and the docs allow the cost
+  // report to "a personal key that isn't scoped to a workspace" — so the key
+  // TT answers with is tried in its place rather than sending him to set up
+  // an organization on a guess. If Anthropic turns it down, the 401 below
+  // says so in words.
+  const adminKey = process.env.ANTHROPIC_ADMIN_KEY || process.env.ANTHROPIC_API_KEY;
+  if (!adminKey) {
+    return res.status(503).json({
+      error: "Spend needs a key on the server: ANTHROPIC_ADMIN_KEY, or the ANTHROPIC_API_KEY TT answers with.",
+    });
+  }
+  try {
+    if (!spendCache || Date.now() - spendCache.at > SPEND_CACHE_MS) {
+      spendCache = { at: Date.now(), spend: await fetchMonthSpend(adminKey) };
+    }
+    res.status(200).json(spendCache.spend);
+  } catch (error: any) {
+    res.status(502).json({ error: error?.message ?? "Could not read the spend." });
   }
 });
 

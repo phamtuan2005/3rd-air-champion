@@ -19,6 +19,9 @@ describe("a screen, by a word for it", () => {
     expect(labels("occupancy")).toEqual(["Stats"]);
     expect(labels("inbox")).toEqual(["Messages"]);
     expect(labels("todo")).toEqual(["To Do"]);
+    // "Can I also know API remaining credit?" — the spend is in TT's window.
+    expect(labels("spend")).toEqual(["Ask TT"]);
+    expect(labels("credit")).toEqual(["Ask TT"]);
   });
 
   it("offers both templates for the word they share", () => {
