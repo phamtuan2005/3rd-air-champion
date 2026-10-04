@@ -53,10 +53,11 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], monthMap, onCl
   // Which charge is open for editing, and the draft being typed into it. Held
   // apart from the list so an abandoned edit never touches what is on screen.
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<{ amount: string; label: string; note: string }>({
+  const [draft, setDraft] = useState<{ amount: string; label: string; note: string; date: string }>({
     amount: "",
     label: "Other",
     note: "",
+    date: "",
   });
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -64,10 +65,18 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], monthMap, onCl
   // cancellation; this is the way in for a fee whose stay is already gone —
   // Eddie's, for one, cancelled before charges existed.
   const [adding, setAdding] = useState(false);
+  // The day a charge belongs to. It used to be set silently to whatever day
+  // the calendar was on, and the host could neither see it nor change it —
+  // then went looking for the fee in another day's Profit tab, where it is
+  // not, because a charge is counted on the ONE day it is dated to. Anh-Tuan,
+  // 2026-10-04: "Why in the profit tab of bookings card, the guests charge is
+  // not included?" So the date is on the form, and defaults to today.
+  const todayKey = format(new Date(), "yyyy-MM-dd");
   const [newDraft, setNewDraft] = useState({
     guest: "",
     // The AirBnB guest's name, when it is one of theirs; "" for a house guest.
     alias: "",
+    date: todayKey,
     amount: "",
     label: "Cancellation" as string,
     note: "",
@@ -199,7 +208,7 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], monthMap, onCl
 
   const startEdit = (c: ChargeType) => {
     setEditingId(c.id);
-    setDraft({ amount: String(c.amount), label: c.label, note: c.note });
+    setDraft({ amount: String(c.amount), label: c.label, note: c.note, date: c.date });
   };
 
   const saveEdit = async (c: ChargeType) => {
@@ -210,7 +219,11 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], monthMap, onCl
       setError("A charge has to be more than $0. Delete it instead to remove it.");
       return;
     }
-    if (await patch(c.id, { id: c.id, amount, label: draft.label, note: draft.note }))
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.date)) {
+      setError("Pick the day the charge belongs to.");
+      return;
+    }
+    if (await patch(c.id, { id: c.id, amount, label: draft.label, note: draft.note, date: draft.date }))
       setEditingId(null);
   };
 
@@ -224,6 +237,10 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], monthMap, onCl
       setError("A charge has to be more than $0.");
       return;
     }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(newDraft.date)) {
+      setError("Pick the day the charge belongs to.");
+      return;
+    }
     setSavingNew(true);
     try {
       const created = await createCharge(
@@ -234,16 +251,16 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], monthMap, onCl
           label: newDraft.label,
           amount,
           paid: newDraft.paid,
-          // Dated into the month on screen, so a fee remembered late still lands
-          // in the month it belongs to rather than today's.
-          date: format(month, "yyyy-MM-dd"),
+          date: newDraft.date,
           note: newDraft.note,
         },
         token,
       );
       setCharges((prev) => [created, ...prev]);
       setAdding(false);
-      setNewDraft({ guest: "", alias: "", amount: "", label: "Cancellation", note: "", paid: false });
+      // And the list turns to the month it landed in, so it is seen to land.
+      setMonth(new Date(created.date + "T00:00:00"));
+      setNewDraft({ guest: "", alias: "", date: todayKey, amount: "", label: "Cancellation", note: "", paid: false });
       setError(null);
     } catch {
       setError("That charge could not be saved.");
@@ -459,6 +476,17 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], monthMap, onCl
                     ))}
                   </select>
                 </div>
+                {/* The day it belongs to: the one day whose Profit tab will
+                    carry it, and the month whose total it joins. */}
+                <label className="flex items-center gap-2 text-xs font-semibold text-amber-800">
+                  On
+                  <input
+                    type="date"
+                    value={newDraft.date}
+                    onChange={(e) => setNewDraft((d) => ({ ...d, date: e.target.value }))}
+                    className={`${inputCls} font-semibold text-gray-900`}
+                  />
+                </label>
                 <input
                   type="text"
                   value={newDraft.note}
@@ -495,7 +523,11 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], monthMap, onCl
                     onClick={saveNew}
                     className="rounded-lg bg-gray-900 px-3 py-1.5 text-sm font-bold text-white disabled:bg-gray-300"
                   >
-                    {savingNew ? "Saving…" : `Add to ${format(month, "MMMM")}`}
+                    {savingNew
+                      ? "Saving…"
+                      : /^\d{4}-\d{2}-\d{2}$/.test(newDraft.date)
+                        ? `Add to ${format(new Date(newDraft.date + "T00:00:00"), "MMM d")}`
+                        : "Add"}
                   </button>
                 </div>
               </div>
@@ -551,7 +583,9 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], monthMap, onCl
                           >
                             {c.label}
                           </span>
-                          <span className="text-[11px] text-gray-500">{c.date}</span>
+                          <span className="text-[11px] text-gray-500">
+                            {format(new Date(c.date + "T00:00:00"), "EEE MMM d")}
+                          </span>
                           {!c.paid && (
                             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">
                               Unpaid
@@ -602,6 +636,15 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], monthMap, onCl
                             ))}
                           </select>
                         </div>
+                        <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+                          On
+                          <input
+                            type="date"
+                            value={draft.date}
+                            onChange={(e) => setDraft((d) => ({ ...d, date: e.target.value }))}
+                            className={`${inputCls} font-semibold text-gray-900`}
+                          />
+                        </label>
                         <input
                           type="text"
                           value={draft.note}
