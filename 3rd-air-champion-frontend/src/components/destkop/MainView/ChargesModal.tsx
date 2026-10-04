@@ -12,6 +12,8 @@ import {
   updateCharge,
 } from "../../../util/chargeOperations";
 import { guestType } from "../../../util/types/guestType";
+import { dayType } from "../../../util/types/dayType";
+import { airbnbGuestList } from "../../../util/airbnbGuestList";
 
 interface ChargesModalProps {
   hostId: string;
@@ -20,6 +22,9 @@ interface ChargesModalProps {
   // Needed to charge somebody whose stay is already gone — a fee remembered
   // after the cancellation, or damage found during a clean.
   guests?: guestType[];
+  // The calendar, for the AirBnB guests on it: they are found by the name
+  // AirBnB gives them, which lives on their stays and nowhere else.
+  monthMap?: Map<string, dayType>;
   onClose: () => void;
 }
 
@@ -40,7 +45,7 @@ const inputCls =
 // Charges are CREATED at the moment of unbooking (the only moment the room, the
 // dates and the guest are all still known); this is where they are corrected,
 // marked paid, or removed afterwards. Without it a mistyped fee was permanent.
-const ChargesModal = ({ hostId, token, currentMonth, guests = [], onClose }: ChargesModalProps) => {
+const ChargesModal = ({ hostId, token, currentMonth, guests = [], monthMap, onClose }: ChargesModalProps) => {
   const [month, setMonth] = useState<Date>(currentMonth ?? new Date());
   const [charges, setCharges] = useState<ChargeType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,6 +66,8 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], onClose }: Cha
   const [adding, setAdding] = useState(false);
   const [newDraft, setNewDraft] = useState({
     guest: "",
+    // The AirBnB guest's name, when it is one of theirs; "" for a house guest.
+    alias: "",
     amount: "",
     label: "Cancellation" as string,
     note: "",
@@ -94,14 +101,27 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], onClose }: Cha
     [charges, monthKey],
   );
 
-  // AirBnB is one shared placeholder record, not a person you can charge —
-  // AirBnB settles its own fees.
+  // The house's own guests. AirBnB's placeholder record is not among them: it
+  // is one record for every AirBnB stay, not a person — those are listed next,
+  // by name.
   const chargeableGuests = useMemo(
     () =>
       [...guests]
         .filter((g) => g.name !== "AirBnB")
         .sort((a, b) => a.name.localeCompare(b.name)),
     [guests],
+  );
+  // AirBnB guests, by the name AirBnB gives them. Until 2026-10-03 they could
+  // not be charged at all — "AirBnB settles its own fees" — which is true of
+  // the stay but not of a cancellation: when an AirBnB guest cancels, AirBnB
+  // pays the house a cancellation fee, and that is money to write down like
+  // any other. The charge hangs off the placeholder record with the alias
+  // saying who. A cancelled stay is kept in the data, so the name is still
+  // here to pick.
+  const airbnbRecord = guests.find((g) => g.name === "AirBnB");
+  const airbnbRows = useMemo(
+    () => (monthMap && airbnbRecord ? airbnbGuestList(monthMap, format(new Date(), "yyyy-MM-dd")) : []),
+    [monthMap, airbnbRecord],
   );
 
   // Empty query lists everyone, so the picker still browses the way the old
@@ -118,8 +138,17 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], onClose }: Cha
       return digits.length >= 2 && (g.phone ?? "").replace(/\D/g, "").includes(digits);
     });
   }, [chargeableGuests, guestQuery]);
+  // AirBnB guests only once something is typed: the house's own guests are
+  // the shorter list and lead when browsing, and an AirBnB name is always
+  // typed from the cancellation notice in hand.
+  const airbnbMatches = useMemo(() => {
+    const q = guestQuery.trim().toLowerCase();
+    if (!q) return [];
+    return airbnbRows.filter((r) => r.alias.toLowerCase().includes(q)).slice(0, 8);
+  }, [airbnbRows, guestQuery]);
 
   const chosenGuest = chargeableGuests.find((g) => g.id === newDraft.guest);
+  const chosenName = newDraft.alias || (chosenGuest ? chosenGuest.alias || chosenGuest.name : "");
 
   const total = monthCharges.reduce((s, c) => s + c.amount, 0);
   const unpaid = monthCharges.filter((c) => !c.paid);
@@ -173,6 +202,7 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], onClose }: Cha
         {
           host: hostId,
           guest: newDraft.guest,
+          alias: newDraft.alias,
           label: newDraft.label,
           amount,
           paid: newDraft.paid,
@@ -185,7 +215,7 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], onClose }: Cha
       );
       setCharges((prev) => [created, ...prev]);
       setAdding(false);
-      setNewDraft({ guest: "", amount: "", label: "Cancellation", note: "", paid: false });
+      setNewDraft({ guest: "", alias: "", amount: "", label: "Cancellation", note: "", paid: false });
       setError(null);
     } catch {
       setError("That charge could not be saved.");
@@ -270,16 +300,17 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], onClose }: Cha
                     are on screen: this is a form about charging THAT person, and
                     a list still sitting under it is a list you can misfire on.
                     The x is how you change your mind. */}
-                {chosenGuest ? (
+                {chosenName ? (
                   <div className={`${inputCls} flex w-full items-center justify-between gap-2 font-semibold`}>
                     <span className="truncate text-gray-900">
-                      {chosenGuest.alias || chosenGuest.name}
+                      {chosenName}
+                      {newDraft.alias && <span className="ml-1.5 text-xs font-bold text-rose-500">AirBnB</span>}
                     </span>
                     <button
                       type="button"
                       aria-label="Choose someone else"
                       onClick={() => {
-                        setNewDraft((d) => ({ ...d, guest: "" }));
+                        setNewDraft((d) => ({ ...d, guest: "", alias: "" }));
                         setGuestQuery("");
                         setGuestOpen(true);
                       }}
@@ -306,14 +337,15 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], onClose }: Cha
                     />
                     {guestOpen && (
                       <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-xl border border-gray-100 bg-white shadow-xl">
-                        {guestMatches.length === 0 ? (
+                        {guestMatches.length === 0 && airbnbMatches.length === 0 ? (
                           <p className="px-3 py-2 text-sm text-gray-400">
                             {chargeableGuests.length === 0
                               ? "No guests to charge yet."
                               : "Nobody by that name or number."}
                           </p>
                         ) : (
-                          guestMatches.map((g) => (
+                          <>
+                          {guestMatches.map((g) => (
                             <button
                               key={g.id}
                               type="button"
@@ -329,7 +361,37 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], onClose }: Cha
                             >
                               {g.alias || g.name}
                             </button>
-                          ))
+                          ))}
+                          {airbnbMatches.map((r) => (
+                            <button
+                              key={`airbnb-${r.alias}`}
+                              type="button"
+                              onMouseDown={() => {
+                                setNewDraft((d) => ({
+                                  ...d,
+                                  guest: airbnbRecord?.id ?? "",
+                                  alias: r.alias,
+                                  // AirBnB pays a cancellation fee out with the
+                                  // next payout; the host is writing down money
+                                  // that has come, or is coming, on its own.
+                                  paid: true,
+                                }));
+                                setGuestQuery("");
+                                setGuestOpen(false);
+                              }}
+                              className="flex w-full items-center justify-between gap-2 border-b border-gray-50 px-3 py-2 text-left text-sm text-gray-800 last:border-0 hover:bg-amber-50"
+                            >
+                              <span className="truncate">
+                                {r.alias}
+                                <span className="ml-1.5 text-xs text-gray-400">
+                                  {r.room}
+                                  {(r.next ?? r.last) ? ` · ${format(new Date((r.next ?? r.last) + "T00:00:00"), "MMM d")}` : ""}
+                                </span>
+                              </span>
+                              <span className="shrink-0 text-xs font-bold text-rose-500">AirBnB</span>
+                            </button>
+                          ))}
+                          </>
                         )}
                       </div>
                     )}
@@ -443,7 +505,10 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], onClose }: Cha
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-bold text-gray-900">{c.guest.name}</p>
+                        <p className="truncate text-sm font-bold text-gray-900">
+                          {c.alias || c.guest.name}
+                          {c.alias && <span className="ml-1.5 text-xs font-bold text-rose-500">AirBnB</span>}
+                        </p>
                         <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
                           <span
                             className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
@@ -574,7 +639,7 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], onClose }: Cha
                         >
                           Edit
                         </button>
-                        {c.guest.phone && (
+                        {c.guest.phone && !c.alias && (
                           <a
                             href={`sms:${c.guest.phone}?&body=${encodeURIComponent(
                               `Hi ${c.guest.name.split(" ")[0]}, just a note about the ${c.label.toLowerCase()} fee of $${money(c.amount)}. Thank you! — Anh-Tuan`,

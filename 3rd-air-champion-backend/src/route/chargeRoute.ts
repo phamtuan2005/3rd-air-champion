@@ -13,6 +13,8 @@ const serialize = (c: any) => ({
   guest: c.guest?._id
     ? { id: c.guest._id, name: c.guest.name, phone: c.guest.phone ?? "" }
     : { id: c.guest, name: "(guest removed)", phone: "" },
+  // Who, for an AirBnB guest — the placeholder record above is only "AirBnB".
+  alias: c.alias ?? "",
   label: c.label,
   amount: c.amount,
   date: c.date,
@@ -39,7 +41,7 @@ router.get("/list", async (req: Request, res: any) => {
 });
 
 router.post("/create", async (req: Request, res: any) => {
-  const { host, guest, label, amount, date, note, paid, roomName, stayStart, stayNights } =
+  const { host, guest, alias, label, amount, date, note, paid, roomName, stayStart, stayNights } =
     req.body;
   if (!host || !guest || amount == null || !date)
     return res.status(400).json({ error: "host, guest, amount and date are required" });
@@ -47,6 +49,7 @@ router.post("/create", async (req: Request, res: any) => {
     const item = await Charge.create({
       host,
       guest,
+      alias: alias ?? "",
       label: label || "Other",
       amount,
       date,

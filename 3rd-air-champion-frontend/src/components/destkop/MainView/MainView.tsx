@@ -2033,6 +2033,7 @@ const MainView = ({
           token={token as string}
           currentMonth={currentMonth}
           guests={guests}
+          monthMap={monthMap}
           onClose={() => setIsChargesOpen(false)}
         />
       )}
