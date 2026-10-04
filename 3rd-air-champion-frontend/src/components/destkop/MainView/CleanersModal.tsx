@@ -1506,15 +1506,23 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
   };
 
   // Remove one logged payout. Two taps, like recording one — this moves money.
-  const handleRemovePayment = (cleanerId: string, paymentId: string) => {
-    if (removeArmed !== paymentId) {
-      setRemoveArmed(paymentId);
+  // One Remove per payday. A payout and its tip are two records, and each had
+  // its own ×; two small crosses on one line read as a puzzle (Anh-Tuan,
+  // 2026-10-04). Armed on the first tap, the day's payments go together on
+  // the second — one after the other, so a failure half-way leaves the rest
+  // on screen rather than silently gone.
+  const handleRemovePayment = (cleanerId: string, paymentIds: string | string[]) => {
+    const ids = Array.isArray(paymentIds) ? paymentIds : [paymentIds];
+    const armKey = ids.join("+");
+    if (removeArmed !== armKey) {
+      setRemoveArmed(armKey);
       return;
     }
     if (removingRef.current) return;
     removingRef.current = true;
     setRemoving(true);
-    removeCleanerPayment(cleanerId, paymentId, token)
+    ids
+      .reduce((chain, id) => chain.then(() => removeCleanerPayment(cleanerId, id, token)), Promise.resolve() as Promise<unknown>)
       .then(() => {
         setRemoveArmed(null);
         setError("");
@@ -3579,7 +3587,8 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                       <div className="mb-1 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wide text-gray-400">
                         <span className="w-14 shrink-0">Paid</span>
                         <span className="flex-1">Earning</span>
-                        <span className="w-24 shrink-0 text-right">Tip</span>
+                        <span className="w-20 shrink-0">Tip</span>
+                        <span className="w-16 shrink-0" />
                       </div>
                       {/* One line per day paid, wages and tip side by side —
                           the same shape Staffing's Payroll took on 2026-10-01
@@ -3589,56 +3598,48 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                       {(() => {
                         const byDay = new Map<string, typeof entry.payments>();
                         for (const p of entry.payments ?? []) byDay.set(p.paidOn, [...(byDay.get(p.paidOn) ?? []), p]);
-                        const cell = (p: NonNullable<typeof entry.payments>[number]) => (
-                          <span key={p.id} className="inline-flex items-center gap-1">
-                            <span className={`text-sm font-semibold ${p.amount < 0 ? "text-red-600" : "text-gray-800"}`}>
-                              {p.amount < 0 ? "−" : ""}${money(Math.abs(p.amount))}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleRemovePayment(entry.id, p.id)}
-                              disabled={removing}
-                              aria-label="Remove this payment"
-                              title="Remove this payment"
-                              className={`rounded-md px-1.5 py-0.5 text-[12px] font-semibold transition-colors ${
-                                removing ? "opacity-40" : ""
-                              } ${
-                                removeArmed === p.id
-                                  ? "bg-red-600 text-white"
-                                  : "text-gray-300 hover:text-red-600"
-                              }`}
-                            >
-                              {removeArmed === p.id ? "Confirm" : "×"}
-                            </button>
+                        const amount = (p: NonNullable<typeof entry.payments>[number]) => (
+                          <span key={p.id} className={`text-sm font-semibold ${p.amount < 0 ? "text-red-600" : "text-gray-800"}`}>
+                            {p.amount < 0 ? "−" : ""}${money(Math.abs(p.amount))}
                           </span>
                         );
                         return [...byDay.entries()]
                           .sort(([a], [b]) => b.localeCompare(a))
-                          .map(([paidOn, list]) => (
+                          .map(([paidOn, list]) => {
+                            const ids = list!.map((p) => p.id);
+                            const armed = removeArmed === ids.join("+");
+                            return (
                             <div key={paidOn} className="flex items-center gap-2 border-b border-gray-100 py-1 last:border-b-0">
                               <span className="w-14 shrink-0 text-[13px] text-gray-500">
                                 {format(new Date(paidOn + "T00:00:00"), "MMM d")}
                               </span>
                               <span className="flex flex-1 flex-wrap items-center gap-x-2">
-                                {list!.filter((p) => !p.tip).map(cell)}
+                                {list!.filter((p) => !p.tip).map(amount)}
                               </span>
-                              {/* The tip column. A tip and a payout look the
-                                  same in a list of amounts, and they mean
-                                  opposite things for what is still owed. */}
-                              <span className="flex w-24 shrink-0 items-center justify-end gap-1">
-                                {list!.some((p) => p.tip) && (
-                                  <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-700">
-                                    tip
-                                  </span>
-                                )}
-                                {list!.filter((p) => p.tip).map(cell)}
+                              {/* The tip column: the amount alone, under its
+                                  heading. A tip and a payout look the same in
+                                  a list of amounts, and they mean opposite
+                                  things for what is still owed. */}
+                              <span className="flex w-20 shrink-0 flex-wrap items-center gap-x-2 text-violet-700">
+                                {list!.filter((p) => p.tip).map(amount)}
                               </span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemovePayment(entry.id, ids)}
+                                disabled={removing}
+                                className={`w-16 shrink-0 rounded-md px-1.5 py-0.5 text-right text-[12px] font-semibold transition-colors ${
+                                  removing ? "opacity-40" : ""
+                                } ${armed ? "bg-red-600 text-center text-white" : "text-gray-400 hover:text-red-600"}`}
+                              >
+                                {armed ? "Confirm" : "Remove"}
+                              </button>
                             </div>
-                          ));
+                            );
+                          });
                       })()}
                       {(entry.openingPaid ?? 0) > 0.005 && (
                         <div className="flex items-center gap-2 py-1 text-gray-400">
-                          <span className="w-20 shrink-0 text-[13px]">earlier</span>
+                          <span className="w-14 shrink-0 text-[13px]">earlier</span>
                           <span className="flex-1 text-sm font-semibold">
                             ${money(entry.openingPaid!)}
                           </span>
