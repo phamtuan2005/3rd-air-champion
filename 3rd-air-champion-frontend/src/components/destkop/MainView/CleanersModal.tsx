@@ -3576,48 +3576,66 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                       be undone without guessing an offsetting amount. */}
                   {((entry.payments?.length ?? 0) > 0 || (entry.openingPaid ?? 0) > 0.005) && (
                     <div className="mt-2 rounded-xl border border-gray-200 p-2">
-                      <p className="mb-1 text-[12px] font-semibold uppercase tracking-wide text-gray-400">
-                        Payments
-                      </p>
-                      {(entry.payments ?? []).map((p) => (
-                        <div
-                          key={p.id}
-                          className="flex items-center gap-2 border-b border-gray-100 py-1 last:border-b-0"
-                        >
-                          <span className="w-20 shrink-0 text-[13px] text-gray-500">
-                            {format(new Date(p.paidOn + "T00:00:00"), "MMM d")}
-                          </span>
-                          <span
-                            className={`flex-1 text-sm font-semibold ${
-                              p.amount < 0 ? "text-red-600" : "text-gray-800"
-                            }`}
-                          >
-                            {p.amount < 0 ? "−" : ""}${money(Math.abs(p.amount))}
-                          </span>
-                          {/* Which money this was. A tip and a payout look the
-                              same in a list of amounts, and they mean opposite
-                              things for what is still owed. */}
-                          {p.tip && (
-                            <span className="shrink-0 rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-700">
-                              tip
+                      <div className="mb-1 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wide text-gray-400">
+                        <span className="w-14 shrink-0">Paid</span>
+                        <span className="flex-1">Earning</span>
+                        <span className="w-24 shrink-0 text-right">Tip</span>
+                      </div>
+                      {/* One line per day paid, wages and tip side by side —
+                          the same shape Staffing's Payroll took on 2026-10-01
+                          at Anh-Tuan's asking, since a tip stored as its own
+                          payment made one paycheck read as two. Each amount
+                          keeps its own Remove: they are still two records. */}
+                      {(() => {
+                        const byDay = new Map<string, typeof entry.payments>();
+                        for (const p of entry.payments ?? []) byDay.set(p.paidOn, [...(byDay.get(p.paidOn) ?? []), p]);
+                        const cell = (p: NonNullable<typeof entry.payments>[number]) => (
+                          <span key={p.id} className="inline-flex items-center gap-1">
+                            <span className={`text-sm font-semibold ${p.amount < 0 ? "text-red-600" : "text-gray-800"}`}>
+                              {p.amount < 0 ? "−" : ""}${money(Math.abs(p.amount))}
                             </span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => handleRemovePayment(entry.id, p.id)}
-                            disabled={removing}
-                            className={`shrink-0 rounded-md px-2 py-0.5 text-[12px] font-semibold transition-colors ${
-                              removing ? "opacity-40" : ""
-                            } ${
-                              removeArmed === p.id
-                                ? "bg-red-600 text-white"
-                                : "text-gray-400 hover:text-red-600"
-                            }`}
-                          >
-                            {removeArmed === p.id ? "Confirm" : "Remove"}
-                          </button>
-                        </div>
-                      ))}
+                            <button
+                              type="button"
+                              onClick={() => handleRemovePayment(entry.id, p.id)}
+                              disabled={removing}
+                              aria-label="Remove this payment"
+                              title="Remove this payment"
+                              className={`rounded-md px-1.5 py-0.5 text-[12px] font-semibold transition-colors ${
+                                removing ? "opacity-40" : ""
+                              } ${
+                                removeArmed === p.id
+                                  ? "bg-red-600 text-white"
+                                  : "text-gray-300 hover:text-red-600"
+                              }`}
+                            >
+                              {removeArmed === p.id ? "Confirm" : "×"}
+                            </button>
+                          </span>
+                        );
+                        return [...byDay.entries()]
+                          .sort(([a], [b]) => b.localeCompare(a))
+                          .map(([paidOn, list]) => (
+                            <div key={paidOn} className="flex items-center gap-2 border-b border-gray-100 py-1 last:border-b-0">
+                              <span className="w-14 shrink-0 text-[13px] text-gray-500">
+                                {format(new Date(paidOn + "T00:00:00"), "MMM d")}
+                              </span>
+                              <span className="flex flex-1 flex-wrap items-center gap-x-2">
+                                {list!.filter((p) => !p.tip).map(cell)}
+                              </span>
+                              {/* The tip column. A tip and a payout look the
+                                  same in a list of amounts, and they mean
+                                  opposite things for what is still owed. */}
+                              <span className="flex w-24 shrink-0 items-center justify-end gap-1">
+                                {list!.some((p) => p.tip) && (
+                                  <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-700">
+                                    tip
+                                  </span>
+                                )}
+                                {list!.filter((p) => p.tip).map(cell)}
+                              </span>
+                            </div>
+                          ));
+                      })()}
                       {(entry.openingPaid ?? 0) > 0.005 && (
                         <div className="flex items-center gap-2 py-1 text-gray-400">
                           <span className="w-20 shrink-0 text-[13px]">earlier</span>
