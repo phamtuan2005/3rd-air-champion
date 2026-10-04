@@ -239,4 +239,85 @@ describe("bookAirBnB reconciliation", () => {
     expect(nights).toHaveLength(3);
     expect(nights.every((n) => n.b.alias === "Conrad")).toBe(true);
   });
+
+  // ── A stay that has already begun ──────────────────────────────────────────
+  //
+  // Kyle, King, Oct 2–6 2026, added a night from inside the house. The feed
+  // said Oct 2–7 within the hour; the sync could not write it for as long as
+  // he was staying, because a span was refused on its FIRST night being past.
+  const { addDays, format, startOfToday } = require("date-fns");
+  const { toZonedTime } = require("date-fns-tz");
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const key = (offset: number) => format(addDays(startOfToday(), offset), "yyyy-MM-dd");
+  const bookFrom = (date: string, duration: number) =>
+    request(app)
+      .post("/graphql")
+      .send({
+        query: BOOK_AIRBNB,
+        variables: { calendar: calendarId, date, guest: airbnbGuestId, description: DESC, room: roomId, duration },
+      });
+  // Nights the stay already has, written the way the sync's earlier runs
+  // wrote them — with everything the host typed in since.
+  const seedNights = async (offsets: number[], span: { start: number; nights: number }) => {
+    for (const n of offsets)
+      await Day.create({
+        calendar: calendarId,
+        date: toZonedTime(key(n), tz),
+        isAirBnB: true,
+        bookings: [
+          {
+            guest: airbnbGuestId,
+            room: roomId,
+            description: DESC,
+            alias: "Kyle",
+            numberOfGuests: 2,
+            airbnbPrice: 460.02,
+            notes: "door code 1348",
+            price: 75,
+            bookedOn: "2026-09-28",
+            duration: span.nights,
+            startDate: toZonedTime(key(span.start), tz),
+            endDate: toZonedTime(key(span.start + span.nights - 1), tz),
+          },
+        ],
+      });
+  };
+
+  it("extends a stay that began before today, and the new night is a night of that stay", async () => {
+    await seedNights([-2, -1, 0], { start: -2, nights: 3 }); // last night tonight
+    const res = await bookFrom(key(-2), 4); // the feed now says one more night
+    expect(res.body.errors).toBeUndefined();
+
+    const nights = await reservationNights();
+    expect(nights.map((n) => format(n.date, "yyyy-MM-dd"))).toEqual([key(-2), key(-1), key(0), key(1)]);
+    expect(new Set(nights.map((n) => n.b.duration))).toEqual(new Set([4]));
+    expect(new Set(nights.map((n) => n.b.endDate.toISOString())).size).toBe(1);
+    // The added night carries the stay's payout, headcount, name and notes.
+    // Without them it read as a night that earned nothing, and the stay's
+    // total shrank for having grown.
+    const added = nights[3].b;
+    expect(added.airbnbPrice).toBe(460.02);
+    expect(added.numberOfGuests).toBe(2);
+    expect(added.alias).toBe("Kyle");
+    expect(added.notes).toBe("door code 1348");
+    expect(added.price).toBe(75);
+  });
+
+  it("never invents a night that has already passed", async () => {
+    await seedNights([0], { start: 0, nights: 1 });
+    // The feed claims the stay began two days ago — nights the calendar
+    // never held. They are history now, not something to write.
+    const res = await bookFrom(key(-2), 4);
+    expect(res.body.errors).toBeUndefined();
+    const nights = await reservationNights();
+    expect(nights.map((n) => format(n.date, "yyyy-MM-dd"))).toEqual([key(0), key(1)]);
+    // But the nights it does hold are brought onto the one span.
+    expect(nights.every((n) => n.b.duration === 4)).toBe(true);
+  });
+
+  it("still refuses a span that is wholly in the past", async () => {
+    const res = await bookFrom(key(-5), 2);
+    expect(res.body.errors?.[0]?.message).toMatch(/past/);
+    expect(await reservationNights()).toHaveLength(0);
+  });
 });

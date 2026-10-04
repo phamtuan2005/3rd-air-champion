@@ -515,10 +515,6 @@ export const dayResolvers = {
       const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const localDate = toZonedTime(date.split("T")[0], timeZone);
 
-      if (isBefore(localDate, startOfToday())) {
-        throw new Error("Cannot book past days");
-      }
-
       // Canonical span for the whole reservation — every night shares these values.
       // Reconcile ALL nights in the span (not just missing ones): when a reservation is
       // extended/shifted, the overlapping nights must be corrected in place, otherwise they
@@ -527,6 +523,17 @@ export const dayResolvers = {
       const spanEnd = addDays(localDate, duration - 1);
       const allDates: Date[] = [];
       for (let i = 0; i < duration; i++) allDates.push(addDays(localDate, i));
+
+      // A span is in the past only when its LAST night is. It used to be
+      // refused on its FIRST night, which made a running stay impossible to
+      // extend: Kyle (King, Oct 2–6) added a night from inside the house, the
+      // feed said Oct 2–7 within the hour, and the sync could not write it —
+      // "Cannot book past days" — for as long as he was staying. Nights that
+      // have already passed are still never invented (see below); they are
+      // only brought onto the one span.
+      if (isBefore(spanEnd, startOfToday())) {
+        throw new Error("Cannot book past days");
+      }
 
       const currentRoom = await Room.findById(room);
       const roomPrice = currentRoom?.price;
@@ -550,9 +557,44 @@ export const dayResolvers = {
         if (b?.alias) { preservedAlias = b.alias; break; }
       }
 
+      // A night added to a stay that already exists is a night of THAT stay:
+      // the payout, the guest count, the notes and the fees are per stay and
+      // written on every night, so a new night without them would read as a
+      // night that earned nothing, and the stay's total would shrink by a
+      // fifth for having grown. Cloned from a night the stay already has.
+      const template: any = existing
+        .flatMap((d) => d.bookings as any[])
+        .find((bk) => bk.description === description && String(bk.room) === String(room));
+      const carried = template
+        ? {
+            price: template.price,
+            bookedOn: template.bookedOn ?? "",
+            numberOfGuests: template.numberOfGuests ?? 1,
+            alias: template.alias ?? "",
+            notes: template.notes ?? "",
+            airbnbPrice: template.airbnbPrice ?? 0,
+            fees: (template.fees ?? []).map((f: any) => ({ label: f.label, amount: f.amount })),
+            earlyCheckin: !!template.earlyCheckin,
+            lateCheckout: !!template.lateCheckout,
+            sofaBed: !!template.sofaBed,
+          }
+        : {
+            price: roomPrice,
+            bookedOn: format(new Date(), "yyyy-MM-dd"),
+            numberOfGuests: 1,
+            alias: preservedAlias,
+          };
+
       const roomObjectId = new mongoose.Types.ObjectId(room);
 
-      const bulkOperation = allDates.map((bookingDate) =>
+      const bulkOperation = allDates
+        // A night that has passed and was never booked is not written now:
+        // the span's history is what happened, not what the feed says today.
+        .filter(
+          (bookingDate) =>
+            existingDateSet.has(bookingDate.toISOString()) || !isBefore(bookingDate, startOfToday()),
+        )
+        .map((bookingDate) =>
         existingDateSet.has(bookingDate.toISOString())
           ? {
               // Existing night: fix the span in place, keeping alias/notes/flags intact.
@@ -579,14 +621,11 @@ export const dayResolvers = {
                     bookings: {
                       guest,
                       room,
-                      price: roomPrice,
-                      bookedOn: format(new Date(), "yyyy-MM-dd"),
                       description,
                       duration,
-                      numberOfGuests: 1,
                       startDate: spanStart,
                       endDate: spanEnd,
-                      alias: preservedAlias,
+                      ...carried,
                     },
                   },
                 },
