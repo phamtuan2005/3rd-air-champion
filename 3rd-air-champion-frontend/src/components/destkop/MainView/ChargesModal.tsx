@@ -116,8 +116,15 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], monthMap, onCl
   // the stay but not of a cancellation: when an AirBnB guest cancels, AirBnB
   // pays the house a cancellation fee, and that is money to write down like
   // any other. The charge hangs off the placeholder record with the alias
-  // saying who. A cancelled stay is kept in the data, so the name is still
-  // here to pick.
+  // saying who.
+  //
+  // The calendar's AirBnB guests are offered for a fee found after a stay
+  // (damage, a late checkout). For a CANCELLATION they are the wrong place to
+  // look: the sync removes a cancelled AirBnB stay, so by the time the fee is
+  // recorded the name is gone from the calendar. Anh-Tuan, 2026-10-03: "when
+  // they cancel, their book is already removed from TiMag. Therefore, if you
+  // keep chasing their name, you are wrong." So the name TYPED is enough —
+  // see the last row of the list below.
   const airbnbRecord = guests.find((g) => g.name === "AirBnB");
   const airbnbRows = useMemo(
     () => (monthMap && airbnbRecord ? airbnbGuestList(monthMap, format(new Date(), "yyyy-MM-dd")) : []),
@@ -146,6 +153,27 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], monthMap, onCl
     if (!q) return [];
     return airbnbRows.filter((r) => r.alias.toLowerCase().includes(q)).slice(0, 8);
   }, [airbnbRows, guestQuery]);
+
+  // The typed name, offered as an AirBnB guest in its own right — unless a
+  // calendar row already carries exactly that name, in which case that row
+  // is the same offer with more on it.
+  const typedName = guestQuery.trim();
+  const typedIsNew =
+    !!airbnbRecord &&
+    typedName.length >= 2 &&
+    !airbnbMatches.some((r) => r.alias.toLowerCase() === typedName.toLowerCase());
+  const pickAirBnB = (alias: string) => {
+    setNewDraft((d) => ({
+      ...d,
+      guest: airbnbRecord?.id ?? "",
+      alias,
+      // AirBnB pays a cancellation fee out with the next payout; the host is
+      // writing down money that has come, or is coming, on its own.
+      paid: true,
+    }));
+    setGuestQuery("");
+    setGuestOpen(false);
+  };
 
   const chosenGuest = chargeableGuests.find((g) => g.id === newDraft.guest);
   const chosenName = newDraft.alias || (chosenGuest ? chosenGuest.alias || chosenGuest.name : "");
@@ -337,7 +365,7 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], monthMap, onCl
                     />
                     {guestOpen && (
                       <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-xl border border-gray-100 bg-white shadow-xl">
-                        {guestMatches.length === 0 && airbnbMatches.length === 0 ? (
+                        {guestMatches.length === 0 && airbnbMatches.length === 0 && !typedIsNew ? (
                           <p className="px-3 py-2 text-sm text-gray-400">
                             {chargeableGuests.length === 0
                               ? "No guests to charge yet."
@@ -366,19 +394,7 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], monthMap, onCl
                             <button
                               key={`airbnb-${r.alias}`}
                               type="button"
-                              onMouseDown={() => {
-                                setNewDraft((d) => ({
-                                  ...d,
-                                  guest: airbnbRecord?.id ?? "",
-                                  alias: r.alias,
-                                  // AirBnB pays a cancellation fee out with the
-                                  // next payout; the host is writing down money
-                                  // that has come, or is coming, on its own.
-                                  paid: true,
-                                }));
-                                setGuestQuery("");
-                                setGuestOpen(false);
-                              }}
+                              onMouseDown={() => pickAirBnB(r.alias)}
                               className="flex w-full items-center justify-between gap-2 border-b border-gray-50 px-3 py-2 text-left text-sm text-gray-800 last:border-0 hover:bg-amber-50"
                             >
                               <span className="truncate">
@@ -391,6 +407,24 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], monthMap, onCl
                               <span className="shrink-0 text-xs font-bold text-rose-500">AirBnB</span>
                             </button>
                           ))}
+                          {/* The name as typed. A cancelled AirBnB stay is
+                              gone from the calendar, so this is the row a
+                              cancellation fee is recorded from. */}
+                          {typedIsNew && (
+                            <button
+                              type="button"
+                              onMouseDown={() => pickAirBnB(typedName)}
+                              className="flex w-full items-center justify-between gap-2 border-t border-gray-100 px-3 py-2 text-left text-sm text-gray-800 hover:bg-amber-50"
+                            >
+                              <span className="truncate">
+                                “{typedName}”
+                                <span className="ml-1.5 text-xs text-gray-400">
+                                  an AirBnB guest no longer on the calendar
+                                </span>
+                              </span>
+                              <span className="shrink-0 text-xs font-bold text-rose-500">AirBnB</span>
+                            </button>
+                          )}
                           </>
                         )}
                       </div>
