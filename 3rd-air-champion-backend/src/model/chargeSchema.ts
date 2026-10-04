@@ -17,6 +17,14 @@ const chargeSchema = new mongoose.Schema(
     // Who owes it. Required — an unattributed charge is a number nobody can
     // chase, and chasing it is the whole point.
     guest: { type: mongoose.Schema.ObjectId, ref: "Guest", required: true },
+    // An AirBnB guest's name, when the charge is theirs. Every AirBnB stay
+    // hangs off ONE placeholder guest record, so `guest` alone says only
+    // "somebody from AirBnB"; the alias is who. Half the house's guests come
+    // through AirBnB and a cancelled AirBnB stay pays a cancellation fee like
+    // any other — Anh-Tuan, 2026-10-03: "AirBnB cancel the booking and I get
+    // cancellation fee. So please enable AirBnB guest charge." Empty for a
+    // house guest.
+    alias: { type: String, default: "" },
     // Preset bucket: "Cancellation" | "Damage" | "Late checkout" | "Other".
     // Free-form so new buckets need no migration.
     label: { type: String, required: true, default: "Other" },

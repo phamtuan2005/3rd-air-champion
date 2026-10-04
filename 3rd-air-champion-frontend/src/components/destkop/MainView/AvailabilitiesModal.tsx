@@ -1011,7 +1011,8 @@ const AvailabilitiesModal = ({ monthMap, rooms, currentMonth, airbnbName, hostId
                 <span className="text-xs text-gray-500">
                   {charges
                     .slice(0, 2)
-                    .map((c) => `${c.guest.name.split(" ")[0]} ${c.label.toLowerCase()}`)
+                    // An AirBnB guest's charge names them, not "AirBnB".
+                    .map((c) => `${(c.alias || c.guest.name).split(" ")[0]} ${c.label.toLowerCase()}`)
                     .join(" · ")}
                   {charges.length > 2 && ` · +${charges.length - 2} more`}
                   {chargesUnpaid > 0 && (

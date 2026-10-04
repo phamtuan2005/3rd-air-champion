@@ -11,6 +11,10 @@ export const CHARGE_LABELS = ["Cancellation", "Damage", "Late checkout", "Other"
 export interface ChargeType {
   id: string;
   guest: { id: string; name: string; phone: string };
+  // An AirBnB guest's name. Every AirBnB stay hangs off one placeholder guest
+  // record named "AirBnB", so for them `guest` says only where they came
+  // from; this says who. Empty for a house guest.
+  alias: string;
   label: string;
   amount: number;
   date: string; // yyyy-MM-dd — which month's money this is
@@ -40,6 +44,7 @@ export const createCharge = async (
   data: {
     host: string;
     guest: string;
+    alias?: string;
     label: string;
     amount: number;
     date: string;
