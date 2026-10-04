@@ -342,10 +342,21 @@ export const runAirbnbSync = async (params: {
   const unbookResult: any = await sendGraphQLRequest(unbookQuery, { calendar, guest, bookings: toUnbook });
   if (unbookResult.errors) throw new Error(unbookResult.errors[0].message);
 
+  // Every stay whose LAST night is today or later — including the ones that
+  // began before today. Only stays starting today or later were re-booked,
+  // so a guest who extended from inside the house (Kyle, King, Oct 2026)
+  // never got the extra night: the feed had it, and this line threw it away
+  // each half hour. bookAirBnB adds the new nights and leaves the past ones.
   const bookingResults = await Promise.all(
     finalResult.flatMap((roomData) =>
       roomData.reserved
-        .filter((booking) => !isBefore(toZonedTime(booking.start, timeZone), startOfToday()))
+        .filter(
+          (booking) =>
+            !isBefore(
+              addDays(toZonedTime(booking.start, timeZone), booking.duration - 1),
+              startOfToday(),
+            ),
+        )
         .map((booking) =>
           sendGraphQLRequest(bookQuery, {
             ...variables,
