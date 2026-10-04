@@ -5,6 +5,7 @@ import { bookingType } from "../../../../util/types/bookingType";
 import { dayType } from "../../../../util/types/dayType";
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { CHARGE_LABELS, createCharge } from "../../../../util/chargeOperations";
+import { DANGER_BUTTON } from "../../../shared/dangerButton";
 
 interface UnbookingConfirmationProps {
   bookings: bookingType[]; // one or many stays to unbook in a single firm step
@@ -286,7 +287,7 @@ const UnbookingConfirmation = ({
           <button
             onClick={handleConfirm}
             disabled={saving}
-            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm font-bold disabled:cursor-not-allowed disabled:bg-gray-300"
+            className={`${DANGER_BUTTON} px-4 py-2`}
           >
             {saving
               ? "Saving fee…"

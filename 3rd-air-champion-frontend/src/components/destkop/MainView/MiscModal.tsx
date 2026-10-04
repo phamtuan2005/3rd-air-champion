@@ -10,6 +10,7 @@ import {
   isExpenseInMonth,
   updateMiscExpense,
 } from "../../../util/miscOperations";
+import { DANGER_BUTTON } from "../../shared/dangerButton";
 
 interface MiscModalProps {
   hostId: string;
@@ -668,7 +669,7 @@ const MiscModal = ({ hostId, token, currentMonth, onClose }: MiscModalProps) => 
                 <button
                   type="button"
                   onClick={() => resolveConfirm(true)}
-                  className="flex-1 rounded-lg bg-rose-600 py-2.5 text-sm font-bold text-white hover:bg-rose-700"
+                  className={`${DANGER_BUTTON} flex-1 py-2.5`}
                 >
                   Delete
                 </button>

@@ -15,6 +15,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { uploadRoomPhoto } from "../../../../util/roomOperations";
+import { DANGER_BUTTON } from "../../../shared/dangerButton";
 
 interface SortablePhotoProps {
   url: string;
@@ -256,7 +257,7 @@ const RoomPhotosEditor = ({ photos, roomName, token, onChange }: RoomPhotosEdito
           type="button"
           onClick={deleteSelected}
           disabled={selectedUrls.size === 0}
-          className="w-full py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-red-500 text-white hover:bg-red-600 disabled:bg-red-300"
+          className={`${DANGER_BUTTON} w-full py-2`}
         >
           {selectedUrls.size === 0
             ? "Tap photos to select"

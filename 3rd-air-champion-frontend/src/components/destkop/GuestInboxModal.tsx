@@ -12,6 +12,7 @@ import {
   pingHostTyping,
   replyToGuest,
 } from "../../util/guestMessageOperations";
+import { DANGER_BUTTON, SWIPE_DELETE } from "../shared/dangerButton";
 
 interface GuestInboxModalProps {
   hostId: string;
@@ -53,7 +54,8 @@ const when = (ts: string) => {
 // Same numbers as the swipe on the request history rows, deliberately: these
 // two lists sit a tab apart in the same app and a gesture that snapped at a
 // different distance in each would feel like a bug.
-const SNAP_WIDTH = 72;
+// 80: the 72px Delete behind the row plus its 4px inset on each side (shared/dangerButton).
+const SNAP_WIDTH = 80;
 const SWIPE_THRESHOLD = 32;
 
 interface SwipeableThreadRowProps {
@@ -118,7 +120,7 @@ const SwipeableThreadRow = ({ thread: t, onOpen, onDelete }: SwipeableThreadRowP
       onTouchEnd={handleTouchEnd}
     >
       {/* Delete, revealed behind the row */}
-      <div className="absolute right-1 top-1 bottom-1 flex w-[68px] items-center justify-center rounded-lg bg-red-500">
+      <div className={SWIPE_DELETE}>
         <button
           type="button"
           className="h-full w-full text-xs font-semibold text-white"
@@ -206,7 +208,7 @@ const SwipeableThreadRow = ({ thread: t, onOpen, onDelete }: SwipeableThreadRowP
               </button>
               <button
                 type="button"
-                className="flex-1 rounded-xl bg-red-500 py-3 text-sm font-semibold text-white hover:bg-red-600 active:bg-red-700"
+                className={`${DANGER_BUTTON} flex-1 py-3`}
                 onClick={() => { onDelete(); setOffset(0); setConfirming(false); }}
               >
                 Yes, delete

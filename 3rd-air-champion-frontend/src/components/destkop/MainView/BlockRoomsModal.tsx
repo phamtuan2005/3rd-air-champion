@@ -9,6 +9,7 @@ import { roomType } from "../../../util/types/roomType";
 import { getRoomColor } from "../../../util/getRoomColor";
 import { blockRoom, unblockRoom } from "../../../util/dayOperations";
 import RoomMultiSelect from "../BookingModal/RoomMultiSelect";
+import { DANGER_BUTTON } from "../../shared/dangerButton";
 
 interface BlockRoomsModalProps {
   calendarId: string;
@@ -224,7 +225,7 @@ const BlockRoomsModal = ({
         <button
           type="button"
           disabled={isBlocking || !hasSelection}
-          className="w-full py-2 rounded-lg text-sm font-semibold text-white bg-rose-500 hover:bg-rose-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
+          className={`${DANGER_BUTTON} w-full py-2`}
           onClick={handleBlock}
         >
           {isBlocking ? "Blocking…" : "Block"}

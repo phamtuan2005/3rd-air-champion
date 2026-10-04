@@ -14,6 +14,7 @@ import {
 import { guestType } from "../../../util/types/guestType";
 import { dayType } from "../../../util/types/dayType";
 import { airbnbGuestList } from "../../../util/airbnbGuestList";
+import { DANGER_BUTTON } from "../../shared/dangerButton";
 
 interface ChargesModalProps {
   hostId: string;
@@ -687,7 +688,7 @@ const ChargesModal = ({ hostId, token, currentMonth, guests = [], monthMap, onCl
                             type="button"
                             disabled={busy}
                             onClick={() => remove(c.id)}
-                            className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-bold text-white disabled:bg-gray-300"
+                            className={DANGER_BUTTON}
                           >
                             {busy ? "Removing…" : "Remove"}
                           </button>

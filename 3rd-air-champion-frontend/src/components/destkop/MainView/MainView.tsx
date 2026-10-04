@@ -59,6 +59,7 @@ import MobilePanel from "./MobilePanel";
 import MissingProfitModal from "./MissingProfitModal";
 import IcsModal from "./IcsModal";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { DANGER_BUTTON } from "../../shared/dangerButton";
 
 // Contact-info bottom-sheet heights (px).
 const CONTACT_HANDLE_H = 30; // minimized: just the grip
@@ -1577,7 +1578,7 @@ const MainView = ({
                       type="button"
                       onClick={holdBarClickGuard(onUnbookHolds)}
                       disabled={isConfirmingHolds}
-                      className="bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-3.5 py-1.5 rounded-full disabled:opacity-50 whitespace-nowrap"
+                      className={`${DANGER_BUTTON} whitespace-nowrap`}
                     >
                       Unbook {totalHoldSelection}
                     </button>

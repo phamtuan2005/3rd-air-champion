@@ -7,6 +7,7 @@ import { roomType } from "../../../../util/types/roomType";
 import { updateSync } from "../../../../util/hostOperations";
 import RoomPhotosEditor from "./RoomPhotosEditor";
 import CoverImageMaker from "./CoverImageMaker";
+import { DANGER_BUTTON } from "../../../shared/dangerButton";
 
 const COLOR_OPTIONS = [
   "bg-red-500",
@@ -236,7 +237,7 @@ const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave, onAdd, onDelete,
                 {errorMessage && <p className="text-red-500 text-sm">{errorMessage}</p>}
 
                 <div className="flex gap-2 justify-between">
-                  <button type="button" onClick={() => { setConfirmDelete(true); setPendingConfirm(null); }} className="px-3 py-1 bg-red-500 text-white text-sm rounded">Delete</button>
+                  <button type="button" onClick={() => { setConfirmDelete(true); setPendingConfirm(null); }} className={DANGER_BUTTON}>Delete</button>
                   <div className="flex gap-2">
                     <button type="button" onClick={onClose} className="px-3 py-1 bg-gray-400 text-white text-sm rounded">Cancel</button>
                     <button type="submit" className="px-3 py-1 bg-green-500 text-white text-sm rounded">Save</button>
@@ -248,7 +249,7 @@ const EditRoomModal = ({ rooms, defaultRoomId, onClose, onSave, onAdd, onDelete,
                 <div className="border border-red-400 bg-red-50 rounded p-3 flex flex-col gap-2">
                   <p className="text-sm font-medium text-red-800">Delete "{selectedRoom?.name}"? This cannot be undone.</p>
                   <div className="flex gap-2">
-                    <button type="button" className="flex-1 px-2 py-1 bg-red-500 text-white text-sm rounded" onClick={() => { if (!selectedRoom) return; onDelete(selectedRoom.id, (msg) => { setErrorMessage(msg); setConfirmDelete(false); }); }}>Yes, Delete</button>
+                    <button type="button" className={`${DANGER_BUTTON} flex-1`} onClick={() => { if (!selectedRoom) return; onDelete(selectedRoom.id, (msg) => { setErrorMessage(msg); setConfirmDelete(false); }); }}>Yes, Delete</button>
                     <button type="button" className="flex-1 px-2 py-1 bg-gray-300 text-gray-700 text-sm rounded" onClick={() => setConfirmDelete(false)}>Cancel</button>
                   </div>
                 </div>
