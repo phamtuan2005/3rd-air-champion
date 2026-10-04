@@ -128,20 +128,32 @@ const DayProfit = ({ selectedDate, monthMap, rooms, hostId, token }: DayProfitPr
   // Cleaning billed at the rate in effect that day, so a later raise never
   // re-prices this morning. Only recorded hours count — an assignment with no
   // hours yet has cost nothing.
-  const cleaningLines = useMemo(
-    () =>
-      assignments
-        .filter((a) => a.date === dateKey && a.hours != null && a.cleaner)
-        .map((a) => ({
-          key: a.id,
+  //
+  // ONE line per cleaner, not per room. A cleaner reports hours for the VISIT
+  // — the Clean window writes the whole total on the first room and 0 on the
+  // rest — so a line per room read "Cute · 1h 20m" and "Queen · 0m", as if the
+  // Queen had been done in no time. Anh-Tuan, 2026-10-04: "the cleaner
+  // reported the lump sum working hours for all rooms, not for individual
+  // room". The rooms are named together, the hours once.
+  const cleaningLines = useMemo(() => {
+    const byCleaner = new Map<string, { key: string; name: string; rooms: string[]; hours: number; rate: number }>();
+    assignments
+      .filter((a) => a.date === dateKey && a.hours != null && a.cleaner)
+      .forEach((a) => {
+        const id = a.cleaner!.id;
+        const line = byCleaner.get(id) ?? {
+          key: id,
           name: a.cleaner!.name,
-          room: a.room?.name ?? null,
-          hours: a.hours!,
+          rooms: [],
+          hours: 0,
           rate: rateOn(a.cleaner!, a.date),
-          amount: a.hours! * rateOn(a.cleaner!, a.date),
-        })),
-    [assignments, dateKey],
-  );
+        };
+        if (a.room?.name) line.rooms.push(a.room.name);
+        line.hours += a.hours!;
+        byCleaner.set(id, line);
+      });
+    return [...byCleaner.values()].map((l) => ({ ...l, amount: l.hours * l.rate }));
+  }, [assignments, dateKey]);
   const cleaningFee = cleaningLines.reduce((s, l) => s + l.amount, 0);
 
   const miscLines = useMemo(() => miscExpensesOn(expenses, dateKey), [expenses, dateKey]);
@@ -379,7 +391,7 @@ const DayProfit = ({ selectedDate, monthMap, rooms, hostId, token }: DayProfitPr
                   {cleaningLines.map((l) => (
                     <span key={l.key}>
                       {l.name}
-                      {l.room ? ` · ${l.room}` : ""} · {formatHrMin(l.hours)} @ {dollars(l.rate)}/h
+                      {l.rooms.length ? ` · ${l.rooms.join(", ")}` : ""} · {formatHrMin(l.hours)} @ {dollars(l.rate)}/h
                     </span>
                   ))}
                 </div>
