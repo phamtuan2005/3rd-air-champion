@@ -11,6 +11,9 @@ import {
 } from "../../../../util/cleanerOperations";
 import { MiscExpenseType, fetchMiscExpenses } from "../../../../util/miscOperations";
 import { ChargeType, fetchCharges } from "../../../../util/chargeOperations";
+// The same "1h 20m" the Clean window prints. The raw number showed here as
+// 1.3333333333333333h — the Cozy clean on Sat Oct 3, as Anh-Tuan found it.
+import { formatHrMin } from "../../../../util/hoursFormat";
 import { roomType } from "../../../../util/types/roomType";
 import {
   bookingNightAmount,
@@ -376,7 +379,7 @@ const DayProfit = ({ selectedDate, monthMap, rooms, hostId, token }: DayProfitPr
                   {cleaningLines.map((l) => (
                     <span key={l.key}>
                       {l.name}
-                      {l.room ? ` · ${l.room}` : ""} · {l.hours}h @ {dollars(l.rate)}/h
+                      {l.room ? ` · ${l.room}` : ""} · {formatHrMin(l.hours)} @ {dollars(l.rate)}/h
                     </span>
                   ))}
                 </div>
