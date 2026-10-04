@@ -8,6 +8,7 @@ import { roomType } from "../../../util/types/roomType";
 import RoomBadge from "../../shared/RoomBadge";
 import { getRoomColor } from "../../../util/getRoomColor";
 import { decimalToHm, formatHrMin, hmToDecimal } from "../../../util/hoursFormat";
+import SwipeToDelete from "../../shared/SwipeToDelete";
 import {
   CLEANING_FORECAST_DAYS,
   PLAN_DAYS_MAX,
@@ -455,7 +456,10 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
   // override it, it is theirs and nothing moves it.
   const [payEdited, setPayEdited] = useState(false);
   // Which logged payout is armed for removal (id) — removal takes two taps.
-  const [removeArmed, setRemoveArmed] = useState<string | null>(null);
+  // The payday whose payments are about to be removed, held while the
+  // confirmation is on screen. Swipe reveals Delete; Delete asks; this is
+  // what it asks about.
+  const [removeAsk, setRemoveAsk] = useState<{ paidOn: string; ids: string[]; earning: number; tip: number } | null>(null);
   // Payout adds to paid, Undo subtracts — phone number pads have no minus key,
   // so direction is a toggle and the typed amount is always positive.
   // A tip is its own kind of payment, not a payout with a note on it. Recorded
@@ -1506,25 +1510,20 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
   };
 
   // Remove one logged payout. Two taps, like recording one — this moves money.
-  // One Remove per payday. A payout and its tip are two records, and each had
-  // its own ×; two small crosses on one line read as a puzzle (Anh-Tuan,
-  // 2026-10-04). Armed on the first tap, the day's payments go together on
-  // the second — one after the other, so a failure half-way leaves the rest
-  // on screen rather than silently gone.
+  // One removal per payday: a payout and its tip are two records that go
+  // together, one after the other, so a failure half-way leaves the rest on
+  // screen rather than silently gone. Reached only through the confirmation
+  // dialog — the row is swiped to reveal Delete, Delete asks, and this is the
+  // answer (Anh-Tuan, 2026-10-04: no × on the line, swipe, then confirm).
   const handleRemovePayment = (cleanerId: string, paymentIds: string | string[]) => {
     const ids = Array.isArray(paymentIds) ? paymentIds : [paymentIds];
-    const armKey = ids.join("+");
-    if (removeArmed !== armKey) {
-      setRemoveArmed(armKey);
-      return;
-    }
     if (removingRef.current) return;
     removingRef.current = true;
     setRemoving(true);
     ids
       .reduce((chain, id) => chain.then(() => removeCleanerPayment(cleanerId, id, token)), Promise.resolve() as Promise<unknown>)
       .then(() => {
-        setRemoveArmed(null);
+        setRemoveAsk(null);
         setError("");
         reloadSummary();
       })
@@ -3588,7 +3587,6 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                         <span className="w-14 shrink-0">Paid</span>
                         <span className="flex-1">Earning</span>
                         <span className="w-20 shrink-0">Tip</span>
-                        <span className="w-16 shrink-0" />
                       </div>
                       {/* One line per day paid, wages and tip side by side —
                           the same shape Staffing's Payroll took on 2026-10-01
@@ -3606,10 +3604,17 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                         return [...byDay.entries()]
                           .sort(([a], [b]) => b.localeCompare(a))
                           .map(([paidOn, list]) => {
-                            const ids = list!.map((p) => p.id);
-                            const armed = removeArmed === ids.join("+");
+                            const earning = list!.filter((p) => !p.tip).reduce((n, p) => n + p.amount, 0);
+                            const tip = list!.filter((p) => p.tip).reduce((n, p) => n + p.amount, 0);
                             return (
-                            <div key={paidOn} className="flex items-center gap-2 border-b border-gray-100 py-1 last:border-b-0">
+                            // Slide the line left for Delete. Nothing on the
+                            // line itself removes anything.
+                            <SwipeToDelete
+                              key={paidOn}
+                              className="border-b border-gray-100 last:border-b-0"
+                              onDelete={() => setRemoveAsk({ paidOn, ids: list!.map((p) => p.id), earning, tip })}
+                            >
+                            <div className="flex items-center gap-2 py-1.5">
                               <span className="w-14 shrink-0 text-[13px] text-gray-500">
                                 {format(new Date(paidOn + "T00:00:00"), "MMM d")}
                               </span>
@@ -3623,17 +3628,8 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                               <span className="flex w-20 shrink-0 flex-wrap items-center gap-x-2 text-violet-700">
                                 {list!.filter((p) => p.tip).map(amount)}
                               </span>
-                              <button
-                                type="button"
-                                onClick={() => handleRemovePayment(entry.id, ids)}
-                                disabled={removing}
-                                className={`w-16 shrink-0 rounded-md px-1.5 py-0.5 text-right text-[12px] font-semibold transition-colors ${
-                                  removing ? "opacity-40" : ""
-                                } ${armed ? "bg-red-600 text-center text-white" : "text-gray-400 hover:text-red-600"}`}
-                              >
-                                {armed ? "Confirm" : "Remove"}
-                              </button>
                             </div>
+                            </SwipeToDelete>
                             );
                           });
                       })()}
@@ -3657,6 +3653,48 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                     A record of recent work — not the amount due. What you owe is the Balance owed above
                     (already net of everything you've paid).
                   </p>
+
+                  {/* Delete asks first. Says exactly what goes — the day, the
+                      earning and the tip — because the two are removed
+                      together and the balance owed moves by both. */}
+                  {removeAsk && (
+                    <div
+                      className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 p-4"
+                      onClick={() => setRemoveAsk(null)}
+                    >
+                      <div
+                        className="w-full max-w-xs rounded-2xl bg-white p-4 shadow-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <p className="text-base font-bold text-gray-900">
+                          Remove the {format(new Date(removeAsk.paidOn + "T00:00:00"), "MMM d")} payment?
+                        </p>
+                        <p className="mt-1 text-sm text-gray-600">
+                          {removeAsk.earning ? `${money(removeAsk.earning)} earning` : ""}
+                          {removeAsk.earning && removeAsk.tip ? " and " : ""}
+                          {removeAsk.tip ? `${money(removeAsk.tip)} tip` : ""}
+                          {" "}will come off {entry.name.split(" ")[0]}'s paid total, and the balance owed goes up by the same.
+                        </p>
+                        <div className="mt-4 flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setRemoveAsk(null)}
+                            className="rounded-lg px-3 py-1.5 text-sm font-semibold text-gray-600 hover:bg-gray-100"
+                          >
+                            Keep
+                          </button>
+                          <button
+                            type="button"
+                            disabled={removing}
+                            onClick={() => handleRemovePayment(entry.id, removeAsk.ids)}
+                            className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-50"
+                          >
+                            {removing ? "Removing…" : "Remove"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Tip + statement total */}
                   <div className="mt-2 flex items-center justify-between gap-2">
