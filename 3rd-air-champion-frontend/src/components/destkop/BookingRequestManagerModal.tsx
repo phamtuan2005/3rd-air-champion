@@ -13,6 +13,7 @@ import { getRoomColor } from "../../util/getRoomColor";
 import RoomBadge from "../shared/RoomBadge";
 import { format, toZonedTime } from "date-fns-tz";
 import { format as formatLocal, addDays } from "date-fns";
+import { DANGER_BUTTON, SWIPE_DELETE } from "../shared/dangerButton";
 
 type RequestOutcome =
   | { type: "booked" }
@@ -112,7 +113,8 @@ interface BookingRequestManagerModalProps {
   onUnbook?: (ids: string[]) => void;
 }
 
-const SNAP_WIDTH = 72;
+// 80: the 72px Delete behind the row plus its 4px inset on each side (shared/dangerButton).
+const SNAP_WIDTH = 80;
 const SWIPE_THRESHOLD = 32;
 
 const calcGroupStats = (
@@ -399,7 +401,7 @@ const HistoryDetailSheet = ({
               <button
                 type="button"
                 disabled={unbooking}
-                className="flex-1 py-3 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 disabled:opacity-50"
+                className={`${DANGER_BUTTON} flex-1 py-3`}
                 onClick={async () => {
                   setUnbooking(true);
                   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -531,7 +533,7 @@ const SwipeableHistoryGroupRow = ({
       onTouchEnd={handleTouchEnd}
     >
       {/* Delete button revealed behind */}
-      <div className="absolute right-1 top-1 bottom-1 w-[68px] bg-red-500 flex items-center justify-center rounded-lg">
+      <div className={SWIPE_DELETE}>
         <button
           type="button"
           className="text-white text-xs font-semibold w-full h-full"
@@ -651,7 +653,7 @@ const SwipeableHistoryGroupRow = ({
               </button>
               <button
                 type="button"
-                className="flex-1 py-3 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 active:bg-red-700"
+                className={`${DANGER_BUTTON} flex-1 py-3`}
                 onClick={() => { onDeleteGroup(group.map((r) => r.id)); setOffset(0); setConfirming(false); }}
               >
                 Yes, delete
@@ -1061,7 +1063,7 @@ const BookingRequestManagerModal = ({
           <button
             type="button"
             disabled={isUpdating}
-            className="flex-1 bg-red-500 text-white text-xs font-medium py-1.5 rounded hover:bg-red-600 disabled:opacity-50"
+            className={`${DANGER_BUTTON} flex-1`}
             onClick={() => handleDeclineGroup(group)}
           >
             {isUpdating ? "..." : group.length > 1 ? `Decline all (${group.length})` : "Decline"}

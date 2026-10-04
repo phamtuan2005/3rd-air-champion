@@ -8,6 +8,7 @@ import {
 import { dayType } from "../../util/types/dayType";
 import { roomType } from "../../util/types/roomType";
 import { startOfToday } from "date-fns";
+import { DANGER_BUTTON, SWIPE_DELETE } from "../shared/dangerButton";
 
 const formatPhone = (raw: string): string => {
   const digits = raw.replace(/\D/g, "");
@@ -98,7 +99,8 @@ const statusLabel: Record<WishListStatus, string> = {
   booked:   "Booked",
 };
 
-const SNAP_WIDTH = 72;
+// 80: the 72px Delete behind the row plus its 4px inset on each side (shared/dangerButton).
+const SNAP_WIDTH = 80;
 const SWIPE_THRESHOLD = 32;
 
 interface EntryRowProps {
@@ -162,7 +164,7 @@ const EntryRow = ({ entry, availableDates, roomsByDate, fulfilledDates, hasAvail
   return (
     <div className="relative overflow-hidden rounded-lg">
       {/* Delete button revealed on swipe */}
-      <div className="absolute right-0 top-0 bottom-0 w-[72px] bg-red-500 flex items-center justify-center rounded-r-lg">
+      <div className={SWIPE_DELETE}>
         <button
           type="button"
           className="text-white text-xs font-semibold w-full h-full"
@@ -295,7 +297,7 @@ const EntryRow = ({ entry, availableDates, roomsByDate, fulfilledDates, hasAvail
               <button
                 type="button"
                 onClick={() => { const d = menuDate; setMenuDate(null); onRemoveDate(entry.id, d); }}
-                className="text-[11px] font-semibold text-white bg-red-500 hover:bg-red-600 rounded-md px-3 py-1"
+                className={DANGER_BUTTON}
               >
                 Remove
               </button>

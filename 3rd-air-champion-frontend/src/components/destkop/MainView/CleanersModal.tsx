@@ -47,6 +47,7 @@ import {
   updateAssignmentHours,
   updateCleaner,
 } from "../../../util/cleanerOperations";
+import { DANGER_BUTTON, SWIPE_DELETE } from "../../shared/dangerButton";
 
 interface CleanersModalProps {
   hostId: string;
@@ -1787,7 +1788,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                 </button>
                 <button
                   type="button"
-                  className="rounded-lg bg-red-600 px-2.5 py-1.5 text-sm font-bold text-white"
+                  className={DANGER_BUTTON}
                   onClick={() => handleDelete(cleaner)}
                 >
                   Remove
@@ -1798,7 +1799,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                 {/* Revealed by swiping the row to the left (iOS convention) */}
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 flex w-20 items-center justify-center bg-red-600 text-sm font-bold text-white"
+                  className={SWIPE_DELETE}
                   onClick={() => {
                     setSwipeOpenId(null);
                     setConfirmRemoveId(cleaner.id);
@@ -3687,7 +3688,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                             type="button"
                             disabled={removing}
                             onClick={() => handleRemovePayment(entry.id, removeAsk.ids)}
-                            className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-50"
+                            className={DANGER_BUTTON}
                           >
                             {removing ? "Removing…" : "Remove"}
                           </button>

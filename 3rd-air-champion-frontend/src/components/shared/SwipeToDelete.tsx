@@ -1,4 +1,5 @@
 import { ReactNode, useRef, useState } from "react";
+import { SWIPE_DELETE } from "./dangerButton";
 
 // A row that slides left to show a Delete button behind it.
 //
@@ -20,7 +21,7 @@ interface SwipeToDeleteProps {
   className?: string;
 }
 
-const REVEAL = 84; // px the row slides, and the width of the button behind it
+const REVEAL = 80; // px the row slides: the 72px button behind it plus its inset
 const SLOP = 6; // px before a touch counts as a swipe rather than a tap
 
 const SwipeToDelete = ({ children, onDelete, label = "Delete", className = "" }: SwipeToDeleteProps) => {
@@ -45,8 +46,7 @@ const SwipeToDelete = ({ children, onDelete, label = "Delete", className = "" }:
         }}
         tabIndex={open.current ? 0 : -1}
         aria-hidden={!open.current}
-        className="absolute inset-y-0 right-0 flex items-center justify-center bg-red-600 text-sm font-bold text-white"
-        style={{ width: REVEAL }}
+        className={SWIPE_DELETE}
       >
         {label}
       </button>

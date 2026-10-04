@@ -34,6 +34,7 @@ import {
   reviewWorkEntry,
   updateStaff,
 } from "../../../util/staffOperations";
+import { DANGER_BUTTON } from "../../shared/dangerButton";
 
 interface StaffingModalProps {
   hostId: string;
@@ -642,7 +643,7 @@ const StaffingModal = ({ hostId, token, onClose, senderName, focusId }: Staffing
                         })
                         .catch(() => setError("Could not delete."))
                     }
-                    className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white"
+                    className={DANGER_BUTTON}
                   >
                     Yes, delete
                   </button>

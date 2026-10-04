@@ -11,6 +11,7 @@ import PickerModal, { PickerOption } from "../../../shared/PickerModal";
 import CleanerAvatar from "../../../shared/CleanerAvatar";
 import { GUEST_AVATAR_PRESETS } from "../../../../util/guestAvatars";
 import { toStoredPhone } from "../../../../util/formatPhone";
+import { DANGER_BUTTON } from "../../../shared/dangerButton";
 
 const manageGuestSchema = z.object({
   name: z
@@ -527,7 +528,7 @@ const ManageGuestModal = ({
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    className="flex-1 rounded-lg bg-red-600 px-2 py-1.5 text-xs font-semibold text-white"
+                    className={`${DANGER_BUTTON} flex-1`}
                     onClick={() => {
                       if (!selectedGuest) return;
                       onDelete(selectedGuest.id, (msg) => {
