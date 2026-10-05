@@ -32,6 +32,11 @@ import RoomGalleryModal from "../components/tibook/RoomGalleryModal";
 import { getConsent, readRememberedGuest, rememberGuest, setConsent, revokeConsent } from "../util/guestConsent";
 import HostContactButton from "../components/tibook/HostContactButton";
 import HostChatSheet from "../components/tibook/HostChatSheet";
+import AskTTSheet from "../components/tibook/AskTT";
+import { usHolidayOn } from "../util/usHolidays";
+import type { TTNudge } from "../components/tibook/AskTT";
+import { toTTRoom, usualRoomOf } from "../util/askTT";
+import type { AskTTContext, TTAction } from "../util/askTT";
 import { fetchGuestThread } from "../util/guestMessageOperations";
 import { linkTiBookVisitToGuest, recordTiBookVisit, unlinkTiBookVisitGuest } from "../util/tibookVisitOperations";
 import { markTiBookVisited } from "../util/tibookReturning";
@@ -108,6 +113,7 @@ const TiBookInner = () => {
   // not read. The count rides on the floating button so a guest who closed the
   // sheet still finds out he wrote back.
   const [chatOpen, setChatOpen] = useState(false);
+  const [askTTOpen, setAskTTOpen] = useState(false);
   const [unreadFromHost, setUnreadFromHost] = useState(0);
   // Whether the ask may appear OVER the booking modal.
   //
@@ -602,6 +608,14 @@ const TiBookInner = () => {
     }
     expandCal();
     setScrollToMonthTrigger({ month: new Date(date.getFullYear(), date.getMonth(), 1), seq: Date.now() });
+    // A US holiday always stops at the picker, which says it is one — even
+    // where a tap would otherwise add the night straight away. A returning
+    // guest tapping through their usual nights is exactly who added a holiday
+    // without noticing and then had to cancel it (2026-10-05).
+    if (usHolidayOn(key) && availableRoomsForDate(date).length > 0) {
+      setRoomPickerDate(date);
+      return;
+    }
     // A room is already chosen (single-room filter) → add straight away.
     if (selectedRoomIds?.size === 1) {
       setCartDates((prev) => new Map(prev).set(key, Array.from(selectedRoomIds)[0]));
@@ -736,12 +750,101 @@ const TiBookInner = () => {
     myBookingsOpen ||
     isBookingModalOpen ||
     chatOpen ||
+    askTTOpen ||
     reservedPopupOpen ||
     !!stayPopupId ||
     !!bookAnother ||
     !!heroGalleryRoom ||
     !!roomPickerDate ||
     !!pendingConsentPhone;
+
+  // What TT is allowed to know. Availability is the same rule the calendar and
+  // the room picker use (`availableRoomsForDate`, whole house), handed over as
+  // a function so TT never holds the day records — those carry other guests'
+  // names, and TT only ever needs "which rooms are free that night".
+  // Rooms go through `toTTRoom`, which copies the id, name and listing link
+  // and nothing else: the room record carries the door code (`roomCode`), and
+  // what TT is never given it can never say. The host is a first name, never
+  // the record with its phone, email and door code. See askTT.ts, "Privacy".
+  const askTTContext: AskTTContext = {
+    today: startOfToday(),
+    rooms: rooms.filter((r) => r.active).map(toTTRoom),
+    freeRoomsOn: (key) => availableRoomsForDate(parseISO(key), true).map(toTTRoom),
+    myRates,
+    hostFirstName: (currentHost?.name ?? "").trim().split(/\s+/)[0] || "your host",
+    cancellationFullRefundDays: currentHost?.cancellationFullRefundDays,
+    cancellationHalfRefundDays: currentHost?.cancellationHalfRefundDays,
+    houseRules: currentHost?.houseRules,
+    // Somebody this device knows by phone is a returning guest to TT: it
+    // greets them back, leads with their usual room and wish list, and its
+    // buttons go on to the request. Their OWN stays and wish list only.
+    guest: isKnownVisitor
+      ? {
+          firstName: greetedName.trim().split(/\s+/)[0] ?? "",
+          usualRoomId: usualRoomOf(
+            guestBookings.filter((b) => b.status === "confirmed").map((b) => ({ roomId: b.room, nights: b.duration })),
+            rooms.filter((r) => r.active).map(toTTRoom),
+          ),
+          wishList: [...wishListDates]
+            .filter((d) => d >= keyOfDate(startOfToday()) && !myBookingDates.has(d))
+            .sort(),
+        }
+      : undefined,
+  };
+
+  // TT's buttons do the thing, then get out of the way so the guest sees it
+  // done: nights land in the selection with the calendar open on their month.
+  const onTTAction = (a: Exclude<TTAction, { kind: "ask" }>) => {
+    setAskTTOpen(false);
+    switch (a.kind) {
+      case "pick": {
+        expandCal();
+        const firstNight = parseISO(a.dates[0]);
+        setScrollToMonthTrigger({ month: new Date(firstNight.getFullYear(), firstNight.getMonth(), 1), seq: Date.now() });
+        // Added to what is already picked rather than replacing it: a guest
+        // asking about a second stretch keeps the first.
+        setCartDates((prev) => {
+          const next = new Map(prev);
+          a.dates.forEach((d) => next.set(d, a.roomId));
+          return next;
+        });
+        // A returning guest's "Request King →" goes on to Review Request with
+        // those nights in it — the same modal the selection bar opens, so the
+        // guest still reads it and sends it themselves.
+        if (a.review) openBookingModal(firstNight);
+        return;
+      }
+      case "wish": {
+        const firstNight = parseISO(a.dates[0]);
+        setScrollToMonthTrigger({ month: new Date(firstNight.getFullYear(), firstNight.getMonth(), 1), seq: Date.now() });
+        setWishListDates((prev) => new Set([...prev, ...a.dates]));
+        return;
+      }
+      case "room":
+        setSelectedRoomIds(new Set([a.roomId]));
+        return;
+      case "photos": {
+        const room = rooms.find((r) => r.id === a.roomId);
+        if (room) setHeroGalleryRoom(room);
+        return;
+      }
+      case "chat":
+        setChatOpen(true);
+        return;
+      case "bookings":
+        setBookingsFocusKey(null);
+        setMyBookingsOpen(true);
+        return;
+      case "request":
+        openBookingModal(null);
+        return;
+    }
+  };
+
+  // Which TT callout this guest is owed: the booking helper for somebody new,
+  // the quick way to book for somebody back. None while a sheet owns the
+  // screen — a callout pointing at a button behind a modal points at nothing.
+  const ttNudge: TTNudge | null = modalOwnsScreen ? null : isKnownVisitor ? "returning" : "new";
 
   // DYNAMIC viewport height. Plain 100vh (h-screen) is the height the page would
   // have with the browser chrome hidden, so on an iPhone the layout is taller
@@ -801,6 +904,8 @@ const TiBookInner = () => {
           onOpenPhotos={setHeroGalleryRoom}
           onScrollToToday={() => setScrollToTodayTrigger((n) => n + 1)}
           onMyBookings={() => { setBookingsFocusKey(null); setMyBookingsOpen((o) => !o); }}
+          onAskTT={() => setAskTTOpen(true)}
+          ttNudge={ttNudge}
           onRequest={() => openBookingModal(null)}
           guestName={greetedName}
           actionLabel={barLabel}
@@ -815,6 +920,8 @@ const TiBookInner = () => {
         cohostNames={cohostNames}
         isFullCalendar={isSelecting}
         onMyBookings={() => { setBookingsFocusKey(null); setMyBookingsOpen((o) => !o); }}
+          onAskTT={() => setAskTTOpen(true)}
+          ttNudge={ttNudge}
         guestName={greetedName}
         guestStays={guestBookings.filter((b) => b.status === "confirmed").length}
       />
@@ -1134,6 +1241,9 @@ const TiBookInner = () => {
       {roomPickerDate && (
         <RoomPickerPopup
           date={roomPickerDate}
+          // "Only 1 room left" is wrong for a guest who picked their one room
+          // and was stopped here because the night is a holiday.
+          title={usHolidayOn(keyOfDate(roomPickerDate)) ? "Add this holiday night?" : undefined}
           rooms={availableRoomsForDate(roomPickerDate)}
           onPick={(roomId) => addCartDateForRoom(roomPickerDate, roomId)}
           onAny={() => addCartDateAny(roomPickerDate)}
@@ -1157,6 +1267,16 @@ const TiBookInner = () => {
           hostPhone={currentHost.phone}
           unread={unreadFromHost}
           onOpenChat={() => setChatOpen(true)}
+        />
+      )}
+
+
+      {askTTOpen && currentHost && (
+        <AskTTSheet
+          ctx={askTTContext}
+          guestName={greetedName}
+          onAction={onTTAction}
+          onClose={() => setAskTTOpen(false)}
         />
       )}
 

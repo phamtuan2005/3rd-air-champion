@@ -3,6 +3,8 @@ import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import type { LayoutName, VibeName } from "../../contexts/TiBookThemeContext";
 import type { hostType } from "../../util/types/hostType";
 import { getLoyaltyTier } from "./GuestLoyaltyBanner";
+import { AskTTButton, onTTNudgeDone, ttNudgeActive } from "./AskTT";
+import type { TTNudge } from "./AskTT";
 
 interface NavBarDesktopProps {
   onBack?: () => void;
@@ -12,6 +14,8 @@ interface NavBarDesktopProps {
   onMyBookings?: () => void;
   guestName?: string; // recognized guest → the "Your bookings" pill greets them by name
   guestStays?: number; // total stays → loyalty tier badge on the pill
+  onAskTT?: () => void;
+  ttNudge?: TTNudge | null;
 }
 
 const MiniAvatar = ({ name }: { name: string }) => {
@@ -28,7 +32,7 @@ const MiniAvatar = ({ name }: { name: string }) => {
   );
 };
 
-const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false, onMyBookings, guestName, guestStays }: NavBarDesktopProps) => {
+const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false, onMyBookings, guestName, guestStays, onAskTT, ttNudge }: NavBarDesktopProps) => {
   const { theme } = useTiBookTheme();
   const guestFirstName = guestName?.trim().split(" ")[0];
   const loyaltyTier = guestStays ? getLoyaltyTier(guestStays) : null;
@@ -67,6 +71,7 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
         </h1>
       )}
       <div className="flex items-center gap-2">
+        {onAskTT && <AskTTButton onClick={onAskTT} nudge={ttNudge} guestFirstName={guestFirstName} />}
         {onMyBookings && (
           <button
             type="button"
@@ -201,10 +206,24 @@ export const AppearanceMenu = () => {
   // Held back a beat rather than shown on mount: it arrives after the page has
   // settled, so it reads as a nudge about the button rather than as one more
   // thing loading in.
+  //
+  // And it waits for TT's. A first-time guest is pointed at TT first, as the
+  // helper that gets them booked; two callouts at once on a phone's nav bar
+  // overlap and neither is read. This one follows a moment after TT's is
+  // answered.
   useEffect(() => {
     if (readHintSeen()) return;
-    const t = setTimeout(() => setHint(true), 1200);
-    return () => clearTimeout(t);
+    let t: ReturnType<typeof setTimeout> | undefined;
+    let stopWaiting: (() => void) | undefined;
+    const show = () => {
+      if (ttNudgeActive()) stopWaiting = onTTNudgeDone(() => { t = setTimeout(() => setHint(true), 1200); });
+      else setHint(true);
+    };
+    t = setTimeout(show, 1200);
+    return () => {
+      clearTimeout(t);
+      stopWaiting?.();
+    };
   }, []);
 
   const dismissHint = () => {
