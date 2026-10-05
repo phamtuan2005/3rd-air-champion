@@ -202,3 +202,51 @@ export const fetchTiBookVisitorStats = async (): Promise<TiBookVisitorStats> => 
   }
   return response.data;
 };
+
+/* ---- Who else may read the numbers (TiMag) — a guest helping develop TiBook ---- */
+
+export interface StatsGrant {
+  guestId: string;
+  name: string;
+  grantedAt: string;
+  grantedBy: string;
+}
+
+const authed = () => ({ headers: { Authorization: `Bearer ${getToken()}` } });
+
+export const fetchTiBookStatsGrants = async (): Promise<StatsGrant[]> => {
+  const response = await axios.get(`${BACKEND_ENDPOINT}/tibook-stats-access`, authed());
+  if (!Array.isArray(response.data)) throw new Error("The list did not come back");
+  return response.data;
+};
+
+// `confirm: true` is what the server checks for — TiMag only sends it from the
+// second, separate click. The code comes back this once and is never stored.
+export const grantTiBookStats = async (guestId: string): Promise<{ name: string; code: string }> => {
+  const response = await axios.post(`${BACKEND_ENDPOINT}/tibook-stats-access`, { guestId, confirm: true }, authed());
+  if (typeof response.data?.code !== "string") throw new Error("No code came back");
+  return response.data;
+};
+
+export const revokeTiBookStats = async (guestId: string): Promise<void> => {
+  await axios.delete(`${BACKEND_ENDPOINT}/tibook-stats-access/${guestId}`, authed());
+};
+
+/* ---- The guest with access reading them (TiBook). No token: the code is the proof. ---- */
+
+export interface ViewerStats extends TiBookVisitorStats {
+  viewer: string;
+}
+
+// "wrong" = the server said no (401); anything else is the connection, and the
+// saved code is kept — the same split TiWork makes for its access codes.
+export const fetchTiBookStatsAsViewer = async (code: string): Promise<ViewerStats> => {
+  try {
+    const response = await axios.post(`${BACKEND_ENDPOINT}/tibook-stats-viewer`, { code });
+    if (!Array.isArray(response.data?.spans)) throw new Error("unreachable");
+    return response.data;
+  } catch (err: any) {
+    const status = err?.response?.status;
+    throw new Error(status === 401 ? "wrong" : status === 429 ? "slow" : "unreachable");
+  }
+};

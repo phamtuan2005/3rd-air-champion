@@ -33,6 +33,7 @@ import { getConsent, readRememberedGuest, rememberGuest, setConsent, revokeConse
 import HostContactButton from "../components/tibook/HostContactButton";
 import HostChatSheet from "../components/tibook/HostChatSheet";
 import AskTTSheet from "../components/tibook/AskTT";
+import StatsViewerGate from "../components/tibook/StatsViewerGate";
 import { usHolidayOn } from "../util/usHolidays";
 import type { TTNudge } from "../components/tibook/AskTT";
 import { toTTRoom, usualRoomOf } from "../util/askTT";
@@ -114,6 +115,16 @@ const TiBookInner = () => {
   // sheet still finds out he wrote back.
   const [chatOpen, setChatOpen] = useState(false);
   const [askTTOpen, setAskTTOpen] = useState(false);
+  // /book?stats — a guest the host gave access to, reading the visitor numbers.
+  // Only that link opens it; see StatsViewerGate.
+  const [statsOpen, setStatsOpen] = useState(() => new URLSearchParams(window.location.search).has("stats"));
+  const closeStats = () => {
+    setStatsOpen(false);
+    // Off the address bar, so a reload is plain TiBook again.
+    const url = new URL(window.location.href);
+    url.searchParams.delete("stats");
+    window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+  };
   const [unreadFromHost, setUnreadFromHost] = useState(0);
   // Whether the ask may appear OVER the booking modal.
   //
@@ -751,6 +762,7 @@ const TiBookInner = () => {
     isBookingModalOpen ||
     chatOpen ||
     askTTOpen ||
+    statsOpen ||
     reservedPopupOpen ||
     !!stayPopupId ||
     !!bookAnother ||
@@ -1270,6 +1282,12 @@ const TiBookInner = () => {
         />
       )}
 
+      {statsOpen && (
+        <StatsViewerGate
+          hostFirstName={(currentHost?.name ?? "").trim().split(/\s+/)[0] || "your host"}
+          onClose={closeStats}
+        />
+      )}
 
       {askTTOpen && currentHost && (
         <AskTTSheet

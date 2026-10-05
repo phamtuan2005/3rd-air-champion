@@ -7,9 +7,16 @@ import {
   SpanStats,
   TiBookVisitorStats,
 } from "../../util/tibookVisitOperations";
+import TiBookStatsAccess from "./TiBookStatsAccess";
 
 interface TiBookVisitorsModalProps {
   onClose: () => void;
+  // Viewer mode: a guest the host gave access to, reading from TiBook with
+  // their code. The numbers arrive with every guest identity already removed
+  // by the server; this mode also leaves out the sections that would be about
+  // guests or about who has access, so the screen does not show empty
+  // furniture that hints at what was taken out.
+  viewer?: { name: string; load: () => Promise<TiBookVisitorStats>; onForget: () => void };
 }
 
 // The chart's two series, checked as a pair for colour-blind separation and
@@ -53,17 +60,17 @@ const niceMax = (m: number) => {
 const pct = (part: number, whole: number) =>
   whole > 0 ? Math.round((part / whole) * 100) : 0;
 
-const TiBookVisitorsModal = ({ onClose }: TiBookVisitorsModalProps) => {
+const TiBookVisitorsModal = ({ onClose, viewer }: TiBookVisitorsModalProps) => {
   const [stats, setStats] = useState<TiBookVisitorStats | null>(null);
   const [error, setError] = useState("");
   const [spanKey, setSpanKey] = useState<SpanKey>("month");
 
   const load = useCallback(() => {
     setError("");
-    fetchTiBookVisitorStats()
+    (viewer ? viewer.load() : fetchTiBookVisitorStats())
       .then(setStats)
       .catch(() => setError("The numbers didn't load. Check the connection and try again."));
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     load();
@@ -84,7 +91,9 @@ const TiBookVisitorsModal = ({ onClose }: TiBookVisitorsModalProps) => {
           <div>
             <h2 className="text-base font-bold text-gray-900">📈 TiBook visitors</h2>
             <p className="text-xs text-gray-500">
-              How many people open TiBook, who comes back, and from where
+              {viewer
+                ? `Shared with you${viewer.name ? `, ${viewer.name},` : ""} by TT House to help develop TiBook`
+                : "How many people open TiBook, who comes back, and from where"}
             </p>
           </div>
           <button
@@ -141,7 +150,23 @@ const TiBookVisitorsModal = ({ onClose }: TiBookVisitorsModalProps) => {
               </p>
             </div>
           ) : (
-            <SpanView span={span} since={stats.since} />
+            <SpanView span={span} since={stats.since} viewer={!!viewer} />
+          )}
+          {/* The host's say over who else sees this — never in viewer mode,
+              where the guest could otherwise read who else has access. */}
+          {!viewer && (
+            <div className="mt-5">
+              <TiBookStatsAccess />
+            </div>
+          )}
+          {viewer && (
+            <button
+              type="button"
+              onClick={viewer.onForget}
+              className="mt-5 text-xs font-semibold text-gray-500 hover:text-gray-700"
+            >
+              Forget my code on this device
+            </button>
           )}
         </div>
       </div>
@@ -149,7 +174,7 @@ const TiBookVisitorsModal = ({ onClose }: TiBookVisitorsModalProps) => {
   );
 };
 
-const SpanView = ({ span, since }: { span: SpanStats; since: string }) => {
+const SpanView = ({ span, since, viewer = false }: { span: SpanStats; since: string; viewer?: boolean }) => {
   const firstLook = span.visitors - span.cameBack;
   const before = BEFORE[span.key];
 
@@ -185,14 +210,15 @@ const SpanView = ({ span, since }: { span: SpanStats; since: string }) => {
 
       <Continents continents={span.continents} total={span.visitors} />
 
-      <KnownGuests guests={span.guests} />
+      {!viewer && <KnownGuests guests={span.guests} />}
 
       <p className="border-t border-gray-100 pt-3 text-xs leading-relaxed text-gray-400">
         A visitor is one phone or computer, counted once a day however often it opens
         TiBook. "Came back" means it has opened TiBook on more than one day. The
-        continent comes from the time zone the device is set to. A visit is tied to a
-        guest only if they let TiBook remember their number; everyone else stays
-        anonymous. Everyone who opens TiBook is counted, including you.
+        continent comes from the time zone the device is set to.
+        {viewer
+          ? " No guest is named or numbered here."
+          : " A visit is tied to a guest only if they let TiBook remember their number; everyone else stays anonymous. Everyone who opens TiBook is counted, including you."}
       </p>
     </div>
   );
