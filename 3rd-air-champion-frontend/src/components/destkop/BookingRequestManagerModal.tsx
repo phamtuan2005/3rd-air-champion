@@ -121,9 +121,16 @@ const calcGroupStats = (
   group: BookingRequest[],
   getRoom: (id: string) => roomType | undefined,
   getGuest: (phone: string) => guestType | undefined,
+  monthMap: Map<string, import("../../util/types/dayType").dayType>,
 ) => {
-  const nights = group.reduce((s, r) => s + r.duration, 0);
-  const revenue = group.reduce((s, r) => {
+  // An accepted request whose booking has since been removed from the calendar
+  // earns nothing: its nights are not slept and its money is not coming. It
+  // stays in the group (it can be re-booked) but not in the total — the group
+  // read "$1,340" with a row marked "unbooked" beside it, which counted that
+  // row's nights as revenue.
+  const live = group.filter((r) => !isUnbookedRequest(r, monthMap));
+  const nights = live.reduce((s, r) => s + r.duration, 0);
+  const revenue = live.reduce((s, r) => {
     const guestPrice = getGuest(r.guestPhone)?.pricing.find((p) => p.room === r.room)?.price;
     const nightlyRate = guestPrice ?? getRoom(r.room)?.price ?? 0;
     return s + r.duration * nightlyRate;
@@ -292,7 +299,7 @@ const HistoryDetailSheet = ({
 
           {/* Nights + revenue strip */}
           {(() => {
-            const { nights, revenue } = calcGroupStats(group, getRoom, matchGuest);
+            const { nights, revenue } = calcGroupStats(group, getRoom, matchGuest, monthMap);
             return revenue > 0 ? (
               <div className="flex items-center gap-4 bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 mt-1">
                 <div className="flex flex-col items-center gap-0.5">
@@ -555,7 +562,7 @@ const SwipeableHistoryGroupRow = ({
         {(() => {
           const getR = (id: string) => rooms.find((r) => r.id === id);
           const getG = (phone: string) => guests.find((g) => g.phone.replace(/\D/g, "") === phone.replace(/\D/g, ""));
-          const { nights, revenue } = calcGroupStats(group, getR, getG);
+          const { nights, revenue } = calcGroupStats(group, getR, getG, monthMap);
           return (
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="font-medium text-[12px] text-gray-700 truncate min-w-0">{displayName}</span>
@@ -1039,7 +1046,7 @@ const BookingRequestManagerModal = ({
 
           {/* Revenue highlight */}
           {(() => {
-            const { nights, revenue } = calcGroupStats(group, getRoom, matchGuest);
+            const { nights, revenue } = calcGroupStats(group, getRoom, matchGuest, monthMap);
             return revenue > 0 ? (
               <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2">
                 <div className="flex items-center gap-1.5">
