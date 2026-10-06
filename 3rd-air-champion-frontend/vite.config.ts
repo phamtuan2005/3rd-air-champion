@@ -40,6 +40,13 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: "/index.html",
+        // The one JS bundle passed workbox's 2 MiB default (2026-10-06, the TT
+        // reviews commit took it to 2.10 MB) and the build FAILED, so nothing
+        // could be deployed. Skipping the file instead would be worse than
+        // failing: the main bundle would not be precached, and a phone with a
+        // cached shell would fetch it fresh on every load. 4 MiB leaves room;
+        // the real fix when it nears that is to code-split the app.
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         globPatterns: ["**/*.{js,css,html,png,jpg,svg}"],
         // Throw away precaches from earlier builds when a new worker activates.
         // Without this a browser kept serving a shell whose asset hashes no
