@@ -22,14 +22,6 @@ const fromSet = (set: { house: string; rooms: { roomId: string; summary: string 
 // be nothing for the server.
 const POLL_MS = 3000;
 
-// The most of one room's paste that is sent: the same 120,000 characters the
-// server reads (MAX_PASTE in reviewDraft.ts). The server cuts a paste down too,
-// but only AFTER the whole request has arrived, and it refuses any request over
-// 2 MB with a bare error — so a host pasting five long review histories got "The
-// draft didn't start" and no reason (2026-10-06). Cut here, newest first, since
-// AirBnB lists the newest reviews at the top.
-const MAX_PASTE = 120_000;
-
 const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
   const [state, setState] = useState<ReviewsState | null>(null);
   const [error, setError] = useState("");
@@ -72,20 +64,14 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
   const rooms = state?.houseRooms ?? [];
   // The tab showing; the first room until one is picked.
   const pasteRoom = rooms.find((r) => r.roomId === pasteRoomId) ?? rooms[0];
-  const nameOf = (id: string) => rooms.find((r) => r.roomId === id)?.name ?? "a room";
 
   const draft = async () => {
     setNote("");
     setBusy(true);
     try {
-      const cutLocally = rooms.filter((r) => (pasted[r.roomId] ?? "").length > MAX_PASTE).map((r) => r.roomId);
-      const { truncated: cutByServer } = await startReviewDraft(
-        rooms.map((r) => ({ roomId: r.roomId, text: (pasted[r.roomId] ?? "").slice(0, MAX_PASTE) })),
-      );
-      const truncated = [...new Set([...cutLocally, ...cutByServer])];
-      if (truncated.length > 0) {
-        setNote(`${truncated.map(nameOf).join(", ")}: only the newest reviews were read — the paste was very long.`);
-      }
+      // Whole, however long: a paste is never cut for the host. The server says
+      // so, in words, if it is more than Claude can read at once.
+      await startReviewDraft(rooms.map((r) => ({ roomId: r.roomId, text: pasted[r.roomId] ?? "" })));
       load();
     } catch (e: any) {
       setNote(e?.response?.data?.error ?? "The draft didn't start. Try again.");

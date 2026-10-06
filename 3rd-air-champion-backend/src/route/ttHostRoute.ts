@@ -5,7 +5,7 @@ import TTQuestion from "../model/ttQuestionSchema";
 import TTReviews from "../model/ttReviewsSchema";
 import { requireManager } from "../middleware/requireManager";
 import { questionStats } from "../util/ttQuestions";
-import { draftReviewSummaries, MAX_PASTE, PastedRoom, ReviewDraft } from "../util/reviewDraft";
+import { draftReviewSummaries, MAX_TOTAL_PASTE, PastedRoom, ReviewDraft } from "../util/reviewDraft";
 
 // The host's side of TiBook's TT: what guests have been asking it, and the
 // review summaries it shows them.
@@ -94,7 +94,13 @@ export const setReviewDrafter = (fn: typeof draft) => {
 // can take longer than CloudFront waits for a first byte (30 seconds — see
 // aiRoute), so the work carries on after the response and TiMag polls
 // GET /reviews until it says ready or failed.
-router.post("/reviews/draft", async (req: Request, res: any) => {
+// A whole review history in one request. server.ts leaves this path out of its
+// 2 MB parser (anything over that was refused with a bare error, and the host
+// saw only "The draft didn't start"), and it is read here instead — AFTER the
+// manager check this router sits behind, so nobody who is not signed in can make
+// the server read a body this size. 16 MB covers MAX_TOTAL_PASTE characters even
+// at four bytes each.
+router.post("/reviews/draft", express.json({ limit: "16mb" }), async (req: Request, res: any) => {
   const hostId = hostOf(req);
   if (drafterNeedsKey && !process.env.ANTHROPIC_API_KEY) {
     return res.status(503).json({ error: "Drafting needs ANTHROPIC_API_KEY on the server." });
@@ -110,6 +116,12 @@ router.post("/reviews/draft", async (req: Request, res: any) => {
       .filter((r: any) => names.has(String(r?.roomId)) && typeof r?.text === "string" && r.text.trim())
       .map((r: any) => ({ roomId: String(r.roomId), name: names.get(String(r.roomId))!, text: r.text.trim() }));
     if (rooms.length === 0) return res.status(400).json({ error: "Paste at least one room's reviews first." });
+    const total = rooms.reduce((sum, r) => sum + r.text.length, 0);
+    if (total > MAX_TOTAL_PASTE) {
+      return res.status(400).json({
+        error: `That is ${total.toLocaleString()} characters in all — more than Claude can read at once (${MAX_TOTAL_PASTE.toLocaleString()}). Draft some rooms now and the rest after.`,
+      });
+    }
 
     const existing: any = await TTReviews.findOne({ host: hostId }, { draft: 1 }).lean();
     const d = existing?.draft;
@@ -123,12 +135,7 @@ router.post("/reviews/draft", async (req: Request, res: any) => {
       { $set: { draft: { status: "drafting", startedAt: started, error: "", house: "", rooms: [], reviewsRead: 0 } } },
       { upsert: true },
     );
-    res.status(202).json({
-      status: "drafting",
-      // Said up front, so a host who pasted a decade of reviews knows the
-      // oldest were left out rather than wondering why they are not reflected.
-      truncated: rooms.filter((r) => r.text.length > MAX_PASTE).map((r) => r.roomId),
-    });
+    res.status(202).json({ status: "drafting" });
 
     // Written back only onto THIS run's draft. A draft that outlived the
     // stale mark, was replaced by a newer one, or was overtaken by the host

@@ -14,7 +14,10 @@ import { createMockHost } from "../../model/test/util/mockHost";
 
 const signedInAs = (user: Record<string, any> | null) => {
   const app = express();
-  app.use(express.json());
+  // As server.ts: the small global parser skips the reviews draft, which reads
+  // its own bigger body behind the sign-in check.
+  const smallJson = express.json();
+  app.use((req, res, next) => (req.path === "/tt-host/reviews/draft" ? next() : smallJson(req, res, next)));
   app.use("/tt", ttGuestRoute);
   app.use((req, _res, next) => {
     if (user) (req as any).user = user;
@@ -151,6 +154,30 @@ describe("review summaries", () => {
       .post("/tt-host/reviews/draft")
       .send({ rooms: [{ roomId: theirRoom, text: "reviews" }] });
     expect(res.status).toBe(400);
+  });
+
+  it("reads a big paste whole, and refuses one past Claude's reach rather than cutting it", async () => {
+    const host = String((await createMockHost("big-paste@example.com"))._id);
+    const king = String((await roomFor(host, "King"))._id);
+    let seen = 0;
+    setReviewDrafter(async (rooms) => {
+      seen = rooms[0].text.length;
+      return { house: "", rooms: [], reviewsRead: 0 };
+    });
+    // 3 MB: over the 2 MB the rest of the API accepts, and it must still arrive intact.
+    const big = await request(signedInAs({ hostId: host, role: "Host" }))
+      .post("/tt-host/reviews/draft")
+      .send({ rooms: [{ roomId: king, text: "A".repeat(2_400_000) }] });
+    expect(big.status).toBe(202);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(seen).toBe(2_400_000);
+
+    await TTReviews.updateOne({ host }, { $set: { "draft.status": "none" } });
+    const tooBig = await request(signedInAs({ hostId: host, role: "Host" }))
+      .post("/tt-host/reviews/draft")
+      .send({ rooms: [{ roomId: king, text: "A".repeat(2_600_000) }] });
+    expect(tooBig.status).toBe(400);
+    expect(tooBig.body.error).toMatch(/more than Claude can read at once/);
   });
 
   it("says a draft failed, so the host is not left watching a spinner", async () => {
