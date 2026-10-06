@@ -34,6 +34,7 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
   const [state, setState] = useState<ReviewsState | null>(null);
   const [error, setError] = useState("");
   const [pasted, setPasted] = useState<Record<string, string>>({});
+  const [pasteRoomId, setPasteRoomId] = useState("");
   const [edit, setEdit] = useState<Edit>({ house: "", rooms: {} });
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
@@ -69,6 +70,8 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
   }, [drafting, apply]);
 
   const rooms = state?.houseRooms ?? [];
+  // The tab showing; the first room until one is picked.
+  const pasteRoom = rooms.find((r) => r.roomId === pasteRoomId) ?? rooms[0];
   const nameOf = (id: string) => rooms.find((r) => r.roomId === id)?.name ?? "a room";
 
   const draft = async () => {
@@ -159,35 +162,57 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
                   Open each room's listing, show all reviews, select them and paste here. Leave a room empty to skip
                   it. The pasted text isn't kept — only the summaries you publish.
                 </p>
-                <div className="mt-3 space-y-3">
-                  {rooms.map((r) => (
-                    <div key={r.roomId}>
-                      <div className="mb-1 flex items-center justify-between">
-                        <label htmlFor={`paste-${r.roomId}`} className="text-xs font-semibold text-gray-700">
-                          {r.name}
-                        </label>
-                        {r.airbnbUrl && (
-                          <a
-                            href={r.airbnbUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-xs font-semibold text-sky-600 hover:underline"
-                          >
-                            Open {r.name}'s listing ↗
-                          </a>
-                        )}
-                      </div>
-                      <textarea
-                        id={`paste-${r.roomId}`}
-                        rows={3}
-                        value={pasted[r.roomId] ?? ""}
-                        onChange={(e) => setPasted((p) => ({ ...p, [r.roomId]: e.target.value }))}
-                        placeholder={`Paste ${r.name}'s AirBnB reviews…`}
-                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-gray-400 focus:outline-none"
-                      />
-                    </div>
-                  ))}
+                {/* One room at a time, chosen by tab. Five paste boxes stacked
+                    meant scrolling past four long pastes to reach the fifth, and
+                    a tick on the tab shows which rooms already have reviews in. */}
+                <div role="tablist" className="mt-3 flex flex-wrap gap-1.5">
+                  {rooms.map((r) => {
+                    const has = (pasted[r.roomId] ?? "").trim().length > 0;
+                    const on = r.roomId === pasteRoom?.roomId;
+                    return (
+                      <button
+                        key={r.roomId}
+                        type="button"
+                        role="tab"
+                        aria-selected={on}
+                        onClick={() => setPasteRoomId(r.roomId)}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                          on ? "bg-gray-800 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        }`}
+                      >
+                        {r.name}
+                        {has && <span className={`ml-1 ${on ? "text-emerald-300" : "text-emerald-600"}`}>✓</span>}
+                      </button>
+                    );
+                  })}
                 </div>
+                {pasteRoom && (
+                  <div className="mt-3">
+                    <div className="mb-1 flex items-center justify-between">
+                      <label htmlFor={`paste-${pasteRoom.roomId}`} className="text-xs font-semibold text-gray-700">
+                        {pasteRoom.name}
+                      </label>
+                      {pasteRoom.airbnbUrl && (
+                        <a
+                          href={pasteRoom.airbnbUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs font-semibold text-sky-600 hover:underline"
+                        >
+                          Open {pasteRoom.name}'s listing ↗
+                        </a>
+                      )}
+                    </div>
+                    <textarea
+                      id={`paste-${pasteRoom.roomId}`}
+                      rows={7}
+                      value={pasted[pasteRoom.roomId] ?? ""}
+                      onChange={(e) => setPasted((p) => ({ ...p, [pasteRoom.roomId]: e.target.value }))}
+                      placeholder={`Paste ${pasteRoom.name}'s AirBnB reviews…`}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-gray-400 focus:outline-none"
+                    />
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={draft}
