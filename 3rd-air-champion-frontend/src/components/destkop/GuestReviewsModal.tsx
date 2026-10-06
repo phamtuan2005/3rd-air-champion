@@ -27,6 +27,7 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
   const [error, setError] = useState("");
   const [pasted, setPasted] = useState<Record<string, string>>({});
   const [pasteRoomId, setPasteRoomId] = useState("");
+  const fileInput = useRef<HTMLInputElement>(null);
   const [edit, setEdit] = useState<Edit>({ house: "", rooms: {} });
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
@@ -64,6 +65,21 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
   const rooms = state?.houseRooms ?? [];
   // The tab showing; the first room until one is picked.
   const pasteRoom = rooms.find((r) => r.roomId === pasteRoomId) ?? rooms[0];
+
+  // A saved text file instead of a paste. Read HERE, in the browser, and put in
+  // the same box a paste lands in: the text is then handled exactly as a paste
+  // is — sent whole, once, never stored — and no file ever reaches the server to
+  // be kept, which would break "the pasted text isn't kept".
+  const loadFile = async (roomId: string, file: File | undefined) => {
+    if (!file) return;
+    setNote("");
+    try {
+      const text = await file.text();
+      setPasted((p) => ({ ...p, [roomId]: text }));
+    } catch {
+      setNote("That file couldn't be read. Save the reviews as a plain .txt file and try again.");
+    }
+  };
 
   const draft = async () => {
     setNote("");
@@ -174,10 +190,30 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
                 </div>
                 {pasteRoom && (
                   <div className="mt-3">
-                    <div className="mb-1 flex items-center justify-between">
+                    <div className="mb-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                       <label htmlFor={`paste-${pasteRoom.roomId}`} className="text-xs font-semibold text-gray-700">
                         {pasteRoom.name}
                       </label>
+                      {/* Up here, beside the room, not under the box: the box is
+                          tall, and a button below it falls off a phone screen. */}
+                      <input
+                        ref={fileInput}
+                        type="file"
+                        accept=".txt,text/plain"
+                        className="hidden"
+                        onChange={(e) => {
+                          loadFile(pasteRoom.roomId, e.target.files?.[0]);
+                          // Cleared so choosing the same file again still fires.
+                          e.target.value = "";
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInput.current?.click()}
+                        className="rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                      >
+                        Choose a text file…
+                      </button>
                       {pasteRoom.airbnbUrl && (
                         <a
                           href={pasteRoom.airbnbUrl}
@@ -197,6 +233,9 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
                       placeholder={`Paste ${pasteRoom.name}'s AirBnB reviews…`}
                       className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-gray-400 focus:outline-none"
                     />
+                    <p className="mt-1 text-right text-[11px] text-gray-400">
+                      {(pasted[pasteRoom.roomId] ?? "").length.toLocaleString()} characters
+                    </p>
                   </div>
                 )}
                 <button
