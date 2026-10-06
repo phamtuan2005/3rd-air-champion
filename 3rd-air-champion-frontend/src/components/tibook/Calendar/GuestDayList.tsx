@@ -840,7 +840,18 @@ const GuestDayList = ({
         {data.nameRooms && (
           <div aria-hidden className="pointer-events-none invisible absolute inset-x-0 top-0 flex items-center gap-3 pl-3 pr-16">
             <span className="shrink-0" style={{ width: dateColWidthFor(baseSize) }} />
-            <span ref={chipsRef} className="min-w-0 flex-1">
+            <span ref={chipsRef} className="flex min-w-0 flex-1 flex-col gap-0.5">
+              {/* A holiday's name sits ABOVE the chips on its row, one more
+                  line in the same column. It was left out of this measure,
+                  so on a phone where the chips already wrap, New Year's Day
+                  had the holiday line and two lines of chips in a row sized
+                  for the chips alone: centred and clipped, the holiday name
+                  showed half-hidden behind the chips. Measured with the
+                  line, every row has the room; the line is the same type and
+                  gap as the real one, and its words do not matter. */}
+              <span className="font-semibold leading-tight" style={{ fontSize: baseSize.small }}>
+                New Year&rsquo;s Day
+              </span>
               <FreeRooms count={scopedRooms.length} rooms={scopedRooms} myRates={myRates} text={baseSize.text} picked={false} />
             </span>
             <span className="shrink-0" />
