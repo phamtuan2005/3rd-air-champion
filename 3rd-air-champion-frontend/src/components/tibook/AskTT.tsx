@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, ReactNode, useEffect, useRef, useState } from "react";
 import { HiSparkles } from "react-icons/hi2";
 import { useRoomChip, useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import { askTT, AskTTContext, TTAction, TTAnswer, ttStarters } from "../../util/askTT";
@@ -201,10 +201,11 @@ interface Turn {
 interface AskTTSheetProps {
   ctx: AskTTContext;
   guestName?: string;
-  // The usual room's own colour, from the full room record. It comes in beside
-  // `ctx` and not inside it: TTRoom is a whitelist on purpose (toTTRoom's test
-  // pins its exact fields), and a colour is not worth widening it for.
-  usualRoomColor?: string;
+  // Each room's own colour, by room id, from the full room record. It comes in
+  // beside `ctx` and not inside it: TTRoom is a whitelist on purpose
+  // (toTTRoom's test pins its exact fields), and a colour is not worth
+  // widening it for.
+  roomColors?: Record<string, string | undefined>;
   onAction: (action: Exclude<TTAction, { kind: "ask" }>) => void;
   onClose: () => void;
 }
@@ -221,7 +222,7 @@ interface AskTTSheetProps {
  * The thread lives only as long as the sheet is open. Nothing is sent
  * anywhere: TT runs on this phone, from what TiBook has already loaded.
  */
-const AskTTSheet = ({ ctx, guestName, usualRoomColor, onAction, onClose }: AskTTSheetProps) => {
+const AskTTSheet = ({ ctx, guestName, roomColors, onAction, onClose }: AskTTSheetProps) => {
   const { theme } = useTiBookTheme();
   const roomChip = useRoomChip();
   const [draft, setDraft] = useState("");
@@ -229,6 +230,34 @@ const AskTTSheet = ({ ctx, guestName, usualRoomColor, onAction, onClose }: AskTT
   const scrollRef = useRef<HTMLDivElement>(null);
   const first = (ctx.guest?.firstName || guestName || "").trim().split(/\s+/)[0];
   const usualName = ctx.rooms.find((r) => r.id === ctx.guest?.usualRoomId)?.name;
+
+  // A room's name is its coloured chip wherever TT says it — the greeting, an
+  // answer, a button — the same as everywhere else in TiBook, so a guest
+  // knows the room by sight. Answers and labels are plain strings (askTT.ts
+  // knows nothing of colour), so the names are found in the text here.
+  // Case-sensitive on purpose: "King" is the room, "king-size" is a bed.
+  const chipify = (text: string, compact = false): ReactNode => {
+    const names = ctx.rooms.map((r) => r.name).filter(Boolean).sort((a, b) => b.length - a.length);
+    if (names.length === 0) return text;
+    const escaped = names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    // No lookbehind (older iPhones throw on that syntax and the sheet would
+    // not open), so plain word boundaries.
+    const parts = text.split(new RegExp(`\\b(${escaped.join("|")})\\b`));
+    return parts.map((part, i) => {
+      const room = i % 2 === 1 ? ctx.rooms.find((r) => r.name === part) : undefined;
+      if (!room) return <Fragment key={i}>{part}</Fragment>;
+      return (
+        <span
+          key={i}
+          className={`${roomChip({ name: room.name, color: roomColors?.[room.id] })} rounded-lg font-bold text-black ${
+            compact ? "px-1.5 py-px text-[11px]" : "px-2 py-0.5 text-[13px]"
+          }`}
+        >
+          {room.name}
+        </span>
+      );
+    });
+  };
 
   const ask = (question: string) => {
     const q = question.trim();
@@ -261,7 +290,7 @@ const AskTTSheet = ({ ctx, guestName, usualRoomColor, onAction, onClose }: AskTT
                 : `rounded-full border px-3 py-1.5 text-xs font-semibold ${theme.surfaceBorder} ${theme.surfaceText} ${theme.surfaceHover2}`
             }
           >
-            {a.label}
+            {chipify(a.label, true)}
           </button>
         ))}
       </div>
@@ -316,9 +345,7 @@ const AskTTSheet = ({ ctx, guestName, usualRoomColor, onAction, onClose }: AskTT
                         {" in "}
                         {/* The room as it is everywhere else in TiBook — its
                             coloured chip — so a guest knows it by sight. */}
-                        <span className={`${roomChip({ name: usualName, color: usualRoomColor })} rounded-lg px-2 py-0.5 text-[13px] font-bold text-black`}>
-                          {usualName}
-                        </span>
+                        {chipify(usualName)}
                         {", your usual room"}
                       </>
                     ) : null}
@@ -358,7 +385,7 @@ const AskTTSheet = ({ ctx, guestName, usualRoomColor, onAction, onClose }: AskTT
                 <div className={`max-w-[88%] rounded-2xl rounded-bl-sm border px-3 py-2 text-sm ${theme.surfaceSubtle} ${theme.surfaceBorder} ${theme.surfaceText}`}>
                   {t.answer.lines.map((line, i) => (
                     <p key={i} className={`whitespace-pre-wrap break-words ${i > 0 ? "mt-1" : ""}`}>
-                      {line}
+                      {chipify(line)}
                     </p>
                   ))}
                   {actionRow(t.answer.actions)}
