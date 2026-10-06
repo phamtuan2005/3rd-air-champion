@@ -6,6 +6,7 @@ import TTReviews from "../model/ttReviewsSchema";
 import { requireManager } from "../middleware/requireManager";
 import { questionStats } from "../util/ttQuestions";
 import { draftReviewSummaries, MAX_TOTAL_PASTE, PastedRoom, ReviewDraft } from "../util/reviewDraft";
+import { addPart, dropUpload, peekUpload, UploadError } from "../util/pasteUploads";
 
 // The host's side of TiBook's TT: what guests have been asking it, and the
 // review summaries it shows them.
@@ -94,13 +95,20 @@ export const setReviewDrafter = (fn: typeof draft) => {
 // can take longer than CloudFront waits for a first byte (30 seconds — see
 // aiRoute), so the work carries on after the response and TiMag polls
 // GET /reviews until it says ready or failed.
-// A whole review history in one request. server.ts leaves this path out of its
-// 2 MB parser (anything over that was refused with a bare error, and the host
-// saw only "The draft didn't start"), and it is read here instead — AFTER the
-// manager check this router sits behind, so nobody who is not signed in can make
-// the server read a body this size. 16 MB covers MAX_TOTAL_PASTE characters even
-// at four bytes each.
-router.post("/reviews/draft", express.json({ limit: "16mb" }), async (req: Request, res: any) => {
+// One small part of a review history. See util/pasteUploads: a request body of
+// 8,192 bytes or more never reaches this server (CloudFront answers it with the
+// website's home page), so a long paste is sent as many parts and assembled here.
+router.post("/reviews/upload", (req: Request, res: any) => {
+  try {
+    addPart(hostOf(req), req.body ?? {});
+    res.status(200).json({ ok: true });
+  } catch (error: any) {
+    if (error instanceof UploadError) return res.status(400).json({ error: error.message });
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/reviews/draft", async (req: Request, res: any) => {
   const hostId = hostOf(req);
   if (drafterNeedsKey && !process.env.ANTHROPIC_API_KEY) {
     return res.status(503).json({ error: "Drafting needs ANTHROPIC_API_KEY on the server." });
@@ -112,9 +120,23 @@ router.post("/reviews/draft", express.json({ limit: "16mb" }), async (req: Reque
     const ids = pasted.map((r: any) => r?.roomId).filter((id: any) => mongoose.isValidObjectId(id));
     const owned = await Room.find({ _id: { $in: ids }, host: hostId }, { name: 1 }).lean();
     const names = new Map(owned.map((r: any) => [String(r._id), String(r.name ?? "")]));
+    // A room's text is either in the body (small) or an upload sent in parts
+    // beforehand, named by id. An upload is only ever read as THIS host's, and
+    // only for the room it was sent for.
+    const uploadIds: string[] = [];
+    const textOf = (r: any): string => {
+      if (typeof r?.uploadId === "string") {
+        const up = peekUpload(hostId, r.uploadId);
+        if (up.roomId !== String(r.roomId)) throw new UploadError("That upload is for a different room.");
+        uploadIds.push(r.uploadId);
+        return up.text;
+      }
+      return typeof r?.text === "string" ? r.text : "";
+    };
     const rooms: PastedRoom[] = pasted
-      .filter((r: any) => names.has(String(r?.roomId)) && typeof r?.text === "string" && r.text.trim())
-      .map((r: any) => ({ roomId: String(r.roomId), name: names.get(String(r.roomId))!, text: r.text.trim() }));
+      .filter((r: any) => names.has(String(r?.roomId)))
+      .map((r: any) => ({ roomId: String(r.roomId), name: names.get(String(r.roomId))!, text: textOf(r).trim() }))
+      .filter((r: PastedRoom) => r.text);
     if (rooms.length === 0) return res.status(400).json({ error: "Paste at least one room's reviews first." });
     const total = rooms.reduce((sum, r) => sum + r.text.length, 0);
     if (total > MAX_TOTAL_PASTE) {
@@ -128,6 +150,9 @@ router.post("/reviews/draft", express.json({ limit: "16mb" }), async (req: Reque
     if (d?.status === "drafting" && d.startedAt && Date.now() - new Date(d.startedAt).getTime() < STALE_DRAFT_MS) {
       return res.status(409).json({ error: "A draft is already being written." });
     }
+
+    // Out of memory for good once the draft has begun: the text is not kept.
+    uploadIds.forEach((id) => dropUpload(hostId, id));
 
     const started = new Date();
     await TTReviews.updateOne(
@@ -166,6 +191,8 @@ router.post("/reviews/draft", express.json({ limit: "16mb" }), async (req: Reque
         ).catch(() => undefined),
       );
   } catch (error: any) {
+    // A missing, expired or foreign upload is the host's to fix, with words.
+    if (error instanceof UploadError) return res.status(400).json({ error: error.message });
     if (!res.headersSent) res.status(500).json({ error: error.message });
   }
 });

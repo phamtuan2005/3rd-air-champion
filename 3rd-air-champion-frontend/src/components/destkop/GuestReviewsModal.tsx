@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { fetchReviewsState, publishReviews, ReviewsState, startReviewDraft } from "../../util/ttQuestionLog";
+import { uploadPasteText } from "../../util/pasteParts";
 
 // What guests say, for TiBook's TT to tell the next guest.
 //
@@ -27,6 +28,11 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
   const [error, setError] = useState("");
   const [pasted, setPasted] = useState<Record<string, string>>({});
   const [pasteRoomId, setPasteRoomId] = useState("");
+  // A room whose reviews came from a file. The text is NOT loaded into the box
+  // (a few hundred kilobytes in a textarea freezes it); it is sent to the server
+  // as soon as the file is chosen, and only its name and size are kept here.
+  const [files, setFiles] = useState<Record<string, { name: string; chars: number; uploadId: string }>>({});
+  const [progress, setProgress] = useState<{ label: string; pct: number } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const [edit, setEdit] = useState<Edit>({ house: "", rooms: {} });
   const [busy, setBusy] = useState(false);
@@ -66,32 +72,73 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
   // The tab showing; the first room until one is picked.
   const pasteRoom = rooms.find((r) => r.roomId === pasteRoomId) ?? rooms[0];
 
-  // A saved text file instead of a paste. Read HERE, in the browser, and put in
-  // the same box a paste lands in: the text is then handled exactly as a paste
-  // is — sent whole, once, never stored — and no file ever reaches the server to
-  // be kept, which would break "the pasted text isn't kept".
+  // A saved text file instead of a paste. The browser reads it and sends it to
+  // the server at once, in small parts (CloudFront refuses any request of 8 KB or
+  // more — see util/pasteParts), WITHOUT putting it in the paste box. The server
+  // keeps it in memory only until the draft starts: the pasted text isn't kept.
   const loadFile = async (roomId: string, file: File | undefined) => {
     if (!file) return;
     setNote("");
+    let text: string;
     try {
-      const text = await file.text();
-      setPasted((p) => ({ ...p, [roomId]: text }));
+      text = await file.text();
     } catch {
       setNote("That file couldn't be read. Save the reviews as a plain .txt file and try again.");
+      return;
+    }
+    if (!text.trim()) {
+      setNote("That file is empty.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const uploadId = await uploadPasteText(roomId, text, (done, total) =>
+        setProgress({ label: `Sending ${file.name}`, pct: Math.round((done / total) * 100) }),
+      );
+      setFiles((f) => ({ ...f, [roomId]: { name: file.name, chars: text.length, uploadId } }));
+    } catch (e: any) {
+      setNote(e?.response?.data?.error ?? "The file didn't go through. Check the connection and try again.");
+    } finally {
+      setProgress(null);
+      setBusy(false);
     }
   };
+
+  // Pasted text longer than this travels in parts too, exactly as a file does.
+  const INLINE_MAX = 3000;
 
   const draft = async () => {
     setNote("");
     setBusy(true);
     try {
+      const entries: { roomId: string; text?: string; uploadId?: string }[] = [];
+      for (const r of rooms) {
+        const file = files[r.roomId];
+        const text = pasted[r.roomId] ?? "";
+        if (file) {
+          entries.push({ roomId: r.roomId, uploadId: file.uploadId });
+        } else if (text.length > INLINE_MAX) {
+          const uploadId = await uploadPasteText(r.roomId, text, (done, total) =>
+            setProgress({ label: `Sending ${r.name}`, pct: Math.round((done / total) * 100) }),
+          );
+          entries.push({ roomId: r.roomId, uploadId });
+        } else if (text.trim()) {
+          entries.push({ roomId: r.roomId, text });
+        }
+      }
       // Whole, however long: a paste is never cut for the host. The server says
       // so, in words, if it is more than Claude can read at once.
-      await startReviewDraft(rooms.map((r) => ({ roomId: r.roomId, text: pasted[r.roomId] ?? "" })));
+      await startReviewDraft(entries);
+      setFiles({});
       load();
     } catch (e: any) {
-      setNote(e?.response?.data?.error ?? "The draft didn't start. Try again.");
+      const said = e?.response?.data?.error;
+      setNote(said ?? "The draft didn't start. Check the connection and try again.");
+      // An upload the server lost (it keeps one for half an hour, in memory) has
+      // to be chosen again; leaving it listed would fail the same way every time.
+      if (typeof said === "string" && /upload/i.test(said)) setFiles({});
     } finally {
+      setProgress(null);
       setBusy(false);
     }
   };
@@ -107,6 +154,7 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
       loadedDraft.current = null;
       apply(s);
       setPasted({});
+      setFiles({});
       setNote("Published. Guests asking TT “What guests say” now read this.");
     } catch (e: any) {
       setNote(e?.response?.data?.error ?? "That didn't publish. Try again.");
@@ -115,7 +163,7 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
     }
   };
 
-  const anyPasted = rooms.some((r) => (pasted[r.roomId] ?? "").trim());
+  const anyPasted = rooms.some((r) => files[r.roomId] || (pasted[r.roomId] ?? "").trim());
   const showingDraft = state?.draft.status === "ready";
 
   return (
@@ -169,7 +217,7 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
                     a tick on the tab shows which rooms already have reviews in. */}
                 <div role="tablist" className="mt-3 flex flex-wrap gap-1.5">
                   {rooms.map((r) => {
-                    const has = (pasted[r.roomId] ?? "").trim().length > 0;
+                    const has = !!files[r.roomId] || (pasted[r.roomId] ?? "").trim().length > 0;
                     const on = r.roomId === pasteRoom?.roomId;
                     return (
                       <button
@@ -210,7 +258,8 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
                       <button
                         type="button"
                         onClick={() => fileInput.current?.click()}
-                        className="rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                        disabled={busy}
+                        className="rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40"
                       >
                         Choose a text file…
                       </button>
@@ -225,17 +274,56 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
                         </a>
                       )}
                     </div>
-                    <textarea
-                      id={`paste-${pasteRoom.roomId}`}
-                      rows={7}
-                      value={pasted[pasteRoom.roomId] ?? ""}
-                      onChange={(e) => setPasted((p) => ({ ...p, [pasteRoom.roomId]: e.target.value }))}
-                      placeholder={`Paste ${pasteRoom.name}'s AirBnB reviews…`}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-gray-400 focus:outline-none"
-                    />
-                    <p className="mt-1 text-right text-[11px] text-gray-400">
-                      {(pasted[pasteRoom.roomId] ?? "").length.toLocaleString()} characters
-                    </p>
+                    {files[pasteRoom.roomId] ? (
+                      // The file is on the server already; only its name and size
+                      // are shown. Putting hundreds of kilobytes in a textarea
+                      // would freeze it, and there is nothing to edit in it.
+                      <div className="flex items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-gray-900">📄 {files[pasteRoom.roomId].name}</p>
+                          <p className="text-xs text-gray-600">
+                            {files[pasteRoom.roomId].chars.toLocaleString()} characters · received ✓
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFiles((f) => {
+                              const { [pasteRoom.roomId]: _gone, ...rest } = f;
+                              return rest;
+                            })
+                          }
+                          className="shrink-0 rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <textarea
+                          id={`paste-${pasteRoom.roomId}`}
+                          rows={7}
+                          value={pasted[pasteRoom.roomId] ?? ""}
+                          onChange={(e) => setPasted((p) => ({ ...p, [pasteRoom.roomId]: e.target.value }))}
+                          placeholder={`Paste ${pasteRoom.name}'s AirBnB reviews, or choose a text file…`}
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-gray-400 focus:outline-none"
+                        />
+                        <p className="mt-1 text-right text-[11px] text-gray-400">
+                          {(pasted[pasteRoom.roomId] ?? "").length.toLocaleString()} characters
+                        </p>
+                      </>
+                    )}
+                    {progress && (
+                      <div className="mt-2" role="status">
+                        <div className="flex justify-between text-[11px] text-gray-500">
+                          <span className="truncate">{progress.label}…</span>
+                          <span>{progress.pct}%</span>
+                        </div>
+                        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-100">
+                          <div className="h-full bg-emerald-500 transition-[width]" style={{ width: `${progress.pct}%` }} />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
                 <button
