@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { HiSparkles } from "react-icons/hi2";
-import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
+import { useRoomChip, useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import { askTT, AskTTContext, TTAction, TTAnswer, ttStarters } from "../../util/askTT";
 
 // TT's mark, the same one TiMag's Ask TT wears: a sparkle on the
@@ -201,6 +201,10 @@ interface Turn {
 interface AskTTSheetProps {
   ctx: AskTTContext;
   guestName?: string;
+  // The usual room's own colour, from the full room record. It comes in beside
+  // `ctx` and not inside it: TTRoom is a whitelist on purpose (toTTRoom's test
+  // pins its exact fields), and a colour is not worth widening it for.
+  usualRoomColor?: string;
   onAction: (action: Exclude<TTAction, { kind: "ask" }>) => void;
   onClose: () => void;
 }
@@ -217,8 +221,9 @@ interface AskTTSheetProps {
  * The thread lives only as long as the sheet is open. Nothing is sent
  * anywhere: TT runs on this phone, from what TiBook has already loaded.
  */
-const AskTTSheet = ({ ctx, guestName, onAction, onClose }: AskTTSheetProps) => {
+const AskTTSheet = ({ ctx, guestName, usualRoomColor, onAction, onClose }: AskTTSheetProps) => {
   const { theme } = useTiBookTheme();
+  const roomChip = useRoomChip();
   const [draft, setDraft] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -305,7 +310,19 @@ const AskTTSheet = ({ ctx, guestName, onAction, onClose }: AskTTSheetProps) => {
                       and in which room, before anything else. */}
                   <p>
                     Welcome back{first ? `, ${first}` : ""}! TT is your assistant. Tell me your dates and I'll set up
-                    the request{usualName ? ` in ${usualName}, your usual room,` : ""} — you check it before it's sent.
+                    the request
+                    {usualName ? (
+                      <>
+                        {" in "}
+                        {/* The room as it is everywhere else in TiBook — its
+                            coloured chip — so a guest knows it by sight. */}
+                        <span className={`${roomChip({ name: usualName, color: usualRoomColor })} rounded-lg px-2 py-0.5 text-[13px] font-bold text-black`}>
+                          {usualName}
+                        </span>
+                        {", your usual room"}
+                      </>
+                    ) : null}
+                    {" — you check it before it's sent."}
                   </p>
                   {ctx.guest.wishList.length > 0 && (
                     <p className={`mt-1 text-[12px] ${theme.surfaceMuted}`}>
