@@ -14,10 +14,7 @@ import { createMockHost } from "../../model/test/util/mockHost";
 
 const signedInAs = (user: Record<string, any> | null) => {
   const app = express();
-  // As server.ts: the small global parser skips the reviews draft, which reads
-  // its own bigger body behind the sign-in check.
-  const smallJson = express.json();
-  app.use((req, res, next) => (req.path === "/tt-host/reviews/draft" ? next() : smallJson(req, res, next)));
+  app.use(express.json());
   app.use("/tt", ttGuestRoute);
   app.use((req, _res, next) => {
     if (user) (req as any).user = user;
@@ -156,28 +153,71 @@ describe("review summaries", () => {
     expect(res.status).toBe(400);
   });
 
-  it("reads a big paste whole, and refuses one past Claude's reach rather than cutting it", async () => {
-    const host = String((await createMockHost("big-paste@example.com"))._id);
+  // A request body of 8,192 bytes or more never reaches the server (CloudFront
+  // answers it with the website's home page), so a long paste travels as many
+  // small parts. These pin that the parts come back together intact, that the
+  // text is read whole, and that nobody can read another host's upload.
+  const sendInParts = async (app: any, uploadId: string, roomId: string, text: string, skip: number[] = []) => {
+    const size = 6000;
+    const total = Math.ceil(text.length / size);
+    for (let i = 0; i < total; i += 20) {
+      await Promise.all(
+        Array.from({ length: Math.min(20, total - i) }, (_, k) => i + k)
+          .filter((idx) => !skip.includes(idx))
+          .map((idx) =>
+            request(app).post("/tt-host/reviews/upload").send({ uploadId, roomId, index: idx, total, text: text.slice(idx * size, (idx + 1) * size) }),
+          ),
+      );
+    }
+  };
+
+  it("reads a long paste, sent in parts, whole and in order", async () => {
+    const host = String((await createMockHost("parts@example.com"))._id);
     const king = String((await roomFor(host, "King"))._id);
-    let seen = 0;
+    let seen = "";
     setReviewDrafter(async (rooms) => {
-      seen = rooms[0].text.length;
+      seen = rooms[0].text;
       return { house: "", rooms: [], reviewsRead: 0 };
     });
-    // 3 MB: over the 2 MB the rest of the API accepts, and it must still arrive intact.
-    const big = await request(signedInAs({ hostId: host, role: "Host" }))
-      .post("/tt-host/reviews/draft")
-      .send({ rooms: [{ roomId: king, text: "A".repeat(2_400_000) }] });
-    expect(big.status).toBe(202);
+    const app = signedInAs({ hostId: host, role: "Host" });
+    const text = Array.from({ length: 100_000 }, (_, i) => `r${i % 10}`).join("") + "OLDEST";
+    await sendInParts(app, "upload-aaaa-1", king, text);
+    const res = await request(app).post("/tt-host/reviews/draft").send({ rooms: [{ roomId: king, uploadId: "upload-aaaa-1" }] });
+    expect(res.status).toBe(202);
     await new Promise((r) => setTimeout(r, 50));
-    expect(seen).toBe(2_400_000);
+    expect(seen).toBe(text);
 
+    // Read out of memory once the draft began: drafting again from it fails.
     await TTReviews.updateOne({ host }, { $set: { "draft.status": "none" } });
-    const tooBig = await request(signedInAs({ hostId: host, role: "Host" }))
+    const again = await request(app).post("/tt-host/reviews/draft").send({ rooms: [{ roomId: king, uploadId: "upload-aaaa-1" }] });
+    expect(again.status).toBe(400);
+  });
+
+  it("refuses an upload with a part missing, and one that is another host's", async () => {
+    const host = String((await createMockHost("missing-part@example.com"))._id);
+    const other = String((await createMockHost("not-yours@example.com"))._id);
+    const king = String((await roomFor(host, "King"))._id);
+    setReviewDrafter(async () => ({ house: "", rooms: [], reviewsRead: 0 }));
+    const app = signedInAs({ hostId: host, role: "Host" });
+    await sendInParts(app, "upload-bbbb-2", king, "A".repeat(30_000), [2]);
+    const incomplete = await request(app).post("/tt-host/reviews/draft").send({ rooms: [{ roomId: king, uploadId: "upload-bbbb-2" }] });
+    expect(incomplete.status).toBe(400);
+    expect(incomplete.body.error).toMatch(/did not finish/);
+
+    await sendInParts(app, "upload-cccc-3", king, "A".repeat(12_000));
+    const theirs = await request(signedInAs({ hostId: other, role: "Host" }))
       .post("/tt-host/reviews/draft")
-      .send({ rooms: [{ roomId: king, text: "A".repeat(2_600_000) }] });
-    expect(tooBig.status).toBe(400);
-    expect(tooBig.body.error).toMatch(/more than Claude can read at once/);
+      .send({ rooms: [{ roomId: king, uploadId: "upload-cccc-3" }] });
+    expect(theirs.status).toBe(400);
+  });
+
+  it("refuses a part too large to travel, rather than carrying a body CloudFront drops", async () => {
+    const host = String((await createMockHost("fat-part@example.com"))._id);
+    const king = String((await roomFor(host, "King"))._id);
+    const res = await request(signedInAs({ hostId: host, role: "Host" }))
+      .post("/tt-host/reviews/upload")
+      .send({ uploadId: "upload-dddd-4", roomId: king, index: 0, total: 1, text: "A".repeat(6001) });
+    expect(res.status).toBe(400);
   });
 
   it("says a draft failed, so the host is not left watching a spinner", async () => {

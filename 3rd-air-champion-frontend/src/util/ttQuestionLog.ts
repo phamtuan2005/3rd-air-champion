@@ -130,7 +130,9 @@ export const fetchReviewsState = async (): Promise<ReviewsState> =>
   asReviewsState((await axios.get(`${BACKEND_ENDPOINT}/tt-host/reviews`, authed())).data);
 
 // Starts Claude on a draft; the answer comes back through fetchReviewsState.
-export const startReviewDraft = async (rooms: { roomId: string; text: string }[]): Promise<void> => {
+// A room's reviews are either `text` (short) or an `uploadId` from
+// uploadPasteText (long, sent in parts — see util/pasteParts).
+export const startReviewDraft = async (rooms: { roomId: string; text?: string; uploadId?: string }[]): Promise<void> => {
   await axios.post(`${BACKEND_ENDPOINT}/tt-host/reviews/draft`, { rooms }, authed());
 };
 
