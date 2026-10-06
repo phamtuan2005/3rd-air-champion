@@ -18,6 +18,8 @@ import AskTiMagModal from "./AskTiMagModal";
 import ReminderTemplateModal from "../NavBar/DropDown/ReminderTemplateModal";
 import BookingTemplateModal from "../NavBar/DropDown/BookingTemplateModal";
 import TiBookVisitorsModal from "../TiBookVisitorsModal";
+import TTQuestionsModal from "../TTQuestionsModal";
+import GuestReviewsModal from "../GuestReviewsModal";
 import GuestView from "./GuestView/GuestView";
 import BookButton from "../BookButton";
 import { AddPaneContext, FooterContext, GuestModeContext, isSyncModalOpenContext } from "../../../context";
@@ -757,11 +759,12 @@ const MainView = ({
     setJumpDate((prev) => ({ key: dateKey, seq: (prev?.seq ?? 0) + 1 }));
   };
 
-  // Three screens have no open-state out here: the two templates live in the
-  // profile menu and the visitors chart in the nav bar. Each is a
+  // Five screens have no open-state out here: the two templates live in the
+  // profile menu, and the visitors chart, TT questions and guest reviews in
+  // the nav bar. Each is a
   // self-contained modal, so TT mounts its own copy rather than reaching into
   // those components for their switches.
-  const [ttModal, setTtModal] = useState<"reminderTemplate" | "bookingTemplate" | "visitors" | null>(null);
+  const [ttModal, setTtModal] = useState<"reminderTemplate" | "bookingTemplate" | "visitors" | "ttQuestions" | "reviews" | null>(null);
   const onScreen = (key: string) => {
     const open: Record<string, () => void> = {
       book: () => setIsModalOpen(true),
@@ -782,6 +785,8 @@ const MainView = ({
       reminderTemplate: () => setTtModal("reminderTemplate"),
       bookingTemplate: () => setTtModal("bookingTemplate"),
       visitors: () => setTtModal("visitors"),
+      ttQuestions: () => setTtModal("ttQuestions"),
+      reviews: () => setTtModal("reviews"),
     };
     open[key]?.();
   };
@@ -2087,6 +2092,8 @@ const MainView = ({
       {ttModal === "reminderTemplate" && <ReminderTemplateModal onClose={() => setTtModal(null)} />}
       {ttModal === "bookingTemplate" && <BookingTemplateModal onClose={() => setTtModal(null)} />}
       {ttModal === "visitors" && <TiBookVisitorsModal onClose={() => setTtModal(null)} />}
+      {ttModal === "ttQuestions" && <TTQuestionsModal onClose={() => setTtModal(null)} />}
+      {ttModal === "reviews" && <GuestReviewsModal onClose={() => setTtModal(null)} />}
       {isUrgentActionOpen && (
         <UrgentActionModal
           monthMap={monthMap}

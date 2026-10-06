@@ -250,3 +250,20 @@ export const fetchTiBookStatsAsViewer = async (code: string): Promise<ViewerStat
     throw new Error(status === 401 ? "wrong" : status === 429 ? "slow" : "unreachable");
   }
 };
+
+// The viewer code as it is typed: capitals, a dash put in after each group of
+// four as soon as the group is complete, and nothing past the twelfth
+// character -- the shape tibookStatsAccessRoute hands out (KXQ7-MP4R-T9WZ).
+// The guest never types a dash or counts characters; a pasted code, with
+// dashes or without, comes out the same.
+//
+// `deleting` holds back the trailing dash: put back on every keystroke, it
+// would make Backspace on "KXQ7-" a key that does nothing.
+export const STATS_CODE_LENGTH = 12;
+const STATS_CODE_GROUP = 4;
+export const formatStatsCode = (typed: string, deleting = false): string => {
+  const chars = typed.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, STATS_CODE_LENGTH);
+  const grouped = (chars.match(new RegExp(`.{1,${STATS_CODE_GROUP}}`, "g")) ?? []).join("-");
+  const groupDone = chars.length > 0 && chars.length % STATS_CODE_GROUP === 0 && chars.length < STATS_CODE_LENGTH;
+  return groupDone && !deleting ? grouped + "-" : grouped;
+};

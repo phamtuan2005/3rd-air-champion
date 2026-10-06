@@ -4,6 +4,8 @@ import Guest from "../model/guestSchema";
 import TiBookStatsGrant from "../model/tibookStatsGrantSchema";
 import { hashStatsCode } from "./tibookStatsAccessRoute";
 import { tibookVisitorStats, utcDay } from "../util/tibookVisitorStats";
+import TTQuestion from "../model/ttQuestionSchema";
+import { questionStats } from "../util/ttQuestions";
 
 // A guest the host chose reading TiBook's visitor numbers, with the code TiMag
 // gave them (see tibookStatsAccessRoute).
@@ -43,30 +45,42 @@ const recordMiss = (ip: string) => {
   else m.count += 1;
 };
 
-// POST, so the code travels in the body rather than in a URL that lands in
-// server logs and browser history.
-router.post("/", async (req: Request, res: any) => {
+// The code check every route here goes through: the grant and its guest, or
+// null with the refusal already sent. One function, so the TT questions below
+// cannot be opened by a weaker check than the visitor numbers.
+const grantFor = async (req: Request, res: any): Promise<{ grant: any; guest: any } | null> => {
   const ip = req.ip || "unknown";
   if (tooManyMisses(ip)) {
-    return res.status(429).json({ error: "Too many tries. Wait a few minutes and try again." });
+    res.status(429).json({ error: "Too many tries. Wait a few minutes and try again." });
+    return null;
   }
   const code = String(req.body?.code ?? "");
   if (code.replace(/[^A-Za-z0-9]/g, "").length < 8) {
     recordMiss(ip);
-    return res.status(401).json({ error: "That code isn't right." });
+    res.status(401).json({ error: "That code isn't right." });
+    return null;
   }
+  const grant: any = await TiBookStatsGrant.findOne({ codeHash: hashStatsCode(code) }).lean();
+  // A grant outlives nothing it depends on: a deleted guest's code stops
+  // working, the same as a revoked one.
+  const guest: any = grant
+    ? await Guest.findOne({ _id: grant.guest, host: grant.host }, { name: 1 }).lean()
+    : null;
+  if (!grant || !guest) {
+    recordMiss(ip);
+    res.status(401).json({ error: "That code isn't right." });
+    return null;
+  }
+  return { grant, guest };
+};
 
+// POST, so the code travels in the body rather than in a URL that lands in
+// server logs and browser history.
+router.post("/", async (req: Request, res: any) => {
   try {
-    const grant: any = await TiBookStatsGrant.findOne({ codeHash: hashStatsCode(code) }).lean();
-    // A grant outlives nothing it depends on: a deleted guest's code stops
-    // working, the same as a revoked one.
-    const guest: any = grant
-      ? await Guest.findOne({ _id: grant.guest, host: grant.host }, { name: 1 }).lean()
-      : null;
-    if (!grant || !guest) {
-      recordMiss(ip);
-      return res.status(401).json({ error: "That code isn't right." });
-    }
+    const found = await grantFor(req, res);
+    if (!found) return;
+    const { grant, guest } = found;
 
     // Only the fields the counts need. guestPhone is not even read, so it
     // cannot reach the response by a later edit to the mapping below.
@@ -85,6 +99,30 @@ router.post("/", async (req: Request, res: any) => {
     });
   } catch (error: any) {
     res.status(500).json({ error: "The numbers didn't load." });
+  }
+});
+
+// What guests asked TiBook's TT, for the same people: the house gave them the
+// code to help develop TiBook, and TT is part of TiBook. The questions are
+// already scrubbed of phone numbers, emails and links when stored (ttGuestRoute)
+// and carry no guest id; `returning` is a count, never who.
+const SPANS: Record<string, number | null> = { week: 7, month: 30, year: 365, all: null };
+
+router.post("/tt-questions", async (req: Request, res: any) => {
+  try {
+    const found = await grantFor(req, res);
+    if (!found) return;
+    const span = String(req.body?.span ?? "month");
+    const days = span in SPANS ? SPANS[span] : SPANS.month;
+    const filter: Record<string, unknown> = { host: found.grant.host };
+    if (days != null) filter.createdAt = { $gte: new Date(Date.now() - days * 24 * 60 * 60 * 1000) };
+    const rows = await TTQuestion.find(filter, { question: 1, answered: 1, category: 1, returning: 1, createdAt: 1, _id: 0 })
+      .sort({ createdAt: -1 })
+      .limit(5000)
+      .lean();
+    res.status(200).json({ span: span in SPANS ? span : "month", ...questionStats(rows as any) });
+  } catch {
+    res.status(500).json({ error: "The questions didn't load." });
   }
 });
 

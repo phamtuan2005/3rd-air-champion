@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { consentedPhone, shouldCountVisit, visitorIdFrom } from "./tibookVisitOperations";
+import { consentedPhone, formatStatsCode, shouldCountVisit, visitorIdFrom } from "./tibookVisitOperations";
 
 // Who TiBook counts as a visitor: everyone who opens it, once a day per device.
 //
@@ -76,3 +76,34 @@ describe("whose number a visit may carry", () => {
   });
 });
 
+// The stats code box fills in the dashes itself and stops at the code's
+// length, so a guest types twelve characters and nothing else.
+describe("formatStatsCode", () => {
+  it("adds a dash as soon as a group of four is complete", () => {
+    expect(formatStatsCode("kxq")).toBe("KXQ");
+    expect(formatStatsCode("kxq7")).toBe("KXQ7-");
+    expect(formatStatsCode("KXQ7-m")).toBe("KXQ7-M");
+    expect(formatStatsCode("KXQ7-MP4R")).toBe("KXQ7-MP4R-");
+  });
+
+  it("stops at twelve characters, with no dash after the last group", () => {
+    expect(formatStatsCode("KXQ7-MP4R-T9WZ")).toBe("KXQ7-MP4R-T9WZ");
+    expect(formatStatsCode("KXQ7-MP4R-T9WZQQ")).toBe("KXQ7-MP4R-T9WZ");
+  });
+
+  it("tidies a pasted code, with dashes, spaces or neither", () => {
+    expect(formatStatsCode("kxq7mp4rt9wz")).toBe("KXQ7-MP4R-T9WZ");
+    expect(formatStatsCode("  kxq7 mp4r t9wz ")).toBe("KXQ7-MP4R-T9WZ");
+  });
+
+  it("does not put the dash straight back while the guest is deleting", () => {
+    // Backspace on "KXQ7-" leaves "KXQ7"; re-adding the dash would undo the key.
+    expect(formatStatsCode("KXQ7", true)).toBe("KXQ7");
+    expect(formatStatsCode("KXQ7-MP", true)).toBe("KXQ7-MP");
+  });
+
+  it("is empty for nothing typed", () => {
+    expect(formatStatsCode("")).toBe("");
+    expect(formatStatsCode("--")).toBe("");
+  });
+});

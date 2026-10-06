@@ -31,6 +31,8 @@ import tibookVisitRoute from "./route/tibookVisitRoute";
 import tibookStatsRoute from "./route/tibookStatsRoute";
 import tibookStatsAccessRoute from "./route/tibookStatsAccessRoute";
 import tibookStatsViewerRoute from "./route/tibookStatsViewerRoute";
+import ttGuestRoute from "./route/ttGuestRoute";
+import ttHostRoute from "./route/ttHostRoute";
 import { authenticateToken } from "./middleware/authenticateJWT";
 import cors from "cors";
 
@@ -128,6 +130,10 @@ const startServer = async () => {
     // TiMag gave them. Public because the guest has no login; the code is the
     // proof, and what comes back has every guest identity taken out.
     apiRouter.use("/tibook-stats-viewer", tibookStatsViewerRoute);
+    // TiBook's TT: logging what a guest asked it, and reading the review
+    // summaries the host published. Public — the guest has no login. Reading
+    // the questions and drafting summaries is /tt-host, below the gate.
+    apiRouter.use("/tt", ttGuestRoute);
     // TiWork: staff have no TiMag login, so these sit outside the JWT gate and
     // prove identity per request with phone + access code.
     apiRouter.use("/work", workRoute);
@@ -150,6 +156,7 @@ const startServer = async () => {
     apiRouter.use("/inbox", hostMessageRoute);
     apiRouter.use("/tibook-stats", tibookStatsRoute);
     apiRouter.use("/tibook-stats-access", tibookStatsAccessRoute);
+    apiRouter.use("/tt-host", ttHostRoute);
 
     app.use("/api", apiRouter);
 

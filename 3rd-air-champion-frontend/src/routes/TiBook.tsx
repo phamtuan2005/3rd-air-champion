@@ -40,6 +40,7 @@ import { toTTRoom, usualRoomOf } from "../util/askTT";
 import type { AskTTContext, TTAction } from "../util/askTT";
 import { fetchGuestThread } from "../util/guestMessageOperations";
 import { linkTiBookVisitToGuest, recordTiBookVisit, unlinkTiBookVisitGuest } from "../util/tibookVisitOperations";
+import { fetchPublishedReviews } from "../util/ttQuestionLog";
 import { markTiBookVisited } from "../util/tibookReturning";
 
 const TiBookInner = () => {
@@ -115,6 +116,15 @@ const TiBookInner = () => {
   // sheet still finds out he wrote back.
   const [chatOpen, setChatOpen] = useState(false);
   const [askTTOpen, setAskTTOpen] = useState(false);
+  // What guests say, as the host published it in TiMag. Loaded beside the
+  // page rather than when TT opens, so the first "What guests say" is
+  // instant; a failure leaves TT saying it has no summary yet.
+  const [publishedReviews, setPublishedReviews] = useState<{ house: string; rooms: Record<string, string> }>({ house: "", rooms: {} });
+  useEffect(() => {
+    const hostId = import.meta.env.VITE_TI_BOOK_HOST_ID;
+    if (!hostId) return;
+    fetchPublishedReviews(hostId).then(setPublishedReviews).catch(() => {});
+  }, []);
   // /book?stats — a guest the host gave access to, reading the visitor numbers.
   // Only that link opens it; see StatsViewerGate.
   const [statsOpen, setStatsOpen] = useState(() => new URLSearchParams(window.location.search).has("stats"));
@@ -787,6 +797,13 @@ const TiBookInner = () => {
     cancellationFullRefundDays: currentHost?.cancellationFullRefundDays,
     cancellationHalfRefundDays: currentHost?.cancellationHalfRefundDays,
     houseRules: currentHost?.houseRules,
+    reviews: {
+      ...publishedReviews,
+      // The figures the host banner already shows, so TT and the banner say
+      // the same rating.
+      rating: currentHost?.airbnbRating || undefined,
+      count: currentHost?.airbnbReviewCount || undefined,
+    },
     // Somebody this device knows by phone is a returning guest to TT: it
     // greets them back, leads with their usual room and wish list, and its
     // buttons go on to the request. Their OWN stays and wish list only.
@@ -1292,6 +1309,7 @@ const TiBookInner = () => {
       {askTTOpen && currentHost && (
         <AskTTSheet
           ctx={askTTContext}
+          hostId={currentHost.id}
           guestName={greetedName}
           roomColors={Object.fromEntries(rooms.map((r) => [r.id, r.color]))}
           onAction={onTTAction}
