@@ -629,11 +629,14 @@ const HeroShell = ({
           >
             <span className={`block h-full w-full rounded-full ${activeRoom ? roomChip(activeRoom) : theme.btn}`} />
           </span>
-          {/* The year is always named. The month alone was "December" for both
-              2026 and 2027, and a guest who scrolled on could not tell which
-              one they were booking. */}
+          {/* The year is named only when it is not this year. "December" alone
+              was 2026 or 2027 to a guest who scrolled on, so those say which;
+              the months of the year they are in do not need it said again. */}
           <span className={`shrink-0 text-sm font-bold ${theme.surfaceText}`}>
-            {currentMonth.toLocaleString("en-US", { month: "long", year: "numeric" })}
+            {currentMonth.toLocaleString("en-US", {
+              month: "long",
+              ...(currentMonth.getFullYear() !== new Date().getFullYear() ? { year: "numeric" as const } : {}),
+            })}
           </span>
           <span className={`min-w-0 flex-1 truncate text-[13px] ${theme.surfaceMuted}`}>
             · {activeRoom ? `${activeRoom.name} is free ${freeNights} night${freeNights === 1 ? "" : "s"}` : `${freeNights} night${freeNights === 1 ? "" : "s"} open`}
