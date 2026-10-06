@@ -9,6 +9,7 @@ import { dayType } from "../../../util/types/dayType";
 import type { GuestCalendarProps } from "./GuestCalendar";
 import { MONTHS_FORWARD, appliedMonthTrigger, HOLD_HATCH, HOLD_HATCH_TILE } from "./calendarScroll";
 import { dayListMonths } from "../../../util/dayListMonths";
+import { holidayLabel, usHolidayOn } from "../../../util/usHolidays";
 
 /*
  * The calendar as a list: one row per night, the grid's months top to
@@ -293,6 +294,7 @@ const MonthSection = memo(({ month, days, top, drawn, data, size, handlers }: Mo
     const isToday = isSameDay(date, startOfToday());
     const isWeekend = date.getDay() === 0 || date.getDay() === 6;
     const gone = status === "past";
+    const holiday = usHolidayOn(key);
 
     const h = handlers.current;
     const onClick =
@@ -306,6 +308,9 @@ const MonthSection = memo(({ month, days, top, drawn, data, size, handlers }: Mo
       `flex w-full items-center gap-3 border-b ${theme.line} pl-3 pr-16 text-left relative`,
       inCart ? "" :
       isNewWishList ? theme.tileWishBg :
+      // Tinted like the grid's holiday cell, so a holiday stands out of a run
+      // of nights a returning guest is picking by pattern.
+      holiday ? theme.alertFill :
       isWeekend ? theme.surfaceSubtle : "",
       onClick
         ? `cursor-pointer transition-colors ${isOpen ? `${theme.tileHover} ${theme.tileActive}` : canWishList ? theme.tileWishHover : ""}`
@@ -384,15 +389,29 @@ const MonthSection = memo(({ month, days, top, drawn, data, size, handlers }: Mo
               inCart ? "text-white" :
               isOpen ? theme.surfaceText :
               // Gone is dim, not struck through: struck through is "sold out",
-              // a night somebody else has — the same split the grid makes.
+              // a night somebody else has — the same split the grid makes, and
+              // the same Airbnb-weight line, thick enough to see on a phone.
               gone ? theme.dim :
-              `line-through ${theme.surfaceMuted2}`
+              `line-through decoration-[1.5px] ${theme.surfaceMuted2}`
             }`}
           >
             {date.getDate()}
           </span>
         </span>
-        <span className="relative z-10 min-w-0 flex-1">{detail}</span>
+        {/* A US federal holiday is named on its own row — the list has the
+            room the grid's cells do not. One line, above what the night
+            offers, in the red the grid's holiday dot wears. */}
+        <span className="relative z-10 flex min-w-0 flex-1 flex-col justify-center gap-0.5 overflow-hidden" style={{ maxHeight: ROW_H - 6 }}>
+          {holiday && (
+            <span
+              className={`truncate font-semibold leading-tight ${inCart ? "text-white" : theme.alertText}`}
+              style={fs(size.small)}
+            >
+              {holidayLabel(holiday)}
+            </span>
+          )}
+          {detail}
+        </span>
         <span className="relative z-10 shrink-0 leading-none" style={fs(size.date)}>
           {!inCart && canWishList ? (
             <span className={isWishlisted ? theme.warmText2 : theme.surfaceMuted2}>{isWishlisted ? "★" : "☆"}</span>

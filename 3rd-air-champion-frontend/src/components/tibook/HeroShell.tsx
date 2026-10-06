@@ -5,6 +5,8 @@ import { dayType } from "../../util/types/dayType";
 import { getRoomPhotos } from "../../util/roomFacts";
 import { useTiBookTheme, useRoomChip, useCalendarView } from "../../contexts/TiBookThemeContext";
 import { AppearanceMenu } from "./NavBarDesktop";
+import { AskTTButton } from "./AskTT";
+import type { TTNudge } from "./AskTT";
 import GuestCalendar, { MyStay } from "./Calendar/GuestCalendar";
 import TodayButton from "./Calendar/TodayButton";
 import CalendarViewToggle from "./Calendar/CalendarViewToggle";
@@ -81,6 +83,8 @@ interface HeroShellProps {
   onOpenPhotos: (room: roomType) => void;
   onScrollToToday: () => void;
   onMyBookings: () => void;
+  onAskTT: () => void;
+  ttNudge?: TTNudge | null;
   onRequest: () => void;
   guestName?: string;
   actionLabel: string;
@@ -106,7 +110,7 @@ const HeroShell = ({
   cartDates, wishListDates, newWishListDates, myBookingDates, myStays,
   reservedStays, reservedMap, currentMonth, onMonthChange, onDateClick,
   onWishListClick, onMyStayClick, onMyStayDetails, onReservedClick, scrollToTodayTrigger,
-  scrollToMonthTrigger, onOpenPhotos, onScrollToToday, onMyBookings, onRequest, guestName,
+  scrollToMonthTrigger, onOpenPhotos, onScrollToToday, onMyBookings, onAskTT, ttNudge, onRequest, guestName,
   actionLabel, hasSelection,
 }: HeroShellProps) => {
   const { theme } = useTiBookTheme();
@@ -481,6 +485,12 @@ const HeroShell = ({
             reads "Your bookings", 110px of a 320px bar, which is what pushed
             the line under the house name off the end. The bottom bar keeps it,
             where a thumb reaches it, and greets a guest we know by name. */}
+        <AskTTButton
+          onClick={onAskTT}
+          nudge={ttNudge}
+          guestFirstName={guestName?.trim().split(" ")[0]}
+          align="right"
+        />
         <AppearanceMenu />
       </nav>
 

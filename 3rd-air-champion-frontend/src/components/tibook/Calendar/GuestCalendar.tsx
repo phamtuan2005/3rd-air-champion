@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "../../../styles/calendarStyle.css";
-import { addDays, getDay, isSameDay, isSameMonth, parseISO, startOfToday } from "date-fns";
+import { addDays, format, getDay, isSameDay, isSameMonth, parseISO, startOfToday } from "date-fns";
+import { holidayLabel, usHolidayOn, usHolidaysInMonth } from "../../../util/usHolidays";
 import { dayType } from "../../../util/types/dayType";
 import { roomType } from "../../../util/types/roomType";
 import { getRoomColor } from "../../../util/getRoomColor";
@@ -112,6 +113,14 @@ const barRadiusFor = (barHeight: number) =>
  *
  * Numbers, not px strings: the tight-row rules further down add them up to
  * know when a row is too short for what it is asked to stack.
+ *
+ * BROUGHT DOWN 2026-10-05, about halfway back to classic. At a phone's
+ * default height a Hero cell is ~55px square, and it held a 19px day number
+ * over "sold out" at 14-15px — the line ran edge to edge, today's outlined
+ * cell clipped it to "old ou", and the month read as shouting ("why is the
+ * hero calendar font size so huge"). Hero still reads a step above classic,
+ * which is what was asked for on the 1st: 16px / 12.5px at the floor against
+ * classic's 13 / 11.
  */
 const px = (n: number) => Math.round(n * 10) / 10;
 
@@ -120,28 +129,28 @@ const px = (n: number) => Math.round(n * 10) / 10;
 // 26px bar, boosted. Large: a 24px bar is the floor, and 15.5px sits inside it.
 const barLabelFor = (barHeight: number, large: boolean) =>
   large
-    ? px(clamp(15.5, barHeight * 0.58 * TYPE_BOOST, 28))
+    ? px(clamp(14, barHeight * 0.52 * TYPE_BOOST, 26))
     : px(clamp(13, barHeight * 0.5 * TYPE_BOOST, 26));
 
 // The day number. Classic leaves it unboosted and capped below the others:
 // "the least useful thing in the cell", found from its column, and boosted it
 // became the loudest thing on a page it should stay quiet on. In Hero the
-// month is the larger part of the screen and the number leads: 19px at the
-// floor, 22 at the reference tile.
+// month is the larger part of the screen and the number leads: 16px at the
+// floor, 19 at the reference tile (19 and 22 until 2026-10-05 — see above).
 const dateFor = (tile: number, large: boolean) =>
-  large ? px(clamp(19, (tile / REF_TILE) * 22, 30)) : px(clamp(13, (tile / REF_TILE) * 16, 24));
+  large ? px(clamp(16, (tile / REF_TILE) * 19, 26)) : px(clamp(13, (tile / REF_TILE) * 16, 24));
 
 // "3 left" / "sold out" — the line that actually answers "can I book this
 // night". Classic: was 9px, the smallest type in TiBook, now 11 at the floor.
 const metaFor = (tile: number, large: boolean) =>
   large
-    ? px(clamp(15, (tile / REF_TILE) * 13 * TYPE_BOOST, 22))
+    ? px(clamp(12.5, (tile / REF_TILE) * 11 * TYPE_BOOST, 20))
     : px(clamp(11, (tile / REF_TILE) * 9 * TYPE_BOOST, 19));
 
 // The wish-list star and the ⏳ hold badge — classic was 11px, 13 at the floor.
 const glyphFor = (tile: number, large: boolean) =>
   large
-    ? px(clamp(15, (tile / REF_TILE) * 14 * TYPE_BOOST, 26))
+    ? px(clamp(14, (tile / REF_TILE) * 12 * TYPE_BOOST, 24))
     : px(clamp(13, (tile / REF_TILE) * 11 * TYPE_BOOST, 24));
 
 // The largest size at which a line `ems` wide still fits across a tile, with
@@ -466,6 +475,7 @@ const MonthGrid = ({
     const inCart = cartDates.has(dateKey);
     const isWishlisted = wishListDates?.has(dateKey) ?? false;
     const isNewWishList = newWishListDates?.has(dateKey) ?? false;
+    const holiday = isOutside ? undefined : usHolidayOn(dateKey);
     const bars = stayBars.get(dateKey);
     // Only an OCCUPIED night (a PM bar) is "your stay" for interaction — it opens
     // the detail and isn't bookable. The AM checkout cap is a visual only: that
@@ -536,14 +546,28 @@ const MonthGrid = ({
           }
         : {};
 
+    // Sold out reads the way Airbnb draws it: the number in a mid grey with a
+    // line clean through it, beside bold open nights — so a guest sees which
+    // dates they cannot have before reading a word (Anh-Tuan, 2026-10-05).
+    //
+    // It used `dim`, the same pale grey as a night that has passed, and a
+    // hairline that all but vanished in it: sold out and gone looked alike.
+    // Now gone stays faded with no line, and sold out is a shade darker with a
+    // line thick enough to see on a phone. The list view uses the same pair.
+    //
+    // Never on the guest's OWN nights (TIBOOK.md rule 4). Their stay or hold
+    // makes the night "full" to the availability rule, and a line through a
+    // date they hold tells them they cannot have it.
+    const struck = `line-through decoration-[1.5px] ${theme.surfaceMuted2}`;
     const numberClass = [
       // No text-* size here: the size comes from the tile, via dateSize below.
       "leading-none select-none",
       inCart ? "font-bold text-white" :
-      isWishlisted ? `line-through ${theme.surfaceMuted}` :
+      isStayNight || isReservedNight ? `font-bold ${theme.surfaceText}` :
+      isWishlisted ? struck :
       (status === "available" || status === "partial") ? `font-bold ${theme.textPrimary}` :
       status === "past"      ? theme.dim :
-                               `line-through ${theme.dim}`,
+                               struck,
     ].join(" ");
 
     const tileClass = [
@@ -555,6 +579,11 @@ const MonthGrid = ({
       `border-r border-b ${theme.gridLine} flex flex-col items-center justify-start gap-0.5 pt-1 w-full h-full relative overflow-visible`,
       isToday ? "react-calendar__custom_tile_today" : "",
       isOutside ? "opacity-20 pointer-events-none" : "",
+      // A holiday's whole cell is tinted, not just dotted. Returning guests
+      // book by pattern — every Monday and Tuesday — and a dot alone let a
+      // holiday ride along unnoticed into a request they then had to cancel
+      // (2026-10-05). The theme's alert wash, so it reads in both skins.
+      holiday && !inCart ? theme.alertFill : "",
       inCart ? "cursor-pointer" :
       isStayNight || isReservedNight ? "cursor-pointer" :
       canBook ? `cursor-pointer ${theme.tileHover} ${theme.tileActive} transition-colors` :
@@ -566,6 +595,10 @@ const MonthGrid = ({
         key={date.toISOString()}
         type="button"
         className={tileClass}
+        // The holiday's name, for a mouse and for a screen reader. A phone
+        // reads it in the line above the grid instead.
+        title={holiday ? holidayLabel(holiday) : undefined}
+        aria-label={holiday ? `${format(date, "MMMM d")}, ${holidayLabel(holiday)}` : undefined}
         disabled={!canBook && !inCart && !canWishList && !isStayNight && !isReservedNight}
         onClick={
           isStayNight && stayId ? () => onMyStayClick?.(stayId) :
@@ -577,6 +610,21 @@ const MonthGrid = ({
       >
         {inCart && (
           <div className={`absolute inset-1 rounded-lg ${theme.btn} pointer-events-none`} />
+        )}
+        {/* A US federal holiday: a dot in the corner, the way a printed
+            calendar marks one. A cell on a phone has no room for "Columbus
+            Day"; the line above the grid names it. White on a picked night,
+            where the theme's red would sit on the theme's fill. */}
+        {/* And a dashed outline: the tint alone all but vanished in the dark
+            skin, where the alert wash is 12% red on near-black. */}
+        {holiday && !inCart && (
+          <div aria-hidden className={`pointer-events-none absolute inset-0.5 rounded-md border-2 border-dashed ${theme.alertBorder}`} />
+        )}
+        {holiday && (
+          <span
+            aria-hidden
+            className={`pointer-events-none absolute left-1 top-1 z-20 h-2 w-2 rounded-full bg-current ${inCart ? "text-white" : theme.alertText}`}
+          />
         )}
         {isNewWishList && !inCart && (
           <div className={`absolute inset-1 rounded-lg ${theme.tileWishBg} pointer-events-none`} />
@@ -742,7 +790,16 @@ const MonthGrid = ({
     );
   };
 
+  // The US federal holidays in the month on screen, named under the grid —
+  // the cells only carry a dot. Under, not over: above, it came between the
+  // weekday letters and the dates they head. Always one line, even in a month with none: if it came and
+  // went, the grid below would change height as the guest paged, and every
+  // row would resize under their thumb.
+  const shownMonth = pageLayouts[visibleIndex]?.month;
+  const monthHolidays = shownMonth ? usHolidaysInMonth(shownMonth.getFullYear(), shownMonth.getMonth()) : [];
+
   return (
+    <div className="flex flex-1 min-h-0 flex-col">
     <div
       ref={scrollContainerRef}
       // overscroll-contain: the page around this can now scroll on a short
@@ -780,6 +837,24 @@ const MonthGrid = ({
           </div>
         );
       })}
+    </div>
+    <div
+      className={`flex h-6 shrink-0 items-center gap-1.5 overflow-hidden whitespace-nowrap border-t px-2 text-[12px] leading-none ${theme.gridLine} ${theme.surfaceMuted}`}
+    >
+      {shownMonth &&
+        (monthHolidays.length > 0 ? (
+          <>
+            <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full bg-current ${theme.alertText}`} />
+            <span className={`min-w-0 truncate font-semibold ${theme.alertText}`}>
+              {monthHolidays
+                .map(({ key, holiday }) => `${format(parseISO(key), "EEE MMM d")} · ${holidayLabel(holiday)}`)
+                .join("   ")}
+            </span>
+          </>
+        ) : (
+          <span className="truncate">No US federal holidays in {format(shownMonth, "MMMM")}</span>
+        ))}
+    </div>
     </div>
   );
 };

@@ -9,6 +9,7 @@ import { getAvailableRooms } from "../../util/bookingOperations";
 import { fetchGuestByPhone } from "../../util/guestOperations";
 import { format, parseISO } from "date-fns";
 import { parseDateText } from "../../util/dateText";
+import { holidayLabel, usHolidayOn } from "../../util/usHolidays";
 import { groupConsecutiveDates } from "../../util/cartGrouping";
 import { useTiBookTheme, useRoomChip } from "../../contexts/TiBookThemeContext";
 import RoomBadge from "../shared/RoomBadge";
@@ -163,6 +164,13 @@ const BookingRequestModal = ({
   const [guestMemberSince, setGuestMemberSince] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [datesError, setDatesError] = useState("");
+  // US holiday nights the guest has said, on the card below, they mean to stay.
+  // Held by night, so a holiday added later is asked about in its own right.
+  const [keptHolidays, setKeptHolidays] = useState<Set<string>>(new Set());
+  // Set when Next was pressed with a holiday still unanswered: the card says
+  // that is what is in the way, rather than the button quietly doing nothing.
+  const [holidayNudge, setHolidayNudge] = useState(false);
+  const holidayCardRef = useRef<HTMLDivElement>(null);
   // Which stay's room list is open, by range key — there is one dropdown per
   // stay now, and only one should be open at a time. `null` = all shut.
   const [roomDropdownOpen, setRoomDropdownOpen] = useState<string | null>(null);
@@ -461,9 +469,28 @@ const BookingRequestModal = ({
   const hasWishList = sortedWishListDates.length > 0;
   const isWishListOnly = cartDates.size === 0 && !notes.trim() && hasWishList;
 
+  // The US holidays among the nights in this request, and which of them the
+  // guest has not yet said they mean.
+  //
+  // A returning guest books by pattern — every Monday and Tuesday, "Nov
+  // Mon-Tue" typed in a line — and a holiday rides along in the run without
+  // their noticing. Cancelling one later is the tedious part, for them and for
+  // the host (2026-10-05). So it is asked about here, once, before anything
+  // is sent: keep it, or take it out. Never removed without asking — some
+  // guests come FOR the holiday.
+  const holidayNights = [...cartDates.keys()].filter((k) => usHolidayOn(k)).sort();
+  const unansweredHolidays = holidayNights.filter((k) => !keptHolidays.has(k));
+  const holidayDay = (k: string) =>
+    parseLocalDate(k).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+
   const handleNextStep = () => {
     if (cartDates.size === 0 && !notes.trim() && !hasWishList) {
       setDatesError("Please pick dates on the calendar or write your dates below.");
+      return;
+    }
+    if (unansweredHolidays.length > 0) {
+      setHolidayNudge(true);
+      holidayCardRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
       return;
     }
     setDatesError("");
@@ -681,6 +708,63 @@ const BookingRequestModal = ({
 
                   Done with flex `order` rather than two copies of the markup:
                   one of them would eventually be edited and the other forgotten. */}
+
+              {/* Holiday check — first on the page whichever way it is ordered,
+                  because Next waits on it. See unansweredHolidays. */}
+              {holidayNights.length > 0 && (
+                <div ref={holidayCardRef} className="order-first">
+                  {unansweredHolidays.length > 0 ? (
+                    <div className={`rounded-xl border-2 px-3 py-2.5 ${theme.cardAlert}`}>
+                      <p className={`text-sm font-bold ${theme.alertText}`}>
+                        Your dates include {unansweredHolidays.length === 1 ? "a US holiday" : `${unansweredHolidays.length} US holidays`}
+                      </p>
+                      <ul className={`mt-1 text-sm ${theme.surfaceText}`}>
+                        {unansweredHolidays.map((k) => (
+                          <li key={k}>
+                            <span className="font-semibold">{holidayDay(k)}</span> · {holidayLabel(usHolidayOn(k)!)}
+                          </li>
+                        ))}
+                      </ul>
+                      <p className={`mt-1 text-xs ${theme.surfaceText3}`}>
+                        Holidays are easy to pick by mistake with a run of nights. Do you mean to stay {unansweredHolidays.length === 1 ? "that night" : "those nights"}?
+                      </p>
+                      {holidayNudge && (
+                        <p className={`mt-1 text-xs font-bold ${theme.alertText}`}>Choose one to continue.</p>
+                      )}
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onRemoveCartRange?.(unansweredHolidays);
+                            setHolidayNudge(false);
+                          }}
+                          className={`rounded-full px-3 py-1.5 text-xs font-semibold text-white ${theme.btn} ${theme.btnHover}`}
+                        >
+                          Take {unansweredHolidays.length === 1 ? "it" : "them"} out
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setKeptHolidays((prev) => new Set([...prev, ...unansweredHolidays]));
+                            setHolidayNudge(false);
+                          }}
+                          className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${theme.line} ${theme.surfaceText} ${theme.surfaceHover2}`}
+                        >
+                          Keep — I'll be staying
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    // Answered: a quiet line, so the guest can still see what
+                    // they agreed to without it asking again.
+                    <p className={`text-xs ${theme.surfaceMuted}`}>
+                      Holiday {holidayNights.length === 1 ? "night" : "nights"} kept:{" "}
+                      {holidayNights.map((k) => `${holidayDay(k)} (${usHolidayOn(k)!.name})`).join(", ")}
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className={cartGroups.length === 0 ? "order-3" : ""}>
                 <p className="text-sm font-medium mb-2">Dates picked from calendar</p>
                 {cartGroups.length > 0 ? (

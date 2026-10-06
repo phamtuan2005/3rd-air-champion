@@ -2,6 +2,8 @@ import { format } from "date-fns";
 import { roomType } from "../../util/types/roomType";
 import { useTiBookTheme, useRoomChip } from "../../contexts/TiBookThemeContext";
 import RoomBadge from "../shared/RoomBadge";
+import { holidayLabel, usHolidayOn } from "../../util/usHolidays";
+import { nightKey } from "../../util/nightStatus";
 
 interface RoomPickerPopupProps {
   date: Date;
@@ -20,6 +22,7 @@ const RoomPickerPopup = ({ date, rooms, onPick, onAny, onClose, title, subtitle 
   const { theme } = useTiBookTheme();
   const roomChip = useRoomChip();
   const only = rooms.length === 1;
+  const holiday = usHolidayOn(nightKey(date));
 
   return (
     <div className={`tibook-type fixed inset-0 z-[130] flex items-center justify-center ${theme.scrim} p-4`} onClick={onClose}>
@@ -43,6 +46,18 @@ const RoomPickerPopup = ({ date, rooms, onPick, onAny, onClose, title, subtitle 
             &times;
           </button>
         </div>
+
+        {/* Tapping a holiday says so before a room is chosen — the moment a
+            night goes into the request is the cheapest time to notice it,
+            and cancelling later is not (2026-10-05). Only for a single night:
+            a range has its own subtitle, and Review Request checks every
+            night in it anyway. */}
+        {!subtitle && holiday && (
+          <div className={`mx-4 mb-1 mt-1 rounded-xl border px-3 py-2 text-xs ${theme.cardAlert}`}>
+            <p className={`font-bold ${theme.alertText}`}>{holidayLabel(holiday)} — a US holiday</p>
+            <p className={`mt-0.5 ${theme.surfaceText3}`}>Make sure you mean to stay this night before you add it.</p>
+          </div>
+        )}
 
         <div className="flex flex-col gap-1.5 px-4 pb-4 pt-1">
           {rooms.length === 0 && (
