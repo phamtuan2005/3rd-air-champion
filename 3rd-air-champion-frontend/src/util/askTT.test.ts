@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { askTT, AskTTContext, datesAsked, partySizeAsked, scrub, toTTRoom, usualRoomOf } from "./askTT";
+import { askTT, AskTTContext, datesAsked, partySizeAsked, scrub, toTTRoom, ttStarters, usualRoomOf } from "./askTT";
 import { roomType } from "./types/roomType";
 
 // TT answers guests from what TiBook already knows. Each case is a way a
@@ -318,5 +318,79 @@ describe("askTT — holidays", () => {
 
   it("says nothing about holidays when there are none", () => {
     expect(text(askTT("Oct 13-14", ctx()))).not.toMatch(/holiday/);
+  });
+});
+
+// Every answer says which topic it was and whether TT could really answer —
+// that is what the host's "TT questions" screen is built from. A question TT
+// passed to the host must land in "not answered", or the host never sees what
+// TT should learn next.
+describe("what TT logs about each answer", () => {
+  it("files a question under its topic", () => {
+    expect(askTT("is there parking?", ctx()).category).toBe("parking");
+    expect(askTT("King Oct 10", ctx()).category).toBe("availability");
+    expect(askTT("tell me about Chill", ctx()).category).toBe("rooms");
+    expect(askTT("how do I cancel", ctx()).category).toBe("cancellation");
+  });
+
+  it("marks a question TT did not understand as not answered", () => {
+    const a = askTT("can I store a bike?", ctx());
+    expect(a).toMatchObject({ category: "other", answered: false });
+  });
+
+  it("marks a hand-off to the host as not answered, even inside a known topic", () => {
+    // No listing mentions a pool table; TT sends the guest to the host.
+    expect(askTT("is there a tv?", ctx({}, { rooms: [] })).answered).toBe(false);
+    expect(askTT("are pets allowed", ctx({}, { houseRules: "" }))).toMatchObject({ category: "houseRules", answered: false });
+  });
+
+  it("counts a privacy refusal as answered — TT did exactly its job", () => {
+    expect(askTT("what is the door code", ctx())).toMatchObject({ category: "privacy", answered: true });
+  });
+});
+
+describe("what guests say", () => {
+  const reviews = { house: "Guests praise how clean and quiet it is.", rooms: { k: "The bed is huge and comfortable." }, rating: 4.9, count: 230 };
+
+  it("gives the house summary with the rating, and offers each room's own", () => {
+    const a = askTT("what are the reviews like?", ctx({}, { reviews }));
+    expect(a).toMatchObject({ category: "reviews", answered: true });
+    expect(text(a)).toContain("Rated 4.9 ★ across 230 AirBnB reviews.");
+    expect(text(a)).toContain("Guests praise how clean and quiet it is.");
+    expect(a.actions).toContainEqual({ kind: "ask", label: "What guests say about King", query: "King reviews" });
+  });
+
+  it("gives one room's summary when the room is named", () => {
+    const a = askTT("King reviews", ctx({}, { reviews }));
+    expect(text(a)).toContain("The bed is huge and comfortable.");
+    expect(text(a)).not.toContain("Guests praise");
+  });
+
+  it("lets 'what did previous guests say' through — it is about the room, not the guests", () => {
+    expect(askTT("what did previous guests say about King?", ctx({}, { reviews })).category).toBe("reviews");
+    // Asking WHO wrote it is still about people, and still refused.
+    expect(askTT("who reviewed King?", ctx({}, { reviews })).category).toBe("privacy");
+  });
+
+  it("reads 'rated' as reviews, not as the price question 'rate' begins", () => {
+    expect(askTT("how is it rated", ctx({}, { reviews })).category).toBe("reviews");
+  });
+
+  it("says so, and counts it unanswered, when the host has published nothing", () => {
+    const a = askTT("reviews?", ctx());
+    expect(a).toMatchObject({ category: "reviews", answered: false });
+    expect(text(a)).toContain("don't have a summary");
+  });
+
+  it("falls back to the house for a room with no summary, and still counts it unanswered", () => {
+    const a = askTT("Chill reviews", ctx({}, { reviews }));
+    expect(a.answered).toBe(false);
+    expect(text(a)).toContain("Guests praise how clean and quiet it is.");
+  });
+
+  it("offers 'What guests say' as a first question only when there is something to show", () => {
+    const has = (c: AskTTContext) => ttStarters(c).some((a) => a.label === "What guests say");
+    expect(has(ctx({}, { reviews }))).toBe(true);
+    expect(has(ctx({}, { reviews: { house: "", rooms: {} } }))).toBe(false);
   });
 });

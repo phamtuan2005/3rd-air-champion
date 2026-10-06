@@ -4,6 +4,8 @@ import { FaCalendarAlt, FaClipboardList, FaDollarSign } from "react-icons/fa";
 import { MdCleaningServices } from "react-icons/md";
 import ProfileDesktop from "./ProfileDesktop";
 import TiBookVisitorsModal from "../TiBookVisitorsModal";
+import TTQuestionsModal from "../TTQuestionsModal";
+import GuestReviewsModal from "../GuestReviewsModal";
 import { GuestModeContext } from "../../../context";
 
 interface AirBnBInfo {
@@ -131,6 +133,9 @@ const NavBarDesktop = ({
   // house from the token — so threading it through App and MainView would be
   // four files of plumbing for one button.
   const [isTiBookVisitorsOpen, setIsTiBookVisitorsOpen] = useState(false);
+  // Held here for the same reason: self-contained, the house from the token.
+  const [isTTQuestionsOpen, setIsTTQuestionsOpen] = useState(false);
+  const [isGuestReviewsOpen, setIsGuestReviewsOpen] = useState(false);
 
   const closeAllPanels = () => {
     setIsTodoModalOpen(false);
@@ -392,6 +397,21 @@ const NavBarDesktop = ({
           run: () => setIsTiBookVisitorsOpen(true),
         },
         {
+          // TiBook's other numbers: what its visitors asked TT.
+          label: "TT questions",
+          desc: "What guests ask TT in TiBook — and what it couldn't answer.",
+          emoji: "💬",
+          hover: "hover:border-violet-300 hover:text-violet-600",
+          run: () => setIsTTQuestionsOpen(true),
+        },
+        {
+          label: "Guest reviews",
+          desc: "Turn your AirBnB reviews into the summaries TT shows guests.",
+          emoji: "⭐",
+          hover: "hover:border-amber-300 hover:text-amber-600",
+          run: () => setIsGuestReviewsOpen(true),
+        },
+        {
           label: "Misc",
           desc: "House expenses — supplies, utilities, maintenance.",
           emoji: "🧾",
@@ -592,6 +612,8 @@ const NavBarDesktop = ({
           <TiBookVisitorsModal onClose={() => setIsTiBookVisitorsOpen(false)} />,
           document.body,
         )}
+      {isTTQuestionsOpen && createPortal(<TTQuestionsModal onClose={() => setIsTTQuestionsOpen(false)} />, document.body)}
+      {isGuestReviewsOpen && createPortal(<GuestReviewsModal onClose={() => setIsGuestReviewsOpen(false)} />, document.body)}
     </div>
   );
 };

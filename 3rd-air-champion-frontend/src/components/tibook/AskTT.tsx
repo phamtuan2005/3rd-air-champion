@@ -2,6 +2,7 @@ import { Fragment, ReactNode, useEffect, useRef, useState } from "react";
 import { HiSparkles } from "react-icons/hi2";
 import { useRoomChip, useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import { askTT, AskTTContext, TTAction, TTAnswer, ttStarters } from "../../util/askTT";
+import { logTTQuestion } from "../../util/ttQuestionLog";
 
 // TT's mark, the same one TiMag's Ask TT wears: a sparkle on the
 // emerald-to-violet gradient. Kept identical on purpose — TT is the house's
@@ -200,6 +201,8 @@ interface Turn {
 
 interface AskTTSheetProps {
   ctx: AskTTContext;
+  // Whose log the questions go to (ttQuestionLog).
+  hostId: string;
   guestName?: string;
   // Each room's own colour, by room id, from the full room record. It comes in
   // beside `ctx` and not inside it: TTRoom is a whitelist on purpose
@@ -219,10 +222,12 @@ interface AskTTSheetProps {
  * never stops at telling the guest what to tap somewhere else (TIBOOK.md
  * rule 5).
  *
- * The thread lives only as long as the sheet is open. Nothing is sent
- * anywhere: TT runs on this phone, from what TiBook has already loaded.
+ * The thread lives only as long as the sheet is open. TT answers on this
+ * phone, from what TiBook has already loaded. Each question is then logged for
+ * the host — scrubbed, with whether TT could answer it — so the house can see
+ * what TT should learn next; the footer tells the guest so.
  */
-const AskTTSheet = ({ ctx, guestName, roomColors, onAction, onClose }: AskTTSheetProps) => {
+const AskTTSheet = ({ ctx, hostId, guestName, roomColors, onAction, onClose }: AskTTSheetProps) => {
   const { theme } = useTiBookTheme();
   const roomChip = useRoomChip();
   const [draft, setDraft] = useState("");
@@ -259,11 +264,17 @@ const AskTTSheet = ({ ctx, guestName, roomColors, onAction, onClose }: AskTTShee
     });
   };
 
-  const ask = (question: string) => {
+  // `typed` is false for a suggestion the guest tapped. Only typed questions
+  // are logged: a tap sends TT's own wording ("parking", "King reviews"), and
+  // the host's screen is for what guests ask in THEIR words — the taps would
+  // fill it with the buttons' layout instead.
+  const ask = (question: string, typed = true) => {
     const q = question.trim();
     if (!q) return;
-    setTurns((prev) => [...prev, { id: Date.now() + prev.length, question: q, answer: askTT(q, ctx) }]);
+    const answer = askTT(q, ctx);
+    setTurns((prev) => [...prev, { id: Date.now() + prev.length, question: q, answer }]);
     setDraft("");
+    if (typed) logTTQuestion(hostId, q, answer, !!ctx.guest);
   };
 
   // The newest answer in view, as a chat thread would.
@@ -271,23 +282,26 @@ const AskTTSheet = ({ ctx, guestName, roomColors, onAction, onClose }: AskTTShee
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [turns.length]);
 
-  const act = (a: TTAction) => (a.kind === "ask" ? ask(a.query) : onAction(a));
+  const act = (a: TTAction) => (a.kind === "ask" ? ask(a.query, false) : onAction(a));
 
   const actionRow = (actions: TTAction[]) =>
     actions.length > 0 && (
-      <div className="mt-2 flex flex-wrap gap-1.5">
+      <div className="mt-2.5 flex flex-wrap gap-2">
         {actions.map((a, i) => (
           <button
             key={i}
             type="button"
             onClick={() => act(a)}
             className={
-              // The step that changes something — picking nights — is in the
-              // theme's colour; a follow-up question or a door elsewhere is
-              // outlined, so the one that DOES something is the one that stands out.
+              // The step that changes something — picking nights — is solid in
+              // the theme's colour. Everything else is TINTED in it: grey
+              // outlines on a grey bubble read as part of the message, and the
+              // house asked for TT's options to stand out (2026-10-06).
+              // Tinted rather than solid still leaves the one that DOES
+              // something the one that stands out most.
               a.kind === "pick"
-                ? `rounded-full px-3 py-1.5 text-xs font-semibold text-white ${theme.btn} ${theme.btnHover}`
-                : `rounded-full border px-3 py-1.5 text-xs font-semibold ${theme.surfaceBorder} ${theme.surfaceText} ${theme.surfaceHover2}`
+                ? `rounded-full px-3.5 py-2 text-[13px] font-bold text-white shadow-sm ${theme.btn} ${theme.btnHover} ${theme.btnActive}`
+                : `rounded-full border px-3.5 py-2 text-[13px] font-semibold shadow-sm transition-colors ${theme.tagBg} ${theme.selectedBorder} ${theme.tagText} ${theme.tileHover} ${theme.tileActive}`
             }
           >
             {chipify(a.label, true)}
@@ -398,6 +412,13 @@ const AskTTSheet = ({ ctx, guestName, roomColors, onAction, onClose }: AskTTShee
               be left to read as a promise to whoever happens to be reading. */}
           <p className={`pt-1 text-center text-[11px] ${theme.surfaceMuted}`}>
             “Your comfort. Our mission.” — TT House's promise to you
+          </p>
+          {/* Said before the first question, in a guest's terms: what is
+              kept, what is not, and why. Phone numbers and emails are taken
+              out before anything leaves the phone (ttQuestionLog). */}
+          <p className={`text-center text-[11px] leading-snug ${theme.surfaceMuted}`}>
+            Your questions are kept, without any phone number or email in them, so TT House can teach TT what guests
+            ask.
           </p>
         </div>
 

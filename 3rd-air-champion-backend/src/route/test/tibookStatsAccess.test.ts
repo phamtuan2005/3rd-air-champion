@@ -6,6 +6,7 @@ import tibookStatsViewerRoute, { resetViewerMisses } from "../tibookStatsViewerR
 import TiBookStatsGrant from "../../model/tibookStatsGrantSchema";
 import Guest from "../../model/guestSchema";
 import { createMockHost } from "../../model/test/util/mockHost";
+import TTQuestion from "../../model/ttQuestionSchema";
 
 // A guest the host chose reading TiBook's visitor numbers, to help develop it.
 //
@@ -132,5 +133,43 @@ describe("what the guest with access sees", () => {
     );
     for (const t of tries) expect((await t).status).toBe(401);
     expect((await request(publicApp).post("/tibook-stats-viewer").send({ code: newStatsCode() })).status).toBe(429);
+  });
+});
+
+// The same code opens what guests asked TiBook's TT: the house gave it to help
+// develop TiBook, and TT is part of TiBook. Never by a weaker check than the
+// visitor numbers, and never another house's questions.
+describe("the TT questions, with the same code", () => {
+  const ask = (host: string, question: string, answered: boolean, category: string) =>
+    TTQuestion.create({ host, question, answered, category });
+
+  it("opens the questions, split answered and not, for the code's house only", async () => {
+    const { host, mai, asHost } = await houseWithGuests("tt-view@example.com");
+    const other = await houseWithGuests("tt-other@example.com");
+    await ask(host, "Is there parking?", true, "parking");
+    await ask(host, "Can I store a bike?", false, "other");
+    await ask(other.host, "Another house's question", false, "other");
+    const { code } = (await give(asHost, mai)).body;
+
+    const res = await request(publicApp).post("/tibook-stats-viewer/tt-questions").send({ code, span: "all" });
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(2);
+    expect(res.body.unanswered.categories[0].questions[0].question).toBe("Can I store a bike?");
+    expect(JSON.stringify(res.body)).not.toContain("Another house");
+  });
+
+  it("refuses a wrong code, and one the host has taken back", async () => {
+    const { mai, asHost } = await houseWithGuests("tt-revoked@example.com");
+    const { code } = (await give(asHost, mai)).body;
+    expect((await request(publicApp).post("/tibook-stats-viewer/tt-questions").send({ code: "AAAA-BBBB-CCCC" })).status).toBe(401);
+    await request(asHost).delete(`/tibook-stats-access/${mai}`);
+    expect((await request(publicApp).post("/tibook-stats-viewer/tt-questions").send({ code })).status).toBe(401);
+  });
+
+  it("counts wrong codes here toward the same limit as the visitor numbers", async () => {
+    for (let i = 0; i < 10; i++) {
+      await request(publicApp).post("/tibook-stats-viewer/tt-questions").send({ code: "WRONG-CODE-XXXX" });
+    }
+    expect((await request(publicApp).post("/tibook-stats-viewer").send({ code: "WRONG-CODE-XXXX" })).status).toBe(429);
   });
 });

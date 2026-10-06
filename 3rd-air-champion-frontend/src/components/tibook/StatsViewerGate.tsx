@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import TiBookVisitorsModal from "../destkop/TiBookVisitorsModal";
-import { fetchTiBookStatsAsViewer, ViewerStats } from "../../util/tibookVisitOperations";
+import TTQuestionsModal from "../destkop/TTQuestionsModal";
+import { fetchTiBookStatsAsViewer, formatStatsCode, ViewerStats } from "../../util/tibookVisitOperations";
+import { fetchTTQuestionsAsViewer } from "../../util/ttQuestionLog";
 
-// Where a guest the host gave access to reads TiBook's visitor numbers:
+// Where a guest the host gave access to reads TiBook's visitor numbers, and
+// what guests asked its TT:
 // /book?stats, with the code TiMag gave them.
 //
 // Reached by the link the host sends and nothing else — there is no button for
@@ -37,6 +40,39 @@ const StatsViewerGate = ({ hostFirstName, onClose }: { hostFirstName: string; on
   const [stats, setStats] = useState<ViewerStats | null>(null);
   const [state, setState] = useState<"idle" | "checking">("idle");
   const [error, setError] = useState("");
+  // The one code opens two screens: TiBook's visitor numbers and what guests
+  // asked its TT. Both help develop TiBook, which is what the host gave it for.
+  const [view, setView] = useState<"visitors" | "tt">("visitors");
+
+  // Under each screen's header, the way across to the other. Wrapping pills,
+  // like the spans below it, so neither is cut off on a 360px phone.
+  //
+  // Greys, not theme tokens, unlike the rest of TiBook: it sits inside the
+  // TiMag modals (TiBookVisitorsModal, TTQuestionsModal), which are white and
+  // grey in every look. A Neon token here would be a dark pill on a white card.
+  const switcher = (
+    <div className="flex gap-1 border-b border-gray-100 px-3 pt-2 pb-2" role="tablist">
+      {(
+        [
+          ["visitors", "📈 Visitors"],
+          ["tt", "💬 TT questions"],
+        ] as const
+      ).map(([key, label]) => (
+        <button
+          key={key}
+          type="button"
+          role="tab"
+          aria-selected={view === key}
+          onClick={() => setView(key)}
+          className={`rounded-full px-3 py-1 text-sm font-semibold transition-colors ${
+            view === key ? "bg-gray-800 text-white" : "text-gray-600 hover:bg-gray-100"
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
 
   const tryCode = (c: string) => {
     if (!c.trim()) return;
@@ -73,6 +109,15 @@ const StatsViewerGate = ({ hostFirstName, onClose }: { hostFirstName: string; on
     if (code) tryCode(code);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  if (stats && view === "tt") {
+    return (
+      <TTQuestionsModal
+        onClose={onClose}
+        viewer={{ name: stats.viewer, load: (span) => fetchTTQuestionsAsViewer(code, span), switcher }}
+      />
+    );
+  }
+
   if (stats) {
     return (
       <TiBookVisitorsModal
@@ -96,6 +141,7 @@ const StatsViewerGate = ({ hostFirstName, onClose }: { hostFirstName: string; on
             saveCode("");
             onClose();
           },
+          switcher,
         }}
       />
     );
@@ -107,7 +153,7 @@ const StatsViewerGate = ({ hostFirstName, onClose }: { hostFirstName: string; on
         className={`w-full rounded-t-2xl border p-5 shadow-2xl sm:max-w-sm sm:rounded-2xl ${theme.surface} ${theme.surfaceBorder}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <p className={`text-base font-bold ${theme.surfaceText}`}>📈 TiBook visitor numbers</p>
+        <p className={`text-base font-bold ${theme.surfaceText}`}>📈 TiBook numbers</p>
         <p className={`mt-1 text-sm ${theme.surfaceMuted}`}>
           Enter the access code {hostFirstName} sent you.
         </p>
@@ -121,7 +167,14 @@ const StatsViewerGate = ({ hostFirstName, onClose }: { hostFirstName: string; on
           <input
             autoFocus
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            // Dashes go in by themselves and the code stops at its length
+            // (formatStatsCode). Deleting is read from the input event, or a
+            // shorter value where the browser does not say.
+            onChange={(e) => {
+              const type = (e.nativeEvent as InputEvent).inputType ?? "";
+              setDraft(formatStatsCode(e.target.value, type.startsWith("delete") || e.target.value.length < draft.length));
+            }}
+            inputMode="text"
             placeholder="XXXX-XXXX-XXXX"
             autoComplete="off"
             autoCapitalize="characters"

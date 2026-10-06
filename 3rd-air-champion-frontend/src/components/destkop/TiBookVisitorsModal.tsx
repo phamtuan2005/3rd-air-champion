@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { ReactNode, useCallback, useEffect, useState } from "react";
 import { format, parseISO } from "date-fns";
 import {
   fetchTiBookVisitorStats,
@@ -16,7 +16,9 @@ interface TiBookVisitorsModalProps {
   // by the server; this mode also leaves out the sections that would be about
   // guests or about who has access, so the screen does not show empty
   // furniture that hints at what was taken out.
-  viewer?: { name: string; load: () => Promise<TiBookVisitorStats>; onForget: () => void };
+  // `switcher` is the viewer's way across to the TT questions the same code
+  // opens (StatsViewerGate); the host reaches those from their own menu.
+  viewer?: { name: string; load: () => Promise<TiBookVisitorStats>; onForget: () => void; switcher?: ReactNode };
 }
 
 // The chart's two series, checked as a pair for colour-blind separation and
@@ -105,6 +107,7 @@ const TiBookVisitorsModal = ({ onClose, viewer }: TiBookVisitorsModalProps) => {
             &times;
           </button>
         </div>
+        {viewer?.switcher}
 
         {/* Spans above everything they change. Wrapping, not scrolling: on a
             400px phone a scrolling row cut "All time" off at the edge, and an

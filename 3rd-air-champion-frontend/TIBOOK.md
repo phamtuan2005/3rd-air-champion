@@ -57,6 +57,31 @@ backend, put `VITE_COUNT_TIBOOK_VISITS_IN_DEV=true` in `.env.development.local`.
 The numbers are read only through `/api/tibook-stats`, behind the JWT gate and
 `requireManager`. Keep them out of GraphQL: `/graphql` has no login in front of it.
 
+### What guests ask TT, and what guests say
+
+TT (`src/util/askTT.ts`) still answers on the phone, with no model. Every answer
+carries a `category` and whether TT really `answered`. A hand-off to the host is
+**not** answered, and a privacy refusal **is** answered. After the answer is on
+screen, `src/util/ttQuestionLog.ts` sends the question, scrubbed of phone
+numbers, emails and links, to `/api/tt/question`. The backend scrubs it again
+and caps it per address. The host reads the questions in TiMag's **TT
+questions** screen (Money menu), split into answered and not answered and then
+by category, through `/api/tt-host`, which sits behind `requireManager`. The dev
+server does not log, for the same reason it does not count visits.
+
+A guest the host gave the stats code to reads the same questions at
+`/book?stats`. There is a *Visitors · TT questions* switch, and the questions
+come from `/api/tibook-stats-viewer/tt-questions`, which checks the code exactly
+as the visitor numbers do. The code box adds the dashes itself and stops at
+twelve characters (`formatStatsCode`).
+
+"What guests say" shows only summaries the host **published** in TiMag's
+**Guest reviews** screen. AirBnB has no reviews API and may not be scraped, so
+the host pastes each listing's reviews there. Claude drafts the summaries in the
+background (`reviewDraft.ts` on the backend), and the host edits and publishes
+them. The pasted text is not kept. When nothing is published, TT says it has no
+summary and logs the question as not answered. It never makes one up.
+
 ## Tests
 
 ```bash

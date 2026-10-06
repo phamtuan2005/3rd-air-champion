@@ -128,8 +128,8 @@ const TiBookStatsAccess = () => {
     <section className="rounded-xl border border-gray-200 p-3">
       <h3 className="text-sm font-semibold text-gray-800">Who else can see these numbers</h3>
       <p className="mt-0.5 text-xs leading-relaxed text-gray-500">
-        For a guest helping to develop TiBook. They see the visitor counts, trends and continents
-        — never a guest's name or number.
+        For a guest helping to develop TiBook. They see the visitor counts, trends and continents,
+        and what guests typed to TT — never who visited or who asked.
       </p>
 
       {grants && grants.length > 0 && (
@@ -212,11 +212,15 @@ const TiBookStatsAccess = () => {
         // be a separate, deliberate one.
         <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
           <p className="text-sm font-semibold text-gray-900">
-            Give {step.guest.name} access to TiBook's visitor numbers?
+            Give {step.guest.name} access to TiBook's visitor numbers and TT questions?
           </p>
           <ul className="mt-1 list-disc pl-5 text-xs leading-relaxed text-gray-600">
             <li>They'll see visitor counts, who comes back, and continents.</li>
-            <li>They won't see any guest's name or phone number.</li>
+            {/* Said plainly: the questions are guests' own words. Numbers,
+                emails and links are taken out when stored, but a guest who
+                typed their name into a question typed it there. */}
+            <li>They'll see what guests typed to TT, with phone numbers, emails and codes taken out. Questions about other people are not kept at all.</li>
+            <li>They won't see who visited or who asked — no names or numbers from your guest list.</li>
             <li>You'll get a code to send them. You can take it away any time.</li>
           </ul>
           <div className="mt-3 flex justify-end gap-2">
