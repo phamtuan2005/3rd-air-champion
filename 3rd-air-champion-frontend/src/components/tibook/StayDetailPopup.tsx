@@ -1,5 +1,6 @@
-import { differenceInCalendarDays, format, startOfToday } from "date-fns";
+import { addDays, differenceInCalendarDays, format, startOfToday } from "date-fns";
 import { useTiBookTheme, useRoomChip } from "../../contexts/TiBookThemeContext";
+import { holidayLabel, usHolidayOn } from "../../util/usHolidays";
 
 interface StayDetailPopupProps {
   roomName: string;
@@ -66,6 +67,14 @@ const StayDetailPopup = ({
   // Practical codes only when they're actually needed (during the stay or within
   // a few days of arrival) — no early clutter, mildly more secure.
   const showCodes = !isPast && daysUntil <= 3;
+  // The holidays this stay covers, by NIGHT: the check-out day is not slept
+  // through, so a stay ending on a holiday morning does not contain it. Dates
+  // are formatted from the same local Date the calendar built them from, so the
+  // yyyy-MM-dd key is the one the holiday table is keyed by.
+  const stayHolidays = Array.from({ length: Math.max(nights, 0) }, (_, i) => addDays(checkIn, i)).flatMap((d) => {
+    const h = usHolidayOn(format(d, "yyyy-MM-dd"));
+    return h ? [{ date: d, label: holidayLabel(h) }] : [];
+  });
   const mapsHref = address
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address.replace(/\n/g, ", "))}`
     : undefined;
@@ -108,6 +117,18 @@ const StayDetailPopup = ({
               </>
             )}
           </p>
+
+          {/* A holiday inside the stay, so a guest sees at a glance that their
+              dates include one — it can change who else is around the house. */}
+          {stayHolidays.length > 0 && (
+            <ul className={`mt-2 space-y-0.5 text-xs font-semibold ${theme.alertText}`}>
+              {stayHolidays.map(({ date, label }) => (
+                <li key={label + date.getTime()}>
+                  • {format(date, "EEE MMM d")} – {label}
+                </li>
+              ))}
+            </ul>
+          )}
 
           {/* Codes — only near/active */}
           {showCodes && (doorCode || roomCode) && (
