@@ -1293,6 +1293,7 @@ const TiBookInner = () => {
         <AskTTSheet
           ctx={askTTContext}
           guestName={greetedName}
+          usualRoomColor={rooms.find((r) => r.id === askTTContext.guest?.usualRoomId)?.color}
           onAction={onTTAction}
           onClose={() => setAskTTOpen(false)}
         />
