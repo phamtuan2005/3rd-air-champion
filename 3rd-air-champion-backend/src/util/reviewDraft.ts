@@ -12,10 +12,14 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const MODEL = "claude-opus-5-5";
 
-// Per room. A listing with years of reviews pastes to a few hundred thousand
-// characters; past this the newest reviews (AirBnB lists them first) say what
-// a guest needs to know, and the host is told the paste was cut.
-export const MAX_PASTE = 120_000;
+// What the host pasted is read WHOLE — a review history is never quietly cut
+// to its newest part (2026-10-06: a 120,000-character cut per room was there,
+// and the host, who wanted every review read, did not want it). The only limit
+// is the model's own: it reads about a million tokens, so this total, across all
+// rooms, stays well inside that even for text that costs more tokens per
+// character than English does. Over it, the host is TOLD and asked to paste
+// fewer — never cut for them.
+export const MAX_TOTAL_PASTE = 2_500_000;
 
 export interface PastedRoom {
   roomId: string;
@@ -76,7 +80,7 @@ const outputSchema = (roomIds: string[]) => ({
 // and id, so it can tell the rooms apart and hand each summary back by id.
 export const reviewPrompt = (rooms: PastedRoom[]) =>
   rooms
-    .map((r) => `<room id="${r.roomId}" name="${r.name.replace(/"/g, "'")}">\n${r.text.slice(0, MAX_PASTE)}\n</room>`)
+    .map((r) => `<room id="${r.roomId}" name="${r.name.replace(/"/g, "'")}">\n${r.text}\n</room>`)
     .join("\n\n");
 
 /**

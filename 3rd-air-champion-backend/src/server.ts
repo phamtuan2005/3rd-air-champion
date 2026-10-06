@@ -96,7 +96,12 @@ const startServer = async () => {
 
     await server.start();
 
-    app.use(express.json({ limit: "2mb" })); // JSON bodies; headroom for small avatar data URLs
+    // JSON bodies; headroom for small avatar data URLs. Not for the reviews
+    // draft: it carries a whole pasted review history and reads its own, larger
+    // body behind the sign-in check (see ttHostRoute) — parsed here it would be
+    // refused at 2 MB with a bare error, and open to anyone.
+    const smallJson = express.json({ limit: "2mb" });
+    app.use((req, res, next) => (req.path === "/api/tt-host/reviews/draft" ? next() : smallJson(req, res, next)));
     app.use(cors(corsOptions));
     // Use Apollo Server Middleware
     app.use(

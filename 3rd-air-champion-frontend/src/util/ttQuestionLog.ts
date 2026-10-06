@@ -130,9 +130,8 @@ export const fetchReviewsState = async (): Promise<ReviewsState> =>
   asReviewsState((await axios.get(`${BACKEND_ENDPOINT}/tt-host/reviews`, authed())).data);
 
 // Starts Claude on a draft; the answer comes back through fetchReviewsState.
-export const startReviewDraft = async (rooms: { roomId: string; text: string }[]): Promise<{ truncated: string[] }> => {
-  const response = await axios.post(`${BACKEND_ENDPOINT}/tt-host/reviews/draft`, { rooms }, authed());
-  return { truncated: Array.isArray(response.data?.truncated) ? response.data.truncated : [] };
+export const startReviewDraft = async (rooms: { roomId: string; text: string }[]): Promise<void> => {
+  await axios.post(`${BACKEND_ENDPOINT}/tt-host/reviews/draft`, { rooms }, authed());
 };
 
 export const publishReviews = async (set: SummarySet): Promise<ReviewsState> =>

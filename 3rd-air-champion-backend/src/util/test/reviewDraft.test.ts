@@ -1,4 +1,4 @@
-import { draftReviewSummaries, MAX_PASTE, reviewPrompt } from "../reviewDraft";
+import { draftReviewSummaries, reviewPrompt } from "../reviewDraft";
 
 // The draft is the model's; what comes back into the house's records is ours.
 // These pin the parts the model cannot be trusted with: which rooms there are,
@@ -53,8 +53,8 @@ describe("draftReviewSummaries", () => {
 });
 
 describe("reviewPrompt", () => {
-  it("cuts a very long paste per room, keeping the newest reviews AirBnB lists first", () => {
-    const long = "A".repeat(MAX_PASTE) + "OLDEST";
-    expect(reviewPrompt([{ roomId: "k", name: "King", text: long }])).not.toContain("OLDEST");
+  it("sends a very long paste whole — the oldest reviews are read too", () => {
+    const long = "A".repeat(500_000) + "OLDEST";
+    expect(reviewPrompt([{ roomId: "k", name: "King", text: long }])).toContain("OLDEST");
   });
 });
