@@ -838,26 +838,26 @@ const MonthGrid = ({
         );
       })}
     </div>
-    <div
-      className={`flex h-6 shrink-0 items-center gap-1.5 overflow-x-auto overflow-y-hidden whitespace-nowrap border-t px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden text-[12px] leading-none ${theme.gridLine} ${theme.surfaceMuted}`}
-    >
-      {shownMonth &&
-        (monthHolidays.length > 0 ? (
-          // The line swipes sideways instead of clipping at "…". A month with
-          // three holidays is longer than a phone is wide, and the ones past the
-          // edge were unreadable — only the first could be seen.
-          // Every holiday opens with its own bullet, in the same text as the
-          // line. A drawn dot before the first and a typed "•" between the
-          // rest came out two sizes, so one bullet does both jobs now.
-          <span className={`shrink-0 whitespace-pre font-semibold ${theme.alertText}`}>
-            {monthHolidays
-              .map(({ key, holiday }) => `• ${format(parseISO(key), "EEE MMM d")} – ${holidayLabel(holiday)}`)
-              .join("  ")}
-          </span>
-        ) : (
-          <span className="truncate">No US federal holidays in {format(shownMonth, "MMMM")}</span>
-        ))}
-    </div>
+    {/* No banner at all for a month without a holiday. It used to print "No US
+        federal holidays in August", a whole row spent saying nothing; the grid
+        takes the room instead. */}
+    {shownMonth && monthHolidays.length > 0 && (
+      <div
+        className={`flex h-6 shrink-0 items-center gap-1.5 overflow-x-auto overflow-y-hidden whitespace-nowrap border-t px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden text-[12px] leading-none ${theme.gridLine} ${theme.surfaceMuted}`}
+      >
+        {/* The line swipes sideways instead of clipping at "…". A month with
+            three holidays is longer than a phone is wide, and the ones past the
+            edge were unreadable — only the first could be seen.
+            Every holiday opens with its own bullet, in the same text as the
+            line. A drawn dot before the first and a typed "•" between the rest
+            came out two sizes, so one bullet does both jobs now. */}
+        <span className={`shrink-0 whitespace-pre font-semibold ${theme.alertText}`}>
+          {monthHolidays
+            .map(({ key, holiday }) => `• ${format(parseISO(key), "EEE MMM d")} – ${holidayLabel(holiday)}`)
+            .join("  ")}
+        </span>
+      </div>
+    )}
     </div>
   );
 };
