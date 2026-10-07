@@ -53,10 +53,13 @@ export const nightsPhrase = (habits: Habit[]) => {
 const stayDates = (p: Proposal) => {
   const first = parseISO(p.nights[0]);
   const last = parseISO(p.nights[p.nights.length - 1]);
-  if (p.nights.length === 1) return format(first, "MMM EEE d");
+  // The count after the dates, so the length is read at a glance — the host
+  // asked for ", 2 nights" on each row (2026-10-07).
+  const count = `, ${p.nights.length} night${p.nights.length === 1 ? "" : "s"}`;
+  if (p.nights.length === 1) return `${format(first, "MMM EEE d")}${count}`;
   return first.getMonth() === last.getMonth()
-    ? `${format(first, "MMM EEE d")} – ${format(last, "EEE d")}`
-    : `${format(first, "MMM EEE d")} – ${format(last, "MMM EEE d")}`;
+    ? `${format(first, "MMM EEE d")} – ${format(last, "EEE d")}${count}`
+    : `${format(first, "MMM EEE d")} – ${format(last, "MMM EEE d")}${count}`;
 };
 
 const UsualStayCard = ({
