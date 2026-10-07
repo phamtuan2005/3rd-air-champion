@@ -5,6 +5,7 @@ import CleaningAssignment from "../model/cleaningAssignmentSchema";
 import WorkEntry from "../model/workEntrySchema";
 import { findAssignments } from "../util/assignmentQuery";
 import CleaningExtra from "../model/cleaningExtraSchema";
+import { monthlyPayHistory } from "../util/monthlyPay";
 import { computeCleanerPay } from "../util/cleanerPay";
 import { arrivingNeeds } from "../util/arrivingGuests";
 import { roomOccupancyOdds, roomPartySizeOdds } from "../util/roomLikelihood";
@@ -479,6 +480,8 @@ router.post("/pay-summary", async (req: Request, res: any) => {
           .filter((d) => d.date.startsWith(year))
           .reduce((sum, d) => sum + d.earned, 0),
         paidThisYear,
+        // The last six months as bars: paid to them, hours worked.
+        months: monthlyPayHistory(who.doc.payments ?? [], pay.days),
       });
     }
 
@@ -530,6 +533,12 @@ router.post("/pay-summary", async (req: Request, res: any) => {
         .filter((d) => d.date.startsWith(year))
         .reduce((sum, d) => sum + d.earned, 0),
       paidThisYear,
+      // The last six months as bars: paid to them (tips included, by payday), and
+      // hours worked — approved days with no assignment counted too.
+      months: monthlyPayHistory(who.doc.payments ?? [], [
+        ...pay.days,
+        ...orphans.map((e: any) => ({ date: e.date, hours: e.hours })),
+      ]),
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

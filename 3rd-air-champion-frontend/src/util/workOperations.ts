@@ -169,6 +169,9 @@ export interface PaySummary {
   hours: number; // year to date
   earned: number; // year to date
   paidThisYear: number;
+  // The last six months, oldest first: paid to them that month (tips included,
+  // by payday) and hours worked that month.
+  months?: { month: string; paid: number; hours: number }[];
 }
 
 export const fetchMyPay = async (creds: WorkCreds): Promise<PaySummary> => {
