@@ -648,7 +648,7 @@ router.get("/extras", async (req: Request, res: any) => {
       .sort({ date: 1, name: 1 })
       .lean();
     res.status(200).json(
-      rows.map((r) => ({ id: String(r._id), date: r.date, cleaner: String(r.cleaner), job: String(r.job), name: r.name }))
+      rows.map((r) => ({ id: String(r._id), date: r.date, cleaner: String(r.cleaner), job: String(r.job), name: r.name, note: r.note ?? "" }))
     );
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -670,12 +670,31 @@ router.post("/extras/toggle", async (req: Request, res: any) => {
     }
     const theJob: any = await CleaningJob.findOne({ _id: job, host }).lean();
     if (!theJob) return res.status(404).json({ error: "That job is not on the list." });
+    const note = typeof req.body.note === "string" ? req.body.note.trim().slice(0, 120) : undefined;
     const row: any = await CleaningExtra.findOneAndUpdate(
       { host, date, cleaner, job },
-      { $setOnInsert: { host, date, cleaner, job, name: theJob.name } },
+      {
+        $setOnInsert: { host, date, cleaner, job, name: theJob.name },
+        ...(note !== undefined ? { $set: { note } } : {}),
+      },
       { new: true, upsert: true, runValidators: true }
     ).lean();
-    res.status(200).json({ ok: true, on: true, id: String(row._id), name: row.name });
+    res.status(200).json({ ok: true, on: true, id: String(row._id), name: row.name, note: row.note ?? "" });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// The note on one visit's extra job — "in Cute & King". Its own call so the
+// host can write it after ticking the job, or change it later.
+router.patch("/extras/note", async (req: Request, res: any) => {
+  const { host, date, cleaner, job } = req.body;
+  if (!host || !date || !cleaner || !job) return res.status(400).json({ error: "host, date, cleaner and job are required" });
+  const note = String(req.body.note ?? "").trim().slice(0, 120);
+  try {
+    const row: any = await CleaningExtra.findOneAndUpdate({ host, date, cleaner, job }, { $set: { note } }, { new: true }).lean();
+    if (!row) return res.status(404).json({ error: "That job is not on this visit." });
+    res.status(200).json({ ok: true, note: row.note ?? "" });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

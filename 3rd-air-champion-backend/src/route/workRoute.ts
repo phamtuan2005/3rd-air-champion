@@ -387,8 +387,8 @@ router.post("/schedule", async (req: Request, res: any) => {
     const extras: any[] = await CleaningExtra.find({ cleaner: who.doc._id, date: { $in: [...byDate.keys()] } })
       .sort({ name: 1 })
       .lean();
-    const extrasOn = new Map<string, string[]>();
-    for (const e of extras) extrasOn.set(e.date, [...(extrasOn.get(e.date) ?? []), e.name]);
+    const extrasOn = new Map<string, { name: string; note: string }[]>();
+    for (const e of extras) extrasOn.set(e.date, [...(extrasOn.get(e.date) ?? []), { name: e.name, note: e.note ?? "" }]);
 
     res.status(200).json(
       [...byDate.values()]

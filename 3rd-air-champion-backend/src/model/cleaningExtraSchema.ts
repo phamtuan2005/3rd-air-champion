@@ -19,6 +19,11 @@ const cleaningExtraSchema = new mongoose.Schema(
     cleaner: { type: mongoose.Schema.ObjectId, ref: "Cleaner", required: true },
     job: { type: mongoose.Schema.ObjectId, ref: "CleaningJob", required: true },
     name: { type: String, required: true, maxlength: 40 },
+    // The host's word on THIS visit's job — where, or what exactly: "in Cute &
+    // King". The job's name stays general ("Baseboard") so it can be picked
+    // again next time with a different note ("Chill & Cozy"); writing the rooms
+    // into the name made a new job for every combination (host, 2026-10-07).
+    note: { type: String, default: "", maxlength: 120 },
   },
   { timestamps: true }
 );

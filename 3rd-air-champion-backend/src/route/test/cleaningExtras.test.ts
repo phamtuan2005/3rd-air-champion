@@ -68,6 +68,29 @@ describe("extra jobs on a visit", () => {
     expect(await CleaningExtra.countDocuments({ host: h })).toBe(0);
   });
 
+  it("carries the host's note for this visit, and lets it change", async () => {
+    const h = host();
+    const henry = await cleaner(h, "Henry");
+    await request(app).post("/cleaner/assign").send({ host: h, date: "2026-10-10", room: room(), cleaner: henry });
+    await request(app).post("/cleaner/assign").send({ host: h, date: "2026-10-17", room: room(), cleaner: henry });
+    const b = await job(h, "Baseboard");
+    await request(app).post("/cleaner/extras/toggle").send({ host: h, date: "2026-10-10", cleaner: henry, job: b.id, on: true, note: " in Cute & King " });
+    // The same job, another visit, another note.
+    await request(app).post("/cleaner/extras/toggle").send({ host: h, date: "2026-10-17", cleaner: henry, job: b.id, on: true });
+    await request(app).patch("/cleaner/extras/note").send({ host: h, date: "2026-10-17", cleaner: henry, job: b.id, note: "Chill & Cozy" });
+    const rows = (await request(app).get(`/cleaner/extras?host=${h}&start=2026-10-01&end=2026-10-31`)).body;
+    expect(rows.map((r: any) => [r.date, r.name, r.note])).toEqual([
+      ["2026-10-10", "Baseboard", "in Cute & King"],
+      ["2026-10-17", "Baseboard", "Chill & Cozy"],
+    ]);
+    // Ticking it again without a note leaves the note as it was.
+    await request(app).post("/cleaner/extras/toggle").send({ host: h, date: "2026-10-10", cleaner: henry, job: b.id, on: true });
+    const again = (await request(app).get(`/cleaner/extras?host=${h}&start=2026-10-10&end=2026-10-10`)).body;
+    expect(again[0].note).toBe("in Cute & King");
+    // A note for a job not on the visit is refused.
+    expect((await request(app).patch("/cleaner/extras/note").send({ host: h, date: "2026-10-11", cleaner: henry, job: b.id, note: "x" })).status).toBe(404);
+  });
+
   it("stays while the cleaner still has a room that morning, and goes with the last one", async () => {
     const h = host();
     const henry = await cleaner(h, "Henry");
