@@ -1,4 +1,6 @@
 import express, { Request } from "express";
+import mongoose from "mongoose";
+import { redirectHost } from "../util/hostRedirect";
 import TiBookVisit from "../model/tibookVisitSchema";
 import Guest from "../model/guestSchema";
 import TiBookStatsGrant from "../model/tibookStatsGrantSchema";
@@ -44,6 +46,40 @@ const recordMiss = (ip: string) => {
   if (!m || Date.now() - m.since > WINDOW_MS) misses.set(ip, { count: 1, since: Date.now() });
   else m.count += 1;
 };
+
+// Whether the guest TiBook has recognised by phone was given access — so
+// "Your Bookings" can offer the numbers to them and to nobody else, rather than
+// the host's link being the only way in.
+//
+// This opens NOTHING. It answers yes or no, and a yes only shows the row that
+// leads to the code screen; the code is still the proof, checked by the route
+// below. All anyone typing someone else's number learns is that they help with
+// TiBook — less than the name and discount guest-by-phone already hands back
+// for the same number.
+//
+// Matched the way guestByPhone matches (digits, any punctuation between), so
+// the guest the sheet greets is the guest checked here. At least seven digits:
+// that regex is unanchored, and "4" would match half the guest list.
+router.post("/has-access", async (req: Request, res: any) => {
+  const host = String(req.body?.host ?? "");
+  const digits = String(req.body?.phone ?? "").replace(/\D/g, "");
+  if (!mongoose.isValidObjectId(redirectHost(host)) || digits.length < 7) {
+    return res.status(200).json({ hasAccess: false });
+  }
+  try {
+    const hostId = redirectHost(host);
+    const guests = await Guest.find(
+      { host: hostId, phone: { $regex: new RegExp(digits.split("").join("\\D*")) } },
+      { _id: 1 }
+    ).lean();
+    const hasAccess =
+      guests.length > 0 &&
+      (await TiBookStatsGrant.exists({ host: hostId, guest: { $in: guests.map((g: any) => g._id) } })) != null;
+    res.status(200).json({ hasAccess });
+  } catch {
+    res.status(200).json({ hasAccess: false });
+  }
+});
 
 // The code check every route here goes through: the grant and its guest, or
 // null with the refusal already sent. One function, so the TT questions below

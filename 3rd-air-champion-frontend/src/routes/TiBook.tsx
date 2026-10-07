@@ -23,7 +23,8 @@ import StayDetailPopup from "../components/tibook/StayDetailPopup";
 import RoomPickerPopup from "../components/tibook/RoomPickerPopup";
 import ReservedHoldsPopup from "../components/tibook/ReservedHoldsPopup";
 import { getGuestWishList } from "../util/wishListOperations";
-import { fetchBookingRequestsByHost, fetchCalendarBookingsByGuest } from "../util/bookingRequestOperations";
+import { createBookingRequest, fetchBookingRequestsByHost, fetchCalendarBookingsByGuest } from "../util/bookingRequestOperations";
+import { ttBookingIsDryRun, TTBookingRequest } from "../util/ttBooking";
 import { mergeOverlappingStays } from "../util/overlappingStays";
 import { fetchGuestByPhone } from "../util/guestOperations";
 import RememberMeDisclaimer from "../components/tibook/RememberMeDisclaimer";
@@ -35,11 +36,11 @@ import HostChatSheet from "../components/tibook/HostChatSheet";
 import AskTTSheet from "../components/tibook/AskTT";
 import StatsViewerGate from "../components/tibook/StatsViewerGate";
 import { usHolidayOn } from "../util/usHolidays";
-import type { TTNudge } from "../components/tibook/AskTT";
+import type { TTNudge, TTSendOutcome } from "../components/tibook/AskTT";
 import { toTTRoom, usualRoomOf } from "../util/askTT";
 import type { AskTTContext, TTAction } from "../util/askTT";
 import { fetchGuestThread } from "../util/guestMessageOperations";
-import { linkTiBookVisitToGuest, recordTiBookVisit, unlinkTiBookVisitGuest } from "../util/tibookVisitOperations";
+import { linkTiBookVisitToGuest, recordTiBookVisit, saveStatsCode, unlinkTiBookVisitGuest } from "../util/tibookVisitOperations";
 import { fetchPublishedReviews } from "../util/ttQuestionLog";
 import { markTiBookVisited } from "../util/tibookReturning";
 
@@ -126,7 +127,8 @@ const TiBookInner = () => {
     fetchPublishedReviews(hostId).then(setPublishedReviews).catch(() => {});
   }, []);
   // /book?stats — a guest the host gave access to, reading the visitor numbers.
-  // Only that link opens it; see StatsViewerGate.
+  // That link opens it, and so does the row at the bottom of Your Bookings for
+  // that guest; see StatsViewerGate.
   const [statsOpen, setStatsOpen] = useState(() => new URLSearchParams(window.location.search).has("stats"));
   const closeStats = () => {
     setStatsOpen(false);
@@ -870,6 +872,29 @@ const TiBookInner = () => {
     }
   };
 
+  // A booking TT made in the conversation (ttBooking.ts). The same request the
+  // form files, so the host's Requests screen cannot tell them apart; and the
+  // same remembering afterwards, through rememberOrAsk — the one place that
+  // decides whether a guest's number is kept.
+  //
+  // On the dev server it is shown and NOT sent: `/api` there is production.
+  // VITE_TT_SEND_BOOKINGS_IN_DEV=true sends it, for a local backend.
+  const ttDryRun = ttBookingIsDryRun({
+    dev: import.meta.env.DEV,
+    sendInDev: import.meta.env.VITE_TT_SEND_BOOKINGS_IN_DEV === "true",
+  });
+  const sendTTBooking = async (request: TTBookingRequest): Promise<TTSendOutcome> => {
+    if (ttDryRun) {
+      console.info("[Ask TT test mode] booking request NOT sent:", request);
+      return "dryRun";
+    }
+    await createBookingRequest(request);
+    setGuestPhone(request.guestPhone);
+    setGuestName(request.guestName);
+    rememberOrAsk(request.guestPhone, request.guestName, { afterSuccess: true });
+    return "sent";
+  };
+
   // Which TT callout this guest is owed: the booking helper for somebody new,
   // the quick way to book for somebody back. None while a sheet owns the
   // screen — a callout pointing at a button behind a modal points at nothing.
@@ -1126,7 +1151,8 @@ const TiBookInner = () => {
           onToggleWishDate={(date) => setWishListDates((prev) => { const next = new Set(prev); if (next.has(date)) next.delete(date); else next.add(date); return next; })}
           onClose={() => { setMyBookingsOpen(false); setBookingsFocusKey(null); }}
           onPhoneConfirmed={handlePhoneConfirmed}
-          onClear={() => { setGuestPhone(""); setGuestName(""); setGuestBookings([]); setWishListDates(new Set()); setPersistedWishListDates(new Set()); setCartDates(new Map()); setSelectedRoomIds(null); revokeConsent(); unlinkTiBookVisitGuest(import.meta.env.VITE_TI_BOOK_HOST_ID); }}
+          onClear={() => { setGuestPhone(""); setGuestName(""); setGuestBookings([]); setWishListDates(new Set()); setPersistedWishListDates(new Set()); setCartDates(new Map()); setSelectedRoomIds(null); revokeConsent(); unlinkTiBookVisitGuest(import.meta.env.VITE_TI_BOOK_HOST_ID); saveStatsCode(""); }}
+          onOpenStats={() => { setMyBookingsOpen(false); setBookingsFocusKey(null); setStatsOpen(true); }}
           cancellationFullRefundDays={currentHost.cancellationFullRefundDays}
           cancellationHalfRefundDays={currentHost.cancellationHalfRefundDays}
           houseRules={currentHost.houseRules}
@@ -1311,6 +1337,9 @@ const TiBookInner = () => {
           ctx={askTTContext}
           hostId={currentHost.id}
           guestName={greetedName}
+          guestPhone={guestPhone}
+          testMode={ttDryRun}
+          onBook={sendTTBooking}
           roomColors={Object.fromEntries(rooms.map((r) => [r.id, r.color]))}
           onAction={onTTAction}
           onClose={() => setAskTTOpen(false)}

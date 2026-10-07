@@ -2,36 +2,27 @@ import { useEffect, useState } from "react";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import TiBookVisitorsModal from "../destkop/TiBookVisitorsModal";
 import TTQuestionsModal from "../destkop/TTQuestionsModal";
-import { fetchTiBookStatsAsViewer, formatStatsCode, ViewerStats } from "../../util/tibookVisitOperations";
+import {
+  fetchTiBookStatsAsViewer,
+  formatStatsCode,
+  readStatsCode as readCode,
+  saveStatsCode as saveCode,
+  ViewerStats,
+} from "../../util/tibookVisitOperations";
 import { fetchTTQuestionsAsViewer } from "../../util/ttQuestionLog";
 
 // Where a guest the host gave access to reads TiBook's visitor numbers, and
-// what guests asked its TT:
-// /book?stats, with the code TiMag gave them.
+// what guests asked its TT, with the code TiMag gave them.
 //
-// Reached by the link the host sends and nothing else — there is no button for
-// it in TiBook, because it is for one or two people helping develop the site,
-// not for guests. The code is the proof (see tibookStatsViewerRoute); TiBook's
-// idea of who a guest is, a phone number anyone can type, plays no part.
+// Two ways in: the /book?stats link the host sends, and a row at the bottom of
+// Your Bookings — shown only to a guest the server says was given access (see
+// /has-access in tibookStatsViewerRoute). It began as the link alone; the guest
+// it was for wanted it where the rest of their TiBook is. Either way the code
+// is the proof. TiBook's idea of who a guest is, a phone number anyone can
+// type, only decides whether the row is shown — never what opens.
 //
-// The code is remembered on this device so the link opens straight to the
-// numbers next time, and forgotten when the server says it no longer works.
-const CODE_KEY = "tiBookStatsCode";
-const readCode = () => {
-  try {
-    return localStorage.getItem(CODE_KEY) ?? "";
-  } catch {
-    return "";
-  }
-};
-const saveCode = (code: string) => {
-  try {
-    if (code) localStorage.setItem(CODE_KEY, code);
-    else localStorage.removeItem(CODE_KEY);
-  } catch {
-    // Not remembered: they type it again next time.
-  }
-};
+// The code is remembered on this device so it opens straight to the numbers
+// next time, and forgotten when the server says it no longer works.
 
 const StatsViewerGate = ({ hostFirstName, onClose }: { hostFirstName: string; onClose: () => void }) => {
   const { theme } = useTiBookTheme();

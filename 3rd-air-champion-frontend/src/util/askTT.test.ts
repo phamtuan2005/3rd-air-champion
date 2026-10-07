@@ -57,6 +57,12 @@ describe("partySizeAsked", () => {
     expect(partySizeAsked("two guests")).toBe(2);
     expect(partySizeAsked("parking")).toBeNull();
   });
+
+  it("reads 'for 2' as people, but not 'for 2 nights'", () => {
+    expect(partySizeAsked("book Queen Oct 19-21 for 2")).toBe(2);
+    expect(partySizeAsked("Nov 3 for 2 nights")).toBeNull();
+    expect(partySizeAsked("for 10")).toBeNull();
+  });
 });
 
 describe("askTT — availability", () => {
@@ -163,11 +169,12 @@ describe("askTT — a returning guest", () => {
     expect(usualRoomOf(stays, [king, cozy])).toBe("k");
   });
 
-  // They came to book: the button goes on to Review Request, and their usual
-  // room leads.
-  it("offers to request, usual room first", () => {
+  // They came to book: the button books the stay, and their usual room leads.
+  // It used to open Review Request; since 2026-10-07 TT books in the
+  // conversation, and still reads the request back before anything is sent.
+  it("offers to book, usual room first", () => {
     const a = askTT("Oct 10-11", back());
-    expect(a.actions[0]).toMatchObject({ kind: "pick", roomId: "c", review: true, label: "Request Chill →" });
+    expect(a.actions[0]).toMatchObject({ kind: "book", roomId: "c", label: "Book Chill →", dates: ["2026-10-10", "2026-10-11"] });
     expect(text(a)).toContain("Chill (your usual)");
   });
 
@@ -178,7 +185,7 @@ describe("askTT — a returning guest", () => {
 
   it("checks their whole wish list at once", () => {
     const a = askTT("my wish list", back());
-    expect(a.actions[0]).toMatchObject({ kind: "pick", dates: ["2026-10-10", "2026-10-11"], review: true });
+    expect(a.actions[0]).toMatchObject({ kind: "book", dates: ["2026-10-10", "2026-10-11"] });
   });
 
   it("leaves a new guest choosing nights on the calendar, not requesting", () => {
@@ -271,7 +278,7 @@ describe("askTT — privacy", () => {
     ["3 guests staying Oct 10", /Oct 10/],
     ["are kids allowed", /house rules/i],
     ["does Anh-Tuan allow kids", /house rules/i],
-    ["is wifi there", /Every room has it/],
+    ["is wifi there", /Every room has wifi/],
     ["show me my bookings", /Your bookings/],
     ["late check in", /night BEFORE/],
     ["who's the host", /Your host is Anh-Tuan/],

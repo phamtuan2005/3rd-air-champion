@@ -107,6 +107,45 @@ describe("giving a guest access", () => {
   });
 });
 
+// "Your Bookings" asks this to decide whether to offer the numbers. It must say
+// yes only for the guest who was given access, and a yes must open nothing.
+describe("asking whether a guest has access", () => {
+  const ask = (host: string, phone: string) =>
+    request(publicApp).post("/tibook-stats-viewer/has-access").send({ host, phone });
+
+  it("says yes for the guest given it, however the number is typed, and no for others", async () => {
+    const { host, mai, asHost } = await houseWithGuests("hasaccess@example.com");
+    expect((await ask(host, "408-555-0101")).body).toEqual({ hasAccess: false });
+
+    await give(asHost, mai);
+    expect((await ask(host, "(408) 555 0101")).body).toEqual({ hasAccess: true });
+    expect((await ask(host, "4085550101")).body).toEqual({ hasAccess: true });
+    expect((await ask(host, "408-555-0202")).body).toEqual({ hasAccess: false });
+
+    await request(asHost).delete(`/tibook-stats-access/${mai}`);
+    expect((await ask(host, "408-555-0101")).body).toEqual({ hasAccess: false });
+  });
+
+  // The match is unanchored, as guestByPhone's is; a fragment must not find Mai.
+  it("says no to a fragment of a number, and to another house", async () => {
+    const { mai, asHost } = await houseWithGuests("fragment@example.com");
+    const other = await houseWithGuests("otherhouse@example.com");
+    await give(asHost, mai);
+    const host = String((await Guest.findById(mai))!.host);
+    expect((await ask(host, "")).body).toEqual({ hasAccess: false });
+    expect((await ask(host, "0101")).body).toEqual({ hasAccess: false });
+    expect((await ask(other.host, "408-555-0101")).body).toEqual({ hasAccess: false });
+    expect((await ask("not-an-id", "408-555-0101")).body).toEqual({ hasAccess: false });
+  });
+
+  it("hands back nothing but the yes or no", async () => {
+    const { host, mai, asHost } = await houseWithGuests("onlyyes@example.com");
+    await give(asHost, mai);
+    const res = await ask(host, "408-555-0101");
+    expect(Object.keys(res.body)).toEqual(["hasAccess"]);
+  });
+});
+
 describe("what the guest with access sees", () => {
   it("sees the counts and never another guest", async () => {
     const { host, mai, asHost } = await houseWithGuests("viewer@example.com");
