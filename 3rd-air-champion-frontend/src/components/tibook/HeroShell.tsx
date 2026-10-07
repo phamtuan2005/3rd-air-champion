@@ -6,6 +6,7 @@ import { getRoomPhotos } from "../../util/roomFacts";
 import { useTiBookTheme, useRoomChip, useCalendarView } from "../../contexts/TiBookThemeContext";
 import { AppearanceMenu } from "./NavBarDesktop";
 import { AskTTButton } from "./AskTT";
+import { UsualStaysButton } from "./UsualStayCard";
 import type { TTNudge } from "./AskTT";
 import GuestCalendar, { MyStay } from "./Calendar/GuestCalendar";
 import TodayButton from "./Calendar/TodayButton";
@@ -89,6 +90,9 @@ interface HeroShellProps {
   guestName?: string;
   actionLabel: string;
   hasSelection: boolean;
+  // The usual-stay proposal's header button, when TT has stays lined up.
+  usualCount?: number;
+  onOpenUsual?: () => void;
 }
 
 // The weekday letters over the grid, and not over the list, where every row
@@ -111,7 +115,7 @@ const HeroShell = ({
   reservedStays, reservedMap, currentMonth, onMonthChange, onDateClick,
   onWishListClick, onMyStayClick, onMyStayDetails, onReservedClick, scrollToTodayTrigger,
   scrollToMonthTrigger, onOpenPhotos, onScrollToToday, onMyBookings, onAskTT, ttNudge, onRequest, guestName,
-  actionLabel, hasSelection,
+  actionLabel, hasSelection, usualCount, onOpenUsual,
 }: HeroShellProps) => {
   const { theme } = useTiBookTheme();
   const roomChip = useRoomChip();
@@ -485,6 +489,7 @@ const HeroShell = ({
             reads "Your bookings", 110px of a 320px bar, which is what pushed
             the line under the house name off the end. The bottom bar keeps it,
             where a thumb reaches it, and greets a guest we know by name. */}
+        {usualCount && onOpenUsual ? <UsualStaysButton count={usualCount} onClick={onOpenUsual} /> : null}
         <AskTTButton
           onClick={onAskTT}
           nudge={ttNudge}

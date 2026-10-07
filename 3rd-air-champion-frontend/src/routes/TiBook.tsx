@@ -45,7 +45,7 @@ import { linkTiBookVisitToGuest, recordTiBookVisit, saveStatsCode, unlinkTiBookV
 import { fetchPublishedReviews } from "../util/ttQuestionLog";
 import { markTiBookVisited } from "../util/tibookReturning";
 import { fillRate, habitsOf, seriesFor, Proposal } from "../util/bookingHabit";
-import UsualStayCard from "../components/tibook/UsualStayCard";
+import UsualStayCard, { isSnoozed, snooze } from "../components/tibook/UsualStayCard";
 
 const TiBookInner = () => {
   const { theme, vibe, layout, setLook } = useTiBookTheme();
@@ -863,7 +863,12 @@ const TiBookInner = () => {
     // read as someone else taking his room (host's screenshot, 2026-10-07).
     const theirNights = new Set(stays.flatMap((st) => Array.from({ length: st.nights }, (_, i) => keyOfDate(addDays(parseISO(st.start), i)))));
     const takenByOthers = (roomId: string, night: string) => (theirNights.has(night) ? null : isFree(roomId, night));
-    return { habits, series, fill: fillRate(habits[0], habits[0].rooms[0], today, takenByOthers, 8) };
+    const fill = fillRate(habits[0], habits[0].rooms[0], today, takenByOthers, 8);
+    // What counts as "something new" for the quiet week: the stays on offer, and
+    // whether their room has started filling.
+    const goingFast = fill.known >= 3 && fill.taken / fill.known >= 0.5;
+    const signature = `${series.proposals.map((p) => `${p.start}:${p.roomId}`).join("|")}#${goingFast}`;
+    return { habits, series, fill, signature };
     // availableRoomsForDate reads monthMap, reservedMap and rooms.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isKnownVisitor, guestBookings, rooms, monthMap, reservedMap]);
@@ -873,6 +878,8 @@ const TiBookInner = () => {
   // phone consent, so two popups never stack. It waits for them to close.
   useEffect(() => {
     if (!usualStay || usualShown.current) return;
+    // Shut for a week after "Not now", unless what is on offer has changed.
+    if (isSnoozed(usualStay.signature)) return;
     if (
       isBookingModalOpen || myBookingsOpen || chatOpen || askTTOpen || statsOpen ||
       reservedPopupOpen || stayPopupId || heroGalleryRoom || pendingConsentPhone
@@ -1036,6 +1043,8 @@ const TiBookInner = () => {
           guestName={greetedName}
           actionLabel={barLabel}
           hasSelection={hasSelection}
+          usualCount={usualStay && !usualOpen ? usualStay.series.proposals.length : undefined}
+          onOpenUsual={() => setUsualOpen(true)}
         />
         )
       ) : (
@@ -1050,6 +1059,8 @@ const TiBookInner = () => {
           ttNudge={ttNudge}
         guestName={greetedName}
         guestStays={guestBookings.filter((b) => b.status === "confirmed").length}
+        usualCount={usualStay && !usualOpen ? usualStay.series.proposals.length : undefined}
+        onOpenUsual={() => setUsualOpen(true)}
       />
       {/* Scrolls when it has to.
           The column was overflow-hidden at a fixed viewport height, which only
@@ -1333,7 +1344,11 @@ const TiBookInner = () => {
             setUsualOpen(false);
             requestStays(stays);
           }}
-          onClose={() => setUsualOpen(false)}
+          // "Not now", the ×, or a tap outside: quiet for a week on this phone.
+          onClose={() => {
+            snooze(usualStay.signature);
+            setUsualOpen(false);
+          }}
         />
       )}
 
