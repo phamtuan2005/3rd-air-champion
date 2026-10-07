@@ -285,6 +285,12 @@ const UsualStayCard = ({
                           • {format(parseISO(n), "EEE MMM d")} – {holidayLabel(h!)}
                         </span>
                       ))}
+                    {p.full && p.full.length > 0 && (
+                      // Part of the usual week, because no room has the rest.
+                      <span className={`block text-xs ${theme.surfaceMuted}`}>
+                        {[...new Set(p.full)].map((d) => DAY[d]).join(" and ")} {p.full.length === 1 ? "is" : "are"} full that week
+                      </span>
+                    )}
                     {p.completes ? (
                       // A night to round off a week they booked part of — and,
                       // when it cannot be in the same room, which room and why,
