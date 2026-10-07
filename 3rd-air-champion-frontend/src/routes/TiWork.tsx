@@ -12,6 +12,7 @@ import CleanerAvatar from "../components/shared/CleanerAvatar";
 import RoomBadge from "../components/shared/RoomBadge";
 import GuestFigures from "../components/shared/GuestFigures";
 import SofaBedTag from "../components/shared/SofaBedTag";
+import MonthlyBars from "../components/shared/MonthlyBars";
 import { HiPlusCircle } from "react-icons/hi2";
 import { decimalToHm, formatHrMin, hmToDecimal } from "../util/hoursFormat";
 import {
@@ -153,6 +154,8 @@ const TiWork = () => {
   // someone checks tomorrow's rooms, whether or not they wanted to think about
   // pay. TiMag's Clean modal keeps Pay a peer tab for the same reason.
   const [view, setView] = useState<"work" | "pay">("work");
+  // The month picked on the pay charts — both charts name the same month.
+  const [chartMonth, setChartMonth] = useState("");
   const [pay, setPay] = useState<PaySummary | null>(null);
   // How far back the history reaches. Not all time by default: someone two years
   // in would load hundreds of rows to check last week. Not three weeks either —
@@ -1056,6 +1059,35 @@ const TiWork = () => {
               <span>{pay.year} so far</span>
               <span className="font-semibold">${(pay.earned ?? 0).toFixed(2)}</span>
             </div>
+
+            {/* Your last six months: what was paid to you, and the hours you
+                worked — asked for by the host for the team (2026-10-07). Two
+                charts sharing a month, never one chart with two scales. */}
+            {(pay.months ?? []).length > 0 && (
+              <>
+                <p className="mb-1.5 mt-4 text-[12px] font-bold uppercase tracking-widest text-gray-400">
+                  Your last 6 months
+                </p>
+                <div className="flex flex-col gap-2">
+                  <MonthlyBars
+                    title="Paid to you"
+                    rows={pay.months!.map((m) => ({ month: m.month, value: m.paid }))}
+                    selected={chartMonth}
+                    onSelect={setChartMonth}
+                    color="bg-emerald-600"
+                    show={(v) => `${v < 0 ? "−" : ""}$${Math.abs(v).toFixed(2)}`}
+                  />
+                  <MonthlyBars
+                    title="Hours worked"
+                    rows={pay.months!.map((m) => ({ month: m.month, value: m.hours }))}
+                    selected={chartMonth}
+                    onSelect={setChartMonth}
+                    color="bg-sky-600"
+                    show={(v) => formatHrMin(v)}
+                  />
+                </div>
+              </>
+            )}
 
             {(payments.length > 0 || opening > 0.005) && (
               <>
