@@ -90,6 +90,14 @@ const UsualStayCard = ({
   const roomChip = useRoomChip();
   const main = habits[0];
   const usual = roomOf(main.rooms[0]);
+  // Every room they stay in, most-used first (nights, last six months — the
+  // order TT picks rooms in), up to four. Naming only the first made a guest
+  // who splits their stays between rooms feel the others had been forgotten
+  // (host, 2026-10-07).
+  const theirRooms = [...new Set(habits.flatMap((h) => h.rooms))]
+    .map((id) => roomOf(id))
+    .filter((r): r is { name: string; color?: string } => !!r)
+    .slice(0, 4);
   // Said only when it is true and worth saying: at least three weeks seen, and
   // the room taken on half or more of them.
   const goingFast = fill.known >= 3 && fill.taken / fill.known >= 0.5;
@@ -195,10 +203,15 @@ const UsualStayCard = ({
             the way a host who knows a regular would say it (host, 2026-10-07). */}
         <p className={`text-base ${theme.surfaceText}`}>
           TT noted that you usually stay <span className="font-semibold">{nightsPhrase(habits)}</span>
-          {usual ? (
+          {theirRooms.length > 0 ? (
             <>
               {" "}in{" "}
-              <span className={`${roomChip(usual)} rounded-md px-1.5 py-0.5 font-bold text-black`}>{usual.name}</span>
+              {theirRooms.map((r, i) => (
+                <span key={r.name}>
+                  {i > 0 && (i === theirRooms.length - 1 ? " and " : ", ")}
+                  <span className={`${roomChip(r)} rounded-md px-1.5 py-0.5 font-bold text-black`}>{r.name}</span>
+                </span>
+              ))}
             </>
           ) : null}
           .
