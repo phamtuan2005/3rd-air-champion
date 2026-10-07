@@ -6,6 +6,7 @@ import Day from "../model/daySchema";
 import Room from "../model/roomSchema";
 import Guest from "../model/guestSchema";
 import TTReviewSource from "../model/ttReviewSourceSchema";
+import TTReviewEntry from "../model/ttReviewEntrySchema";
 import { lookupReviews } from "../util/reviewLookup";
 import { dayKey } from "../util/arrivingGuests";
 import { findAssignments } from "../util/assignmentQuery";
@@ -299,7 +300,73 @@ const buildTools = (hostId: string) => {
     },
   });
 
-  return [getCalendar, getRooms, getGuests, getCleanings, getReviews];
+  const getReviewEntries = betaTool({
+    name: "get_review_entries",
+    description:
+      "Individual guest reviews the host has passed in one at a time, each with the room, the " +
+      "guest, the stay's start date (yyyy-MM-dd, when known) and the stars (when given). Use this " +
+      "to count and average stars per room, to find low or 5-star reviews, and to tie a review to " +
+      "a stay date so you can look up who cleaned that room (get_cleanings). Differs from " +
+      "get_reviews, which reads free text. 'average' covers only reviews that have stars.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        room: { type: "string", description: "Optional room name, or part of it" },
+        maxStars: { type: "integer", description: "Optional: only reviews with at most this many stars (e.g. 3 for complaints)" },
+        minStars: { type: "integer", description: "Optional: only reviews with at least this many stars (e.g. 5)" },
+      },
+      additionalProperties: false,
+    },
+    run: async (input: any) => {
+      const [rows, rooms]: [any[], any[]] = await Promise.all([
+        TTReviewEntry.find({ host: hostId }).sort({ stayDate: -1, createdAt: -1 }).lean() as any,
+        Room.find({ host: hostId }).select("name") as any,
+      ]);
+      if (rows.length === 0) {
+        return JSON.stringify({ note: "No individual reviews are on record yet. The host adds them in TiMag under Money > Guest reviews." });
+      }
+      const nameOf = new Map(rooms.map((r) => [String(r._id), r.name ?? ""]));
+      const roomQ = String(input?.room ?? "").trim().toLowerCase();
+      const lo = Number.isInteger(input?.minStars) ? input.minStars : 1;
+      const hi = Number.isInteger(input?.maxStars) ? input.maxStars : 5;
+      const mine = rows
+        .map((r) => ({ ...r, roomName: nameOf.get(String(r.room)) ?? "a room" }))
+        .filter((r) => !roomQ || r.roomName.toLowerCase().includes(roomQ))
+        .filter((r) => r.stars == null || (r.stars >= lo && r.stars <= hi))
+        // A star filter means "only reviews that have stars in range".
+        .filter((r) => (input?.minStars == null && input?.maxStars == null) || r.stars != null);
+      const byRoom = new Map<string, { n: number; rated: number; sum: number }>();
+      for (const r of mine) {
+        const t = byRoom.get(r.roomName) ?? { n: 0, rated: 0, sum: 0 };
+        t.n++;
+        if (r.stars != null) {
+          t.rated++;
+          t.sum += r.stars;
+        }
+        byRoom.set(r.roomName, t);
+      }
+      // Capped, and said so: the list rides along on every later turn.
+      const CAP = 40;
+      return JSON.stringify({
+        rooms: [...byRoom].map(([room, t]) => ({
+          room,
+          reviews: t.n,
+          withStars: t.rated,
+          average: t.rated ? Math.round((t.sum / t.rated) * 100) / 100 : null,
+        })),
+        reviews: mine.slice(0, CAP).map((r) => ({
+          room: r.roomName,
+          guest: r.guestName || undefined,
+          stayDate: r.stayDate || undefined,
+          stars: r.stars ?? undefined,
+          text: String(r.text).slice(0, 300),
+        })),
+        note: mine.length > CAP ? `${mine.length} reviews match; showing the newest ${CAP}.` : undefined,
+      });
+    },
+  });
+
+  return [getCalendar, getRooms, getGuests, getCleanings, getReviews, getReviewEntries];
 };
 
 const systemPrompt = (today: string) =>
@@ -335,6 +402,12 @@ const systemPrompt = (today: string) =>
     "  as fact. If the host asks who was responsible for a complaint, use",
     "  get_cleanings for that room around that month, name who cleaned it, and say",
     "  plainly that it is a lead and not proof.",
+    "- get_review_entries holds reviews passed in one guest at a time, with stars and,",
+    "  often, the stay's start date. For a low review WITH a stay date, look up who",
+    "  cleaned that room on or just before that date with get_cleanings and name them",
+    "  as the person to talk to — not as the cause. For a 5-star review, name who",
+    "  cleaned it as someone worth thanking. Averages come from the tool; never add",
+    "  stars up yourself, and say how many reviews had stars.",
     "",
     "WHAT YOU MUST NOT DO",
     "- You cannot change anything: no booking, unbooking, pricing or messaging.",

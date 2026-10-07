@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { deleteReviewSource, fetchReviewsState, publishReviews, ReviewsState, startReviewDraft } from "../../util/ttQuestionLog";
 import { uploadPasteText } from "../../util/pasteParts";
+import GuestReviewForm from "./GuestReviewForm";
 
 // What guests say, for TiBook's TT to tell the next guest.
 //
@@ -324,6 +325,7 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
                     )}
                   </div>
                 )}
+                {pasteRoom && <GuestReviewForm key={pasteRoom.roomId} roomId={pasteRoom.roomId} roomName={pasteRoom.name} onAdded={load} />}
                 <button
                   type="button"
                   onClick={draft}
