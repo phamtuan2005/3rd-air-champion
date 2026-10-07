@@ -21,6 +21,11 @@ import { createMockHost } from "../../model/test/util/mockHost";
 const keep = (host: string, room: string, text: string) =>
   TTReviewSource.updateOne({ host, room }, { $set: { name: "reviews.txt", chars: text.length, text } }, { upsert: true });
 
+// One review on record, as the form or a split leaves it.
+let onRecordN = 0;
+const onRecord = (host: string, room: string, text: string, extra: Record<string, unknown> = {}) =>
+  TTReviewEntry.create({ host, room, text, hash: `r${++onRecordN}`, ...extra });
+
 const signedInAs = (user: Record<string, any> | null) => {
   const app = express();
   app.use(express.json());
@@ -127,7 +132,7 @@ describe("review summaries", () => {
     });
     const hostApp = signedInAs({ hostId: host, role: "Host" });
 
-    await keep(host, king, "Great stay! 5 stars");
+    await onRecord(host, king, "Great stay! 5 stars");
     const started = await request(hostApp).post("/tt-host/reviews/draft").send({ rooms: [{ roomId: king }] });
     expect(started.status).toBe(202);
     expect(seen).toEqual([{ roomId: king, name: "King", text: "Great stay! 5 stars" }]);
@@ -181,7 +186,7 @@ describe("review summaries", () => {
     }
   };
 
-  it("keeps a long paste, sent in parts, whole and in order — and drafts from it", async () => {
+  it("keeps a long paste, sent in parts, whole and in order — and drafting reads the record, not the page", async () => {
     const host = String((await createMockHost("parts@example.com"))._id);
     const king = String((await roomFor(host, "King"))._id);
     let seen = "";
@@ -193,23 +198,19 @@ describe("review summaries", () => {
     const text = Array.from({ length: 100_000 }, (_, i) => `r${i % 10}`).join("") + "OLDEST";
     await sendInParts(app, "upload-aaaa-1", king, text);
 
-    // On file, whole, as the room's review file.
+    // Waiting, whole, to be split.
     const kept: any = await TTReviewSource.findOne({ host, room: king }).lean();
     expect(kept.text).toBe(text);
     expect(kept.name).toBe("reviews.txt");
 
-    const res = await request(app).post("/tt-host/reviews/draft").send({ rooms: [{ roomId: king }] });
-    expect(res.status).toBe(202);
-    await new Promise((r) => setTimeout(r, 50));
-    expect(seen).toBe(text);
+    // A page is not the record: with no review on record there is nothing to draft.
+    expect((await request(app).post("/tt-host/reviews/draft").send({ rooms: [{ roomId: king }] })).status).toBe(400);
 
-    // KEPT: it is still there after the draft, and drafts again without a resend.
-    expect(await TTReviewSource.countDocuments({ host, room: king })).toBe(1);
-    await TTReviews.updateOne({ host }, { $set: { "draft.status": "none" } });
-    seen = "";
-    expect((await request(app).post("/tt-host/reviews/draft").send({ rooms: [{ roomId: king }] })).status).toBe(202);
+    // The individual reviews are what a draft reads — every room when none is named.
+    await onRecord(host, king, "Spotless.", { guestName: "Ann", stars: 5, reviewMonth: "2026-09" });
+    expect((await request(app).post("/tt-host/reviews/draft").send({})).status).toBe(202);
     await new Promise((r) => setTimeout(r, 50));
-    expect(seen).toBe(text);
+    expect(seen).toBe("— Guest: Ann · Month: 2026-09 · 5 stars —\nSpotless.");
   });
 
   it("lists what is on file without the reviewers' words, replaces it on a new file, and lets the host remove it", async () => {
@@ -246,13 +247,13 @@ describe("review summaries", () => {
     const host = String((await createMockHost("reader@example.com"))._id);
     const other = String((await createMockHost("owner@example.com"))._id);
     const theirs = String((await roomFor(other, "King"))._id);
-    await TTReviewSource.create({ host: other, room: theirs, name: "theirs.txt", chars: 5, text: "mine!" });
+    await onRecord(other, theirs, "mine!");
     setReviewDrafter(async () => ({ house: "", rooms: [], reviewsRead: 0 }));
     const res = await request(signedInAs({ hostId: host, role: "Host" })).post("/tt-host/reviews/draft").send({ rooms: [{ roomId: theirs }] });
     expect(res.status).toBe(400);
   });
 
-  it("keeps one guest's review per room, guest and stay — and adds it to the room's file", async () => {
+  it("keeps one guest's review per room, guest and stay — as its own record, in no page", async () => {
     const host = String((await createMockHost("entry@example.com"))._id);
     const king = String((await roomFor(host, "King"))._id);
     const guest = String((await Guest.create({ host, name: "Alcides", phone: "5550001111" }))._id);
@@ -267,15 +268,10 @@ describe("review summaries", () => {
     expect(entry).toMatchObject({ guestName: "Alcides", stayDate: "2025-02-10", stars: 5, text: "Spotless and quiet." });
     expect(String(entry.guest)).toBe(guest);
 
-    // Also in the room's file, headed with what is known — so drafting and Ask TiMag read it.
-    const file: any = await TTReviewSource.findOne({ host, room: king }).lean();
-    expect(file.text).toBe("— Guest: Alcides · Stay: 2025-02-10 · 5 stars —\nSpotless and quiet.");
-
-    // A second review is added to the file, not put in place of the first.
+    // The record IS the store: no page is written alongside it.
     await request(app).post("/tt-host/reviews/entry").send({ roomId: king, guestName: "Maria", text: "Bed was comfy." });
-    const both: any = await TTReviewSource.findOne({ host, room: king }).lean();
-    expect(both.text).toContain("Spotless and quiet.");
-    expect(both.text).toContain("Bed was comfy.");
+    expect(await TTReviewSource.countDocuments({ host })).toBe(0);
+    expect(await TTReviewEntry.countDocuments({ host, room: king })).toBe(2);
   });
 
   it("skips the same review pasted twice, and says so", async () => {
@@ -365,9 +361,8 @@ describe("review summaries", () => {
     // Matched to the guest on the list by exact name, and not otherwise.
     expect(String(kept[0].guest)).toBe(maria);
     expect(kept[1].guest).toBeUndefined();
-    // The file is untouched: the reviews came out of it.
-    const file: any = await TTReviewSource.findOne({ host, room: king }).lean();
-    expect(file.text).toBe("raw pasted page");
+    // The page was only the way in: cleared once its reviews are on record.
+    expect(await TTReviewSource.countDocuments({ host, room: king })).toBe(0);
     // And the split is spent.
     expect((await request(app).get(`/tt-host/reviews/split/${king}`)).body.status).toBe("none");
   });
@@ -420,7 +415,8 @@ describe("review summaries", () => {
     expect((await request(app).post(`/tt-host/reviews/split/${king}/add`)).body).toEqual({ added: 2, skipped: 1 });
     expect(await TTReviewEntry.countDocuments({ host, room: king })).toBe(3);
 
-    // The same page again: every copy is on file, nothing is added.
+    // The same page again (pasted anew — the last was cleared): every copy is on file, nothing is added.
+    await keep(host, king, "raw");
     const again = await split();
     expect(again.reviews.map((r: any) => r.onFile)).toEqual([true, true, true]);
     expect((await request(app).post(`/tt-host/reviews/split/${king}/add`)).body).toEqual({ added: 0, skipped: 3 });
@@ -528,15 +524,16 @@ describe("review summaries", () => {
     expect(res.body.topic).toBeNull();
   });
 
-  it("deletes one review, and takes its words back out of the room's file when the form put them there", async () => {
+  it("deletes one review — and its words from a page the old form once wrote them into", async () => {
     const host = String((await createMockHost("del@example.com"))._id);
     const king = String((await roomFor(host, "King"))._id);
     const app = signedInAs({ hostId: host, role: "Host" });
-    await request(app).post("/tt-host/reviews/entry").send({ roomId: king, guestName: "Ann", stars: 5, text: "First one." });
-    await request(app).post("/tt-host/reviews/entry").send({ roomId: king, text: "Lim 9 years on Airbnb Lim Rating, 5 stars whole block" });
-    await request(app).post("/tt-host/reviews/entry").send({ roomId: king, guestName: "Cy", reviewMonth: "2026-09", text: "Third one." });
+    // As the form used to leave things (before the reviews became the one record).
+    await keep(host, king, "— Guest: Ann · 5 stars —\nFirst one.\n\nLim 9 years on Airbnb whole block\n\n— Guest: Cy · Month: 2026-09 —\nThird one.");
+    await onRecord(host, king, "First one.", { guestName: "Ann", stars: 5 });
+    const bad = await onRecord(host, king, "Lim 9 years on Airbnb whole block");
+    await onRecord(host, king, "Third one.", { guestName: "Cy", reviewMonth: "2026-09" });
 
-    const bad: any = await TTReviewEntry.findOne({ host, text: /whole block/ }).lean();
     expect((await request(app).delete(`/tt-host/reviews/entry/${bad._id}`)).status).toBe(200);
     expect(await TTReviewEntry.countDocuments({ host })).toBe(2);
     const file: any = await TTReviewSource.findOne({ host, room: king }).lean();
@@ -598,7 +595,7 @@ describe("review summaries", () => {
       throw new Error("Too many requests just now");
     });
     const hostApp = signedInAs({ hostId: host, role: "Host" });
-    await keep(host, king, "x");
+    await onRecord(host, king, "x");
     await request(hostApp).post("/tt-host/reviews/draft").send({ rooms: [{ roomId: king }] });
     await new Promise((r) => setTimeout(r, 50));
     const res = await request(hostApp).get("/tt-host/reviews");
@@ -630,7 +627,7 @@ describe("privacy of the log, and drafts that finish late", () => {
     setReviewDrafter(() => new Promise((resolve) => (finish = resolve)));
     const hostApp = signedInAs({ hostId: host, role: "Host" });
 
-    await keep(host, king, "old reviews");
+    await onRecord(host, king, "old reviews");
     await request(hostApp).post("/tt-host/reviews/draft").send({ rooms: [{ roomId: king }] });
     await request(hostApp).put("/tt-host/reviews").send({ house: "Written by hand.", rooms: [] });
     finish({ house: "Old draft", rooms: [], reviewsRead: 1 });

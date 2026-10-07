@@ -5,7 +5,7 @@ import TTQuestion from "../model/ttQuestionSchema";
 import TTReviews from "../model/ttReviewsSchema";
 import TTReviewSource from "../model/ttReviewSourceSchema";
 import TTReviewEntry from "../model/ttReviewEntrySchema";
-import { fileBlock, MAX_ENTRY_CHARS, saveEntry, withoutBlock } from "../util/reviewEntries";
+import { fileBlock, MAX_ENTRY_CHARS, roomTextsFromEntries, saveEntry, withoutBlock } from "../util/reviewEntries";
 import { occurrenceKey, occurrences, splitReviews, SplitReview } from "../util/reviewSplit";
 import { cleaningWindow, lowReviews, roomAverages, ReviewRow, topicMentions } from "../util/reviewStats";
 import { findAssignments } from "../util/assignmentQuery";
@@ -77,14 +77,20 @@ const view = (doc: any) => {
 router.get("/reviews", async (req: Request, res: any) => {
   try {
     const hostId = hostOf(req);
-    // The kept review files, WITHOUT their text: the screen needs the name, size
-    // and date to show what is on file, and nothing needs the reviewers' words.
+    // Pages waiting to be split, WITHOUT their text: the screen needs the name,
+    // size and date, and nothing needs the reviewers' words.
     const sources = await TTReviewSource.find({ host: hostId }, { room: 1, name: 1, chars: 1, updatedAt: 1 }).lean();
     // The rooms to paste for, with their listing link so the screen can open
     // each listing's reviews in one tap. Name, id and link only — never the
     // door code the room record also carries.
     const rooms = await Room.find({ host: hostId, active: { $ne: false } }, { name: 1, airbnbUrl: 1 }).sort({ name: 1 }).lean();
+    // How many reviews each room has on record — what a draft reads.
+    const counts = await TTReviewEntry.aggregate([
+      { $match: { host: new mongoose.Types.ObjectId(hostId) } },
+      { $group: { _id: "$room", count: { $sum: 1 } } },
+    ]);
     res.status(200).json({
+      onRecord: counts.map((c: any) => ({ roomId: String(c._id), count: c.count })),
       ...view(await TTReviews.findOne({ host: hostId }).lean()),
       sources: sources.map((r: any) => ({ roomId: String(r.room), name: r.name ?? "", chars: r.chars ?? 0, savedAt: r.updatedAt ?? null })),
       houseRooms: rooms.map((r: any) => ({ roomId: String(r._id), name: r.name ?? "", airbnbUrl: r.airbnbUrl ?? "" })),
@@ -198,7 +204,8 @@ router.post("/reviews/entry", async (req: Request, res: any) => {
         stars: stars ?? null,
         text,
       },
-      { appendToFile: true },
+      // The individual reviews are the record; nothing reads a page now.
+      { appendToFile: false },
     );
     res.status(200).json(added ? { added: true } : { added: false, duplicate: true });
   } catch (error: any) {
@@ -357,6 +364,10 @@ router.post("/reviews/split/:roomId/add", async (req: Request, res: any) => {
       else skipped++;
     }
     splitJobs.delete(key);
+    // The page was only the way in: its reviews are on record now, each on its
+    // own, so the page is cleared — the reviewers' words are kept once. The
+    // host's own copy (King.txt and the like) is untouched.
+    await TTReviewSource.deleteOne({ host: hostId, room: roomId });
     res.status(200).json({ added, skipped });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -549,17 +560,18 @@ router.post("/reviews/draft", async (req: Request, res: any) => {
   try {
     // Only this house's rooms, named as the house names them. A room id from
     // the body that is not the host's is dropped, not trusted.
+    // No rooms named = every room. A named room that is not the host's is
+    // dropped, not trusted.
     const ids = pasted.map((r: any) => r?.roomId).filter((id: any) => mongoose.isValidObjectId(id));
-    const owned = await Room.find({ _id: { $in: ids }, host: hostId }, { name: 1 }).lean();
+    const owned = await Room.find({ host: hostId, ...(ids.length ? { _id: { $in: ids } } : {}) }, { name: 1 }).lean();
     const names = new Map(owned.map((r: any) => [String(r._id), String(r.name ?? "")]));
-    // Drafted from the review files KEPT for these rooms — sent earlier, in
-    // parts (see /reviews/upload) — never from text in this request, which could
-    // not carry them past CloudFront's 8 KB limit anyway. Only this host's own.
-    const sources = await TTReviewSource.find({ host: hostId, room: { $in: [...names.keys()] } }, { room: 1, text: 1 }).lean();
-    const rooms: PastedRoom[] = sources
-      .map((r: any) => ({ roomId: String(r.room), name: names.get(String(r.room))!, text: String(r.text ?? "").trim() }))
+    // Drafted from the INDIVIDUAL reviews on record — the house's one record of
+    // what guests said — never from a pasted page, which can drift from it.
+    const texts = await roomTextsFromEntries(hostId, [...names.keys()]);
+    const rooms: PastedRoom[] = [...texts]
+      .map(([roomId, text]) => ({ roomId, name: names.get(roomId)!, text: text.trim() }))
       .filter((r: PastedRoom) => r.text);
-    if (rooms.length === 0) return res.status(400).json({ error: "Choose or paste at least one room's reviews first." });
+    if (rooms.length === 0) return res.status(400).json({ error: "There are no reviews on record yet. Add them first." });
     const total = rooms.reduce((sum, r) => sum + r.text.length, 0);
     if (total > MAX_TOTAL_PASTE) {
       return res.status(400).json({

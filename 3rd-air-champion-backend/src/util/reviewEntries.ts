@@ -91,3 +91,29 @@ export const saveEntry = async (hostId: string, e: EntryInput, opts: { appendToF
   }
   return { added: true };
 };
+
+/**
+ * Each room's reviews ON RECORD as one text — every review headed with its
+ * guest, date and stars, newest first — for what reads reviews as prose
+ * (drafting the summaries, Ask TiMag's search).
+ *
+ * The individual reviews are the house's one record of what guests said (host,
+ * 2026-10-07: "We have now individual reviews"). Drafting and Ask TiMag used to
+ * read the pasted pages instead, which drifted from the record — a review
+ * deleted from the record stayed in its page — and kept every reviewer's words
+ * twice.
+ */
+export const roomTextsFromEntries = async (hostId: string, roomIds?: string[]): Promise<Map<string, string>> => {
+  const rows: any[] = await TTReviewEntry.find({ host: hostId, ...(roomIds ? { room: { $in: roomIds } } : {}) })
+    .sort({ stayDate: -1, reviewMonth: -1, createdAt: -1 })
+    .lean();
+  const by = new Map<string, string[]>();
+  for (const r of rows) {
+    const k = String(r.room);
+    by.set(k, [
+      ...(by.get(k) ?? []),
+      fileBlock({ guestName: r.guestName ?? "", stayDate: r.stayDate ?? "", reviewMonth: r.reviewMonth ?? "", stars: r.stars ?? null, text: String(r.text ?? "") }),
+    ]);
+  }
+  return new Map([...by].map(([k, blocks]) => [k, blocks.join("\n\n")]));
+};
