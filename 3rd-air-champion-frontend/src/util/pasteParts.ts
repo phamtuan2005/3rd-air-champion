@@ -20,7 +20,9 @@ const PART_CHARS = 6000;
 const MAX_BODY_BYTES = 7000;
 
 const bodyBytes = (text: string) =>
-  new TextEncoder().encode(JSON.stringify({ uploadId: "x".repeat(36), roomId: "x".repeat(24), index: 99999, total: 99999, text })).length;
+  new TextEncoder().encode(
+    JSON.stringify({ uploadId: "x".repeat(36), roomId: "x".repeat(24), index: 99999, total: 99999, name: "x".repeat(200), text }),
+  ).length;
 
 /**
  * The text cut into parts that each fit in one request, in order, with nothing
@@ -63,12 +65,13 @@ const sendPart = async (body: object) => {
 };
 
 /**
- * Sends one room's text to the server in parts and returns the id the draft
- * names it by. `onProgress` is told how many parts have arrived, of how many.
+ * Sends one room's text to the server in parts. When the last part lands the
+ * server keeps the whole as that room's review file (replacing the last one). `onProgress` is told how many parts have arrived, of how many.
  */
 export const uploadPasteText = async (
   roomId: string,
   text: string,
+  name: string,
   onProgress?: (done: number, total: number) => void,
 ): Promise<string> => {
   const parts = splitForUpload(text);
@@ -82,7 +85,7 @@ export const uploadPasteText = async (
     Array.from({ length: Math.min(PARALLEL, parts.length) }, async () => {
       while (next < parts.length) {
         const index = next++;
-        await sendPart({ uploadId, roomId, index, total: parts.length, text: parts[index] });
+        await sendPart({ uploadId, roomId, index, total: parts.length, text: parts[index], name });
         onProgress?.(++done, parts.length);
       }
     }),

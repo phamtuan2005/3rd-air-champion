@@ -9,11 +9,13 @@ import { MAX_TOTAL_PASTE } from "./reviewDraft";
 // of kilobytes, so TiMag sends it as many small parts, each well under the line,
 // and this puts them back together for the draft.
 //
-// Held in MEMORY and nowhere else, and gone the moment a draft starts or after
-// half an hour untouched: what the host pastes is never kept (the screen says
-// so), and a restart simply loses an upload the host has to send again.
+// Held in MEMORY while the parts arrive, and gone after half an hour untouched
+// or the moment the last part lands: the route then saves the assembled text as
+// the room's kept review file (model/ttReviewSourceSchema). A restart in the
+// middle simply loses an upload the host has to send again.
 
 interface Upload {
+  name: string;
   roomId: string;
   total: number;
   parts: Map<number, string>;
@@ -56,10 +58,11 @@ export class UploadError extends Error {
 
 export const addPart = (
   host: string,
-  p: { uploadId?: unknown; roomId?: unknown; index?: unknown; total?: unknown; text?: unknown },
-) => {
+  p: { uploadId?: unknown; roomId?: unknown; index?: unknown; total?: unknown; text?: unknown; name?: unknown },
+): { complete: boolean } => {
   sweep();
   const { uploadId, roomId, index, total, text } = p;
+  const name = typeof p.name === "string" && p.name.trim() ? p.name.trim().slice(0, 200) : "Pasted text";
   if (typeof uploadId !== "string" || !/^[A-Za-z0-9-]{8,64}$/.test(uploadId)) throw new UploadError("Bad upload id.");
   if (typeof roomId !== "string" || !roomId) throw new UploadError("Which room is this for?");
   if (typeof total !== "number" || !Number.isInteger(total) || total < 1 || total > MAX_PARTS) throw new UploadError("Bad part count.");
@@ -67,7 +70,7 @@ export const addPart = (
   if (typeof text !== "string" || text.length > MAX_PART_CHARS) throw new UploadError("That part is too large.");
 
   const key = keyOf(host, uploadId);
-  const u = uploads.get(key) ?? { roomId, total, parts: new Map<number, string>(), chars: 0, at: Date.now() };
+  const u = uploads.get(key) ?? { name, roomId, total, parts: new Map<number, string>(), chars: 0, at: Date.now() };
   if (u.roomId !== roomId || u.total !== total) throw new UploadError("That part does not belong to this upload.");
 
   // A resent part (a retry after a dropped connection) replaces itself.
@@ -79,17 +82,18 @@ export const addPart = (
   u.chars += text.length - before;
   u.at = Date.now();
   uploads.set(key, u);
+  return { complete: u.parts.size === u.total };
 };
 
 /** The assembled text, without removing it. Throws if a part is still missing. */
-export const peekUpload = (host: string, uploadId: string): { roomId: string; text: string } => {
+export const peekUpload = (host: string, uploadId: string): { roomId: string; name: string; text: string } => {
   sweep();
   const u = uploads.get(keyOf(host, uploadId));
   if (!u) throw new UploadError("That upload has expired. Choose the file again.");
   if (u.parts.size !== u.total) throw new UploadError("The upload did not finish. Choose the file again.");
   const pieces: string[] = [];
   for (let i = 0; i < u.total; i++) pieces.push(u.parts.get(i) ?? "");
-  return { roomId: u.roomId, text: pieces.join("") };
+  return { roomId: u.roomId, name: u.name, text: pieces.join("") };
 };
 
 export const dropUpload = (host: string, uploadId: string) => {

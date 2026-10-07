@@ -119,6 +119,9 @@ export interface ReviewsState {
   };
   // The house's rooms in service, to paste each one's reviews against.
   houseRooms?: { roomId: string; name: string; airbnbUrl: string }[];
+  // The review files kept on the server, one per room — name, size and date,
+  // never the text.
+  sources?: { roomId: string; name: string; chars: number; savedAt: string | null }[];
 }
 
 const asReviewsState = (data: any): ReviewsState => {
@@ -130,10 +133,15 @@ export const fetchReviewsState = async (): Promise<ReviewsState> =>
   asReviewsState((await axios.get(`${BACKEND_ENDPOINT}/tt-host/reviews`, authed())).data);
 
 // Starts Claude on a draft; the answer comes back through fetchReviewsState.
-// A room's reviews are either `text` (short) or an `uploadId` from
-// uploadPasteText (long, sent in parts — see util/pasteParts).
-export const startReviewDraft = async (rooms: { roomId: string; text?: string; uploadId?: string }[]): Promise<void> => {
-  await axios.post(`${BACKEND_ENDPOINT}/tt-host/reviews/draft`, { rooms }, authed());
+// Drafts from the review files KEPT for these rooms (sent earlier with
+// uploadPasteText). Ids only: the text never travels in this request.
+export const startReviewDraft = async (roomIds: string[]): Promise<void> => {
+  await axios.post(`${BACKEND_ENDPOINT}/tt-host/reviews/draft`, { rooms: roomIds.map((roomId) => ({ roomId })) }, authed());
+};
+
+// Takes a room's kept review file off the server.
+export const deleteReviewSource = async (roomId: string): Promise<void> => {
+  await axios.delete(`${BACKEND_ENDPOINT}/tt-host/reviews/source/${roomId}`, authed());
 };
 
 export const publishReviews = async (set: SummarySet): Promise<ReviewsState> =>

@@ -5,12 +5,17 @@ import ttGuestRoute, { resetQuestionLimits } from "../ttGuestRoute";
 import ttHostRoute, { setReviewDrafter } from "../ttHostRoute";
 import TTQuestion from "../../model/ttQuestionSchema";
 import TTReviews from "../../model/ttReviewsSchema";
+import TTReviewSource from "../../model/ttReviewSourceSchema";
 import Room from "../../model/roomSchema";
 import { createMockHost } from "../../model/test/util/mockHost";
 
 // TiBook's TT: guests write questions and read published summaries; only the
 // host reads the questions, drafts, and publishes. If a "who can" test fails,
 // check who can now read guests' questions before changing it.
+
+// Reviews already on file for a room, as a finished upload leaves them.
+const keep = (host: string, room: string, text: string) =>
+  TTReviewSource.updateOne({ host, room }, { $set: { name: "reviews.txt", chars: text.length, text } }, { upsert: true });
 
 const signedInAs = (user: Record<string, any> | null) => {
   const app = express();
@@ -118,7 +123,8 @@ describe("review summaries", () => {
     });
     const hostApp = signedInAs({ hostId: host, role: "Host" });
 
-    const started = await request(hostApp).post("/tt-host/reviews/draft").send({ rooms: [{ roomId: king, text: "Great stay! 5 stars" }] });
+    await keep(host, king, "Great stay! 5 stars");
+    const started = await request(hostApp).post("/tt-host/reviews/draft").send({ rooms: [{ roomId: king }] });
     expect(started.status).toBe(202);
     expect(seen).toEqual([{ roomId: king, name: "King", text: "Great stay! 5 stars" }]);
 
@@ -149,7 +155,7 @@ describe("review summaries", () => {
     setReviewDrafter(async () => ({ house: "", rooms: [], reviewsRead: 0 }));
     const res = await request(signedInAs({ hostId: host, role: "Host" }))
       .post("/tt-host/reviews/draft")
-      .send({ rooms: [{ roomId: theirRoom, text: "reviews" }] });
+      .send({ rooms: [{ roomId: theirRoom }] });
     expect(res.status).toBe(400);
   });
 
@@ -165,13 +171,13 @@ describe("review summaries", () => {
         Array.from({ length: Math.min(20, total - i) }, (_, k) => i + k)
           .filter((idx) => !skip.includes(idx))
           .map((idx) =>
-            request(app).post("/tt-host/reviews/upload").send({ uploadId, roomId, index: idx, total, text: text.slice(idx * size, (idx + 1) * size) }),
+            request(app).post("/tt-host/reviews/upload").send({ uploadId, roomId, index: idx, total, text: text.slice(idx * size, (idx + 1) * size), name: "reviews.txt" }),
           ),
       );
     }
   };
 
-  it("reads a long paste, sent in parts, whole and in order", async () => {
+  it("keeps a long paste, sent in parts, whole and in order — and drafts from it", async () => {
     const host = String((await createMockHost("parts@example.com"))._id);
     const king = String((await roomFor(host, "King"))._id);
     let seen = "";
@@ -182,33 +188,64 @@ describe("review summaries", () => {
     const app = signedInAs({ hostId: host, role: "Host" });
     const text = Array.from({ length: 100_000 }, (_, i) => `r${i % 10}`).join("") + "OLDEST";
     await sendInParts(app, "upload-aaaa-1", king, text);
-    const res = await request(app).post("/tt-host/reviews/draft").send({ rooms: [{ roomId: king, uploadId: "upload-aaaa-1" }] });
+
+    // On file, whole, as the room's review file.
+    const kept: any = await TTReviewSource.findOne({ host, room: king }).lean();
+    expect(kept.text).toBe(text);
+    expect(kept.name).toBe("reviews.txt");
+
+    const res = await request(app).post("/tt-host/reviews/draft").send({ rooms: [{ roomId: king }] });
     expect(res.status).toBe(202);
     await new Promise((r) => setTimeout(r, 50));
     expect(seen).toBe(text);
 
-    // Read out of memory once the draft began: drafting again from it fails.
+    // KEPT: it is still there after the draft, and drafts again without a resend.
+    expect(await TTReviewSource.countDocuments({ host, room: king })).toBe(1);
     await TTReviews.updateOne({ host }, { $set: { "draft.status": "none" } });
-    const again = await request(app).post("/tt-host/reviews/draft").send({ rooms: [{ roomId: king, uploadId: "upload-aaaa-1" }] });
-    expect(again.status).toBe(400);
+    seen = "";
+    expect((await request(app).post("/tt-host/reviews/draft").send({ rooms: [{ roomId: king }] })).status).toBe(202);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(seen).toBe(text);
   });
 
-  it("refuses an upload with a part missing, and one that is another host's", async () => {
+  it("lists what is on file without the reviewers' words, replaces it on a new file, and lets the host remove it", async () => {
+    const host = String((await createMockHost("on-file@example.com"))._id);
+    const king = String((await roomFor(host, "King"))._id);
+    const app = signedInAs({ hostId: host, role: "Host" });
+    await sendInParts(app, "upload-eeee-5", king, "first set of reviews");
+    await sendInParts(app, "upload-ffff-6", king, "second, newer set of reviews");
+
+    const listed = await request(app).get("/tt-host/reviews");
+    expect(listed.body.sources).toHaveLength(1);
+    expect(listed.body.sources[0]).toMatchObject({ roomId: king, name: "reviews.txt", chars: "second, newer set of reviews".length });
+    expect(JSON.stringify(listed.body)).not.toContain("newer set of reviews");
+
+    expect((await request(app).delete(`/tt-host/reviews/source/${king}`)).status).toBe(200);
+    expect(await TTReviewSource.countDocuments({ host })).toBe(0);
+  });
+
+  it("saves nothing from an upload that is missing a part, or aimed at another host's room", async () => {
     const host = String((await createMockHost("missing-part@example.com"))._id);
     const other = String((await createMockHost("not-yours@example.com"))._id);
     const king = String((await roomFor(host, "King"))._id);
-    setReviewDrafter(async () => ({ house: "", rooms: [], reviewsRead: 0 }));
+    const theirs = String((await roomFor(other, "King"))._id);
     const app = signedInAs({ hostId: host, role: "Host" });
-    await sendInParts(app, "upload-bbbb-2", king, "A".repeat(30_000), [2]);
-    const incomplete = await request(app).post("/tt-host/reviews/draft").send({ rooms: [{ roomId: king, uploadId: "upload-bbbb-2" }] });
-    expect(incomplete.status).toBe(400);
-    expect(incomplete.body.error).toMatch(/did not finish/);
 
-    await sendInParts(app, "upload-cccc-3", king, "A".repeat(12_000));
-    const theirs = await request(signedInAs({ hostId: other, role: "Host" }))
-      .post("/tt-host/reviews/draft")
-      .send({ rooms: [{ roomId: king, uploadId: "upload-cccc-3" }] });
-    expect(theirs.status).toBe(400);
+    await sendInParts(app, "upload-bbbb-2", king, "A".repeat(30_000), [2]);
+    expect(await TTReviewSource.countDocuments({ host })).toBe(0);
+
+    await sendInParts(app, "upload-cccc-3", theirs, "A".repeat(12_000));
+    expect(await TTReviewSource.countDocuments({ room: theirs })).toBe(0);
+  });
+
+  it("will not draft from another host's kept reviews", async () => {
+    const host = String((await createMockHost("reader@example.com"))._id);
+    const other = String((await createMockHost("owner@example.com"))._id);
+    const theirs = String((await roomFor(other, "King"))._id);
+    await TTReviewSource.create({ host: other, room: theirs, name: "theirs.txt", chars: 5, text: "mine!" });
+    setReviewDrafter(async () => ({ house: "", rooms: [], reviewsRead: 0 }));
+    const res = await request(signedInAs({ hostId: host, role: "Host" })).post("/tt-host/reviews/draft").send({ rooms: [{ roomId: theirs }] });
+    expect(res.status).toBe(400);
   });
 
   it("refuses a part too large to travel, rather than carrying a body CloudFront drops", async () => {
@@ -227,7 +264,8 @@ describe("review summaries", () => {
       throw new Error("Too many requests just now");
     });
     const hostApp = signedInAs({ hostId: host, role: "Host" });
-    await request(hostApp).post("/tt-host/reviews/draft").send({ rooms: [{ roomId: king, text: "x" }] });
+    await keep(host, king, "x");
+    await request(hostApp).post("/tt-host/reviews/draft").send({ rooms: [{ roomId: king }] });
     await new Promise((r) => setTimeout(r, 50));
     const res = await request(hostApp).get("/tt-host/reviews");
     expect(res.body.draft).toMatchObject({ status: "failed", error: "Too many requests just now" });
@@ -258,7 +296,8 @@ describe("privacy of the log, and drafts that finish late", () => {
     setReviewDrafter(() => new Promise((resolve) => (finish = resolve)));
     const hostApp = signedInAs({ hostId: host, role: "Host" });
 
-    await request(hostApp).post("/tt-host/reviews/draft").send({ rooms: [{ roomId: king, text: "old reviews" }] });
+    await keep(host, king, "old reviews");
+    await request(hostApp).post("/tt-host/reviews/draft").send({ rooms: [{ roomId: king }] });
     await request(hostApp).put("/tt-host/reviews").send({ house: "Written by hand.", rooms: [] });
     finish({ house: "Old draft", rooms: [], reviewsRead: 1 });
     await new Promise((r) => setTimeout(r, 50));

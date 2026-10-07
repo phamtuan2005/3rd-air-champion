@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import Room from "../model/roomSchema";
 import TTQuestion from "../model/ttQuestionSchema";
 import TTReviews from "../model/ttReviewsSchema";
+import TTReviewSource from "../model/ttReviewSourceSchema";
 import { requireManager } from "../middleware/requireManager";
 import { questionStats } from "../util/ttQuestions";
 import { draftReviewSummaries, MAX_TOTAL_PASTE, PastedRoom, ReviewDraft } from "../util/reviewDraft";
@@ -70,12 +71,16 @@ const view = (doc: any) => {
 router.get("/reviews", async (req: Request, res: any) => {
   try {
     const hostId = hostOf(req);
+    // The kept review files, WITHOUT their text: the screen needs the name, size
+    // and date to show what is on file, and nothing needs the reviewers' words.
+    const sources = await TTReviewSource.find({ host: hostId }, { room: 1, name: 1, chars: 1, updatedAt: 1 }).lean();
     // The rooms to paste for, with their listing link so the screen can open
     // each listing's reviews in one tap. Name, id and link only — never the
     // door code the room record also carries.
     const rooms = await Room.find({ host: hostId, active: { $ne: false } }, { name: 1, airbnbUrl: 1 }).sort({ name: 1 }).lean();
     res.status(200).json({
       ...view(await TTReviews.findOne({ host: hostId }).lean()),
+      sources: sources.map((r: any) => ({ roomId: String(r.room), name: r.name ?? "", chars: r.chars ?? 0, savedAt: r.updatedAt ?? null })),
       houseRooms: rooms.map((r: any) => ({ roomId: String(r._id), name: r.name ?? "", airbnbUrl: r.airbnbUrl ?? "" })),
     });
   } catch (error: any) {
@@ -98,12 +103,51 @@ export const setReviewDrafter = (fn: typeof draft) => {
 // One small part of a review history. See util/pasteUploads: a request body of
 // 8,192 bytes or more never reaches this server (CloudFront answers it with the
 // website's home page), so a long paste is sent as many parts and assembled here.
-router.post("/reviews/upload", (req: Request, res: any) => {
+router.post("/reviews/upload", async (req: Request, res: any) => {
+  const hostId = hostOf(req);
   try {
-    addPart(hostOf(req), req.body ?? {});
-    res.status(200).json({ ok: true });
+    const { complete } = addPart(hostId, req.body ?? {});
+    if (!complete) return res.status(200).json({ ok: true, saved: false });
+
+    // The last part has landed: the whole text is kept as this room's review
+    // file, replacing the last one (it is the newest set). Only for a room that
+    // is this host's — the id in the body is not trusted.
+    const up = peekUpload(hostId, String(req.body.uploadId));
+    if (!mongoose.isValidObjectId(up.roomId) || !(await Room.exists({ _id: up.roomId, host: hostId }))) {
+      dropUpload(hostId, String(req.body.uploadId));
+      throw new UploadError("That is not one of your rooms.");
+    }
+    const text = up.text.trim();
+    if (!text) {
+      dropUpload(hostId, String(req.body.uploadId));
+      throw new UploadError("That file is empty.");
+    }
+    if (text.length > MAX_TOTAL_PASTE) {
+      dropUpload(hostId, String(req.body.uploadId));
+      throw new UploadError(
+        `That is ${text.length.toLocaleString()} characters — more than Claude can read at once (${MAX_TOTAL_PASTE.toLocaleString()}). Send fewer reviews for this room.`,
+      );
+    }
+    await TTReviewSource.updateOne(
+      { host: hostId, room: up.roomId },
+      { $set: { name: up.name, chars: text.length, text } },
+      { upsert: true },
+    );
+    dropUpload(hostId, String(req.body.uploadId));
+    res.status(200).json({ ok: true, saved: true });
   } catch (error: any) {
     if (error instanceof UploadError) return res.status(400).json({ error: error.message });
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Takes a room's kept review file away. The host's call, any time.
+router.delete("/reviews/source/:roomId", async (req: Request, res: any) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.roomId)) return res.status(400).json({ error: "Which room?" });
+    await TTReviewSource.deleteOne({ host: hostOf(req), room: req.params.roomId });
+    res.status(200).json({ ok: true });
+  } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 });
@@ -120,24 +164,14 @@ router.post("/reviews/draft", async (req: Request, res: any) => {
     const ids = pasted.map((r: any) => r?.roomId).filter((id: any) => mongoose.isValidObjectId(id));
     const owned = await Room.find({ _id: { $in: ids }, host: hostId }, { name: 1 }).lean();
     const names = new Map(owned.map((r: any) => [String(r._id), String(r.name ?? "")]));
-    // A room's text is either in the body (small) or an upload sent in parts
-    // beforehand, named by id. An upload is only ever read as THIS host's, and
-    // only for the room it was sent for.
-    const uploadIds: string[] = [];
-    const textOf = (r: any): string => {
-      if (typeof r?.uploadId === "string") {
-        const up = peekUpload(hostId, r.uploadId);
-        if (up.roomId !== String(r.roomId)) throw new UploadError("That upload is for a different room.");
-        uploadIds.push(r.uploadId);
-        return up.text;
-      }
-      return typeof r?.text === "string" ? r.text : "";
-    };
-    const rooms: PastedRoom[] = pasted
-      .filter((r: any) => names.has(String(r?.roomId)))
-      .map((r: any) => ({ roomId: String(r.roomId), name: names.get(String(r.roomId))!, text: textOf(r).trim() }))
+    // Drafted from the review files KEPT for these rooms — sent earlier, in
+    // parts (see /reviews/upload) — never from text in this request, which could
+    // not carry them past CloudFront's 8 KB limit anyway. Only this host's own.
+    const sources = await TTReviewSource.find({ host: hostId, room: { $in: [...names.keys()] } }, { room: 1, text: 1 }).lean();
+    const rooms: PastedRoom[] = sources
+      .map((r: any) => ({ roomId: String(r.room), name: names.get(String(r.room))!, text: String(r.text ?? "").trim() }))
       .filter((r: PastedRoom) => r.text);
-    if (rooms.length === 0) return res.status(400).json({ error: "Paste at least one room's reviews first." });
+    if (rooms.length === 0) return res.status(400).json({ error: "Choose or paste at least one room's reviews first." });
     const total = rooms.reduce((sum, r) => sum + r.text.length, 0);
     if (total > MAX_TOTAL_PASTE) {
       return res.status(400).json({
@@ -150,9 +184,6 @@ router.post("/reviews/draft", async (req: Request, res: any) => {
     if (d?.status === "drafting" && d.startedAt && Date.now() - new Date(d.startedAt).getTime() < STALE_DRAFT_MS) {
       return res.status(409).json({ error: "A draft is already being written." });
     }
-
-    // Out of memory for good once the draft has begun: the text is not kept.
-    uploadIds.forEach((id) => dropUpload(hostId, id));
 
     const started = new Date();
     await TTReviews.updateOne(
