@@ -4,6 +4,9 @@ import Room from "../model/roomSchema";
 import TTQuestion from "../model/ttQuestionSchema";
 import TTReviews from "../model/ttReviewsSchema";
 import TTReviewSource from "../model/ttReviewSourceSchema";
+import TTReviewEntry from "../model/ttReviewEntrySchema";
+import Guest from "../model/guestSchema";
+import { createHash } from "crypto";
 import { requireManager } from "../middleware/requireManager";
 import { questionStats } from "../util/ttQuestions";
 import { draftReviewSummaries, MAX_TOTAL_PASTE, PastedRoom, ReviewDraft } from "../util/reviewDraft";
@@ -137,6 +140,106 @@ router.post("/reviews/upload", async (req: Request, res: any) => {
     res.status(200).json({ ok: true, saved: true });
   } catch (error: any) {
     if (error instanceof UploadError) return res.status(400).json({ error: error.message });
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ONE guest's review, passed in on its own. Small by design — 2,000 characters
+// at most, so the request body stays under the 8 KB CloudFront will carry even
+// when every character weighs three bytes (see util/pasteUploads).
+//
+// Kept twice, on purpose: as its own record (guest, stay, stars — the part a
+// complaint or a 5-star reward is traced through) and appended to the room's
+// review file, which is what drafting and Ask TiMag read. The same words pasted
+// again are skipped, not added twice.
+export const MAX_ENTRY_CHARS = 2000;
+
+const hashOf = (text: string) => createHash("sha1").update(text.toLowerCase().replace(/\s+/g, " ").trim()).digest("hex");
+
+router.post("/reviews/entry", async (req: Request, res: any) => {
+  const hostId = hostOf(req);
+  try {
+    const { roomId, guestId, guestName, stayDate, stars } = req.body ?? {};
+    const text = String(req.body?.text ?? "").trim();
+    if (!text) return res.status(400).json({ error: "Paste the review first." });
+    if (text.length > MAX_ENTRY_CHARS) {
+      return res.status(400).json({
+        error: `That review is ${text.length.toLocaleString()} characters; one review can be up to ${MAX_ENTRY_CHARS.toLocaleString()}. Trim it, or send it as a file.`,
+      });
+    }
+    if (!mongoose.isValidObjectId(roomId) || !(await Room.exists({ _id: roomId, host: hostId }))) {
+      return res.status(400).json({ error: "Which of your rooms is this review for?" });
+    }
+    if (stars != null && !(Number.isInteger(stars) && stars >= 1 && stars <= 5)) {
+      return res.status(400).json({ error: "Stars are 1 to 5." });
+    }
+    if (stayDate && !/^\d{4}-\d{2}-\d{2}$/.test(String(stayDate))) {
+      return res.status(400).json({ error: "The stay date should be a date." });
+    }
+    // A guest id is only believed if it is on THIS host's list.
+    let guest: string | undefined;
+    if (guestId) {
+      if (!mongoose.isValidObjectId(guestId) || !(await Guest.exists({ _id: guestId, host: hostId }))) {
+        return res.status(400).json({ error: "That guest isn't on your list." });
+      }
+      guest = String(guestId);
+    }
+
+    const hash = hashOf(text);
+    if (await TTReviewEntry.exists({ host: hostId, room: roomId, hash })) {
+      return res.status(200).json({ added: false, duplicate: true });
+    }
+    const who = String(guestName ?? "").trim().slice(0, 120);
+    await TTReviewEntry.create({
+      host: hostId,
+      room: roomId,
+      ...(guest ? { guest } : {}),
+      guestName: who,
+      stayDate: stayDate ? String(stayDate) : "",
+      ...(stars != null ? { stars } : {}),
+      text,
+      hash,
+    });
+
+    // Appended to the room's file, headed with what is known about it, so a
+    // draft or Ask TiMag reads it with its context.
+    const head = [who && `Guest: ${who}`, stayDate && `Stay: ${stayDate}`, stars != null && `${stars} stars`]
+      .filter(Boolean)
+      .join(" · ");
+    const block = head ? `— ${head} —\n${text}` : text;
+    const file: any = await TTReviewSource.findOne({ host: hostId, room: roomId }, { text: 1 }).lean();
+    const next = file?.text ? `${file.text}\n\n${block}` : block;
+    if (next.length <= MAX_TOTAL_PASTE) {
+      await TTReviewSource.updateOne(
+        { host: hostId, room: roomId },
+        { $set: { text: next, chars: next.length }, $setOnInsert: { name: "Guest reviews" } },
+        { upsert: true },
+      );
+    }
+    res.status(200).json({ added: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// The reviews on record, one per guest per room per stay — the structured copy
+// the host reads back and Ask TiMag counts. A short snippet of each, not the
+// whole text: the screen needs to recognise a review, not reread it.
+router.get("/reviews/entries", async (req: Request, res: any) => {
+  try {
+    const rows: any[] = await TTReviewEntry.find({ host: hostOf(req) }).sort({ stayDate: -1, createdAt: -1 }).limit(500).lean();
+    res.status(200).json({
+      entries: rows.map((r) => ({
+        id: String(r._id),
+        roomId: String(r.room),
+        guestName: r.guestName ?? "",
+        stayDate: r.stayDate ?? "",
+        stars: r.stars ?? null,
+        snippet: String(r.text ?? "").slice(0, 160),
+        addedAt: r.createdAt ?? null,
+      })),
+    });
+  } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 });

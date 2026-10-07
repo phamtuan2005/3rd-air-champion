@@ -139,6 +139,40 @@ export const startReviewDraft = async (roomIds: string[]): Promise<void> => {
   await axios.post(`${BACKEND_ENDPOINT}/tt-host/reviews/draft`, { rooms: roomIds.map((roomId) => ({ roomId })) }, authed());
 };
 
+// One guest's review, kept per room, guest and stay. Small (2,000 characters at
+// most) so the request stays under CloudFront's 8 KB. Resolves to whether it was
+// ADDED — false when the same review was already on file for that room.
+export interface ReviewEntryInput {
+  roomId: string;
+  guestId?: string;
+  guestName?: string;
+  stayDate?: string; // yyyy-MM-dd
+  stars?: number;
+  text: string;
+}
+
+export const MAX_REVIEW_CHARS = 2000;
+
+export const addReviewEntry = async (entry: ReviewEntryInput): Promise<{ added: boolean }> => {
+  const response = await axios.post(`${BACKEND_ENDPOINT}/tt-host/reviews/entry`, entry, authed());
+  return { added: response.data?.added === true };
+};
+
+export interface ReviewEntryRow {
+  id: string;
+  roomId: string;
+  guestName: string;
+  stayDate: string;
+  stars: number | null;
+  snippet: string;
+  addedAt: string | null;
+}
+
+export const fetchReviewEntries = async (): Promise<ReviewEntryRow[]> => {
+  const response = await axios.get(`${BACKEND_ENDPOINT}/tt-host/reviews/entries`, authed());
+  return Array.isArray(response.data?.entries) ? response.data.entries : [];
+};
+
 // Takes a room's kept review file off the server.
 export const deleteReviewSource = async (roomId: string): Promise<void> => {
   await axios.delete(`${BACKEND_ENDPOINT}/tt-host/reviews/source/${roomId}`, authed());

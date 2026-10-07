@@ -6,6 +6,8 @@ import ttHostRoute, { setReviewDrafter } from "../ttHostRoute";
 import TTQuestion from "../../model/ttQuestionSchema";
 import TTReviews from "../../model/ttReviewsSchema";
 import TTReviewSource from "../../model/ttReviewSourceSchema";
+import TTReviewEntry from "../../model/ttReviewEntrySchema";
+import Guest from "../../model/guestSchema";
 import Room from "../../model/roomSchema";
 import { createMockHost } from "../../model/test/util/mockHost";
 
@@ -246,6 +248,71 @@ describe("review summaries", () => {
     setReviewDrafter(async () => ({ house: "", rooms: [], reviewsRead: 0 }));
     const res = await request(signedInAs({ hostId: host, role: "Host" })).post("/tt-host/reviews/draft").send({ rooms: [{ roomId: theirs }] });
     expect(res.status).toBe(400);
+  });
+
+  it("keeps one guest's review per room, guest and stay — and adds it to the room's file", async () => {
+    const host = String((await createMockHost("entry@example.com"))._id);
+    const king = String((await roomFor(host, "King"))._id);
+    const guest = String((await Guest.create({ host, name: "Alcides", phone: "5550001111" }))._id);
+    const app = signedInAs({ hostId: host, role: "Host" });
+
+    const res = await request(app)
+      .post("/tt-host/reviews/entry")
+      .send({ roomId: king, guestId: guest, guestName: "Alcides", stayDate: "2025-02-10", stars: 5, text: "Spotless and quiet." });
+    expect(res.body).toEqual({ added: true });
+
+    const entry: any = await TTReviewEntry.findOne({ host, room: king }).lean();
+    expect(entry).toMatchObject({ guestName: "Alcides", stayDate: "2025-02-10", stars: 5, text: "Spotless and quiet." });
+    expect(String(entry.guest)).toBe(guest);
+
+    // Also in the room's file, headed with what is known — so drafting and Ask TiMag read it.
+    const file: any = await TTReviewSource.findOne({ host, room: king }).lean();
+    expect(file.text).toBe("— Guest: Alcides · Stay: 2025-02-10 · 5 stars —\nSpotless and quiet.");
+
+    // A second review is added to the file, not put in place of the first.
+    await request(app).post("/tt-host/reviews/entry").send({ roomId: king, guestName: "Maria", text: "Bed was comfy." });
+    const both: any = await TTReviewSource.findOne({ host, room: king }).lean();
+    expect(both.text).toContain("Spotless and quiet.");
+    expect(both.text).toContain("Bed was comfy.");
+  });
+
+  it("skips the same review pasted twice, and says so", async () => {
+    const host = String((await createMockHost("dup@example.com"))._id);
+    const king = String((await roomFor(host, "King"))._id);
+    const app = signedInAs({ hostId: host, role: "Host" });
+    await request(app).post("/tt-host/reviews/entry").send({ roomId: king, text: "Great  stay!" });
+    const again = await request(app).post("/tt-host/reviews/entry").send({ roomId: king, text: "great stay!  " });
+    expect(again.body).toEqual({ added: false, duplicate: true });
+    expect(await TTReviewEntry.countDocuments({ host })).toBe(1);
+  });
+
+  it("refuses a review for another host's room or guest, an over-long one, and bad stars", async () => {
+    const host = String((await createMockHost("strict@example.com"))._id);
+    const other = String((await createMockHost("strict-other@example.com"))._id);
+    const mine = String((await roomFor(host, "King"))._id);
+    const theirs = String((await roomFor(other, "King"))._id);
+    const theirGuest = String((await Guest.create({ host: other, name: "Their Guest", phone: "5550002222" }))._id);
+    const app = signedInAs({ hostId: host, role: "Host" });
+    expect((await request(app).post("/tt-host/reviews/entry").send({ roomId: theirs, text: "x" })).status).toBe(400);
+    expect((await request(app).post("/tt-host/reviews/entry").send({ roomId: mine, guestId: theirGuest, text: "x" })).status).toBe(400);
+    expect((await request(app).post("/tt-host/reviews/entry").send({ roomId: mine, text: "A".repeat(2001) })).status).toBe(400);
+    expect((await request(app).post("/tt-host/reviews/entry").send({ roomId: mine, stars: 6, text: "x" })).status).toBe(400);
+    expect((await request(app).post("/tt-host/reviews/entry").send({ roomId: mine, stayDate: "last Tuesday", text: "x" })).status).toBe(400);
+    expect(await TTReviewEntry.countDocuments({})).toBe(0);
+  });
+
+  it("lists the reviews on record, newest stay first, as snippets, for this host only", async () => {
+    const host = String((await createMockHost("list@example.com"))._id);
+    const other = String((await createMockHost("list-other@example.com"))._id);
+    const king = String((await roomFor(host, "King"))._id);
+    const theirs = String((await roomFor(other, "King"))._id);
+    const app = signedInAs({ hostId: host, role: "Host" });
+    await request(app).post("/tt-host/reviews/entry").send({ roomId: king, guestName: "A", stayDate: "2025-01-05", stars: 4, text: "x".repeat(500) });
+    await request(app).post("/tt-host/reviews/entry").send({ roomId: king, guestName: "B", stayDate: "2025-03-05", stars: 5, text: "Lovely" });
+    await TTReviewEntry.create({ host: other, room: theirs, text: "not yours", hash: "h" });
+    const res = await request(app).get("/tt-host/reviews/entries");
+    expect(res.body.entries.map((e: any) => e.guestName)).toEqual(["B", "A"]);
+    expect(res.body.entries[1].snippet).toHaveLength(160);
   });
 
   it("refuses a part too large to travel, rather than carrying a body CloudFront drops", async () => {
