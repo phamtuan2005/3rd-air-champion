@@ -7,6 +7,7 @@ import { formatCancellationPolicy } from "../../util/cancellationPolicy";
 import { fetchGuestByPhone } from "../../util/guestOperations";
 import { toggleWishListDate } from "../../util/wishListOperations";
 import { revokeConsent } from "../../util/guestConsent";
+import { fetchHasStatsAccess } from "../../util/tibookVisitOperations";
 import RoomBadge from "../shared/RoomBadge";
 import GuestLoyaltyBanner from "./GuestLoyaltyBanner";
 
@@ -52,6 +53,9 @@ interface MyBookingsSheetProps {
   // rememberOrAsk in TiBook.tsx.
   onPhoneConfirmed: (phone: string, name?: string, opts?: { auto?: boolean }) => void;
   onClear?: () => void;
+  // Opens TiBook's visitor numbers. The row for it shows only for a guest the
+  // host gave access to.
+  onOpenStats?: () => void;
 }
 
 const resolveInstructions = (
@@ -135,7 +139,7 @@ const statusLabel: Record<string, { label: string; color: string }> = {
   reserved:  { label: "Reserved",  color: "text-amber-700 bg-amber-100 border-amber-300" },
 };
 
-const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialPhone, initialName, focusKey, rooms, wishListDates, onToggleWishDate, cancellationFullRefundDays, cancellationHalfRefundDays, houseRules, onClose, onPhoneConfirmed, onClear }: MyBookingsSheetProps) => {
+const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialPhone, initialName, focusKey, rooms, wishListDates, onToggleWishDate, cancellationFullRefundDays, cancellationHalfRefundDays, houseRules, onClose, onPhoneConfirmed, onClear, onOpenStats }: MyBookingsSheetProps) => {
   const { theme } = useTiBookTheme();
   const roomChip = useRoomChip();
   const activeRooms = rooms.filter((r) => r.active);
@@ -154,6 +158,8 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState("");
   const [resolvedName, setResolvedName] = useState(initialName ?? "");
+  // A guest the host let read TiBook's visitor numbers — see StatsViewerGate.
+  const [hasStatsAccess, setHasStatsAccess] = useState(false);
   const sortedWishDates = wishListDates ? [...wishListDates].sort() : [];
 
   useEffect(() => {
@@ -200,6 +206,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
     setGuestPricing(new Map());
     setGuestDiscount(0);
     setError("");
+    setHasStatsAccess(false);
     // Clears the number, the name AND the stored answer — what the disclaimer
     // says this button does. They are asked again next time they identify
     // themselves, so the choice is genuinely theirs to remake.
@@ -214,6 +221,10 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
     if (!p) return;
     setLoading(true);
     setError("");
+    // Beside the bookings, not inside their Promise.all: a slow answer here
+    // must not hold up the guest's own stays.
+    setHasStatsAccess(false);
+    if (onOpenStats) fetchHasStatsAccess(hostId, p).then(setHasStatsAccess);
     try {
       const [calendarBookings, guest] = await Promise.all([
         fetchCalendarBookingsByGuest(calendarId, p),
@@ -721,6 +732,27 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
                 </div>
               )}
             </div>
+          )}
+
+          {/* Last on purpose: it is for the one or two guests helping develop
+              TiBook, so it sits below everything about their stay. */}
+          {bookings !== null && hasStatsAccess && onOpenStats && (
+            <button
+              type="button"
+              onClick={onOpenStats}
+              className={`w-full mt-3 flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-left ${theme.tagBg} ${theme.tagBorder}`}
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                <span aria-hidden>📈</span>
+                <span className="min-w-0">
+                  <span className={`block text-sm font-semibold ${theme.textPrimary}`}>TiBook visitor numbers</span>
+                  <span className={`block text-[11px] ${theme.surfaceMuted}`}>How many people are looking, and from where</span>
+                </span>
+              </span>
+              <svg className={`w-3.5 h-3.5 shrink-0 ${theme.surfaceMuted2}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
           )}
         </div>
       </div>

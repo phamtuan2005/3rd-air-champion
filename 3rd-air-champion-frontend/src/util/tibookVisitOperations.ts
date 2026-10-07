@@ -238,6 +238,39 @@ export interface ViewerStats extends TiBookVisitorStats {
   viewer: string;
 }
 
+// The viewer's code, remembered on this device so the numbers open straight
+// away next time. Here rather than in StatsViewerGate because "Not you?" in
+// Your Bookings forgets it too: the next person on the device is not the one
+// the host gave it to.
+const STATS_CODE_KEY = "tiBookStatsCode";
+export const readStatsCode = (): string => {
+  try {
+    return localStorage.getItem(STATS_CODE_KEY) ?? "";
+  } catch {
+    return "";
+  }
+};
+export const saveStatsCode = (code: string) => {
+  try {
+    if (code) localStorage.setItem(STATS_CODE_KEY, code);
+    else localStorage.removeItem(STATS_CODE_KEY);
+  } catch {
+    // Not remembered: they type it again next time.
+  }
+};
+
+// Whether the guest Your Bookings recognised was given access — only decides
+// whether to SHOW the way in. The code is still asked for and checked. Any
+// failure reads as "no": the host's /book?stats link still works without it.
+export const fetchHasStatsAccess = async (host: string, phone: string): Promise<boolean> => {
+  try {
+    const response = await axios.post(`${BACKEND_ENDPOINT}/tibook-stats-viewer/has-access`, { host, phone });
+    return response.data?.hasAccess === true;
+  } catch {
+    return false;
+  }
+};
+
 // "wrong" = the server said no (401); anything else is the connection, and the
 // saved code is kept — the same split TiWork makes for its access codes.
 export const fetchTiBookStatsAsViewer = async (code: string): Promise<ViewerStats> => {

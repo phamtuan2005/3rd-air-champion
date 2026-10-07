@@ -39,7 +39,7 @@ import type { TTNudge } from "../components/tibook/AskTT";
 import { toTTRoom, usualRoomOf } from "../util/askTT";
 import type { AskTTContext, TTAction } from "../util/askTT";
 import { fetchGuestThread } from "../util/guestMessageOperations";
-import { linkTiBookVisitToGuest, recordTiBookVisit, unlinkTiBookVisitGuest } from "../util/tibookVisitOperations";
+import { linkTiBookVisitToGuest, recordTiBookVisit, saveStatsCode, unlinkTiBookVisitGuest } from "../util/tibookVisitOperations";
 import { fetchPublishedReviews } from "../util/ttQuestionLog";
 import { markTiBookVisited } from "../util/tibookReturning";
 
@@ -126,7 +126,8 @@ const TiBookInner = () => {
     fetchPublishedReviews(hostId).then(setPublishedReviews).catch(() => {});
   }, []);
   // /book?stats — a guest the host gave access to, reading the visitor numbers.
-  // Only that link opens it; see StatsViewerGate.
+  // That link opens it, and so does the row at the bottom of Your Bookings for
+  // that guest; see StatsViewerGate.
   const [statsOpen, setStatsOpen] = useState(() => new URLSearchParams(window.location.search).has("stats"));
   const closeStats = () => {
     setStatsOpen(false);
@@ -1126,7 +1127,8 @@ const TiBookInner = () => {
           onToggleWishDate={(date) => setWishListDates((prev) => { const next = new Set(prev); if (next.has(date)) next.delete(date); else next.add(date); return next; })}
           onClose={() => { setMyBookingsOpen(false); setBookingsFocusKey(null); }}
           onPhoneConfirmed={handlePhoneConfirmed}
-          onClear={() => { setGuestPhone(""); setGuestName(""); setGuestBookings([]); setWishListDates(new Set()); setPersistedWishListDates(new Set()); setCartDates(new Map()); setSelectedRoomIds(null); revokeConsent(); unlinkTiBookVisitGuest(import.meta.env.VITE_TI_BOOK_HOST_ID); }}
+          onClear={() => { setGuestPhone(""); setGuestName(""); setGuestBookings([]); setWishListDates(new Set()); setPersistedWishListDates(new Set()); setCartDates(new Map()); setSelectedRoomIds(null); revokeConsent(); unlinkTiBookVisitGuest(import.meta.env.VITE_TI_BOOK_HOST_ID); saveStatsCode(""); }}
+          onOpenStats={() => { setMyBookingsOpen(false); setBookingsFocusKey(null); setStatsOpen(true); }}
           cancellationFullRefundDays={currentHost.cancellationFullRefundDays}
           cancellationHalfRefundDays={currentHost.cancellationHalfRefundDays}
           houseRules={currentHost.houseRules}
