@@ -147,6 +147,7 @@ export interface ReviewEntryInput {
   guestId?: string;
   guestName?: string;
   stayDate?: string; // yyyy-MM-dd
+  reviewMonth?: string; // yyyy-MM, from the date on a pasted AirBnB review
   stars?: number;
   text: string;
 }
@@ -168,6 +169,26 @@ export interface ReviewEntryRow {
   snippet: string;
   addedAt: string | null;
 }
+
+export interface ReviewEntryFull {
+  id: string;
+  roomId: string;
+  guestName: string;
+  stayDate: string;
+  reviewMonth: string;
+  stars: number | null;
+  text: string;
+  addedAt: string | null;
+}
+
+// One review in full (the list carries only a snippet of each).
+export const fetchReviewEntry = async (id: string): Promise<ReviewEntryFull> =>
+  (await axios.get(`${BACKEND_ENDPOINT}/tt-host/reviews/entry/${id}`, authed())).data;
+
+// Takes one review off the record (and out of the room's file, if it was written there).
+export const deleteReviewEntry = async (id: string): Promise<void> => {
+  await axios.delete(`${BACKEND_ENDPOINT}/tt-host/reviews/entry/${id}`, authed());
+};
 
 export const fetchReviewEntries = async (): Promise<ReviewEntryRow[]> => {
   const response = await axios.get(`${BACKEND_ENDPOINT}/tt-host/reviews/entries`, authed());

@@ -494,6 +494,60 @@ describe("review summaries", () => {
     expect(res.body.topic).toBeNull();
   });
 
+  it("deletes one review, and takes its words back out of the room's file when the form put them there", async () => {
+    const host = String((await createMockHost("del@example.com"))._id);
+    const king = String((await roomFor(host, "King"))._id);
+    const app = signedInAs({ hostId: host, role: "Host" });
+    await request(app).post("/tt-host/reviews/entry").send({ roomId: king, guestName: "Ann", stars: 5, text: "First one." });
+    await request(app).post("/tt-host/reviews/entry").send({ roomId: king, text: "Lim 9 years on Airbnb Lim Rating, 5 stars whole block" });
+    await request(app).post("/tt-host/reviews/entry").send({ roomId: king, guestName: "Cy", reviewMonth: "2026-09", text: "Third one." });
+
+    const bad: any = await TTReviewEntry.findOne({ host, text: /whole block/ }).lean();
+    expect((await request(app).delete(`/tt-host/reviews/entry/${bad._id}`)).status).toBe(200);
+    expect(await TTReviewEntry.countDocuments({ host })).toBe(2);
+    const file: any = await TTReviewSource.findOne({ host, room: king }).lean();
+    expect(file.text).toBe("— Guest: Ann · 5 stars —\nFirst one.\n\n— Guest: Cy · Month: 2026-09 —\nThird one.");
+  });
+
+  it("leaves a pasted page alone when deleting a review that came out of it", async () => {
+    const host = String((await createMockHost("del-split@example.com"))._id);
+    const king = String((await roomFor(host, "King"))._id);
+    await keep(host, king, "Maria\nRating, 5 stars\nLovely and clean.\n\nBob\nOk.");
+    const e = await TTReviewEntry.create({ host, room: king, guestName: "Maria", stars: 5, text: "Lovely and clean.", hash: "x", inFile: false });
+    await request(signedInAs({ hostId: host, role: "Host" })).delete(`/tt-host/reviews/entry/${e._id}`);
+    const file: any = await TTReviewSource.findOne({ host, room: king }).lean();
+    expect(file.text).toBe("Maria\nRating, 5 stars\nLovely and clean.\n\nBob\nOk.");
+  });
+
+  it("opens one review in full — not the snippet — for this host only", async () => {
+    const host = String((await createMockHost("full@example.com"))._id);
+    const other = String((await createMockHost("full-other@example.com"))._id);
+    const king = String((await roomFor(host, "King"))._id);
+    const long = "word ".repeat(300).trim();
+    const e = await TTReviewEntry.create({ host, room: king, guestName: "Ann", stars: 4, reviewMonth: "2026-09", text: long, hash: "f" });
+    const res = await request(signedInAs({ hostId: host, role: "Host" })).get(`/tt-host/reviews/entry/${e._id}`);
+    expect(res.body).toMatchObject({ guestName: "Ann", stars: 4, reviewMonth: "2026-09", text: long });
+    expect((await request(signedInAs({ hostId: other, role: "Host" })).get(`/tt-host/reviews/entry/${e._id}`)).status).toBe(404);
+  });
+
+  it("will not delete another host's review", async () => {
+    const host = String((await createMockHost("del-mine@example.com"))._id);
+    const other = String((await createMockHost("del-theirs@example.com"))._id);
+    const theirs = String((await roomFor(other, "King"))._id);
+    const e = await TTReviewEntry.create({ host: other, room: theirs, text: "theirs", hash: "t" });
+    expect((await request(signedInAs({ hostId: host, role: "Host" })).delete(`/tt-host/reviews/entry/${e._id}`)).status).toBe(404);
+    expect(await TTReviewEntry.countDocuments({ _id: e._id })).toBe(1);
+  });
+
+  it("refuses a review month that is not a month", async () => {
+    const host = String((await createMockHost("bad-month@example.com"))._id);
+    const king = String((await roomFor(host, "King"))._id);
+    const res = await request(signedInAs({ hostId: host, role: "Host" }))
+      .post("/tt-host/reviews/entry")
+      .send({ roomId: king, reviewMonth: "2 days ago", text: "x" });
+    expect(res.status).toBe(400);
+  });
+
   it("refuses a part too large to travel, rather than carrying a body CloudFront drops", async () => {
     const host = String((await createMockHost("fat-part@example.com"))._id);
     const king = String((await roomFor(host, "King"))._id);
