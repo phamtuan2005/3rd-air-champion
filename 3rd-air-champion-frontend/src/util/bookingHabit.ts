@@ -182,3 +182,48 @@ export const proposalsForAll = (
   }
   return out;
 };
+
+// How far past a guest's last booked stay TiBook lines up the next ones.
+export const MONTHS_AHEAD = 3;
+
+export interface Series {
+  /** The guest's last booked night, when they have stays ahead. */
+  lastBooked: string | null;
+  /** The last night the series reaches — the end of the month MONTHS_AHEAD past. */
+  until: string;
+  proposals: Proposal[];
+}
+
+/**
+ * The next MONTHS of a regular's stays, proposed in one go.
+ *
+ * Regulars do not book a couple of nights; they book months ahead — Rostam was
+ * already booked to January 2027 (host, 2026-10-07), so "the next eight weeks"
+ * were all his own stays and nothing was offered. A host who knows a regular
+ * reads where their bookings end and lines up what comes next: from the week
+ * after today to the end of the month MONTHS_AHEAD past their last booked
+ * night — Feb, March, April for Rostam — plus any week left open before it.
+ * Weeks they already have are skipped; a week no room of theirs is free is
+ * left out.
+ */
+export const seriesFor = (
+  habits: Habit[],
+  today: Date,
+  isFree: (roomId: string, night: string) => boolean | null,
+  theirStays: PastStay[],
+  monthsAhead = MONTHS_AHEAD,
+): Series => {
+  const todayKey = key(today);
+  const ahead = theirStays.filter((s) => s.start >= todayKey);
+  const lastBooked = ahead.length
+    ? ahead.map((s) => key(addDays(parseISO(s.start), s.nights - 1))).sort().pop()!
+    : null;
+  const from = parseISO(lastBooked ?? todayKey);
+  // End of the month `monthsAhead` past: "Feb, March, April", whole months.
+  const until = key(new Date(from.getFullYear(), from.getMonth() + monthsAhead + 1, 0));
+  const weeks = Math.ceil(differenceInCalendarDays(parseISO(until), today) / 7) + 1;
+  const proposals = proposalsForAll(habits, today, isFree, ahead, { weeks, max: Infinity }).filter(
+    (p) => p.nights[p.nights.length - 1] <= until,
+  );
+  return { lastBooked, until, proposals };
+};

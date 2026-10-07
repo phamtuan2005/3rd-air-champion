@@ -43,7 +43,7 @@ import { fetchGuestThread } from "../util/guestMessageOperations";
 import { linkTiBookVisitToGuest, recordTiBookVisit, saveStatsCode, unlinkTiBookVisitGuest } from "../util/tibookVisitOperations";
 import { fetchPublishedReviews } from "../util/ttQuestionLog";
 import { markTiBookVisited } from "../util/tibookReturning";
-import { fillRate, habitsOf, proposalsForAll } from "../util/bookingHabit";
+import { fillRate, habitsOf, seriesFor, Proposal } from "../util/bookingHabit";
 import UsualStayCard from "../components/tibook/UsualStayCard";
 
 const TiBookInner = () => {
@@ -838,7 +838,6 @@ const TiBookInner = () => {
   const usualStay = useMemo(() => {
     if (!isKnownVisitor || guestBookings.length === 0) return null;
     const today = startOfToday();
-    const todayKey = keyOfDate(today);
     const active = new Set(rooms.filter((r) => r.active).map((r) => r.id));
     const stays = guestBookings.map((b) => ({ start: String(b.date).slice(0, 10), nights: b.duration, roomId: b.room }));
     const habits = habitsOf(stays, today)
@@ -847,9 +846,11 @@ const TiBookInner = () => {
     if (habits.length === 0) return null;
     const isFree = (roomId: string, night: string) =>
       availableRoomsForDate(parseISO(night), true).some((r) => r.id === roomId);
-    const proposals = proposalsForAll(habits, today, isFree, stays.filter((s) => s.start >= todayKey), { weeks: 8, max: 3 });
-    if (proposals.length === 0) return null;
-    return { habits, proposals, fill: fillRate(habits[0], habits[0].rooms[0], today, isFree, 8) };
+    // Regulars book months ahead: the proposal is the months AFTER their last
+    // booked stay (and any week left open before it), not the next few weeks.
+    const series = seriesFor(habits, today, isFree, stays);
+    if (series.proposals.length === 0) return null;
+    return { habits, series, fill: fillRate(habits[0], habits[0].rooms[0], today, isFree, 8) };
     // availableRoomsForDate reads monthMap, reservedMap and rooms.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isKnownVisitor, guestBookings, rooms, monthMap, reservedMap]);
@@ -866,6 +867,22 @@ const TiBookInner = () => {
     usualShown.current = true;
     setUsualOpen(true);
   }, [usualStay, isBookingModalOpen, myBookingsOpen, chatOpen, askTTOpen, statsOpen, reservedPopupOpen, stayPopupId, heroGalleryRoom, pendingConsentPhone]);
+
+  // Many stays at once, each in its own room, into the request — the guest
+  // reads them all in Review Request and sends them; each goes to the host as
+  // its own request.
+  const requestStays = (list: Proposal[]) => {
+    if (list.length === 0) return;
+    expandCal();
+    const firstNight = parseISO(list[0].nights[0]);
+    setScrollToMonthTrigger({ month: new Date(firstNight.getFullYear(), firstNight.getMonth(), 1), seq: Date.now() });
+    setCartDates((prev) => {
+      const next = new Map(prev);
+      list.forEach((p) => p.nights.forEach((n) => next.set(n, p.roomId)));
+      return next;
+    });
+    openBookingModal(firstNight);
+  };
 
   const onTTAction = (a: Exclude<TTAction, { kind: "ask" }>) => {
     setAskTTOpen(false);
@@ -1295,13 +1312,13 @@ const TiBookInner = () => {
         <UsualStayCard
           firstName={greetedName.trim().split(/\s+/)[0] ?? ""}
           habits={usualStay.habits}
-          proposals={usualStay.proposals}
+          series={usualStay.series}
           fill={usualStay.fill}
           roomOf={(id) => rooms.find((r) => r.id === id)}
           // The ordinary request, filled in: the guest reads and sends it.
-          onRequest={(p) => {
+          onRequest={(stays) => {
             setUsualOpen(false);
-            onTTAction({ kind: "pick", label: "", dates: p.nights, roomId: p.roomId, review: true });
+            requestStays(stays);
           }}
           onClose={() => setUsualOpen(false)}
         />

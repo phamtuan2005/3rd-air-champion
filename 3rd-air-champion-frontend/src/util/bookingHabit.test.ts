@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fillRate, habitOf, habitsOf, proposalsFor, proposalsForAll, upcomingStarts } from "./bookingHabit";
+import { fillRate, habitOf, habitsOf, proposalsFor, proposalsForAll, seriesFor, upcomingStarts } from "./bookingHabit";
 
 // TiBook works a returning guest's habit out and proposes the next stays that
 // fit it. These pin that it reads the habit a person would, never invents one
@@ -93,5 +93,41 @@ describe("a guest with two habits in a week (Monday and Thursday)", () => {
   it("proposes from both, soonest first", () => {
     const out = proposalsForAll(habitsOf(stays, today), today, () => true, [], { max: 4 });
     expect(out.map((p) => p.start)).toEqual(["2026-10-08", "2026-10-12", "2026-10-15", "2026-10-19"]);
+  });
+});
+
+describe("seriesFor — regulars book months ahead", () => {
+  // Rostam: Monday, 4 nights, every week, already booked to the end of Jan 2027.
+  const rostamStays = Array.from({ length: 17 }, (_, i) => {
+    const d = new Date(2026, 9, 12 + 7 * i); // Mondays from Oct 12 2026
+    const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    return stay(k, 4, "king");
+  });
+  const past = [stay("2026-09-21", 4, "king"), stay("2026-09-28", 4, "king")];
+
+  it("lines up the three months after the last booked stay (Feb 1 2027 → through May)", () => {
+    const habits = habitsOf([...past, ...rostamStays], today);
+    const s = seriesFor(habits, today, () => true, [...past, ...rostamStays]);
+    expect(s.lastBooked).toBe("2027-02-04"); // the Feb 1 stay's last night
+    expect(s.until).toBe("2027-05-31");
+    expect(s.proposals[0].start).toBe("2027-02-08");
+    expect(s.proposals.every((p) => p.roomId === "king")).toBe(true);
+    expect(s.proposals.every((p) => p.nights[p.nights.length - 1] <= "2027-05-31")).toBe(true);
+  });
+
+  it("offers a week left open inside their run as well", () => {
+    const withGap = rostamStays.filter((st) => st.start !== "2026-11-23");
+    const habits = habitsOf([...past, ...withGap], today);
+    const s = seriesFor(habits, today, () => true, [...past, ...withGap]);
+    expect(s.proposals[0].start).toBe("2026-11-23");
+  });
+
+  it("starts from today for a guest with nothing booked ahead, and leaves out weeks no room of theirs is free", () => {
+    const h = { startWeekday: 1, nights: 2, rooms: ["king"], times: 3 };
+    const s = seriesFor([h], today, (_r, night) => night !== "2026-10-19", [], 1);
+    expect(s.lastBooked).toBeNull();
+    expect(s.until).toBe("2026-11-30");
+    expect(s.proposals.map((p) => p.start)).not.toContain("2026-10-19");
+    expect(s.proposals[0].start).toBe("2026-10-12");
   });
 });
