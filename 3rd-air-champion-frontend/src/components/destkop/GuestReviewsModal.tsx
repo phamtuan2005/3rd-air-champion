@@ -29,7 +29,13 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
   const [state, setState] = useState<ReviewsState | null>(null);
   const [error, setError] = useState("");
   const [pasted, setPasted] = useState<Record<string, string>>({});
-  const [pasteRoomId, setPasteRoomId] = useState("");
+  // The tab showing: "house", or a room's id. Each tab holds everything about
+  // its subject — the house's summary, or one room's summary and its reviews —
+  // and the two actions that cover the whole house at once (draft, publish) sit
+  // below the tabs, not inside any of them. They used to sit inside the room
+  // tabs' section while the summaries below listed every room whatever tab was
+  // chosen, which read as two designs on one screen (host, 2026-10-07).
+  const [pasteRoomId, setPasteRoomId] = useState("house");
   // Sending a file or paste to the server, in parts: what and how far.
   const [progress, setProgress] = useState<{ label: string; pct: number } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -68,8 +74,9 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
   }, [drafting, apply]);
 
   const rooms = state?.houseRooms ?? [];
-  // The tab showing; the first room until one is picked.
-  const pasteRoom = rooms.find((r) => r.roomId === pasteRoomId) ?? rooms[0];
+  const pasteRoom = rooms.find((r) => r.roomId === pasteRoomId);
+  // How many reviews each room has on record, for its tab.
+  const countOf = Object.fromEntries((state?.onRecord ?? []).map((r) => [r.roomId, r.count]));
 
   // The review file KEPT on the server for each room (name, size, date).
   const sources = Object.fromEntries((state?.sources ?? []).map((x) => [x.roomId, x]));
@@ -197,7 +204,31 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-4">
+        {state && !error && (
+          <div role="tablist" className="flex shrink-0 flex-wrap gap-1.5 border-b border-gray-100 px-4 py-2.5">
+            {[{ roomId: "house", name: "House" }, ...rooms].map((r) => {
+              const on = r.roomId === pasteRoomId;
+              const count = r.roomId === "house" ? onRecord : countOf[r.roomId] ?? 0;
+              return (
+                <button
+                  key={r.roomId}
+                  type="button"
+                  role="tab"
+                  aria-selected={on}
+                  onClick={() => setPasteRoomId(r.roomId)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    on ? "bg-gray-800 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  {r.name}
+                  {count > 0 && <span className={`ml-1 font-normal ${on ? "text-gray-300" : "text-gray-400"}`}>{count}</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4">
           {error ? (
             <div className="flex flex-col items-center gap-3 py-10 text-center">
               <p className="text-sm text-gray-600">{error}</p>
@@ -211,201 +242,183 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
             </div>
           ) : !state ? (
             <p className="py-10 text-center text-sm text-gray-500">Loading…</p>
+          ) : !pasteRoom ? (
+            // ── The house ──
+            <section>
+              <h3 className="text-sm font-bold text-gray-900">What guests say about TT House</h3>
+              <p className="mt-0.5 text-xs text-gray-500">
+                What TT tells a guest who asks about the house. Each room's own summary, and its reviews, are on the room's tab.
+              </p>
+              <textarea
+                id="summary-house"
+                rows={6}
+                value={edit.house}
+                onChange={(e) => setEdit((x) => ({ ...x, house: e.target.value }))}
+                placeholder="Empty — TT says it has no summary for the house yet"
+                className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm leading-relaxed focus:border-gray-400 focus:outline-none"
+              />
+            </section>
           ) : (
+            // ── One room ──
             <>
               <section>
-                <h3 className="text-sm font-bold text-gray-900">1 · Paste the reviews</h3>
-                <p className="mt-0.5 text-xs text-gray-500">
-                  Open each room's listing, show all reviews, select them and paste here. Leave a room empty to skip
-                  it. Paste a room's whole page of reviews, or choose a file, then Split: each review is kept on its own record, for you only — guests see only the summaries you publish. The page itself is cleared once its reviews are added.
-                </p>
-                {/* One room at a time, chosen by tab. Five paste boxes stacked
-                    meant scrolling past four long pastes to reach the fifth, and
-                    a tick on the tab shows which rooms already have reviews in. */}
-                <div role="tablist" className="mt-3 flex flex-wrap gap-1.5">
-                  {rooms.map((r) => {
-                    const has = !!sources[r.roomId] || (pasted[r.roomId] ?? "").trim().length > 0;
-                    const on = r.roomId === pasteRoom?.roomId;
-                    return (
-                      <button
-                        key={r.roomId}
-                        type="button"
-                        role="tab"
-                        aria-selected={on}
-                        onClick={() => setPasteRoomId(r.roomId)}
-                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                          on ? "bg-gray-800 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                        }`}
-                      >
-                        {r.name}
-                        {has && <span className={`ml-1 ${on ? "text-emerald-300" : "text-emerald-600"}`}>✓</span>}
-                      </button>
-                    );
-                  })}
+                <h3 className="text-sm font-bold text-gray-900">What guests say about {pasteRoom.name}</h3>
+                <p className="mt-0.5 text-xs text-gray-500">What TT tells a guest who asks about this room.</p>
+                <textarea
+                  id={`summary-${pasteRoom.roomId}`}
+                  rows={4}
+                  value={edit.rooms[pasteRoom.roomId] ?? ""}
+                  onChange={(e) => setEdit((x) => ({ ...x, rooms: { ...x.rooms, [pasteRoom.roomId]: e.target.value } }))}
+                  placeholder="Empty — TT says it has no summary for this room yet"
+                  className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm leading-relaxed focus:border-gray-400 focus:outline-none"
+                />
+              </section>
+
+              <section className="border-t border-gray-100 pt-4">
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                  <h3 className="text-sm font-bold text-gray-900">
+                    {pasteRoom.name}'s reviews{countOf[pasteRoom.roomId] ? ` · ${countOf[pasteRoom.roomId]} on record` : ""}
+                  </h3>
+                  {pasteRoom.airbnbUrl && (
+                    <a
+                      href={pasteRoom.airbnbUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs font-semibold text-sky-600 hover:underline"
+                    >
+                      Open the listing ↗
+                    </a>
+                  )}
                 </div>
-                {pasteRoom && (
-                  <div className="mt-3">
-                    <div className="mb-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                      <label htmlFor={`paste-${pasteRoom.roomId}`} className="text-xs font-semibold text-gray-700">
-                        {pasteRoom.name}
-                      </label>
-                      {/* Up here, beside the room, not under the box: the box is
-                          tall, and a button below it falls off a phone screen. */}
-                      <input
-                        ref={fileInput}
-                        type="file"
-                        accept=".txt,text/plain"
-                        className="hidden"
-                        onChange={(e) => {
-                          loadFile(pasteRoom.roomId, e.target.files?.[0]);
-                          // Cleared so choosing the same file again still fires.
-                          e.target.value = "";
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => fileInput.current?.click()}
-                        disabled={busy}
-                        className="rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40"
-                      >
-                        Choose a text file…
-                      </button>
-                      {pasteRoom.airbnbUrl && (
-                        <a
-                          href={pasteRoom.airbnbUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs font-semibold text-sky-600 hover:underline"
-                        >
-                          Open {pasteRoom.name}'s listing ↗
-                        </a>
-                      )}
-                    </div>
-                    {sources[pasteRoom.roomId] ? (
-                      // The file is on the server already; only its name, size and
-                      // date are shown. Putting hundreds of kilobytes in a textarea
-                      // would freeze it, and there is nothing to edit in it.
-                      <div className="flex items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-gray-900">📄 {sources[pasteRoom.roomId].name}</p>
-                          <p className="text-xs text-gray-600">
-                            {sources[pasteRoom.roomId].chars.toLocaleString()} characters · ready to split
-                            {sources[pasteRoom.roomId].savedAt ? ` · ${format(parseISO(sources[pasteRoom.roomId].savedAt!), "MMM d, h:mm a")}` : ""}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeFile(pasteRoom.roomId)}
-                          disabled={busy}
-                          className="shrink-0 rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <textarea
-                          id={`paste-${pasteRoom.roomId}`}
-                          rows={7}
-                          value={pasted[pasteRoom.roomId] ?? ""}
-                          onChange={(e) => setPasted((p) => ({ ...p, [pasteRoom.roomId]: e.target.value }))}
-                          placeholder={`Paste ${pasteRoom.name}'s AirBnB reviews, or choose a text file…`}
-                          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-gray-400 focus:outline-none"
-                        />
-                        <p className="mt-1 text-right text-[11px] text-gray-400">
-                          {(pasted[pasteRoom.roomId] ?? "").length.toLocaleString()} characters
-                        </p>
-                      </>
-                    )}
-                    {progress && (
-                      <div className="mt-2" role="status">
-                        <div className="flex justify-between text-[11px] text-gray-500">
-                          <span className="truncate">{progress.label}…</span>
-                          <span>{progress.pct}%</span>
-                        </div>
-                        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-100">
-                          <div className="h-full bg-emerald-500 transition-[width]" style={{ width: `${progress.pct}%` }} />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-                {pasteRoom && (
-                  <ReviewSplitPanel
-                    key={`split-${pasteRoom.roomId}`}
-                    roomId={pasteRoom.roomId}
-                    roomName={pasteRoom.name}
-                    hasReviews={!!sources[pasteRoom.roomId] || !!(pasted[pasteRoom.roomId] ?? "").trim()}
-                    beforeSplit={() => sendWaitingText(pasteRoom.roomId)}
-                    onAdded={load}
+                <p className="mt-0.5 text-xs text-gray-500">
+                  New reviews: paste the listing's whole page of reviews (select all, copy) or choose a saved file, then Split.
+                  Each review is kept on its own record, for you only. The page is cleared once its reviews are added.
+                </p>
+
+                <div className="mt-2 flex items-center justify-between gap-3">
+                  <label htmlFor={`paste-${pasteRoom.roomId}`} className="text-xs font-semibold text-gray-700">
+                    The page
+                  </label>
+                  {/* Up here, not under the box: the box is tall, and a button
+                      below it falls off a phone screen. */}
+                  <input
+                    ref={fileInput}
+                    type="file"
+                    accept=".txt,text/plain"
+                    className="hidden"
+                    onChange={(e) => {
+                      loadFile(pasteRoom.roomId, e.target.files?.[0]);
+                      // Cleared so choosing the same file again still fires.
+                      e.target.value = "";
+                    }}
                   />
-                )}
-                {pasteRoom && <GuestReviewForm key={pasteRoom.roomId} roomId={pasteRoom.roomId} roomName={pasteRoom.name} onAdded={load} />}
-                <button
-                  type="button"
-                  onClick={draft}
-                  disabled={!anyPasted || busy || drafting}
-                  className="mt-3 w-full rounded-lg bg-gray-800 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-900 disabled:opacity-40"
-                >
-                  {drafting ? "Claude is reading the reviews…" : "Draft summaries with Claude"}
-                </button>
-                {state.draft.status === "failed" && (
-                  <p className="mt-2 text-xs text-rose-600">The draft didn't finish: {state.draft.error}</p>
-                )}
-              </section>
-
-              <section>
-                <h3 className="text-sm font-bold text-gray-900">2 · Read, edit, publish</h3>
-                <p className="mt-0.5 text-xs text-gray-500">
-                  {showingDraft
-                    ? `Claude's draft, from ${state.draft.reviewsRead} review${state.draft.reviewsRead === 1 ? "" : "s"}. Check it says only what guests said, then publish.`
-                    : state.published.at
-                      ? `What guests see now, published ${format(parseISO(state.published.at), "MMM d, yyyy")}. Edit and publish again to change it.`
-                      : "Nothing published yet — TT tells guests it has no summary. Draft one above, or write it yourself."}
-                </p>
-                <div className="mt-3 space-y-3">
-                  <div>
-                    <label htmlFor="summary-house" className="mb-1 block text-xs font-semibold text-gray-700">
-                      The whole house
-                    </label>
-                    <textarea
-                      id="summary-house"
-                      rows={4}
-                      value={edit.house}
-                      onChange={(e) => setEdit((x) => ({ ...x, house: e.target.value }))}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-gray-400 focus:outline-none"
-                    />
-                  </div>
-                  {rooms.map((r) => (
-                    <div key={r.roomId}>
-                      <label htmlFor={`summary-${r.roomId}`} className="mb-1 block text-xs font-semibold text-gray-700">
-                        {r.name}
-                      </label>
-                      <textarea
-                        id={`summary-${r.roomId}`}
-                        rows={3}
-                        value={edit.rooms[r.roomId] ?? ""}
-                        onChange={(e) => setEdit((x) => ({ ...x, rooms: { ...x.rooms, [r.roomId]: e.target.value } }))}
-                        placeholder="Empty — TT says it has no summary for this room yet"
-                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-gray-400 focus:outline-none"
-                      />
-                    </div>
-                  ))}
+                  <button
+                    type="button"
+                    onClick={() => fileInput.current?.click()}
+                    disabled={busy}
+                    className="rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                  >
+                    Choose a text file…
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={publish}
-                  disabled={busy || drafting}
-                  className="mt-3 w-full rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-40"
-                >
-                  Publish to TiBook
-                </button>
-              </section>
+                {sources[pasteRoom.roomId] ? (
+                  // On the server already; only its name, size and date are shown.
+                  // Hundreds of kilobytes in a textarea would freeze it.
+                  <div className="mt-1 flex items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-gray-900">📄 {sources[pasteRoom.roomId].name}</p>
+                      <p className="text-xs text-gray-600">
+                        {sources[pasteRoom.roomId].chars.toLocaleString()} characters · ready to split
+                        {sources[pasteRoom.roomId].savedAt ? ` · ${format(parseISO(sources[pasteRoom.roomId].savedAt!), "MMM d, h:mm a")}` : ""}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(pasteRoom.roomId)}
+                      disabled={busy}
+                      className="shrink-0 rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <textarea
+                      id={`paste-${pasteRoom.roomId}`}
+                      rows={5}
+                      value={pasted[pasteRoom.roomId] ?? ""}
+                      onChange={(e) => setPasted((p) => ({ ...p, [pasteRoom.roomId]: e.target.value }))}
+                      placeholder={`Paste ${pasteRoom.name}'s page of AirBnB reviews…`}
+                      className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-gray-400 focus:outline-none"
+                    />
+                    <p className="mt-1 text-right text-[11px] text-gray-400">
+                      {(pasted[pasteRoom.roomId] ?? "").length.toLocaleString()} characters
+                    </p>
+                  </>
+                )}
+                {progress && (
+                  <div className="mt-2" role="status">
+                    <div className="flex justify-between text-[11px] text-gray-500">
+                      <span className="truncate">{progress.label}…</span>
+                      <span>{progress.pct}%</span>
+                    </div>
+                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-100">
+                      <div className="h-full bg-emerald-500 transition-[width]" style={{ width: `${progress.pct}%` }} />
+                    </div>
+                  </div>
+                )}
 
-              {note && <p className="text-center text-xs text-gray-600">{note}</p>}
+                <ReviewSplitPanel
+                  key={`split-${pasteRoom.roomId}`}
+                  roomId={pasteRoom.roomId}
+                  roomName={pasteRoom.name}
+                  hasReviews={!!sources[pasteRoom.roomId] || !!(pasted[pasteRoom.roomId] ?? "").trim()}
+                  beforeSplit={() => sendWaitingText(pasteRoom.roomId)}
+                  onAdded={load}
+                />
+                <GuestReviewForm key={pasteRoom.roomId} roomId={pasteRoom.roomId} roomName={pasteRoom.name} onAdded={load} />
+              </section>
             </>
           )}
         </div>
+
+        {/* The two actions that cover the whole house at once — one draft writes
+            every summary, one publish sends them all to TiBook — so they sit
+            under the tabs, the same on every one. */}
+        {state && !error && (
+          <div className="shrink-0 border-t border-gray-100 bg-white px-4 py-3">
+            <p className="text-[11px] text-gray-500">
+              {drafting
+                ? "Claude is reading the reviews…"
+                : state.draft.status === "failed"
+                  ? `The draft didn't finish: ${state.draft.error}`
+                  : showingDraft
+                    ? `Claude's draft, from ${state.draft.reviewsRead} review${state.draft.reviewsRead === 1 ? "" : "s"} — check each tab says only what guests said, then publish.`
+                    : state.published.at
+                      ? `What guests see now, published ${format(parseISO(state.published.at), "MMM d, yyyy")}.`
+                      : "Nothing published yet — TT tells guests it has no summary."}
+            </p>
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={draft}
+                disabled={!anyPasted || busy || drafting}
+                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-40"
+              >
+                {drafting ? "Drafting…" : "Draft all summaries"}
+              </button>
+              <button
+                type="button"
+                onClick={publish}
+                disabled={busy || drafting}
+                className="flex-1 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-40"
+              >
+                Publish to TiBook
+              </button>
+            </div>
+            {note && <p className="mt-1.5 text-center text-xs text-gray-600">{note}</p>}
+          </div>
+        )}
       </div>
     </div>
   );
