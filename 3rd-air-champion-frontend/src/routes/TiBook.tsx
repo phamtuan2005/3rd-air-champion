@@ -38,6 +38,7 @@ import StatsViewerGate from "../components/tibook/StatsViewerGate";
 import { usHolidayOn } from "../util/usHolidays";
 import type { TTNudge, TTSendOutcome } from "../components/tibook/AskTT";
 import { toTTRoom, usualRoomOf } from "../util/askTT";
+import { maxGuestsOf } from "../util/ttBooking";
 import type { AskTTContext, TTAction } from "../util/askTT";
 import { fetchGuestThread } from "../util/guestMessageOperations";
 import { linkTiBookVisitToGuest, recordTiBookVisit, saveStatsCode, unlinkTiBookVisitGuest } from "../util/tibookVisitOperations";
@@ -848,7 +849,13 @@ const TiBookInner = () => {
       availableRoomsForDate(parseISO(night), true).some((r) => r.id === roomId);
     // Regulars book months ahead: the proposal is the months AFTER their last
     // booked stay (and any week left open before it), not the next few weeks.
-    const series = seriesFor(habits, today, isFree, stays);
+    // Rooms beyond their own, for a week none of theirs is free: active, and
+    // big enough for the most guests they have brought.
+    const party = Math.max(1, ...guestBookings.map((b) => b.numberOfGuests ?? 1));
+    const otherRooms = rooms
+      .filter((r) => r.active && maxGuestsOf(toTTRoom(r)) >= party)
+      .map((r) => r.id);
+    const series = seriesFor(habits, today, isFree, stays, undefined, otherRooms);
     if (series.proposals.length === 0) return null;
     // "Already booked N of the next weeks" counts OTHER guests only. A week the
     // guest holds themselves is left out of the count: Rostam was told Chill was
