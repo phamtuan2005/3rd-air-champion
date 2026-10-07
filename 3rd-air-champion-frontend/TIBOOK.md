@@ -40,6 +40,8 @@ Two things about that file:
 | `src/util/cartGrouping.ts` | Turns chosen dates into stays |
 | `src/contexts/TiBookThemeContext.tsx` | Colour tokens, the two skins and the two layouts — use `theme.*`, never a hardcoded colour |
 | `src/components/tibook/HeroShell.tsx` | The Hero layout: rooms as a swipeable deck over the month |
+| `src/util/askTT.ts` | TT's answers to guests — no model, only what TiBook already shows |
+| `src/util/ttBooking.ts` | Booking a stay by talking to TT: reading the stay, choosing the room, the read-back |
 | `src/util/tibookVisitOperations.ts` | Counts that a guest opened TiBook, for the host's **TiBook visitors** screen in TiMag (Money menu) |
 
 ### Visitor counting
@@ -74,6 +76,33 @@ A guest the host gave the stats code to reads the same questions at
 come from `/api/tibook-stats-viewer/tt-questions`, which checks the code exactly
 as the visitor numbers do. The code box adds the dashes itself and stops at
 twelve characters (`formatStatsCode`).
+
+### Booking through TT
+
+A guest can book by asking: "book King Oct 27 to Oct 29 for 2". The rules are
+in `src/util/ttBooking.ts`, and the conversation is in `AskTT.tsx`.
+
+- **The dates.** TT reads stays the way people write them: with a check-out
+  ("to", "until", "check out"), with "through", or as "for 2 nights". It always
+  states the check-out day. "Oct 10-12" reads as three nights, the same as
+  everywhere else in TiBook, with a button offering the two-night reading.
+- **The room.** TT uses the room the guest named, then their usual room, then
+  the only room that fits the party. When several fit, it asks the guest to
+  choose. Nights that don't form one stay go to the calendar, as before.
+- **The rest.** TT asks one thing at a time: the party size, then a name and
+  phone number. A US holiday in the stay is asked about once. Then it reads
+  the whole request back, and **nothing is sent until the guest taps Send.**
+  Replies to these questions (names, numbers) are never logged.
+- **What is sent.** The same `createBookingRequest` the form sends. The host's
+  Requests screen cannot tell the two apart.
+
+A new guest who only asks about dates still gets **Choose** (the calendar). A
+returning guest, or anyone who asked to book, gets **Book**.
+
+**Test mode.** On the dev server, Send shows the request and does not send it.
+The sheet says "Test mode" in its header. `/api` there is production. To send
+to a **local** backend instead, put `VITE_TT_SEND_BOOKINGS_IN_DEV=true` in
+`.env.development.local`.
 
 "What guests say" shows only summaries the host **published** in TiMag's
 **Guest reviews** screen. AirBnB has no reviews API and may not be scraped, so
