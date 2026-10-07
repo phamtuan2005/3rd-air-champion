@@ -218,7 +218,7 @@ const UsualStayCard = ({
         </button>
 
         {/* The weeks, by month, each with its room. A week where the usual room
-            is taken offers another room the guest has stayed in, and says so. */}
+            is taken offers another free room (theirs first), and says so. */}
         <div className="mt-3">
           {proposals.map((p, i) => {
             const room = roomOf(p.roomId);
@@ -244,8 +244,14 @@ const UsualStayCard = ({
                   />
                   <span className={`min-w-0 flex-1 text-base ${theme.surfaceText}`}>
                     {stayDates(p)}
-                    {!p.usualRoom && usual && (
-                      <span className={`block text-xs ${theme.surfaceMuted}`}>{usual.name} is taken that week</span>
+                    {p.completes ? (
+                      // A night to round off a week they booked part of.
+                      <span className="block text-xs font-semibold text-emerald-600">
+                        adds to your {[...new Set(p.completes)].map((d) => DAY[d]).join(" and ")} stay
+                      </span>
+                    ) : (
+                      !p.usualRoom &&
+                      usual && <span className={`block text-xs ${theme.surfaceMuted}`}>{usual.name} is taken that week</span>
                     )}
                   </span>
                   {room && <span className={`${roomChip(room)} shrink-0 rounded-md px-2 py-0.5 text-sm font-bold text-black`}>{room.name}</span>}

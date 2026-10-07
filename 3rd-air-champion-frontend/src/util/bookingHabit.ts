@@ -133,29 +133,78 @@ export interface Proposal {
   roomId: string;
   /** False when it is not the guest's usual room — the card must say so. */
   usualRoom: boolean;
+  /**
+   * The nights of a week the guest booked only part of — "adds Wednesday to
+   * your Tuesday stay". Their nights that week, as weekday indexes, so the card
+   * can say which stay this joins.
+   */
+  completes?: number[];
 }
+
+// Splits nights (in order) into runs of consecutive ones.
+const runs = (nights: string[]) => {
+  const out: string[][] = [];
+  for (const n of nights) {
+    const last = out[out.length - 1];
+    if (last && key(addDays(parseISO(last[last.length - 1]), 1)) === n) last.push(n);
+    else out.push([n]);
+  }
+  return out;
+};
 
 /**
  * The next stays to propose: on the habit's weekday and length, in the guest's
- * usual room where it is free, else the next room they use — never one they
- * have not stayed in. Weeks they already have a stay overlapping are skipped.
+ * usual room where it is free, else the next room they use, else another free
+ * room that holds their party (opts.otherRooms). Weeks they hold in full are
+ * skipped; a week they hold in part is offered its remaining nights.
  */
 export const proposalsFor = (
   habit: Habit,
   today: Date,
   isFree: (roomId: string, night: string) => boolean | null,
   theirUpcoming: PastStay[],
-  opts: { weeks?: number; max?: number } = {},
+  opts: { weeks?: number; max?: number; otherRooms?: string[] } = {},
 ): Proposal[] => {
   const { weeks = 8, max = 3 } = opts;
-  const theirs = new Set(theirUpcoming.flatMap((s) => nightsFrom(s.start, s.nights)));
+  // When none of the guest's own rooms is free that week, another free room is
+  // offered (host, 2026-10-07: "If the room is taken, we suggest another
+  // available room") — `otherRooms`, already narrowed by the caller to rooms
+  // that hold their party. Their own rooms always come first.
+  const others = (opts.otherRooms ?? []).filter((r) => !habit.rooms.includes(r));
+  // Their nights, and the room each is in — a week they booked part of is
+  // completed in the room they already have that week, so they do not move.
+  const roomOn = new Map<string, string>();
+  for (const st of theirUpcoming) for (const n of nightsFrom(st.start, st.nights)) roomOn.set(n, st.roomId);
   const out: Proposal[] = [];
   for (const start of upcomingStarts(habit, today, weeks)) {
     if (out.length >= max) break;
     const nights = nightsFrom(start, habit.nights);
-    if (nights.some((n) => theirs.has(n))) continue;
-    const room = habit.rooms.find((r) => freeFor(r, nights, isFree));
-    if (room) out.push({ start, nights, roomId: room, usualRoom: room === habit.rooms[0] });
+    const held = nights.filter((n) => roomOn.has(n));
+    if (held.length === nights.length) continue;
+    if (held.length === 0) {
+      const room = [...habit.rooms, ...others].find((r) => freeFor(r, nights, isFree));
+      if (room) out.push({ start, nights, roomId: room, usualRoom: room === habit.rooms[0] });
+      continue;
+    }
+    // Part of the week is booked: offer the nights left — one proposal per run
+    // of them — rather than skipping the week (host, 2026-10-07: "if the guest
+    // booked just a night in the pattern of 2 nights … give them some
+    // suggestions for the remaining night").
+    const theirRoom = roomOn.get(held[0])!;
+    const order = [theirRoom, ...habit.rooms.filter((r) => r !== theirRoom), ...others.filter((r) => r !== theirRoom)];
+    for (const run of runs(nights.filter((n) => !roomOn.has(n)))) {
+      if (out.length >= max) break;
+      const room = order.find((r) => freeFor(r, run, isFree));
+      if (room) {
+        out.push({
+          start: run[0],
+          nights: run,
+          roomId: room,
+          usualRoom: room === habit.rooms[0],
+          completes: held.map(weekdayOf),
+        });
+      }
+    }
   }
   return out;
 };
@@ -166,11 +215,11 @@ export const proposalsForAll = (
   today: Date,
   isFree: (roomId: string, night: string) => boolean | null,
   theirUpcoming: PastStay[],
-  opts: { weeks?: number; max?: number } = {},
+  opts: { weeks?: number; max?: number; otherRooms?: string[] } = {},
 ): Proposal[] => {
   const max = opts.max ?? 3;
   const all = habits
-    .flatMap((h) => proposalsFor(h, today, isFree, theirUpcoming, { weeks: opts.weeks, max }))
+    .flatMap((h) => proposalsFor(h, today, isFree, theirUpcoming, { weeks: opts.weeks, max, otherRooms: opts.otherRooms }))
     .sort((a, b) => a.start.localeCompare(b.start));
   const taken = new Set<string>();
   const out: Proposal[] = [];
@@ -212,6 +261,7 @@ export const seriesFor = (
   isFree: (roomId: string, night: string) => boolean | null,
   theirStays: PastStay[],
   monthsAhead = MONTHS_AHEAD,
+  otherRooms: string[] = [],
 ): Series => {
   const todayKey = key(today);
   const ahead = theirStays.filter((s) => s.start >= todayKey);
@@ -222,7 +272,7 @@ export const seriesFor = (
   // End of the month `monthsAhead` past: "Feb, March, April", whole months.
   const until = key(new Date(from.getFullYear(), from.getMonth() + monthsAhead + 1, 0));
   const weeks = Math.ceil(differenceInCalendarDays(parseISO(until), today) / 7) + 1;
-  const proposals = proposalsForAll(habits, today, isFree, ahead, { weeks, max: Infinity }).filter(
+  const proposals = proposalsForAll(habits, today, isFree, ahead, { weeks, max: Infinity, otherRooms }).filter(
     (p) => p.nights[p.nights.length - 1] <= until,
   );
   return { lastBooked, until, proposals };

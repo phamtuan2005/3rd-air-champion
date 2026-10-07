@@ -61,11 +61,16 @@ describe("proposalsFor and fillRate", () => {
     expect(out[1].nights).toEqual(["2026-10-19", "2026-10-20"]);
   });
 
-  it("skips a week the guest already has a stay in, and never a room they have not used", () => {
+  it("skips a week the guest already has a stay in, and offers another free room only when given one", () => {
     const out = proposalsFor(h, today, isFree, [stay("2026-10-19", 2, "king")], { max: 2 });
     expect(out.map((p) => p.start)).toEqual(["2026-10-12", "2026-10-26"]);
     const onlyQueenFree = (room: string) => room === "queen";
+    // Without other rooms to offer, nothing; with Queen among them (it holds the
+    // party), Queen — the host's rule since 2026-10-07: a taken room means
+    // another available room, not a missing week.
     expect(proposalsFor(h, today, onlyQueenFree, [], {})).toEqual([]);
+    const withQueen = proposalsFor(h, today, onlyQueenFree, [], { max: 1, otherRooms: ["queen"] });
+    expect(withQueen[0]).toMatchObject({ roomId: "queen", usualRoom: false });
   });
 
   it("never treats a night it cannot see as free", () => {
@@ -129,5 +134,34 @@ describe("seriesFor — regulars book months ahead", () => {
     expect(s.until).toBe("2026-11-30");
     expect(s.proposals.map((p) => p.start)).not.toContain("2026-10-19");
     expect(s.proposals[0].start).toBe("2026-10-12");
+  });
+});
+
+describe("a week booked only in part", () => {
+  // Tuesday and Wednesday nights, Chill first.
+  const h = { startWeekday: 2, nights: 2, rooms: ["chill", "cute"], times: 3 };
+
+  it("offers the night left, in the room they already have that week", () => {
+    // They hold Tuesday Oct 13 in Cute (not their usual): Wednesday comes in Cute too.
+    const out = proposalsFor(h, today, () => true, [stay("2026-10-13", 1, "cute")], { weeks: 1, max: 3 });
+    expect(out).toEqual([
+      { start: "2026-10-14", nights: ["2026-10-14"], roomId: "cute", usualRoom: false, completes: [2] },
+    ]);
+  });
+
+  it("moves to another of their rooms only when that room is taken", () => {
+    const cuteTakenWed = (room: string, night: string) => !(room === "cute" && night === "2026-10-14");
+    const out = proposalsFor(h, today, cuteTakenWed, [stay("2026-10-13", 1, "cute")], { weeks: 1 });
+    expect(out[0]).toMatchObject({ nights: ["2026-10-14"], roomId: "chill", completes: [2] });
+  });
+
+  it("offers the nights either side of a held middle as separate stays", () => {
+    const monThu = { startWeekday: 1, nights: 4, rooms: ["king"], times: 3 };
+    const out = proposalsFor(monThu, today, () => true, [stay("2026-10-13", 2, "king")], { weeks: 1, max: 5 });
+    expect(out.map((p) => p.nights)).toEqual([["2026-10-12"], ["2026-10-15"]]);
+  });
+
+  it("still skips a week they hold in full", () => {
+    expect(proposalsFor(h, today, () => true, [stay("2026-10-13", 2, "chill")], { weeks: 1 })).toEqual([]);
   });
 });
