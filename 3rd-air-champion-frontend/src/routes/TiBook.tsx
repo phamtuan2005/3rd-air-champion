@@ -836,6 +836,12 @@ const TiBookInner = () => {
   // guest (Not now, a tap outside, or picking a stay).
   const [usualOpen, setUsualOpen] = useState(false);
   const usualShown = useRef(false);
+  // The phone TiBook already knew when this visit began. A guest who gives
+  // their phone DURING the visit has just introduced themselves, and is greeted
+  // with the proposal whatever an earlier "Not now" said — the snooze is for a
+  // guest who merely opens TiBook again (host, 2026-10-07: after entering the
+  // phone only the header button showed, "I want to pop it up by default").
+  const phoneAtStart = useRef(guestPhone);
   const usualStay = useMemo(() => {
     if (!isKnownVisitor || guestBookings.length === 0) return null;
     const today = startOfToday();
@@ -878,15 +884,17 @@ const TiBookInner = () => {
   // phone consent, so two popups never stack. It waits for them to close.
   useEffect(() => {
     if (!usualStay || usualShown.current) return;
-    // Shut for a week after "Not now", unless what is on offer has changed.
-    if (isSnoozed(usualStay.signature)) return;
+    // Shut for a week after "Not now", unless what is on offer has changed —
+    // or the guest has just given their phone this visit.
+    const justIdentified = guestPhone.trim() !== "" && guestPhone !== phoneAtStart.current;
+    if (!justIdentified && isSnoozed(usualStay.signature)) return;
     if (
       isBookingModalOpen || myBookingsOpen || chatOpen || askTTOpen || statsOpen ||
       reservedPopupOpen || stayPopupId || heroGalleryRoom || pendingConsentPhone
     ) return;
     usualShown.current = true;
     setUsualOpen(true);
-  }, [usualStay, isBookingModalOpen, myBookingsOpen, chatOpen, askTTOpen, statsOpen, reservedPopupOpen, stayPopupId, heroGalleryRoom, pendingConsentPhone]);
+  }, [usualStay, guestPhone, isBookingModalOpen, myBookingsOpen, chatOpen, askTTOpen, statsOpen, reservedPopupOpen, stayPopupId, heroGalleryRoom, pendingConsentPhone]);
 
   // Many stays at once, each in its own room, into the request — the guest
   // reads them all in Review Request and sends them; each goes to the host as
