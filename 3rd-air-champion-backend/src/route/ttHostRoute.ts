@@ -370,9 +370,10 @@ router.delete("/reviews/split/:roomId", (req: Request, res: any) => {
 router.get("/reviews/stats", async (req: Request, res: any) => {
   const hostId = hostOf(req);
   try {
-    const [entries, rooms]: [any[], any[]] = await Promise.all([
+    const [entries, rooms, reviews]: [any[], any[], any] = await Promise.all([
       TTReviewEntry.find({ host: hostId }).lean() as any,
       Room.find({ host: hostId }, { name: 1 }).lean() as any,
+      TTReviews.findOne({ host: hostId }, { published: 1 }).lean(),
     ]);
     const nameOf = new Map(rooms.map((r) => [String(r._id), String(r.name ?? "")]));
     const rows: ReviewRow[] = entries.map((e) => ({
@@ -427,6 +428,15 @@ router.get("/reviews/stats", async (req: Request, res: any) => {
       rooms: roomAverages(rows),
       low: lowOut,
       topic: req.query.topic ? topicMentions(rows, String(req.query.topic)) : null,
+      // What TiBook's TT tells guests, word for word — so the host reads in TiMag
+      // exactly what a guest is shown. Already written and published; no model.
+      published: {
+        house: reviews?.published?.house ?? "",
+        rooms: (reviews?.published?.rooms ?? [])
+          .filter((r: any) => String(r.summary ?? "").trim())
+          .map((r: any) => ({ room: String(r.room), name: nameOf.get(String(r.room)) ?? "a room", summary: String(r.summary) })),
+        at: reviews?.published?.at ?? null,
+      },
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

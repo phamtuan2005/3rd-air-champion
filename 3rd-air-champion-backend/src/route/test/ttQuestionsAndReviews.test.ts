@@ -470,6 +470,14 @@ describe("review summaries", () => {
     // queen's August cleaning is not King's.
     expect(JSON.stringify(res.body.low)).not.toContain("review 4");
     expect(res.body.topic.rooms).toEqual([{ room: king, name: "King", count: 1 }]);
+    // Nothing published yet: empty, not missing.
+    expect(res.body.published).toMatchObject({ house: "", rooms: [] });
+
+    // Once published, the same words TiBook's TT shows a guest.
+    await TTReviews.create({ host, published: { house: "Guests love it.", rooms: [{ room: king, summary: "Big bed." }, { room: queen, summary: "" }], at: new Date() } });
+    const after = await request(signedInAs({ hostId: host, role: "Host" })).get("/tt-host/reviews/stats");
+    expect(after.body.published.house).toBe("Guests love it.");
+    expect(after.body.published.rooms).toEqual([{ room: king, name: "King", summary: "Big bed." }]);
   });
 
   it("says no lead when a low review has no date, and never reads another host's reviews", async () => {
