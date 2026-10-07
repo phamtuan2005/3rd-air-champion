@@ -229,6 +229,8 @@ export interface ReviewStats {
     rooms: { room: string; name: string; count: number }[];
     snippets: { roomName: string; guestName: string; stars: number | null; snippet: string }[];
   } | null;
+  // What TiBook's TT tells guests, as published.
+  published: { house: string; rooms: { room: string; name: string; summary: string }[]; at: string | null };
 }
 
 export const fetchReviewStats = async (topic?: string | null): Promise<ReviewStats> =>

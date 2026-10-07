@@ -484,6 +484,31 @@ const CalendarFilterPicker = ({
                     {reviewStats && reviewStats.total === 0 && (
                       <p className="text-gray-500">No reviews are on record yet. Add them under Guest reviews.</p>
                     )}
+                    {/* What TiBook's TT tells a guest who asks, word for word — the
+                        room's summary when a room is named, else the house's.
+                        The host reads exactly what guests are shown. */}
+                    {reviewStats &&
+                      (() => {
+                        const named = reviewStats.published.rooms.find((r) =>
+                          new RegExp(`\\b${r.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(q),
+                        );
+                        const text = named ? named.summary : reviewStats.published.house;
+                        if (!text.trim()) {
+                          return (
+                            <p className="mb-2 text-gray-500">
+                              Nothing published for guests yet. Draft and publish under Guest reviews.
+                            </p>
+                          );
+                        }
+                        return (
+                          <div className="mb-2 rounded-lg bg-gray-50 px-3 py-2">
+                            <p className="font-semibold text-gray-900">
+                              What guests say about {named ? named.name : "TT House"}:
+                            </p>
+                            <p className="mt-0.5 whitespace-pre-line leading-relaxed text-gray-700">{text}</p>
+                          </div>
+                        );
+                      })()}
                     {reviewStats && reviewStats.total > 0 && (
                       <>
                         <p className="font-semibold text-gray-900">
