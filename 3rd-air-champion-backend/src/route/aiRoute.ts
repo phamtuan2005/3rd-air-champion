@@ -5,6 +5,8 @@ import Host from "../model/hostSchema";
 import Day from "../model/daySchema";
 import Room from "../model/roomSchema";
 import Guest from "../model/guestSchema";
+import TTReviewSource from "../model/ttReviewSourceSchema";
+import { lookupReviews } from "../util/reviewLookup";
 import { dayKey } from "../util/arrivingGuests";
 import { findAssignments } from "../util/assignmentQuery";
 import { loadCleaningDays } from "../util/cleaningDays";
@@ -260,7 +262,44 @@ const buildTools = (hostId: string) => {
     },
   });
 
-  return [getCalendar, getRooms, getGuests, getCleanings];
+  const getReviews = betaTool({
+    name: "get_reviews",
+    description:
+      "The AirBnB reviews the host has kept on file, one file per room: what past guests " +
+      "wrote about the room, the house and the cleanliness. Give 'search' (a word like " +
+      "'clean', 'noise', 'bed') to get the passages around it, or leave it out to read the " +
+      "top of the file, where the newest reviews are. Always tells you how much of the file " +
+      "you did NOT see. A room with no file has no reviews on record.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        room: { type: "string", description: "Optional room name, or part of it. Blank = every room." },
+        search: { type: "string", description: "Optional word or phrase to find in the reviews" },
+      },
+      additionalProperties: false,
+    },
+    run: async (input: any) => {
+      const [sources, rooms]: [any[], any[]] = await Promise.all([
+        TTReviewSource.find({ host: hostId }).lean() as any,
+        Room.find({ host: hostId }).select("name") as any,
+      ]);
+      const nameOf = new Map(rooms.map((r) => [String(r._id), r.name ?? ""]));
+      const files = sources.map((f) => ({
+        room: nameOf.get(String(f.room)) ?? "a room",
+        name: f.name ?? "",
+        chars: f.chars ?? 0,
+        savedAt: f.updatedAt ?? null,
+        text: String(f.text ?? ""),
+      }));
+      if (files.length === 0) {
+        return JSON.stringify({ note: "No review files are on record yet. The host adds them in TiMag under Money > Guest reviews." });
+      }
+      const out = lookupReviews(files, { room: input?.room, search: input?.search });
+      return JSON.stringify(out.length ? { reviews: out } : { note: "No review file matches that room." });
+    },
+  });
+
+  return [getCalendar, getRooms, getGuests, getCleanings, getReviews];
 };
 
 const systemPrompt = (today: string) =>
@@ -273,7 +312,7 @@ const systemPrompt = (today: string) =>
     "",
     "HOW TO ANSWER",
     "- Look things up before answering. You have read-only tools over the real",
-    "  calendar, rooms, guests and cleanings. Never estimate a number you could",
+    "  calendar, rooms, guests, cleanings and reviews. Never estimate a number you could",
     "  have fetched, and never invent a guest, room or booking.",
     "- Be brief. The host reads this on a phone, often between other tasks.",
     "- Give the answer first, then the detail that supports it.",
@@ -288,6 +327,14 @@ const systemPrompt = (today: string) =>
     "    - King, 2 guests, $180, arrives today",
     "  Put the room first — it is what the host scans for.",
     "- Write dates the way a person says them: 'Fri 21 Aug', not '2026-08-21'.",
+    "",
+    "REVIEWS",
+    "- get_reviews reads what past guests wrote on AirBnB. A review gives a MONTH, not",
+    "  the night, and is one person's opinion. Say what the reviews say and how many",
+    "  mention it, from the tool's own counts; never blame or praise a named cleaner",
+    "  as fact. If the host asks who was responsible for a complaint, use",
+    "  get_cleanings for that room around that month, name who cleaned it, and say",
+    "  plainly that it is a lead and not proof.",
     "",
     "WHAT YOU MUST NOT DO",
     "- You cannot change anything: no booking, unbooking, pricing or messaging.",

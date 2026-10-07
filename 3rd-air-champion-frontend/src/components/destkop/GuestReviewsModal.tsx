@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
-import { fetchReviewsState, publishReviews, ReviewsState, startReviewDraft } from "../../util/ttQuestionLog";
+import { deleteReviewSource, fetchReviewsState, publishReviews, ReviewsState, startReviewDraft } from "../../util/ttQuestionLog";
 import { uploadPasteText } from "../../util/pasteParts";
 
 // What guests say, for TiBook's TT to tell the next guest.
@@ -28,10 +28,7 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
   const [error, setError] = useState("");
   const [pasted, setPasted] = useState<Record<string, string>>({});
   const [pasteRoomId, setPasteRoomId] = useState("");
-  // A room whose reviews came from a file. The text is NOT loaded into the box
-  // (a few hundred kilobytes in a textarea freezes it); it is sent to the server
-  // as soon as the file is chosen, and only its name and size are kept here.
-  const [files, setFiles] = useState<Record<string, { name: string; chars: number; uploadId: string }>>({});
+  // Sending a file or paste to the server, in parts: what and how far.
   const [progress, setProgress] = useState<{ label: string; pct: number } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const [edit, setEdit] = useState<Edit>({ house: "", rooms: {} });
@@ -72,10 +69,18 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
   // The tab showing; the first room until one is picked.
   const pasteRoom = rooms.find((r) => r.roomId === pasteRoomId) ?? rooms[0];
 
+  // The review file KEPT on the server for each room (name, size, date).
+  const sources = Object.fromEntries((state?.sources ?? []).map((x) => [x.roomId, x]));
+
   // A saved text file instead of a paste. The browser reads it and sends it to
   // the server at once, in small parts (CloudFront refuses any request of 8 KB or
-  // more — see util/pasteParts), WITHOUT putting it in the paste box. The server
-  // keeps it in memory only until the draft starts: the pasted text isn't kept.
+  // more — see util/pasteParts), WITHOUT putting it in the paste box. When the
+  // last part lands the server KEEPS it as this room's review file, replacing the
+  // last: the host wants the reviews on file, to be read again and counted later.
+  const send = async (roomId: string, text: string, name: string) => {
+    await uploadPasteText(roomId, text, name, (done, total) => setProgress({ label: `Sending ${name}`, pct: Math.round((done / total) * 100) }));
+  };
+
   const loadFile = async (roomId: string, file: File | undefined) => {
     if (!file) return;
     setNote("");
@@ -92,10 +97,8 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
     }
     setBusy(true);
     try {
-      const uploadId = await uploadPasteText(roomId, text, (done, total) =>
-        setProgress({ label: `Sending ${file.name}`, pct: Math.round((done / total) * 100) }),
-      );
-      setFiles((f) => ({ ...f, [roomId]: { name: file.name, chars: text.length, uploadId } }));
+      await send(roomId, text, file.name);
+      load();
     } catch (e: any) {
       setNote(e?.response?.data?.error ?? "The file didn't go through. Check the connection and try again.");
     } finally {
@@ -104,39 +107,39 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
     }
   };
 
-  // Pasted text longer than this travels in parts too, exactly as a file does.
-  const INLINE_MAX = 3000;
+  const removeFile = async (roomId: string) => {
+    setNote("");
+    try {
+      await deleteReviewSource(roomId);
+      load();
+    } catch {
+      setNote("That didn't come off. Try again.");
+    }
+  };
 
   const draft = async () => {
     setNote("");
     setBusy(true);
     try {
-      const entries: { roomId: string; text?: string; uploadId?: string }[] = [];
+      // Text typed or pasted into a box is sent and kept first, the same way a
+      // file is; then the draft reads every room that has reviews on file.
+      const ids: string[] = [];
       for (const r of rooms) {
-        const file = files[r.roomId];
         const text = pasted[r.roomId] ?? "";
-        if (file) {
-          entries.push({ roomId: r.roomId, uploadId: file.uploadId });
-        } else if (text.length > INLINE_MAX) {
-          const uploadId = await uploadPasteText(r.roomId, text, (done, total) =>
-            setProgress({ label: `Sending ${r.name}`, pct: Math.round((done / total) * 100) }),
-          );
-          entries.push({ roomId: r.roomId, uploadId });
-        } else if (text.trim()) {
-          entries.push({ roomId: r.roomId, text });
+        if (text.trim()) {
+          await send(r.roomId, text, "Pasted text");
+          ids.push(r.roomId);
+        } else if (sources[r.roomId]) {
+          ids.push(r.roomId);
         }
       }
-      // Whole, however long: a paste is never cut for the host. The server says
-      // so, in words, if it is more than Claude can read at once.
-      await startReviewDraft(entries);
-      setFiles({});
+      // Whole, however long: nothing is cut for the host. The server says so, in
+      // words, if it is more than Claude can read at once.
+      await startReviewDraft(ids);
+      setPasted({});
       load();
     } catch (e: any) {
-      const said = e?.response?.data?.error;
-      setNote(said ?? "The draft didn't start. Check the connection and try again.");
-      // An upload the server lost (it keeps one for half an hour, in memory) has
-      // to be chosen again; leaving it listed would fail the same way every time.
-      if (typeof said === "string" && /upload/i.test(said)) setFiles({});
+      setNote(e?.response?.data?.error ?? "The draft didn't start. Check the connection and try again.");
     } finally {
       setProgress(null);
       setBusy(false);
@@ -153,8 +156,6 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
       });
       loadedDraft.current = null;
       apply(s);
-      setPasted({});
-      setFiles({});
       setNote("Published. Guests asking TT “What guests say” now read this.");
     } catch (e: any) {
       setNote(e?.response?.data?.error ?? "That didn't publish. Try again.");
@@ -163,7 +164,7 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
     }
   };
 
-  const anyPasted = rooms.some((r) => files[r.roomId] || (pasted[r.roomId] ?? "").trim());
+  const anyPasted = rooms.some((r) => sources[r.roomId] || (pasted[r.roomId] ?? "").trim());
   const showingDraft = state?.draft.status === "ready";
 
   return (
@@ -210,14 +211,14 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
                 <h3 className="text-sm font-bold text-gray-900">1 · Paste the reviews</h3>
                 <p className="mt-0.5 text-xs text-gray-500">
                   Open each room's listing, show all reviews, select them and paste here. Leave a room empty to skip
-                  it. The pasted text isn't kept — only the summaries you publish.
+                  it. Each room's reviews are kept on file here, for you only — guests never see them, only the summaries you publish. A new file for a room replaces the last.
                 </p>
                 {/* One room at a time, chosen by tab. Five paste boxes stacked
                     meant scrolling past four long pastes to reach the fifth, and
                     a tick on the tab shows which rooms already have reviews in. */}
                 <div role="tablist" className="mt-3 flex flex-wrap gap-1.5">
                   {rooms.map((r) => {
-                    const has = !!files[r.roomId] || (pasted[r.roomId] ?? "").trim().length > 0;
+                    const has = !!sources[r.roomId] || (pasted[r.roomId] ?? "").trim().length > 0;
                     const on = r.roomId === pasteRoom?.roomId;
                     return (
                       <button
@@ -274,26 +275,23 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
                         </a>
                       )}
                     </div>
-                    {files[pasteRoom.roomId] ? (
-                      // The file is on the server already; only its name and size
-                      // are shown. Putting hundreds of kilobytes in a textarea
+                    {sources[pasteRoom.roomId] ? (
+                      // The file is on the server already; only its name, size and
+                      // date are shown. Putting hundreds of kilobytes in a textarea
                       // would freeze it, and there is nothing to edit in it.
                       <div className="flex items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-gray-900">📄 {files[pasteRoom.roomId].name}</p>
+                          <p className="truncate text-sm font-semibold text-gray-900">📄 {sources[pasteRoom.roomId].name}</p>
                           <p className="text-xs text-gray-600">
-                            {files[pasteRoom.roomId].chars.toLocaleString()} characters · received ✓
+                            {sources[pasteRoom.roomId].chars.toLocaleString()} characters · kept on file
+                            {sources[pasteRoom.roomId].savedAt ? ` · ${format(parseISO(sources[pasteRoom.roomId].savedAt!), "MMM d, h:mm a")}` : ""}
                           </p>
                         </div>
                         <button
                           type="button"
-                          onClick={() =>
-                            setFiles((f) => {
-                              const { [pasteRoom.roomId]: _gone, ...rest } = f;
-                              return rest;
-                            })
-                          }
-                          className="shrink-0 rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                          onClick={() => removeFile(pasteRoom.roomId)}
+                          disabled={busy}
+                          className="shrink-0 rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40"
                         >
                           Remove
                         </button>

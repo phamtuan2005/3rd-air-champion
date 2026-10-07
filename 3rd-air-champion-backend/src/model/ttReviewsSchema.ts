@@ -10,9 +10,11 @@ import mongoose from "mongoose";
 // host's to throw away. That keeps the promise TiBook's TT makes (askTT.ts):
 // it never says anything the house did not say.
 //
-// The pasted review text is not kept. It names the reviewers, and a summary is
-// all a guest is shown; the next draft starts from a fresh paste, which is also
-// the newest set of reviews.
+// The review text itself IS kept, in ttReviewSourceSchema (changed 2026-10-06 at
+// the host's request: the reviews are the evidence for how well each room is
+// kept, to be counted later). It names the reviewers, so it stays out of this
+// document and out of every guest-facing route; a summary is all a guest is
+// shown.
 const summarySet = {
   house: { type: String, default: "" },
   rooms: [

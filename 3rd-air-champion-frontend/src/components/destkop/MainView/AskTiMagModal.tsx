@@ -18,6 +18,7 @@ const TOOL_WORDS: Record<string, string> = {
   get_rooms: "checking the rooms",
   get_guests: "looking up guests",
   get_cleanings: "checking the cleaning rota",
+  get_reviews: "reading the guest reviews",
 };
 
 // Openers, so the first use is not a blank box. Chosen to show what it can
@@ -28,6 +29,7 @@ const STARTERS = [
   "What am I owed right now, and by whom?",
   "Who is arriving tonight and how many guests?",
   "Which cleanings still have no hours recorded?",
+  "What do guests say about the cleanliness?",
 ];
 
 /**
