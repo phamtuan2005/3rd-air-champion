@@ -1074,7 +1074,8 @@ const TiWork = () => {
                   <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
                     <span className="w-16 shrink-0">Paid</span>
                     <span className="flex-1">Earning</span>
-                    <span className="w-20 shrink-0 text-right">Tip</span>
+                    <span className="w-14 shrink-0 text-right">Tip</span>
+                    <span className="w-20 shrink-0 text-right">Total</span>
                   </div>
                   {(() => {
                     const byDay = new Map<string, typeof payments>();
@@ -1088,6 +1089,9 @@ const TiWork = () => {
                       .sort(([x], [y]) => y.localeCompare(x))
                       .map(([paidOn, list]) => {
                         const notes = list.map((p) => p.note).filter(Boolean).join(" · ");
+                        // What was handed over that day — earning and tip together,
+                        // the one figure a cleaner counts in their hand (2026-10-07).
+                        const total = list.reduce((n, p) => n + p.amount, 0);
                         return (
                           <div key={paidOn} className="flex items-center gap-2 py-0.5 text-sm">
                             <span className="w-16 shrink-0 text-gray-600">{format(parseISO(paidOn), "EEE M/d")}</span>
@@ -1095,8 +1099,11 @@ const TiWork = () => {
                               {list.filter((p) => !p.tip).map(amount)}
                               {notes && <span className="truncate text-xs font-normal text-gray-400">{notes}</span>}
                             </span>
-                            <span className="flex w-20 shrink-0 flex-wrap items-center justify-end gap-x-2 text-violet-700">
+                            <span className="flex w-14 shrink-0 flex-wrap items-center justify-end gap-x-2 text-violet-700">
                               {list.filter((p) => p.tip).map(amount)}
+                            </span>
+                            <span className="w-20 shrink-0 text-right font-bold text-gray-900">
+                              {total < 0 ? "−" : ""}${Math.abs(total).toFixed(2)}
                             </span>
                           </div>
                         );

@@ -3726,7 +3726,8 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                       <div className="mb-1 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wide text-gray-400">
                         <span className="w-14 shrink-0">Paid</span>
                         <span className="flex-1">Earning</span>
-                        <span className="w-20 shrink-0">Tip</span>
+                        <span className="w-16 shrink-0">Tip</span>
+                        <span className="w-20 shrink-0 text-right">Total</span>
                       </div>
                       {/* One line per day paid, wages and tip side by side —
                           the same shape Staffing's Payroll took on 2026-10-01
@@ -3765,8 +3766,13 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                                   heading. A tip and a payout look the same in
                                   a list of amounts, and they mean opposite
                                   things for what is still owed. */}
-                              <span className="flex w-20 shrink-0 flex-wrap items-center gap-x-2 text-violet-700">
+                              <span className="flex w-16 shrink-0 flex-wrap items-center gap-x-2 text-violet-700">
                                 {list!.filter((p) => p.tip).map(amount)}
+                              </span>
+                              {/* The lump handed over — what Cindy paid out and
+                                  what TiWork shows the cleaner as their Total. */}
+                              <span className="w-20 shrink-0 text-right text-sm font-bold text-gray-900">
+                                {earning + tip < 0 ? "−" : ""}${money(Math.abs(earning + tip))}
                               </span>
                             </div>
                             </SwipeToDelete>
