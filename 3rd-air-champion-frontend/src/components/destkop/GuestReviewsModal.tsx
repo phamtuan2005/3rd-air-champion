@@ -135,31 +135,18 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
     }
   };
 
+  // Drafts from the individual reviews on record, every room that has some —
+  // the house's one record of what guests said. Nothing is sent: it is all on
+  // the server already.
   const draft = async () => {
     setNote("");
     setBusy(true);
     try {
-      // Text typed or pasted into a box is sent and kept first, the same way a
-      // file is; then the draft reads every room that has reviews on file.
-      const ids: string[] = [];
-      for (const r of rooms) {
-        const text = pasted[r.roomId] ?? "";
-        if (text.trim()) {
-          await send(r.roomId, text, "Pasted text");
-          ids.push(r.roomId);
-        } else if (sources[r.roomId]) {
-          ids.push(r.roomId);
-        }
-      }
-      // Whole, however long: nothing is cut for the host. The server says so, in
-      // words, if it is more than Claude can read at once.
-      await startReviewDraft(ids);
-      setPasted({});
+      await startReviewDraft(rooms.map((r) => r.roomId));
       load();
     } catch (e: any) {
       setNote(e?.response?.data?.error ?? "The draft didn't start. Check the connection and try again.");
     } finally {
-      setProgress(null);
       setBusy(false);
     }
   };
@@ -182,7 +169,8 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
     }
   };
 
-  const anyPasted = rooms.some((r) => sources[r.roomId] || (pasted[r.roomId] ?? "").trim());
+  const onRecord = (state?.onRecord ?? []).reduce((n, r) => n + r.count, 0);
+  const anyPasted = onRecord > 0;
   const showingDraft = state?.draft.status === "ready";
 
   return (
@@ -229,7 +217,7 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
                 <h3 className="text-sm font-bold text-gray-900">1 · Paste the reviews</h3>
                 <p className="mt-0.5 text-xs text-gray-500">
                   Open each room's listing, show all reviews, select them and paste here. Leave a room empty to skip
-                  it. Each room's reviews are kept on file here, for you only — guests never see them, only the summaries you publish. A new file for a room replaces the last.
+                  it. Paste a room's whole page of reviews, or choose a file, then Split: each review is kept on its own record, for you only — guests see only the summaries you publish. The page itself is cleared once its reviews are added.
                 </p>
                 {/* One room at a time, chosen by tab. Five paste boxes stacked
                     meant scrolling past four long pastes to reach the fifth, and
@@ -301,7 +289,7 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold text-gray-900">📄 {sources[pasteRoom.roomId].name}</p>
                           <p className="text-xs text-gray-600">
-                            {sources[pasteRoom.roomId].chars.toLocaleString()} characters · kept on file
+                            {sources[pasteRoom.roomId].chars.toLocaleString()} characters · ready to split
                             {sources[pasteRoom.roomId].savedAt ? ` · ${format(parseISO(sources[pasteRoom.roomId].savedAt!), "MMM d, h:mm a")}` : ""}
                           </p>
                         </div>

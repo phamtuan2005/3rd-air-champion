@@ -5,9 +5,9 @@ import Host from "../model/hostSchema";
 import Day from "../model/daySchema";
 import Room from "../model/roomSchema";
 import Guest from "../model/guestSchema";
-import TTReviewSource from "../model/ttReviewSourceSchema";
 import TTReviewEntry from "../model/ttReviewEntrySchema";
 import { lookupReviews } from "../util/reviewLookup";
+import { roomTextsFromEntries } from "../util/reviewEntries";
 import { dayKey } from "../util/arrivingGuests";
 import { findAssignments } from "../util/assignmentQuery";
 import { loadCleaningDays } from "../util/cleaningDays";
@@ -266,11 +266,11 @@ const buildTools = (hostId: string) => {
   const getReviews = betaTool({
     name: "get_reviews",
     description:
-      "The AirBnB reviews the host has kept on file, one file per room: what past guests " +
+      "The AirBnB reviews on record, per room: what past guests " +
       "wrote about the room, the house and the cleanliness. Give 'search' (a word like " +
       "'clean', 'noise', 'bed') to get the passages around it, or leave it out to read the " +
       "top of the file, where the newest reviews are. Always tells you how much of the file " +
-      "you did NOT see. A room with no file has no reviews on record.",
+      "you did NOT see. A room with nothing returned has no reviews on record.",
     inputSchema: {
       type: "object",
       properties: {
@@ -280,23 +280,25 @@ const buildTools = (hostId: string) => {
       additionalProperties: false,
     },
     run: async (input: any) => {
-      const [sources, rooms]: [any[], any[]] = await Promise.all([
-        TTReviewSource.find({ host: hostId }).lean() as any,
+      // The individual reviews on record, read as each room's text — the same
+      // record the counts and averages come from.
+      const [texts, rooms]: [Map<string, string>, any[]] = await Promise.all([
+        roomTextsFromEntries(String(hostId)),
         Room.find({ host: hostId }).select("name") as any,
       ]);
       const nameOf = new Map(rooms.map((r) => [String(r._id), r.name ?? ""]));
-      const files = sources.map((f) => ({
-        room: nameOf.get(String(f.room)) ?? "a room",
-        name: f.name ?? "",
-        chars: f.chars ?? 0,
-        savedAt: f.updatedAt ?? null,
-        text: String(f.text ?? ""),
+      const files = [...texts].map(([room, text]) => ({
+        room: nameOf.get(room) ?? "a room",
+        name: "reviews on record",
+        chars: text.length,
+        savedAt: null,
+        text,
       }));
       if (files.length === 0) {
-        return JSON.stringify({ note: "No review files are on record yet. The host adds them in TiMag under Money > Guest reviews." });
+        return JSON.stringify({ note: "No reviews are on record yet. The host adds them in TiMag under Money > Guest reviews." });
       }
       const out = lookupReviews(files, { room: input?.room, search: input?.search });
-      return JSON.stringify(out.length ? { reviews: out } : { note: "No review file matches that room." });
+      return JSON.stringify(out.length ? { reviews: out } : { note: "No room by that name has reviews on record." });
     },
   });
 

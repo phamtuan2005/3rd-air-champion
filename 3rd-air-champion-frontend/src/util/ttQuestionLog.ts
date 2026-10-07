@@ -122,6 +122,8 @@ export interface ReviewsState {
   // The review files kept on the server, one per room — name, size and date,
   // never the text.
   sources?: { roomId: string; name: string; chars: number; savedAt: string | null }[];
+  // How many individual reviews each room has on record — what a draft reads.
+  onRecord?: { roomId: string; count: number }[];
 }
 
 const asReviewsState = (data: any): ReviewsState => {
