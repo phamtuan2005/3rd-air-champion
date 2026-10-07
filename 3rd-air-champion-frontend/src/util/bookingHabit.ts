@@ -139,6 +139,8 @@ export interface Proposal {
    * can say which stay this joins.
    */
   completes?: number[];
+  /** For `completes`: the room the rest of that week is booked in. */
+  theirRoom?: string;
 }
 
 // Splits nights (in order) into runs of consecutive ones.
@@ -202,6 +204,7 @@ export const proposalsFor = (
           roomId: room,
           usualRoom: room === habit.rooms[0],
           completes: held.map(weekdayOf),
+          theirRoom,
         });
       }
     }

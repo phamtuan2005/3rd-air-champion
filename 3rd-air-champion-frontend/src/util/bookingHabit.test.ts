@@ -145,14 +145,14 @@ describe("a week booked only in part", () => {
     // They hold Tuesday Oct 13 in Cute (not their usual): Wednesday comes in Cute too.
     const out = proposalsFor(h, today, () => true, [stay("2026-10-13", 1, "cute")], { weeks: 1, max: 3 });
     expect(out).toEqual([
-      { start: "2026-10-14", nights: ["2026-10-14"], roomId: "cute", usualRoom: false, completes: [2] },
+      { start: "2026-10-14", nights: ["2026-10-14"], roomId: "cute", usualRoom: false, completes: [2], theirRoom: "cute" },
     ]);
   });
 
   it("moves to another of their rooms only when that room is taken", () => {
     const cuteTakenWed = (room: string, night: string) => !(room === "cute" && night === "2026-10-14");
     const out = proposalsFor(h, today, cuteTakenWed, [stay("2026-10-13", 1, "cute")], { weeks: 1 });
-    expect(out[0]).toMatchObject({ nights: ["2026-10-14"], roomId: "chill", completes: [2] });
+    expect(out[0]).toMatchObject({ nights: ["2026-10-14"], roomId: "chill", completes: [2], theirRoom: "cute" });
   });
 
   it("offers the nights either side of a held middle as separate stays", () => {

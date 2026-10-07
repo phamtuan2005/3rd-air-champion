@@ -4,6 +4,7 @@ import type { LayoutName, VibeName } from "../../contexts/TiBookThemeContext";
 import type { hostType } from "../../util/types/hostType";
 import { getLoyaltyTier } from "./GuestLoyaltyBanner";
 import { AskTTButton, onTTNudgeDone, ttNudgeActive } from "./AskTT";
+import { UsualStaysButton } from "./UsualStayCard";
 import type { TTNudge } from "./AskTT";
 
 interface NavBarDesktopProps {
@@ -15,6 +16,9 @@ interface NavBarDesktopProps {
   guestName?: string; // recognized guest → the "Your bookings" pill greets them by name
   guestStays?: number; // total stays → loyalty tier badge on the pill
   onAskTT?: () => void;
+  // The usual-stay proposal's header button, when TT has stays lined up.
+  usualCount?: number;
+  onOpenUsual?: () => void;
   ttNudge?: TTNudge | null;
 }
 
@@ -32,7 +36,7 @@ const MiniAvatar = ({ name }: { name: string }) => {
   );
 };
 
-const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false, onMyBookings, guestName, guestStays, onAskTT, ttNudge }: NavBarDesktopProps) => {
+const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false, onMyBookings, guestName, guestStays, onAskTT, ttNudge, usualCount, onOpenUsual }: NavBarDesktopProps) => {
   const { theme } = useTiBookTheme();
   const guestFirstName = guestName?.trim().split(" ")[0];
   const loyaltyTier = guestStays ? getLoyaltyTier(guestStays) : null;
@@ -71,6 +75,7 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
         </h1>
       )}
       <div className="flex items-center gap-2">
+        {usualCount && onOpenUsual ? <UsualStaysButton count={usualCount} onClick={onOpenUsual} /> : null}
         {onAskTT && <AskTTButton onClick={onAskTT} nudge={ttNudge} guestFirstName={guestFirstName} />}
         {onMyBookings && (
           <button

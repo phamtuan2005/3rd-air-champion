@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
-import { addDays, format, parseISO } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { useRoomChip, useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import type { Habit, Proposal, Series } from "../../util/bookingHabit";
+import { holidayLabel, usHolidayOn } from "../../util/usHolidays";
 
 // TiBook coming forward to a regular: "your usual, the next weeks it is open,
 // tap to request" — instead of waiting for them to find the dates themselves
@@ -45,14 +46,17 @@ export const nightsPhrase = (habits: Habit[]) => {
   return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]} nights`;
 };
 
+// The NIGHTS of a stay, month first and every day with its weekday — "Nov Tue
+// 24 – Wed 25" — matching "Tuesday and Wednesday nights" above. It used to end
+// on the check-out day ("Tue Nov 24 – 26"), and 26 read as a night slept (host,
+// 2026-10-07).
 const stayDates = (p: Proposal) => {
-  const a = parseISO(p.start);
-  const out = addDays(a, p.nights.length);
-  return p.nights.length === 1
-    ? format(a, "EEE, MMM d")
-    : a.getMonth() === out.getMonth()
-      ? `${format(a, "EEE MMM d")} – ${format(out, "d")}`
-      : `${format(a, "EEE MMM d")} – ${format(out, "MMM d")}`;
+  const first = parseISO(p.nights[0]);
+  const last = parseISO(p.nights[p.nights.length - 1]);
+  if (p.nights.length === 1) return format(first, "MMM EEE d");
+  return first.getMonth() === last.getMonth()
+    ? `${format(first, "MMM EEE d")} – ${format(last, "EEE d")}`
+    : `${format(first, "MMM EEE d")} – ${format(last, "MMM EEE d")}`;
 };
 
 const UsualStayCard = ({
@@ -217,9 +221,28 @@ const UsualStayCard = ({
           {chosen.length} stay{chosen.length === 1 ? "" : "s"}
         </button>
 
+        {/* Select all / none: one tap clears every week, one tap brings them
+            back. Shows a dash when only some are ticked. */}
+        <label className={`mt-3 flex cursor-pointer items-center gap-3 border-b px-2 pb-2 ${theme.surfaceBorder}`}>
+          <input
+            type="checkbox"
+            checked={chosen.length === proposals.length}
+            ref={(el) => {
+              if (el) el.indeterminate = chosen.length > 0 && chosen.length < proposals.length;
+            }}
+            onChange={() =>
+              setPicked(chosen.length === proposals.length ? new Set() : new Set(proposals.map((p) => p.start)))
+            }
+            className="h-5 w-5 shrink-0"
+          />
+          <span className={`text-sm font-semibold ${theme.surfaceText}`}>
+            {chosen.length === proposals.length ? "All selected" : chosen.length === 0 ? "None selected" : `${chosen.length} of ${proposals.length} selected`}
+          </span>
+        </label>
+
         {/* The weeks, by month, each with its room. A week where the usual room
             is taken offers another free room (theirs first), and says so. */}
-        <div className="mt-3">
+        <div className="mt-1">
           {proposals.map((p, i) => {
             const room = roomOf(p.roomId);
             const month = format(parseISO(p.start), "MMMM yyyy");
@@ -244,10 +267,26 @@ const UsualStayCard = ({
                   />
                   <span className={`min-w-0 flex-1 text-base ${theme.surfaceText}`}>
                     {stayDates(p)}
+                    {/* A US federal holiday on any night of the stay, said as the
+                        calendar says it — a holiday week can change the guest's
+                        plans, and they should see it before they tick it. */}
+                    {p.nights
+                      .map((n) => ({ n, h: usHolidayOn(n) }))
+                      .filter((x) => x.h)
+                      .map(({ n, h }) => (
+                        <span key={n} className={`block text-xs font-semibold ${theme.alertText}`}>
+                          • {format(parseISO(n), "EEE MMM d")} – {holidayLabel(h!)}
+                        </span>
+                      ))}
                     {p.completes ? (
-                      // A night to round off a week they booked part of.
+                      // A night to round off a week they booked part of — and,
+                      // when it cannot be in the same room, which room and why,
+                      // so a move between nights is not a surprise on the day.
                       <span className="block text-xs font-semibold text-emerald-600">
                         adds to your {[...new Set(p.completes)].map((d) => DAY[d]).join(" and ")} stay
+                        {p.theirRoom && p.theirRoom !== p.roomId && room
+                          ? ` — in ${room.name}, as ${roomOf(p.theirRoom)?.name ?? "your room"} is taken that night`
+                          : ""}
                       </span>
                     ) : (
                       !p.usualRoom &&
@@ -283,3 +322,49 @@ const UsualStayCard = ({
 };
 
 export default UsualStayCard;
+
+// ── Quiet for a week after "Not now" ────────────────────────────────────────
+//
+// It opened on every visit, which suits a guest who looks now and then and
+// nags one who checks often (host, 2026-10-07). After "Not now" it stays shut
+// on that phone for a week — unless something NEW comes up: the stays on offer
+// change (a week opens, one goes) or their room starts filling. The header
+// button opens it any time. Kept on the device only, as every per-viewer
+// convenience in TiBook is, and never trusted to exist.
+const SNOOZE_KEY = "tiBookUsualSnooze";
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+export const isSnoozed = (signature: string): boolean => {
+  try {
+    const raw = localStorage.getItem(SNOOZE_KEY);
+    if (!raw) return false;
+    const { until, sig } = JSON.parse(raw);
+    return Date.now() < Number(until) && sig === signature;
+  } catch {
+    return false;
+  }
+};
+
+export const snooze = (signature: string) => {
+  try {
+    localStorage.setItem(SNOOZE_KEY, JSON.stringify({ until: Date.now() + WEEK_MS, sig: signature }));
+  } catch {
+    // Not remembered: it opens again next visit.
+  }
+};
+
+/** The small header button that opens the proposal any time: "★ 19 stays". */
+export const UsualStaysButton = ({ count, onClick }: { count: number; onClick: () => void }) => {
+  const { theme } = useTiBookTheme();
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="Stays TT lined up for you"
+      className={`flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-sm font-bold text-white shadow-sm ${theme.btn} ${theme.btnHover}`}
+    >
+      <span aria-hidden>★</span>
+      {count} stay{count === 1 ? "" : "s"}
+    </button>
+  );
+};
