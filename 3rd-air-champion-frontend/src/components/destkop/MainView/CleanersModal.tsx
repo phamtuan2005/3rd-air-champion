@@ -3771,7 +3771,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                               </span>
                               {/* The lump handed over — what Cindy paid out and
                                   what TiWork shows the cleaner as their Total. */}
-                              <span className="w-20 shrink-0 text-right text-sm font-bold text-gray-900">
+                              <span className="w-20 shrink-0 text-right text-sm font-bold text-emerald-600">
                                 {earning + tip < 0 ? "−" : ""}${money(Math.abs(earning + tip))}
                               </span>
                             </div>
