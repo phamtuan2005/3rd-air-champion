@@ -255,6 +255,16 @@ export const datesAsked = (query: string, today: Date): { dates: string[]; past:
     return { dates: nights.map(keyOf), past: [] };
   }
   const day = q.match(/\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday|sun|mon|tues?|wed|thu(?:rs?)?|fri|sat)\b/);
+  // A weekday WITH a month — "Tuesday Jan 2027", "a Friday in March" — is that
+  // weekday in that month: every one of them still ahead, as "Jan Tuesday"
+  // already reads, so the guest picks the night. It used to be read as the
+  // weekday alone, which is the coming one: asked about a Tuesday in January
+  // 2027, TT kept offering a Tuesday in October 2026 (host, 2026-10-07).
+  const inMonth = day ? monthAsked(q, today) : null;
+  if (day && inMonth) {
+    const want = WEEKDAY_NUM[day[1]];
+    return { dates: inMonth.filter((k) => parseISO(k).getDay() === want), past: [] };
+  }
   if (day) {
     const want = WEEKDAY_NUM[day[1]];
     let ahead = (want - todayNum + 7) % 7;
