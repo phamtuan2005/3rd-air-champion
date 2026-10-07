@@ -5,7 +5,7 @@ import TTQuestion from "../model/ttQuestionSchema";
 import TTReviews from "../model/ttReviewsSchema";
 import TTReviewSource from "../model/ttReviewSourceSchema";
 import TTReviewEntry from "../model/ttReviewEntrySchema";
-import { fileBlock, MAX_ENTRY_CHARS, roomTextsFromEntries, saveEntry, withoutBlock } from "../util/reviewEntries";
+import { fileBlock, MAX_ENTRY_CHARS, newestFirst, roomTextsFromEntries, saveEntry, withoutBlock } from "../util/reviewEntries";
 import { occurrenceKey, occurrences, splitReviews, SplitReview } from "../util/reviewSplit";
 import { cleaningWindow, lowReviews, roomAverages, ReviewRow, topicMentions } from "../util/reviewStats";
 import { findAssignments } from "../util/assignmentQuery";
@@ -465,7 +465,9 @@ router.get("/reviews/stats", async (req: Request, res: any) => {
 // whole text: the screen needs to recognise a review, not reread it.
 router.get("/reviews/entries", async (req: Request, res: any) => {
   try {
-    const rows: any[] = await TTReviewEntry.find({ host: hostOf(req) }).sort({ stayDate: -1, createdAt: -1 }).limit(500).lean();
+    // Sorted here, by the review's own date (newestFirst), because most reviews
+    // carry only a month — a database sort on stayDate left them unordered.
+    const rows: any[] = (await TTReviewEntry.find({ host: hostOf(req) }).lean()).sort(newestFirst).slice(0, 2000);
     res.status(200).json({
       entries: rows.map((r) => ({
         id: String(r._id),

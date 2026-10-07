@@ -299,6 +299,18 @@ describe("review summaries", () => {
     expect(await TTReviewEntry.countDocuments({})).toBe(0);
   });
 
+  it("lists reviews newest first by their own date — a month counts, not only a stay date", async () => {
+    const host = String((await createMockHost("order@example.com"))._id);
+    const king = String((await roomFor(host, "King"))._id);
+    // Added in the page's "most relevant" order, not by time.
+    await onRecord(host, king, "a", { guestName: "Yofti", reviewMonth: "2025-10" });
+    await onRecord(host, king, "b", { guestName: "Alexander", reviewMonth: "2026-02" });
+    await onRecord(host, king, "c", { guestName: "Stay", stayDate: "2026-01-15" });
+    await onRecord(host, king, "d", { guestName: "Undated" });
+    const res = await request(signedInAs({ hostId: host, role: "Host" })).get("/tt-host/reviews/entries");
+    expect(res.body.entries.map((e: any) => e.guestName)).toEqual(["Alexander", "Stay", "Yofti", "Undated"]);
+  });
+
   it("lists the reviews on record, newest stay first, as snippets, for this host only", async () => {
     const host = String((await createMockHost("list@example.com"))._id);
     const other = String((await createMockHost("list-other@example.com"))._id);
