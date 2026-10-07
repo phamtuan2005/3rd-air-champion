@@ -841,13 +841,16 @@ const TiWork = () => {
                             "Also: Windows" line under the rooms was easy to read
                             past (the host, 2026-10-07), and a job missed on the
                             day is the very surprise this is here to prevent. */}
+                        {/* Magenta: no room is that colour (Chill is purple, Cozy
+                            blue), so an extra never reads as one more room. The
+                            host's note — where, or what exactly — sits beside it. */}
                         {(sh.extras ?? []).map((job) => (
-                          <div key={job} className="flex items-center gap-2">
-                            <span className="inline-flex items-center gap-1 rounded-md bg-violet-600 px-2 py-0.5 text-sm font-bold text-white shadow-sm">
+                          <div key={job.name} className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                            <span className="inline-flex items-center gap-1 rounded-md bg-fuchsia-600 px-2 py-0.5 text-sm font-bold text-white shadow-sm">
                               <HiPlusCircle aria-hidden className="h-4 w-4 shrink-0" />
-                              {job}
+                              {job.name}
                             </span>
-                            <span className="text-xs font-semibold text-violet-700">extra job</span>
+                            <span className="text-sm font-semibold text-fuchsia-700">{job.note || "extra job"}</span>
                           </div>
                         ))}
                       </div>

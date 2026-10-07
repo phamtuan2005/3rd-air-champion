@@ -41,6 +41,7 @@ import {
   deleteCleaningJob,
   fetchCleaningExtras,
   toggleCleaningExtra,
+  setCleaningExtraNote,
   CleaningJobType,
   CleaningExtraType,
   fetchCleaners,
@@ -277,6 +278,8 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
   const [extras, setExtras] = useState<CleaningExtraType[]>([]);
   const [extraTarget, setExtraTarget] = useState<{ cleaner: CleanerType; date: string } | null>(null);
   const [newJob, setNewJob] = useState("");
+  // The note being typed for a ticked job, per job id, until it is saved.
+  const [noteDraft, setNoteDraft] = useState<Record<string, string>>({});
   const [manageJobs, setManageJobs] = useState(false);
   const [removingJob, setRemovingJob] = useState<CleaningJobType | null>(null);
   // One tap at a time on the picker: a second tap while the first is in flight
@@ -1329,12 +1332,29 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
       const r = await toggleCleaningExtra({ host: hostId, date, cleaner: cleaner.id, job: job.id, on }, token);
       setExtras((prev) => [
         ...prev.filter((e) => !(e.cleaner === cleaner.id && e.date === date && e.job === job.id)),
-        ...(r.on ? [{ id: r.id ?? `${date}-${job.id}`, date, cleaner: cleaner.id, job: job.id, name: r.name ?? job.name }] : []),
+        ...(r.on
+          ? [{ id: r.id ?? `${date}-${job.id}`, date, cleaner: cleaner.id, job: job.id, name: r.name ?? job.name, note: r.note ?? "" }]
+          : []),
       ]);
     } catch (err: any) {
       setError(err.response?.data?.error ?? "Could not change that extra job");
     } finally {
       extraBusy.current = false;
+    }
+  };
+
+  // Saves the note on one visit's job when the host leaves the box (or presses
+  // Enter) — only if it changed, so tabbing through does not write.
+  const saveNote = async (cleaner: CleanerType, date: string, job: CleaningJobType) => {
+    const draft = noteDraft[job.id];
+    if (draft === undefined) return;
+    const current = extras.find((e) => e.cleaner === cleaner.id && e.date === date && e.job === job.id);
+    if (!current || draft.trim() === (current.note ?? "")) return;
+    try {
+      const r = await setCleaningExtraNote({ host: hostId, date, cleaner: cleaner.id, job: job.id, note: draft }, token);
+      setExtras((prev) => prev.map((e) => (e.id === current.id ? { ...e, note: r.note } : e)));
+    } catch (err: any) {
+      setError(err.response?.data?.error ?? "Could not save that note");
     }
   };
 
@@ -1371,9 +1391,11 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
         {mine.map((e) => (
           <span
             key={e.id}
-            className="rounded-md border border-dashed border-violet-300 bg-violet-50 px-2 py-1 text-[13px] font-semibold text-violet-700"
+            title={e.note ? `${e.name} — ${e.note}` : e.name}
+            className="rounded-md border border-dashed border-fuchsia-300 bg-fuchsia-50 px-2 py-1 text-[13px] font-semibold text-fuchsia-700"
           >
             + {e.name}
+            {e.note && <span className="font-normal"> · {e.note}</span>}
           </span>
         ))}
         {editable && (
@@ -1383,9 +1405,10 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
               setExtraTarget({ cleaner, date });
               setManageJobs(false);
               setRemovingJob(null);
+              setNoteDraft({});
             }}
             title={`Extra jobs on ${cleaner.name.split(" ")[0]}'s visit — windows, baseboards…`}
-            className="rounded-md border border-dashed border-gray-300 px-2 py-1 text-[12px] font-semibold text-gray-500 transition-colors hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700"
+            className="rounded-md border border-dashed border-gray-300 px-2 py-1 text-[12px] font-semibold text-gray-500 transition-colors hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700"
           >
             + Extra
           </button>
@@ -1410,7 +1433,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
       .concat(
         extras
           .filter((e) => e.cleaner === cleanerId && e.date >= d0 && e.date <= d6 && extrasOf(cleanerId, e.date).length > 0)
-          .map((e) => `x:${e.date}:${e.name}`),
+          .map((e) => `x:${e.date}:${e.name}${e.note ? `:${e.note}` : ""}`),
       )
       .sort()
       .join("|");
@@ -1472,7 +1495,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
     });
     // Extra jobs follow the day's rooms, so the cleaner knows the visit is longer.
     const lines = [...byDay.entries()].map(([date, rooms]) => {
-      const more = extrasOf(cleaner.id, date).map((e) => e.name);
+      const more = extrasOf(cleaner.id, date).map((e) => (e.note ? `${e.name} (${e.note})` : e.name));
       return `* ${format(new Date(date + "T00:00:00"), "EEEE M/d")}: ${rooms.join(", ")}${more.length ? ` + ${more.join(", ")}` : ""}`;
     });
     // Label the range actually listed, not the calendar week — mid-week that is
@@ -3973,22 +3996,36 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                 {jobs.length === 0 && (
                   <p className="mb-2 text-center text-sm text-gray-400">No extra jobs yet — add the first below.</p>
                 )}
-                <div className="flex flex-wrap gap-1.5">
+                {/* One row per job: tick it onto this visit, then say where or
+                    what exactly for THIS visit — "Cute & King". The job's name
+                    stays general so it is picked again next time. */}
+                <div className="flex flex-col gap-1.5">
                   {jobs.map((job) => {
-                    const on = extrasOf(extraTarget.cleaner.id, extraTarget.date).some((e) => e.job === job.id);
+                    const onVisit = extrasOf(extraTarget.cleaner.id, extraTarget.date).find((e) => e.job === job.id);
+                    const on = !!onVisit;
                     return (
-                      <button
-                        key={job.id}
-                        type="button"
-                        aria-pressed={on}
-                        onClick={() => toggleExtra(extraTarget.cleaner, extraTarget.date, job, !on)}
-                        className={`rounded-lg border px-3 py-1.5 text-sm font-semibold transition-colors ${
-                          on ? "border-violet-600 bg-violet-600 text-white" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-                        }`}
-                      >
-                        {on ? "✓ " : ""}
-                        {job.name}
-                      </button>
+                      <div key={job.id} className={`rounded-lg border px-2 py-1.5 ${on ? "border-fuchsia-300 bg-fuchsia-50" : "border-gray-200"}`}>
+                        <button
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() => toggleExtra(extraTarget.cleaner, extraTarget.date, job, !on)}
+                          className={`w-full text-left text-sm font-semibold ${on ? "text-fuchsia-700" : "text-gray-700"}`}
+                        >
+                          {on ? "✓ " : "+ "}
+                          {job.name}
+                        </button>
+                        {on && (
+                          <input
+                            value={noteDraft[job.id] ?? onVisit?.note ?? ""}
+                            onChange={(e) => setNoteDraft((d) => ({ ...d, [job.id]: e.target.value }))}
+                            onBlur={() => saveNote(extraTarget.cleaner, extraTarget.date, job)}
+                            onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+                            maxLength={120}
+                            placeholder="Where or what, for this visit — e.g. Cute & King"
+                            className="mt-1 w-full rounded-md border border-fuchsia-200 bg-white px-2 py-1 text-[16px] focus:border-fuchsia-400 focus:outline-none sm:text-sm"
+                          />
+                        )}
+                      </div>
                     );
                   })}
                 </div>
@@ -4034,7 +4071,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                       {removingJob?.id === job.id && (
                         <div className="mt-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 py-2 text-xs">
                           <p className="text-gray-800">
-                            Take {job.name} off the list? Visits it is already on keep it.
+                            Take {job.name} off the list? Visits it is already on keep it, with their notes.
                           </p>
                           <div className="mt-1.5 flex justify-end gap-2">
                             <button type="button" onClick={() => setRemovingJob(null)} className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700">

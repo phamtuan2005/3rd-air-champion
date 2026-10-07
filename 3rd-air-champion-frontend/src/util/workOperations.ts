@@ -40,7 +40,7 @@ export interface WorkShift {
   }[];
   // Extra jobs on this visit beyond its rooms (windows, baseboards…), by name:
   // the visit is longer than its rooms, and paid by the hours as always.
-  extras?: string[];
+  extras?: { name: string; note: string }[];
   recordedHours: number | null;
   claim: {
     id: string;

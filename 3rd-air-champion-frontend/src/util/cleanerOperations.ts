@@ -257,6 +257,8 @@ export interface CleaningExtraType {
   cleaner: string;
   job: string;
   name: string;
+  // The host's note on this visit's job — "in Cute & King".
+  note: string;
 }
 
 export const fetchCleaningJobs = async (hostId: string, token: string): Promise<CleaningJobType[]> =>
@@ -278,7 +280,12 @@ export const fetchCleaningExtras = async (
   (await axios.get(`${BACKEND_ENDPOINT}/cleaner/extras`, { params: { host: hostId, start, end }, ...auth(token) })).data;
 
 export const toggleCleaningExtra = async (
-  data: { host: string; date: string; cleaner: string; job: string; on: boolean },
+  data: { host: string; date: string; cleaner: string; job: string; on: boolean; note?: string },
   token: string,
-): Promise<{ on: boolean; id?: string; name?: string }> =>
+): Promise<{ on: boolean; id?: string; name?: string; note?: string }> =>
   (await axios.post(`${BACKEND_ENDPOINT}/cleaner/extras/toggle`, data, auth(token))).data;
+
+export const setCleaningExtraNote = async (
+  data: { host: string; date: string; cleaner: string; job: string; note: string },
+  token: string,
+): Promise<{ note: string }> => (await axios.patch(`${BACKEND_ENDPOINT}/cleaner/extras/note`, data, auth(token))).data;
