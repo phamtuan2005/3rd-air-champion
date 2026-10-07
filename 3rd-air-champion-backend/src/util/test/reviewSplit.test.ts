@@ -63,6 +63,21 @@ describe("splitReviews", () => {
     expect(out).toHaveLength(1);
   });
 
+  it("keeps a review a guest posted twice, word for word, as two (Wan-Lin on King)", async () => {
+    const w = { guestName: "Wan-Lin (Christine) Chen", stars: 5, when: "1 week ago", text: "Anh is super friendly and nice!" };
+    const client = fake([{ reviews: [w, w, { guestName: "Adrian", stars: 5, when: "2 weeks ago", text: "Amazing place" }] }]);
+    const out = await splitReviews("one part", undefined, client);
+    expect(out.map((r) => r.guestName)).toEqual(["Wan-Lin (Christine) Chen", "Wan-Lin (Christine) Chen", "Adrian"]);
+  });
+
+  it("still counts a twice-posted review twice when the overlap reads it again", async () => {
+    const lines = Array.from({ length: 4000 }, (_, i) => `line ${i} ${"x".repeat(20)}`).join("\n");
+    const w = { guestName: "W", stars: 5, when: "", text: "Same words" };
+    // Part one holds both copies; part two re-reads one of them in the overlap.
+    const client = fake([{ reviews: [w, w] }, { reviews: [w] }, { reviews: [] }]);
+    expect(await splitReviews(lines, undefined, client)).toHaveLength(2);
+  });
+
   it("does not believe a star count outside 1–5 or a month that is not a month", async () => {
     const client = fake([
       {

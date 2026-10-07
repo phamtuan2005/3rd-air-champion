@@ -1,7 +1,7 @@
 import TTReviewEntry from "../model/ttReviewEntrySchema";
 import TTReviewSource from "../model/ttReviewSourceSchema";
 import { MAX_TOTAL_PASTE } from "./reviewDraft";
-import { hashOf } from "./reviewSplit";
+import { occurrenceKey } from "./reviewSplit";
 
 // One guest's review, kept as its own record — the one place that does it, used
 // by the form (one review typed in) and by the splitter (a whole page found in a
@@ -21,6 +21,8 @@ export interface EntryInput {
   reviewMonth: string;
   stars: number | null;
   text: string;
+  /** Which copy of these words in the room this is (see occurrenceKey). 0 unless a page holds it twice. */
+  occurrence?: number;
 }
 
 /** The block a review is written into the room's file as: a heading of what is known, then the words. */
@@ -59,7 +61,7 @@ export const withoutBlock = (file: string, block: string): string | null => {
  * review twice.
  */
 export const saveEntry = async (hostId: string, e: EntryInput, opts: { appendToFile: boolean }): Promise<{ added: boolean }> => {
-  const hash = hashOf(e.text);
+  const hash = occurrenceKey(e.text, e.occurrence ?? 0);
   if (await TTReviewEntry.exists({ host: hostId, room: e.roomId, hash })) return { added: false };
 
   await TTReviewEntry.create({

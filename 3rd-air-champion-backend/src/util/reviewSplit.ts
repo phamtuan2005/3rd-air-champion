@@ -73,6 +73,31 @@ export const OVERLAP_CHARS = 2_000;
 export const hashOf = (text: string) =>
   createHash("sha1").update(text.toLowerCase().replace(/\s+/g, " ").trim()).digest("hex");
 
+/**
+ * The key a review is kept under: its words, and WHICH copy of those words it
+ * is in its room — 0 for the first, 1 for the second.
+ *
+ * A guest can post the same review twice. Wan-Lin (Christine) Chen did, on
+ * King, word for word, same week, two one-night stays (2026-10-07): AirBnB
+ * counted 42 and TiMag 41, because identical words were taken to be the same
+ * review pasted twice. Counting copies keeps both and still adds nothing when
+ * the same page is pasted again — both copies are already on file. The first
+ * copy's key is the bare hash, so every review saved before this still matches.
+ */
+export const occurrenceKey = (text: string, occurrence: number) =>
+  occurrence > 0 ? `${hashOf(text)}#${occurrence}` : hashOf(text);
+
+/** Each review's copy number among identical reviews before it in the list. */
+export const occurrences = (texts: string[]): number[] => {
+  const seen = new Map<string, number>();
+  return texts.map((t) => {
+    const h = hashOf(t);
+    const n = seen.get(h) ?? 0;
+    seen.set(h, n + 1);
+    return n;
+  });
+};
+
 /** The text in chunks cut at line ends, each overlapping the one before. */
 export const chunkText = (text: string): string[] => {
   const lines = text.split("\n");
@@ -194,17 +219,24 @@ export const splitReviews = async (
   today: Date = new Date(),
 ): Promise<SplitReview[]> => {
   const chunks = chunkText(text);
-  const seen = new Set<string>();
+  // How many copies of each review are kept so far. A part of the page that
+  // holds a review twice keeps it twice — a guest who posted it twice; the next
+  // part re-reading the overlap holds it ONCE more and adds nothing. The most
+  // copies seen in any one part is the number on the page.
+  const kept = new Map<string, number>();
   const out: SplitReview[] = [];
   onProgress?.(0, chunks.length);
   for (let i = 0; i < chunks.length; i++) {
+    const inThisPart = new Map<string, number>();
     for (const r of await readChunk(chunks[i], client, today)) {
       if (!r.text) continue;
-      // The overlap shows the same review twice; keep the first.
       const h = hashOf(r.text);
-      if (seen.has(h)) continue;
-      seen.add(h);
-      out.push(r);
+      const n = (inThisPart.get(h) ?? 0) + 1;
+      inThisPart.set(h, n);
+      if (n > (kept.get(h) ?? 0)) {
+        kept.set(h, n);
+        out.push(r);
+      }
     }
     onProgress?.(i + 1, chunks.length);
   }
