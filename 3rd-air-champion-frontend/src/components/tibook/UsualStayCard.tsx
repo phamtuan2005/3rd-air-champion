@@ -251,7 +251,14 @@ const UsualStayCard = ({
             return (
               <div key={`${p.start}-${p.roomId}`}>
                 {newMonth && <p className={`mb-1 mt-2 text-xs font-bold uppercase tracking-wide ${theme.surfaceMuted}`}>{month}</p>}
-                <label className={`flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 ${on ? "" : "opacity-50"}`}>
+                {/* A week left unticked looks exactly like the others — faded,
+                    it read as "not allowed" (host, 2026-10-07). The TICKED ones
+                    carry the emphasis instead: a soft green outline and tint. */}
+                <label
+                  className={`flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 ring-1 ${
+                    on ? "bg-emerald-500/10 ring-emerald-500/50" : "ring-transparent"
+                  }`}
+                >
                   <input
                     type="checkbox"
                     checked={on}
