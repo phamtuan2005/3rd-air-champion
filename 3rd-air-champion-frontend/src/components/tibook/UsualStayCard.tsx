@@ -22,11 +22,28 @@ import type { Habit, Proposal, Series } from "../../util/bookingHabit";
 // still reads it and sends it. Nothing is booked from here.
 
 const DAY = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-/** "Mon → Fri, 4 nights" or "Thursday night". */
-export const habitLabel = (h: Habit) =>
-  h.nights === 1 ? `${DAY[h.startWeekday]} night` : `${SHORT[h.startWeekday]} → ${SHORT[(h.startWeekday + h.nights) % 7]}, ${h.nights} nights`;
+/**
+ * The nights a guest stays, the way a person says them: "Tuesday and Wednesday
+ * nights", "Monday through Thursday nights", "Monday and Thursday nights".
+ *
+ * Every habit's nights together, in week order (Monday first). The first
+ * wording — "Tue → Thu, 2 nights and Wednesday night" — was how a program counts
+ * a stay, two overlapping patterns glued together, and a guest could not tell
+ * what it meant (host, 2026-10-07).
+ */
+export const nightsPhrase = (habits: Habit[]) => {
+  const set = new Set<number>();
+  for (const h of habits) for (let i = 0; i < h.nights; i++) set.add((h.startWeekday + i) % 7);
+  // Monday-first: Mon=0 … Sun=6.
+  const order = [...set].map((d) => (d + 6) % 7).sort((a, b) => a - b);
+  const name = (m: number) => DAY[(m + 1) % 7];
+  const consecutive = order.every((m, i) => i === 0 || m === order[i - 1] + 1);
+  if (order.length === 1) return `${name(order[0])} nights`;
+  if (consecutive && order.length >= 3) return `${name(order[0])} through ${name(order[order.length - 1])} nights`;
+  const names = order.map(name);
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]} nights`;
+};
 
 const stayDates = (p: Proposal) => {
   const a = parseISO(p.start);
@@ -170,7 +187,7 @@ const UsualStayCard = ({
         {/* "TT noted that…", not "your habit" — the house's assistant noticing,
             the way a host who knows a regular would say it (host, 2026-10-07). */}
         <p className={`text-base ${theme.surfaceText}`}>
-          TT noted that you usually stay <span className="font-semibold">{habits.slice(0, 2).map(habitLabel).join(" and ")}</span>
+          TT noted that you usually stay <span className="font-semibold">{nightsPhrase(habits)}</span>
           {usual ? (
             <>
               {" "}in{" "}
@@ -181,7 +198,7 @@ const UsualStayCard = ({
         </p>
         {series.lastBooked && (
           <p className={`mt-1 text-base ${theme.surfaceText}`}>
-            You're booked through <span className="font-semibold">{format(parseISO(series.lastBooked), "EEE MMM d, yyyy")}</span>.
+            You're booked up to <span className="font-semibold">{format(parseISO(series.lastBooked), "EEEE, MMMM d, yyyy")}</span>.
           </p>
         )}
         <p className={`mt-2 text-sm ${theme.surfaceMuted}`}>
