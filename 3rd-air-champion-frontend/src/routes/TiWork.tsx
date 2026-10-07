@@ -12,6 +12,7 @@ import CleanerAvatar from "../components/shared/CleanerAvatar";
 import RoomBadge from "../components/shared/RoomBadge";
 import GuestFigures from "../components/shared/GuestFigures";
 import SofaBedTag from "../components/shared/SofaBedTag";
+import { HiPlusCircle } from "react-icons/hi2";
 import { decimalToHm, formatHrMin, hmToDecimal } from "../util/hoursFormat";
 import {
   WorkCreds,
@@ -835,15 +836,20 @@ const TiWork = () => {
                             <SofaBedTag on={r.sofaBed} />
                           </div>
                         ))}
-                        {/* Extra jobs on top of the rooms — said before the day,
-                            so a longer visit (and the hours it takes) is no
-                            surprise to you or to whoever reads the hours. */}
-                        {(sh.extras ?? []).length > 0 && (
-                          <p className="text-sm text-gray-700">
-                            <span className="font-semibold text-violet-700">Also: </span>
-                            {(sh.extras ?? []).join(", ")}
-                          </p>
-                        )}
+                        {/* Extra jobs on top of the rooms, each on its own line
+                            like a room, with a bold violet "+" badge. A plain
+                            "Also: Windows" line under the rooms was easy to read
+                            past (the host, 2026-10-07), and a job missed on the
+                            day is the very surprise this is here to prevent. */}
+                        {(sh.extras ?? []).map((job) => (
+                          <div key={job} className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1 rounded-md bg-violet-600 px-2 py-0.5 text-sm font-bold text-white shadow-sm">
+                              <HiPlusCircle aria-hidden className="h-4 w-4 shrink-0" />
+                              {job}
+                            </span>
+                            <span className="text-xs font-semibold text-violet-700">extra job</span>
+                          </div>
+                        ))}
                       </div>
                       {/* Only what is still to be DONE about the day lives down
                           here — the boxes for hours not yet sent, and anything
