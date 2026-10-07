@@ -240,3 +240,45 @@ export const updateAssignmentHours = async (
   const response = await axios.patch(`${BACKEND_ENDPOINT}/cleaner/hours`, { id, hours }, auth(token));
   return response.data;
 };
+
+// ── Extra jobs (windows, baseboards…) on top of a visit's rooms ──────────────
+// A job is a name on the host's list; an extra is that job scheduled onto one
+// cleaner's visit (a cleaner on a morning). Pay is unchanged — hours × rate for
+// the visit — the extra says why the visit is longer.
+
+export interface CleaningJobType {
+  id: string;
+  name: string;
+}
+
+export interface CleaningExtraType {
+  id: string;
+  date: string;
+  cleaner: string;
+  job: string;
+  name: string;
+}
+
+export const fetchCleaningJobs = async (hostId: string, token: string): Promise<CleaningJobType[]> =>
+  (await axios.get(`${BACKEND_ENDPOINT}/cleaner/jobs`, { params: { host: hostId }, ...auth(token) })).data;
+
+export const createCleaningJob = async (hostId: string, name: string, token: string): Promise<CleaningJobType> =>
+  (await axios.post(`${BACKEND_ENDPOINT}/cleaner/jobs`, { host: hostId, name }, auth(token))).data;
+
+export const deleteCleaningJob = async (hostId: string, id: string, token: string): Promise<void> => {
+  await axios.delete(`${BACKEND_ENDPOINT}/cleaner/jobs/${id}`, { params: { host: hostId }, ...auth(token) });
+};
+
+export const fetchCleaningExtras = async (
+  hostId: string,
+  start: string,
+  end: string,
+  token: string,
+): Promise<CleaningExtraType[]> =>
+  (await axios.get(`${BACKEND_ENDPOINT}/cleaner/extras`, { params: { host: hostId, start, end }, ...auth(token) })).data;
+
+export const toggleCleaningExtra = async (
+  data: { host: string; date: string; cleaner: string; job: string; on: boolean },
+  token: string,
+): Promise<{ on: boolean; id?: string; name?: string }> =>
+  (await axios.post(`${BACKEND_ENDPOINT}/cleaner/extras/toggle`, data, auth(token))).data;

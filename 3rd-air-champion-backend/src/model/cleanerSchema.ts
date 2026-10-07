@@ -115,6 +115,8 @@ cleanerSchema.pre("validate", function (next) {
 cleanerSchema.post("findOneAndDelete", async function (doc) {
   if (doc) {
     await mongoose.model("CleaningAssignment").deleteMany({ cleaner: doc._id });
+    // And the extra jobs on their visits, which mean nothing without them.
+    await mongoose.models.CleaningExtra?.deleteMany({ cleaner: doc._id });
   }
 });
 

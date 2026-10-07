@@ -38,6 +38,9 @@ export interface WorkShift {
     guestsEstimated?: boolean;
     sofaBed?: boolean;
   }[];
+  // Extra jobs on this visit beyond its rooms (windows, baseboards…), by name:
+  // the visit is longer than its rooms, and paid by the hours as always.
+  extras?: string[];
   recordedHours: number | null;
   claim: {
     id: string;
