@@ -96,6 +96,16 @@ describe("checkoutReading — the other way to read 'Oct 10-12'", () => {
   });
 });
 
+describe("monthAsked — with a year", () => {
+  const t = new Date("2026-10-09T12:00:00");
+  it("reads 'Jan 2027' as January 2027, and leaves 'Jan 20' a date", () => {
+    const jan = monthAsked("anything in Jan 2027?", t)!;
+    expect(jan[0]).toBe("2027-01-01");
+    expect(jan).toHaveLength(31);
+    expect(monthAsked("Jan 20", t)).toBeNull();
+  });
+});
+
 describe("monthAsked", () => {
   it("reads a month alone as its nights from today", () => {
     expect(monthAsked("what's available in November", today)).toHaveLength(30);

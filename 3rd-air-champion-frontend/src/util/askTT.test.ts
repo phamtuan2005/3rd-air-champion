@@ -33,6 +33,21 @@ const ctx = (free: Record<string, roomType[]> = {}, extra: Partial<AskTTContext>
 
 const text = (a: { lines: string[] }) => a.lines.join("\n");
 
+describe("datesAsked — a weekday with a month", () => {
+  // Today is a Friday in October 2026 (the file's own `today` is used below).
+  const fri = new Date("2026-10-09T12:00:00");
+  it("reads 'Tuesday Jan 2027' as the Tuesdays of January 2027, not the coming Tuesday", () => {
+    expect(datesAsked("Book Tuesday Jan 2027", fri).dates).toEqual(["2027-01-05", "2027-01-12", "2027-01-19", "2027-01-26"]);
+  });
+  it("takes the month in either order, and the next such month when no year is given", () => {
+    expect(datesAsked("a friday in march", fri).dates).toEqual(["2027-03-05", "2027-03-12", "2027-03-19", "2027-03-26"]);
+    expect(datesAsked("Saturday in October", fri).dates).toEqual(["2026-10-10", "2026-10-17", "2026-10-24", "2026-10-31"]);
+  });
+  it("still reads a weekday alone as the coming one", () => {
+    expect(datesAsked("is it free tuesday", fri).dates).toEqual(["2026-10-13"]);
+  });
+});
+
 describe("datesAsked", () => {
   it("reads 'this weekend' as Friday and Saturday NIGHTS", () => {
     expect(datesAsked("anything this weekend?", today).dates).toEqual(["2026-10-02", "2026-10-03"]);

@@ -147,10 +147,16 @@ export const checkoutReading = (q: string, dates: string[]): string[] | null => 
  * nights is not a stay anybody asked for.
  */
 export const monthAsked = (q: string, today: Date): string[] | null => {
-  const hit = q.toLowerCase().match(new RegExp(`\\b(?:in|during|for|of|this|next)?\\s*(${Object.keys(MONTHS).join("|")})\\b(?!\\s*\\d)`));
+  // A month alone, or with its YEAR ("Jan 2027") — four digits, so "Jan 20"
+  // stays a date. Without the year the next such month is meant; with it, that
+  // one. "anything in Jan 2027?" used to fall through: the digits after the
+  // month read as a day and the month was not taken at all.
+  const hit = q
+    .toLowerCase()
+    .match(new RegExp(`\\b(?:in|during|for|of|this|next)?\\s*(${Object.keys(MONTHS).join("|")})\\b(?:\\s+(\\d{4}))?(?!\\s*\\d)`));
   if (!hit) return null;
   const m = MONTHS[hit[1]];
-  const y = m < today.getMonth() ? today.getFullYear() + 1 : today.getFullYear();
+  const y = hit[2] ? Number(hit[2]) : m < today.getMonth() ? today.getFullYear() + 1 : today.getFullYear();
   const days = new Date(y, m + 1, 0).getDate();
   const todayKey = keyOf(today);
   const out: string[] = [];
