@@ -84,8 +84,35 @@ const UsualStayCard = ({
 }) => {
   const proposals = series.proposals;
   // Every week ticked to start with; the guest unticks the ones they will not need.
-  const [picked, setPicked] = useState<Set<string>>(() => new Set(proposals.map((p) => p.start)));
-  const chosen = proposals.filter((p) => picked.has(p.start));
+  // Picked by the NIGHT, not only by the stay: a guest who needs most of a week
+  // but not the holiday night, or not the night a family thing comes up, takes
+  // the rest (host, 2026-10-07: "the guest has only 2 options: pick whole or
+  // pick none. Where is pick part?"). Every night starts picked; `off` holds
+  // the ones taken out.
+  const [off, setOff] = useState<Set<string>>(() => new Set());
+  const [open, setOpen] = useState<Set<string>>(() => new Set());
+  // What will be sent: each stay's picked nights, split where a night was taken
+  // out of the middle — every piece its own stay, in the stay's room.
+  const chosen: Proposal[] = proposals.flatMap((p) => {
+    const kept = p.nights.filter((n) => !off.has(n));
+    const pieces: string[][] = [];
+    for (const n of kept) {
+      const last = pieces[pieces.length - 1];
+      const prev = last?.[last.length - 1];
+      if (last && prev && p.nights.indexOf(n) === p.nights.indexOf(prev) + 1) last.push(n);
+      else pieces.push([n]);
+    }
+    return pieces.map((nights) => ({ ...p, start: nights[0], nights }));
+  });
+  const allOn = off.size === 0;
+  const noneOn = chosen.length === 0;
+  const allNights = proposals.flatMap((p) => p.nights);
+  const toggleNights = (nights: string[], on: boolean) =>
+    setOff((prev) => {
+      const next = new Set(prev);
+      nights.forEach((n) => (on ? next.delete(n) : next.add(n)));
+      return next;
+    });
   const { theme } = useTiBookTheme();
   const roomChip = useRoomChip();
   const main = habits[0];
@@ -233,7 +260,7 @@ const UsualStayCard = ({
           disabled={chosen.length === 0}
           className={`mt-3 w-full rounded-xl px-4 py-3 text-base font-bold text-white disabled:opacity-40 ${theme.btn} ${theme.btnHover}`}
         >
-          Request {chosen.length === proposals.length ? "all " : ""}
+          Request {allOn ? "all " : ""}
           {chosen.length} stay{chosen.length === 1 ? "" : "s"}
         </button>
 
@@ -242,17 +269,15 @@ const UsualStayCard = ({
         <label className={`mt-3 flex cursor-pointer items-center gap-3 border-b px-2 pb-2 ${theme.surfaceBorder}`}>
           <input
             type="checkbox"
-            checked={chosen.length === proposals.length}
+            checked={allOn}
             ref={(el) => {
-              if (el) el.indeterminate = chosen.length > 0 && chosen.length < proposals.length;
+              if (el) el.indeterminate = !allOn && !noneOn;
             }}
-            onChange={() =>
-              setPicked(chosen.length === proposals.length ? new Set() : new Set(proposals.map((p) => p.start)))
-            }
+            onChange={() => setOff(allOn ? new Set(allNights) : new Set())}
             className="h-5 w-5 shrink-0"
           />
           <span className={`text-sm font-semibold ${theme.surfaceText}`}>
-            {chosen.length === proposals.length ? "All selected" : chosen.length === 0 ? "None selected" : `${chosen.length} of ${proposals.length} selected`}
+            {allOn ? "All selected" : noneOn ? "None selected" : `${allNights.length - off.size} of ${allNights.length} nights selected`}
           </span>
         </label>
 
@@ -263,30 +288,30 @@ const UsualStayCard = ({
             const room = roomOf(p.roomId);
             const month = format(parseISO(p.start), "MMMM yyyy");
             const newMonth = i === 0 || format(parseISO(proposals[i - 1].start), "MMMM yyyy") !== month;
-            const on = picked.has(p.start);
+            const kept = p.nights.filter((n) => !off.has(n));
+            const on = kept.length > 0;
+            const some = on && kept.length < p.nights.length;
+            const isOpen = open.has(p.start);
             return (
               <div key={`${p.start}-${p.roomId}`}>
                 {newMonth && <p className={`mb-1 mt-2 text-xs font-bold uppercase tracking-wide ${theme.surfaceMuted}`}>{month}</p>}
                 {/* A week left unticked looks exactly like the others — faded,
                     it read as "not allowed" (host, 2026-10-07). The TICKED ones
                     carry the emphasis instead: a soft green outline and tint. */}
-                <label
-                  className={`flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 ring-1 ${
+                <div
+                  className={`flex items-center gap-3 rounded-lg px-2 py-1.5 ring-1 ${
                     on ? "bg-emerald-500/10 ring-emerald-500/50" : "ring-transparent"
                   }`}
                 >
                   <input
                     type="checkbox"
-                    checked={on}
-                    onChange={() =>
-                      setPicked((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(p.start)) next.delete(p.start);
-                        else next.add(p.start);
-                        return next;
-                      })
-                    }
-                    className="h-5 w-5 shrink-0"
+                    aria-label={`${stayDates(p)} in ${room?.name ?? "the room"}`}
+                    checked={on && !some}
+                    ref={(el) => {
+                      if (el) el.indeterminate = some;
+                    }}
+                    onChange={() => toggleNights(p.nights, !(on && !some))}
+                    className="h-5 w-5 shrink-0 cursor-pointer"
                   />
                   <span className={`min-w-0 flex-1 text-base ${theme.surfaceText}`}>
                     {stayDates(p)}
@@ -312,6 +337,45 @@ const UsualStayCard = ({
                         shorter week says which nights are full — the line was
                         noise (host, 2026-10-07). A room CHANGE between nights is
                         still said, below. */}
+                    {p.nights.length > 1 && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOpen((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(p.start)) next.delete(p.start);
+                              else next.add(p.start);
+                              return next;
+                            })
+                          }
+                          className={`mt-0.5 block text-xs font-semibold underline decoration-dotted underline-offset-2 ${theme.surfaceMuted}`}
+                        >
+                          {isOpen ? "Done choosing" : some ? `${kept.length} of ${p.nights.length} nights — change` : "Choose nights"}
+                        </button>
+                        {isOpen && (
+                          <span className="mt-1 flex flex-wrap gap-1.5">
+                            {p.nights.map((n) => {
+                              const nightOn = !off.has(n);
+                              return (
+                                <button
+                                  key={n}
+                                  type="button"
+                                  aria-pressed={nightOn}
+                                  onClick={() => toggleNights([n], !nightOn)}
+                                  className={`rounded-md px-2 py-1 text-sm font-semibold ring-1 ${
+                                    nightOn ? "bg-emerald-500/15 text-emerald-600 ring-emerald-500/50" : `ring-gray-400/40 ${theme.surfaceText}`
+                                  }`}
+                                >
+                                  {nightOn ? "✓ " : ""}
+                                  {format(parseISO(n), "EEE d")}
+                                </button>
+                              );
+                            })}
+                          </span>
+                        )}
+                      </>
+                    )}
                     {p.completes && (
                       // A night to round off a week they booked part of — and,
                       // when it cannot be in the same room, which room and why,
@@ -325,7 +389,7 @@ const UsualStayCard = ({
                     )}
                   </span>
                   {room && <span className={`${roomChip(room)} shrink-0 rounded-md px-2 py-0.5 text-sm font-bold text-black`}>{room.name}</span>}
-                </label>
+                </div>
               </div>
             );
           })}
