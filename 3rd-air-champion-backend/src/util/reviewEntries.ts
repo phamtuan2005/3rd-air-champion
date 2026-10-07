@@ -23,6 +23,33 @@ export interface EntryInput {
   text: string;
 }
 
+/** The block a review is written into the room's file as: a heading of what is known, then the words. */
+export const fileBlock = (e: Pick<EntryInput, "guestName" | "stayDate" | "reviewMonth" | "stars" | "text">) => {
+  const head = [
+    e.guestName && `Guest: ${e.guestName}`,
+    e.stayDate && `Stay: ${e.stayDate}`,
+    !e.stayDate && e.reviewMonth && `Month: ${e.reviewMonth}`,
+    e.stars != null && `${e.stars} stars`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return head ? `— ${head} —\n${e.text}` : e.text;
+};
+
+/**
+ * The room's file with one review's block taken out — only when that block is
+ * there WHOLE, between blank lines (or at an end), so words that merely also
+ * appear inside a pasted page are never cut out of it. Null when not found.
+ */
+export const withoutBlock = (file: string, block: string): string | null => {
+  if (file === block) return "";
+  if (file.startsWith(`${block}\n\n`)) return file.slice(block.length + 2);
+  if (file.endsWith(`\n\n${block}`)) return file.slice(0, file.length - block.length - 2);
+  const mid = file.indexOf(`\n\n${block}\n\n`);
+  if (mid >= 0) return file.slice(0, mid) + file.slice(mid + block.length + 2);
+  return null;
+};
+
 /**
  * Keeps the review unless the same words are already on file for that room.
  *
@@ -45,18 +72,11 @@ export const saveEntry = async (hostId: string, e: EntryInput, opts: { appendToF
     ...(e.stars != null ? { stars: e.stars } : {}),
     text: e.text,
     hash,
+    inFile: opts.appendToFile,
   });
 
   if (opts.appendToFile) {
-    const head = [
-      e.guestName && `Guest: ${e.guestName}`,
-      e.stayDate && `Stay: ${e.stayDate}`,
-      !e.stayDate && e.reviewMonth && `Month: ${e.reviewMonth}`,
-      e.stars != null && `${e.stars} stars`,
-    ]
-      .filter(Boolean)
-      .join(" · ");
-    const block = head ? `— ${head} —\n${e.text}` : e.text;
+    const block = fileBlock(e);
     const file: any = await TTReviewSource.findOne({ host: hostId, room: e.roomId }, { text: 1 }).lean();
     const next = file?.text ? `${file.text}\n\n${block}` : block;
     if (next.length <= MAX_TOTAL_PASTE) {

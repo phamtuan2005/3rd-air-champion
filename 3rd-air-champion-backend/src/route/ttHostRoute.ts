@@ -5,7 +5,7 @@ import TTQuestion from "../model/ttQuestionSchema";
 import TTReviews from "../model/ttReviewsSchema";
 import TTReviewSource from "../model/ttReviewSourceSchema";
 import TTReviewEntry from "../model/ttReviewEntrySchema";
-import { MAX_ENTRY_CHARS, saveEntry } from "../util/reviewEntries";
+import { fileBlock, MAX_ENTRY_CHARS, saveEntry, withoutBlock } from "../util/reviewEntries";
 import { hashOf, splitReviews, SplitReview } from "../util/reviewSplit";
 import { cleaningWindow, lowReviews, roomAverages, ReviewRow, topicMentions } from "../util/reviewStats";
 import { findAssignments } from "../util/assignmentQuery";
@@ -158,7 +158,7 @@ router.post("/reviews/upload", async (req: Request, res: any) => {
 router.post("/reviews/entry", async (req: Request, res: any) => {
   const hostId = hostOf(req);
   try {
-    const { roomId, guestId, guestName, stayDate, stars } = req.body ?? {};
+    const { roomId, guestId, guestName, stayDate, stars, reviewMonth } = req.body ?? {};
     const text = String(req.body?.text ?? "").trim();
     if (!text) return res.status(400).json({ error: "Paste the review first." });
     if (text.length > MAX_ENTRY_CHARS) {
@@ -174,6 +174,9 @@ router.post("/reviews/entry", async (req: Request, res: any) => {
     }
     if (stayDate && !/^\d{4}-\d{2}-\d{2}$/.test(String(stayDate))) {
       return res.status(400).json({ error: "The stay date should be a date." });
+    }
+    if (reviewMonth && !/^\d{4}-(0[1-9]|1[0-2])$/.test(String(reviewMonth))) {
+      return res.status(400).json({ error: "The review month should be a month." });
     }
     // A guest id is only believed if it is on THIS host's list.
     let guest: string | undefined;
@@ -191,7 +194,7 @@ router.post("/reviews/entry", async (req: Request, res: any) => {
         guest,
         guestName: String(guestName ?? "").trim().slice(0, 120),
         stayDate: stayDate ? String(stayDate) : "",
-        reviewMonth: "",
+        reviewMonth: reviewMonth ? String(reviewMonth) : "",
         stars: stars ?? null,
         text,
       },
@@ -461,6 +464,63 @@ router.get("/reviews/entries", async (req: Request, res: any) => {
         addedAt: r.createdAt ?? null,
       })),
     });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// One review in full, for the host who taps it in the list (which carries only
+// a snippet of each, so the list stays small however many there are).
+router.get("/reviews/entry/:id", async (req: Request, res: any) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "Which review?" });
+    const e: any = await TTReviewEntry.findOne({ _id: req.params.id, host: hostOf(req) }).lean();
+    if (!e) return res.status(404).json({ error: "That review is not on file." });
+    res.status(200).json({
+      id: String(e._id),
+      roomId: String(e.room),
+      guestName: e.guestName ?? "",
+      stayDate: e.stayDate ?? "",
+      reviewMonth: e.reviewMonth ?? "",
+      stars: e.stars ?? null,
+      text: String(e.text ?? ""),
+      addedAt: e.createdAt ?? null,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Takes ONE review off the record — one saved wrong (a whole copied block where
+// a review should be, the wrong room). Its words come back out of the room's
+// file too when they were written into it, and only as the whole block that was
+// written, so a pasted page is never cut into.
+router.delete("/reviews/entry/:id", async (req: Request, res: any) => {
+  const hostId = hostOf(req);
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "Which review?" });
+    const entry: any = await TTReviewEntry.findOne({ _id: req.params.id, host: hostId }).lean();
+    if (!entry) return res.status(404).json({ error: "That review is not on file." });
+    await TTReviewEntry.deleteOne({ _id: entry._id, host: hostId });
+
+    // Old reviews carry no inFile flag; the block test below is what keeps
+    // those safe — it only matches what the form itself wrote.
+    if (entry.inFile !== false) {
+      const file: any = await TTReviewSource.findOne({ host: hostId, room: entry.room }, { text: 1 }).lean();
+      const block = fileBlock({
+        guestName: entry.guestName ?? "",
+        stayDate: entry.stayDate ?? "",
+        reviewMonth: entry.reviewMonth ?? "",
+        stars: entry.stars ?? null,
+        text: String(entry.text ?? ""),
+      });
+      const next = file?.text ? withoutBlock(String(file.text), block) : null;
+      if (next != null) {
+        if (next.trim()) await TTReviewSource.updateOne({ host: hostId, room: entry.room }, { $set: { text: next, chars: next.length } });
+        else await TTReviewSource.deleteOne({ host: hostId, room: entry.room });
+      }
+    }
+    res.status(200).json({ ok: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

@@ -29,6 +29,10 @@ const ttReviewEntrySchema = new mongoose.Schema(
     reviewMonth: { type: String, default: "" },
     stars: { type: Number, min: 1, max: 5 },
     text: { type: String, required: true, maxlength: 2000 },
+    // Whether these words were also APPENDED to the room's review file (the
+    // one-at-a-time form does that; a split does not — its reviews came out of
+    // the file). Deleting the review takes its block back out only when true.
+    inFile: { type: Boolean },
     // Of the words, lower-cased and spaces collapsed: the same review pasted
     // twice is the same review.
     hash: { type: String, required: true },

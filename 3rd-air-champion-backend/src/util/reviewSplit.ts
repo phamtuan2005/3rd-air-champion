@@ -113,6 +113,7 @@ const systemPrompt = [
   "  Stayed one night",
   "  From the moment we opened the door ... Thank you, Anh.",
   "That is: the reviewer's name, their city, the name again, the star line, the date, how long they stayed, then the review itself.",
+  "Instead of a city, the second line is sometimes how long they have used AirBnB, such as '9 years on Airbnb' — leave it out the same way.",
   "Treat that as a guide, not a rule; the order can differ and parts can be missing.",
   "",
   "For each guest review return:",

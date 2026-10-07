@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { format, parseISO } from "date-fns";
 import { jwtDecode } from "jwt-decode";
 import { getToken } from "../../util/authSession";
 import { fetchGuests } from "../../util/guestOperations";
 import { guestType } from "../../util/types/guestType";
+import { parseAirbnbReview } from "../../util/airbnbReviewPaste";
+import ReviewEntryItem from "./ReviewEntryItem";
 import {
   addReviewEntry,
   fetchReviewEntries,
@@ -27,6 +28,10 @@ const GuestReviewForm = ({ roomId, roomName, onAdded }: { roomId: string; roomNa
   const [guestName, setGuestName] = useState("");
   const [stayDate, setStayDate] = useState("");
   const [stars, setStars] = useState<number | null>(null);
+  // The month on a pasted AirBnB review ("2 days ago" → 2026-10), and how it
+  // was printed — kept so the host sees where it came from.
+  const [reviewMonth, setReviewMonth] = useState("");
+  const [when, setWhen] = useState("");
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
@@ -62,6 +67,25 @@ const GuestReviewForm = ({ roomId, roomName, onAdded }: { roomId: string; roomNa
 
   const mine = entries.filter((e) => e.roomId === roomId);
 
+  // A review copied from AirBnB is taken apart where it lands: the name, stars
+  // and date go in their fields and only the guest's words stay in the box.
+  // Plain rules, no model — one review's layout is known (util/airbnbReviewPaste).
+  const fillFrom = (raw: string): boolean => {
+    const r = parseAirbnbReview(raw);
+    if (r === "several") {
+      setNote("That's several reviews — paste it into the big box above and press Split instead.");
+      return true;
+    }
+    if (!r) return false;
+    setText(r.text);
+    setGuestName(r.guestName);
+    setStars(r.stars);
+    setReviewMonth(r.reviewMonth);
+    setWhen(r.when);
+    setNote(`Read from AirBnB: ${r.guestName || "a guest"}${r.stars ? `, ${r.stars} stars` : ""}${r.when ? `, ${r.when}` : ""}. Check, then Add.`);
+    return true;
+  };
+
   const add = async () => {
     if (busy) return;
     setNote("");
@@ -69,15 +93,26 @@ const GuestReviewForm = ({ roomId, roomName, onAdded }: { roomId: string; roomNa
       setNote("Paste the review first.");
       return;
     }
+    // Typed or pasted without the paste being caught (some phones): read it now
+    // rather than save the header lines as the review.
+    const late = parseAirbnbReview(text);
+    if (late === "several") {
+      setNote("That's several reviews — paste it into the big box above and press Split instead.");
+      return;
+    }
+    const parts = late ?? { guestName, stars, reviewMonth, text };
     setBusy(true);
     try {
+      const name = (parts.guestName || guestName).trim();
+      const guestId = guests.find((g) => g.name.trim().toLowerCase() === name.toLowerCase())?.id;
       const { added } = await addReviewEntry({
         roomId,
-        guestId: matched?.id,
-        guestName: guestName.trim() || undefined,
+        guestId,
+        guestName: name || undefined,
         stayDate: stayDate || undefined,
-        stars: stars ?? undefined,
-        text: text.trim(),
+        reviewMonth: parts.reviewMonth || undefined,
+        stars: (parts.stars ?? stars) ?? undefined,
+        text: parts.text.trim(),
       });
       if (added) {
         // Cleared for the next one — the host passes several in a row. The stay
@@ -88,6 +123,8 @@ const GuestReviewForm = ({ roomId, roomName, onAdded }: { roomId: string; roomNa
         setGuestName("");
         setStayDate("");
         setStars(null);
+        setReviewMonth("");
+        setWhen("");
         setNote(`Added to ${roomName}.`);
         loadEntries();
         // The room's file changed too (the review is appended to it), so the
@@ -100,14 +137,6 @@ const GuestReviewForm = ({ roomId, roomName, onAdded }: { roomId: string; roomNa
       setNote(e?.response?.data?.error ?? "That didn't save. Check the connection and try again.");
     } finally {
       setBusy(false);
-    }
-  };
-
-  const day = (key: string) => {
-    try {
-      return format(parseISO(key), "MMM d, yyyy");
-    } catch {
-      return key;
     }
   };
 
@@ -176,9 +205,19 @@ const GuestReviewForm = ({ roomId, roomName, onAdded }: { roomId: string; roomNa
         ))}
       </div>
 
+      {reviewMonth && (
+        <p className="mt-1 text-[11px] text-gray-500">
+          Dated {when ? `“${when}” — ` : ""}
+          {reviewMonth}
+          {!stayDate ? " (the month only; add the stay date above if you know it)" : ""}
+        </p>
+      )}
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
+        onPaste={(e) => {
+          if (fillFrom(e.clipboardData.getData("text"))) e.preventDefault();
+        }}
         rows={4}
         maxLength={MAX_REVIEW_CHARS}
         placeholder={`Paste this guest's review of ${roomName}…`}
@@ -207,14 +246,17 @@ const GuestReviewForm = ({ roomId, roomName, onAdded }: { roomId: string; roomNa
           <p className="text-[11px] font-semibold text-gray-600">
             On record for {roomName}: {mine.length}
           </p>
-          <ul className="mt-1 max-h-48 divide-y divide-gray-100 overflow-y-auto">
+          <p className="text-[10px] text-gray-400">Tap a review to read it all · swipe it left to delete</p>
+          <ul className="mt-1 max-h-72 divide-y divide-gray-100 overflow-y-auto">
             {mine.map((e) => (
-              <li key={e.id} className="py-1.5 text-xs text-gray-700">
-                <span className="font-semibold text-gray-900">{e.guestName || "A guest"}</span>
-                {e.stayDate && <span className="text-gray-500"> · {day(e.stayDate)}</span>}
-                {e.stars != null && <span className="text-amber-500"> · {"★".repeat(e.stars)}</span>}
-                <p className="truncate text-gray-500">{e.snippet}</p>
-              </li>
+              <ReviewEntryItem
+                key={e.id}
+                entry={e}
+                onDeleted={() => {
+                  loadEntries();
+                  onAdded();
+                }}
+              />
             ))}
           </ul>
         </div>
