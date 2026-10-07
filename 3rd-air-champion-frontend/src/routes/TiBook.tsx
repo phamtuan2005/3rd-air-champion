@@ -850,7 +850,13 @@ const TiBookInner = () => {
     // booked stay (and any week left open before it), not the next few weeks.
     const series = seriesFor(habits, today, isFree, stays);
     if (series.proposals.length === 0) return null;
-    return { habits, series, fill: fillRate(habits[0], habits[0].rooms[0], today, isFree, 8) };
+    // "Already booked N of the next weeks" counts OTHER guests only. A week the
+    // guest holds themselves is left out of the count: Rostam was told Chill was
+    // "booked 7 of the next 8 weeks" when the seven were his own stays, which
+    // read as someone else taking his room (host's screenshot, 2026-10-07).
+    const theirNights = new Set(stays.flatMap((st) => Array.from({ length: st.nights }, (_, i) => keyOfDate(addDays(parseISO(st.start), i)))));
+    const takenByOthers = (roomId: string, night: string) => (theirNights.has(night) ? null : isFree(roomId, night));
+    return { habits, series, fill: fillRate(habits[0], habits[0].rooms[0], today, takenByOthers, 8) };
     // availableRoomsForDate reads monthMap, reservedMap and rooms.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isKnownVisitor, guestBookings, rooms, monthMap, reservedMap]);
