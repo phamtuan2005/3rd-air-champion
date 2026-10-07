@@ -1095,14 +1095,15 @@ const TiWork = () => {
                         return (
                           <div key={paidOn} className="flex items-center gap-2 py-0.5 text-sm">
                             <span className="w-16 shrink-0 text-gray-600">{format(parseISO(paidOn), "EEE M/d")}</span>
-                            <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 text-emerald-600">
+                            <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 text-gray-900">
                               {list.filter((p) => !p.tip).map(amount)}
                               {notes && <span className="truncate text-xs font-normal text-gray-400">{notes}</span>}
                             </span>
                             <span className="flex w-14 shrink-0 flex-wrap items-center justify-end gap-x-2 text-violet-700">
                               {list.filter((p) => p.tip).map(amount)}
                             </span>
-                            <span className="w-20 shrink-0 text-right font-bold text-gray-900">
+                            {/* Green: the money that reached the cleaner's hand. */}
+                            <span className="w-20 shrink-0 text-right font-bold text-emerald-600">
                               {total < 0 ? "−" : ""}${Math.abs(total).toFixed(2)}
                             </span>
                           </div>
