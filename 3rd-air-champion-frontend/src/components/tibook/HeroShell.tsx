@@ -1,3 +1,4 @@
+import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { isSameMonth } from "date-fns";
 import { roomType } from "../../util/types/roomType";
@@ -89,6 +90,9 @@ interface HeroShellProps {
   guestName?: string;
   actionLabel: string;
   hasSelection: boolean;
+  // Shown under the top bar when there is something to say to THIS guest —
+  // the usual-stay proposal for a regular (UsualStayCard).
+  topSlot?: React.ReactNode;
 }
 
 // The weekday letters over the grid, and not over the list, where every row
@@ -111,7 +115,7 @@ const HeroShell = ({
   reservedStays, reservedMap, currentMonth, onMonthChange, onDateClick,
   onWishListClick, onMyStayClick, onMyStayDetails, onReservedClick, scrollToTodayTrigger,
   scrollToMonthTrigger, onOpenPhotos, onScrollToToday, onMyBookings, onAskTT, ttNudge, onRequest, guestName,
-  actionLabel, hasSelection,
+  actionLabel, hasSelection, topSlot,
 }: HeroShellProps) => {
   const { theme } = useTiBookTheme();
   const roomChip = useRoomChip();
@@ -493,6 +497,8 @@ const HeroShell = ({
         />
         <AppearanceMenu />
       </nav>
+
+      {topSlot}
 
       {/* ── The rooms: 2 of the 5 parts under the header ─────────────────── */}
       <div ref={deckRef} className="relative min-h-0 flex-[2]">

@@ -43,6 +43,8 @@ import { fetchGuestThread } from "../util/guestMessageOperations";
 import { linkTiBookVisitToGuest, recordTiBookVisit, saveStatsCode, unlinkTiBookVisitGuest } from "../util/tibookVisitOperations";
 import { fetchPublishedReviews } from "../util/ttQuestionLog";
 import { markTiBookVisited } from "../util/tibookReturning";
+import { fillRate, habitsOf, proposalsForAll } from "../util/bookingHabit";
+import UsualStayCard from "../components/tibook/UsualStayCard";
 
 const TiBookInner = () => {
   const { theme, vibe, layout, setLook } = useTiBookTheme();
@@ -825,6 +827,30 @@ const TiBookInner = () => {
 
   // TT's buttons do the thing, then get out of the way so the guest sees it
   // done: nights land in the selection with the calendar open on their month.
+  // A regular's usual stay, and the next stays TiBook proposes from it — worked
+  // out from their own stays and the calendar, nothing asked of them (see
+  // util/bookingHabit). Their usual rooms that are no longer let are dropped;
+  // a night is free only where nothing is booked, held or blocked.
+  const [usualDismissed, setUsualDismissed] = useState(false);
+  const usualStay = useMemo(() => {
+    if (!isKnownVisitor || guestBookings.length === 0) return null;
+    const today = startOfToday();
+    const todayKey = keyOfDate(today);
+    const active = new Set(rooms.filter((r) => r.active).map((r) => r.id));
+    const stays = guestBookings.map((b) => ({ start: String(b.date).slice(0, 10), nights: b.duration, roomId: b.room }));
+    const habits = habitsOf(stays, today)
+      .map((h) => ({ ...h, rooms: h.rooms.filter((id) => active.has(id)) }))
+      .filter((h) => h.rooms.length > 0);
+    if (habits.length === 0) return null;
+    const isFree = (roomId: string, night: string) =>
+      availableRoomsForDate(parseISO(night), true).some((r) => r.id === roomId);
+    const proposals = proposalsForAll(habits, today, isFree, stays.filter((s) => s.start >= todayKey), { weeks: 8, max: 3 });
+    if (proposals.length === 0) return null;
+    return { habits, proposals, fill: fillRate(habits[0], habits[0].rooms[0], today, isFree, 8) };
+    // availableRoomsForDate reads monthMap, reservedMap and rooms.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isKnownVisitor, guestBookings, rooms, monthMap, reservedMap]);
+
   const onTTAction = (a: Exclude<TTAction, { kind: "ask" }>) => {
     setAskTTOpen(false);
     switch (a.kind) {
@@ -964,6 +990,20 @@ const TiBookInner = () => {
           guestName={greetedName}
           actionLabel={barLabel}
           hasSelection={hasSelection}
+          topSlot={
+            usualStay && !usualDismissed ? (
+              <UsualStayCard
+                firstName={greetedName.trim().split(/\s+/)[0] ?? ""}
+                habits={usualStay.habits}
+                proposals={usualStay.proposals}
+                fill={usualStay.fill}
+                roomOf={(id) => rooms.find((r) => r.id === id)}
+                // The ordinary request, filled in: the guest reads and sends it.
+                onRequest={(p) => onTTAction({ kind: "pick", label: "", dates: p.nights, roomId: p.roomId, review: true })}
+                onDismiss={() => setUsualDismissed(true)}
+              />
+            ) : null
+          }
         />
         )
       ) : (

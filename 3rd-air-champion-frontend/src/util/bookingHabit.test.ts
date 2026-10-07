@@ -1,0 +1,97 @@
+import { describe, expect, it } from "vitest";
+import { fillRate, habitOf, habitsOf, proposalsFor, proposalsForAll, upcomingStarts } from "./bookingHabit";
+
+// TiBook works a returning guest's habit out and proposes the next stays that
+// fit it. These pin that it reads the habit a person would, never invents one
+// from a single stay, never proposes a room the guest has not used, and never
+// counts a night it cannot see as free.
+
+// Wednesday Oct 7 2026.
+const today = new Date("2026-10-07T12:00:00");
+const stay = (start: string, nights: number, roomId: string) => ({ start, nights, roomId });
+
+describe("habitOf", () => {
+  it("reads Monday, four nights, King-first from three such stays", () => {
+    const h = habitOf(
+      [stay("2026-09-07", 4, "king"), stay("2026-09-14", 4, "king"), stay("2026-09-21", 4, "cute"), stay("2026-08-01", 1, "queen")],
+      today,
+    )!;
+    expect(h).toMatchObject({ startWeekday: 1, nights: 4, times: 3 });
+    expect(h.rooms.slice(0, 2)).toEqual(["king", "cute"]);
+  });
+
+  it("is no habit from one stay, or from a routine that stopped long ago", () => {
+    expect(habitOf([stay("2026-09-07", 4, "king")], today)).toBeNull();
+    expect(habitOf([stay("2025-11-03", 4, "king"), stay("2025-11-10", 4, "king")], today)).toBeNull();
+  });
+
+  it("breaks a tie toward the shape booked most recently", () => {
+    const h = habitOf(
+      [stay("2026-08-03", 2, "chill"), stay("2026-08-10", 2, "chill"), stay("2026-09-17", 1, "cozy"), stay("2026-09-24", 1, "cozy")],
+      today,
+    )!;
+    expect(h).toMatchObject({ startWeekday: 4, nights: 1 });
+    expect(h.rooms[0]).toBe("cozy");
+  });
+});
+
+describe("upcomingStarts", () => {
+  it("lists the next Mondays after today, never today itself", () => {
+    const h = { startWeekday: 1, nights: 4, rooms: ["king"], times: 3 };
+    expect(upcomingStarts(h, today, 3)).toEqual(["2026-10-12", "2026-10-19", "2026-10-26"]);
+    // On a Monday the first is the NEXT Monday — tonight is not a booking ahead.
+    expect(upcomingStarts(h, new Date("2026-10-12T12:00:00"), 1)).toEqual(["2026-10-19"]);
+  });
+});
+
+describe("proposalsFor and fillRate", () => {
+  const h = { startWeekday: 1, nights: 2, rooms: ["king", "cute"], times: 3 };
+  // King taken Oct 12-13 and Oct 26; Cute free; nothing known past Nov 8.
+  const takenKing = new Set(["2026-10-12", "2026-10-13", "2026-10-26"]);
+  const isFree = (room: string, night: string) =>
+    night > "2026-11-08" ? null : room === "king" ? !takenKing.has(night) : true;
+
+  it("offers the usual room where free, the next room they use where not, and says which", () => {
+    const out = proposalsFor(h, today, isFree, [], { max: 3 });
+    expect(out.map((p) => [p.start, p.roomId, p.usualRoom])).toEqual([
+      ["2026-10-12", "cute", false],
+      ["2026-10-19", "king", true],
+      ["2026-10-26", "cute", false],
+    ]);
+    expect(out[1].nights).toEqual(["2026-10-19", "2026-10-20"]);
+  });
+
+  it("skips a week the guest already has a stay in, and never a room they have not used", () => {
+    const out = proposalsFor(h, today, isFree, [stay("2026-10-19", 2, "king")], { max: 2 });
+    expect(out.map((p) => p.start)).toEqual(["2026-10-12", "2026-10-26"]);
+    const onlyQueenFree = (room: string) => room === "queen";
+    expect(proposalsFor(h, today, onlyQueenFree, [], {})).toEqual([]);
+  });
+
+  it("never treats a night it cannot see as free", () => {
+    const out = proposalsFor(h, today, isFree, [], { weeks: 8, max: 8 });
+    expect(out.every((p) => p.start <= "2026-11-08")).toBe(true);
+  });
+
+  it("counts how many of the coming weeks the room is already taken, over weeks it can see", () => {
+    expect(fillRate(h, "king", today, isFree, 8)).toEqual({ taken: 2, known: 4 });
+  });
+});
+
+describe("a guest with two habits in a week (Monday and Thursday)", () => {
+  const stays = [
+    stay("2026-09-07", 1, "chill"), stay("2026-09-10", 1, "cozy"),
+    stay("2026-09-14", 1, "chill"), stay("2026-09-17", 1, "cozy"),
+    stay("2026-09-21", 1, "chill"), stay("2026-09-24", 1, "chill"),
+  ];
+  it("finds both habits — a tie (three each) led by the one booked most recently", () => {
+    const hs = habitsOf(stays, today);
+    expect(hs.map((h) => [h.startWeekday, h.nights])).toEqual([[4, 1], [1, 1]]);
+    // Monday's room is ranked over every stay: Chill, used most.
+    expect(hs[1].rooms[0]).toBe("chill");
+  });
+  it("proposes from both, soonest first", () => {
+    const out = proposalsForAll(habitsOf(stays, today), today, () => true, [], { max: 4 });
+    expect(out.map((p) => p.start)).toEqual(["2026-10-08", "2026-10-12", "2026-10-15", "2026-10-19"]);
+  });
+});
