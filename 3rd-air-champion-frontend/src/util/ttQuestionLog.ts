@@ -209,6 +209,31 @@ export const discardReviewSplit = async (roomId: string): Promise<void> => {
   await axios.delete(`${BACKEND_ENDPOINT}/tt-host/reviews/split/${roomId}`, authed());
 };
 
+// What the reviews add up to, worked out on the server by arithmetic — no model.
+export interface ReviewStats {
+  total: number;
+  rooms: { room: string; name: string; reviews: number; withStars: number; average: number | null }[];
+  low: {
+    roomName: string;
+    guestName: string;
+    stars: number | null;
+    stayDate: string;
+    reviewMonth: string;
+    snippet: string;
+    cleaners: string[];
+    basis: "night" | "month" | "none";
+  }[];
+  topic: {
+    key: string;
+    label: string;
+    rooms: { room: string; name: string; count: number }[];
+    snippets: { roomName: string; guestName: string; stars: number | null; snippet: string }[];
+  } | null;
+}
+
+export const fetchReviewStats = async (topic?: string | null): Promise<ReviewStats> =>
+  (await axios.get(`${BACKEND_ENDPOINT}/tt-host/reviews/stats`, { ...authed(), params: topic ? { topic } : {} })).data;
+
 // Takes a room's kept review file off the server.
 export const deleteReviewSource = async (roomId: string): Promise<void> => {
   await axios.delete(`${BACKEND_ENDPOINT}/tt-host/reviews/source/${roomId}`, authed());
