@@ -6,7 +6,7 @@ import TTReviews from "../model/ttReviewsSchema";
 import TTReviewSource from "../model/ttReviewSourceSchema";
 import TTReviewEntry from "../model/ttReviewEntrySchema";
 import { fileBlock, MAX_ENTRY_CHARS, saveEntry, withoutBlock } from "../util/reviewEntries";
-import { hashOf, splitReviews, SplitReview } from "../util/reviewSplit";
+import { occurrenceKey, occurrences, splitReviews, SplitReview } from "../util/reviewSplit";
 import { cleaningWindow, lowReviews, roomAverages, ReviewRow, topicMentions } from "../util/reviewStats";
 import { findAssignments } from "../util/assignmentQuery";
 import Guest from "../model/guestSchema";
@@ -293,17 +293,18 @@ router.get("/reviews/split/:roomId", async (req: Request, res: any) => {
     const have = new Set(
       (await TTReviewEntry.find({ host: hostId, room: req.params.roomId }, { hash: 1 }).lean()).map((e: any) => e.hash),
     );
+    const copy = occurrences(job.reviews.map((r) => r.text));
     res.status(200).json({
       status: "ready",
       done: job.done,
       total: job.total,
-      reviews: job.reviews.map((r) => ({
+      reviews: job.reviews.map((r, i) => ({
         guestName: r.guestName,
         stars: r.stars,
         month: r.month,
         when: r.when,
         snippet: r.text.slice(0, 160),
-        onFile: have.has(hashOf(r.text)),
+        onFile: have.has(occurrenceKey(r.text, copy[i])),
       })),
     });
   } catch (error: any) {
@@ -333,7 +334,8 @@ router.post("/reviews/split/:roomId/add", async (req: Request, res: any) => {
     }
     let added = 0;
     let skipped = 0;
-    for (const r of job.reviews) {
+    const copy = occurrences(job.reviews.map((r) => r.text));
+    for (const [i, r] of job.reviews.entries()) {
       const ids = byName.get(r.guestName.trim().toLowerCase()) ?? [];
       const { added: ok } = await saveEntry(
         hostId,
@@ -345,6 +347,7 @@ router.post("/reviews/split/:roomId/add", async (req: Request, res: any) => {
           reviewMonth: r.month,
           stars: r.stars,
           text: r.text.slice(0, MAX_ENTRY_CHARS),
+          occurrence: copy[i],
         },
         // The reviews came OUT of the room's file; writing them back would
         // put each in it twice.

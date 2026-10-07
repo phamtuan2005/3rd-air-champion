@@ -393,6 +393,40 @@ describe("review summaries", () => {
     expect(await TTReviewEntry.countDocuments({ host, room: king })).toBe(2);
   });
 
+  it("keeps a review posted twice as two, and adds nothing when the same page is split again", async () => {
+    const host = String((await createMockHost("split-twice@example.com"))._id);
+    const king = String((await roomFor(host, "King"))._id);
+    await keep(host, king, "raw");
+    const app = signedInAs({ hostId: host, role: "Host" });
+    // Saved before the fix: one copy of Wan-Lin's words, under the bare hash.
+    await request(app).post("/tt-host/reviews/entry").send({ roomId: king, guestName: "Wan-Lin", text: "Super friendly!" });
+    setReviewSplitter(async () => [
+      { guestName: "Wan-Lin", stars: 5, month: "", when: "", text: "Super friendly!" },
+      { guestName: "Wan-Lin", stars: 5, month: "", when: "", text: "Super friendly!" },
+      { guestName: "Adrian", stars: 5, month: "", when: "", text: "Amazing." },
+    ]);
+    const split = async () => {
+      await request(app).post("/tt-host/reviews/split").send({ roomId: king });
+      let preview: any = {};
+      await waitFor(async () => {
+        preview = (await request(app).get(`/tt-host/reviews/split/${king}`)).body;
+        return preview.status === "ready";
+      });
+      return preview;
+    };
+
+    const first = await split();
+    expect(first.reviews.map((r: any) => r.onFile)).toEqual([true, false, false]);
+    expect((await request(app).post(`/tt-host/reviews/split/${king}/add`)).body).toEqual({ added: 2, skipped: 1 });
+    expect(await TTReviewEntry.countDocuments({ host, room: king })).toBe(3);
+
+    // The same page again: every copy is on file, nothing is added.
+    const again = await split();
+    expect(again.reviews.map((r: any) => r.onFile)).toEqual([true, true, true]);
+    expect((await request(app).post(`/tt-host/reviews/split/${king}/add`)).body).toEqual({ added: 0, skipped: 3 });
+    expect(await TTReviewEntry.countDocuments({ host, room: king })).toBe(3);
+  });
+
   it("does not guess which guest a first name is when two on the list share it", async () => {
     const host = String((await createMockHost("split-twins@example.com"))._id);
     const king = String((await roomFor(host, "King"))._id);
