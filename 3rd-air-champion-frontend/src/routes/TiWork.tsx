@@ -1063,30 +1063,45 @@ const TiWork = () => {
                   Paid out
                 </p>
                 <div className="max-h-40 overflow-y-auto rounded-2xl bg-gray-50 p-3">
-                  {payments.map((pmt) => (
-                    <div key={pmt.id} className="flex items-center gap-2 py-0.5 text-sm">
-                      <span className="flex-1 text-gray-600">
-                        {format(parseISO(pmt.paidOn), "EEE M/d")}
+                  {/* One line per day paid, wages and tip side by side — the
+                      same shape, columns and words as TiMag's Pay detail, which
+                      this screen mirrors because the two people read these
+                      figures to each other. A tip is stored as its own payment,
+                      so listed one by one a single payday read as two (the host,
+                      2026-10-07). The tip keeps its own column: a tip and a
+                      payout look the same in a list of amounts, and only one of
+                      them settles what was earned. */}
+                  <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                    <span className="w-16 shrink-0">Paid</span>
+                    <span className="flex-1">Earning</span>
+                    <span className="w-20 shrink-0 text-right">Tip</span>
+                  </div>
+                  {(() => {
+                    const byDay = new Map<string, typeof payments>();
+                    for (const p of payments) byDay.set(p.paidOn, [...(byDay.get(p.paidOn) ?? []), p]);
+                    const amount = (p: (typeof payments)[number]) => (
+                      <span key={p.id} className={`font-semibold ${p.amount < 0 ? "text-red-600" : ""}`}>
+                        {p.amount < 0 ? "−" : ""}${Math.abs(p.amount).toFixed(2)}
                       </span>
-                      {pmt.note && (
-                        <span className="truncate text-xs text-gray-400">{pmt.note}</span>
-                      )}
-                      {/* The same violet pill the host sees in TiMag, because a
-                          tip and a payout are otherwise identical rows -- same
-                          date, same shape -- and only this says one was money on
-                          top of the wages rather than settling them. The person
-                          who earned it should be able to tell them apart at
-                          least as easily as the person who paid it. */}
-                      {pmt.tip && (
-                        <span className="shrink-0 rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-700">
-                          tip
-                        </span>
-                      )}
-                      <span className="w-20 text-right font-semibold text-emerald-600">
-                        ${pmt.amount.toFixed(2)}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                    return [...byDay.entries()]
+                      .sort(([x], [y]) => y.localeCompare(x))
+                      .map(([paidOn, list]) => {
+                        const notes = list.map((p) => p.note).filter(Boolean).join(" · ");
+                        return (
+                          <div key={paidOn} className="flex items-center gap-2 py-0.5 text-sm">
+                            <span className="w-16 shrink-0 text-gray-600">{format(parseISO(paidOn), "EEE M/d")}</span>
+                            <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 text-emerald-600">
+                              {list.filter((p) => !p.tip).map(amount)}
+                              {notes && <span className="truncate text-xs font-normal text-gray-400">{notes}</span>}
+                            </span>
+                            <span className="flex w-20 shrink-0 flex-wrap items-center justify-end gap-x-2 text-violet-700">
+                              {list.filter((p) => p.tip).map(amount)}
+                            </span>
+                          </div>
+                        );
+                      });
+                  })()}
                   {/* Paid before itemised records began. Shown rather than
                       dropped: without it the payments listed add up to less than
                       what was really paid, and the balance looks wrong. */}
