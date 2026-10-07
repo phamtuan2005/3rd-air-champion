@@ -230,6 +230,38 @@ export const worthAsking = (query: string, foundAnything: boolean): boolean => {
   return !foundAnything;
 };
 
+// ── The guest reviews ───────────────────────────────────────────────────────
+
+// Subjects the review stats can count mentions of, by the words a host types for
+// them. The keys are the server's (util/reviewStats TOPICS).
+const REVIEW_TOPICS: { key: string; pattern: RegExp }[] = [
+  { key: "clean", pattern: /\b(clean\w*|spotless|tidy|dirty)\b/i },
+  { key: "noise", pattern: /\b(nois\w*|quiet|loud)\b/i },
+  { key: "bed", pattern: /\b(beds?|mattress|sleep\w*)\b/i },
+  { key: "bathroom", pattern: /\b(bathroom|shower|toilet)\b/i },
+  { key: "location", pattern: /\b(location|neighbou?rhood)\b/i },
+  { key: "host", pattern: /\bhosts?\b/i },
+  { key: "parking", pattern: /\bparking\b/i },
+  { key: "smell", pattern: /\b(smell\w*|odou?r)\b/i },
+  { key: "value", pattern: /\b(value|price|cheap)\b/i },
+];
+
+/**
+ * Whether the host is asking about the guest reviews — their ratings, the low
+ * ones, what guests say about something — and which subject, if any.
+ *
+ * Answered by the server's arithmetic (GET /tt-host/reviews/stats), NOT by the
+ * model: "what's the average rating for each room" is a sum, and the host did
+ * not want to pay for an AI call to add up stars. A review word is required, so
+ * "clean" on its own still finds the Clean screen and nothing else.
+ */
+export const reviewsTyped = (query: string): { topic: string | null } | null => {
+  const q = query.trim();
+  if (q.length < 4) return null;
+  if (!/\b(reviews?|ratings?|rated|stars?|complain\w*|feedback|guests? say|guests? think)\b/i.test(q)) return null;
+  return { topic: REVIEW_TOPICS.find((t) => t.pattern.test(q))?.key ?? null };
+};
+
 // ── An AirBnB reservation ───────────────────────────────────────────────────
 
 /** The reservation code and the phone's last four digits, from what AirBnB's feed writes on a booking. */

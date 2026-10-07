@@ -7,6 +7,8 @@ import TTReviewSource from "../model/ttReviewSourceSchema";
 import TTReviewEntry from "../model/ttReviewEntrySchema";
 import { MAX_ENTRY_CHARS, saveEntry } from "../util/reviewEntries";
 import { hashOf, splitReviews, SplitReview } from "../util/reviewSplit";
+import { cleaningWindow, lowReviews, roomAverages, ReviewRow, topicMentions } from "../util/reviewStats";
+import { findAssignments } from "../util/assignmentQuery";
 import Guest from "../model/guestSchema";
 import { requireManager } from "../middleware/requireManager";
 import { questionStats } from "../util/ttQuestions";
@@ -359,6 +361,76 @@ router.post("/reviews/split/:roomId/add", async (req: Request, res: any) => {
 router.delete("/reviews/split/:roomId", (req: Request, res: any) => {
   splitJobs.delete(jobKey(hostOf(req), req.params.roomId));
   res.status(200).json({ ok: true });
+});
+
+// What the reviews add up to — averages, the low ones and who cleaned those
+// rooms, and how many mention a topic. Worked out here from the records, by
+// arithmetic and a lookup in the cleaning rota: TiMag's TT box shows it with no
+// model involved, so a simple question costs nothing and answers at once.
+router.get("/reviews/stats", async (req: Request, res: any) => {
+  const hostId = hostOf(req);
+  try {
+    const [entries, rooms]: [any[], any[]] = await Promise.all([
+      TTReviewEntry.find({ host: hostId }).lean() as any,
+      Room.find({ host: hostId }, { name: 1 }).lean() as any,
+    ]);
+    const nameOf = new Map(rooms.map((r) => [String(r._id), String(r.name ?? "")]));
+    const rows: ReviewRow[] = entries.map((e) => ({
+      room: String(e.room),
+      roomName: nameOf.get(String(e.room)) ?? "a room",
+      guestName: e.guestName ?? "",
+      stars: e.stars ?? null,
+      stayDate: e.stayDate ?? "",
+      reviewMonth: e.reviewMonth ?? "",
+      text: String(e.text ?? ""),
+    }));
+
+    const low = lowReviews(rows);
+    // Who cleaned each low review's room around then: one read of the rota across
+    // the whole span, then matched in memory. A LEAD, not proof — a month (or a
+    // night) is all a review says — so each row says which it was.
+    const windows = low.map((r) => cleaningWindow(r));
+    const spans = windows.filter((w): w is { start: string; end: string } => !!w);
+    let rota: any[] = [];
+    if (spans.length) {
+      const start = spans.reduce((a, w) => (w.start < a ? w.start : a), spans[0].start);
+      const end = spans.reduce((a, w) => (w.end > a ? w.end : a), spans[0].end);
+      rota = (await findAssignments({ host: hostId, start, end })) as any[];
+    }
+    const lowOut = low.map((r, i) => {
+      const w = windows[i];
+      const cleaners = w
+        ? [
+            ...new Set(
+              rota
+                .filter((a) => String(a.room?._id ?? a.room) === r.room && a.date >= w.start && a.date <= w.end)
+                .map((a) => String(a.cleaner?.name ?? ""))
+                .filter(Boolean),
+            ),
+          ]
+        : [];
+      return {
+        roomName: r.roomName,
+        guestName: r.guestName,
+        stars: r.stars,
+        stayDate: r.stayDate,
+        reviewMonth: r.reviewMonth,
+        snippet: r.text.slice(0, 160),
+        cleaners,
+        // "night" = the stay's start date was entered; "month" = only the month.
+        basis: w ? (r.stayDate ? "night" : "month") : "none",
+      };
+    });
+
+    res.status(200).json({
+      total: rows.length,
+      rooms: roomAverages(rows),
+      low: lowOut,
+      topic: req.query.topic ? topicMentions(rows, String(req.query.topic)) : null,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // The reviews on record, one per guest per room per stay — the structured copy

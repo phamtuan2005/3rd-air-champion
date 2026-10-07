@@ -8,6 +8,8 @@ import TTReviews from "../../model/ttReviewsSchema";
 import TTReviewSource from "../../model/ttReviewSourceSchema";
 import TTReviewEntry from "../../model/ttReviewEntrySchema";
 import Guest from "../../model/guestSchema";
+import Cleaner from "../../model/cleanerSchema";
+import CleaningAssignment from "../../model/cleaningAssignmentSchema";
 import Room from "../../model/roomSchema";
 import { createMockHost } from "../../model/test/util/mockHost";
 
@@ -429,6 +431,59 @@ describe("review summaries", () => {
     });
     expect(status.error).toMatch(/declined/);
     expect((await request(app).post(`/tt-host/reviews/split/${mine}/add`)).status).toBe(400);
+  });
+
+  it("works out averages, low reviews and who cleaned those rooms, with no model", async () => {
+    const host = String((await createMockHost("stats@example.com"))._id);
+    const other = String((await createMockHost("stats-other@example.com"))._id);
+    const king = String((await roomFor(host, "King"))._id);
+    const queen = String((await roomFor(host, "Queen"))._id);
+    const henry = String((await Cleaner.create({ host, name: "Henry", payRate: 20 }))._id);
+    const maria = String((await Cleaner.create({ host, name: "Maria", payRate: 20 }))._id);
+    const mk = (room: string, o: Record<string, unknown>, i: number) =>
+      TTReviewEntry.create({ host, room, text: `review ${i} ${o.extra ?? ""}`, hash: `h${i}`, ...o });
+    await mk(king, { guestName: "Ann", stars: 5, reviewMonth: "2026-08" }, 1);
+    await mk(king, { guestName: "Bob", stars: 2, stayDate: "2026-09-10", extra: "the bathroom was dirty" }, 2);
+    await mk(king, { guestName: "Cy", stars: 3, reviewMonth: "2026-08" }, 3);
+    await mk(queen, { guestName: "Di", stars: 5 }, 4);
+    await mk(queen, { guestName: "Ed" }, 5);
+    // Henry cleaned King the morning Bob arrived; Maria cleaned King in August; the
+    // other host's rota must never leak in.
+    await CleaningAssignment.create({ host, date: "2026-09-10", room: king, cleaner: henry });
+    await CleaningAssignment.create({ host, date: "2026-08-15", room: king, cleaner: maria });
+    await CleaningAssignment.create({ host, date: "2026-08-20", room: queen, cleaner: maria });
+    await CleaningAssignment.create({ host: other, date: "2026-09-10", room: king, cleaner: henry });
+
+    const res = await request(signedInAs({ hostId: host, role: "Host" })).get("/tt-host/reviews/stats?topic=clean");
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(5);
+    expect(res.body.rooms.map((r: any) => [r.name, r.reviews, r.withStars, r.average])).toEqual([
+      ["King", 3, 3, 3.33],
+      ["Queen", 2, 1, 5],
+    ]);
+    // Newest low review first: Bob (a night), then Cy (a month).
+    expect(res.body.low.map((r: any) => [r.guestName, r.basis, r.cleaners])).toEqual([
+      ["Bob", "night", ["Henry"]],
+      ["Cy", "month", ["Maria"]],
+    ]);
+    // Same-named room, same dates, someone else's rota: not counted. And the
+    // queen's August cleaning is not King's.
+    expect(JSON.stringify(res.body.low)).not.toContain("review 4");
+    expect(res.body.topic.rooms).toEqual([{ room: king, name: "King", count: 1 }]);
+  });
+
+  it("says no lead when a low review has no date, and never reads another host's reviews", async () => {
+    const host = String((await createMockHost("stats-nodate@example.com"))._id);
+    const other = String((await createMockHost("stats-nodate-other@example.com"))._id);
+    const king = String((await roomFor(host, "King"))._id);
+    const theirs = String((await roomFor(other, "King"))._id);
+    await TTReviewEntry.create({ host, room: king, guestName: "Fay", stars: 1, text: "bad", hash: "a" });
+    await TTReviewEntry.create({ host: other, room: theirs, guestName: "Gus", stars: 1, text: "theirs", hash: "b" });
+    const res = await request(signedInAs({ hostId: host, role: "Host" })).get("/tt-host/reviews/stats");
+    expect(res.body.total).toBe(1);
+    expect(res.body.low).toHaveLength(1);
+    expect(res.body.low[0]).toMatchObject({ guestName: "Fay", basis: "none", cleaners: [] });
+    expect(res.body.topic).toBeNull();
   });
 
   it("refuses a part too large to travel, rather than carrying a body CloudFront drops", async () => {

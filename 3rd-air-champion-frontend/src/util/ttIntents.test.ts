@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { airbnbReservationDetails, dateTyped, matchesReservation, screensMatching, weekTyped, whenTyped, whoAndWhen, worthAsking } from "./ttIntents";
+import { airbnbReservationDetails, dateTyped, matchesReservation, reviewsTyped, screensMatching, weekTyped, whenTyped, whoAndWhen, worthAsking } from "./ttIntents";
 
 // What TT understands beyond names. A box that guesses wrong sends the host
 // somewhere they did not ask to go, so each rule is pinned.
@@ -192,5 +192,31 @@ describe("a week of cleaning", () => {
     expect(weekTyped("Henry")).toBeNull();
     expect(weekTyped("Susan Dec")).toBeNull();
     expect(weekTyped("weekend rates")).toBeNull();
+  });
+});
+
+describe("a question about the guest reviews", () => {
+  // Answered by the server's arithmetic, not the model, so it must fire on the
+  // questions the host really asks and on nothing else — a guest named Rating,
+  // or the word "clean" for the Clean screen, must not be hijacked.
+  it("recognises the questions about ratings, low stars and what guests say", () => {
+    expect(reviewsTyped("What's the average rating for each room?")).toEqual({ topic: null });
+    expect(reviewsTyped("which reviews are 3 stars or lower")).toEqual({ topic: null });
+    expect(reviewsTyped("any complaints about King")).toEqual({ topic: null });
+  });
+
+  it("finds the subject asked about", () => {
+    expect(reviewsTyped("what do guests say about the cleanliness?")).toEqual({ topic: "clean" });
+    expect(reviewsTyped("reviews mentioning noise")).toEqual({ topic: "noise" });
+    expect(reviewsTyped("review of the bathroom")).toEqual({ topic: "bathroom" });
+    expect(reviewsTyped("parking reviews")).toEqual({ topic: "parking" });
+  });
+
+  it("leaves a word that is only a screen or a name alone", () => {
+    expect(reviewsTyped("clean")).toBeNull();
+    expect(reviewsTyped("cleaning schedule")).toBeNull();
+    expect(reviewsTyped("Susan")).toBeNull();
+    expect(reviewsTyped("King")).toBeNull();
+    expect(reviewsTyped("")).toBeNull();
   });
 });

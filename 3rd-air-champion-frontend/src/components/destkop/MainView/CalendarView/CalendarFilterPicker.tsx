@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { FaUser } from "react-icons/fa";
 import { HiSparkles } from "react-icons/hi2";
@@ -9,7 +9,8 @@ import { dayType } from "../../../../util/types/dayType";
 import RoomBadge from "../../../shared/RoomBadge";
 import { airbnbGuestList } from "../../../../util/airbnbGuestList";
 import { houseGuestList, isPhoneQuery, matchesTyped, topMatches } from "../../../../util/houseGuestList";
-import { matchesReservation, screensMatching, weekTyped, whenTyped, whoAndWhen, worthAsking, When } from "../../../../util/ttIntents";
+import { matchesReservation, reviewsTyped, screensMatching, weekTyped, whenTyped, whoAndWhen, worthAsking, When } from "../../../../util/ttIntents";
+import { fetchReviewStats, ReviewStats } from "../../../../util/ttQuestionLog";
 import type { SearchWorker } from "../../../../util/searchWorkers";
 
 interface CalendarFilterPickerProps {
@@ -151,6 +152,26 @@ const CalendarFilterPicker = ({
   const week = weekAsked && (!weekAsked.who || weekCleaner) ? weekAsked : null;
   // A screen, by its name or another word for it.
   const screens = q ? screensMatching(q) : [];
+  // A question about the guest reviews — averages, the low ones, what guests say
+  // about something. Answered from the server's own arithmetic, no model in the
+  // way (the host: "I don't want to use API for such trivial questions").
+  const reviewAsked = q ? reviewsTyped(q) : null;
+  const reviewTopic = reviewAsked?.topic ?? null;
+  const [reviewStats, setReviewStats] = useState<ReviewStats | null>(null);
+  const [reviewFailed, setReviewFailed] = useState(false);
+  useEffect(() => {
+    if (!reviewAsked) return;
+    let live = true;
+    setReviewFailed(false);
+    fetchReviewStats(reviewTopic)
+      .then((s) => live && setReviewStats(s))
+      .catch(() => live && setReviewFailed(true));
+    return () => {
+      live = false;
+    };
+    // The topic is what changes the answer; the query's other words do not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!reviewAsked, reviewTopic]);
   // Staff and cleaners, by name or phone like a guest — and by what they do,
   // so "cleaner" brings up the cleaners and "intern" the intern. Not with a
   // time beside the name: the team has no page on the calendar to open.
@@ -161,7 +182,7 @@ const CalendarFilterPicker = ({
   );
   const byPhone = isPhoneQuery(who);
   const foundAnything =
-    !!when || !!week || screens.length > 0 || roomHits.length > 0 || house.total > 0 || airbnb.total > 0 || team.total > 0;
+    !!when || !!week || !!reviewAsked || screens.length > 0 || roomHits.length > 0 || house.total > 0 || airbnb.total > 0 || team.total > 0;
   // A guest called May, or June: her exact name beats the month on Enter.
   const exactGuest = when?.month ? house.shown.find((r) => r.name.toLowerCase() === q.toLowerCase()) : undefined;
   // A sentence, or a word that found nothing, is offered to TT as a question.
@@ -450,6 +471,91 @@ const CalendarFilterPicker = ({
                     </span>
                     <span className="ml-auto shrink-0 text-[11px] font-semibold text-gray-400">Clean ›</span>
                   </button>
+                </>
+              )}
+
+              {/* The guest reviews, added up on the server. */}
+              {reviewAsked && (
+                <>
+                  {sectionHeading("Guest reviews")}
+                  <div className="px-3 py-2 text-[12px] text-gray-700">
+                    {reviewFailed && <p className="text-rose-600">The reviews didn't load. Try again in a moment.</p>}
+                    {!reviewStats && !reviewFailed && <p className="text-gray-400">Adding them up…</p>}
+                    {reviewStats && reviewStats.total === 0 && (
+                      <p className="text-gray-500">No reviews are on record yet. Add them under Guest reviews.</p>
+                    )}
+                    {reviewStats && reviewStats.total > 0 && (
+                      <>
+                        <p className="font-semibold text-gray-900">
+                          {reviewStats.total} review{reviewStats.total === 1 ? "" : "s"} on record
+                        </p>
+                        <ul className="mt-1 space-y-0.5">
+                          {reviewStats.rooms.map((r) => (
+                            <li key={r.room} className="flex justify-between gap-3">
+                              <span className="truncate font-medium text-gray-800">{r.name}</span>
+                              <span className="shrink-0 text-gray-600">
+                                {r.average != null ? <span className="font-semibold text-amber-600">{r.average.toFixed(2)} ★</span> : "no stars"}
+                                <span className="text-gray-400">
+                                  {" "}· {r.reviews} review{r.reviews === 1 ? "" : "s"}
+                                  {r.withStars !== r.reviews ? `, ${r.withStars} with stars` : ""}
+                                </span>
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+
+                        {reviewStats.topic && (
+                          <div className="mt-2 border-t border-gray-100 pt-2">
+                            <p className="font-semibold text-gray-900">Mentioning {reviewStats.topic.label}</p>
+                            {reviewStats.topic.rooms.length === 0 ? (
+                              <p className="text-gray-500">No review mentions it.</p>
+                            ) : (
+                              <>
+                                <p className="text-gray-600">
+                                  {reviewStats.topic.rooms.map((r) => `${r.name} ${r.count}`).join(" · ")}
+                                </p>
+                                {reviewStats.topic.snippets.map((s, i) => (
+                                  <p key={i} className="mt-1 text-gray-500">
+                                    <span className="font-semibold text-gray-700">{s.roomName}</span>
+                                    {s.guestName ? ` · ${s.guestName}` : ""}
+                                    {s.stars != null ? ` · ${"★".repeat(s.stars)}` : ""} — {s.snippet}
+                                  </p>
+                                ))}
+                              </>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="mt-2 border-t border-gray-100 pt-2">
+                          <p className="font-semibold text-gray-900">3 stars or lower</p>
+                          {reviewStats.low.length === 0 ? (
+                            <p className="text-gray-500">None with stars at 3 or below.</p>
+                          ) : (
+                            reviewStats.low.map((r, i) => (
+                              <div key={i} className="mt-1">
+                                <p className="text-gray-800">
+                                  <span className="font-semibold">{r.roomName}</span>
+                                  {r.guestName ? ` · ${r.guestName}` : ""}
+                                  <span className="text-amber-600"> · {"★".repeat(r.stars ?? 0)}</span>
+                                  <span className="text-gray-400"> · {r.stayDate || r.reviewMonth || "no date"}</span>
+                                </p>
+                                <p className="truncate text-gray-500">{r.snippet}</p>
+                                {/* A lead, said as one: a review gives a month, or at best the night
+                                    a stay began — never who left the room how. */}
+                                <p className="text-[11px] text-gray-500">
+                                  {r.basis === "none"
+                                    ? "No date on this review, so no cleaner to point to."
+                                    : r.cleaners.length > 0
+                                      ? `${r.basis === "night" ? "Cleaned for that stay by" : "Cleaned this room that month:"} ${r.cleaners.join(", ")} — a lead, not proof.`
+                                      : "No cleaning recorded for this room then."}
+                                </p>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </>
               )}
 
