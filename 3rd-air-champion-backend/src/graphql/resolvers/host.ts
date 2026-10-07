@@ -1,8 +1,20 @@
 import Host from "../../model/hostSchema";
+import { reviewSummaryFor } from "../../util/reviewSummary";
 import Cohost from "../../model/cohostSchema";
 import Guest from "../../model/guestSchema";
 import Room from "../../model/roomSchema";
 import { AIRBNB_SYNC_HOST_ID, MAIN_HOST_ID } from "../../util/hostRedirect";
+
+const summaries = new WeakMap<object, ReturnType<typeof reviewSummaryFor>>();
+const summaryOf = (parent: any) => {
+  if (!parent || typeof parent !== "object") return Promise.resolve(null);
+  let p = summaries.get(parent);
+  if (!p) {
+    p = reviewSummaryFor(parent._id ?? parent.id);
+    summaries.set(parent, p);
+  }
+  return p;
+};
 
 export const hostResolvers = {
   // A GraphQL "String" has to mean a defined format, not whatever the runtime
@@ -10,6 +22,19 @@ export const hostResolvers = {
   // "Mon Aug 10 2026 23:31:00 GMT+0000 (Coordinated Universal Time)", which
   // Chrome parses and Safari does not — and both hosts here are on iPhones. The
   // client then read NaN minutes and reported a healthy job as silent.
+  // The review count and rating come from the reviews ON RECORD when there are
+  // any, and from what was typed into My AirBnB only when there are none — so
+  // TiBook's banner, TT and TiMag all show the same two numbers, and they match
+  // the reviews behind them (util/reviewSummary). Counted once per host object
+  // per request, however many of the three fields are asked for.
+  Host: {
+    airbnbReviewCount: async (parent: any) => (await summaryOf(parent))?.count ?? parent?.airbnbReviewCount ?? null,
+    airbnbRating: async (parent: any) => {
+      const s = await summaryOf(parent);
+      return s ? (s.average ?? parent?.airbnbRating ?? null) : (parent?.airbnbRating ?? null);
+    },
+    reviewsFromRecord: async (parent: any) => !!(await summaryOf(parent)),
+  },
   AutoSyncRun: {
     at: (parent: any) => (parent?.at ? new Date(parent.at).toISOString() : null),
   },

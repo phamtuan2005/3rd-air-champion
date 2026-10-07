@@ -21,6 +21,8 @@ export interface hostType {
   airbnbName?: string;
   airbnbAddress?: string;
   airbnbRating?: number;
+  // The count and rating are counted from the reviews on record (not typed).
+  reviewsFromRecord?: boolean;
   airbnbReviewCount?: number;
   airbnbReviewsUrl?: string;
   airbnbProfileUrl?: string;

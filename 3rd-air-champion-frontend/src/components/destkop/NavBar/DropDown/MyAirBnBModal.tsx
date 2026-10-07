@@ -9,6 +9,7 @@ interface MyAirBnBInfo {
   airbnbAddress: string;
   airbnbRating: number | "";
   airbnbReviewCount: number | "";
+  reviewsFromRecord?: boolean;
   airbnbReviewsUrl: string;
   airbnbProfileUrl: string;
   cohostProfileUrl: string;
@@ -22,6 +23,9 @@ interface MyAirBnBInfo {
   cancellationFullRefundDays: number | "";
   cancellationHalfRefundDays: number | "";
 }
+
+// The flag is the server's to say, never sent back with the form.
+const withoutFlag = ({ reviewsFromRecord: _flag, ...rest }: MyAirBnBInfo) => rest;
 
 interface MyAirBnBModalProps {
   current: MyAirBnBInfo;
@@ -96,9 +100,11 @@ const MyAirBnBModal = ({ current, onClose, onSaved }: MyAirBnBModalProps) => {
       await updateAirBnBInfo(
         hostId,
         {
-          ...draft,
-          airbnbRating: draft.airbnbRating === "" ? undefined : draft.airbnbRating,
-          airbnbReviewCount: draft.airbnbReviewCount === "" ? undefined : draft.airbnbReviewCount,
+          ...withoutFlag(draft),
+          // Counted from the reviews on record: not the host's to type, and not
+          // written back over the fallback either.
+          airbnbRating: draft.reviewsFromRecord || draft.airbnbRating === "" ? undefined : draft.airbnbRating,
+          airbnbReviewCount: draft.reviewsFromRecord || draft.airbnbReviewCount === "" ? undefined : draft.airbnbReviewCount,
           highlights: draft.highlights
             ? draft.highlights.split(",").map((s) => s.trim()).filter(Boolean)
             : undefined,
@@ -171,34 +177,49 @@ const MyAirBnBModal = ({ current, onClose, onSaved }: MyAirBnBModalProps) => {
                 />
               </Field>
 
+              {draft.reviewsFromRecord ? (
+                // Counted, not typed: the reviews on record (Money → Guest
+                // reviews) are the source, so TiBook, TT and this window can
+                // never show different numbers.
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                  <p className="text-sm font-semibold text-gray-900">
+                    {draft.airbnbRating !== "" ? `${Number(draft.airbnbRating).toFixed(2)} ★` : "No stars yet"} ·{" "}
+                    {draft.airbnbReviewCount} review{draft.airbnbReviewCount === 1 ? "" : "s"}
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    Counted from the reviews on record. Add new reviews under Money → Guest reviews and these update themselves.
+                  </p>
+                </div>
+              ) : (
               <div className="flex gap-3">
-                <Field label="Rating">
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="1"
-                    max="5"
-                    placeholder="4.96"
-                    className={inputCls}
-                    value={draft.airbnbRating}
-                    onChange={(e) =>
-                      set("airbnbRating", e.target.value === "" ? "" : parseFloat(e.target.value))
-                    }
-                  />
-                </Field>
-                <Field label="Reviews">
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="300"
-                    className={inputCls}
-                    value={draft.airbnbReviewCount}
-                    onChange={(e) =>
-                      set("airbnbReviewCount", e.target.value === "" ? "" : parseInt(e.target.value, 10))
-                    }
-                  />
-                </Field>
-              </div>
+                  <Field label="Rating">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="1"
+                      max="5"
+                      placeholder="4.96"
+                      className={inputCls}
+                      value={draft.airbnbRating}
+                      onChange={(e) =>
+                        set("airbnbRating", e.target.value === "" ? "" : parseFloat(e.target.value))
+                      }
+                    />
+                  </Field>
+                  <Field label="Reviews">
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="300"
+                      className={inputCls}
+                      value={draft.airbnbReviewCount}
+                      onChange={(e) =>
+                        set("airbnbReviewCount", e.target.value === "" ? "" : parseInt(e.target.value, 10))
+                      }
+                    />
+                  </Field>
+                </div>
+              )}
 
               <Field label="Reviews Page URL" hint="Link shown on TiBook reviews count">
                 <input

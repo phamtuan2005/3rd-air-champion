@@ -119,6 +119,7 @@ function App() {
     airbnbAddress: "",
     airbnbRating: "" as number | "",
     airbnbReviewCount: "" as number | "",
+    reviewsFromRecord: undefined as boolean | undefined,
     airbnbReviewsUrl: "",
     airbnbProfileUrl: "",
     cohostProfileUrl: "",
@@ -154,6 +155,7 @@ function App() {
           airbnbAddress: result.airbnbAddress ?? "",
           airbnbRating: result.airbnbRating ?? "",
           airbnbReviewCount: result.airbnbReviewCount ?? "",
+          reviewsFromRecord: result.reviewsFromRecord === true,
           airbnbReviewsUrl: result.airbnbReviewsUrl ?? "",
           airbnbProfileUrl: result.airbnbProfileUrl ?? "",
           cohostProfileUrl: result.cohostProfileUrls?.[0] ?? "",
@@ -279,7 +281,9 @@ function App() {
                   name={getCohostName() ?? host?.name}
                   setIsAboutModalOpen={setIsAboutModalOpen}
                   airBnBInfo={airBnBInfo}
-                  onAirBnBInfoSaved={setAirBnBInfo}
+                  // Merged, so the server's "counted from the record" flag survives
+                  // a save of the fields the host can type.
+                  onAirBnBInfoSaved={(info) => setAirBnBInfo((cur) => ({ ...cur, ...info, reviewsFromRecord: cur.reviewsFromRecord }))}
                   isFooterVisible={isFooterVisible}
                   onToggleFooter={() => setIsFooterVisible((v) => !v)}
                   isTodoModalOpen={isTodoModalOpen}

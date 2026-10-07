@@ -11,6 +11,7 @@ interface AirBnBInfo {
   airbnbAddress: string;
   airbnbRating: number | "";
   airbnbReviewCount: number | "";
+  reviewsFromRecord?: boolean;
   airbnbReviewsUrl: string;
   airbnbProfileUrl: string;
   cohostProfileUrl: string;

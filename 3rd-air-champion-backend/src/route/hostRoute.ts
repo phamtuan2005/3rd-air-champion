@@ -55,6 +55,8 @@ router.post("/get/one", async (req: Request, res: any) => {
                     airbnbAddress
                     airbnbRating
                     airbnbReviewCount
+        reviewsFromRecord
+                    reviewsFromRecord
                     airbnbReviewsUrl
                     airbnbProfileUrl
                     cohostProfileUrls
@@ -212,6 +214,7 @@ router.put('/update/airbnbinfo', async (req: Request, res: any) => {
         airbnbAddress
         airbnbRating
         airbnbReviewCount
+        reviewsFromRecord
         airbnbReviewsUrl
         airbnbProfileUrl
         cohostProfileUrls

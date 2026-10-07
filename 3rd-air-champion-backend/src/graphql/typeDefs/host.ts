@@ -30,6 +30,8 @@ export const hostDefs = gql`
     airbnbAddress: String
     airbnbRating: Float
     airbnbReviewCount: Int
+    # True when the count and rating above are counted from the reviews on record.
+    reviewsFromRecord: Boolean
     airbnbReviewsUrl: String
     airbnbProfileUrl: String
     cohostProfileUrls: [String]
