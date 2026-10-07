@@ -7,7 +7,7 @@ import Room from "../model/roomSchema";
 import Guest from "../model/guestSchema";
 import TTReviewEntry from "../model/ttReviewEntrySchema";
 import { lookupReviews } from "../util/reviewLookup";
-import { roomTextsFromEntries } from "../util/reviewEntries";
+import { newestFirst, roomTextsFromEntries } from "../util/reviewEntries";
 import { dayKey } from "../util/arrivingGuests";
 import { findAssignments } from "../util/assignmentQuery";
 import { loadCleaningDays } from "../util/cleaningDays";
@@ -321,7 +321,7 @@ const buildTools = (hostId: string) => {
     },
     run: async (input: any) => {
       const [rows, rooms]: [any[], any[]] = await Promise.all([
-        TTReviewEntry.find({ host: hostId }).sort({ stayDate: -1, createdAt: -1 }).lean() as any,
+        TTReviewEntry.find({ host: hostId }).lean().then((rows: any[]) => rows.sort(newestFirst)) as any,
         Room.find({ host: hostId }).select("name") as any,
       ]);
       if (rows.length === 0) {

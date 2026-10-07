@@ -25,6 +25,23 @@ export interface EntryInput {
   occurrence?: number;
 }
 
+/**
+ * Newest first, by the review's own date: the night the stay began where the
+ * host entered it, else the first of the month the review is dated, else
+ * nowhere (last). Then the latest added.
+ *
+ * Sorting by stayDate alone left every review from a split — which have only a
+ * month — in the order they were added, the page's "most relevant" order: an
+ * October 2025 review above a February 2026 one (host, 2026-10-07: "Sort in
+ * descending time is what I like").
+ */
+export const reviewDateKey = (r: { stayDate?: string; reviewMonth?: string }) =>
+  r.stayDate || (r.reviewMonth ? `${r.reviewMonth}-01` : "");
+
+export const newestFirst = (a: any, b: any) =>
+  reviewDateKey(b).localeCompare(reviewDateKey(a)) ||
+  new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime();
+
 /** The block a review is written into the room's file as: a heading of what is known, then the words. */
 export const fileBlock = (e: Pick<EntryInput, "guestName" | "stayDate" | "reviewMonth" | "stars" | "text">) => {
   const head = [
@@ -104,9 +121,9 @@ export const saveEntry = async (hostId: string, e: EntryInput, opts: { appendToF
  * twice.
  */
 export const roomTextsFromEntries = async (hostId: string, roomIds?: string[]): Promise<Map<string, string>> => {
-  const rows: any[] = await TTReviewEntry.find({ host: hostId, ...(roomIds ? { room: { $in: roomIds } } : {}) })
-    .sort({ stayDate: -1, reviewMonth: -1, createdAt: -1 })
-    .lean();
+  const rows: any[] = (await TTReviewEntry.find({ host: hostId, ...(roomIds ? { room: { $in: roomIds } } : {}) }).lean()).sort(
+    newestFirst,
+  );
   const by = new Map<string, string[]>();
   for (const r of rows) {
     const k = String(r.room);
