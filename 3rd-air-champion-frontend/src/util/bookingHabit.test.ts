@@ -165,3 +165,31 @@ describe("a week booked only in part", () => {
     expect(proposalsFor(h, today, () => true, [stay("2026-10-13", 2, "chill")], { weeks: 1 })).toEqual([]);
   });
 });
+
+describe("a usual week no room can take whole — Sean, Mon–Thu in King", () => {
+  // From the host's calendar, Nov 2026: King is Shuhui's Mon–Thu both weeks;
+  // every room is taken on Tuesday; Cute is free Mon, Wed, Thu of the 2nd week.
+  const sean = { startWeekday: 1, nights: 4, rooms: ["king"], times: 3 };
+  const today = new Date("2026-11-01T12:00:00"); // a Sunday
+  const taken: Record<string, string[]> = {
+    king: ["2026-11-02", "2026-11-03", "2026-11-04", "2026-11-05", "2026-11-09", "2026-11-10", "2026-11-11", "2026-11-12"],
+    cute: ["2026-11-03", "2026-11-04", "2026-11-10"],
+    queen: ["2026-11-02", "2026-11-03", "2026-11-04", "2026-11-09", "2026-11-10"],
+  };
+  const isFree = (room: string, night: string) => !(taken[room] ?? []).includes(night);
+
+  it("offers the nights of his week that are free, says the full one, and keeps neighbours in one room", () => {
+    const out = proposalsFor(sean, today, isFree, [], { weeks: 2, max: 10, otherRooms: ["cute", "queen"] });
+    expect(out.map((p) => [p.nights.join(","), p.roomId, p.full])).toEqual([
+      ["2026-11-02", "cute", [2, 3]],
+      ["2026-11-05", "cute", [2, 3]],
+      ["2026-11-09", "cute", [2]],
+      ["2026-11-11,2026-11-12", "cute", [2]],
+    ]);
+  });
+
+  it("still offers the whole week in one room when one has it", () => {
+    const out = proposalsFor(sean, today, () => true, [], { weeks: 1, max: 5 });
+    expect(out).toEqual([{ start: "2026-11-02", nights: ["2026-11-02", "2026-11-03", "2026-11-04", "2026-11-05"], roomId: "king", usualRoom: true }]);
+  });
+});

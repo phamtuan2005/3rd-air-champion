@@ -141,7 +141,45 @@ export interface Proposal {
   completes?: number[];
   /** For `completes`: the room the rest of that week is booked in. */
   theirRoom?: string;
+  /**
+   * Nights of the guest's usual week that NO room has free, as weekday indexes —
+   * set when only part of the week could be offered, so the card can say
+   * "Tuesday is full that week" and the shorter stay makes sense.
+   */
+  full?: number[];
 }
+
+/**
+ * The given nights (in order) placed in rooms: each run of consecutive nights in
+ * one room where a room has the whole run free — the first in `order` — else
+ * split, night by night, into the first free room for each, keeping neighbours
+ * in the same room. Nights no room has free are left out.
+ */
+const placeNights = (
+  nights: string[],
+  order: string[],
+  isFree: (roomId: string, night: string) => boolean | null,
+): { nights: string[]; roomId: string }[] => {
+  const out: { nights: string[]; roomId: string }[] = [];
+  const open = nights.filter((n) => order.some((r) => isFree(r, n) === true));
+  for (const run of runs(open)) {
+    const whole = order.find((r) => freeFor(r, run, isFree));
+    if (whole) {
+      out.push({ nights: run, roomId: whole });
+      continue;
+    }
+    for (const n of run) {
+      const prev = out[out.length - 1];
+      // Stay in the previous night's room when it is free tonight too.
+      if (prev && isFree(prev.roomId, n) === true && key(addDays(parseISO(prev.nights[prev.nights.length - 1]), 1)) === n) {
+        prev.nights.push(n);
+        continue;
+      }
+      out.push({ nights: [n], roomId: order.find((r) => isFree(r, n) === true)! });
+    }
+  }
+  return out;
+};
 
 // Splits nights (in order) into runs of consecutive ones.
 const runs = (nights: string[]) => {
@@ -184,8 +222,23 @@ export const proposalsFor = (
     const held = nights.filter((n) => roomOn.has(n));
     if (held.length === nights.length) continue;
     if (held.length === 0) {
-      const room = [...habit.rooms, ...others].find((r) => freeFor(r, nights, isFree));
-      if (room) out.push({ start, nights, roomId: room, usualRoom: room === habit.rooms[0] });
+      const order = [...habit.rooms, ...others];
+      const room = order.find((r) => freeFor(r, nights, isFree));
+      if (room) {
+        out.push({ start, nights, roomId: room, usualRoom: room === habit.rooms[0] });
+        continue;
+      }
+      // No room has the whole usual week: offer the nights of it that ARE free,
+      // and say which are full — rather than skipping the week. Sean's Mon–Thu
+      // was skipped for two weeks running because every room was taken on the
+      // Tuesday, while Monday, Wednesday and Thursday sat open (host,
+      // 2026-10-07: "There are some nights available fulfilling his booking
+      // pattern").
+      const full = nights.filter((n) => !order.some((r) => isFree(r, n) === true)).map(weekdayOf);
+      for (const piece of placeNights(nights, order, isFree)) {
+        if (out.length >= max) break;
+        out.push({ start: piece.nights[0], nights: piece.nights, roomId: piece.roomId, usualRoom: piece.roomId === habit.rooms[0], full });
+      }
       continue;
     }
     // Part of the week is booked: offer the nights left — one proposal per run
@@ -194,19 +247,19 @@ export const proposalsFor = (
     // suggestions for the remaining night").
     const theirRoom = roomOn.get(held[0])!;
     const order = [theirRoom, ...habit.rooms.filter((r) => r !== theirRoom), ...others.filter((r) => r !== theirRoom)];
-    for (const run of runs(nights.filter((n) => !roomOn.has(n)))) {
+    const left = nights.filter((n) => !roomOn.has(n));
+    const fullLeft = left.filter((n) => !order.some((r) => isFree(r, n) === true)).map(weekdayOf);
+    for (const piece of placeNights(left, order, isFree)) {
       if (out.length >= max) break;
-      const room = order.find((r) => freeFor(r, run, isFree));
-      if (room) {
-        out.push({
-          start: run[0],
-          nights: run,
-          roomId: room,
-          usualRoom: room === habit.rooms[0],
-          completes: held.map(weekdayOf),
-          theirRoom,
-        });
-      }
+      out.push({
+        start: piece.nights[0],
+        nights: piece.nights,
+        roomId: piece.roomId,
+        usualRoom: piece.roomId === habit.rooms[0],
+        completes: held.map(weekdayOf),
+        theirRoom,
+        ...(fullLeft.length ? { full: fullLeft } : {}),
+      });
     }
   }
   return out;
