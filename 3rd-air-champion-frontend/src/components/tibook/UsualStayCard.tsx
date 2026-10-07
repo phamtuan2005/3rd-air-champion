@@ -307,7 +307,12 @@ const UsualStayCard = ({
                         {[...new Set(p.full)].map((d) => DAY[d]).join(" and ")} {p.full.length === 1 ? "is" : "are"} full that week
                       </span>
                     )}
-                    {p.completes ? (
+                    {/* No "King is taken that week" line: the chip shows the
+                        room, the sentence above names all their rooms, and a
+                        shorter week says which nights are full — the line was
+                        noise (host, 2026-10-07). A room CHANGE between nights is
+                        still said, below. */}
+                    {p.completes && (
                       // A night to round off a week they booked part of — and,
                       // when it cannot be in the same room, which room and why,
                       // so a move between nights is not a surprise on the day.
@@ -317,9 +322,6 @@ const UsualStayCard = ({
                           ? ` — in ${room.name}, as ${roomOf(p.theirRoom)?.name ?? "your room"} is taken that night`
                           : ""}
                       </span>
-                    ) : (
-                      !p.usualRoom &&
-                      usual && <span className={`block text-xs ${theme.surfaceMuted}`}>{usual.name} is taken that week</span>
                     )}
                   </span>
                   {room && <span className={`${roomChip(room)} shrink-0 rounded-md px-2 py-0.5 text-sm font-bold text-black`}>{room.name}</span>}
