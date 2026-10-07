@@ -831,7 +831,10 @@ const TiBookInner = () => {
   // out from their own stays and the calendar, nothing asked of them (see
   // util/bookingHabit). Their usual rooms that are no longer let are dropped;
   // a night is free only where nothing is booked, held or blocked.
-  const [usualDismissed, setUsualDismissed] = useState(false);
+  // Shown once per visit — opened by the effect below, closed for good by the
+  // guest (Not now, a tap outside, or picking a stay).
+  const [usualOpen, setUsualOpen] = useState(false);
+  const usualShown = useRef(false);
   const usualStay = useMemo(() => {
     if (!isKnownVisitor || guestBookings.length === 0) return null;
     const today = startOfToday();
@@ -850,6 +853,19 @@ const TiBookInner = () => {
     // availableRoomsForDate reads monthMap, reservedMap and rooms.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isKnownVisitor, guestBookings, rooms, monthMap, reservedMap]);
+
+  // Opens the proposal once per visit, and only over a quiet page: never on top
+  // of the request, the bookings sheet, a chat, the pending-payment notice or the
+  // phone consent, so two popups never stack. It waits for them to close.
+  useEffect(() => {
+    if (!usualStay || usualShown.current) return;
+    if (
+      isBookingModalOpen || myBookingsOpen || chatOpen || askTTOpen || statsOpen ||
+      reservedPopupOpen || stayPopupId || heroGalleryRoom || pendingConsentPhone
+    ) return;
+    usualShown.current = true;
+    setUsualOpen(true);
+  }, [usualStay, isBookingModalOpen, myBookingsOpen, chatOpen, askTTOpen, statsOpen, reservedPopupOpen, stayPopupId, heroGalleryRoom, pendingConsentPhone]);
 
   const onTTAction = (a: Exclude<TTAction, { kind: "ask" }>) => {
     setAskTTOpen(false);
@@ -990,20 +1006,6 @@ const TiBookInner = () => {
           guestName={greetedName}
           actionLabel={barLabel}
           hasSelection={hasSelection}
-          topSlot={
-            usualStay && !usualDismissed ? (
-              <UsualStayCard
-                firstName={greetedName.trim().split(/\s+/)[0] ?? ""}
-                habits={usualStay.habits}
-                proposals={usualStay.proposals}
-                fill={usualStay.fill}
-                roomOf={(id) => rooms.find((r) => r.id === id)}
-                // The ordinary request, filled in: the guest reads and sends it.
-                onRequest={(p) => onTTAction({ kind: "pick", label: "", dates: p.nights, roomId: p.roomId, review: true })}
-                onDismiss={() => setUsualDismissed(true)}
-              />
-            ) : null
-          }
         />
         )
       ) : (
@@ -1289,6 +1291,22 @@ const TiBookInner = () => {
       })()}
 
       {/* Rooms held for the guest, pending payment — gentle nudge to pay */}
+      {usualOpen && usualStay && (
+        <UsualStayCard
+          firstName={greetedName.trim().split(/\s+/)[0] ?? ""}
+          habits={usualStay.habits}
+          proposals={usualStay.proposals}
+          fill={usualStay.fill}
+          roomOf={(id) => rooms.find((r) => r.id === id)}
+          // The ordinary request, filled in: the guest reads and sends it.
+          onRequest={(p) => {
+            setUsualOpen(false);
+            onTTAction({ kind: "pick", label: "", dates: p.nights, roomId: p.roomId, review: true });
+          }}
+          onClose={() => setUsualOpen(false)}
+        />
+      )}
+
       {reservedPopupOpen && reservedStays.length > 0 && (
         <ReservedHoldsPopup
           holds={reservedStays}
