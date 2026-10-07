@@ -2,7 +2,7 @@ import express from "express";
 import request from "supertest";
 import mongoose from "mongoose";
 import ttGuestRoute, { resetQuestionLimits } from "../ttGuestRoute";
-import ttHostRoute, { setReviewDrafter } from "../ttHostRoute";
+import ttHostRoute, { setReviewDrafter, setReviewSplitter } from "../ttHostRoute";
 import TTQuestion from "../../model/ttQuestionSchema";
 import TTReviews from "../../model/ttReviewsSchema";
 import TTReviewSource from "../../model/ttReviewSourceSchema";
@@ -313,6 +313,122 @@ describe("review summaries", () => {
     const res = await request(app).get("/tt-host/reviews/entries");
     expect(res.body.entries.map((e: any) => e.guestName)).toEqual(["B", "A"]);
     expect(res.body.entries[1].snippet).toHaveLength(160);
+  });
+
+  // The split reads the room's kept file, shows what it found, and saves only
+  // when told. These pin that nothing is saved before then, that the file is not
+  // written to again (the reviews came OUT of it), and that the same review is
+  // never kept twice.
+  const waitFor = async (fn: () => Promise<boolean>) => {
+    for (let i = 0; i < 40; i++) {
+      if (await fn()) return;
+      await new Promise((r) => setTimeout(r, 25));
+    }
+  };
+
+  it("splits the room's file into reviews, previews them, and saves them only on Add", async () => {
+    const host = String((await createMockHost("split@example.com"))._id);
+    const king = String((await roomFor(host, "King"))._id);
+    const maria = String((await Guest.create({ host, name: "Maria", phone: "5550003333" }))._id);
+    await keep(host, king, "raw pasted page");
+    setReviewSplitter(async (_text, onProgress) => {
+      onProgress(1, 1);
+      return [
+        { guestName: "Maria", stars: 5, month: "2026-09", when: "1 week ago", text: "Lovely and clean." },
+        { guestName: "Leidy Johanna", stars: null, month: "2025-02", when: "February 2025", text: "Perfectly organized." },
+      ];
+    });
+    const app = signedInAs({ hostId: host, role: "Host" });
+
+    expect((await request(app).post("/tt-host/reviews/split").send({ roomId: king })).status).toBe(202);
+    let preview: any = {};
+    await waitFor(async () => {
+      preview = (await request(app).get(`/tt-host/reviews/split/${king}`)).body;
+      return preview.status === "ready";
+    });
+    expect(preview.reviews.map((r: any) => [r.guestName, r.stars, r.month, r.onFile])).toEqual([
+      ["Maria", 5, "2026-09", false],
+      ["Leidy Johanna", null, "2025-02", false],
+    ]);
+    // Seen, not saved.
+    expect(await TTReviewEntry.countDocuments({ host })).toBe(0);
+
+    const done = await request(app).post(`/tt-host/reviews/split/${king}/add`);
+    expect(done.body).toEqual({ added: 2, skipped: 0 });
+    const kept: any[] = await TTReviewEntry.find({ host, room: king }).sort({ createdAt: 1 }).lean();
+    expect(kept.map((e) => [e.guestName, e.stars ?? null, e.reviewMonth, e.stayDate])).toEqual([
+      ["Maria", 5, "2026-09", ""],
+      ["Leidy Johanna", null, "2025-02", ""],
+    ]);
+    // Matched to the guest on the list by exact name, and not otherwise.
+    expect(String(kept[0].guest)).toBe(maria);
+    expect(kept[1].guest).toBeUndefined();
+    // The file is untouched: the reviews came out of it.
+    const file: any = await TTReviewSource.findOne({ host, room: king }).lean();
+    expect(file.text).toBe("raw pasted page");
+    // And the split is spent.
+    expect((await request(app).get(`/tt-host/reviews/split/${king}`)).body.status).toBe("none");
+  });
+
+  it("marks reviews already on file, and skips them on Add rather than keeping them twice", async () => {
+    const host = String((await createMockHost("split-dup@example.com"))._id);
+    const king = String((await roomFor(host, "King"))._id);
+    await keep(host, king, "raw");
+    const app = signedInAs({ hostId: host, role: "Host" });
+    await request(app).post("/tt-host/reviews/entry").send({ roomId: king, guestName: "Maria", text: "Lovely and clean." });
+    setReviewSplitter(async () => [
+      { guestName: "Maria", stars: 5, month: "", when: "", text: "lovely  and clean." },
+      { guestName: "New", stars: 4, month: "", when: "", text: "A fresh one." },
+    ]);
+    await request(app).post("/tt-host/reviews/split").send({ roomId: king });
+    let preview: any = {};
+    await waitFor(async () => {
+      preview = (await request(app).get(`/tt-host/reviews/split/${king}`)).body;
+      return preview.status === "ready";
+    });
+    expect(preview.reviews.map((r: any) => r.onFile)).toEqual([true, false]);
+    expect((await request(app).post(`/tt-host/reviews/split/${king}/add`)).body).toEqual({ added: 1, skipped: 1 });
+    expect(await TTReviewEntry.countDocuments({ host, room: king })).toBe(2);
+  });
+
+  it("does not guess which guest a first name is when two on the list share it", async () => {
+    const host = String((await createMockHost("split-twins@example.com"))._id);
+    const king = String((await roomFor(host, "King"))._id);
+    await Guest.create({ host, name: "Alex", phone: "5550004444" });
+    await Guest.create({ host, name: "Alex", phone: "5550005555" });
+    await keep(host, king, "raw");
+    setReviewSplitter(async () => [{ guestName: "Alex", stars: 5, month: "", when: "", text: "Great." }]);
+    const app = signedInAs({ hostId: host, role: "Host" });
+    await request(app).post("/tt-host/reviews/split").send({ roomId: king });
+    await waitFor(async () => (await request(app).get(`/tt-host/reviews/split/${king}`)).body.status === "ready");
+    await request(app).post(`/tt-host/reviews/split/${king}/add`);
+    const e: any = await TTReviewEntry.findOne({ host, room: king }).lean();
+    expect(e.guestName).toBe("Alex");
+    expect(e.guest).toBeUndefined();
+  });
+
+  it("will not split a room with no reviews on file, or another host's room, and says a failure in words", async () => {
+    const host = String((await createMockHost("split-refuse@example.com"))._id);
+    const other = String((await createMockHost("split-refuse-other@example.com"))._id);
+    const mine = String((await roomFor(host, "King"))._id);
+    const theirs = String((await roomFor(other, "King"))._id);
+    await keep(other, theirs, "their reviews");
+    setReviewSplitter(async () => {
+      throw new Error("Claude declined to read these reviews.");
+    });
+    const app = signedInAs({ hostId: host, role: "Host" });
+    expect((await request(app).post("/tt-host/reviews/split").send({ roomId: mine })).status).toBe(400);
+    expect((await request(app).post("/tt-host/reviews/split").send({ roomId: theirs })).status).toBe(400);
+
+    await keep(host, mine, "raw");
+    expect((await request(app).post("/tt-host/reviews/split").send({ roomId: mine })).status).toBe(202);
+    let status: any = {};
+    await waitFor(async () => {
+      status = (await request(app).get(`/tt-host/reviews/split/${mine}`)).body;
+      return status.status === "failed";
+    });
+    expect(status.error).toMatch(/declined/);
+    expect((await request(app).post(`/tt-host/reviews/split/${mine}/add`)).status).toBe(400);
   });
 
   it("refuses a part too large to travel, rather than carrying a body CloudFront drops", async () => {
