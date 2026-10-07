@@ -4,6 +4,7 @@ import Cleaner from "../model/cleanerSchema";
 import CleaningAssignment from "../model/cleaningAssignmentSchema";
 import WorkEntry from "../model/workEntrySchema";
 import { findAssignments } from "../util/assignmentQuery";
+import CleaningExtra from "../model/cleaningExtraSchema";
 import { computeCleanerPay } from "../util/cleanerPay";
 import { arrivingNeeds } from "../util/arrivingGuests";
 import { roomOccupancyOdds, roomPartySizeOdds } from "../util/roomLikelihood";
@@ -381,6 +382,13 @@ router.post("/schedule", async (req: Request, res: any) => {
       date: { $in: [...byDate.keys()] },
     });
     const byDay = new Map(claims.map((c: any) => [c.date, c]));
+    // The extra jobs on each of their visits (windows, baseboards…), so they
+    // know before they come that the visit is longer than its rooms.
+    const extras: any[] = await CleaningExtra.find({ cleaner: who.doc._id, date: { $in: [...byDate.keys()] } })
+      .sort({ name: 1 })
+      .lean();
+    const extrasOn = new Map<string, string[]>();
+    for (const e of extras) extrasOn.set(e.date, [...(extrasOn.get(e.date) ?? []), e.name]);
 
     res.status(200).json(
       [...byDate.values()]
@@ -393,6 +401,7 @@ router.post("/schedule", async (req: Request, res: any) => {
         return {
           date: g.date,
           rooms: g.rooms,
+          extras: extrasOn.get(g.date) ?? [],
           // What the host has on record for the whole visit.
           recordedHours: g.hasHours ? g.recordedHours : null,
           claim: claim

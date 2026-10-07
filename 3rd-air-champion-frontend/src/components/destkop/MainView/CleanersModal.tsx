@@ -36,6 +36,13 @@ import {
   createCleaner,
   deleteCleaner,
   fetchAssignments,
+  fetchCleaningJobs,
+  createCleaningJob,
+  deleteCleaningJob,
+  fetchCleaningExtras,
+  toggleCleaningExtra,
+  CleaningJobType,
+  CleaningExtraType,
   fetchCleaners,
   fetchCleanerSummary,
   fetchSentSchedules,
@@ -264,6 +271,17 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
   // (NavBar dropdown or the Upcoming assign popover).
   const [cleaners, setCleaners] = useState<CleanerType[]>([]);
   const [assignments, setAssignments] = useState<CleaningAssignmentType[]>([]);
+  // Extra jobs (windows, baseboards…): the host's list, and those scheduled onto
+  // visits. See extrasLine below.
+  const [jobs, setJobs] = useState<CleaningJobType[]>([]);
+  const [extras, setExtras] = useState<CleaningExtraType[]>([]);
+  const [extraTarget, setExtraTarget] = useState<{ cleaner: CleanerType; date: string } | null>(null);
+  const [newJob, setNewJob] = useState("");
+  const [manageJobs, setManageJobs] = useState(false);
+  const [removingJob, setRemovingJob] = useState<CleaningJobType | null>(null);
+  // One tap at a time on the picker: a second tap while the first is in flight
+  // would toggle the job straight back off.
+  const extraBusy = useRef(false);
   const [summary, setSummary] = useState<CleanerSummaryType[]>([]);
   // Signature of the schedule last TEXTED per cleaner+week (from the backend,
   // shared with cohosts) — compared to the live schedule to flag drift.
@@ -843,6 +861,12 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
     fetchAssignments(hostId, start, end, token)
       .then(setAssignments)
       .catch((err) => console.error("Error fetching assignments:", err));
+    fetchCleaningJobs(hostId, token)
+      .then(setJobs)
+      .catch((err) => console.error("Error fetching extra jobs:", err));
+    fetchCleaningExtras(hostId, start, end, token)
+      .then(setExtras)
+      .catch((err) => console.error("Error fetching extras:", err));
     fetchSentSchedules(hostId, token)
       .then((rows) =>
         setSentSchedules(
@@ -1289,6 +1313,87 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
   // Signature of a cleaner's LIVE schedule for a fixed week — date|room|guests
   // per non-stale assignment, matching what the SMS conveys (so a changed guest
   // count also counts as a change worth re-sending).
+  // The extra jobs on a cleaner's visit — only while that visit exists. The
+  // server takes them away with the cleaner's last room that morning; reading
+  // them through the assignments here means the screen agrees at once, without
+  // waiting for a reload.
+  const extrasOf = (cleanerId: string, date: string): CleaningExtraType[] =>
+    assignments.some((a) => a.cleaner?.id === cleanerId && a.date === date && a.room)
+      ? extras.filter((e) => e.cleaner === cleanerId && e.date === date)
+      : [];
+
+  const toggleExtra = async (cleaner: CleanerType, date: string, job: CleaningJobType, on: boolean) => {
+    if (extraBusy.current) return;
+    extraBusy.current = true;
+    try {
+      const r = await toggleCleaningExtra({ host: hostId, date, cleaner: cleaner.id, job: job.id, on }, token);
+      setExtras((prev) => [
+        ...prev.filter((e) => !(e.cleaner === cleaner.id && e.date === date && e.job === job.id)),
+        ...(r.on ? [{ id: r.id ?? `${date}-${job.id}`, date, cleaner: cleaner.id, job: job.id, name: r.name ?? job.name }] : []),
+      ]);
+    } catch (err: any) {
+      setError(err.response?.data?.error ?? "Could not change that extra job");
+    } finally {
+      extraBusy.current = false;
+    }
+  };
+
+  const addJobAndTick = async () => {
+    const name = newJob.trim();
+    if (!name || !extraTarget || extraBusy.current) return;
+    try {
+      const job = await createCleaningJob(hostId, name, token);
+      setJobs((prev) => [...prev.filter((j) => j.id !== job.id), job].sort((a, b) => a.name.localeCompare(b.name)));
+      setNewJob("");
+      await toggleExtra(extraTarget.cleaner, extraTarget.date, job, true);
+    } catch (err: any) {
+      setError(err.response?.data?.error ?? "Could not add that job");
+    }
+  };
+
+  const removeJob = async (job: CleaningJobType) => {
+    try {
+      await deleteCleaningJob(hostId, job.id, token);
+      setJobs((prev) => prev.filter((j) => j.id !== job.id));
+      setRemovingJob(null);
+    } catch (err: any) {
+      setError(err.response?.data?.error ?? "Could not remove that job");
+    }
+  };
+
+  // The extras on a visit, as chips after its rooms — dashed, so an extra never
+  // reads as one more room — with "+ Extra" to add one where the host may.
+  const extrasLine = (cleaner: CleanerType, date: string, editable: boolean) => {
+    const mine = extrasOf(cleaner.id, date);
+    if (!editable && mine.length === 0) return null;
+    return (
+      <>
+        {mine.map((e) => (
+          <span
+            key={e.id}
+            className="rounded-md border border-dashed border-violet-300 bg-violet-50 px-2 py-1 text-[13px] font-semibold text-violet-700"
+          >
+            + {e.name}
+          </span>
+        ))}
+        {editable && (
+          <button
+            type="button"
+            onClick={() => {
+              setExtraTarget({ cleaner, date });
+              setManageJobs(false);
+              setRemovingJob(null);
+            }}
+            title={`Extra jobs on ${cleaner.name.split(" ")[0]}'s visit — windows, baseboards…`}
+            className="rounded-md border border-dashed border-gray-300 px-2 py-1 text-[12px] font-semibold text-gray-500 transition-colors hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700"
+          >
+            + Extra
+          </button>
+        )}
+      </>
+    );
+  };
+
   const scheduleSignature = (cleanerId: string, monday: Date) => {
     const d0 = format(monday, "yyyy-MM-dd");
     const d6 = format(addDays(monday, 6), "yyyy-MM-dd");
@@ -1302,6 +1407,11 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
           !isStaleCleaning(a.room.id, a.date),
       )
       .map((a) => `${a.date}:${a.room!.id}:${arrivalSuffix(a.room!.id, a.date)}`)
+      .concat(
+        extras
+          .filter((e) => e.cleaner === cleanerId && e.date >= d0 && e.date <= d6 && extrasOf(cleanerId, e.date).length > 0)
+          .map((e) => `x:${e.date}:${e.name}`),
+      )
       .sort()
       .join("|");
   };
@@ -1360,10 +1470,11 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
       const label = `${a.room!.name}${arrivalSuffix(a.room!.id, a.date)}`;
       byDay.set(a.date, [...(byDay.get(a.date) ?? []), label]);
     });
-    const lines = [...byDay.entries()].map(
-      ([date, rooms]) =>
-        `* ${format(new Date(date + "T00:00:00"), "EEEE M/d")}: ${rooms.join(", ")}`,
-    );
+    // Extra jobs follow the day's rooms, so the cleaner knows the visit is longer.
+    const lines = [...byDay.entries()].map(([date, rooms]) => {
+      const more = extrasOf(cleaner.id, date).map((e) => e.name);
+      return `* ${format(new Date(date + "T00:00:00"), "EEEE M/d")}: ${rooms.join(", ")}${more.length ? ` + ${more.join(", ")}` : ""}`;
+    });
     // Label the range actually listed, not the calendar week — mid-week that is
     // today→Sunday, so the heading matches the days below it.
     const weekLabel = `${format(new Date(from + "T00:00:00"), "MMM d")} – ${format(addDays(monday, 6), "MMM d")}`;
@@ -2208,6 +2319,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                               {headcountFor(room.id, dateKey)}
                             </span>
                           ))}
+                          {extrasLine(cleaner, dateKey, false)}
                         </div>
                         {scheduleStatus(cleaner.id, weekMonday) === "changed" && <ResendBadge />}
                       </div>
@@ -2496,6 +2608,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                           </button>
                           <div className="flex flex-1 flex-wrap items-center gap-1">
                             {entries.map(chip)}
+                            {extrasLine(cleaner, day.morningKey, true)}
                           </div>
                           {/* Right edge, clear of the name and the room chips. Drift
                               is per WEEK, so it flags on every day of the affected
@@ -2791,6 +2904,9 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                       </button>
                     </span>
                   ))}
+                  {/* Extra jobs done on this visit — the reason the hours are what
+                      they are, beside them (Cindy reads the hours here). */}
+                  {group.assignments.length > 0 && extrasLine(group.cleaner, group.date, true)}
                   {/* Add a room this cleaner actually did but was never assigned */}
                   {(() => {
                     // This tab only ever records the PAST, where what checked out
@@ -3837,6 +3953,113 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
         })()}
 
       {/* Assign-cleaner popover for one room+morning (Plan tab) */}
+      {extraTarget && (
+        <div
+          className="modal-type fixed inset-0 z-[120] flex items-end justify-center bg-black/40 p-4 sm:items-center"
+          onClick={() => setExtraTarget(null)}
+        >
+          <div
+            className="w-full max-w-xs overflow-hidden rounded-2xl bg-white p-4 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-sm font-bold text-gray-900">Extra jobs · {extraTarget.cleaner.name.split(" ")[0]}</p>
+            <p className="mb-3 text-sm text-gray-500">
+              {format(new Date(extraTarget.date + "T00:00:00"), "EEE, MMM d")} · on top of the rooms. Paid by the hours, as
+              always — this says why the visit is longer.
+            </p>
+
+            {!manageJobs ? (
+              <>
+                {jobs.length === 0 && (
+                  <p className="mb-2 text-center text-sm text-gray-400">No extra jobs yet — add the first below.</p>
+                )}
+                <div className="flex flex-wrap gap-1.5">
+                  {jobs.map((job) => {
+                    const on = extrasOf(extraTarget.cleaner.id, extraTarget.date).some((e) => e.job === job.id);
+                    return (
+                      <button
+                        key={job.id}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => toggleExtra(extraTarget.cleaner, extraTarget.date, job, !on)}
+                        className={`rounded-lg border px-3 py-1.5 text-sm font-semibold transition-colors ${
+                          on ? "border-violet-600 bg-violet-600 text-white" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        {on ? "✓ " : ""}
+                        {job.name}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <input
+                    value={newJob}
+                    onChange={(e) => setNewJob(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addJobAndTick()}
+                    maxLength={40}
+                    placeholder="New job, e.g. Windows"
+                    className="min-w-0 flex-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-[16px] focus:border-gray-400 focus:outline-none sm:text-sm"
+                  />
+                  <button type="button" onClick={addJobAndTick} disabled={!newJob.trim()} className={`${pillDark} disabled:opacity-40`}>
+                    Add
+                  </button>
+                </div>
+                <div className="mt-3 flex justify-between">
+                  {jobs.length > 0 ? (
+                    <button type="button" onClick={() => setManageJobs(true)} className="text-xs font-semibold text-gray-500 hover:text-gray-700">
+                      Edit the list
+                    </button>
+                  ) : (
+                    <span />
+                  )}
+                  <button type="button" onClick={() => setExtraTarget(null)} className="text-sm font-semibold text-gray-700">
+                    Done
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Taking a job off the LIST. Visits it was already on keep it —
+                    the record of what was done is not rewritten. */}
+                <ul className="divide-y divide-gray-100">
+                  {jobs.map((job) => (
+                    <li key={job.id} className="py-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-semibold text-gray-800">{job.name}</span>
+                        <button type="button" onClick={() => setRemovingJob(job)} className={DANGER_BUTTON}>
+                          Remove
+                        </button>
+                      </div>
+                      {removingJob?.id === job.id && (
+                        <div className="mt-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 py-2 text-xs">
+                          <p className="text-gray-800">
+                            Take {job.name} off the list? Visits it is already on keep it.
+                          </p>
+                          <div className="mt-1.5 flex justify-end gap-2">
+                            <button type="button" onClick={() => setRemovingJob(null)} className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700">
+                              Cancel
+                            </button>
+                            <button type="button" onClick={() => removeJob(job)} className={DANGER_BUTTON}>
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-3 flex justify-end">
+                  <button type="button" onClick={() => setManageJobs(false)} className="text-sm font-semibold text-gray-700">
+                    Back
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {assignTarget && (
         <div
           className="modal-type fixed inset-0 z-[120] flex items-end justify-center bg-black/40 p-4 sm:items-center"

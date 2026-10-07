@@ -835,6 +835,15 @@ const TiWork = () => {
                             <SofaBedTag on={r.sofaBed} />
                           </div>
                         ))}
+                        {/* Extra jobs on top of the rooms — said before the day,
+                            so a longer visit (and the hours it takes) is no
+                            surprise to you or to whoever reads the hours. */}
+                        {(sh.extras ?? []).length > 0 && (
+                          <p className="text-sm text-gray-700">
+                            <span className="font-semibold text-violet-700">Also: </span>
+                            {(sh.extras ?? []).join(", ")}
+                          </p>
+                        )}
                       </div>
                       {/* Only what is still to be DONE about the day lives down
                           here — the boxes for hours not yet sent, and anything

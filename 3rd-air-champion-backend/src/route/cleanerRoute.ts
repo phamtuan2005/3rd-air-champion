@@ -4,6 +4,8 @@ import CleaningAssignment from "../model/cleaningAssignmentSchema";
 import { findAssignments } from "../util/assignmentQuery";
 import { computeCleanerPay, rateOn } from "../util/cleanerPay";
 import SentSchedule from "../model/sentScheduleSchema";
+import CleaningJob from "../model/cleaningJobSchema";
+import CleaningExtra from "../model/cleaningExtraSchema";
 
 // All routes here are mounted behind the JWT middleware in server.ts.
 const router = express.Router();
@@ -286,17 +288,29 @@ router.get("/assignments", async (req: Request, res: any) => {
   }
 });
 
+// A visit's extra jobs go when the visit does: once a cleaner has no room left
+// on a morning (unassigned, or given to someone else), the extras scheduled on
+// that morning are removed with it — extras only ever ride on a cleaning.
+const dropExtrasOfEmptyVisit = async (host: unknown, date: string, cleaner: unknown) => {
+  if (!cleaner) return;
+  const stillThere = await CleaningAssignment.exists({ host, date, cleaner });
+  if (!stillThere) await CleaningExtra.deleteMany({ host, date, cleaner });
+};
+
 // Upsert — assigning a different cleaner to the same room+morning replaces it
 router.post("/assign", async (req: Request, res: any) => {
   const { host, date, room, cleaner } = req.body;
   if (!host || !date || !room || !cleaner)
     return res.status(400).json({ error: "host, date, room, and cleaner are required" });
   try {
+    const before: any = await CleaningAssignment.findOne({ host, date, room }, { cleaner: 1 }).lean();
     const assignment = await CleaningAssignment.findOneAndUpdate(
       { host, date, room },
       { host, date, room, cleaner },
       { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
     );
+    // The room moved to someone else: the last cleaner may have no visit left.
+    if (before && String(before.cleaner) !== String(cleaner)) await dropExtrasOfEmptyVisit(host, date, before.cleaner);
     const populated = await assignment.populate([
       { path: "room", select: "name" },
       { path: "cleaner" },
@@ -549,7 +563,8 @@ router.post("/unassign", async (req: Request, res: any) => {
   if (!host || !date || !room)
     return res.status(400).json({ error: "host, date, and room are required" });
   try {
-    await CleaningAssignment.findOneAndDelete({ host, date, room });
+    const gone: any = await CleaningAssignment.findOneAndDelete({ host, date, room });
+    if (gone) await dropExtrasOfEmptyVisit(host, date, gone.cleaner);
     res.status(200).json({ ok: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -572,6 +587,95 @@ router.patch("/hours", async (req: Request, res: any) => {
       .populate("cleaner");
     if (!assignment) return res.status(404).json({ error: "Assignment not found" });
     res.status(200).json(serializeAssignment(assignment));
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ── Extra jobs (windows, baseboards…) on top of a visit's rooms ──────────────
+//
+// See model/cleaningJobSchema: a job is a name on the host's list; an extra is
+// that job scheduled onto one cleaner's visit, so the cleaner knows the visit is
+// longer and the hours arrive with their reason. Pay is unchanged — hours ×
+// rate for the visit.
+
+router.get("/jobs", async (req: Request, res: any) => {
+  const { host } = req.query;
+  if (!host) return res.status(400).json({ error: "host is required" });
+  try {
+    const jobs: any[] = await CleaningJob.find({ host }).sort({ name: 1 }).lean();
+    res.status(200).json(jobs.map((j) => ({ id: String(j._id), name: j.name })));
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/jobs", async (req: Request, res: any) => {
+  const { host } = req.body;
+  const name = String(req.body?.name ?? "").trim().replace(/\s+/g, " ").slice(0, 40);
+  if (!host || !name) return res.status(400).json({ error: "host and name are required" });
+  try {
+    // The same job typed twice is the job already on the list, not a second one.
+    const job: any = await CleaningJob.findOneAndUpdate(
+      { host, key: name.toLowerCase() },
+      { $setOnInsert: { host, key: name.toLowerCase(), name } },
+      { new: true, upsert: true }
+    ).lean();
+    res.status(200).json({ id: String(job._id), name: job.name });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Off the list. Visits it was already scheduled on keep it (they carry the name),
+// so the record of what was done is not rewritten.
+router.delete("/jobs/:id", async (req: Request, res: any) => {
+  const { host } = req.query;
+  if (!host) return res.status(400).json({ error: "host is required" });
+  try {
+    await CleaningJob.deleteOne({ _id: req.params.id, host });
+    res.status(200).json({ ok: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get("/extras", async (req: Request, res: any) => {
+  const { host, start, end } = req.query;
+  if (!host || !start || !end) return res.status(400).json({ error: "host, start and end are required" });
+  try {
+    const rows: any[] = await CleaningExtra.find({ host, date: { $gte: String(start), $lte: String(end) } })
+      .sort({ date: 1, name: 1 })
+      .lean();
+    res.status(200).json(
+      rows.map((r) => ({ id: String(r._id), date: r.date, cleaner: String(r.cleaner), job: String(r.job), name: r.name }))
+    );
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Ticks a job on (or off) a cleaner's visit. On only when the cleaner has a
+// room that morning: an extra rides on a cleaning, it is never a visit alone.
+router.post("/extras/toggle", async (req: Request, res: any) => {
+  const { host, date, cleaner, job, on } = req.body;
+  if (!host || !date || !cleaner || !job) return res.status(400).json({ error: "host, date, cleaner and job are required" });
+  try {
+    if (!on) {
+      await CleaningExtra.deleteOne({ host, date, cleaner, job });
+      return res.status(200).json({ ok: true, on: false });
+    }
+    if (!(await CleaningAssignment.exists({ host, date, cleaner }))) {
+      return res.status(400).json({ error: "Extra jobs go on a visit with rooms. Give this cleaner a room that morning first." });
+    }
+    const theJob: any = await CleaningJob.findOne({ _id: job, host }).lean();
+    if (!theJob) return res.status(404).json({ error: "That job is not on the list." });
+    const row: any = await CleaningExtra.findOneAndUpdate(
+      { host, date, cleaner, job },
+      { $setOnInsert: { host, date, cleaner, job, name: theJob.name } },
+      { new: true, upsert: true, runValidators: true }
+    ).lean();
+    res.status(200).json({ ok: true, on: true, id: String(row._id), name: row.name });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
