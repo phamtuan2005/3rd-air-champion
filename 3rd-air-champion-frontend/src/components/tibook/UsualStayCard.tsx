@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { addDays, format, parseISO } from "date-fns";
 import { useRoomChip, useTiBookTheme } from "../../contexts/TiBookThemeContext";
-import type { Habit, Proposal } from "../../util/bookingHabit";
+import type { Habit, Proposal, Series } from "../../util/bookingHabit";
 
 // TiBook coming forward to a regular: "your usual, the next weeks it is open,
 // tap to request" — instead of waiting for them to find the dates themselves
@@ -41,7 +41,7 @@ const stayDates = (p: Proposal) => {
 const UsualStayCard = ({
   firstName,
   habits,
-  proposals,
+  series,
   fill,
   roomOf,
   onRequest,
@@ -49,13 +49,19 @@ const UsualStayCard = ({
 }: {
   firstName: string;
   habits: Habit[];
-  proposals: Proposal[];
+  /** The next months of stays, after the guest's last booked one (bookingHabit.seriesFor). */
+  series: Series;
   /** How many of the coming weeks the guest's usual room is already taken on their nights. */
   fill: { taken: number; known: number };
   roomOf: (id: string) => { name: string; color?: string } | undefined;
-  onRequest: (p: Proposal) => void;
+  /** The ticked stays, to the ordinary request — the guest still sends it. */
+  onRequest: (stays: Proposal[]) => void;
   onClose: () => void;
 }) => {
+  const proposals = series.proposals;
+  // Every week ticked to start with; the guest unticks the ones they will not need.
+  const [picked, setPicked] = useState<Set<string>>(() => new Set(proposals.map((p) => p.start)));
+  const chosen = proposals.filter((p) => picked.has(p.start));
   const { theme } = useTiBookTheme();
   const roomChip = useRoomChip();
   const main = habits[0];
@@ -114,7 +120,7 @@ const UsualStayCard = ({
         className={`tibook-type fixed bottom-24 left-1/2 z-[130] flex -translate-x-1/2 items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-white shadow-xl ${theme.btn} ${theme.btnHover}`}
       >
         <span aria-hidden>★</span>
-        TT has {proposals.length} stay{proposals.length === 1 ? "" : "s"} for you
+        TT has {proposals.length} stay{proposals.length === 1 ? "" : "s"} lined up for you
         <span aria-hidden className="opacity-80">▲</span>
       </button>
     );
@@ -173,37 +179,66 @@ const UsualStayCard = ({
           ) : null}
           .
         </p>
+        {series.lastBooked && (
+          <p className={`mt-1 text-base ${theme.surfaceText}`}>
+            You're booked through <span className="font-semibold">{format(parseISO(series.lastBooked), "EEE MMM d, yyyy")}</span>.
+          </p>
+        )}
         <p className={`mt-2 text-sm ${theme.surfaceMuted}`}>
-          {goingFast && usual
-            ? `${usual.name} is already booked ${fill.taken} of the next ${fill.known} weeks on those nights. These are still open:`
-            : "These are still open in the coming weeks — book ahead:"}
+          TT can line up the next ones for you, to {format(parseISO(series.until), "MMMM yyyy")}
+          {goingFast && usual ? ` — ${usual.name} is already booked ${fill.taken} of the next ${fill.known} weeks on those nights` : ""}.
+          Untick any week you won't need.
         </p>
 
-        <div className="mt-3 flex flex-col gap-2">
-          {proposals.map((p) => {
+        <button
+          type="button"
+          onClick={() => chosen.length > 0 && onRequest(chosen)}
+          disabled={chosen.length === 0}
+          className={`mt-3 w-full rounded-xl px-4 py-3 text-base font-bold text-white disabled:opacity-40 ${theme.btn} ${theme.btnHover}`}
+        >
+          Request {chosen.length === proposals.length ? "all " : ""}
+          {chosen.length} stay{chosen.length === 1 ? "" : "s"}
+        </button>
+
+        {/* The weeks, by month, each with its room. A week where the usual room
+            is taken offers another room the guest has stayed in, and says so. */}
+        <div className="mt-3">
+          {proposals.map((p, i) => {
             const room = roomOf(p.roomId);
+            const month = format(parseISO(p.start), "MMMM yyyy");
+            const newMonth = i === 0 || format(parseISO(proposals[i - 1].start), "MMMM yyyy") !== month;
+            const on = picked.has(p.start);
             return (
-              <button
-                key={`${p.start}-${p.roomId}`}
-                type="button"
-                onClick={() => onRequest(p)}
-                className={`flex items-center justify-between gap-3 rounded-xl px-4 py-3 text-left text-base font-semibold text-white ${theme.btn} ${theme.btnHover}`}
-              >
-                <span>
-                  {stayDates(p)}
-                  {!p.usualRoom && usual && (
-                    <span className="block text-xs font-normal opacity-90">{usual.name} is taken that week — another room you've stayed in</span>
-                  )}
-                </span>
-                {room && (
-                  <span className={`${roomChip(room)} shrink-0 rounded-md px-2 py-0.5 text-sm font-bold text-black`}>{room.name}</span>
-                )}
-              </button>
+              <div key={`${p.start}-${p.roomId}`}>
+                {newMonth && <p className={`mb-1 mt-2 text-xs font-bold uppercase tracking-wide ${theme.surfaceMuted}`}>{month}</p>}
+                <label className={`flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 ${on ? "" : "opacity-50"}`}>
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    onChange={() =>
+                      setPicked((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(p.start)) next.delete(p.start);
+                        else next.add(p.start);
+                        return next;
+                      })
+                    }
+                    className="h-5 w-5 shrink-0"
+                  />
+                  <span className={`min-w-0 flex-1 text-base ${theme.surfaceText}`}>
+                    {stayDates(p)}
+                    {!p.usualRoom && usual && (
+                      <span className={`block text-xs ${theme.surfaceMuted}`}>{usual.name} is taken that week</span>
+                    )}
+                  </span>
+                  {room && <span className={`${roomChip(room)} shrink-0 rounded-md px-2 py-0.5 text-sm font-bold text-black`}>{room.name}</span>}
+                </label>
+              </div>
             );
           })}
         </div>
 
-        <p className={`mt-3 text-xs ${theme.surfaceMuted}`}>Tap a stay to see the request — nothing is sent until you send it.</p>
+        <p className={`mt-3 text-xs ${theme.surfaceMuted}`}>You'll see the request before anything is sent — each stay goes to the host on its own.</p>
         <button type="button" onClick={onClose} className={`mt-3 w-full rounded-xl py-2.5 text-base font-semibold ${theme.surfaceMuted}`}>
           Not now
         </button>
