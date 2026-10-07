@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { addDays, format, parseISO, startOfToday } from "date-fns";
 import CalendarNavigator from "../components/tibook/Calendar/CalendarNavigatorDesktop";
 import NavBarDesktop from "../components/tibook/NavBarDesktop";
@@ -46,6 +46,22 @@ import { fetchPublishedReviews } from "../util/ttQuestionLog";
 import { markTiBookVisited } from "../util/tibookReturning";
 import { fillRate, habitsOf, seriesFor, Proposal } from "../util/bookingHabit";
 import UsualStayCard, { isSnoozed, snooze } from "../components/tibook/UsualStayCard";
+
+// The nights held by "reserved" booking requests (unpaid holds), per night, as
+// room ids — they are taken, not free, everywhere TiBook offers a night.
+const heldNightsOf = (requests: any[] | undefined) => {
+  const map = new Map<string, Set<string>>();
+  (requests ?? []).filter((r: any) => r.status === "reserved").forEach((r: any) => {
+    const start = parseISO(String(r.date).slice(0, 10));
+    for (let i = 0; i < r.duration; i++) {
+      const d = addDays(start, i);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      if (!map.has(key)) map.set(key, new Set());
+      map.get(key)!.add(r.room);
+    }
+  });
+  return map;
+};
 
 const TiBookInner = () => {
   const { theme, vibe, layout, setLook } = useTiBookTheme();
@@ -261,20 +277,46 @@ const TiBookInner = () => {
       .then(([rooms, days, requests]) => {
         setRooms(rooms);
         setDays(days);
-        const map = new Map<string, Set<string>>();
-        (requests ?? []).filter((r: any) => r.status === "reserved").forEach((r: any) => {
-          const start = parseISO(String(r.date).slice(0, 10));
-          for (let i = 0; i < r.duration; i++) {
-            const d = addDays(start, i);
-            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-            if (!map.has(key)) map.set(key, new Set());
-            map.get(key)!.add(r.room);
-          }
-        });
-        setReservedMap(map);
+        setReservedMap(heldNightsOf(requests));
       })
       .finally(() => setIsLoading(false));
   }, [token]);
+
+  // The calendar again — bookings and holds — without the loading screen.
+  //
+  // It was read once, when TiBook opened, and a guest keeps TiBook open on their
+  // phone for days: a night someone else booked meanwhile was still offered —
+  // by the usual-stay proposal and by TT alike (host, 2026-10-07: "If so TT
+  // assistant is not smart"). Re-read when the page comes back to the front,
+  // when the proposal opens, and every minute while it is open. A failed
+  // re-read keeps what was there.
+  const lastRefresh = useRef(0);
+  const refreshCalendar = useCallback(
+    (force = false) => {
+      const calendar = currentHost?.calendar;
+      const hostId = import.meta.env.VITE_TI_BOOK_HOST_ID;
+      if (!token || !calendar || !hostId) return;
+      // At most every 20 seconds unless asked for: a phone flicking between
+      // apps should not re-read the whole calendar each time.
+      if (!force && Date.now() - lastRefresh.current < 20_000) return;
+      lastRefresh.current = Date.now();
+      Promise.all([fetchDays(calendar, token), fetchBookingRequestsByHost(hostId, token)])
+        .then(([days, requests]) => {
+          setDays(days);
+          setReservedMap(heldNightsOf(requests));
+        })
+        .catch(() => {});
+    },
+    [token, currentHost?.calendar],
+  );
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refreshCalendar();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [refreshCalendar]);
 
   // Measure the header stack (banner + room filter) so the calendar can slide
   // up over exactly its height and stop at full window. Keep a fully-open panel
@@ -911,6 +953,16 @@ const TiBookInner = () => {
     });
     openBookingModal(firstNight);
   };
+
+  // While the proposal is open it reads the live calendar: once as it opens,
+  // then every minute, so a night booked meanwhile drops off the list (or moves
+  // to another free room) while the guest is looking at it.
+  useEffect(() => {
+    if (!usualOpen) return;
+    refreshCalendar(true);
+    const t = setInterval(() => refreshCalendar(true), 60_000);
+    return () => clearInterval(t);
+  }, [usualOpen, refreshCalendar]);
 
   const onTTAction = (a: Exclude<TTAction, { kind: "ask" }>) => {
     setAskTTOpen(false);
