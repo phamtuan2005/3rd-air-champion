@@ -163,6 +163,7 @@ export interface ReviewEntryRow {
   roomId: string;
   guestName: string;
   stayDate: string;
+  reviewMonth: string;
   stars: number | null;
   snippet: string;
   addedAt: string | null;
@@ -171,6 +172,41 @@ export interface ReviewEntryRow {
 export const fetchReviewEntries = async (): Promise<ReviewEntryRow[]> => {
   const response = await axios.get(`${BACKEND_ENDPOINT}/tt-host/reviews/entries`, authed());
   return Array.isArray(response.data?.entries) ? response.data.entries : [];
+};
+
+// Splitting a room's page of reviews into individual ones (Claude does it, on
+// the server; see ReviewSplitPanel).
+export interface SplitPreviewRow {
+  guestName: string;
+  stars: number | null;
+  month: string;
+  when: string;
+  snippet: string;
+  onFile: boolean;
+}
+
+export interface ReviewSplitState {
+  status: "none" | "running" | "ready" | "failed";
+  done?: number;
+  total?: number;
+  error?: string;
+  reviews?: SplitPreviewRow[];
+}
+
+export const startReviewSplit = async (roomId: string): Promise<void> => {
+  await axios.post(`${BACKEND_ENDPOINT}/tt-host/reviews/split`, { roomId }, authed());
+};
+
+export const fetchReviewSplit = async (roomId: string): Promise<ReviewSplitState> =>
+  (await axios.get(`${BACKEND_ENDPOINT}/tt-host/reviews/split/${roomId}`, authed())).data;
+
+export const addReviewSplit = async (roomId: string): Promise<{ added: number; skipped: number }> => {
+  const r = await axios.post(`${BACKEND_ENDPOINT}/tt-host/reviews/split/${roomId}/add`, {}, authed());
+  return { added: r.data?.added ?? 0, skipped: r.data?.skipped ?? 0 };
+};
+
+export const discardReviewSplit = async (roomId: string): Promise<void> => {
+  await axios.delete(`${BACKEND_ENDPOINT}/tt-host/reviews/split/${roomId}`, authed());
 };
 
 // Takes a room's kept review file off the server.

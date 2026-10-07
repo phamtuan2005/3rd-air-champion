@@ -5,8 +5,9 @@ import TTQuestion from "../model/ttQuestionSchema";
 import TTReviews from "../model/ttReviewsSchema";
 import TTReviewSource from "../model/ttReviewSourceSchema";
 import TTReviewEntry from "../model/ttReviewEntrySchema";
+import { MAX_ENTRY_CHARS, saveEntry } from "../util/reviewEntries";
+import { hashOf, splitReviews, SplitReview } from "../util/reviewSplit";
 import Guest from "../model/guestSchema";
-import { createHash } from "crypto";
 import { requireManager } from "../middleware/requireManager";
 import { questionStats } from "../util/ttQuestions";
 import { draftReviewSummaries, MAX_TOTAL_PASTE, PastedRoom, ReviewDraft } from "../util/reviewDraft";
@@ -152,10 +153,6 @@ router.post("/reviews/upload", async (req: Request, res: any) => {
 // complaint or a 5-star reward is traced through) and appended to the room's
 // review file, which is what drafting and Ask TiMag read. The same words pasted
 // again are skipped, not added twice.
-export const MAX_ENTRY_CHARS = 2000;
-
-const hashOf = (text: string) => createHash("sha1").update(text.toLowerCase().replace(/\s+/g, " ").trim()).digest("hex");
-
 router.post("/reviews/entry", async (req: Request, res: any) => {
   const hostId = hostOf(req);
   try {
@@ -185,41 +182,183 @@ router.post("/reviews/entry", async (req: Request, res: any) => {
       guest = String(guestId);
     }
 
-    const hash = hashOf(text);
-    if (await TTReviewEntry.exists({ host: hostId, room: roomId, hash })) {
-      return res.status(200).json({ added: false, duplicate: true });
-    }
-    const who = String(guestName ?? "").trim().slice(0, 120);
-    await TTReviewEntry.create({
-      host: hostId,
-      room: roomId,
-      ...(guest ? { guest } : {}),
-      guestName: who,
-      stayDate: stayDate ? String(stayDate) : "",
-      ...(stars != null ? { stars } : {}),
-      text,
-      hash,
-    });
-
-    // Appended to the room's file, headed with what is known about it, so a
-    // draft or Ask TiMag reads it with its context.
-    const head = [who && `Guest: ${who}`, stayDate && `Stay: ${stayDate}`, stars != null && `${stars} stars`]
-      .filter(Boolean)
-      .join(" · ");
-    const block = head ? `— ${head} —\n${text}` : text;
-    const file: any = await TTReviewSource.findOne({ host: hostId, room: roomId }, { text: 1 }).lean();
-    const next = file?.text ? `${file.text}\n\n${block}` : block;
-    if (next.length <= MAX_TOTAL_PASTE) {
-      await TTReviewSource.updateOne(
-        { host: hostId, room: roomId },
-        { $set: { text: next, chars: next.length }, $setOnInsert: { name: "Guest reviews" } },
-        { upsert: true },
-      );
-    }
-    res.status(200).json({ added: true });
+    const { added } = await saveEntry(
+      hostId,
+      {
+        roomId: String(roomId),
+        guest,
+        guestName: String(guestName ?? "").trim().slice(0, 120),
+        stayDate: stayDate ? String(stayDate) : "",
+        reviewMonth: "",
+        stars: stars ?? null,
+        text,
+      },
+      { appendToFile: true },
+    );
+    res.status(200).json(added ? { added: true } : { added: false, duplicate: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
+});
+
+// ── Splitting a pasted page into individual reviews ───────────────────────────
+//
+// The host pastes a whole page of reviews (select all, copy, on AirBnB), it is
+// kept as the room's review file, and this has Claude find the reviews in it:
+// who, how many stars, which month, the words. Nothing is saved until the host
+// has seen what was found and says so. Held in memory (a restart loses a split
+// the host can simply run again) and dropped after an hour.
+interface SplitJob {
+  status: "running" | "ready" | "failed";
+  done: number;
+  total: number;
+  reviews: SplitReview[];
+  error: string;
+  at: number;
+}
+const splitJobs = new Map<string, SplitJob>();
+const JOB_TTL_MS = 60 * 60 * 1000;
+const jobKey = (host: string, room: string) => `${host}:${room}`;
+const sweepJobs = () => {
+  const cutoff = Date.now() - JOB_TTL_MS;
+  for (const [k, j] of splitJobs) if (j.at < cutoff) splitJobs.delete(k);
+};
+
+// Swapped in tests; the real one calls Claude.
+let splitter: (text: string, onProgress: (done: number, total: number) => void) => Promise<SplitReview[]> = (text, onProgress) =>
+  splitReviews(text, onProgress);
+let splitterNeedsKey = true;
+export const setReviewSplitter = (fn: typeof splitter) => {
+  splitter = fn;
+  splitterNeedsKey = false;
+};
+
+router.post("/reviews/split", async (req: Request, res: any) => {
+  const hostId = hostOf(req);
+  try {
+    if (splitterNeedsKey && !process.env.ANTHROPIC_API_KEY) {
+      return res.status(503).json({ error: "Splitting needs ANTHROPIC_API_KEY on the server." });
+    }
+    sweepJobs();
+    const roomId = String(req.body?.roomId ?? "");
+    if (!mongoose.isValidObjectId(roomId) || !(await Room.exists({ _id: roomId, host: hostId }))) {
+      return res.status(400).json({ error: "Which of your rooms?" });
+    }
+    const file: any = await TTReviewSource.findOne({ host: hostId, room: roomId }, { text: 1 }).lean();
+    if (!file?.text?.trim()) return res.status(400).json({ error: "Choose or paste this room's reviews first." });
+    const key = jobKey(hostId, roomId);
+    if (splitJobs.get(key)?.status === "running") return res.status(409).json({ error: "Already reading this room's reviews." });
+
+    const job: SplitJob = { status: "running", done: 0, total: 0, reviews: [], error: "", at: Date.now() };
+    splitJobs.set(key, job);
+    res.status(202).json({ status: "running" });
+
+    splitter(String(file.text), (done, total) => {
+      job.done = done;
+      job.total = total;
+    })
+      .then((reviews) => {
+        job.reviews = reviews;
+        job.status = "ready";
+      })
+      .catch((error: any) => {
+        job.status = "failed";
+        job.error = String(error?.message ?? "The split failed.").slice(0, 300);
+      })
+      .finally(() => {
+        job.at = Date.now();
+      });
+  } catch (error: any) {
+    if (!res.headersSent) res.status(500).json({ error: error.message });
+  }
+});
+
+// Where the split has got to, and — once ready — what it found, each marked if
+// the same words are already on file for the room (the host sees what an Add all
+// would skip before pressing it).
+router.get("/reviews/split/:roomId", async (req: Request, res: any) => {
+  const hostId = hostOf(req);
+  try {
+    sweepJobs();
+    const job = splitJobs.get(jobKey(hostId, req.params.roomId));
+    if (!job) return res.status(200).json({ status: "none" });
+    if (job.status !== "ready") {
+      return res.status(200).json({ status: job.status, done: job.done, total: job.total, error: job.error });
+    }
+    const have = new Set(
+      (await TTReviewEntry.find({ host: hostId, room: req.params.roomId }, { hash: 1 }).lean()).map((e: any) => e.hash),
+    );
+    res.status(200).json({
+      status: "ready",
+      done: job.done,
+      total: job.total,
+      reviews: job.reviews.map((r) => ({
+        guestName: r.guestName,
+        stars: r.stars,
+        month: r.month,
+        when: r.when,
+        snippet: r.text.slice(0, 160),
+        onFile: have.has(hashOf(r.text)),
+      })),
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Keeps what the split found. Every review, none a second time: the ones
+// already on file are counted as skipped, not added again.
+router.post("/reviews/split/:roomId/add", async (req: Request, res: any) => {
+  const hostId = hostOf(req);
+  try {
+    const roomId = req.params.roomId;
+    const key = jobKey(hostId, roomId);
+    const job = splitJobs.get(key);
+    if (!job || job.status !== "ready") return res.status(400).json({ error: "There is nothing to add. Split the reviews first." });
+    if (!mongoose.isValidObjectId(roomId) || !(await Room.exists({ _id: roomId, host: hostId }))) {
+      return res.status(400).json({ error: "Which of your rooms?" });
+    }
+    // Matched to the host's guest list by exact name, where there is one. A
+    // first name that matches two guests is NOT guessed at — it stays a name.
+    const guests: any[] = await Guest.find({ host: hostId }, { name: 1 }).lean();
+    const byName = new Map<string, string[]>();
+    for (const g of guests) {
+      const k = String(g.name ?? "").trim().toLowerCase();
+      if (k) byName.set(k, [...(byName.get(k) ?? []), String(g._id)]);
+    }
+    let added = 0;
+    let skipped = 0;
+    for (const r of job.reviews) {
+      const ids = byName.get(r.guestName.trim().toLowerCase()) ?? [];
+      const { added: ok } = await saveEntry(
+        hostId,
+        {
+          roomId,
+          guest: ids.length === 1 ? ids[0] : undefined,
+          guestName: r.guestName,
+          stayDate: "",
+          reviewMonth: r.month,
+          stars: r.stars,
+          text: r.text.slice(0, MAX_ENTRY_CHARS),
+        },
+        // The reviews came OUT of the room's file; writing them back would
+        // put each in it twice.
+        { appendToFile: false },
+      );
+      if (ok) added++;
+      else skipped++;
+    }
+    splitJobs.delete(key);
+    res.status(200).json({ added, skipped });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Drops a split the host does not want to keep.
+router.delete("/reviews/split/:roomId", (req: Request, res: any) => {
+  splitJobs.delete(jobKey(hostOf(req), req.params.roomId));
+  res.status(200).json({ ok: true });
 });
 
 // The reviews on record, one per guest per room per stay — the structured copy
@@ -234,6 +373,7 @@ router.get("/reviews/entries", async (req: Request, res: any) => {
         roomId: String(r.room),
         guestName: r.guestName ?? "",
         stayDate: r.stayDate ?? "",
+        reviewMonth: r.reviewMonth ?? "",
         stars: r.stars ?? null,
         snippet: String(r.text ?? "").slice(0, 160),
         addedAt: r.createdAt ?? null,

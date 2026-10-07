@@ -3,6 +3,7 @@ import { format, parseISO } from "date-fns";
 import { deleteReviewSource, fetchReviewsState, publishReviews, ReviewsState, startReviewDraft } from "../../util/ttQuestionLog";
 import { uploadPasteText } from "../../util/pasteParts";
 import GuestReviewForm from "./GuestReviewForm";
+import ReviewSplitPanel from "./ReviewSplitPanel";
 
 // What guests say, for TiBook's TT to tell the next guest.
 //
@@ -115,6 +116,22 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
       load();
     } catch {
       setNote("That didn't come off. Try again.");
+    }
+  };
+
+  // Before a split: text waiting in the big box is sent (and kept) as the room's
+  // file, so there is something on the server to read.
+  const sendWaitingText = async (roomId: string) => {
+    const text = pasted[roomId] ?? "";
+    if (!text.trim()) return;
+    setBusy(true);
+    try {
+      await send(roomId, text, "Pasted text");
+      setPasted((p) => ({ ...p, [roomId]: "" }));
+      load();
+    } finally {
+      setProgress(null);
+      setBusy(false);
     }
   };
 
@@ -324,6 +341,16 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
                       </div>
                     )}
                   </div>
+                )}
+                {pasteRoom && (
+                  <ReviewSplitPanel
+                    key={`split-${pasteRoom.roomId}`}
+                    roomId={pasteRoom.roomId}
+                    roomName={pasteRoom.name}
+                    hasReviews={!!sources[pasteRoom.roomId] || !!(pasted[pasteRoom.roomId] ?? "").trim()}
+                    beforeSplit={() => sendWaitingText(pasteRoom.roomId)}
+                    onAdded={load}
+                  />
                 )}
                 {pasteRoom && <GuestReviewForm key={pasteRoom.roomId} roomId={pasteRoom.roomId} roomName={pasteRoom.name} onAdded={load} />}
                 <button

@@ -304,7 +304,7 @@ const buildTools = (hostId: string) => {
     name: "get_review_entries",
     description:
       "Individual guest reviews the host has passed in one at a time, each with the room, the " +
-      "guest, the stay's start date (yyyy-MM-dd, when known) and the stars (when given). Use this " +
+      "guest, the stay's start date (yyyy-MM-dd, when known), the month the review is dated (yyyy-MM, approximate for a recent review) and the stars (when given). Use this " +
       "to count and average stars per room, to find low or 5-star reviews, and to tie a review to " +
       "a stay date so you can look up who cleaned that room (get_cleanings). Differs from " +
       "get_reviews, which reads free text. 'average' covers only reviews that have stars.",
@@ -358,6 +358,7 @@ const buildTools = (hostId: string) => {
           room: r.roomName,
           guest: r.guestName || undefined,
           stayDate: r.stayDate || undefined,
+          reviewMonth: r.reviewMonth || undefined,
           stars: r.stars ?? undefined,
           text: String(r.text).slice(0, 300),
         })),

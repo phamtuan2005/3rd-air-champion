@@ -23,6 +23,10 @@ const ttReviewEntrySchema = new mongoose.Schema(
     // yyyy-MM-dd, the night the stay STARTED, when the host knows it. A review
     // itself only says a month; the host knows the night.
     stayDate: { type: String, default: "" },
+    // yyyy-MM: the month the review is dated, when that is all the page said
+    // ("February 2025", or "1 week ago" counted back to a month). Looser than
+    // stayDate; used to find who cleaned the room around then.
+    reviewMonth: { type: String, default: "" },
     stars: { type: Number, min: 1, max: 5 },
     text: { type: String, required: true, maxlength: 2000 },
     // Of the words, lower-cased and spaces collapsed: the same review pasted
