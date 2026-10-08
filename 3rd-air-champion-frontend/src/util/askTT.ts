@@ -344,9 +344,15 @@ const pick = (ctx: AskTTContext, what: string, dates: string[], roomId: string |
     : { kind: "pick", label: `Choose ${what}`, dates, roomId };
 };
 
-// The guest's usual room first, then the rest as they came.
-const usualFirst = (rooms: TTRoom[], ctx: AskTTContext) =>
-  [...rooms].sort((a, b) => Number(b.id === ctx.guest?.usualRoomId) - Number(a.id === ctx.guest?.usualRoomId));
+// The guest's rooms first, in the order the greeting and the usual-stay popup
+// name them (usualRoomIds), then the rest as they came. It used to lift only
+// usualRoomId, so a guest told "King, Cute, Queen or Chill" saw Cute after
+// rooms they never stay in.
+const usualFirst = (rooms: TTRoom[], ctx: AskTTContext) => {
+  const order = ctx.guest?.usualRoomIds?.length ? ctx.guest.usualRoomIds : ctx.guest?.usualRoomId ? [ctx.guest.usualRoomId] : [];
+  const rank = (id: string) => (order.includes(id) ? order.indexOf(id) : order.length);
+  return [...rooms].sort((a, b) => rank(a.id) - rank(b.id));
+};
 const roomLabel = (r: TTRoom, ctx: AskTTContext) =>
   r.id === ctx.guest?.usualRoomId ? `${r.name} (your usual)` : r.name;
 
@@ -1098,14 +1104,19 @@ export const ttStarters = (ctx: AskTTContext): TTAction[] => {
   if (g) {
     // A returning guest came to book. Their usual room and their wish list
     // lead, ready to check, rather than the questions a stranger has.
-    const usual = ctx.rooms.find((r) => r.id === g.usualRoomId);
+    // The weekend buttons name no room: they used to say "King this weekend"
+    // under a greeting offering King, Cute, Queen or Chill (host, 2026-10-07),
+    // and checked King alone. Unnamed, the answer checks every room and lists
+    // theirs first, in the greeting's order (usualFirst). A single-room guest
+    // still gets their room named.
+    const one = (g.usualRoomIds?.length ?? 0) <= 1 ? ctx.rooms.find((r) => r.id === g.usualRoomId) : undefined;
     return [
       ...(g.wishList.length > 0 ? [{ kind: "ask" as const, label: `My wish list (${plural(g.wishList.length, "night")})`, query: "my wish list" }] : []),
-      usual
-        ? { kind: "ask" as const, label: `${usual.name} this weekend`, query: `${usual.name} this weekend` }
+      one
+        ? { kind: "ask" as const, label: `${one.name} this weekend`, query: `${one.name} this weekend` }
         : { kind: "ask" as const, label: "This weekend", query: "this weekend" },
-      usual
-        ? { kind: "ask" as const, label: `${usual.name} next weekend`, query: `${usual.name} next weekend` }
+      one
+        ? { kind: "ask" as const, label: `${one.name} next weekend`, query: `${one.name} next weekend` }
         : { kind: "ask" as const, label: "Next weekend", query: "next weekend" },
       { kind: "bookings", label: "My bookings" },
       ...reviewStarter(ctx),
