@@ -189,6 +189,13 @@ export interface ReturningGuest {
   firstName: string;
   // The room they have spent the most nights in, if it is still let.
   usualRoomId?: string;
+  // Every room they stay in, most-used first — the SAME list, in the same order,
+  // the usual-stay popup names, so TT and the popup never describe a guest two
+  // ways ("King, your usual room" beside "King, Cute, Queen and Chill" — host,
+  // 2026-10-07). usualRoomId is its first. For a guest with no pattern yet it
+  // is the room of their last stay alone, and `roomsAre` says so.
+  usualRoomIds?: string[];
+  roomsAre?: "usual" | "last";
   // Their wish-list nights still to come, and not already booked.
   wishList: string[];
 }

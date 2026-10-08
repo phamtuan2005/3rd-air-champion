@@ -301,7 +301,10 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
   const scrollRef = useRef<HTMLDivElement>(null);
   const host = ctx.hostFirstName;
   const first = (ctx.guest?.firstName || guestName || "").trim().split(/\s+/)[0];
-  const usualName = ctx.rooms.find((r) => r.id === ctx.guest?.usualRoomId)?.name;
+  // Every room they stay in, most-used first — the popup's list (TiBook theirRooms).
+  const usualNames = (ctx.guest?.usualRoomIds?.length ? ctx.guest.usualRoomIds : ctx.guest?.usualRoomId ? [ctx.guest.usualRoomId] : [])
+    .map((id) => ctx.rooms.find((r) => r.id === id)?.name)
+    .filter((n): n is string => !!n);
 
   // A room's name is its coloured chip wherever TT says it — the greeting, an
   // answer, a button — the same as everywhere else in TiBook, so a guest
@@ -735,13 +738,23 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
                   <p>
                     Welcome back{first ? `, ${first}` : ""}! TT is your assistant. Tell me your dates and I'll book
                     them
-                    {usualName ? (
+                    {usualNames.length > 0 ? (
                       <>
                         {" in "}
-                        {/* The room as it is everywhere else in TiBook — its
-                            coloured chip — so a guest knows it by sight. */}
-                        {chipify(usualName)}
-                        {", your usual room"}
+                        {/* The rooms as they are everywhere else in TiBook —
+                            coloured chips — and the SAME rooms, in the same
+                            order, as the usual-stay popup names. */}
+                        {usualNames.map((n, i) => (
+                          <span key={n}>
+                            {i > 0 && (i === usualNames.length - 1 ? " or " : ", ")}
+                            {chipify(n)}
+                          </span>
+                        ))}
+                        {ctx.guest?.roomsAre === "last"
+                          ? ", the room you stayed in last time"
+                          : usualNames.length > 1
+                            ? " — the rooms you stay in, in that order"
+                            : ", your usual room"}
                       </>
                     ) : null}
                     {" — you check the request before it's sent."}

@@ -835,6 +835,27 @@ const TiBookInner = () => {
   // and nothing else: the room record carries the door code (`roomCode`), and
   // what TT is never given it can never say. The host is a first name, never
   // the record with its phone, email and door code. See askTT.ts, "Privacy".
+  // The rooms a returning guest stays in, most-used first — ONE list, read by
+  // Ask TT's greeting and by the usual-stay popup alike. With a pattern: every
+  // room across their habits (bookingHabit ranking: nights in the last six
+  // months, the pattern's own stays first). Without one: the room of their last
+  // stay. Rooms no longer let are left out.
+  const theirRooms = useMemo((): { ids: string[]; are: "usual" | "last" } => {
+    const today = startOfToday();
+    const active = new Set(rooms.filter((r) => r.active).map((r) => r.id));
+    const stays = guestBookings.map((b) => ({ start: String(b.date).slice(0, 10), nights: b.duration, roomId: b.room }));
+    const ranked = [
+      ...new Set(
+        habitsOf(stays, today)
+          .flatMap((h) => h.rooms)
+          .filter((id) => active.has(id)),
+      ),
+    ];
+    if (ranked.length) return { ids: ranked, are: "usual" };
+    const last = [...stays].sort((a, b) => a.start.localeCompare(b.start)).filter((st) => active.has(st.roomId)).pop();
+    return { ids: last ? [last.roomId] : [], are: "last" };
+  }, [guestBookings, rooms]);
+
   const askTTContext: AskTTContext = {
     today: startOfToday(),
     rooms: rooms.filter((r) => r.active).map(toTTRoom),
@@ -857,10 +878,15 @@ const TiBookInner = () => {
     guest: isKnownVisitor
       ? {
           firstName: greetedName.trim().split(/\s+/)[0] ?? "",
-          usualRoomId: usualRoomOf(
-            guestBookings.filter((b) => b.status === "confirmed").map((b) => ({ roomId: b.room, nights: b.duration })),
-            rooms.filter((r) => r.active).map(toTTRoom),
-          ),
+          // The same rooms, in the same order, the popup names (theirRooms).
+          usualRoomId:
+            theirRooms.ids[0] ??
+            usualRoomOf(
+              guestBookings.filter((b) => b.status === "confirmed").map((b) => ({ roomId: b.room, nights: b.duration })),
+              rooms.filter((r) => r.active).map(toTTRoom),
+            ),
+          usualRoomIds: theirRooms.ids.slice(0, 4),
+          roomsAre: theirRooms.are,
           wishList: [...wishListDates]
             .filter((d) => d >= keyOfDate(startOfToday()) && !myBookingDates.has(d))
             .sort(),
