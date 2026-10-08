@@ -46,8 +46,8 @@ export const nightsPhrase = (habits: Habit[]) => {
   return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]} nights`;
 };
 
-// The NIGHTS of a stay, month first and every day with its weekday — "Nov Tue
-// 24 – Wed 25" — matching "Tuesday and Wednesday nights" above. It used to end
+// The NIGHTS of a stay, month first and every day with its weekday — "Nov 24
+// Tue – 25 Wed" — matching "Tuesday and Wednesday nights" above. It used to end
 // on the check-out day ("Tue Nov 24 – 26"), and 26 read as a night slept (host,
 // 2026-10-07).
 const stayDates = (p: Proposal) => {
@@ -56,10 +56,11 @@ const stayDates = (p: Proposal) => {
   // The count after the dates, so the length is read at a glance — the host
   // asked for ", 2 nights" on each row (2026-10-07).
   const count = `, ${p.nights.length} night${p.nights.length === 1 ? "" : "s"}`;
-  if (p.nights.length === 1) return `${format(first, "MMM EEE d")}${count}`;
+  // Date, then weekday — "Dec 21 Mon" — as a guest asked (2026-10-07).
+  if (p.nights.length === 1) return `${format(first, "MMM d EEE")}${count}`;
   return first.getMonth() === last.getMonth()
-    ? `${format(first, "MMM EEE d")} – ${format(last, "EEE d")}${count}`
-    : `${format(first, "MMM EEE d")} – ${format(last, "MMM EEE d")}${count}`;
+    ? `${format(first, "MMM d EEE")} – ${format(last, "d EEE")}${count}`
+    : `${format(first, "MMM d EEE")} – ${format(last, "MMM d EEE")}${count}`;
 };
 
 const UsualStayCard = ({
@@ -323,7 +324,7 @@ const UsualStayCard = ({
                       .filter((x) => x.h)
                       .map(({ n, h }) => (
                         <span key={n} className={`block text-xs font-semibold ${theme.alertText}`}>
-                          • {format(parseISO(n), "EEE MMM d")} – {holidayLabel(h!)}
+                          • {format(parseISO(n), "MMM d EEE")} – {holidayLabel(h!)}
                         </span>
                       ))}
                     {p.full && p.full.length > 0 && (
@@ -368,7 +369,7 @@ const UsualStayCard = ({
                                   }`}
                                 >
                                   {nightOn ? "✓ " : ""}
-                                  {format(parseISO(n), "EEE d")}
+                                  {format(parseISO(n), "d EEE")}
                                 </button>
                               );
                             })}
