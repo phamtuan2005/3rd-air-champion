@@ -416,3 +416,21 @@ describe("what guests say", () => {
     expect(has(ctx({}, { reviews: { house: "", rooms: {} } }))).toBe(false);
   });
 });
+
+describe("a guest who stays in several rooms", () => {
+  // Sean, 2026-10-07: greeted with "King, Cute, Queen or Chill", then offered
+  // "King this weekend" — one room, under a greeting naming four.
+  const sean = (ids: string[]) => ctx({}, { guest: { firstName: "Sean", usualRoomId: ids[0], usualRoomIds: ids, wishList: [] } });
+
+  it("offers the weekends without naming one room, and lists their rooms first, in order", () => {
+    const c = sean(["c", "k"]);
+    const labels = ttStarters(c).map((a) => a.label);
+    expect(labels).toContain("This weekend");
+    expect(labels).toContain("Next weekend");
+    expect(text(askTT("this weekend", c))).toMatch(/Chill \(your usual\), King, Cozy/);
+  });
+
+  it("still names the room for a guest who has only one", () => {
+    expect(ttStarters(sean(["k"])).map((a) => a.label)).toContain("King this weekend");
+  });
+});
