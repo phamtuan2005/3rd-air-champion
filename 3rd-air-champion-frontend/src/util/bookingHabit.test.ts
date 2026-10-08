@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fillRate, habitOf, habitsOf, proposalsFor, proposalsForAll, seriesFor, upcomingStarts } from "./bookingHabit";
+import { fillRate, habitOf, habitsOf, lastStayOffer, proposalsFor, proposalsForAll, seriesFor, upcomingStarts } from "./bookingHabit";
 
 // TiBook works a returning guest's habit out and proposes the next stays that
 // fit it. These pin that it reads the habit a person would, never invents one
@@ -191,5 +191,25 @@ describe("a usual week no room can take whole — Sean, Mon–Thu in King", () =
   it("still offers the whole week in one room when one has it", () => {
     const out = proposalsFor(sean, today, () => true, [], { weeks: 1, max: 5 });
     expect(out).toEqual([{ start: "2026-11-02", nights: ["2026-11-02", "2026-11-03", "2026-11-04", "2026-11-05"], roomId: "king", usualRoom: true }]);
+  });
+});
+
+describe("lastStayOffer — a guest with no pattern yet", () => {
+  it("takes their last stay as the example and offers the next weeks it is free", () => {
+    // One stay: Fri Sep 18, 2 nights in King. Today Wed Oct 7.
+    const o = lastStayOffer([stay("2026-09-18", 2, "king")], today, () => true)!;
+    expect(o.habit).toMatchObject({ startWeekday: 5, nights: 2, rooms: ["king"] });
+    expect(o.proposals.map((p) => p.start)).toEqual(["2026-10-09", "2026-10-16", "2026-10-23"]);
+  });
+
+  it("offers another free room when theirs is taken", () => {
+    const o = lastStayOffer([stay("2026-09-18", 2, "king")], today, (r) => r === "cute", ["cute"])!;
+    expect(o.proposals[0]).toMatchObject({ roomId: "cute", usualRoom: false });
+  });
+
+  it("stays quiet for a guest who already has a booking ahead, or whose last stay is over a year ago", () => {
+    expect(lastStayOffer([stay("2026-09-18", 2, "king"), stay("2026-11-06", 2, "king")], today, () => true)).toBeNull();
+    expect(lastStayOffer([stay("2025-08-01", 2, "king")], today, () => true)).toBeNull();
+    expect(lastStayOffer([], today, () => true)).toBeNull();
   });
 });

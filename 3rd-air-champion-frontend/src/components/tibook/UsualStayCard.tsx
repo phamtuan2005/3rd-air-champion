@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { useRoomChip, useTiBookTheme } from "../../contexts/TiBookThemeContext";
-import type { Habit, Proposal, Series } from "../../util/bookingHabit";
+import type { Habit, PastStay, Proposal, Series } from "../../util/bookingHabit";
 import { holidayLabel, usHolidayOn } from "../../util/usHolidays";
 
 // TiBook coming forward to a regular: "your usual, the next weeks it is open,
@@ -21,6 +21,11 @@ import { holidayLabel, usHolidayOn } from "../../util/usHolidays";
 //
 // A proposal only ever opens the ordinary booking request, filled in; the guest
 // still reads it and sends it. Nothing is booked from here.
+
+const addDaysTo = (k: string, n: number) => {
+  const d = parseISO(k);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+};
 
 const DAY = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -68,6 +73,7 @@ const UsualStayCard = ({
   firstName,
   habits,
   series,
+  lastStay,
   fill,
   roomOf,
   onRequest,
@@ -77,6 +83,11 @@ const UsualStayCard = ({
   habits: Habit[];
   /** The next months of stays, after the guest's last booked one (bookingHabit.seriesFor). */
   series: Series;
+  /**
+   * Set for a guest with NO pattern yet: their last stay, which the offer is
+   * built from — the card says "last time", never "usually".
+   */
+  lastStay?: PastStay;
   /** How many of the coming weeks the guest's usual room is already taken on their nights. */
   fill: { taken: number; known: number };
   roomOf: (id: string) => { name: string; color?: string } | undefined;
@@ -228,33 +239,53 @@ const UsualStayCard = ({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
-        {/* "TT noted that…", not "your habit" — the house's assistant noticing,
-            the way a host who knows a regular would say it (host, 2026-10-07). */}
-        <p className={`text-base ${theme.surfaceText}`}>
-          TT noted that you usually stay <span className="font-semibold">{nightsPhrase(habits)}</span>
-          {theirRooms.length > 0 ? (
-            <>
-              {" "}in{" "}
-              {theirRooms.map((r, i) => (
-                <span key={r.name}>
-                  {i > 0 && (i === theirRooms.length - 1 ? " and " : ", ")}
-                  <span className={`${roomChip(r)} rounded-md px-1.5 py-0.5 font-bold text-black`}>{r.name}</span>
-                </span>
-              ))}
-            </>
-          ) : null}
-          .
-        </p>
-        {series.lastBooked && (
-          <p className={`mt-1 text-base ${theme.surfaceText}`}>
-            You're booked up to <span className="font-semibold">{format(parseISO(series.lastBooked), "EEEE, MMMM d, yyyy")}</span>.
-          </p>
+        {lastStay ? (
+          // No pattern yet — say what TT actually knows: the last stay.
+          <>
+            <p className={`text-base ${theme.surfaceText}`}>
+              Last time you stayed <span className="font-semibold">{nightsPhrase(habits)}</span>
+              {usual ? (
+                <>
+                  {" "}in{" "}
+                  <span className={`${roomChip(usual)} rounded-md px-1.5 py-0.5 font-bold text-black`}>{usual.name}</span>
+                </>
+              ) : null}{" "}
+              ({format(parseISO(lastStay.start), "MMM d")}
+              {lastStay.nights > 1 ? ` – ${format(addDaysTo(lastStay.start, lastStay.nights - 1), "MMM d")}` : ""}).
+            </p>
+            <p className={`mt-2 text-sm ${theme.surfaceMuted}`}>Want the same again? These are open in the coming weeks:</p>
+          </>
+        ) : (
+          <>
+            {/* "TT noted that…", not "your habit" — the house's assistant noticing,
+                the way a host who knows a regular would say it (host, 2026-10-07). */}
+            <p className={`text-base ${theme.surfaceText}`}>
+              TT noted that you usually stay <span className="font-semibold">{nightsPhrase(habits)}</span>
+              {theirRooms.length > 0 ? (
+                <>
+                  {" "}in{" "}
+                  {theirRooms.map((r, i) => (
+                    <span key={r.name}>
+                      {i > 0 && (i === theirRooms.length - 1 ? " and " : ", ")}
+                      <span className={`${roomChip(r)} rounded-md px-1.5 py-0.5 font-bold text-black`}>{r.name}</span>
+                    </span>
+                  ))}
+                </>
+              ) : null}
+              .
+            </p>
+            {series.lastBooked && (
+              <p className={`mt-1 text-base ${theme.surfaceText}`}>
+                You're booked up to <span className="font-semibold">{format(parseISO(series.lastBooked), "EEEE, MMMM d, yyyy")}</span>.
+              </p>
+            )}
+            <p className={`mt-2 text-sm ${theme.surfaceMuted}`}>
+              TT can line up the next ones for you, to {format(parseISO(series.until), "MMMM yyyy")}
+              {goingFast && usual ? ` — ${usual.name} is already booked ${fill.taken} of the next ${fill.known} weeks on those nights` : ""}.
+              Untick any week you won't need.
+            </p>
+          </>
         )}
-        <p className={`mt-2 text-sm ${theme.surfaceMuted}`}>
-          TT can line up the next ones for you, to {format(parseISO(series.until), "MMMM yyyy")}
-          {goingFast && usual ? ` — ${usual.name} is already booked ${fill.taken} of the next ${fill.known} weeks on those nights` : ""}.
-          Untick any week you won't need.
-        </p>
 
         <button
           type="button"
