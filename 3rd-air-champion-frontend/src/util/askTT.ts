@@ -70,6 +70,8 @@ export type TTAction =
   | { kind: "room"; label: string; roomId: string }
   | { kind: "photos"; label: string; roomId: string }
   | { kind: "chat"; label: string }
+  // Ring the host. TiBook holds the number; the action carries none.
+  | { kind: "call"; label: string }
   | { kind: "bookings"; label: string }
   | { kind: "request"; label: string }
   // A follow-up question, asked as if typed.
@@ -164,6 +166,12 @@ export interface AskTTContext {
   // This guest's agreed rate per room id. Empty for a stranger.
   myRates: Map<string, number>;
   hostFirstName: string;
+  // Whether the host has a phone TiBook can ring — "Call Anh-Tuan" is offered
+  // only then. The number itself never enters TT (layer 1: TT cannot say
+  // what it does not hold); TiBook dials it.
+  hostCanCall?: boolean;
+  // Replies from the host the guest has not opened, said on the chat button.
+  hostUnread?: number;
   cancellationFullRefundDays?: number;
   cancellationHalfRefundDays?: number;
   houseRules?: string;
@@ -863,7 +871,7 @@ const answerTopic = (q: string, ctx: AskTTContext, party: number | null): TTAnsw
     }
     if (has(q, "host", "human", "person", "talk", "call", "text", "contact", "message", "speak")) {
       category = "contactHost";
-      return { lines: [`${host} lives here and reads every message personally.`], actions: [chat(ctx, `Message ${host}`)] };
+      return { lines: [`${host} lives here and reads every message personally.`], actions: [chat(ctx, `Chat ${host}`)] };
     }
     if (has(q, "book", "reserve", "request", "want a room", "need a room")) {
       category = "booking";
@@ -970,7 +978,7 @@ const privacyRefusal = (q: string, ctx: AskTTContext): TTAnswer | null => {
   // "Who is the host?" is the one "who" with a public answer: the host's
   // name and face are at the top of the page.
   if (/^\W*who(?:'s| is)(?: the| your| my)? (?:host|owner)\W*$/.test(s)) {
-    return as("contactHost", { lines: [`Your host is ${host}, who lives here.`], actions: [chat(ctx, `Message ${host}`)] });
+    return as("contactHost", { lines: [`Your host is ${host}, who lives here.`], actions: [chat(ctx, `Chat ${host}`)] });
   }
   if (SYSTEM.some((re) => re.test(s))) {
     return as("privacy", {
@@ -992,7 +1000,7 @@ const privacyRefusal = (q: string, ctx: AskTTContext): TTAnswer | null => {
   if (CONTACT.test(s)) {
     return as("privacy", {
       lines: [`I don't share anyone's contact details. To reach ${host}, send a message here — it goes straight to ${host}.`],
-      actions: [chat(ctx, `Message ${host}`)],
+      actions: [chat(ctx, `Chat ${host}`)],
     });
   }
   // "What did previous guests say about King?" reads as a question about
@@ -1120,7 +1128,7 @@ export const ttStarters = (ctx: AskTTContext): TTAction[] => {
         : { kind: "ask" as const, label: "Next weekend", query: "next weekend" },
       { kind: "bookings", label: "My bookings" },
       ...reviewStarter(ctx),
-      chat(ctx, `Message ${ctx.hostFirstName}`),
+      ...hostDoors(ctx),
     ];
   }
   return newGuestStarters(ctx);
@@ -1140,5 +1148,15 @@ const newGuestStarters = (ctx: AskTTContext): TTAction[] => [
   { kind: "ask", label: "Check-in", query: "check in" },
   { kind: "ask", label: "Cancellation", query: "cancel" },
   ...reviewStarter(ctx),
-  chat(ctx, `Message ${ctx.hostFirstName}`),
+  ...hostDoors(ctx),
+];
+
+// Reaching the host from inside TT: chat here, or ring him. These used to sit
+// on a floating bubble of their own beside TT's door — two places to ask
+// somebody. TT is the one place now (host, 2026-10-07: "add Chat Anh-Tuan"
+// and "Call Anh-Tuan"). Unread replies ride on the chat button, so a guest
+// who closed the chat still sees the host wrote back.
+const hostDoors = (ctx: AskTTContext): TTAction[] => [
+  chat(ctx, `Chat ${ctx.hostFirstName}${ctx.hostUnread ? ` · ${ctx.hostUnread} new` : ""}`),
+  ...(ctx.hostCanCall ? [{ kind: "call" as const, label: `Call ${ctx.hostFirstName}` }] : []),
 ];

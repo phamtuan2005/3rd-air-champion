@@ -31,7 +31,6 @@ import RememberMeDisclaimer from "../components/tibook/RememberMeDisclaimer";
 import HeroShell from "../components/tibook/HeroShell";
 import RoomGalleryModal from "../components/tibook/RoomGalleryModal";
 import { getConsent, readRememberedGuest, rememberGuest, setConsent, revokeConsent } from "../util/guestConsent";
-import HostContactButton from "../components/tibook/HostContactButton";
 import HostChatSheet from "../components/tibook/HostChatSheet";
 import AskTTSheet from "../components/tibook/AskTT";
 import StatsViewerGate from "../components/tibook/StatsViewerGate";
@@ -862,6 +861,8 @@ const TiBookInner = () => {
     freeRoomsOn: (key) => availableRoomsForDate(parseISO(key), true).map(toTTRoom),
     myRates,
     hostFirstName: (currentHost?.name ?? "").trim().split(/\s+/)[0] || "your host",
+    hostCanCall: !!currentHost?.phone,
+    hostUnread: unreadFromHost,
     cancellationFullRefundDays: currentHost?.cancellationFullRefundDays,
     cancellationHalfRefundDays: currentHost?.cancellationHalfRefundDays,
     houseRules: currentHost?.houseRules,
@@ -1041,6 +1042,9 @@ const TiBookInner = () => {
       case "chat":
         setChatOpen(true);
         return;
+      case "call":
+        if (currentHost?.phone) window.location.href = `tel:${currentHost.phone}`;
+        return;
       case "bookings":
         setBookingsFocusKey(null);
         setMyBookingsOpen(true);
@@ -1139,6 +1143,7 @@ const TiBookInner = () => {
           onMyBookings={() => { setBookingsFocusKey(null); setMyBookingsOpen((o) => !o); }}
           onAskTT={() => setAskTTOpen(true)}
           ttNudge={ttNudge}
+          ttUnread={unreadFromHost}
           onRequest={() => openBookingModal(null)}
           guestName={greetedName}
           actionLabel={barLabel}
@@ -1157,6 +1162,7 @@ const TiBookInner = () => {
         onMyBookings={() => { setBookingsFocusKey(null); setMyBookingsOpen((o) => !o); }}
           onAskTT={() => setAskTTOpen(true)}
           ttNudge={ttNudge}
+          ttUnread={unreadFromHost}
         guestName={greetedName}
         guestStays={guestBookings.filter((b) => b.status === "confirmed").length}
         usualCount={usualStay && !usualOpen ? usualStay.series.proposals.length : undefined}
@@ -1520,14 +1526,10 @@ const TiBookInner = () => {
           floating over "Review Request" is something to fight rather than
           something to use — the chat sheet carries its own call and text links
           for a guest who needs the host mid-flow. */}
-      {currentHost && !modalOwnsScreen && (
-        <HostContactButton
-          hostName={currentHost.name}
-          hostPhone={currentHost.phone}
-          unread={unreadFromHost}
-          onOpenChat={() => setChatOpen(true)}
-        />
-      )}
+      {/* The floating "Ask Anh-Tuan" bubble used to sit here too. Chat and
+          Call live inside Ask TT now (askTT hostDoors) — one door for asking
+          anybody, the TT pill in the header, which carries the unread count
+          the bubble used to (host, 2026-10-07). */}
 
       {statsOpen && (
         <StatsViewerGate

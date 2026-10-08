@@ -86,6 +86,7 @@ interface HeroShellProps {
   onMyBookings: () => void;
   onAskTT: () => void;
   ttNudge?: TTNudge | null;
+  ttUnread?: number;
   onRequest: () => void;
   guestName?: string;
   actionLabel: string;
@@ -114,7 +115,7 @@ const HeroShell = ({
   cartDates, wishListDates, newWishListDates, myBookingDates, myStays,
   reservedStays, reservedMap, currentMonth, onMonthChange, onDateClick,
   onWishListClick, onMyStayClick, onMyStayDetails, onReservedClick, scrollToTodayTrigger,
-  scrollToMonthTrigger, onOpenPhotos, onScrollToToday, onMyBookings, onAskTT, ttNudge, onRequest, guestName,
+  scrollToMonthTrigger, onOpenPhotos, onScrollToToday, onMyBookings, onAskTT, ttNudge, ttUnread, onRequest, guestName,
   actionLabel, hasSelection, usualCount, onOpenUsual,
 }: HeroShellProps) => {
   const { theme } = useTiBookTheme();
@@ -493,6 +494,7 @@ const HeroShell = ({
         <AskTTButton
           onClick={onAskTT}
           nudge={ttNudge}
+          unread={ttUnread}
           guestFirstName={guestName?.trim().split(" ")[0]}
           align="right"
         />

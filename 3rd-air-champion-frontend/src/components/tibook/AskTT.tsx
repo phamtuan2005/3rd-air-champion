@@ -99,8 +99,12 @@ export const AskTTButton = ({
   nudge,
   guestFirstName,
   align = "center",
+  unread = 0,
 }: {
   onClick: () => void;
+  // Host replies not yet opened. Shown on TT's pill because Chat lives inside
+  // TT now — the floating bubble that used to carry this count is gone.
+  unread?: number;
   // Which sentence this guest is owed, or nothing while a sheet owns the screen.
   nudge?: TTNudge | null;
   guestFirstName?: string;
@@ -160,6 +164,11 @@ export const AskTTButton = ({
           <TTBadge />
         </span>
         <span className="relative text-xs font-extrabold tracking-wide">TT</span>
+        {unread > 0 && (
+          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+            {unread > 9 ? "9+" : unread}
+          </span>
+        )}
       </button>
 
       {showing && (
@@ -491,7 +500,7 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
         guestSaid,
         {
           lines: ["That didn't go through — the connection may have dropped. Nothing was sent."],
-          actions: [step({ do: "send" }, "Try again"), { kind: "chat", label: `Message ${host}` }],
+          actions: [step({ do: "send" }, "Try again"), { kind: "chat", label: `Chat ${host}` }],
         },
         { draftId: b.id, step: "confirm" },
       );
@@ -560,7 +569,7 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
       if (n == null) return false;
       if (n < 1 || n > maxGuestsOf(room)) {
         const p = promptFor(b);
-        say(q, { lines: [`${room.name} sleeps up to ${maxGuestsOf(room)}. For ${n}, ${host} can help split the party across two rooms.`], actions: [...p.actions, { kind: "chat", label: `Message ${host}` }] }, { draftId: b.id, step: s });
+        say(q, { lines: [`${room.name} sleeps up to ${maxGuestsOf(room)}. For ${n}, ${host} can help split the party across two rooms.`], actions: [...p.actions, { kind: "chat", label: `Chat ${host}` }] }, { draftId: b.id, step: s });
         return true;
       }
       advance({ ...b, party: n }, q);
