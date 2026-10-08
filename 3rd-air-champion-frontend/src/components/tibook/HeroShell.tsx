@@ -119,10 +119,9 @@ const HeroShell = ({
 }: HeroShellProps) => {
   const { theme } = useTiBookTheme();
   const roomChip = useRoomChip();
-  const activeRooms = useMemo(
-    () => rooms.filter((r) => r.active).sort((a, b) => b.price - a.price),
-    [rooms],
-  );
+  // In the order TiBook gives (roomsForGuest: a returning guest's rooms
+  // first, then by price) — not re-sorted here, or their rooms would sink.
+  const activeRooms = useMemo(() => rooms.filter((r) => r.active), [rooms]);
 
   // The rooms the month is about — the same Set the classic banner toggles.
   const picked = selectedRoomIds ?? new Set<string>();
@@ -140,6 +139,16 @@ const HeroShell = ({
   // So that the deck does not jump when the second room is added: the front
   // stays on the card that was in front.
   useEffect(() => { if (!multi) setMultiFront(activeId); }, [activeId, multi]);
+  // Several rooms picked from outside the deck — a returning guest's rooms,
+  // preselected on sign-in — with the deck still on "Any room": turn it to
+  // the first of them, so the panel opens on their room, not on "any".
+  useEffect(() => {
+    if (!multi || multiFront !== ANY) return;
+    const first = activeRooms.find((r) => picked.has(r.id));
+    if (first) setMultiFront(first.id);
+    // picked is rebuilt each render; multi and the rooms say when it matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [multi, multiFront, activeRooms]);
 
   const cards = useMemo(
     () => [{ id: ANY, room: null as roomType | null }, ...activeRooms.map((r) => ({ id: r.id, room: r }))],

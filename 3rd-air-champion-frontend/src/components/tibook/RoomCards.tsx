@@ -153,7 +153,9 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
   const roomChip = useRoomChip();
   const [galleryRoom, setGalleryRoom] = useState<roomType | null>(null);
   const hostFirstName = (hostName ?? "").split(" ")[0] || "the host";
-  const activeRooms = rooms.filter((r) => r.active).sort((a, b) => b.price - a.price);
+  // In the order TiBook gives (guestRoomOrder: a returning guest's rooms first,
+  // then by price) — not re-sorted here, or their rooms would sink again.
+  const activeRooms = rooms.filter((r) => r.active);
   if (activeRooms.length === 0) return null;
 
   const isAll = selectedRoomIds === null;
