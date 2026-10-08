@@ -1,7 +1,14 @@
 import { useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { DANGER_BUTTON, SWIPE_DELETE } from "../shared/dangerButton";
-import { deleteReviewEntry, fetchReviewEntry, ReviewEntryFull, ReviewEntryRow } from "../../util/ttQuestionLog";
+import {
+  deleteReviewEntry,
+  fetchReviewEntry,
+  MAX_REVIEW_CHARS,
+  ReviewEntryFull,
+  ReviewEntryRow,
+  updateReviewEntry,
+} from "../../util/ttQuestionLog";
 
 // One review in the list under the form.
 //
@@ -13,6 +20,11 @@ import { deleteReviewEntry, fetchReviewEntry, ReviewEntryFull, ReviewEntryRow } 
 //
 // Pointer events, not touch events, so a mouse can drag it too; `touch-action:
 // pan-y` leaves vertical scrolling of the list to the browser.
+//
+// EDIT, once opened: the guest's name, stars, month and words. A pasted review
+// can arrive without the reviewer's name — "Sacramento, California" stood where
+// the name should be (host, 2026-10-08). The form sits BELOW the row, not in
+// it: a tap on the row opens and closes it, and typing there would too.
 
 // 80: the 72px Delete behind the row plus its 4px inset on each side.
 const SNAP_WIDTH = 80;
@@ -33,7 +45,12 @@ const dayLabel = (key: string) => {
   }
 };
 
-const ReviewEntryItem = ({ entry, onDeleted }: { entry: ReviewEntryRow; onDeleted: () => void }) => {
+const ReviewEntryItem = ({ entry: given, onDeleted }: { entry: ReviewEntryRow; onDeleted: () => void }) => {
+  // The row as last saved here — an edit shows at once, without reloading the list.
+  const [entry, setEntry] = useState<ReviewEntryRow>(given);
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({ guestName: "", stars: "", reviewMonth: "", text: "" });
+  const [saving, setSaving] = useState(false);
   const [offset, setOffset] = useState(0);
   const [open, setOpen] = useState(false);
   const [full, setFull] = useState<ReviewEntryFull | null>(null);
@@ -77,6 +94,47 @@ const ReviewEntryItem = ({ entry, onDeleted }: { entry: ReviewEntryRow; onDelete
       setError(e?.response?.data?.error ?? "That didn't delete. Try again.");
       inFlight.current = false;
       setDeleting(false);
+    }
+  };
+
+  const startEdit = () => {
+    if (!full) return;
+    setError("");
+    setForm({
+      guestName: full.guestName,
+      stars: full.stars != null ? String(full.stars) : "",
+      reviewMonth: full.reviewMonth,
+      text: full.text,
+    });
+    setEditing(true);
+  };
+
+  const save = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setSaving(true);
+    setError("");
+    try {
+      const updated = await updateReviewEntry(entry.id, {
+        guestName: form.guestName.trim(),
+        stars: form.stars ? Number(form.stars) : null,
+        reviewMonth: form.reviewMonth,
+        text: form.text.trim(),
+      });
+      setFull(updated);
+      setEntry((e) => ({
+        ...e,
+        guestName: updated.guestName,
+        stars: updated.stars,
+        reviewMonth: updated.reviewMonth,
+        snippet: updated.text.slice(0, 160),
+      }));
+      setEditing(false);
+    } catch (e: any) {
+      setError(e?.response?.data?.error ?? "That didn't save. Try again.");
+    } finally {
+      inFlight.current = false;
+      setSaving(false);
     }
   };
 
@@ -167,6 +225,84 @@ const ReviewEntryItem = ({ entry, onDeleted }: { entry: ReviewEntryRow; onDelete
           )}
         </div>
       </div>
+
+      {open && full && !editing && !confirming && (
+        <div className="mt-0.5 flex justify-end">
+          <button type="button" onClick={startEdit} className="rounded-md px-2 py-0.5 text-xs font-semibold text-sky-700 hover:bg-sky-50">
+            Edit
+          </button>
+        </div>
+      )}
+
+      {editing && (
+        <div className="mt-1 space-y-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-2 text-xs">
+          <label className="block">
+            <span className="font-semibold text-gray-700">Guest's name</span>
+            <input
+              value={form.guestName}
+              onChange={(e) => setForm((f) => ({ ...f, guestName: e.target.value }))}
+              maxLength={120}
+              placeholder="As on AirBnB"
+              className="mt-0.5 w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm"
+            />
+          </label>
+          <div className="flex gap-2">
+            <label className="block flex-1">
+              <span className="font-semibold text-gray-700">Stars</span>
+              <select
+                value={form.stars}
+                onChange={(e) => setForm((f) => ({ ...f, stars: e.target.value }))}
+                className="mt-0.5 w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm"
+              >
+                <option value="">None</option>
+                {[5, 4, 3, 2, 1].map((n) => (
+                  <option key={n} value={n}>
+                    {"★".repeat(n)} {n}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block flex-1">
+              <span className="font-semibold text-gray-700">Month</span>
+              <input
+                type="month"
+                value={form.reviewMonth}
+                onChange={(e) => setForm((f) => ({ ...f, reviewMonth: e.target.value }))}
+                className="mt-0.5 w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm"
+              />
+            </label>
+          </div>
+          <label className="block">
+            <span className="font-semibold text-gray-700">Review</span>
+            <textarea
+              value={form.text}
+              onChange={(e) => setForm((f) => ({ ...f, text: e.target.value }))}
+              maxLength={MAX_REVIEW_CHARS}
+              rows={5}
+              className="mt-0.5 w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm leading-relaxed"
+            />
+          </label>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              disabled={saving}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving || !form.text.trim()}
+              className="rounded-lg bg-sky-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
+          </div>
+          {error && <p className="text-rose-600">{error}</p>}
+        </div>
+      )}
 
       {confirming && (
         <div className="mt-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-2 text-xs">
