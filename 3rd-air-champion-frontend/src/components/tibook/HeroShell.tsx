@@ -490,7 +490,8 @@ const HeroShell = ({
             reads "Your bookings", 110px of a 320px bar, which is what pushed
             the line under the house name off the end. The bottom bar keeps it,
             where a thumb reaches it, and greets a guest we know by name. */}
-        {usualCount && onOpenUsual ? <UsualStaysButton count={usualCount} onClick={onOpenUsual} /> : null}
+        {/* "★ 35 stays" sat here and pushed the house name into "TT House in
+            Silico…" against it. It lives on the "Any room is fine" card now. */}
         <AskTTButton
           onClick={onAskTT}
           nudge={ttNudge}
@@ -601,6 +602,16 @@ const HeroShell = ({
                   <>
                     <div className={`absolute inset-0 ${theme.surface}`} />
                     <div className={`absolute inset-0 bg-gradient-to-br ${theme.vibe === "vivid" ? "from-emerald-400/20 to-cyan-500/10" : "from-gray-100 to-white"}`} />
+                    {/* The stays TT lined up, in the card's empty top corner —
+                        the first card a guest sees, and room enough for the
+                        pill at full size (host, 2026-10-07: "find other
+                        place", picked over the bottom bar, which would squeeze
+                        Request a Booking). Its tap opens the popup, not the card. */}
+                    {usualCount && onOpenUsual ? (
+                      <span className="absolute right-3 top-3 z-10" onClick={(e) => e.stopPropagation()}>
+                        <UsualStaysButton count={usualCount} onClick={onOpenUsual} />
+                      </span>
+                    ) : null}
                     <div className="absolute inset-x-4 top-1/4 flex gap-1.5">
                       {activeRooms.map((r) => (
                         <span key={r.id} className={`h-6 w-6 rounded-lg ${roomChip(r)}`} />
