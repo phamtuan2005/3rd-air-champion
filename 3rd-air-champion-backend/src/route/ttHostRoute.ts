@@ -7,7 +7,7 @@ import TTReviewSource from "../model/ttReviewSourceSchema";
 import TTReviewEntry from "../model/ttReviewEntrySchema";
 import { fileBlock, MAX_ENTRY_CHARS, newestFirst, roomTextsFromEntries, saveEntry, withoutBlock } from "../util/reviewEntries";
 import { occurrenceKey, occurrences, splitReviews, SplitReview } from "../util/reviewSplit";
-import { cleaningWindow, lowReviews, roomAverages, ReviewRow, topicMentions } from "../util/reviewStats";
+import { cleaningWindow, lowReviews, recentReviews, roomAverages, ReviewRow, topicMentions } from "../util/reviewStats";
 import { findAssignments } from "../util/assignmentQuery";
 import Guest from "../model/guestSchema";
 import { requireManager } from "../middleware/requireManager";
@@ -404,10 +404,12 @@ router.get("/reviews/stats", async (req: Request, res: any) => {
     }));
 
     const low = lowReviews(rows);
-    // Who cleaned each low review's room around then: one read of the rota across
-    // the whole span, then matched in memory. A LEAD, not proof — a month (or a
-    // night) is all a review says — so each row says which it was.
-    const windows = low.map((r) => cleaningWindow(r));
+    const recent = recentReviews(rows);
+    // Who cleaned each listed review's room around then: one read of the rota
+    // across the whole span, then matched in memory. A LEAD, not proof — a month
+    // (or a night) is all a review says — so each row says which it was.
+    const listed = [...low, ...recent];
+    const windows = listed.map((r) => cleaningWindow(r));
     const spans = windows.filter((w): w is { start: string; end: string } => !!w);
     let rota: any[] = [];
     if (spans.length) {
@@ -415,7 +417,7 @@ router.get("/reviews/stats", async (req: Request, res: any) => {
       const end = spans.reduce((a, w) => (w.end > a ? w.end : a), spans[0].end);
       rota = (await findAssignments({ host: hostId, start, end })) as any[];
     }
-    const lowOut = low.map((r, i) => {
+    const withLead = (r: ReviewRow, i: number) => {
       const w = windows[i];
       const cleaners = w
         ? [
@@ -438,12 +440,15 @@ router.get("/reviews/stats", async (req: Request, res: any) => {
         // "night" = the stay's start date was entered; "month" = only the month.
         basis: w ? (r.stayDate ? "night" : "month") : "none",
       };
-    });
+    };
+    const lowOut = low.map((r, i) => withLead(r, i));
+    const recentOut = recent.map((r, i) => withLead(r, low.length + i));
 
     res.status(200).json({
       total: rows.length,
       rooms: roomAverages(rows),
       low: lowOut,
+      recent: recentOut,
       topic: req.query.topic ? topicMentions(rows, String(req.query.topic)) : null,
       // What TiBook's TT tells guests, word for word — so the host reads in TiMag
       // exactly what a guest is shown. Already written and published; no model.

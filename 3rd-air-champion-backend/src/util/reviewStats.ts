@@ -60,6 +60,14 @@ export const lowReviews = (rows: ReviewRow[], max = 3, limit = 12): ReviewRow[] 
     .slice(0, limit);
 
 /**
+ * The newest reviews, whatever their stars. What the host asked to see first
+ * (2026-10-08: "the most recent review, not 3 stars") — most recent ones are 5
+ * stars, and each carries the cleaner lead, so a good stay can be credited.
+ */
+export const recentReviews = (rows: ReviewRow[], limit = 5): ReviewRow[] =>
+  [...rows].sort((a, b) => when(b).localeCompare(when(a))).slice(0, limit);
+
+/**
  * The nights a review's room should be looked up in the cleaning rota for.
  *
  * With the stay's start date: the night before and that night, since the room

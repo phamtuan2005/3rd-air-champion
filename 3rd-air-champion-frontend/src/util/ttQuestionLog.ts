@@ -246,6 +246,9 @@ export interface ReviewStats {
     cleaners: string[];
     basis: "night" | "month" | "none";
   }[];
+  // The newest reviews, any stars, in the same shape — shown above `low`
+  // (host, 2026-10-08). Absent from a backend that predates it.
+  recent?: ReviewStats["low"];
   topic: {
     key: string;
     label: string;

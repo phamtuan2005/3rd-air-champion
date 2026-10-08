@@ -90,6 +90,31 @@ const RESULT_LIMIT = 8;
  * The component keeps its old name. It is still the thing that filters the
  * calendar, and renaming the file would only move every line of its history.
  */
+
+// One review in TT's review answer: room, guest, stars, date, the opening
+// words, and who cleaned the room then. Shared by "Most recent reviews" and
+// "3 stars or lower".
+const ReviewLine = ({ r }: { r: NonNullable<ReviewStats["recent"]>[number] }) => (
+  <div className="mt-1">
+    <p className="text-gray-800">
+      <span className="font-semibold">{r.roomName}</span>
+      {r.guestName ? ` · ${r.guestName}` : ""}
+      <span className="text-amber-600"> · {"★".repeat(r.stars ?? 0)}</span>
+      <span className="text-gray-400"> · {r.stayDate || r.reviewMonth || "no date"}</span>
+    </p>
+    <p className="truncate text-gray-500">{r.snippet}</p>
+    {/* A lead, said as one: a review gives a month, or at best the night
+        a stay began — never who left the room how. */}
+    <p className="text-[11px] text-gray-500">
+      {r.basis === "none"
+        ? "No date on this review, so no cleaner to point to."
+        : r.cleaners.length > 0
+          ? `${r.basis === "night" ? "Cleaned for that stay by" : "Cleaned this room that month:"} ${r.cleaners.join(", ")} — a lead, not proof.`
+          : "No cleaning recorded for this room then."}
+    </p>
+  </div>
+);
+
 const CalendarFilterPicker = ({
   rooms,
   roomValue,
@@ -560,31 +585,24 @@ const CalendarFilterPicker = ({
                           </div>
                         )}
 
+                        {/* The newest reviews, whatever the stars, ABOVE the low ones:
+                            most recent stays are 5 stars, and the host follows
+                            those first — with the cleaner lead, to credit a
+                            good stay (host, 2026-10-08). */}
+                        {reviewStats.recent && reviewStats.recent.length > 0 && (
+                          <div className="mt-2 border-t border-gray-100 pt-2">
+                            <p className="font-semibold text-gray-900">Most recent reviews</p>
+                            {reviewStats.recent.map((r, i) => (
+                              <ReviewLine key={i} r={r} />
+                            ))}
+                          </div>
+                        )}
                         <div className="mt-2 border-t border-gray-100 pt-2">
                           <p className="font-semibold text-gray-900">3 stars or lower</p>
                           {reviewStats.low.length === 0 ? (
                             <p className="text-gray-500">None with stars at 3 or below.</p>
                           ) : (
-                            reviewStats.low.map((r, i) => (
-                              <div key={i} className="mt-1">
-                                <p className="text-gray-800">
-                                  <span className="font-semibold">{r.roomName}</span>
-                                  {r.guestName ? ` · ${r.guestName}` : ""}
-                                  <span className="text-amber-600"> · {"★".repeat(r.stars ?? 0)}</span>
-                                  <span className="text-gray-400"> · {r.stayDate || r.reviewMonth || "no date"}</span>
-                                </p>
-                                <p className="truncate text-gray-500">{r.snippet}</p>
-                                {/* A lead, said as one: a review gives a month, or at best the night
-                                    a stay began — never who left the room how. */}
-                                <p className="text-[11px] text-gray-500">
-                                  {r.basis === "none"
-                                    ? "No date on this review, so no cleaner to point to."
-                                    : r.cleaners.length > 0
-                                      ? `${r.basis === "night" ? "Cleaned for that stay by" : "Cleaned this room that month:"} ${r.cleaners.join(", ")} — a lead, not proof.`
-                                      : "No cleaning recorded for this room then."}
-                                </p>
-                              </div>
-                            ))
+                            reviewStats.low.map((r, i) => <ReviewLine key={i} r={r} />)
                           )}
                         </div>
                       </>
