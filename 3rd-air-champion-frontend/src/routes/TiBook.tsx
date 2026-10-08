@@ -855,6 +855,36 @@ const TiBookInner = () => {
     return { ids: last ? [last.roomId] : [], are: "last" };
   }, [guestBookings, rooms]);
 
+  // The room panel in a returning guest's order: their rooms first, most-used
+  // first, then the rest by price (as before). Both layouts read this — the
+  // Hero deck and the classic room cards — so neither re-sorts by price and
+  // sinks their rooms again.
+  const roomsForGuest = useMemo(() => {
+    const rank = (id: string) => {
+      const i = theirRooms.ids.indexOf(id);
+      return i === -1 ? theirRooms.ids.length : i;
+    };
+    return [...rooms].sort((a, b) => rank(a.id) - rank(b.id) || b.price - a.price);
+  }, [rooms, theirRooms]);
+
+  // Signed in, their rooms are PICKED at once — the panel opens on Cute,
+  // Queen, Chill and King for Srinivas, and the calendar shows those rooms.
+  // It used to open on "Any room is fine" as if TiBook had never met them
+  // (host, 2026-10-07: "Once the guest login, we should immediately know the
+  // rooms that guest like … like preselecting the room"). Once per guest, and
+  // only over "any room": a room they already picked is theirs to keep, and
+  // anything they change afterwards stays changed.
+  const preselectedFor = useRef<string | null>(null);
+  const theirRoomsKey = theirRooms.ids.join(",");
+  useEffect(() => {
+    if (!guestPhone || theirRooms.ids.length === 0) return;
+    if (preselectedFor.current === guestPhone) return;
+    preselectedFor.current = guestPhone;
+    setSelectedRoomIds((prev) => prev ?? new Set(theirRooms.ids));
+    // theirRoomsKey stands in for the array.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guestPhone, theirRoomsKey]);
+
   const askTTContext: AskTTContext = {
     today: startOfToday(),
     rooms: rooms.filter((r) => r.active).map(toTTRoom),
@@ -1125,7 +1155,7 @@ const TiBookInner = () => {
            their dates, their wish list and their place in the month. */
         <HeroShell
           host={currentHost}
-          rooms={rooms}
+          rooms={roomsForGuest}
           monthMap={monthMap}
           selectedRoomIds={selectedRoomIds}
           onSelectRoom={(id) => setSelectedRoomIds(id ? new Set([id]) : null)}
@@ -1208,7 +1238,7 @@ const TiBookInner = () => {
           {currentHost && <HouseFactsStrip hostName={currentHost.name} />}
           {rooms.length > 0 && (
             <RoomCards
-              rooms={rooms}
+              rooms={roomsForGuest}
               selectedRoomIds={selectedRoomIds}
               onToggleRoom={handleToggleRoom}
               onSelectAll={() => setSelectedRoomIds(null)}
@@ -1248,7 +1278,7 @@ const TiBookInner = () => {
                 full room banner, so the guest can still scope rooms at full size. */}
             {rooms.length > 0 && isSelecting && (
               <RoomCards
-                rooms={rooms}
+                rooms={roomsForGuest}
                 selectedRoomIds={selectedRoomIds}
                 onToggleRoom={handleToggleRoom}
                 onSelectAll={() => setSelectedRoomIds(null)}
