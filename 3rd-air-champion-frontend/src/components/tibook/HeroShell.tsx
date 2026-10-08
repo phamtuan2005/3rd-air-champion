@@ -719,13 +719,16 @@ const HeroShell = ({
             type="button"
             onClick={onOpenUsual}
             title="Stays TT lined up for you"
-            className={`flex w-14 shrink-0 flex-col items-center gap-1 ${theme.chromeAccent}`}
+            /* In a tinted rounded box: bare, "★ 35" read as a rating, not as
+               something to tap (host, 2026-10-07). Tinted, never filled, so
+               Request a Booking beside it stays the first thing the eye finds. */
+            className={`flex w-16 shrink-0 flex-col items-center gap-0.5 rounded-xl border py-1 transition-colors ${theme.tagBg} ${theme.tagText} ${theme.selectedBorder} active:scale-95`}
           >
             <span className="flex h-5 items-center text-base font-extrabold leading-none">★ {usualCount}</span>
             <span className="text-[11px] font-bold">{usualCount === 1 ? "stay" : "stays"}</span>
           </button>
         ) : (
-          <span className="w-14 shrink-0" aria-hidden />
+          <span className="w-16 shrink-0" aria-hidden />
         )}
 
         <button
