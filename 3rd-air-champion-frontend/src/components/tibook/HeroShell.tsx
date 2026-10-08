@@ -6,7 +6,6 @@ import { getRoomPhotos } from "../../util/roomFacts";
 import { useTiBookTheme, useRoomChip, useCalendarView } from "../../contexts/TiBookThemeContext";
 import { AppearanceMenu } from "./NavBarDesktop";
 import { AskTTButton } from "./AskTT";
-import { UsualStaysButton } from "./UsualStayCard";
 import type { TTNudge } from "./AskTT";
 import GuestCalendar, { MyStay } from "./Calendar/GuestCalendar";
 import TodayButton from "./Calendar/TodayButton";
@@ -491,7 +490,7 @@ const HeroShell = ({
             the line under the house name off the end. The bottom bar keeps it,
             where a thumb reaches it, and greets a guest we know by name. */}
         {/* "★ 35 stays" sat here and pushed the house name into "TT House in
-            Silico…" against it. It lives on the "Any room is fine" card now. */}
+            Silico…" against it. It lives in the bottom bar now, where Dates was. */}
         <AskTTButton
           onClick={onAskTT}
           nudge={ttNudge}
@@ -602,16 +601,6 @@ const HeroShell = ({
                   <>
                     <div className={`absolute inset-0 ${theme.surface}`} />
                     <div className={`absolute inset-0 bg-gradient-to-br ${theme.vibe === "vivid" ? "from-emerald-400/20 to-cyan-500/10" : "from-gray-100 to-white"}`} />
-                    {/* The stays TT lined up, in the card's empty top corner —
-                        the first card a guest sees, and room enough for the
-                        pill at full size (host, 2026-10-07: "find other
-                        place", picked over the bottom bar, which would squeeze
-                        Request a Booking). Its tap opens the popup, not the card. */}
-                    {usualCount && onOpenUsual ? (
-                      <span className="absolute right-3 top-3 z-10" onClick={(e) => e.stopPropagation()}>
-                        <UsualStaysButton count={usualCount} onClick={onOpenUsual} />
-                      </span>
-                    ) : null}
                     <div className="absolute inset-x-4 top-1/4 flex gap-1.5">
                       {activeRooms.map((r) => (
                         <span key={r.id} className={`h-6 w-6 rounded-lg ${roomChip(r)}`} />
@@ -720,12 +709,24 @@ const HeroShell = ({
           In the row it takes the space it needs and the other two keep theirs;
           the lift is cosmetic and cannot overlap anything. */}
       <div className={`flex h-[4.6rem] shrink-0 items-center gap-2 border-t px-3 ${theme.surfaceBorder} ${theme.chrome}`}>
-        <button type="button" onClick={onScrollToToday} className={`flex w-14 shrink-0 flex-col items-center gap-1 ${theme.chromeAccent}`}>
-          <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <rect x="3" y="5" width="18" height="16" rx="2" /><path strokeLinecap="round" d="M8 3v4M16 3v4M3 11h18" />
-          </svg>
-          <span className="text-[11px] font-bold">Dates</span>
-        </button>
+        {/* The stays TT lined up, where Dates used to be. Dates did what the
+            Today button above the calendar does — the same door twice (host,
+            2026-10-07: "Dates should be removed … replaced by 35 stays"). For
+            a guest with nothing lined up the slot stays empty, so Request a
+            Booking keeps its place in the middle of the bar. */}
+        {usualCount && onOpenUsual ? (
+          <button
+            type="button"
+            onClick={onOpenUsual}
+            title="Stays TT lined up for you"
+            className={`flex w-14 shrink-0 flex-col items-center gap-1 ${theme.chromeAccent}`}
+          >
+            <span className="flex h-5 items-center text-base font-extrabold leading-none">★ {usualCount}</span>
+            <span className="text-[11px] font-bold">{usualCount === 1 ? "stay" : "stays"}</span>
+          </button>
+        ) : (
+          <span className="w-14 shrink-0" aria-hidden />
+        )}
 
         <button
           type="button"
