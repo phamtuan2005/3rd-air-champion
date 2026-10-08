@@ -213,3 +213,25 @@ describe("lastStayOffer — a guest with no pattern yet", () => {
     expect(lastStayOffer([], today, () => true)).toBeNull();
   });
 });
+
+describe("back-to-back proposals in one room", () => {
+  // Srinivas: a Tuesday habit and a Wednesday habit, both in Cute. Offered
+  // apart they read "Nov 24 Tue, 1 night" and "Nov 25 Wed, 1 night".
+  const tue = { startWeekday: 2, nights: 1, rooms: ["cute"], times: 3 };
+  const wed = { startWeekday: 3, nights: 1, rooms: ["cute"], times: 3 };
+
+  it("joins them into one stay", () => {
+    const ps = proposalsForAll([tue, wed], today, () => true, [], { weeks: 2, max: 10 });
+    expect(ps[0]).toMatchObject({ start: "2026-10-13", nights: ["2026-10-13", "2026-10-14"], roomId: "cute" });
+  });
+
+  it("keeps them apart when the rooms differ", () => {
+    const ps = proposalsForAll([tue, wed], today, (r, n) => (n === "2026-10-14" ? r === "king" : r === "cute"), [], {
+      weeks: 2,
+      max: 10,
+      otherRooms: ["king"],
+    });
+    expect(ps.find((p) => p.start === "2026-10-13")?.nights).toEqual(["2026-10-13"]);
+    expect(ps.find((p) => p.start === "2026-10-14")?.roomId).toBe("king");
+  });
+});
