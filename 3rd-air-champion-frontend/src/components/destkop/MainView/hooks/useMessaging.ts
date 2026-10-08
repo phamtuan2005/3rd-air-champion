@@ -2,7 +2,8 @@ import { useState } from "react";
 import { addDays, compareAsc, format, isSameDay, isSameMonth, startOfMonth } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { dayType } from "../../../../util/types/dayType";
-import { bookingType, feeType, feesTotal } from "../../../../util/types/bookingType";
+import { bookingType, feeType } from "../../../../util/types/bookingType";
+import { guestBillForMonth } from "../../../../util/guestBill";
 import { formatCancellationPolicy } from "../../../../util/cancellationPolicy";
 import { splitLoyalty } from "../../../../util/loyaltyDiscount";
 
@@ -57,27 +58,10 @@ export const useMessaging = ({
     setTimeout(() => setCalEventsHint(null), 4000);
   };
 
-  const getCurrentGuestBill = (guest: string) => {
-    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-    return Array.from(monthMap.entries()).reduce((total, [dateStr, dayEntry]) => {
-      const date = toZonedTime(dateStr, timeZone);
-      if (isSameMonth(date, currentMonth)) {
-        const matchingBookings = dayEntry.bookings.filter(
-          (booking) => booking.guest.name === guest && booking.startDate === dateStr,
-        );
-        return (
-          total +
-          matchingBookings.reduce((sum, booking) => {
-            const pricePerNight =
-              booking.price ?? 0;
-            return sum + pricePerNight * booking.duration + feesTotal(booking.fees);
-          }, 0)
-        );
-      }
-      return total;
-    }, 0);
-  };
+  // Every night of theirs in the shown month, fees once per stay — see
+  // util/guestBill for why it is by the night and not by the stay's start.
+  const getCurrentGuestBill = (guest: string) =>
+    guestBillForMonth(monthMap, guest, format(currentMonth, "yyyy-MM"));
 
   const formatListWithAnd = (items: string[]): string => {
     if (items.length === 0) return "";
