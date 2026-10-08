@@ -84,8 +84,9 @@ interface HeroShellProps {
   onOpenPhotos: (room: roomType) => void;
   onScrollToToday: () => void;
   onMyBookings: () => void;
-  onAskTT?: () => void;
+  onAskTT: () => void;
   ttNudge?: TTNudge | null;
+  ttUnread?: number;
   onRequest: () => void;
   guestName?: string;
   actionLabel: string;
@@ -114,7 +115,7 @@ const HeroShell = ({
   cartDates, wishListDates, newWishListDates, myBookingDates, myStays,
   reservedStays, reservedMap, currentMonth, onMonthChange, onDateClick,
   onWishListClick, onMyStayClick, onMyStayDetails, onReservedClick, scrollToTodayTrigger,
-  scrollToMonthTrigger, onOpenPhotos, onScrollToToday, onMyBookings, onAskTT, ttNudge, onRequest, guestName,
+  scrollToMonthTrigger, onOpenPhotos, onScrollToToday, onMyBookings, onAskTT, ttNudge, ttUnread, onRequest, guestName,
   actionLabel, hasSelection, usualCount, onOpenUsual,
 }: HeroShellProps) => {
   const { theme } = useTiBookTheme();
@@ -490,14 +491,13 @@ const HeroShell = ({
             the line under the house name off the end. The bottom bar keeps it,
             where a thumb reaches it, and greets a guest we know by name. */}
         {usualCount && onOpenUsual ? <UsualStaysButton count={usualCount} onClick={onOpenUsual} /> : null}
-        {onAskTT && (
-          <AskTTButton
-            onClick={onAskTT}
-            nudge={ttNudge}
-            guestFirstName={guestName?.trim().split(" ")[0]}
-            align="right"
-          />
-        )}
+        <AskTTButton
+          onClick={onAskTT}
+          nudge={ttNudge}
+          unread={ttUnread}
+          guestFirstName={guestName?.trim().split(" ")[0]}
+          align="right"
+        />
         <AppearanceMenu />
       </nav>
 

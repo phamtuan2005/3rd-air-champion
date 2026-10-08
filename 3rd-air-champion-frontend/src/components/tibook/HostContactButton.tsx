@@ -1,16 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { HiSparkles } from "react-icons/hi2";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
-
-// TT's mark, in its own colours in every look — the same badge Ask TT wears.
-const TTMark = ({ box = "h-8 w-8", icon = 16 }: { box?: string; icon?: number }) => (
-  <span
-    aria-hidden
-    className={`flex ${box} shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 via-blue-500 to-violet-500 text-white shadow-sm`}
-  >
-    <HiSparkles size={icon} />
-  </span>
-);
 
 interface HostContactButtonProps {
   hostName: string;
@@ -19,13 +8,6 @@ interface HostContactButtonProps {
   // who closed the sheet still learns the host wrote back.
   unread?: number;
   onOpenChat: () => void;
-  // TT, first in the menu. This button is the ONE door for asking anything:
-  // TT answers at once and books; the host answers the rest himself. TT used to
-  // have its own pill in the header beside it — two doors for the same wish
-  // (host, 2026-10-07).
-  onAskTT?: () => void;
-  // A guest TiBook knows: TT is the quick way to book, so the line says that.
-  returning?: boolean;
 }
 
 const SIZE = 56; // px — the button is a square, and the maths below assumes it
@@ -83,8 +65,6 @@ const HostContactButton = ({
   hostPhone,
   unread = 0,
   onOpenChat,
-  onAskTT,
-  returning = false,
 }: HostContactButtonProps) => {
   const { theme } = useTiBookTheme();
   const [pos, setPos] = useState<Pos>(() => readStoredPos() ?? defaultPos());
@@ -263,27 +243,6 @@ const HostContactButton = ({
           className={`tibook-type z-[62] w-64 overflow-hidden rounded-2xl border shadow-2xl ${theme.surface} ${theme.surfaceBorder}`}
           role="menu"
         >
-          {onAskTT && (
-            <button
-              type="button"
-              className={`flex w-full items-center gap-3 border-b px-3 py-3 text-left transition-colors ${theme.surfaceBorder} ${theme.surfaceHover2}`}
-              onClick={() => {
-                setOpen(false);
-                onAskTT();
-              }}
-            >
-              <TTMark />
-              <span className="flex min-w-0 flex-col">
-                <span className={`text-sm font-bold ${theme.surfaceText}`}>Ask TT</span>
-                <span className={`text-[11px] leading-tight ${theme.surfaceMuted}`}>
-                  {returning
-                    ? "Tell TT your dates — your request is set up in seconds."
-                    : "Answers right away — rooms, free nights, booking."}
-                </span>
-              </span>
-            </button>
-          )}
-
           <div className={`border-b px-3 pb-1.5 pt-2.5 ${theme.surfaceBorder}`}>
             <p className={`text-sm font-bold ${theme.surfaceText}`}>Ask {hostName}</p>
             <p className={`text-[11px] leading-snug ${theme.surfaceMuted}`}>
@@ -361,13 +320,13 @@ const HostContactButton = ({
           }}
           className={`tibook-type pointer-events-none z-[61] whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium shadow-lg ${theme.surface} ${theme.surfaceBorder} ${theme.surfaceText}`}
         >
-          {onAskTT ? `Ask TT or ${hostName} — drag me anywhere` : `Ask ${hostName} — drag me anywhere`}
+          Ask {hostName} — drag me anywhere
         </div>
       )}
 
       <button
         type="button"
-        aria-label={`${onAskTT ? "Ask TT or contact" : "Contact"} ${hostName}. Drag to move this button.`}
+        aria-label={`Contact ${hostName}. Drag to move this button.`}
         aria-haspopup="menu"
         aria-expanded={open}
         onPointerDown={onPointerDown}
@@ -396,12 +355,6 @@ const HostContactButton = ({
             d="M8 10h8M8 14h5m-9 7l3.5-3.5H18a3 3 0 003-3V7a3 3 0 00-3-3H6a3 3 0 00-3 3v14z"
           />
         </svg>
-        {/* TT's mark on the bubble: the door to TT is here now. */}
-        {onAskTT && (
-          <span className="absolute -bottom-1 -left-1 rounded-full ring-2 ring-white">
-            <TTMark box="h-5 w-5" icon={11} />
-          </span>
-        )}
         {unread > 0 && (
           <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[11px] font-bold text-white ring-2 ring-white">
             {unread > 9 ? "9+" : unread}

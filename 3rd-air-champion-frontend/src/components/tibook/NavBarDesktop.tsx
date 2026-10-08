@@ -20,6 +20,7 @@ interface NavBarDesktopProps {
   usualCount?: number;
   onOpenUsual?: () => void;
   ttNudge?: TTNudge | null;
+  ttUnread?: number;
 }
 
 const MiniAvatar = ({ name }: { name: string }) => {
@@ -36,7 +37,7 @@ const MiniAvatar = ({ name }: { name: string }) => {
   );
 };
 
-const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false, onMyBookings, guestName, guestStays, onAskTT, ttNudge, usualCount, onOpenUsual }: NavBarDesktopProps) => {
+const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false, onMyBookings, guestName, guestStays, onAskTT, ttNudge, ttUnread, usualCount, onOpenUsual }: NavBarDesktopProps) => {
   const { theme } = useTiBookTheme();
   const guestFirstName = guestName?.trim().split(" ")[0];
   const loyaltyTier = guestStays ? getLoyaltyTier(guestStays) : null;
@@ -76,7 +77,7 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
       )}
       <div className="flex items-center gap-2">
         {usualCount && onOpenUsual ? <UsualStaysButton count={usualCount} onClick={onOpenUsual} /> : null}
-        {onAskTT && <AskTTButton onClick={onAskTT} nudge={ttNudge} guestFirstName={guestFirstName} />}
+        {onAskTT && <AskTTButton onClick={onAskTT} nudge={ttNudge} unread={ttUnread} guestFirstName={guestFirstName} />}
         {onMyBookings && (
           <button
             type="button"

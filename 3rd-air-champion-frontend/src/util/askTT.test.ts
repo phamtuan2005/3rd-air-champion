@@ -434,3 +434,17 @@ describe("a guest who stays in several rooms", () => {
     expect(ttStarters(sean(["k"])).map((a) => a.label)).toContain("King this weekend");
   });
 });
+
+describe("reaching the host from inside TT", () => {
+  // The floating "Ask Anh-Tuan" bubble was folded into TT (2026-10-07).
+  const labels = (extra: Partial<AskTTContext>) => ttStarters(ctx({}, extra)).map((a) => a.label);
+
+  it("offers Chat and, when the host has a phone, Call", () => {
+    expect(labels({ hostCanCall: true })).toEqual(expect.arrayContaining(["Chat Anh-Tuan", "Call Anh-Tuan"]));
+    expect(labels({})).not.toContain("Call Anh-Tuan");
+  });
+
+  it("says unread replies on the chat button", () => {
+    expect(labels({ hostUnread: 2 })).toContain("Chat Anh-Tuan · 2 new");
+  });
+});
