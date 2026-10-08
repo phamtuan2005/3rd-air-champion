@@ -243,6 +243,8 @@ export interface ReviewStats {
     stayDate: string;
     reviewMonth: string;
     snippet: string;
+    // The whole review. Absent from a backend that predates it.
+    text?: string;
     cleaners: string[];
     basis: "night" | "month" | "none";
   }[];

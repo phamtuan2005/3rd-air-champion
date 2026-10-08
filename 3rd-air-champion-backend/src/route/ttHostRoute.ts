@@ -436,6 +436,10 @@ router.get("/reviews/stats", async (req: Request, res: any) => {
         stayDate: r.stayDate,
         reviewMonth: r.reviewMonth,
         snippet: r.text.slice(0, 160),
+        // The whole review, for a tap that opens it in TiMag — the snippet cut
+        // a long one off mid-word with no way to read on (host, 2026-10-08).
+        // Entries are capped at 2,000 characters when saved.
+        text: r.text,
         cleaners,
         // "night" = the stay's start date was entered; "month" = only the month.
         basis: w ? (r.stayDate ? "night" : "month") : "none",
