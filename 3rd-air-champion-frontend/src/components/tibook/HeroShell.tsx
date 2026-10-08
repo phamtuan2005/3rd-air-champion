@@ -722,10 +722,10 @@ const HeroShell = ({
             /* In a tinted rounded box: bare, "★ 35" read as a rating, not as
                something to tap (host, 2026-10-07). Tinted, never filled, so
                Request a Booking beside it stays the first thing the eye finds. */
-            /* Same height and same lift as Request a Booking beside it: at its
-               own height, sitting in the bar, the two boxes' tops and bottoms
-               missed each other by 8px and looked off (host, 2026-10-07). */
-            className={`flex h-[3.25rem] w-16 shrink-0 -translate-y-2 flex-col items-center justify-center gap-0.5 rounded-xl border transition-colors ${theme.tagBg} ${theme.tagText} ${theme.selectedBorder} active:scale-95`}
+            /* Same height as Request a Booking and You, all three centred in
+               the bar: at its own height the boxes' edges missed each other,
+               and lifted they sat off the bar's middle (host, 2026-10-07). */
+            className={`flex h-[3.25rem] w-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl border transition-colors ${theme.tagBg} ${theme.tagText} ${theme.selectedBorder} active:scale-95`}
           >
             <span className="flex h-5 items-center text-base font-extrabold leading-none">★ {usualCount}</span>
             <span className="text-[11px] font-bold">{usualCount === 1 ? "stay" : "stays"}</span>
@@ -737,9 +737,11 @@ const HeroShell = ({
         <button
           type="button"
           onClick={onRequest}
-          /* Centre of the bar, lifted clear of it: on a 6-inch phone this is
-             the one spot a thumb reaches without regripping. */
-          className={`flex h-[3.25rem] min-w-0 flex-1 -translate-y-2 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-bold text-white ${theme.btn} ${theme.btnHover} ${theme.btnMotion} ${theme.glow} shadow-lg`}
+          /* Centre of the bar: on a 6-inch phone this is the one spot a thumb
+             reaches without regripping. It used to be lifted 8px clear of the
+             bar; with the stays box and You beside it, all three now sit on
+             the bar's middle line instead (host, 2026-10-07). */
+          className={`flex h-[3.25rem] min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-bold text-white ${theme.btn} ${theme.btnHover} ${theme.btnMotion} ${theme.glow} shadow-lg`}
         >
           <span className="min-w-0 truncate">{hasSelection ? actionLabel : "Request a Booking"}</span>
           <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.6} viewBox="0 0 24 24">
@@ -747,7 +749,7 @@ const HeroShell = ({
           </svg>
         </button>
 
-        <button type="button" onClick={onMyBookings} className={`flex w-16 shrink-0 flex-col items-center gap-1 ${guestName?.trim() ? theme.chromeAccent : theme.chromeMuted}`}>
+        <button type="button" onClick={onMyBookings} className={`flex h-[3.25rem] w-16 shrink-0 flex-col items-center justify-center gap-1 ${guestName?.trim() ? theme.chromeAccent : theme.chromeMuted}`}>
           <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
             <circle cx="12" cy="8" r="4" /><path strokeLinecap="round" d="M4 21c0-4 3.6-6 8-6s8 2 8 6" />
           </svg>
