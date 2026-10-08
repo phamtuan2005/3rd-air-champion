@@ -285,6 +285,34 @@ export const proposalsForAll = (
     p.nights.forEach((n) => taken.add(n));
     out.push(p);
   }
+  return joinBackToBack(out.sort((a, b) => a.start.localeCompare(b.start)));
+};
+
+/**
+ * Proposals that run on night after night in the same room become ONE stay.
+ * A guest who stays Tuesdays and Wednesdays has two one-night habits, and each
+ * was offered on its own — "Nov 24 Tue, 1 night" and "Nov 25 Wed, 1 night", in
+ * Cute both times (Srinivas, host 2026-10-07). That is one two-night stay: one
+ * row, one booking, one clean. The guest can still untick a night of it.
+ */
+const joinBackToBack = (ps: Proposal[]): Proposal[] => {
+  const out: Proposal[] = [];
+  for (const p of ps) {
+    const prev = out[out.length - 1];
+    const after = prev && key(addDays(parseISO(prev.nights[prev.nights.length - 1]), 1));
+    if (prev && prev.roomId === p.roomId && after === p.start) {
+      const completes = [...new Set([...(prev.completes ?? []), ...(p.completes ?? [])])];
+      const full = [...new Set([...(prev.full ?? []), ...(p.full ?? [])])];
+      out[out.length - 1] = {
+        ...prev,
+        nights: [...prev.nights, ...p.nights],
+        ...(completes.length ? { completes, theirRoom: prev.theirRoom ?? p.theirRoom } : {}),
+        ...(full.length ? { full } : {}),
+      };
+      continue;
+    }
+    out.push({ ...p });
+  }
   return out;
 };
 
