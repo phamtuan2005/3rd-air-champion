@@ -260,7 +260,9 @@ const UsualStayCard = ({
             and sprang to one line once dragged left (host, 2026-10-07: "Make 2
             lines in both places"). */}
         <span className="flex flex-col items-center whitespace-nowrap leading-tight">
-          <span>TT has {proposals.length} stay{proposals.length === 1 ? "" : "s"}</span>
+          {/* The ticked stays, as the button and the bottom-bar box count them —
+              it said every stay offered, 23 beside their 22 (host, 2026-10-07). */}
+          <span>TT has {chosen.length} stay{chosen.length === 1 ? "" : "s"}</span>
           <span>lined up for you</span>
         </span>
         <span aria-hidden className="opacity-80">▲</span>
