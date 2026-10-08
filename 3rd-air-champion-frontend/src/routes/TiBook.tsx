@@ -44,7 +44,7 @@ import { linkTiBookVisitToGuest, recordTiBookVisit, saveStatsCode, unlinkTiBookV
 import { fetchPublishedReviews } from "../util/ttQuestionLog";
 import { markTiBookVisited } from "../util/tibookReturning";
 import { fillRate, habitsOf, lastStayOffer, seriesFor, Proposal } from "../util/bookingHabit";
-import UsualStayCard, { isSnoozed, snooze } from "../components/tibook/UsualStayCard";
+import UsualStayCard, { chosenStays, isSnoozed, snooze } from "../components/tibook/UsualStayCard";
 
 // The nights held by "reserved" booking requests (unpaid holds), per night, as
 // room ids — they are taken, not free, everywhere TiBook offers a night.
@@ -904,6 +904,10 @@ const TiBookInner = () => {
   // Shown once per visit — opened by the effect below, closed for good by the
   // guest (Not now, a tap outside, or picking a stay).
   const [usualOpen, setUsualOpen] = useState(false);
+  // Nights the guest unticked in the usual-stay popup. Kept HERE so closing
+  // and reopening the popup keeps their picks, and "★ N stays" counts what is
+  // still ticked (see UsualStayCard `off`). For this visit only.
+  const [usualOff, setUsualOff] = useState<Set<string>>(() => new Set());
   const usualShown = useRef(false);
   // The phone TiBook already knew when this visit began. A guest who gives
   // their phone DURING the visit has just introduced themselves, and is greeted
@@ -1153,7 +1157,7 @@ const TiBookInner = () => {
           guestName={greetedName}
           actionLabel={barLabel}
           hasSelection={hasSelection}
-          usualCount={usualStay && !usualOpen ? usualStay.series.proposals.length : undefined}
+          usualCount={usualStay && !usualOpen ? chosenStays(usualStay.series.proposals, usualOff).length : undefined}
           onOpenUsual={() => setUsualOpen(true)}
         />
         )
@@ -1170,7 +1174,7 @@ const TiBookInner = () => {
           ttUnread={unreadFromHost}
         guestName={greetedName}
         guestStays={guestBookings.filter((b) => b.status === "confirmed").length}
-        usualCount={usualStay && !usualOpen ? usualStay.series.proposals.length : undefined}
+        usualCount={usualStay && !usualOpen ? chosenStays(usualStay.series.proposals, usualOff).length : undefined}
         onOpenUsual={() => setUsualOpen(true)}
       />
       {/* Scrolls when it has to.
@@ -1461,6 +1465,8 @@ const TiBookInner = () => {
             snooze(usualStay.signature);
             setUsualOpen(false);
           }}
+          off={usualOff}
+          onOffChange={setUsualOff}
         />
       )}
 
