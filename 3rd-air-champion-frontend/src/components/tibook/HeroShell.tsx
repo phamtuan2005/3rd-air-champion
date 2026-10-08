@@ -84,7 +84,7 @@ interface HeroShellProps {
   onOpenPhotos: (room: roomType) => void;
   onScrollToToday: () => void;
   onMyBookings: () => void;
-  onAskTT?: () => void;
+  onAskTT: () => void;
   ttNudge?: TTNudge | null;
   onRequest: () => void;
   guestName?: string;
@@ -490,14 +490,12 @@ const HeroShell = ({
             the line under the house name off the end. The bottom bar keeps it,
             where a thumb reaches it, and greets a guest we know by name. */}
         {usualCount && onOpenUsual ? <UsualStaysButton count={usualCount} onClick={onOpenUsual} /> : null}
-        {onAskTT && (
-          <AskTTButton
-            onClick={onAskTT}
-            nudge={ttNudge}
-            guestFirstName={guestName?.trim().split(" ")[0]}
-            align="right"
-          />
-        )}
+        <AskTTButton
+          onClick={onAskTT}
+          nudge={ttNudge}
+          guestFirstName={guestName?.trim().split(" ")[0]}
+          align="right"
+        />
         <AppearanceMenu />
       </nav>
 
