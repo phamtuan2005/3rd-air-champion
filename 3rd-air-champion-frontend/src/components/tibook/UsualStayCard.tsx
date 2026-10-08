@@ -227,12 +227,23 @@ const UsualStayCard = ({
         // touch-none: without it a drag on a phone scrolls the calendar
         // underneath instead of moving the badge.
         style={miniPos ? { left: miniPos.x, top: miniPos.y } : undefined}
-        className={`tibook-type fixed z-[130] flex cursor-grab touch-none select-none items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-white shadow-xl active:cursor-grabbing ${
+        // whitespace-nowrap: centred at left:50%, the browser gave it only the
+        // right half of the screen and it wrapped to two lines — then sprang to
+        // one line the moment it was dragged left (host, 2026-10-07). One line
+        // always, capped at the screen width.
+        className={`tibook-type fixed z-[130] flex max-w-[calc(100vw-16px)] cursor-grab touch-none select-none items-center gap-2 whitespace-nowrap rounded-full px-4 py-2.5 text-sm font-semibold text-white shadow-xl active:cursor-grabbing ${
           miniPos ? "" : "bottom-24 left-1/2 -translate-x-1/2"
         } ${theme.btn} ${theme.btnHover}`}
       >
         <span aria-hidden>★</span>
-        TT has {proposals.length} stay{proposals.length === 1 ? "" : "s"} lined up for you
+        {/* Two lines, set by hand, wherever it sits. Left to the browser it
+            wrapped to two lines centred (left:50% leaves it half the screen)
+            and sprang to one line once dragged left (host, 2026-10-07: "Make 2
+            lines in both places"). */}
+        <span className="flex flex-col items-center whitespace-nowrap leading-tight">
+          <span>TT has {proposals.length} stay{proposals.length === 1 ? "" : "s"}</span>
+          <span>lined up for you</span>
+        </span>
         <span aria-hidden className="opacity-80">▲</span>
       </button>
     );
