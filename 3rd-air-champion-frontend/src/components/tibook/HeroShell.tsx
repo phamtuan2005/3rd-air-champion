@@ -722,7 +722,10 @@ const HeroShell = ({
             /* In a tinted rounded box: bare, "★ 35" read as a rating, not as
                something to tap (host, 2026-10-07). Tinted, never filled, so
                Request a Booking beside it stays the first thing the eye finds. */
-            className={`flex w-16 shrink-0 flex-col items-center gap-0.5 rounded-xl border py-1 transition-colors ${theme.tagBg} ${theme.tagText} ${theme.selectedBorder} active:scale-95`}
+            /* Same height and same lift as Request a Booking beside it: at its
+               own height, sitting in the bar, the two boxes' tops and bottoms
+               missed each other by 8px and looked off (host, 2026-10-07). */
+            className={`flex h-[3.25rem] w-16 shrink-0 -translate-y-2 flex-col items-center justify-center gap-0.5 rounded-xl border transition-colors ${theme.tagBg} ${theme.tagText} ${theme.selectedBorder} active:scale-95`}
           >
             <span className="flex h-5 items-center text-base font-extrabold leading-none">★ {usualCount}</span>
             <span className="text-[11px] font-bold">{usualCount === 1 ? "stay" : "stays"}</span>
