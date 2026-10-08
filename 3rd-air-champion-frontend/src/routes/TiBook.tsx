@@ -44,7 +44,7 @@ import { fetchGuestThread } from "../util/guestMessageOperations";
 import { linkTiBookVisitToGuest, recordTiBookVisit, saveStatsCode, unlinkTiBookVisitGuest } from "../util/tibookVisitOperations";
 import { fetchPublishedReviews } from "../util/ttQuestionLog";
 import { markTiBookVisited } from "../util/tibookReturning";
-import { fillRate, habitsOf, seriesFor, Proposal } from "../util/bookingHabit";
+import { fillRate, habitsOf, lastStayOffer, seriesFor, Proposal } from "../util/bookingHabit";
 import UsualStayCard, { isSnoozed, snooze } from "../components/tibook/UsualStayCard";
 
 // The nights held by "reserved" booking requests (unpaid holds), per night, as
@@ -892,9 +892,23 @@ const TiBookInner = () => {
     const habits = habitsOf(stays, today)
       .map((h) => ({ ...h, rooms: h.rooms.filter((id) => active.has(id)) }))
       .filter((h) => h.rooms.length > 0);
-    if (habits.length === 0) return null;
     const isFree = (roomId: string, night: string) =>
       availableRoomsForDate(parseISO(night), true).some((r) => r.id === roomId);
+    if (habits.length === 0) {
+      // No pattern yet: their last stay as the example, if they have nothing
+      // booked ahead (see bookingHabit.lastStayOffer).
+      const party0 = Math.max(1, ...guestBookings.map((b) => b.numberOfGuests ?? 1));
+      const others0 = rooms.filter((r) => r.active && maxGuestsOf(toTTRoom(r)) >= party0).map((r) => r.id);
+      const offer = lastStayOffer(stays, today, isFree, others0, active);
+      if (!offer) return null;
+      return {
+        habits: [offer.habit],
+        series: { lastBooked: null, until: offer.proposals[offer.proposals.length - 1].nights.slice(-1)[0], proposals: offer.proposals },
+        fill: { taken: 0, known: 0 },
+        signature: `last:${offer.proposals.map((p) => `${p.start}:${p.roomId}`).join("|")}`,
+        lastStay: offer.last,
+      };
+    }
     // Regulars book months ahead: the proposal is the months AFTER their last
     // booked stay (and any week left open before it), not the next few weeks.
     // Rooms beyond their own, for a week none of theirs is free: active, and
@@ -916,7 +930,7 @@ const TiBookInner = () => {
     // whether their room has started filling.
     const goingFast = fill.known >= 3 && fill.taken / fill.known >= 0.5;
     const signature = `${series.proposals.map((p) => `${p.start}:${p.roomId}`).join("|")}#${goingFast}`;
-    return { habits, series, fill, signature };
+    return { habits, series, fill, signature, lastStay: undefined };
     // availableRoomsForDate reads monthMap, reservedMap and rooms.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isKnownVisitor, guestBookings, rooms, monthMap, reservedMap]);
@@ -1397,6 +1411,7 @@ const TiBookInner = () => {
           firstName={greetedName.trim().split(/\s+/)[0] ?? ""}
           habits={usualStay.habits}
           series={usualStay.series}
+          lastStay={usualStay.lastStay}
           fill={usualStay.fill}
           roomOf={(id) => rooms.find((r) => r.id === id)}
           // The ordinary request, filled in: the guest reads and sends it.

@@ -333,3 +333,41 @@ export const seriesFor = (
   );
   return { lastBooked, until, proposals };
 };
+
+export interface LastStayOffer {
+  /** The stay TT takes as the example. */
+  last: PastStay;
+  /** That stay as a one-off "habit": its weekday, length, and their rooms. */
+  habit: Habit;
+  proposals: Proposal[];
+}
+
+/**
+ * For a guest who has stayed before but has no pattern yet — one stay, or a few
+ * that do not repeat — and nothing booked ahead: their LAST stay as the
+ * example, and the next weeks the same nights are free (host, 2026-10-07: a
+ * guest who booked one or two nights before should get something too, "smart
+ * like this"). It claims no pattern it does not have; the card says "last time".
+ *
+ * Their last stay's room first, then the other rooms they have used, then any
+ * other free room that holds their party (`otherRooms`). Not for a stay more than
+ * a year ago — that guest is not "back" in any sense a host would mean.
+ */
+export const lastStayOffer = (
+  stays: PastStay[],
+  today: Date,
+  isFree: (roomId: string, night: string) => boolean | null,
+  otherRooms: string[] = [],
+  activeRooms?: Set<string>,
+): LastStayOffer | null => {
+  const todayKey = key(today);
+  if (stays.some((s) => s.start >= todayKey)) return null;
+  const past = [...stays].filter((s) => s.nights >= 1).sort((a, b) => a.start.localeCompare(b.start));
+  const last = past[past.length - 1];
+  if (!last || differenceInCalendarDays(today, parseISO(last.start)) > 365) return null;
+  const used = rankRooms([last], past, today).filter((r) => !activeRooms || activeRooms.has(r));
+  if (used.length === 0 && otherRooms.length === 0) return null;
+  const habit: Habit = { startWeekday: weekdayOf(last.start), nights: Math.min(last.nights, 7), rooms: used, times: 1 };
+  const proposals = proposalsFor(habit, today, isFree, [], { weeks: 8, max: 3, otherRooms });
+  return proposals.length ? { last, habit, proposals } : null;
+};
