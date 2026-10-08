@@ -153,6 +153,36 @@ const UsualStayCard = ({
   const [minimised, setMinimised] = useState(false);
   const dragRef = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
   const resizeRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
+  // The minimised badge moves too (host, 2026-10-07: a static badge sat over
+  // the calendar with no way to shift it). Null until first dragged: it starts
+  // centred above the bottom bar. A press that travels under 6px is a tap —
+  // a finger always wanders a pixel or two — and the tap reopens the window.
+  const [miniPos, setMiniPos] = useState<{ x: number; y: number } | null>(null);
+  const miniRef = useRef<{ x: number; y: number; px: number; py: number; moved: boolean } | null>(null);
+  const onMiniDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    miniRef.current = { x: e.clientX, y: e.clientY, px: r.left, py: r.top, moved: false };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onMiniMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const m = miniRef.current;
+    if (!m) return;
+    const dx = e.clientX - m.x;
+    const dy = e.clientY - m.y;
+    if (!m.moved && Math.hypot(dx, dy) < 6) return;
+    m.moved = true;
+    const r = e.currentTarget.getBoundingClientRect();
+    // Kept whole on screen.
+    setMiniPos({
+      x: Math.min(window.innerWidth - r.width - 8, Math.max(8, m.px + dx)),
+      y: Math.min(window.innerHeight - r.height - 8, Math.max(8, m.py + dy)),
+    });
+  };
+  const onMiniUp = () => {
+    const m = miniRef.current;
+    miniRef.current = null;
+    if (m && !m.moved) setMinimised(false);
+  };
 
   const onDragStart = (e: React.PointerEvent) => {
     // A tap on the title-bar buttons is a tap, not the start of a drag.
@@ -188,8 +218,18 @@ const UsualStayCard = ({
     return (
       <button
         type="button"
-        onClick={() => setMinimised(false)}
-        className={`tibook-type fixed bottom-24 left-1/2 z-[130] flex -translate-x-1/2 items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-white shadow-xl ${theme.btn} ${theme.btnHover}`}
+        onPointerDown={onMiniDown}
+        onPointerMove={onMiniMove}
+        onPointerUp={onMiniUp}
+        onPointerCancel={() => (miniRef.current = null)}
+        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setMinimised(false)}
+        title="Tap to open · drag to move"
+        // touch-none: without it a drag on a phone scrolls the calendar
+        // underneath instead of moving the badge.
+        style={miniPos ? { left: miniPos.x, top: miniPos.y } : undefined}
+        className={`tibook-type fixed z-[130] flex cursor-grab touch-none select-none items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-white shadow-xl active:cursor-grabbing ${
+          miniPos ? "" : "bottom-24 left-1/2 -translate-x-1/2"
+        } ${theme.btn} ${theme.btnHover}`}
       >
         <span aria-hidden>★</span>
         TT has {proposals.length} stay{proposals.length === 1 ? "" : "s"} lined up for you
