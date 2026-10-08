@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { FaUser } from "react-icons/fa";
 import { HiSparkles } from "react-icons/hi2";
@@ -514,20 +514,29 @@ const CalendarFilterPicker = ({
                         <p className="font-semibold text-gray-900">
                           {reviewStats.total} review{reviewStats.total === 1 ? "" : "s"} on record
                         </p>
-                        <ul className="mt-1 space-y-0.5">
+                        {/* Three real columns — room, stars, count — with the
+                            numbers right-aligned on tabular digits. As one run
+                            of text per row, "4.97 ★ · 115 reviews" and "4.98 ★
+                            · 42 reviews" ended together and their stars and
+                            counts zig-zagged down the list (host, 2026-10-08). */}
+                        <div className="mt-1 grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 gap-y-0.5 tabular-nums">
                           {reviewStats.rooms.map((r) => (
-                            <li key={r.room} className="flex justify-between gap-3">
+                            <Fragment key={r.room}>
                               <span className="truncate font-medium text-gray-800">{r.name}</span>
-                              <span className="shrink-0 text-gray-600">
-                                {r.average != null ? <span className="font-semibold text-amber-600">{r.average.toFixed(2)} ★</span> : "no stars"}
-                                <span className="text-gray-400">
-                                  {" "}· {r.reviews} review{r.reviews === 1 ? "" : "s"}
-                                  {r.withStars !== r.reviews ? `, ${r.withStars} with stars` : ""}
-                                </span>
+                              <span className="text-right">
+                                {r.average != null ? (
+                                  <span className="font-semibold text-amber-600">{r.average.toFixed(2)} ★</span>
+                                ) : (
+                                  <span className="text-gray-400">no stars</span>
+                                )}
                               </span>
-                            </li>
+                              <span className="text-right text-gray-400">
+                                {r.reviews} review{r.reviews === 1 ? "" : "s"}
+                                {r.withStars !== r.reviews ? `, ${r.withStars} with stars` : ""}
+                              </span>
+                            </Fragment>
                           ))}
-                        </ul>
+                        </div>
 
                         {reviewStats.topic && (
                           <div className="mt-2 border-t border-gray-100 pt-2">
