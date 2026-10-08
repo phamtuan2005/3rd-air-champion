@@ -76,7 +76,7 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
         </h1>
       )}
       <div className="flex items-center gap-2">
-        {usualCount && onOpenUsual ? <UsualStaysButton count={usualCount} onClick={onOpenUsual} /> : null}
+        {usualCount != null && onOpenUsual ? <UsualStaysButton count={usualCount} onClick={onOpenUsual} /> : null}
         {onAskTT && <AskTTButton onClick={onAskTT} nudge={ttNudge} unread={ttUnread} guestFirstName={guestFirstName} />}
         {onMyBookings && (
           <button

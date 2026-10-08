@@ -69,6 +69,24 @@ const stayDates = (p: Proposal) => {
     : `${format(first, "MMM d EEE")} – ${format(last, "MMM d EEE")}${count}`;
 };
 
+/**
+ * What will be sent: each stay's picked nights, split where a night was taken
+ * out of the middle — every piece its own stay, in the stay's room. Exported so
+ * TiBook's "★ N stays" counts the same stays the popup's button would send.
+ */
+export const chosenStays = (proposals: Proposal[], off: Set<string>): Proposal[] =>
+  proposals.flatMap((p) => {
+    const kept = p.nights.filter((n) => !off.has(n));
+    const pieces: string[][] = [];
+    for (const n of kept) {
+      const last = pieces[pieces.length - 1];
+      const prev = last?.[last.length - 1];
+      if (last && prev && p.nights.indexOf(n) === p.nights.indexOf(prev) + 1) last.push(n);
+      else pieces.push([n]);
+    }
+    return pieces.map((nights) => ({ ...p, start: nights[0], nights }));
+  });
+
 const UsualStayCard = ({
   firstName,
   habits,
@@ -78,6 +96,8 @@ const UsualStayCard = ({
   roomOf,
   onRequest,
   onClose,
+  off,
+  onOffChange,
 }: {
   firstName: string;
   habits: Habit[];
@@ -94,6 +114,14 @@ const UsualStayCard = ({
   /** The ticked stays, to the ordinary request — the guest still sends it. */
   onRequest: (stays: Proposal[]) => void;
   onClose: () => void;
+  /**
+   * The nights the guest unticked. Held by TiBook, not here: kept in the card,
+   * they were lost the moment it closed — a guest who picked one stay, closed
+   * the popup and reopened it found all 23 ticked again, and the header still
+   * said 23 (host, 2026-10-07).
+   */
+  off: Set<string>;
+  onOffChange: (next: Set<string>) => void;
 }) => {
   const proposals = series.proposals;
   // Every week ticked to start with; the guest unticks the ones they will not need.
@@ -101,25 +129,16 @@ const UsualStayCard = ({
   // but not the holiday night, or not the night a family thing comes up, takes
   // the rest (host, 2026-10-07: "the guest has only 2 options: pick whole or
   // pick none. Where is pick part?"). Every night starts picked; `off` holds
-  // the ones taken out.
-  const [off, setOff] = useState<Set<string>>(() => new Set());
+  // the ones taken out (held by TiBook — see the `off` prop).
+  const setOff = (next: Set<string> | ((prev: Set<string>) => Set<string>)) =>
+    onOffChange(typeof next === "function" ? next(off) : next);
   const [open, setOpen] = useState<Set<string>>(() => new Set());
-  // What will be sent: each stay's picked nights, split where a night was taken
-  // out of the middle — every piece its own stay, in the stay's room.
-  const chosen: Proposal[] = proposals.flatMap((p) => {
-    const kept = p.nights.filter((n) => !off.has(n));
-    const pieces: string[][] = [];
-    for (const n of kept) {
-      const last = pieces[pieces.length - 1];
-      const prev = last?.[last.length - 1];
-      if (last && prev && p.nights.indexOf(n) === p.nights.indexOf(prev) + 1) last.push(n);
-      else pieces.push([n]);
-    }
-    return pieces.map((nights) => ({ ...p, start: nights[0], nights }));
-  });
-  const allOn = off.size === 0;
-  const noneOn = chosen.length === 0;
+  const chosen = chosenStays(proposals, off);
   const allNights = proposals.flatMap((p) => p.nights);
+  // Only nights still on offer count: a night booked meanwhile drops out of
+  // the proposals but may still sit in `off`.
+  const allOn = allNights.every((n) => !off.has(n));
+  const noneOn = chosen.length === 0;
   const toggleNights = (nights: string[], on: boolean) =>
     setOff((prev) => {
       const next = new Set(prev);
@@ -361,7 +380,7 @@ const UsualStayCard = ({
             className="h-5 w-5 shrink-0"
           />
           <span className={`text-sm font-semibold ${theme.surfaceText}`}>
-            {allOn ? "All selected" : noneOn ? "None selected" : `${allNights.length - off.size} of ${allNights.length} nights selected`}
+            {allOn ? "All selected" : noneOn ? "None selected" : `${allNights.filter((n) => !off.has(n)).length} of ${allNights.length} nights selected`}
           </span>
         </label>
 

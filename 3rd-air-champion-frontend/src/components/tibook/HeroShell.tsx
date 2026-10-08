@@ -714,7 +714,7 @@ const HeroShell = ({
             2026-10-07: "Dates should be removed … replaced by 35 stays"). For
             a guest with nothing lined up the slot stays empty, so Request a
             Booking keeps its place in the middle of the bar. */}
-        {usualCount && onOpenUsual ? (
+        {usualCount != null && onOpenUsual ? (
           <button
             type="button"
             onClick={onOpenUsual}
