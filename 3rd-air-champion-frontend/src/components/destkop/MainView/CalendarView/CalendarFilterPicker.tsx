@@ -118,8 +118,11 @@ const ReviewLine = ({ r }: { r: NonNullable<ReviewStats["recent"]>[number] }) =>
       <p className="truncate text-gray-500">{r.snippet}</p>
     )}
     {/* A lead, said as one: a review gives a month, or at best the night
-        a stay began — never who left the room how. */}
-    <p className="text-[11px] text-gray-500">
+        a stay began — never who left the room how.
+        Teal, not the review's grey: it is the house's own note, not the
+        guest's words, and read as part of the review it was mistaken for one
+        (host, 2026-10-08). Teal is TiMag's colour for operational things. */}
+    <p className="mt-0.5 text-[11px] font-medium text-teal-700">
       {r.basis === "none"
         ? "No date on this review, so no cleaner to point to."
         : r.cleaners.length > 0
