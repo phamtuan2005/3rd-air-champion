@@ -36,7 +36,7 @@ import HostChatSheet from "../components/tibook/HostChatSheet";
 import AskTTSheet from "../components/tibook/AskTT";
 import StatsViewerGate from "../components/tibook/StatsViewerGate";
 import { usHolidayOn } from "../util/usHolidays";
-import type { TTNudge, TTSendOutcome } from "../components/tibook/AskTT";
+import type { TTSendOutcome } from "../components/tibook/AskTT";
 import { toTTRoom, usualRoomOf } from "../util/askTT";
 import { maxGuestsOf } from "../util/ttBooking";
 import type { AskTTContext, TTAction } from "../util/askTT";
@@ -1074,10 +1074,9 @@ const TiBookInner = () => {
     return "sent";
   };
 
-  // Which TT callout this guest is owed: the booking helper for somebody new,
-  // the quick way to book for somebody back. None while a sheet owns the
-  // screen — a callout pointing at a button behind a modal points at nothing.
-  const ttNudge: TTNudge | null = modalOwnsScreen ? null : isKnownVisitor ? "returning" : "new";
+  // TT and the host share ONE door, the floating button (HostContactButton).
+  // TT used to have its own pill in the header as well — two buttons for
+  // "ask somebody", side by side (host, 2026-10-07: "merge these 2 things").
 
   // DYNAMIC viewport height. Plain 100vh (h-screen) is the height the page would
   // have with the browser chrome hidden, so on an iPhone the layout is taller
@@ -1137,8 +1136,6 @@ const TiBookInner = () => {
           onOpenPhotos={setHeroGalleryRoom}
           onScrollToToday={() => setScrollToTodayTrigger((n) => n + 1)}
           onMyBookings={() => { setBookingsFocusKey(null); setMyBookingsOpen((o) => !o); }}
-          onAskTT={() => setAskTTOpen(true)}
-          ttNudge={ttNudge}
           onRequest={() => openBookingModal(null)}
           guestName={greetedName}
           actionLabel={barLabel}
@@ -1155,8 +1152,6 @@ const TiBookInner = () => {
         cohostNames={cohostNames}
         isFullCalendar={isSelecting}
         onMyBookings={() => { setBookingsFocusKey(null); setMyBookingsOpen((o) => !o); }}
-          onAskTT={() => setAskTTOpen(true)}
-          ttNudge={ttNudge}
         guestName={greetedName}
         guestStays={guestBookings.filter((b) => b.status === "confirmed").length}
         usualCount={usualStay && !usualOpen ? usualStay.series.proposals.length : undefined}
@@ -1526,6 +1521,8 @@ const TiBookInner = () => {
           hostPhone={currentHost.phone}
           unread={unreadFromHost}
           onOpenChat={() => setChatOpen(true)}
+          onAskTT={() => setAskTTOpen(true)}
+          returning={isKnownVisitor}
         />
       )}
 
