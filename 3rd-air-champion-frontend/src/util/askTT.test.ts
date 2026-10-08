@@ -440,8 +440,9 @@ describe("reaching the host from inside TT", () => {
   const labels = (extra: Partial<AskTTContext>) => ttStarters(ctx({}, extra)).map((a) => a.label);
 
   it("offers Chat and, when the host has a phone, Call", () => {
-    expect(labels({ hostCanCall: true })).toEqual(expect.arrayContaining(["Chat Anh-Tuan", "Call Anh-Tuan"]));
+    expect(labels({ hostCanCall: true })).toEqual(expect.arrayContaining(["Chat Anh-Tuan", "Text Anh-Tuan", "Call Anh-Tuan"]));
     expect(labels({})).not.toContain("Call Anh-Tuan");
+    expect(labels({})).not.toContain("Text Anh-Tuan");
   });
 
   it("says unread replies on the chat button", () => {

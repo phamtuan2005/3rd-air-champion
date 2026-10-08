@@ -1045,6 +1045,11 @@ const TiBookInner = () => {
       case "call":
         if (currentHost?.phone) window.location.href = `tel:${currentHost.phone}`;
         return;
+      case "text":
+        // Opens their messages app with the greeting typed, as the old bubble did.
+        if (currentHost?.phone)
+          window.location.href = `sms:${currentHost.phone}?&body=${encodeURIComponent(`Hi ${currentHost.name}, `)}`;
+        return;
       case "bookings":
         setBookingsFocusKey(null);
         setMyBookingsOpen(true);

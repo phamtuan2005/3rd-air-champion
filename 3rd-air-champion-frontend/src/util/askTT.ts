@@ -70,8 +70,9 @@ export type TTAction =
   | { kind: "room"; label: string; roomId: string }
   | { kind: "photos"; label: string; roomId: string }
   | { kind: "chat"; label: string }
-  // Ring the host. TiBook holds the number; the action carries none.
+  // Ring or text the host. TiBook holds the number; the action carries none.
   | { kind: "call"; label: string }
+  | { kind: "text"; label: string }
   | { kind: "bookings"; label: string }
   | { kind: "request"; label: string }
   // A follow-up question, asked as if typed.
@@ -1152,11 +1153,16 @@ const newGuestStarters = (ctx: AskTTContext): TTAction[] => [
 ];
 
 // Reaching the host from inside TT: chat here, or ring him. These used to sit
-// on a floating bubble of their own beside TT's door — two places to ask
+// (and texting him) on a floating bubble of their own beside TT's door — two places to ask
 // somebody. TT is the one place now (host, 2026-10-07: "add Chat Anh-Tuan"
 // and "Call Anh-Tuan"). Unread replies ride on the chat button, so a guest
 // who closed the chat still sees the host wrote back.
 const hostDoors = (ctx: AskTTContext): TTAction[] => [
   chat(ctx, `Chat ${ctx.hostFirstName}${ctx.hostUnread ? ` · ${ctx.hostUnread} new` : ""}`),
-  ...(ctx.hostCanCall ? [{ kind: "call" as const, label: `Call ${ctx.hostFirstName}` }] : []),
+  ...(ctx.hostCanCall
+    ? [
+        { kind: "text" as const, label: `Text ${ctx.hostFirstName}` },
+        { kind: "call" as const, label: `Call ${ctx.hostFirstName}` },
+      ]
+    : []),
 ];
