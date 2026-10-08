@@ -93,16 +93,30 @@ const RESULT_LIMIT = 8;
 
 // One review in TT's review answer: room, guest, stars, date, the opening
 // words, and who cleaned the room then. Shared by "Most recent reviews" and
-// "3 stars or lower".
-const ReviewLine = ({ r }: { r: NonNullable<ReviewStats["recent"]>[number] }) => (
-  <div className="mt-1">
+// "3 stars or lower". A tap opens the whole review and a second closes it:
+// one line cut a long review off mid-word with no way to read on (host,
+// 2026-10-08).
+const ReviewLine = ({ r }: { r: NonNullable<ReviewStats["recent"]>[number] }) => {
+  const [open, setOpen] = useState(false);
+  const full = r.text ?? r.snippet;
+  return (
+  <button
+    type="button"
+    onClick={() => setOpen((o) => !o)}
+    aria-expanded={open}
+    className="mt-1 block w-full rounded-md text-left hover:bg-gray-50"
+  >
     <p className="text-gray-800">
       <span className="font-semibold">{r.roomName}</span>
       {r.guestName ? ` · ${r.guestName}` : ""}
       <span className="text-amber-600"> · {"★".repeat(r.stars ?? 0)}</span>
       <span className="text-gray-400"> · {r.stayDate || r.reviewMonth || "no date"}</span>
     </p>
-    <p className="truncate text-gray-500">{r.snippet}</p>
+    {open ? (
+      <p className="whitespace-pre-line leading-relaxed text-gray-700">{full}</p>
+    ) : (
+      <p className="truncate text-gray-500">{r.snippet}</p>
+    )}
     {/* A lead, said as one: a review gives a month, or at best the night
         a stay began — never who left the room how. */}
     <p className="text-[11px] text-gray-500">
@@ -112,8 +126,9 @@ const ReviewLine = ({ r }: { r: NonNullable<ReviewStats["recent"]>[number] }) =>
           ? `${r.basis === "night" ? "Cleaned for that stay by" : "Cleaned this room that month:"} ${r.cleaners.join(", ")} — a lead, not proof.`
           : "No cleaning recorded for this room then."}
     </p>
-  </div>
-);
+  </button>
+  );
+};
 
 const CalendarFilterPicker = ({
   rooms,
