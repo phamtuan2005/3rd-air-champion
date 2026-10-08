@@ -1,4 +1,4 @@
-import { cleaningWindow, lowReviews, roomAverages, topicMentions, ReviewRow } from "../reviewStats";
+import { cleaningWindow, lowReviews, recentReviews, roomAverages, topicMentions, ReviewRow } from "../reviewStats";
 
 // The arithmetic the host reads as fact. Pinned because a wrong average on a
 // screen about whom to thank, or whom to speak to, is a person's reputation.
@@ -88,5 +88,21 @@ describe("topicMentions", () => {
 
   it("knows only the topics it lists", () => {
     expect(topicMentions([row({})], "politics")).toBeNull();
+  });
+});
+
+describe("recentReviews", () => {
+  // The host follows the newest reviews first, whatever the stars (2026-10-08).
+  it("lists the newest first, any stars, undated last, up to the limit", () => {
+    const out = recentReviews(
+      [
+        row({ guestName: "old", stars: 2, reviewMonth: "2025-01" }),
+        row({ guestName: "none", stars: 5 }),
+        row({ guestName: "new", stars: 5, stayDate: "2026-09-20" }),
+        row({ guestName: "mid", stars: 4, reviewMonth: "2026-03" }),
+      ],
+      3,
+    );
+    expect(out.map((r) => r.guestName)).toEqual(["new", "mid", "old"]);
   });
 });
