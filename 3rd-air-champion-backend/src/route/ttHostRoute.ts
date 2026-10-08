@@ -5,7 +5,7 @@ import TTQuestion from "../model/ttQuestionSchema";
 import TTReviews from "../model/ttReviewsSchema";
 import TTReviewSource from "../model/ttReviewSourceSchema";
 import TTReviewEntry from "../model/ttReviewEntrySchema";
-import { fileBlock, MAX_ENTRY_CHARS, newestFirst, roomTextsFromEntries, saveEntry, withoutBlock } from "../util/reviewEntries";
+import { fileBlock, latestFromEntries, MAX_ENTRY_CHARS, newestFirst, roomTextsFromEntries, saveEntry, withoutBlock } from "../util/reviewEntries";
 import { occurrenceKey, occurrences, splitReviews, SplitReview } from "../util/reviewSplit";
 import { cleaningWindow, lowReviews, recentReviews, roomAverages, ReviewRow, topicMentions } from "../util/reviewStats";
 import { findAssignments } from "../util/assignmentQuery";
@@ -60,7 +60,14 @@ const STALE_DRAFT_MS = 5 * 60 * 1000;
 const view = (doc: any) => {
   const d = doc?.draft ?? {};
   const stale = d.status === "drafting" && d.startedAt && Date.now() - new Date(d.startedAt).getTime() > STALE_DRAFT_MS;
-  const rooms = (set: any) => (set?.rooms ?? []).map((r: any) => ({ roomId: String(r.room), summary: r.summary ?? "" }));
+  const rooms = (set: any) =>
+    (set?.rooms ?? []).map((r: any) => ({
+      roomId: String(r.room),
+      summary: r.summary ?? "",
+      latest: r.latest ?? "",
+      latestMonth: r.latestMonth ?? "",
+      latestStars: r.latestStars ?? null,
+    }));
   return {
     published: { house: doc?.published?.house ?? "", rooms: rooms(doc?.published), at: doc?.published?.at ?? null },
     draft: {
@@ -643,8 +650,14 @@ router.post("/reviews/draft", async (req: Request, res: any) => {
     // Drafted from the INDIVIDUAL reviews on record — the house's one record of
     // what guests said — never from a pasted page, which can drift from it.
     const texts = await roomTextsFromEntries(hostId, [...names.keys()]);
+    const latest = await latestFromEntries(hostId, [...names.keys()]);
     const rooms: PastedRoom[] = [...texts]
-      .map(([roomId, text]) => ({ roomId, name: names.get(roomId)!, text: text.trim() }))
+      .map(([roomId, text]) => ({
+        roomId,
+        name: names.get(roomId)!,
+        text: text.trim(),
+        ...(latest.has(roomId) ? { latest: latest.get(roomId) } : {}),
+      }))
       .filter((r: PastedRoom) => r.text);
     if (rooms.length === 0) return res.status(400).json({ error: "There are no reviews on record yet. Add them first." });
     const total = rooms.reduce((sum, r) => sum + r.text.length, 0);
@@ -683,7 +696,13 @@ router.post("/reviews/draft", async (req: Request, res: any) => {
                 startedAt: started,
                 error: "",
                 house: result.house,
-                rooms: result.rooms.map((r) => ({ room: r.roomId, summary: r.summary })),
+                rooms: result.rooms.map((r) => ({
+                  room: r.roomId,
+                  summary: r.summary,
+                  latest: r.latest,
+                  latestMonth: r.latestMonth,
+                  ...(r.latestStars != null ? { latestStars: r.latestStars } : {}),
+                })),
                 reviewsRead: result.reviewsRead,
               },
             },
@@ -715,9 +734,25 @@ router.put("/reviews", async (req: Request, res: any) => {
   try {
     const ids = given.map((r: any) => r?.roomId).filter((id: any) => mongoose.isValidObjectId(id));
     const owned = new Set((await Room.find({ _id: { $in: ids }, host: hostId }, { _id: 1 }).lean()).map((r: any) => String(r._id)));
+    const text = (v: unknown) => (typeof v === "string" ? v.trim().slice(0, MAX_SUMMARY) : "");
     const rooms = given
-      .filter((r: any) => owned.has(String(r?.roomId)) && typeof r?.summary === "string" && r.summary.trim())
-      .map((r: any) => ({ room: String(r.roomId), summary: r.summary.trim().slice(0, MAX_SUMMARY) }));
+      .filter((r: any) => owned.has(String(r?.roomId)) && (text(r?.summary) || text(r?.latest)))
+      .map((r: any) => {
+        // The latest review's month and stars came from the record with the
+        // draft and ride back with the host's edit. A latest with no valid
+        // month is not published: TT would be calling an undated review the
+        // latest.
+        const month = typeof r.latestMonth === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(r.latestMonth) ? r.latestMonth : "";
+        const latest = month ? text(r.latest) : "";
+        const stars = Number.isInteger(r.latestStars) && r.latestStars >= 1 && r.latestStars <= 5 ? r.latestStars : null;
+        return {
+          room: String(r.roomId),
+          summary: text(r.summary),
+          latest,
+          latestMonth: latest ? month : "",
+          ...(latest && stars != null ? { latestStars: stars } : {}),
+        };
+      });
 
     await TTReviews.updateOne(
       { host: hostId },

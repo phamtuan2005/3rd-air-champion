@@ -189,9 +189,18 @@ export interface AskTTContext {
 export interface TTReviews {
   house: string;
   rooms: Record<string, string>;
+  // Each room's NEWEST review, summarised on its own and published with the
+  // rest, by room id. Its month and stars come from the review on record.
+  latest?: Record<string, TTLatestReview>;
   // The AirBnB figures the host already shows in the banner.
   rating?: number;
   count?: number;
+}
+
+export interface TTLatestReview {
+  summary: string;
+  month: string; // yyyy-MM
+  stars?: number;
 }
 
 export interface ReturningGuest {
@@ -553,6 +562,7 @@ const answerRoom = (room: TTRoom, ctx: AskTTContext): TTReply => {
       { kind: "room", label: `Show ${room.name}'s free nights`, roomId: room.id },
       { kind: "ask", label: `Is ${room.name} free this weekend?`, query: `${room.name} this weekend` },
       ...(ctx.reviews?.rooms[room.id] ? [reviewsOf(room)] : []),
+      ...(ctx.reviews?.latest?.[room.id] ? [latestOf(room)] : []),
     ],
     // A room the facts table does not know is one TT could not describe.
     answered: !!facts,
@@ -566,10 +576,70 @@ const answerRoom = (room: TTRoom, ctx: AskTTContext): TTReply => {
 // nothing of its own — a guest choosing a room on the strength of a review
 // must be reading what the house stands behind.
 const REVIEW_WORDS =
-  /\b(?:reviews?|reviewed|ratings?|rated|stars|feedback|testimonials?)\b|\bwhat (?:do|did|have) (?:other |previous |past |former )?(?:guests|people) (?:say|said|think|thought|write|written|like|liked)\b/;
+  /\b(?:reviews?|reviewed|ratings?|rated|stars|feedback|testimonials?)\b|\bwhat (?:do|did|have) (?:the )?(?:other |previous |past |former |last |latest |recent |most recent )?(?:guests?|people) (?:say|said|think|thought|write|written|like|liked)\b/;
 const askedAboutReviews = (q: string) => REVIEW_WORDS.test(q.toLowerCase());
+// "King's latest review", "the most recent reviews", "what did the last guest
+// think". Only ever read AFTER askedAboutReviews, so "last" here is never
+// "last weekend".
+const LATEST_WORDS = /\b(?:latest|newest|most recent|recent|last|lastest)\b/;
+const askedForLatest = (q: string) => LATEST_WORDS.test(q.toLowerCase());
 
 const reviewsOf = (room: TTRoom): TTAction => ({ kind: "ask", label: `What guests say about ${room.name}`, query: `${room.name} reviews` });
+const latestOf = (room: TTRoom): TTAction => ({ kind: "ask", label: `${room.name}'s latest review`, query: `${room.name} latest review` });
+
+// "September 2026 · 5 ★" — how recent "latest" is, said every time, so a
+// guest never takes a review from a year ago for last week's.
+const latestWhen = (l: TTLatestReview) =>
+  [format(parseISO(`${l.month}-01`), "MMMM yyyy"), l.stars ? `${l.stars} ★` : ""].filter(Boolean).join(" · ");
+
+// The newest review of a room, as the host published its summary. No room
+// named: each room's, one line apiece, since "latest" of the house would be
+// one guest's word on one room standing in for all five.
+const answerLatestReview = (ctx: AskTTContext, room: TTRoom | null): TTReply => {
+  const r = ctx.reviews;
+  const withLatest = ctx.rooms.filter((x) => r?.latest?.[x.id]);
+  if (room) {
+    const l = r?.latest?.[room.id];
+    if (l) {
+      return {
+        lines: [`${room.name}'s latest review — ${latestWhen(l)}:`, l.summary],
+        actions: [
+          ...(r?.rooms[room.id] ? [reviewsOf(room)] : []),
+          { kind: "photos", label: `See ${room.name}'s photos`, roomId: room.id },
+          { kind: "room", label: `Show ${room.name}'s free nights`, roomId: room.id },
+        ],
+      };
+    }
+    // The overall summary is still worth saying — but it is not what was
+    // asked, so the host sees the question.
+    const said = r?.rooms[room.id];
+    return {
+      lines: [
+        `I don't have ${room.name}'s latest review yet.`,
+        ...(said ? [`Here's what guests say about ${room.name} overall:`, said] : [`${ctx.hostFirstName} can tell you what the last guests thought.`]),
+      ],
+      actions: [...withLatest.filter((x) => x.id !== room.id).slice(0, 3).map(latestOf), chat(ctx)],
+      answered: false,
+    };
+  }
+  if (withLatest.length === 0) {
+    return {
+      lines: [`I don't have the latest reviews yet — ${ctx.hostFirstName} can tell you what recent guests thought.`],
+      actions: [...reviewStarter(ctx), chat(ctx)],
+      answered: false,
+    };
+  }
+  return {
+    lines: [
+      "The latest review of each room:",
+      ...withLatest.map((x) => {
+        const l = r!.latest![x.id];
+        return `${x.name} (${latestWhen(l)}): ${l.summary}`;
+      }),
+    ],
+    actions: [...reviewStarter(ctx), ...withLatest.slice(0, 3).map((x) => ({ kind: "photos" as const, label: `See ${x.name}'s photos`, roomId: x.id }))],
+  };
+};
 
 const ratingLine = (r: TTReviews | undefined): string | null =>
   r?.rating && r.count ? `Rated ${r.rating} ★ across ${plural(r.count, "AirBnB review")}.` : null;
@@ -582,7 +652,13 @@ const answerReviews = (ctx: AskTTContext, room: TTRoom | null): TTReply => {
     if (said) {
       return {
         lines: [`What guests say about ${room.name}:`, said],
+        // The latest review is ALWAYS the next step from one room's reviews,
+        // published or not (host, 2026-10-08) — unlike the other review
+        // buttons, which only appear when there is something to show. A tap
+        // with nothing published is logged unanswered, which tells the host
+        // guests want it.
         actions: [
+          latestOf(room),
           { kind: "photos", label: `See ${room.name}'s photos`, roomId: room.id },
           { kind: "room", label: `Show ${room.name}'s free nights`, roomId: room.id },
           ...(r?.house ? [{ kind: "ask" as const, label: "What guests say about the house", query: "reviews" }] : []),
@@ -596,7 +672,7 @@ const answerReviews = (ctx: AskTTContext, room: TTRoom | null): TTReply => {
         `I don't have a summary of ${room.name}'s reviews yet.`,
         ...(r?.house ? ["Here's what guests say about the house:", r.house] : [`${ctx.hostFirstName} can tell you what guests think of it.`]),
       ],
-      actions: [...roomsWithReviews.slice(0, 3).map(reviewsOf), chat(ctx)],
+      actions: [latestOf(room), ...roomsWithReviews.slice(0, 3).map(reviewsOf), chat(ctx)],
       answered: false,
     };
   }
@@ -1085,7 +1161,7 @@ const answer = (query: string, ctx: AskTTContext, opts: AskOptions): TTAnswer =>
   }
   // Before the room and the price: "King reviews" is not a tour of King, and
   // "rated" begins with "rate", which the price question would take.
-  if (askedAboutReviews(q)) return as("reviews", answerReviews(ctx, room));
+  if (askedAboutReviews(q)) return as("reviews", askedForLatest(q) ? answerLatestReview(ctx, room) : answerReviews(ctx, room));
   if (room && !has(q, "park", "cancel", "refund", "price", "cost", "how much", "rate")) return as("rooms", answerRoom(room, ctx));
   const topic = answerTopic(q, ctx, party);
   if (topic) return topic;
@@ -1129,6 +1205,7 @@ export const ttStarters = (ctx: AskTTContext): TTAction[] => {
         : { kind: "ask" as const, label: "Next weekend", query: "next weekend" },
       { kind: "bookings", label: "My bookings" },
       ...reviewStarter(ctx),
+      ...latestStarter(ctx),
       ...hostDoors(ctx),
     ];
   }
@@ -1139,6 +1216,8 @@ export const ttStarters = (ctx: AskTTContext): TTAction[] => {
 // don't have that yet" is a button that wastes a guest's tap.
 const reviewStarter = (ctx: AskTTContext): TTAction[] =>
   ctx.reviews?.house || ratingLine(ctx.reviews) ? [{ kind: "ask", label: "What guests say", query: "reviews" }] : [];
+const latestStarter = (ctx: AskTTContext): TTAction[] =>
+  Object.keys(ctx.reviews?.latest ?? {}).length > 0 ? [{ kind: "ask", label: "Latest reviews", query: "latest reviews" }] : [];
 
 const newGuestStarters = (ctx: AskTTContext): TTAction[] => [
   // First: TT can book now, and saying so is the quickest way in.
@@ -1149,6 +1228,7 @@ const newGuestStarters = (ctx: AskTTContext): TTAction[] => [
   { kind: "ask", label: "Check-in", query: "check in" },
   { kind: "ask", label: "Cancellation", query: "cancel" },
   ...reviewStarter(ctx),
+  ...latestStarter(ctx),
   ...hostDoors(ctx),
 ];
 

@@ -1,6 +1,6 @@
 import TTReviewEntry from "../model/ttReviewEntrySchema";
 import TTReviewSource from "../model/ttReviewSourceSchema";
-import { MAX_TOTAL_PASTE } from "./reviewDraft";
+import { LatestReview, MAX_TOTAL_PASTE } from "./reviewDraft";
 import { occurrenceKey } from "./reviewSplit";
 
 // One guest's review, kept as its own record — the one place that does it, used
@@ -133,4 +133,23 @@ export const roomTextsFromEntries = async (hostId: string, roomIds?: string[]): 
     ]);
   }
   return new Map([...by].map(([k, blocks]) => [k, blocks.join("\n\n")]));
+};
+
+/**
+ * Each room's NEWEST review on record that carries a date — what TiBook's TT
+ * calls "the latest review" once it is summarised and published. A room whose
+ * reviews are all undated has none: newestFirst puts undated reviews last, so
+ * one at the top would mean "latest" was only the latest typed in.
+ */
+export const latestFromEntries = async (hostId: string, roomIds?: string[]): Promise<Map<string, LatestReview>> => {
+  const rows: any[] = (await TTReviewEntry.find({ host: hostId, ...(roomIds ? { room: { $in: roomIds } } : {}) }).lean()).sort(
+    newestFirst,
+  );
+  const out = new Map<string, LatestReview>();
+  for (const r of rows) {
+    const k = String(r.room);
+    if (out.has(k) || !reviewDateKey(r)) continue;
+    out.set(k, { text: String(r.text ?? ""), month: reviewDateKey(r).slice(0, 7), stars: r.stars ?? null });
+  }
+  return out;
 };

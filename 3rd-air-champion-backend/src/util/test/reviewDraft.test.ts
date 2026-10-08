@@ -40,11 +40,37 @@ describe("draftReviewSummaries", () => {
     expect(draft).toEqual({
       house: "Guests love it.",
       rooms: [
-        { roomId: "k", summary: "Big bed." },
-        { roomId: "c", summary: "" },
+        { roomId: "k", summary: "Big bed.", latest: "", latestMonth: "", latestStars: null },
+        { roomId: "c", summary: "", latest: "", latestMonth: "", latestStars: null },
       ],
       reviewsRead: 3,
     });
+  });
+
+  it("takes a latest-review summary only for a room that has a dated newest review, with the record's month and stars", async () => {
+    const reply = {
+      stop_reason: "end_turn",
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            house: "",
+            rooms: [
+              { roomId: "k", summary: "Big bed.", latest: " The latest guest found it spotless. " },
+              // Chill had no <latest-review>; a latest the model wrote anyway has no month to show with.
+              { roomId: "c", summary: "", latest: "Made up." },
+            ],
+            reviewsRead: 2,
+          }),
+        },
+      ],
+    };
+    const withLatest = [{ ...rooms[0], latest: { text: "Spotless!", month: "2026-09", stars: 5 } }, rooms[1]];
+    const draft = await draftReviewSummaries(withLatest, fakeClient(reply));
+    expect(draft.rooms).toEqual([
+      { roomId: "k", summary: "Big bed.", latest: "The latest guest found it spotless.", latestMonth: "2026-09", latestStars: 5 },
+      { roomId: "c", summary: "", latest: "", latestMonth: "", latestStars: null },
+    ]);
   });
 
   it("says so when Claude declines, rather than publishing an empty draft", async () => {
@@ -56,5 +82,10 @@ describe("reviewPrompt", () => {
   it("sends a very long paste whole — the oldest reviews are read too", () => {
     const long = "A".repeat(500_000) + "OLDEST";
     expect(reviewPrompt([{ roomId: "k", name: "King", text: long }])).toContain("OLDEST");
+  });
+
+  it("hands the newest review over on its own, marked, so the model does not pick one", () => {
+    const prompt = reviewPrompt([{ roomId: "k", name: "King", text: "all", latest: { text: "Newest words", month: "2026-09", stars: 4 } }]);
+    expect(prompt).toContain('<latest-review month="2026-09" stars="4">\nNewest words\n</latest-review>');
   });
 });

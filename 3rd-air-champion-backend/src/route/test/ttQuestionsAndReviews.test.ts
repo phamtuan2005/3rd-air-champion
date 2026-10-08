@@ -128,7 +128,7 @@ describe("review summaries", () => {
     let seen: any[] = [];
     setReviewDrafter(async (rooms) => {
       seen = rooms;
-      return { house: "Guests love it.", rooms: [{ roomId: king, summary: "Big bed." }], reviewsRead: 12 };
+      return { house: "Guests love it.", rooms: [{ roomId: king, summary: "Big bed.", latest: "", latestMonth: "", latestStars: null }], reviewsRead: 12 };
     });
     const hostApp = signedInAs({ hostId: host, role: "Host" });
 
@@ -155,6 +155,52 @@ describe("review summaries", () => {
       house: "Guests love the quiet.",
       rooms: [{ roomId: king, summary: "A big, comfortable bed." }],
     });
+  });
+
+  it("drafts each room's newest dated review as its latest, and guests see it only once published", async () => {
+    const host = String((await createMockHost("latest-review@example.com"))._id);
+    const king = String((await roomFor(host, "King"))._id);
+    const chill = String((await roomFor(host, "Chill"))._id);
+    let seen: any[] = [];
+    setReviewDrafter(async (rooms) => {
+      seen = rooms;
+      return {
+        house: "",
+        rooms: [{ roomId: king, summary: "Big bed.", latest: "The latest guest loved the quiet.", latestMonth: "2026-09", latestStars: 5 }],
+        reviewsRead: 3,
+      };
+    });
+    const hostApp = signedInAs({ hostId: host, role: "Host" });
+
+    await onRecord(host, king, "Older but added last", { reviewMonth: "2026-03", stars: 3 });
+    await onRecord(host, king, "Newest by its date", { reviewMonth: "2026-09", stars: 5 });
+    await onRecord(host, king, "No date at all");
+    // Every Chill review is undated: none of them can be called the latest.
+    await onRecord(host, chill, "Undated");
+
+    expect((await request(hostApp).post("/tt-host/reviews/draft").send({})).status).toBe(202);
+    const byId = new Map(seen.map((r) => [r.roomId, r]));
+    expect(byId.get(king).latest).toEqual({ text: "Newest by its date", month: "2026-09", stars: 5 });
+    expect(byId.get(chill).latest).toBeUndefined();
+
+    await new Promise((r) => setTimeout(r, 50));
+    const drafted = await request(hostApp).get("/tt-host/reviews");
+    expect(drafted.body.draft.rooms[0]).toMatchObject({ latest: "The latest guest loved the quiet.", latestMonth: "2026-09", latestStars: 5 });
+    expect((await request(guestApp).get(`/tt/reviews/${host}`)).body.rooms).toEqual([]);
+
+    await request(hostApp)
+      .put("/tt-host/reviews")
+      .send({
+        house: "",
+        rooms: [
+          { roomId: king, summary: "", latest: "The latest guest loved how quiet it was.", latestMonth: "2026-09", latestStars: 5 },
+          // A latest without a real month is not published.
+          { roomId: chill, summary: "", latest: "Sneaked in.", latestMonth: "recently" },
+        ],
+      });
+    expect((await request(guestApp).get(`/tt/reviews/${host}`)).body.rooms).toEqual([
+      { roomId: king, summary: "", latest: "The latest guest loved how quiet it was.", latestMonth: "2026-09", latestStars: 5 },
+    ]);
   });
 
   it("drafts only from the host's own rooms, whatever ids are sent", async () => {

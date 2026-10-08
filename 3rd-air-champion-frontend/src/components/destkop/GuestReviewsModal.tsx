@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
-import { deleteReviewSource, fetchReviewsState, publishReviews, ReviewsState, startReviewDraft } from "../../util/ttQuestionLog";
+import { deleteReviewSource, fetchReviewsState, publishReviews, ReviewsState, startReviewDraft, SummarySet } from "../../util/ttQuestionLog";
 import { uploadPasteText } from "../../util/pasteParts";
 import GuestReviewForm from "./GuestReviewForm";
 import ReviewSplitPanel from "./ReviewSplitPanel";
@@ -13,11 +13,20 @@ import ReviewSplitPanel from "./ReviewSplitPanel";
 // Nothing reaches a guest until that last step — TT only ever shows what the
 // house stands behind.
 
-type Edit = { house: string; rooms: Record<string, string> };
+// `latest` is each room's newest review, summarised on its own. Only its words
+// are the host's to edit; the month and stars came from the review on record
+// and ride along untouched, so TT never calls an undated review the latest.
+type Latest = { text: string; month: string; stars: number | null };
+type Edit = { house: string; rooms: Record<string, string>; latest: Record<string, Latest> };
 
-const fromSet = (set: { house: string; rooms: { roomId: string; summary: string }[] }): Edit => ({
+const fromSet = (set: SummarySet): Edit => ({
   house: set.house,
   rooms: Object.fromEntries(set.rooms.map((r) => [r.roomId, r.summary])),
+  latest: Object.fromEntries(
+    set.rooms
+      .filter((r) => r.latestMonth)
+      .map((r) => [r.roomId, { text: r.latest ?? "", month: r.latestMonth!, stars: r.latestStars ?? null }]),
+  ),
 });
 
 // How often to look for the finished draft. Claude takes tens of seconds over
@@ -39,7 +48,7 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
   // Sending a file or paste to the server, in parts: what and how far.
   const [progress, setProgress] = useState<{ label: string; pct: number } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
-  const [edit, setEdit] = useState<Edit>({ house: "", rooms: {} });
+  const [edit, setEdit] = useState<Edit>({ house: "", rooms: {}, latest: {} });
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   // The draft already copied into the editor, so a poll does not overwrite the
@@ -164,7 +173,14 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
     try {
       const s = await publishReviews({
         house: edit.house,
-        rooms: rooms.map((r) => ({ roomId: r.roomId, summary: edit.rooms[r.roomId] ?? "" })),
+        rooms: rooms.map((r) => {
+          const l = edit.latest[r.roomId];
+          return {
+            roomId: r.roomId,
+            summary: edit.rooms[r.roomId] ?? "",
+            ...(l ? { latest: l.text, latestMonth: l.month, latestStars: l.stars } : {}),
+          };
+        }),
       });
       loadedDraft.current = null;
       apply(s);
@@ -272,6 +288,43 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
                   placeholder="Empty — TT says it has no summary for this room yet"
                   className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm leading-relaxed focus:border-gray-400 focus:outline-none"
                 />
+                {(() => {
+                  const l = edit.latest[pasteRoom.roomId];
+                  return (
+                    <div className="mt-3">
+                      <h4 className="text-xs font-bold text-gray-900">
+                        Latest review
+                        {l && (
+                          <span className="ml-1 font-normal text-gray-500">
+                            · {format(parseISO(`${l.month}-01`), "MMMM yyyy")}
+                            {l.stars ? ` · ${l.stars} ★` : ""}
+                          </span>
+                        )}
+                      </h4>
+                      {l ? (
+                        <>
+                          <p className="mt-0.5 text-xs text-gray-500">
+                            What TT tells a guest who asks for {pasteRoom.name}'s latest review. The month and stars come from the review itself.
+                          </p>
+                          <textarea
+                            id={`latest-${pasteRoom.roomId}`}
+                            rows={2}
+                            value={l.text}
+                            onChange={(e) =>
+                              setEdit((x) => ({ ...x, latest: { ...x.latest, [pasteRoom.roomId]: { ...l, text: e.target.value } } }))
+                            }
+                            placeholder="Empty — TT says it has no latest review for this room yet"
+                            className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm leading-relaxed focus:border-gray-400 focus:outline-none"
+                          />
+                        </>
+                      ) : (
+                        <p className="mt-0.5 text-xs text-gray-500">
+                          Drafting writes one from {pasteRoom.name}'s newest review that has a date — a stay date or a review month.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
               </section>
 
               <section className="border-t border-gray-100 pt-4">

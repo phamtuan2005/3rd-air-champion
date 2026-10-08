@@ -52,15 +52,22 @@ export const logTTQuestion = (hostId: string | undefined, question: string, answ
 
 // The review summaries the host published. Empty until they do — TT then says
 // it has no summary yet rather than inventing one.
-export const fetchPublishedReviews = async (hostId: string): Promise<Pick<TTReviews, "house" | "rooms">> => {
+export type PublishedReviews = Pick<TTReviews, "house" | "rooms" | "latest">;
+
+export const fetchPublishedReviews = async (hostId: string): Promise<PublishedReviews> => {
   const response = await axios.get(`${BACKEND_ENDPOINT}/tt/reviews/${hostId}`);
   const data = response.data;
   // CloudFront can answer a failure with index.html and a 200 (see
   // authenticateJWT): a web page is not a summary.
-  if (typeof data?.house !== "string" || !Array.isArray(data?.rooms)) return { house: "", rooms: {} };
+  if (typeof data?.house !== "string" || !Array.isArray(data?.rooms)) return { house: "", rooms: {}, latest: {} };
   return {
     house: data.house,
-    rooms: Object.fromEntries(data.rooms.map((r: { roomId: string; summary: string }) => [r.roomId, r.summary])),
+    rooms: Object.fromEntries(data.rooms.filter((r: any) => r.summary).map((r: any) => [r.roomId, r.summary])),
+    latest: Object.fromEntries(
+      data.rooms
+        .filter((r: any) => r.latest && /^\d{4}-\d{2}$/.test(r.latestMonth ?? ""))
+        .map((r: any) => [r.roomId, { summary: r.latest, month: r.latestMonth, ...(r.latestStars ? { stars: r.latestStars } : {}) }]),
+    ),
   };
 };
 
@@ -106,7 +113,9 @@ export const fetchTTQuestionsAsViewer = async (code: string, span: QuestionSpan)
 
 export interface SummarySet {
   house: string;
-  rooms: { roomId: string; summary: string }[];
+  // `latest` is the room's newest review in a sentence or two, with the
+  // record's month (yyyy-MM) and stars carried alongside it, untouched.
+  rooms: { roomId: string; summary: string; latest?: string; latestMonth?: string; latestStars?: number | null }[];
 }
 
 export interface ReviewsState {

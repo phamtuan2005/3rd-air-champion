@@ -8,7 +8,8 @@ import { asCategory, scrubQuestion, storedQuestion } from "../util/ttQuestions";
 // TiBook's TT talking to the server — PUBLIC, because the guest has no login.
 //
 //   POST /question  — a question a guest asked, and whether TT answered it.
-//   GET  /reviews/:host — the review summaries the host PUBLISHED.
+//   GET  /reviews/:host — the review summaries the host PUBLISHED, and each
+//                         room's latest review, summarised.
 //
 // The host's side (reading the questions, drafting and publishing summaries)
 // is ttHostRoute, behind the JWT gate and requireManager.
@@ -84,8 +85,16 @@ router.get("/reviews/:host", async (req: Request, res: any) => {
     return res.status(200).json({
       house: p?.house ?? "",
       rooms: (p?.rooms ?? [])
-        .filter((r: any) => r?.room && r.summary)
-        .map((r: any) => ({ roomId: String(r.room), summary: r.summary })),
+        .filter((r: any) => r?.room && (r.summary || r.latest))
+        .map((r: any) => ({
+          roomId: String(r.room),
+          summary: r.summary ?? "",
+          // The newest review, summarised and published — its month and
+          // stars, never its reviewer.
+          ...(r.latest && r.latestMonth
+            ? { latest: r.latest, latestMonth: r.latestMonth, ...(r.latestStars ? { latestStars: r.latestStars } : {}) }
+            : {}),
+        })),
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });

@@ -41,7 +41,7 @@ import { maxGuestsOf } from "../util/ttBooking";
 import type { AskTTContext, TTAction } from "../util/askTT";
 import { fetchGuestThread } from "../util/guestMessageOperations";
 import { linkTiBookVisitToGuest, recordTiBookVisit, saveStatsCode, unlinkTiBookVisitGuest } from "../util/tibookVisitOperations";
-import { fetchPublishedReviews } from "../util/ttQuestionLog";
+import { fetchPublishedReviews, PublishedReviews } from "../util/ttQuestionLog";
 import { markTiBookVisited } from "../util/tibookReturning";
 import { fillRate, habitsOf, lastStayOffer, seriesFor, Proposal } from "../util/bookingHabit";
 import UsualStayCard, { chosenStays, isSnoozed, snooze } from "../components/tibook/UsualStayCard";
@@ -138,7 +138,7 @@ const TiBookInner = () => {
   // What guests say, as the host published it in TiMag. Loaded beside the
   // page rather than when TT opens, so the first "What guests say" is
   // instant; a failure leaves TT saying it has no summary yet.
-  const [publishedReviews, setPublishedReviews] = useState<{ house: string; rooms: Record<string, string> }>({ house: "", rooms: {} });
+  const [publishedReviews, setPublishedReviews] = useState<PublishedReviews>({ house: "", rooms: {}, latest: {} });
   useEffect(() => {
     const hostId = import.meta.env.VITE_TI_BOOK_HOST_ID;
     if (!hostId) return;
