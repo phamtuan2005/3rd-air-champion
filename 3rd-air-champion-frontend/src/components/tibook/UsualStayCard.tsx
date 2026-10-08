@@ -294,7 +294,9 @@ const UsualStayCard = ({
             const some = on && kept.length < p.nights.length;
             const isOpen = open.has(p.start);
             return (
-              <div key={`${p.start}-${p.roomId}`}>
+              // A thin gap between stays: boxes touching read as one block (host,
+              // 2026-10-07).
+              <div key={`${p.start}-${p.roomId}`} className="mb-1.5">
                 {newMonth && <p className={`mb-1 mt-2 text-xs font-bold uppercase tracking-wide ${theme.surfaceMuted}`}>{month}</p>}
                 {/* A week left unticked looks exactly like the others — faded,
                     it read as "not allowed" (host, 2026-10-07). The TICKED ones
