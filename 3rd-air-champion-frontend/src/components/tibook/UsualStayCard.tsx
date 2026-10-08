@@ -55,7 +55,8 @@ const stayDates = (p: Proposal) => {
   const last = parseISO(p.nights[p.nights.length - 1]);
   // The count after the dates, so the length is read at a glance — the host
   // asked for ", 2 nights" on each row (2026-10-07).
-  const count = `, ${p.nights.length} night${p.nights.length === 1 ? "" : "s"}`;
+  // A no-break space keeps "2 nights" on one line — it split as "2 / nights".
+  const count = `, ${p.nights.length} night${p.nights.length === 1 ? "" : "s"}`;
   // Date, then weekday — "Dec 21 Mon" — as a guest asked (2026-10-07).
   if (p.nights.length === 1) return `${format(first, "MMM d EEE")}${count}`;
   return first.getMonth() === last.getMonth()
