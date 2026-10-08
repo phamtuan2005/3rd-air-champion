@@ -187,6 +187,12 @@ export interface ReviewEntryFull {
 export const fetchReviewEntry = async (id: string): Promise<ReviewEntryFull> =>
   (await axios.get(`${BACKEND_ENDPOINT}/tt-host/reviews/entry/${id}`, authed())).data;
 
+// Corrects one review — a pasted one can arrive without the guest's name.
+export const updateReviewEntry = async (
+  id: string,
+  changes: { guestName: string; stars: number | null; reviewMonth: string; text: string },
+): Promise<ReviewEntryFull> => (await axios.patch(`${BACKEND_ENDPOINT}/tt-host/reviews/entry/${id}`, changes, authed())).data;
+
 // Takes one review off the record (and out of the room's file, if it was written there).
 export const deleteReviewEntry = async (id: string): Promise<void> => {
   await axios.delete(`${BACKEND_ENDPOINT}/tt-host/reviews/entry/${id}`, authed());

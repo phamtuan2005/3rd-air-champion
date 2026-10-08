@@ -516,6 +516,70 @@ router.get("/reviews/entry/:id", async (req: Request, res: any) => {
   }
 });
 
+// Corrects ONE review: the guest's name, the stars, the month, the words. A
+// pasted AirBnB review can arrive without the reviewer's name — the copy picked
+// up "Sacramento, California" where the name should be (host, 2026-10-08) — and
+// deleting and re-adding it would lose when it was added.
+//
+// The duplicate key (`hash`) is left as it was: it is what stops the same
+// review being added twice when the page is pasted again, and that page still
+// carries the words as first saved.
+router.patch("/reviews/entry/:id", async (req: Request, res: any) => {
+  const hostId = hostOf(req);
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "Which review?" });
+    const entry: any = await TTReviewEntry.findOne({ _id: req.params.id, host: hostId }).lean();
+    if (!entry) return res.status(404).json({ error: "That review is not on file." });
+    const { guestName, stars, reviewMonth } = req.body ?? {};
+    const text = String(req.body?.text ?? "").trim();
+    if (!text) return res.status(400).json({ error: "A review needs its words." });
+    if (text.length > MAX_ENTRY_CHARS) {
+      return res.status(400).json({ error: `One review can be up to ${MAX_ENTRY_CHARS.toLocaleString()} characters.` });
+    }
+    if (stars != null && !(Number.isInteger(stars) && stars >= 1 && stars <= 5)) {
+      return res.status(400).json({ error: "Stars are 1 to 5." });
+    }
+    if (reviewMonth && !/^\d{4}-(0[1-9]|1[0-2])$/.test(String(reviewMonth))) {
+      return res.status(400).json({ error: "The review month should be a month." });
+    }
+    const next = {
+      guestName: String(guestName ?? "").trim().slice(0, 120),
+      stars: stars ?? null,
+      reviewMonth: reviewMonth ? String(reviewMonth) : "",
+      text,
+    };
+    await TTReviewEntry.updateOne({ _id: entry._id, host: hostId }, { $set: next });
+
+    // Old reviews were also written into the room's file; keep that copy in
+    // step, and only by swapping the exact block the form wrote.
+    if (entry.inFile !== false) {
+      const file: any = await TTReviewSource.findOne({ host: hostId, room: entry.room }, { text: 1 }).lean();
+      const before = fileBlock({
+        guestName: entry.guestName ?? "",
+        stayDate: entry.stayDate ?? "",
+        reviewMonth: entry.reviewMonth ?? "",
+        stars: entry.stars ?? null,
+        text: String(entry.text ?? ""),
+      });
+      const after = fileBlock({ ...next, stayDate: entry.stayDate ?? "" });
+      const t = file?.text ? String(file.text) : "";
+      if (t.includes(before)) {
+        const updated = t.replace(before, after);
+        await TTReviewSource.updateOne({ host: hostId, room: entry.room }, { $set: { text: updated, chars: updated.length } });
+      }
+    }
+    res.status(200).json({
+      id: String(entry._id),
+      roomId: String(entry.room),
+      stayDate: entry.stayDate ?? "",
+      addedAt: entry.createdAt ?? null,
+      ...next,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Takes ONE review off the record — one saved wrong (a whole copied block where
 // a review should be, the wrong room). Its words come back out of the room's
 // file too when they were written into it, and only as the whole block that was
