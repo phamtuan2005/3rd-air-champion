@@ -21,6 +21,7 @@ import { toZonedTime } from "date-fns-tz";
 // to tick it.
 const SOFA_BED_FROM_GUESTS = 3;
 import { buildDateRange } from "../../util/dateRange";
+import { reservationMatch, sameReservation } from "../../util/reservationCode";
 import BookingRequest from "../../model/bookingRequestSchema";
 
 export const dayResolvers = {
@@ -540,10 +541,14 @@ export const dayResolvers = {
 
       // Nights in this span that already hold THIS reservation (matched by its unique
       // AirBnB code in `description`). Used to decide update-in-place vs. add.
+      // By the CODE, not the whole text: the description also carries the
+      // guest's phone digits, and when those changed the night stopped matching
+      // and the stay was written onto it a second time (Dejah, King, Oct 2026).
+      const sameStay = reservationMatch(description);
       const existing = await Day.find({
         calendar,
         date: { $gte: spanStart, $lte: spanEnd },
-        bookings: { $elemMatch: { description, room } },
+        bookings: { $elemMatch: { description: sameStay, room } },
       });
       const existingDateSet = new Set(existing.map((d) => d.date.toISOString()));
 
@@ -552,7 +557,7 @@ export const dayResolvers = {
       let preservedAlias = "";
       for (const d of existing) {
         const b = d.bookings.find(
-          (bk: any) => bk.description === description && String(bk.room) === String(room)
+          (bk: any) => sameReservation(bk.description, description) && String(bk.room) === String(room)
         );
         if (b?.alias) { preservedAlias = b.alias; break; }
       }
@@ -564,7 +569,7 @@ export const dayResolvers = {
       // fifth for having grown. Cloned from a night the stay already has.
       const template: any = existing
         .flatMap((d) => d.bookings as any[])
-        .find((bk) => bk.description === description && String(bk.room) === String(room));
+        .find((bk) => sameReservation(bk.description, description) && String(bk.room) === String(room));
       const carried = template
         ? {
             price: template.price,
@@ -606,9 +611,11 @@ export const dayResolvers = {
                     "bookings.$[b].startDate": spanStart,
                     "bookings.$[b].endDate": spanEnd,
                     "bookings.$[b].duration": duration,
+                    // The feed's latest text, so the phone digits shown are current.
+                    "bookings.$[b].description": description,
                   },
                 },
-                arrayFilters: [{ "b.description": description, "b.room": roomObjectId }],
+                arrayFilters: [{ "b.description": sameStay, "b.room": roomObjectId }],
               },
             }
           : {

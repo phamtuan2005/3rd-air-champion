@@ -3,6 +3,7 @@ import ical from "ical";
 import { addDays, differenceInCalendarDays, isBefore, startOfToday } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { sendGraphQLRequest } from "../route/util/sendToGraphQL";
+import { sameReservation } from "../util/reservationCode";
 
 const fetchDayQuery = `
   query AirBnBDays($calendar: String!, $guest: String!) {
@@ -388,7 +389,9 @@ export const runAirbnbSync = async (params: {
       // Same night, same room, but a different reservation — a cancellation
       // replaced by someone else. Leave it blank for a human rather than
       // attributing the previous guest's payout to this one.
-      if (prior.description !== (b.description ?? "")) continue;
+      // Compared by reservation code: a guest updating their phone number
+      // changes the description's text, not the reservation.
+      if (!sameReservation(prior.description, b.description)) continue;
 
       const needsPrice = prior.airbnbPrice > 0 && !(b.airbnbPrice > 0);
       const needsDetails =
