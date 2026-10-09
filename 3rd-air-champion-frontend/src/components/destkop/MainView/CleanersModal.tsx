@@ -1552,9 +1552,16 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
     if (!cleaner?.phone) return;
     const days = cleanerDayHours(entry.id);
     const tip = parseFloat(tipDraft[entry.id]) || 0;
+    // The day's extra jobs, named beside its hours: the hours paid for them too,
+    // and without them a cleaner reads 2h 20m against three rooms and wonders
+    // (host, 2026-10-08: every message to a cleaner names the extra jobs).
+    const extrasNamed = (date: string) => {
+      const names = extras.filter((e) => e.cleaner === entry.id && e.date === date).map((e) => e.name);
+      return names.length ? ` (incl. ${names.join(", ")})` : "";
+    };
     const lines = days.map(
       ([date, hrs]) =>
-        `* ${format(new Date(date + "T00:00:00"), "EEE M/d")}: ${formatHrMin(hrs)} = $${money(hrs * rateOn(cleaner, date))}`,
+        `* ${format(new Date(date + "T00:00:00"), "EEE M/d")}: ${formatHrMin(hrs)} = $${money(hrs * rateOn(cleaner, date))}${extrasNamed(date)}`,
     );
     const subtotal = days.reduce((s, [date, h]) => s + h * rateOn(cleaner, date), 0);
     const totalHrs = days.reduce((s, [, h]) => s + h, 0);
