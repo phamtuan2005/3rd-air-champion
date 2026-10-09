@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import Host from "../model/hostSchema";
 import TTQuestion from "../model/ttQuestionSchema";
 import TTReviews from "../model/ttReviewsSchema";
+import { latestFromEntries } from "../util/reviewEntries";
 import { asCategory, scrubQuestion, storedQuestion } from "../util/ttQuestions";
 
 // TiBook's TT talking to the server — PUBLIC, because the guest has no login.
@@ -80,21 +81,39 @@ router.get("/reviews/:host", async (req: Request, res: any) => {
   try {
     // `published` only. The draft is the host's work in progress and may
     // still say something the host is about to take out.
-    const doc: any = await TTReviews.findOne({ host }, { published: 1 }).lean();
+    const [doc, newest]: [any, Awaited<ReturnType<typeof latestFromEntries>>] = await Promise.all([
+      TTReviews.findOne({ host }, { published: 1 }).lean(),
+      latestFromEntries(host),
+    ]);
     const p = doc?.published;
+    // Each room's LATEST review is read straight from the reviews on record —
+    // the guest's own words, with the month and stars — the moment it is
+    // added. It used to be a summary Claude drafted and the host published,
+    // so with 431 reviews on file TT still said it had none until a draft and
+    // a publish went through (host, 2026-10-08: "I don't understand why
+    // loading the latest review is so complicated"). Never the reviewer's
+    // name. Capped, so a long review stays a chat message.
+    const LATEST_CHARS = 600;
+    const latestOf = (roomId: string) => {
+      const l = newest.get(roomId);
+      if (!l || !l.text.trim()) return {};
+      const t = l.text.trim();
+      return {
+        latest: t.length > LATEST_CHARS ? `${t.slice(0, LATEST_CHARS).replace(/\s+\S*$/, "")}…` : t,
+        latestMonth: l.month,
+        ...(l.stars ? { latestStars: l.stars } : {}),
+      };
+    };
+    const published = (p?.rooms ?? []).filter((r: any) => r?.room && r.summary);
+    const ids = [...new Set([...published.map((r: any) => String(r.room)), ...newest.keys()])];
     return res.status(200).json({
       house: p?.house ?? "",
-      rooms: (p?.rooms ?? [])
-        .filter((r: any) => r?.room && (r.summary || r.latest))
-        .map((r: any) => ({
-          roomId: String(r.room),
-          summary: r.summary ?? "",
-          // The newest review, summarised and published — its month and
-          // stars, never its reviewer.
-          ...(r.latest && r.latestMonth
-            ? { latest: r.latest, latestMonth: r.latestMonth, ...(r.latestStars ? { latestStars: r.latestStars } : {}) }
-            : {}),
-        })),
+      rooms: ids.map((roomId) => ({
+        roomId,
+        // The overall summary is still the host's published one.
+        summary: published.find((r: any) => String(r.room) === roomId)?.summary ?? "",
+        ...latestOf(roomId),
+      })),
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });

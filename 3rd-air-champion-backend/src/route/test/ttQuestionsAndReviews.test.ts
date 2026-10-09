@@ -157,7 +157,10 @@ describe("review summaries", () => {
     });
   });
 
-  it("drafts each room's newest dated review as its latest, and guests see it only once published", async () => {
+  // The guest side changed on 2026-10-08: the host asked why TT had no latest
+  // review with 431 on record. Guests now get each room's newest dated review
+  // straight from the record, the moment it is added — no draft, no publish.
+  it("guests get each room's newest dated review straight from the record, never an undated one", async () => {
     const host = String((await createMockHost("latest-review@example.com"))._id);
     const king = String((await roomFor(host, "King"))._id);
     const chill = String((await roomFor(host, "Chill"))._id);
@@ -183,23 +186,16 @@ describe("review summaries", () => {
     expect(byId.get(king).latest).toEqual({ text: "Newest by its date", month: "2026-09", stars: 5 });
     expect(byId.get(chill).latest).toBeUndefined();
 
-    await new Promise((r) => setTimeout(r, 50));
-    const drafted = await request(hostApp).get("/tt-host/reviews");
-    expect(drafted.body.draft.rooms[0]).toMatchObject({ latest: "The latest guest loved the quiet.", latestMonth: "2026-09", latestStars: 5 });
-    expect((await request(guestApp).get(`/tt/reviews/${host}`)).body.rooms).toEqual([]);
-
-    await request(hostApp)
-      .put("/tt-host/reviews")
-      .send({
-        house: "",
-        rooms: [
-          { roomId: king, summary: "", latest: "The latest guest loved how quiet it was.", latestMonth: "2026-09", latestStars: 5 },
-          // A latest without a real month is not published.
-          { roomId: chill, summary: "", latest: "Sneaked in.", latestMonth: "recently" },
-        ],
-      });
+    // Before any publish: King's newest dated review, its month and stars, and
+    // never the reviewer. Chill has only undated reviews, so no "latest".
     expect((await request(guestApp).get(`/tt/reviews/${host}`)).body.rooms).toEqual([
-      { roomId: king, summary: "", latest: "The latest guest loved how quiet it was.", latestMonth: "2026-09", latestStars: 5 },
+      { roomId: king, summary: "", latest: "Newest by its date", latestMonth: "2026-09", latestStars: 5 },
+    ]);
+
+    // A newer review is the latest at once.
+    await onRecord(host, king, "Even newer", { reviewMonth: "2026-10", stars: 4 });
+    expect((await request(guestApp).get(`/tt/reviews/${host}`)).body.rooms).toEqual([
+      { roomId: king, summary: "", latest: "Even newer", latestMonth: "2026-10", latestStars: 4 },
     ]);
   });
 
