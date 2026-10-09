@@ -685,6 +685,23 @@ export const dayResolvers = {
         endDate = addDays(dayOfBooking!.date, (currentBooking?.duration ?? 1) - 1);
       }
 
+      // The sofa bed comes ON as the guest count crosses to three — on the
+      // server, so every way a count arrives does it. It used to happen only
+      // when the booking was made (bookDays) or edited in the booking window:
+      // an AirBnB stay arrives from the feed as 1 guest and gets its real count
+      // from the pasted reservation, and that path never ticked it. Vincent's
+      // three in Queen showed no sofa bed in TiWork on the morning (host,
+      // 2026-10-08). Only on crossing, and only when the caller did not say:
+      // unticked by the host, it stays unticked.
+      if (
+        sofaBed === undefined &&
+        numberOfGuests &&
+        numberOfGuests >= SOFA_BED_FROM_GUESTS &&
+        (currentBooking?.numberOfGuests ?? 1) < SOFA_BED_FROM_GUESTS
+      ) {
+        updateBody["bookings.$[matchingBooking].sofaBed"] = true;
+      }
+
       const currentGuest = await Guest.findById(currentBooking?.guest);
 
       if (currentGuest?.name !== "AirBnB" && notes) {
