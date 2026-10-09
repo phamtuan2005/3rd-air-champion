@@ -28,7 +28,27 @@ Stayed a few nights
 Clean and quiet, great host.
 Would stay again.`;
 
+// AirBnB's later layout, as the host pasted it for Gail (Cozy, 2026-10-09):
+// stars "out of 5", the name once, above the city.
+const GAIL = `Gail
+Waco, TX
+Rating 5 out of 5
+,·
+Today
+Anh was friendly, proactive and responsive, provided thorough instructions throughout the process until I was checked-in.`;
+
 describe("parseAirbnbReview", () => {
+  it("reads the 'Rating 5 out of 5' layout, taking the name above the city", () => {
+    expect(parseAirbnbReview(GAIL, today)).toEqual({
+      guestName: "Gail",
+      stars: 5,
+      when: "Today",
+      reviewMonth: "2026-10",
+      text: "Anh was friendly, proactive and responsive, provided thorough instructions throughout the process until I was checked-in.",
+    });
+  });
+
+
   it("takes Leidy Johanna's review apart, using the whole name, not the cut first line", () => {
     const r = parseAirbnbReview(LEIDY, today);
     expect(r).toMatchObject({ guestName: "Leidy Johanna", stars: 5, when: "1 week ago", reviewMonth: "2026-09" });

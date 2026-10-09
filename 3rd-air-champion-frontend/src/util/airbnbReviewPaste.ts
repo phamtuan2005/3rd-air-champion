@@ -17,6 +17,19 @@
 //   Stayed one night
 //   From the moment we opened the door …
 //
+// AirBnB's later layout (Gail, Cozy, 2026-10-09) prints the stars as "Rating 5
+// out of 5" and the name only ONCE, above the city:
+//
+//   Gail
+//   Waco, TX
+//   Rating 5 out of 5
+//   ,·
+//   Today
+//   Anh was friendly, proactive and responsive …
+//
+// Read as the first layout, it had no rating line, so the whole block was saved
+// as the review with no guest and no stars.
+//
 // A whole PAGE of reviews is not this function's to read: it says so
 // (`several`), and the page goes in the big box to be split.
 
@@ -63,7 +76,10 @@ export interface PastedReview {
   text: string;
 }
 
-const RATING = /^rating,?\s*([1-5])\s*stars?$/i;
+const RATING = /^rating,?\s*([1-5])\s*(?:stars?|out of 5)$/i;
+// The line under a name that is NOT a name: "Waco, TX", "Medellín, Colombia",
+// "9 years on Airbnb". A name has no comma.
+const PLACE = /,|\bon airbnb$/i;
 const PUNCTUATION = /^[\s,.·•|–—-]+$/;
 const DATE = /^((a|an|\d+) (day|week|month|year)s? ago|today|yesterday|[a-z]+ \d{4})$/i;
 const LABEL = /^(stayed\b.*|show more|show less|translated?\b.*|show original)$/i;
@@ -81,8 +97,11 @@ export const parseAirbnbReview = (pasted: string, today: Date = new Date()): Pas
   const at = ratings[0];
 
   // The line just above the stars repeats the name, whole; the first line may
-  // have been cut by the selection. No line above: no name.
-  const guestName = at >= 1 && !PUNCTUATION.test(lines[at - 1]) ? lines[at - 1].slice(0, 120) : "";
+  // have been cut by the selection. In the later layout the line above is the
+  // city and the name sits one higher. No line above: no name.
+  const nameLine = (j: number) => (j >= 0 && !PUNCTUATION.test(lines[j]) ? lines[j] : "");
+  const above = nameLine(at - 1);
+  const guestName = (PLACE.test(above) ? nameLine(at - 2) : above).slice(0, 120);
   const stars = Number(lines[at].match(RATING)![1]);
 
   let when = "";
