@@ -166,6 +166,9 @@ export interface HostWorkEntry {
   // — the same rooms and figures TiWork shows the cleaner. Empty for office
   // staff, whose hours are not against rooms.
   rooms?: { name: string; color: string; guests?: number | null; sofaBed?: boolean }[];
+  // Extra jobs on the cleaner's visit (windows, "Clean floor"), which the hours
+  // also paid for. Absent from a backend that predates them.
+  extras?: { name: string; note: string }[];
   staffId: string;
   staffName: string;
   staffTitle: string;

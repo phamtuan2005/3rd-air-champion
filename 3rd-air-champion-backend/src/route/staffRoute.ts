@@ -3,6 +3,7 @@ import Staff from "../model/staffSchema";
 import WorkEntry from "../model/workEntrySchema";
 import Cleaner from "../model/cleanerSchema";
 import CleaningAssignment from "../model/cleaningAssignmentSchema";
+import CleaningExtra from "../model/cleaningExtraSchema";
 import { arrivingNeeds } from "../util/arrivingGuests";
 import { loadArrivals } from "../util/arrivalsLookup";
 import { rateOn } from "../util/cleanerPay";
@@ -240,6 +241,23 @@ router.get("/hours", async (req: Request, res: any) => {
       roomsByDay.set(key, list);
     }
 
+    // The extra jobs on each cleaner's day — windows, baseboards, "Clean
+    // floor" — which the hours were also for. They showed in the Clean panel
+    // and in TiWork but not here, so the host approving Henry's 2h 20m saw three
+    // rooms and not the floor he was paid to clean too (host, 2026-10-08).
+    const extras: any[] = cleanerDays.length
+      ? await CleaningExtra.find({
+          host: hostId,
+          cleaner: { $in: cleanerDays.map((d) => d.cleaner) },
+          date: { $in: [...new Set(cleanerDays.map((d) => d.date))] },
+        }).lean()
+      : [];
+    const extrasByDay = new Map<string, { name: string; note: string }[]>();
+    for (const x of extras) {
+      const key = `${String(x.cleaner)}|${x.date}`;
+      extrasByDay.set(key, [...(extrasByDay.get(key) ?? []), { name: String(x.name ?? ""), note: String(x.note ?? "") }]);
+    }
+
     res.status(200).json(
       entries.map((e: any) => ({
         id: e._id,
@@ -259,6 +277,7 @@ router.get("/hours", async (req: Request, res: any) => {
         rooms: e.cleaner
           ? (roomsByDay.get(`${String(e.cleaner?._id ?? e.cleaner)}|${e.date}`) ?? [])
           : [],
+        extras: e.cleaner ? (extrasByDay.get(`${String(e.cleaner?._id ?? e.cleaner)}|${e.date}`) ?? []) : [],
         date: e.date,
         hours: e.hours,
         report: e.report ?? "",
