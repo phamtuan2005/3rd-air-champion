@@ -262,9 +262,20 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
       (it) => !it.isCompleted && cleanerFor(it)?.id === cleaner.id,
     );
     const dayLabel = format(startOfToday(), "EEE, MMM d");
+    // Today's extra jobs on their visit, not yet ticked. This text left out
+    // both the extras and the sofa bed, while the weekly schedule from the
+    // Clean panel carried both (host, 2026-10-08: "Did you include all details
+    // of sofa bed and also the extra job?").
+    const myExtras = extras.filter((x) => x.cleaner === cleaner.id && !sentReminders[extraTaskId(x)]);
+    const extraLines = myExtras.map((x) => `+ ${x.name}${x.note ? ` (${x.note})` : ""}`);
 
     let body: string;
-    if (mine.length === 0) {
+    if (mine.length === 0 && myExtras.length > 0) {
+      body =
+        `Hi ${first}! Your rooms for today (${dayLabel}) are done — still on your visit:\n` +
+        extraLines.join("\n") +
+        `\n\n${cleanerSignoff(senderName)}`;
+    } else if (mine.length === 0) {
       body =
         `Hi ${first}! Looks like all your rooms for today (${dayLabel}) are done.\n\n` +
         cleanerSignoff(senderName);
@@ -274,11 +285,15 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
         // Exact count from the incoming guest when known; otherwise the room's
         // typical occupancy from history — so the cleaner ALWAYS knows how many.
         const n = it.nextCheckIn?.numberOfGuests ?? roomAvgGuests.guestsFor(it.booking.room?.id);
-        return `${i + 1}. ${room} — for ${n} guest${n === 1 ? "" : "s"}`;
+        // The sofa bed is the one request that adds work to the clean, said in
+        // words — the To Do card says it, so the cleaner's text must too.
+        const sofa = it.nextCheckIn?.sofaBed ? " · make up the sofa bed 🛋" : "";
+        return `${i + 1}. ${room} — for ${n} guest${n === 1 ? "" : "s"}${sofa}`;
       });
       body =
         `Hi ${first}! Cleaning for today (${dayLabel}) — ${mine.length} room${mine.length === 1 ? "" : "s"}, in suggested order:\n` +
         lines.join("\n") +
+        (extraLines.length ? `\n\nAlso on your visit:\n${extraLines.join("\n")}` : "") +
         `\n\n${cleanerSignoff(senderName)}`;
     }
     window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(body)}`;
