@@ -111,6 +111,15 @@ background (`reviewDraft.ts` on the backend), and the host edits and publishes
 them. The pasted text is not kept. When nothing is published, TT says it has no
 summary and logs the question as not answered. It never makes one up.
 
+**A room's latest review.** "King's latest review", "most recent reviews" or
+"what did the last guest think" gets the room's NEWEST review, summarised on
+its own. With no room named, TT lists the latest for each room. The draft
+writes it from the room's newest review that has a date (a stay date or a
+review month), and it is published with the other summaries. TT always gives
+its month and stars, which come from the review itself and not from the model,
+so a guest can see how recent "latest" is. A room with no published latest
+gets its overall summary, and the question is logged as not answered.
+
 ## Tests
 
 ```bash

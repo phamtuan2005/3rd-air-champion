@@ -21,6 +21,15 @@ const summarySet = {
     {
       room: { type: mongoose.Schema.ObjectId, ref: "Room" },
       summary: { type: String, default: "" },
+      // The room's NEWEST review, summarised on its own, for a guest asking
+      // "what did the last guest in King think?" — the overall summary
+      // smooths over a room that has just changed, for better or worse.
+      // Drafted and published with the rest, never shown unpublished. The
+      // month and stars are copied from the record, not written by the
+      // model, so the guest is told how recent "latest" is.
+      latest: { type: String, default: "" },
+      latestMonth: { type: String, default: "" }, // yyyy-MM
+      latestStars: { type: Number, min: 1, max: 5 },
     },
   ],
 };

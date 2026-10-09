@@ -417,6 +417,66 @@ describe("what guests say", () => {
   });
 });
 
+describe("a room's latest review", () => {
+  const reviews = {
+    house: "Guests praise how clean and quiet it is.",
+    rooms: { k: "The bed is huge and comfortable." },
+    latest: { k: { summary: "The latest guest found King spotless and slept well.", month: "2026-09", stars: 5 } },
+  };
+
+  it("gives the room's newest review with its month and stars, not the overall summary", () => {
+    const a = askTT("King's latest review", ctx({}, { reviews }));
+    expect(a).toMatchObject({ category: "reviews", answered: true });
+    expect(text(a)).toContain("King's latest review — September 2026 · 5 ★:");
+    expect(text(a)).toContain("The latest guest found King spotless and slept well.");
+    expect(text(a)).not.toContain("The bed is huge");
+    // The overall summary stays one tap away.
+    expect(a.actions).toContainEqual({ kind: "ask", label: "What guests say about King", query: "King reviews" });
+  });
+
+  it("reads 'most recent', 'newest' and 'what did the last guest think' as the latest review", () => {
+    for (const q of ["most recent review of King", "newest King reviews", "what did the last guest think of King?"]) {
+      expect(text(askTT(q, ctx({}, { reviews })))).toContain("spotless");
+    }
+  });
+
+  it("lists each room's latest when no room is named", () => {
+    const a = askTT("latest reviews", ctx({}, { reviews }));
+    expect(text(a)).toContain("King (September 2026 · 5 ★): The latest guest found King spotless");
+  });
+
+  it("falls back to the room's overall summary when it has no latest, and counts it unanswered", () => {
+    const a = askTT("latest review of Chill", ctx({}, { reviews: { ...reviews, rooms: { c: "Cosy, with a shared bath." } } }));
+    expect(a.answered).toBe(false);
+    expect(text(a)).toContain("I don't have Chill's latest review yet.");
+    expect(text(a)).toContain("Cosy, with a shared bath.");
+    expect(a.actions).toContainEqual({ kind: "ask", label: "King's latest review", query: "King latest review" });
+  });
+
+  it("still refuses to say WHO wrote the latest review", () => {
+    expect(askTT("who wrote the latest review of King?", ctx({}, { reviews })).category).toBe("privacy");
+  });
+
+  it("offers 'Latest reviews' first, and on a room's summary, only when one is published", () => {
+    const has = (c: AskTTContext) => ttStarters(c).some((a) => a.label === "Latest reviews");
+    expect(has(ctx({}, { reviews }))).toBe(true);
+    expect(has(ctx({}, { reviews: { house: "x", rooms: {} } }))).toBe(false);
+    expect(askTT("King reviews", ctx({}, { reviews })).actions).toContainEqual({ kind: "ask", label: "King's latest review", query: "King latest review" });
+  });
+
+  it("always offers the room's latest review after its reviews — even before one is published", () => {
+    const latest = { kind: "ask", label: "King's latest review", query: "King latest review" };
+    // Summary published, no latest yet.
+    expect(askTT("King reviews", ctx({}, { reviews: { ...reviews, latest: {} } })).actions[0]).toEqual(latest);
+    // Nothing published for the room at all.
+    expect(askTT("King reviews", ctx({}, { reviews: { house: "", rooms: {} } })).actions[0]).toEqual(latest);
+  });
+
+  it("does not take 'last weekend' for a review question", () => {
+    expect(askTT("King last weekend", ctx({}, { reviews })).category).not.toBe("reviews");
+  });
+});
+
 describe("a guest who stays in several rooms", () => {
   // Sean, 2026-10-07: greeted with "King, Cute, Queen or Chill", then offered
   // "King this weekend" — one room, under a greeting naming four.
