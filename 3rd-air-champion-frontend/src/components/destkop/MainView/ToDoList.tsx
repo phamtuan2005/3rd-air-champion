@@ -5,7 +5,7 @@ import { addDays, differenceInCalendarDays, startOfToday, format } from "date-fn
 import { getRoomColor } from "../../../util/getRoomColor";
 import { loadTemplate, resolveTemplate } from "../../../util/reminderTemplate";
 import { CLEANING_LOOKBACK_DAYS, cleaningTaskId, getCleaningCounts, getCleaningItems, countPendingReminders, CleaningItem } from "../../../util/cleaningTasks";
-import { fetchAssignments, CleaningAssignmentType, CleanerType } from "../../../util/cleanerOperations";
+import { fetchAssignments, fetchCleaningExtras, CleaningAssignmentType, CleaningExtraType, CleanerType } from "../../../util/cleanerOperations";
 import CleanerAvatar from "../../shared/CleanerAvatar";
 import { cleanerSignoff } from "../../../util/cleanerMessage";
 import { fetchSentReminders, markReminderSent, unmarkReminderSent } from "../../../util/reminderOperations";
@@ -35,8 +35,8 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
   // them saw outstanding work that was already done.
   //
   // Reminder ids and cleaning ids share this record but can never collide:
-  // cleanings are "clean-<date>-<room>", reminders are
-  // "<start>-<end>-<guest>-<room>".
+  // cleanings are "clean-<date>-<room>", extra jobs "extra-<date>-<id>",
+  // reminders "<start>-<end>-<guest>-<room>".
   const [sentReminders, setSentReminders] = useState<
     Record<string, { sentBy: string; sentAt: string }>
   >({});
@@ -187,6 +187,25 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
       .catch(() => setAssignments([]));
   }, [hostId, token, monthMap]);
 
+  // Today's extra jobs (windows, "Clean floor"), each its own item to tick under
+  // the rooms. They were in the Clean panel and TiWork but missing here, so the
+  // To Do list said a cleaner's day was done with the floor still to do (host,
+  // 2026-10-08). Ticked in the same shared record as the rooms.
+  const [extras, setExtras] = useState<CleaningExtraType[]>([]);
+  useEffect(() => {
+    if (!hostId || !token) return;
+    const today = format(startOfToday(), "yyyy-MM-dd");
+    fetchCleaningExtras(hostId, today, today, token)
+      .then(setExtras)
+      .catch(() => setExtras([]));
+  }, [hostId, token, monthMap]);
+  const extraTaskId = (x: CleaningExtraType) => `extra-${x.date}-${x.id}`;
+  // An extra rides on a visit, so its cleaner has rooms today — and with them a
+  // full record in the assignments already loaded.
+  const extraCleaner = (x: CleaningExtraType): CleanerType | null =>
+    assignments.find((a) => a.cleaner?.id === x.cleaner)?.cleaner ?? null;
+  const extrasLeft = extras.filter((x) => !sentReminders[extraTaskId(x)]).length;
+
   const cleanerFor = (item: CleaningItem): CleanerType | null => {
     const roomId = item.booking.room?.id;
     if (!roomId) return null;
@@ -299,7 +318,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
         ),
       ),
     },
-    { key: "cleaning", label: "Cleaning", count: cleaningCounts.max },
+    { key: "cleaning", label: "Cleaning", count: cleaningCounts.max + extrasLeft },
     // Money promised and not arrived. Its own tab because it is chased at a
     // different moment from a reminder or a clean — and because a hold nobody
     // looks at is a room quietly not earning.
@@ -493,7 +512,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
         ))}
 
       {activeTab === "cleaning" &&
-        (cleaningItems.length > 0 ? (
+        (cleaningItems.length > 0 || extras.length > 0 ? (
           <>
             {cleaningCounts.min !== cleaningCounts.max && (
               <p className="mb-1.5 text-center text-sm text-gray-400">
@@ -629,6 +648,41 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                     )}
                     {isCompleted && (
                       <p className="text-sm text-gray-400">Cleaned on {item.completedDate}</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {extras.map((x) => {
+              const taskId = extraTaskId(x);
+              const done = !!sentReminders[taskId];
+              const cleaner = extraCleaner(x);
+              return (
+                <div
+                  key={taskId}
+                  className={`mb-1.5 flex items-start gap-2.5 rounded-xl border border-gray-200 p-2.5 ${done ? "bg-gray-50" : "bg-white"}`}
+                >
+                  <input
+                    type="checkbox"
+                    className="mt-1 h-4 w-4 shrink-0 accent-black"
+                    checked={done}
+                    onChange={() => setReminderSent(taskId, !done)}
+                  />
+                  {cleaner ? (
+                    <CleanerAvatar name={cleaner.name} photo={cleaner.photo} character={cleaner.character} sizeClass="h-9 w-9" />
+                  ) : (
+                    <span className="h-9 w-9 shrink-0" />
+                  )}
+                  <div className={`flex min-w-0 flex-1 flex-col gap-0.5 ${done ? "text-gray-400 line-through" : ""}`}>
+                    <span className="text-base font-bold text-gray-900">{cleaner?.name ?? "Extra job"}</span>
+                    {/* As the Clean panel shows it: magenta, dashed — a job on
+                        the visit, never one more room. */}
+                    <span className="w-fit rounded-md border border-dashed border-fuchsia-300 bg-fuchsia-50 px-2 py-0.5 text-sm font-semibold text-fuchsia-700">
+                      + {x.name}
+                      {x.note && <span className="font-normal"> · {x.note}</span>}
+                    </span>
+                    {done && sentReminders[taskId]?.sentAt && (
+                      <p className="text-sm text-gray-400">Done on {format(new Date(sentReminders[taskId].sentAt), "MMM d, yyyy")}</p>
                     )}
                   </div>
                 </div>
