@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { format, parseISO } from "date-fns";
-import { deleteReviewSource, fetchReviewsState, publishReviews, ReviewsState, startReviewDraft, SummarySet } from "../../util/ttQuestionLog";
-import { uploadPasteText } from "../../util/pasteParts";
+import { fetchReviewsState, publishReviews, ReviewsState, startReviewDraft, SummarySet } from "../../util/ttQuestionLog";
 import GuestReviewForm from "./GuestReviewForm";
-import ReviewSplitPanel from "./ReviewSplitPanel";
 
 // What guests say, for TiBook's TT to tell the next guest.
 //
@@ -37,7 +34,6 @@ const POLL_MS = 3000;
 const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
   const [state, setState] = useState<ReviewsState | null>(null);
   const [error, setError] = useState("");
-  const [pasted, setPasted] = useState<Record<string, string>>({});
   // The tab showing: "house", or a room's id. Each tab holds everything about
   // its subject — the house's summary, or one room's summary and its reviews —
   // and the two actions that cover the whole house at once (draft, publish) sit
@@ -45,9 +41,6 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
   // tabs' section while the summaries below listed every room whatever tab was
   // chosen, which read as two designs on one screen (host, 2026-10-07).
   const [pasteRoomId, setPasteRoomId] = useState("house");
-  // Sending a file or paste to the server, in parts: what and how far.
-  const [progress, setProgress] = useState<{ label: string; pct: number } | null>(null);
-  const fileInput = useRef<HTMLInputElement>(null);
   const [edit, setEdit] = useState<Edit>({ house: "", rooms: {}, latest: {} });
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
@@ -87,69 +80,12 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
   // How many reviews each room has on record, for its tab.
   const countOf = Object.fromEntries((state?.onRecord ?? []).map((r) => [r.roomId, r.count]));
 
-  // The review file KEPT on the server for each room (name, size, date).
-  const sources = Object.fromEntries((state?.sources ?? []).map((x) => [x.roomId, x]));
-
-  // A saved text file instead of a paste. The browser reads it and sends it to
-  // the server at once, in small parts (CloudFront refuses any request of 8 KB or
-  // more — see util/pasteParts), WITHOUT putting it in the paste box. When the
-  // last part lands the server KEEPS it as this room's review file, replacing the
-  // last: the host wants the reviews on file, to be read again and counted later.
-  const send = async (roomId: string, text: string, name: string) => {
-    await uploadPasteText(roomId, text, name, (done, total) => setProgress({ label: `Sending ${name}`, pct: Math.round((done / total) * 100) }));
-  };
-
-  const loadFile = async (roomId: string, file: File | undefined) => {
-    if (!file) return;
-    setNote("");
-    let text: string;
-    try {
-      text = await file.text();
-    } catch {
-      setNote("That file couldn't be read. Save the reviews as a plain .txt file and try again.");
-      return;
-    }
-    if (!text.trim()) {
-      setNote("That file is empty.");
-      return;
-    }
-    setBusy(true);
-    try {
-      await send(roomId, text, file.name);
-      load();
-    } catch (e: any) {
-      setNote(e?.response?.data?.error ?? "The file didn't go through. Check the connection and try again.");
-    } finally {
-      setProgress(null);
-      setBusy(false);
-    }
-  };
-
-  const removeFile = async (roomId: string) => {
-    setNote("");
-    try {
-      await deleteReviewSource(roomId);
-      load();
-    } catch {
-      setNote("That didn't come off. Try again.");
-    }
-  };
-
-  // Before a split: text waiting in the big box is sent (and kept) as the room's
-  // file, so there is something on the server to read.
-  const sendWaitingText = async (roomId: string) => {
-    const text = pasted[roomId] ?? "";
-    if (!text.trim()) return;
-    setBusy(true);
-    try {
-      await send(roomId, text, "Pasted text");
-      setPasted((p) => ({ ...p, [roomId]: "" }));
-      load();
-    } finally {
-      setProgress(null);
-      setBusy(false);
-    }
-  };
+  // A room's page of reviews — pasted, or chosen as a text file, then split by
+  // Claude — is gone from this window. Reviews come in one at a time through
+  // the form below (host, 2026-10-07: "from now on I will keep passing the
+  // review of individual guest"), and the page box, the file chooser and the
+  // split panel only stood between the host and it (host, 2026-10-08: "No
+  // longer need these sections"). The server routes for pages are left alone.
 
   // Drafts from the individual reviews on record, every room that has some —
   // the house's one record of what guests said. Nothing is sent: it is all on
@@ -288,43 +224,9 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
                   placeholder="Empty — TT says it has no summary for this room yet"
                   className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm leading-relaxed focus:border-gray-400 focus:outline-none"
                 />
-                {(() => {
-                  const l = edit.latest[pasteRoom.roomId];
-                  return (
-                    <div className="mt-3">
-                      <h4 className="text-xs font-bold text-gray-900">
-                        Latest review
-                        {l && (
-                          <span className="ml-1 font-normal text-gray-500">
-                            · {format(parseISO(`${l.month}-01`), "MMMM yyyy")}
-                            {l.stars ? ` · ${l.stars} ★` : ""}
-                          </span>
-                        )}
-                      </h4>
-                      {l ? (
-                        <>
-                          <p className="mt-0.5 text-xs text-gray-500">
-                            What TT tells a guest who asks for {pasteRoom.name}'s latest review. The month and stars come from the review itself.
-                          </p>
-                          <textarea
-                            id={`latest-${pasteRoom.roomId}`}
-                            rows={2}
-                            value={l.text}
-                            onChange={(e) =>
-                              setEdit((x) => ({ ...x, latest: { ...x.latest, [pasteRoom.roomId]: { ...l, text: e.target.value } } }))
-                            }
-                            placeholder="Empty — TT says it has no latest review for this room yet"
-                            className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm leading-relaxed focus:border-gray-400 focus:outline-none"
-                          />
-                        </>
-                      ) : (
-                        <p className="mt-0.5 text-xs text-gray-500">
-                          Drafting writes one from {pasteRoom.name}'s newest review that has a date — a stay date or a review month.
-                        </p>
-                      )}
-                    </div>
-                  );
-                })()}
+                {/* No "Latest review" editor: TiBook reads each room's newest
+                    review straight from the record, as soon as it is added —
+                    nothing to draft or publish (host, 2026-10-08). */}
               </section>
 
               <section className="border-t border-gray-100 pt-4">
@@ -344,91 +246,8 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
                   )}
                 </div>
                 <p className="mt-0.5 text-xs text-gray-500">
-                  New reviews: paste the listing's whole page of reviews (select all, copy) or choose a saved file, then Split.
-                  Each review is kept on its own record, for you only. The page is cleared once its reviews are added.
+                  Add each new review as it comes in: paste it below. Each one is kept on its own record, for you only.
                 </p>
-
-                <div className="mt-2 flex items-center justify-between gap-3">
-                  <label htmlFor={`paste-${pasteRoom.roomId}`} className="text-xs font-semibold text-gray-700">
-                    The page
-                  </label>
-                  {/* Up here, not under the box: the box is tall, and a button
-                      below it falls off a phone screen. */}
-                  <input
-                    ref={fileInput}
-                    type="file"
-                    accept=".txt,text/plain"
-                    className="hidden"
-                    onChange={(e) => {
-                      loadFile(pasteRoom.roomId, e.target.files?.[0]);
-                      // Cleared so choosing the same file again still fires.
-                      e.target.value = "";
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => fileInput.current?.click()}
-                    disabled={busy}
-                    className="rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40"
-                  >
-                    Choose a text file…
-                  </button>
-                </div>
-                {sources[pasteRoom.roomId] ? (
-                  // On the server already; only its name, size and date are shown.
-                  // Hundreds of kilobytes in a textarea would freeze it.
-                  <div className="mt-1 flex items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-gray-900">📄 {sources[pasteRoom.roomId].name}</p>
-                      <p className="text-xs text-gray-600">
-                        {sources[pasteRoom.roomId].chars.toLocaleString()} characters · ready to split
-                        {sources[pasteRoom.roomId].savedAt ? ` · ${format(parseISO(sources[pasteRoom.roomId].savedAt!), "MMM d, h:mm a")}` : ""}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeFile(pasteRoom.roomId)}
-                      disabled={busy}
-                      className="shrink-0 rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <textarea
-                      id={`paste-${pasteRoom.roomId}`}
-                      rows={5}
-                      value={pasted[pasteRoom.roomId] ?? ""}
-                      onChange={(e) => setPasted((p) => ({ ...p, [pasteRoom.roomId]: e.target.value }))}
-                      placeholder={`Paste ${pasteRoom.name}'s page of AirBnB reviews…`}
-                      className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-gray-400 focus:outline-none"
-                    />
-                    <p className="mt-1 text-right text-[11px] text-gray-400">
-                      {(pasted[pasteRoom.roomId] ?? "").length.toLocaleString()} characters
-                    </p>
-                  </>
-                )}
-                {progress && (
-                  <div className="mt-2" role="status">
-                    <div className="flex justify-between text-[11px] text-gray-500">
-                      <span className="truncate">{progress.label}…</span>
-                      <span>{progress.pct}%</span>
-                    </div>
-                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-100">
-                      <div className="h-full bg-emerald-500 transition-[width]" style={{ width: `${progress.pct}%` }} />
-                    </div>
-                  </div>
-                )}
-
-                <ReviewSplitPanel
-                  key={`split-${pasteRoom.roomId}`}
-                  roomId={pasteRoom.roomId}
-                  roomName={pasteRoom.name}
-                  hasReviews={!!sources[pasteRoom.roomId] || !!(pasted[pasteRoom.roomId] ?? "").trim()}
-                  beforeSplit={() => sendWaitingText(pasteRoom.roomId)}
-                  onAdded={load}
-                />
                 <GuestReviewForm key={pasteRoom.roomId} roomId={pasteRoom.roomId} roomName={pasteRoom.name} onAdded={load} />
               </section>
             </>
@@ -440,18 +259,19 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
             under the tabs, the same on every one. */}
         {state && !error && (
           <div className="shrink-0 border-t border-gray-100 bg-white px-4 py-3">
-            <p className="text-[11px] text-gray-500">
-              {drafting
-                ? "Claude is reading the reviews…"
-                : state.draft.status === "failed"
-                  ? `The draft didn't finish: ${state.draft.error}`
-                  : showingDraft
-                    ? `Claude's draft, from ${state.draft.reviewsRead} review${state.draft.reviewsRead === 1 ? "" : "s"} — check each tab says only what guests said, then publish.`
-                    : state.published.at
-                      ? `What guests see now, published ${format(parseISO(state.published.at), "MMM d, yyyy")}.`
-                      : "Nothing published yet — TT tells guests it has no summary."}
-            </p>
-            <div className="mt-2 flex gap-2">
+            {/* Only what is happening now: a draft in progress, one that
+                failed, one to check. "What guests see now, published Oct 8"
+                gave the host nothing to act on (host, 2026-10-08). */}
+            {(drafting || state.draft.status === "failed" || showingDraft) && (
+              <p className="mb-2 text-[11px] text-gray-500">
+                {drafting
+                  ? "Claude is reading the reviews…"
+                  : state.draft.status === "failed"
+                    ? `The draft didn't finish: ${state.draft.error}`
+                    : `Claude's draft, from ${state.draft.reviewsRead} review${state.draft.reviewsRead === 1 ? "" : "s"} — check each tab says only what guests said, then publish.`}
+              </p>
+            )}
+            <div className="flex gap-2">
               <button
                 type="button"
                 onClick={draft}
