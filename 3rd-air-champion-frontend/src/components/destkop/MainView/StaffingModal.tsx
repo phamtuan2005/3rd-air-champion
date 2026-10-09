@@ -1201,6 +1201,23 @@ const StaffingModal = ({ hostId, token, onClose, senderName, focusId }: Staffing
                         ))}
                       </div>
                     )}
+                    {/* The extra jobs the hours also paid for, as the Clean
+                        panel shows them: magenta, dashed, so one never reads as
+                        another room (host, 2026-10-08: Henry's "Clean floor"
+                        was missing here). */}
+                    {(w.extras?.length ?? 0) > 0 && (
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {w.extras!.map((x, i) => (
+                          <span
+                            key={`${x.name}-${i}`}
+                            className="rounded-md border border-dashed border-fuchsia-300 bg-fuchsia-50 px-2 py-0.5 text-[13px] font-semibold text-fuchsia-700"
+                          >
+                            + {x.name}
+                            {x.note && <span className="font-normal"> · {x.note}</span>}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     {editEntry?.id === w.id && (
                       <div className="mt-2 rounded-xl border border-gray-200 bg-gray-50 p-2.5">
                         <div className="flex flex-wrap items-end gap-2">
