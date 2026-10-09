@@ -38,6 +38,37 @@ Today
 Anh was friendly, proactive and responsive, provided thorough instructions throughout the process until I was checked-in.`;
 
 describe("parseAirbnbReview", () => {
+  // As stored on record: the same copies flattened onto one line by a phone paste.
+  it("reads Gail's review flattened onto one line", () => {
+    expect(parseAirbnbReview(GAIL.replace(/\n/g, " "), today)).toEqual({
+      guestName: "Gail",
+      stars: 5,
+      when: "Today",
+      reviewMonth: "2026-10",
+      text: "Anh was friendly, proactive and responsive, provided thorough instructions throughout the process until I was checked-in.",
+    });
+  });
+
+  it("reads Lim's review flattened onto one line", () => {
+    expect(parseAirbnbReview(LIM.replace(/\n/g, " "), today)).toEqual({
+      guestName: "Lim",
+      stars: 5,
+      when: "2 days ago",
+      reviewMonth: "2026-10",
+      text: "Clean and quiet, great host. Would stay again.",
+    });
+  });
+
+  it("reads Leidy Johanna's review flattened, taking the repeated whole name", () => {
+    const r = parseAirbnbReview(LEIDY.replace(/\n/g, " "), today) as any;
+    expect(r).toMatchObject({ guestName: "Leidy Johanna", stars: 5, when: "1 week ago" });
+    expect(r.text.startsWith("From the moment we opened the door")).toBe(true);
+  });
+
+  it("says a flattened page is several reviews", () => {
+    expect(parseAirbnbReview(`${LEIDY}\n${GAIL}`.replace(/\n/g, " "), today)).toBe("several");
+  });
+
   it("reads the 'Rating 5 out of 5' layout, taking the name above the city", () => {
     expect(parseAirbnbReview(GAIL, today)).toEqual({
       guestName: "Gail",
