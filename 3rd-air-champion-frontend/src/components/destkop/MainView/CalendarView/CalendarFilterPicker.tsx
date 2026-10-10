@@ -10,7 +10,10 @@ import RoomBadge from "../../../shared/RoomBadge";
 import { airbnbGuestList } from "../../../../util/airbnbGuestList";
 import { houseGuestList, isPhoneQuery, matchesTyped, topMatches } from "../../../../util/houseGuestList";
 import { matchesReservation, reviewsTyped, screensMatching, weekTyped, whenTyped, whoAndWhen, worthAsking, When } from "../../../../util/ttIntents";
-import { fetchReviewStats, ReviewStats } from "../../../../util/ttQuestionLog";
+import { jwtDecode } from "jwt-decode";
+import { fetchPublishedReviews, fetchReviewStats, PublishedReviews, ReviewStats } from "../../../../util/ttQuestionLog";
+import { getToken } from "../../../../util/authSession";
+import { starRow } from "../../../../util/askTT";
 import type { SearchWorker } from "../../../../util/searchWorkers";
 
 interface CalendarFilterPickerProps {
@@ -215,6 +218,34 @@ const CalendarFilterPicker = ({
     // The topic is what changes the answer; the query's other words do not.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!reviewAsked, reviewTopic]);
+  // A room named in a review question gets its LATEST review, read from the
+  // very route TiBook's TT reads, so the host sees word for word what a guest
+  // is shown. "latest review cozy" answered in TiBook and not here, where it
+  // gave the house-wide numbers instead (host, 2026-10-09).
+  const reviewRoom = reviewAsked
+    ? rooms.find((r) => r.name && new RegExp(`\\b${r.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(q))
+    : undefined;
+  const [latestReviews, setLatestReviews] = useState<PublishedReviews["latest"] | null>(null);
+  useEffect(() => {
+    if (!reviewRoom || latestReviews) return;
+    let hostId = "";
+    try {
+      hostId = (jwtDecode(getToken() ?? "") as { hostId?: string }).hostId ?? "";
+    } catch {
+      return;
+    }
+    if (!hostId) return;
+    let live = true;
+    fetchPublishedReviews(hostId)
+      .then((p) => live && setLatestReviews(p.latest))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+    // Fetched once, the first time a room is named; every room comes back.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!reviewRoom]);
+  const roomLatest = reviewRoom ? latestReviews?.[reviewRoom.id] : undefined;
   // Staff and cleaners, by name or phone like a guest — and by what they do,
   // so "cleaner" brings up the cleaners and "intern" the intern. Not with a
   // time beside the name: the team has no page on the calendar to open.
@@ -524,6 +555,19 @@ const CalendarFilterPicker = ({
                   <div className="px-3 py-2 text-[12px] text-gray-700">
                     {reviewFailed && <p className="text-rose-600">The reviews didn't load. Try again in a moment.</p>}
                     {!reviewStats && !reviewFailed && <p className="text-gray-400">Adding them up…</p>}
+                    {reviewRoom && roomLatest && (
+                      <div className="mb-2 rounded-lg bg-gray-50 px-3 py-2">
+                        <p className="font-semibold text-gray-900">
+                          {reviewRoom.name}'s latest review
+                          <span className="font-normal text-gray-500">
+                            {roomLatest.guest ? ` · ${roomLatest.guest}` : ""} ·{" "}
+                            {format(new Date(`${roomLatest.month}-01T12:00:00`), "MMMM yyyy")}
+                          </span>
+                          {roomLatest.stars ? <span className="text-amber-500"> · {starRow(roomLatest.stars)}</span> : null}
+                        </p>
+                        <p className="mt-0.5 whitespace-pre-line leading-relaxed text-gray-700">{roomLatest.summary}</p>
+                      </div>
+                    )}
                     {reviewStats && reviewStats.total === 0 && (
                       <p className="text-gray-500">No reviews are on record yet. Add them under Guest reviews.</p>
                     )}
