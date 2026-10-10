@@ -3093,7 +3093,9 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                             <div className="flex items-center gap-2">
                               <div className="min-w-0 flex-1">
                                 <p className="text-base font-semibold text-gray-800">
-                                  {format(new Date(group.date + "T00:00:00"), "EEE, MMM d")}
+                                  {/* Neither the date nor "· 3 rooms" may break
+                                      inside itself: "Fri, Oct" / "9" on a phone. */}
+                                  <span className="whitespace-nowrap">{format(new Date(group.date + "T00:00:00"), "EEE, MMM d")}</span>
                                   <span className="whitespace-nowrap text-sm font-semibold text-gray-500">
                                     {" "}· {group.assignments.length} room{group.assignments.length === 1 ? "" : "s"}
                                   </span>
