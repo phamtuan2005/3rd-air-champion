@@ -212,10 +212,14 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
               <>
                 {/* A tap anywhere else closes it. */}
                 <div className="fixed inset-0 z-10" onClick={() => setPickerOpen(false)} />
+                {/* top-full: hung from the picker's bottom edge. Without it the
+                    list took its place from the row, which centres its items,
+                    so it sat half above the picker and the window cut off its
+                    top rooms (host, 2026-10-10). */}
                 <ul
                   role="listbox"
                   aria-label="Room"
-                  className="absolute left-4 right-4 z-20 mt-1 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-xl"
+                  className="absolute left-4 right-4 top-full z-20 -mt-1 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-xl"
                 >
                   {[...rooms.map((r) => r.roomId), "house"].map((id) => (
                     <li key={id}>
