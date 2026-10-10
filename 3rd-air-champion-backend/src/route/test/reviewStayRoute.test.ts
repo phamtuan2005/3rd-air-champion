@@ -97,3 +97,40 @@ describe("GET /tt-host/reviews/stay", () => {
     expect(res.body).toBeNull();
   });
 });
+
+// Editing a review now happens in the add form, which shows the stay date —
+// so the update must save it, and keep it when an older client leaves it out.
+describe("PATCH /tt-host/reviews/entry/:id with a stay date", () => {
+  it("saves the stay date sent, keeps it when none is sent, and refuses one that is not a date", async () => {
+    const s = await setup("stay-edit@example.com");
+    const TTReviewEntry = (await import("../../model/ttReviewEntrySchema")).default;
+    const e = await TTReviewEntry.create({ host: s.hostId, room: s.king._id, text: "Quiet.", hash: "edit1", guestName: "Han" });
+    const patch = (body: Record<string, unknown>) => request(appFor(s.hostId)).patch(`/tt-host/reviews/entry/${e._id}`).send(body);
+    const base = { guestName: "Han", stars: 5, reviewMonth: "2026-10", text: "Quiet." };
+
+    expect((await patch({ ...base, stayDate: "2026-09-28" })).body.stayDate).toBe("2026-09-28");
+    expect((await patch(base)).body.stayDate).toBe("2026-09-28");
+    expect((await patch({ ...base, stayDate: "Sept 28" })).status).toBe(400);
+    expect((await patch({ ...base, stayDate: "" })).body.stayDate).toBe("");
+  });
+});
+
+// Searching the reviews on record (host, 2026-10-10).
+describe("GET /tt-host/reviews/entries?q=", () => {
+  it("finds a review by name or by any words in it, every word required, and previews near the match", async () => {
+    const s = await setup("search@example.com");
+    const TTReviewEntry = (await import("../../model/ttReviewEntrySchema")).default;
+    const long = `${"Lovely stay. ".repeat(10)}The mattress was a bit soft for me.`;
+    await TTReviewEntry.create({ host: s.hostId, room: s.king._id, text: long, hash: "s1", guestName: "Han", stayDate: "2026-09-28" });
+    await TTReviewEntry.create({ host: s.hostId, room: s.king._id, text: "Very quiet.", hash: "s2", guestName: "Gail" });
+    const find = async (q: string) =>
+      (await request(appFor(s.hostId)).get("/tt-host/reviews/entries").query({ q })).body.entries;
+
+    expect((await find("gail")).map((e: any) => e.guestName)).toEqual(["Gail"]);
+    expect((await find("MATTRESS soft")).map((e: any) => e.guestName)).toEqual(["Han"]);
+    expect(await find("mattress quiet")).toEqual([]);
+    expect((await find("2026-09")).map((e: any) => e.guestName)).toEqual(["Han"]);
+    expect((await find("mattress"))[0].snippet).toContain("The mattress was a bit soft");
+    expect(await find("")).toHaveLength(2);
+  });
+});

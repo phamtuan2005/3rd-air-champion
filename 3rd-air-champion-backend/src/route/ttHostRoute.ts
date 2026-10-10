@@ -502,7 +502,23 @@ router.get("/reviews/entries", async (req: Request, res: any) => {
   try {
     // Sorted here, by the review's own date (newestFirst), because most reviews
     // carry only a month — a database sort on stayDate left them unordered.
-    const rows: any[] = (await TTReviewEntry.find({ host: hostOf(req) }).lean()).sort(newestFirst).slice(0, 2000);
+    // `q`: a search (host, 2026-10-10: "some tool to search for a review").
+    // Every word must appear — in the guest's name, the review's words or its
+    // dates — and the full text is searched here, since the list carries only
+    // the first 160 characters of each.
+    const words = String(req.query.q ?? "").toLowerCase().split(/\s+/).filter(Boolean).slice(0, 8);
+    const hay = (r: any) => `${r.guestName ?? ""} ${r.text ?? ""} ${r.stayDate ?? ""} ${r.reviewMonth ?? ""}`.toLowerCase();
+    const rows: any[] = (await TTReviewEntry.find({ host: hostOf(req) }).lean())
+      .filter((r) => words.every((w) => hay(r).includes(w)))
+      .sort(newestFirst)
+      .slice(0, 2000);
+    // On a search, the preview starts near the first match in the words, so the
+    // host sees WHY the review came up rather than its unrelated first line.
+    const snippetOf = (text: string) => {
+      const at = words.length ? text.toLowerCase().indexOf(words[0]) : -1;
+      if (at < 60) return text.slice(0, 160);
+      return `…${text.slice(at - 40, at + 120)}`;
+    };
     res.status(200).json({
       entries: rows.map((r) => ({
         id: String(r._id),
@@ -511,7 +527,7 @@ router.get("/reviews/entries", async (req: Request, res: any) => {
         stayDate: r.stayDate ?? "",
         reviewMonth: r.reviewMonth ?? "",
         stars: r.stars ?? null,
-        snippet: String(r.text ?? "").slice(0, 160),
+        snippet: snippetOf(String(r.text ?? "")),
         addedAt: r.createdAt ?? null,
       })),
     });
@@ -568,10 +584,18 @@ router.patch("/reviews/entry/:id", async (req: Request, res: any) => {
     if (reviewMonth && !/^\d{4}-(0[1-9]|1[0-2])$/.test(String(reviewMonth))) {
       return res.status(400).json({ error: "The review month should be a month." });
     }
+    // The stay date, when sent: editing now happens in the add form, which
+    // finds and shows it (host, 2026-10-10). Left as it was when not sent.
+    const sentStay = req.body && "stayDate" in req.body;
+    const stayDate = sentStay ? String(req.body.stayDate ?? "") : String(entry.stayDate ?? "");
+    if (stayDate && !/^\d{4}-\d{2}-\d{2}$/.test(stayDate)) {
+      return res.status(400).json({ error: "The stay date should be a date." });
+    }
     const next = {
       guestName: String(guestName ?? "").trim().slice(0, 120),
       stars: stars ?? null,
       reviewMonth: reviewMonth ? String(reviewMonth) : "",
+      stayDate,
       text,
     };
     await TTReviewEntry.updateOne({ _id: entry._id, host: hostId }, { $set: next });
@@ -587,7 +611,7 @@ router.patch("/reviews/entry/:id", async (req: Request, res: any) => {
         stars: entry.stars ?? null,
         text: String(entry.text ?? ""),
       });
-      const after = fileBlock({ ...next, stayDate: entry.stayDate ?? "" });
+      const after = fileBlock(next);
       const t = file?.text ? String(file.text) : "";
       if (t.includes(before)) {
         const updated = t.replace(before, after);
@@ -597,7 +621,6 @@ router.patch("/reviews/entry/:id", async (req: Request, res: any) => {
     res.status(200).json({
       id: String(entry._id),
       roomId: String(entry.room),
-      stayDate: entry.stayDate ?? "",
       addedAt: entry.createdAt ?? null,
       ...next,
     });

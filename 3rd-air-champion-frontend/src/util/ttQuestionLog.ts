@@ -207,7 +207,7 @@ export const fetchReviewEntry = async (id: string): Promise<ReviewEntryFull> =>
 // Corrects one review — a pasted one can arrive without the guest's name.
 export const updateReviewEntry = async (
   id: string,
-  changes: { guestName: string; stars: number | null; reviewMonth: string; text: string },
+  changes: { guestName: string; stars: number | null; reviewMonth: string; stayDate?: string; text: string },
 ): Promise<ReviewEntryFull> => (await axios.patch(`${BACKEND_ENDPOINT}/tt-host/reviews/entry/${id}`, changes, authed())).data;
 
 // Takes one review off the record (and out of the room's file, if it was written there).
@@ -215,8 +215,9 @@ export const deleteReviewEntry = async (id: string): Promise<void> => {
   await axios.delete(`${BACKEND_ENDPOINT}/tt-host/reviews/entry/${id}`, authed());
 };
 
-export const fetchReviewEntries = async (): Promise<ReviewEntryRow[]> => {
-  const response = await axios.get(`${BACKEND_ENDPOINT}/tt-host/reviews/entries`, authed());
+// `q` searches names, words and dates; every word must appear.
+export const fetchReviewEntries = async (q?: string): Promise<ReviewEntryRow[]> => {
+  const response = await axios.get(`${BACKEND_ENDPOINT}/tt-host/reviews/entries`, { ...authed(), params: q?.trim() ? { q: q.trim() } : {} });
   return Array.isArray(response.data?.entries) ? response.data.entries : [];
 };
 
