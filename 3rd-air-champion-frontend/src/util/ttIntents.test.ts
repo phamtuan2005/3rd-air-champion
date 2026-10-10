@@ -219,4 +219,14 @@ describe("a question about the guest reviews", () => {
     expect(reviewsTyped("King")).toBeNull();
     expect(reviewsTyped("")).toBeNull();
   });
+
+  // "add review" opens the add pop-up instead (host, 2026-10-10) — and
+  // "newest reviews" is still a question about the reviews.
+  it("leaves 'add review' to the add pop-up, but not 'newest reviews'", () => {
+    expect(reviewsTyped("add review")).toBeNull();
+    expect(reviewsTyped("new review")).toBeNull();
+    expect(reviewsTyped("newest reviews")).toEqual({ topic: null });
+    expect(screensMatching("add review").map((s) => s.key)).toContain("reviews:add");
+    expect(screensMatching("paste a review").map((s) => s.key)).toContain("reviews:add");
+  });
 });

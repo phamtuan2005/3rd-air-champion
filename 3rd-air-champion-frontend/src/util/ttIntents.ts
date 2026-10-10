@@ -39,6 +39,8 @@ export const TT_SCREENS: TTScreen[] = [
   { key: "visitors", label: "TiBook visitors", hint: "Who has looked at TiBook", words: ["visitors", "tibook visits", "traffic"] },
   { key: "ttQuestions", label: "TT questions", hint: "What guests ask TT, and what it couldn't answer", words: ["questions", "guest questions", "unanswered", "tt log"] },
   { key: "reviews", label: "Guest reviews", hint: "Every review by room — search, add, edit", words: ["reviews", "airbnb reviews", "ratings", "review summary"] },
+  // Straight to the add pop-up, room picked inside it (host, 2026-10-10: "if I say add review, bring me the add review form").
+  { key: "reviews:add", label: "Add a guest review", hint: "Paste it from AirBnB, pick the room", words: ["add review", "add a review", "new review", "paste review", "paste a review"] },
   { key: "misc", label: "Misc", hint: "Other expenses", words: ["expenses", "miscellaneous", "costs"] },
   { key: "charges", label: "Charges", hint: "Fees with no stay, such as a cancellation", words: ["fees", "cancellation", "charge"] },
   { key: "rates", label: "Rates", hint: "Guest and room rates", words: ["prices", "pricing", "rate"] },
@@ -258,6 +260,9 @@ const REVIEW_TOPICS: { key: string; pattern: RegExp }[] = [
 export const reviewsTyped = (query: string): { topic: string | null } | null => {
   const q = query.trim();
   if (q.length < 4) return null;
+  // "add review" is the add pop-up (TT_SCREENS), not a question about the
+  // reviews: the stats under it would push the one thing asked for down.
+  if (/\b(?:add|new|paste)\b/i.test(q)) return null;
   if (!/\b(reviews?|ratings?|rated|stars?|complain\w*|feedback|guests? say|guests? think)\b/i.test(q)) return null;
   return { topic: REVIEW_TOPICS.find((t) => t.pattern.test(q))?.key ?? null };
 };

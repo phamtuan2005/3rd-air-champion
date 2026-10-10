@@ -104,9 +104,12 @@ const GuestReviewsModal = ({
   const [pickerOpen, setPickerOpen] = useState(false);
   // The review Ask TT asked to edit, until the form has opened it.
   const [pendingEdit, setPendingEdit] = useState<ReviewEntryFull | null>(null);
+  // "add review" in Ask TT: open the add pop-up as soon as a room's form is up.
+  const [pendingAdd, setPendingAdd] = useState(false);
   useEffect(() => {
     if (!openAt) return;
     if (openAt === "house") return setPasteRoomId("house");
+    if (openAt === "add") return setPendingAdd(true);
     if (openAt.startsWith("room:")) return setPasteRoomId(openAt.slice("room:".length));
     let live = true;
     fetchReviewEntry(openAt)
@@ -379,6 +382,10 @@ const GuestReviewsModal = ({
                   roomColor={pasteRoom.color}
                   openForEdit={pendingEdit?.roomId === pasteRoom.roomId ? pendingEdit : null}
                   onEditOpened={() => setPendingEdit(null)}
+                  rooms={rooms.map((r) => ({ roomId: r.roomId, name: r.name, color: r.color }))}
+                  openAdd={pendingAdd}
+                  onAddOpened={() => setPendingAdd(false)}
+                  onRoomChange={setPasteRoomId}
                   onAdded={load}
                 />
               </section>
