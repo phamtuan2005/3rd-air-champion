@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { format, parseISO } from "date-fns";
 import { jwtDecode } from "jwt-decode";
 import { getToken } from "../../util/authSession";
 import { fetchGuests } from "../../util/guestOperations";
@@ -8,8 +9,10 @@ import ReviewEntryItem from "./ReviewEntryItem";
 import {
   addReviewEntry,
   fetchReviewEntries,
+  fetchReviewStay,
   MAX_REVIEW_CHARS,
   ReviewEntryRow,
+  ReviewStay,
 } from "../../util/ttQuestionLog";
 
 // One guest's review, passed in on its own — what the host does from now on.
@@ -67,6 +70,41 @@ const GuestReviewForm = ({ roomId, roomName, onAdded }: { roomId: string; roomNa
 
   const mine = entries.filter((e) => e.roomId === roomId);
 
+  // The stay the review is about, looked up in the bookings as soon as there is
+  // a name and a month — the host used to find it on the calendar and type it
+  // (host, 2026-10-10). "none" = looked, nothing fitted.
+  const [found, setFound] = useState<ReviewStay | null | "none">(null);
+  // Whether the date in the box is the one the lookup put there. A date the
+  // host typed is theirs and is never overwritten.
+  const stayAuto = useRef(false);
+  useEffect(() => {
+    const name = guestName.trim();
+    if (!name || !reviewMonth) {
+      setFound(null);
+      return;
+    }
+    let live = true;
+    // Typing a name fires this per keystroke: wait until they pause.
+    const t = setTimeout(() => {
+      fetchReviewStay(roomId, name, reviewMonth)
+        .then((s) => {
+          if (!live) return;
+          setFound(s ?? "none");
+          if (stayAuto.current || !stayDate) {
+            stayAuto.current = !!s;
+            setStayDate(s?.stayDate ?? "");
+          }
+        })
+        .catch(() => live && setFound(null));
+    }, 400);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+    // stayDate is read, not watched: the host changing it must not re-run this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId, guestName, reviewMonth]);
+
   // A review copied from AirBnB is taken apart where it lands: the name, stars
   // and date go in their fields and only the guest's words stay in the box.
   // Plain rules, no model — one review's layout is known (util/airbnbReviewPaste).
@@ -104,7 +142,10 @@ const GuestReviewForm = ({ roomId, roomName, onAdded }: { roomId: string; roomNa
     setBusy(true);
     try {
       const name = (parts.guestName || guestName).trim();
-      const guestId = guests.find((g) => g.name.trim().toLowerCase() === name.toLowerCase())?.id;
+      // The guest whose stay was found wins: "Mai" on the review is "Mai
+      // Nguyen" on the list, which a name match alone would miss.
+      const fromStay = found && found !== "none" && stayAuto.current ? found.guestId : undefined;
+      const guestId = fromStay ?? guests.find((g) => g.name.trim().toLowerCase() === name.toLowerCase())?.id;
       const { added } = await addReviewEntry({
         roomId,
         guestId,
@@ -122,6 +163,8 @@ const GuestReviewForm = ({ roomId, roomName, onAdded }: { roomId: string; roomNa
         setText("");
         setGuestName("");
         setStayDate("");
+        stayAuto.current = false;
+        setFound(null);
         setStars(null);
         setReviewMonth("");
         setWhen("");
@@ -180,9 +223,26 @@ const GuestReviewForm = ({ roomId, roomName, onAdded }: { roomId: string; roomNa
             id="rev-date"
             type="date"
             value={stayDate}
-            onChange={(e) => setStayDate(e.target.value)}
+            onChange={(e) => {
+              stayAuto.current = false;
+              setStayDate(e.target.value);
+            }}
             className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-[16px] focus:border-gray-400 focus:outline-none sm:text-sm"
           />
+          {/* Where the date came from, so the host knows to check it rather
+              than wonder. */}
+          {found && found !== "none" && stayAuto.current && stayDate === found.stayDate && (
+            <p className="mt-0.5 text-[10px] text-teal-700">
+              Found in the bookings: {found.nights} night{found.nights === 1 ? "" : "s"}, out{" "}
+              {format(parseISO(found.checkout), "MMM d")}
+              {found.others > 0 ? ` · ${found.others} earlier stay${found.others === 1 ? "" : "s"} too — check` : ""}
+            </p>
+          )}
+          {found === "none" && !stayDate && (
+            <p className="mt-0.5 text-[10px] text-gray-400">
+              No stay for {guestName.trim().split(/\s+/)[0]} in {roomName} around then — add it if you know it
+            </p>
+          )}
         </div>
       </div>
 

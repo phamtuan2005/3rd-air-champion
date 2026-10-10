@@ -291,3 +291,20 @@ export const deleteReviewSource = async (roomId: string): Promise<void> => {
 
 export const publishReviews = async (set: SummarySet): Promise<ReviewsState> =>
   asReviewsState((await axios.put(`${BACKEND_ENDPOINT}/tt-host/reviews`, set, authed())).data);
+
+// The stay a review is about, found in the bookings from the guest's first
+// name, the room and the review's month. null when none fits.
+export interface ReviewStay {
+  stayDate: string; // yyyy-MM-dd, the first night
+  checkout: string; // yyyy-MM-dd
+  nights: number;
+  guestId?: string; // one of the house's own guests
+  others: number; // more stays fitted; the newest was taken
+}
+
+export const fetchReviewStay = async (roomId: string, name: string, month: string): Promise<ReviewStay | null> => {
+  const response = await axios.get(`${BACKEND_ENDPOINT}/tt-host/reviews/stay`, { ...authed(), params: { roomId, name, month } });
+  const d = response.data;
+  // CloudFront can answer a failure with index.html and a 200: not a stay.
+  return d && typeof d.stayDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d.stayDate) ? d : null;
+};
