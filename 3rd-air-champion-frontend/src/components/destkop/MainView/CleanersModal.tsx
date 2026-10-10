@@ -59,6 +59,9 @@ import {
 } from "../../../util/cleanerOperations";
 import { DANGER_BUTTON, SWIPE_DELETE } from "../../shared/dangerButton";
 import VisitFeedback from "./VisitFeedback";
+import GuestFigures from "../../shared/GuestFigures";
+import SofaBedTag from "../../shared/SofaBedTag";
+import { HiPlusCircle } from "react-icons/hi2";
 
 interface CleanersModalProps {
   hostId: string;
@@ -3149,23 +3152,33 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                                 could not comment on work they could not see
                                 (host, 2026-10-09). */}
                             <div className="mt-1 flex flex-col gap-1">
-                              {group.assignments.map((a) =>
-                                a.room ? (
+                              {/* The same pieces TiWork draws the cleaner's card
+                                  with — GuestFigures, SofaBedTag, the magenta
+                                  plus badge — so the host and the cleaner look
+                                  at one account of the morning. The booked
+                                  arrival only: a guess at a past day's
+                                  headcount would describe nothing. */}
+                              {group.assignments.map((a) => {
+                                if (!a.room) return null;
+                                const need = nextArrival(a.room.id, group.date);
+                                return (
                                   <div key={a.id} className="flex items-center gap-2">
                                     <RoomBadge
                                       room={{ name: a.room.name, color: roomColorById.get(a.room.id) }}
                                       rooms={group.assignments.map((x) => ({ name: x.room?.name ?? "" }))}
                                     />
-                                    <span className="text-xs text-gray-500">{headcountFor(a.room.id, group.date) ?? ""}</span>
+                                    <GuestFigures n={need?.guests ?? 0} />
+                                    <SofaBedTag on={need?.sofaBed} />
                                   </div>
-                                ) : null,
-                              )}
+                                );
+                              })}
                               {extrasOf(group.cleaner.id, group.date).map((e) => (
                                 <div key={e.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                                  <span className="inline-flex items-center gap-1 rounded-md bg-fuchsia-600 px-2 py-0.5 text-xs font-bold text-white shadow-sm">
-                                    + {e.name}
+                                  <span className="inline-flex items-center gap-1 rounded-md bg-fuchsia-600 px-2 py-0.5 text-sm font-bold text-white shadow-sm">
+                                    <HiPlusCircle aria-hidden className="h-4 w-4 shrink-0" />
+                                    {e.name}
                                   </span>
-                                  <span className="text-xs font-semibold text-fuchsia-700">{e.note || "extra job"}</span>
+                                  <span className="text-sm font-semibold text-fuchsia-700">{e.note || "extra job"}</span>
                                 </div>
                               ))}
                             </div>
