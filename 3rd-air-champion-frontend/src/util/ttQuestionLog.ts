@@ -197,13 +197,17 @@ export interface ReviewEntryRow {
 export type LeadBasis = "night" | "month" | "none" | "before";
 
 // The one sentence under a review about who cleaned the room, for TT's answers
-// and the Guest reviews list alike. A LEAD, said as one: a review gives a
-// night at best, never who left the room how.
+// and the Guest reviews list alike — plainly what is on record.
+//
+// It used to end "— a lead, not proof", from when reviews carried only a
+// month. The host read that and asked what it meant (2026-10-10): once the
+// stay comes from the bookings, who prepared the room for it is a fact, and
+// "that month" already says how loose a month-only one is.
 export const cleanerLeadLine = (basis: LeadBasis | undefined, cleaners: string[] = []): string => {
   if (basis === "before") return "Before cleaning was recorded (Jul 20, 2026), so no cleaner on file.";
   if (!basis || basis === "none") return "No date on this review, so no cleaner to point to.";
   if (cleaners.length === 0) return "No cleaning recorded for this room then.";
-  return `${basis === "night" ? "Cleaned for that stay by" : "Cleaned this room that month:"} ${cleaners.join(", ")} — a lead, not proof.`;
+  return `${basis === "night" ? "Room prepared by" : "Cleaned that month by"} ${cleaners.join(", ")}`;
 };
 
 export interface ReviewEntryFull {
