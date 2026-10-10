@@ -289,3 +289,30 @@ export const setCleaningExtraNote = async (
   data: { host: string; date: string; cleaner: string; job: string; note: string },
   token: string,
 ): Promise<{ note: string }> => (await axios.patch(`${BACKEND_ENDPOINT}/cleaner/extras/note`, data, auth(token))).data;
+
+// ── Feedback on a visit ──────────────────────────────────────────────────────
+// The house's word to a cleaner on one morning — written here, read in TiWork.
+export type FeedbackVerdict = "" | "great" | "good" | "fix";
+
+export interface VisitFeedbackType {
+  date: string;
+  cleaner: string;
+  verdict: FeedbackVerdict;
+  text: string;
+  // When the cleaner first saw this wording in TiWork; null = not yet.
+  seenAt: string | null;
+}
+
+export const fetchVisitFeedback = async (
+  hostId: string,
+  start: string,
+  end: string,
+  token: string,
+): Promise<VisitFeedbackType[]> =>
+  (await axios.get(`${BACKEND_ENDPOINT}/cleaner/feedback`, { params: { host: hostId, start, end }, ...auth(token) })).data;
+
+// Replaces the visit's feedback; an empty verdict AND text removes it (null back).
+export const saveVisitFeedback = async (
+  data: { host: string; date: string; cleaner: string; verdict: FeedbackVerdict; text: string },
+  token: string,
+): Promise<VisitFeedbackType | null> => (await axios.put(`${BACKEND_ENDPOINT}/cleaner/feedback`, data, auth(token))).data;
