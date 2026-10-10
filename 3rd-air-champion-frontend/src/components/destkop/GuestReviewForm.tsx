@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
+import { createPortal } from "react-dom";
 import { jwtDecode } from "jwt-decode";
 import { getToken } from "../../util/authSession";
 import { fetchGuests } from "../../util/guestOperations";
@@ -42,7 +43,8 @@ const GuestReviewForm = ({ roomId, roomName, onAdded }: { roomId: string; roomNa
   const [note, setNote] = useState("");
   // The review being edited in this form, or null when it adds a new one.
   const [editingId, setEditingId] = useState<string | null>(null);
-  const formTop = useRef<HTMLDivElement>(null);
+  // The add/edit form, popped up over the list.
+  const [formOpen, setFormOpen] = useState(false);
   // A search over this room's reviews — names, words, dates (host,
   // 2026-10-10). Searched on the server, where the whole text is: the list
   // holds only the first line of each.
@@ -171,7 +173,7 @@ const GuestReviewForm = ({ roomId, roomName, onAdded }: { roomId: string; roomNa
     setWhen("");
     setText(full.text);
     setNote("");
-    formTop.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setFormOpen(true);
   };
 
   const add = async () => {
@@ -201,6 +203,7 @@ const GuestReviewForm = ({ roomId, roomName, onAdded }: { roomId: string; roomNa
           text: parts.text.trim(),
         });
         clearForm();
+        setFormOpen(false);
         setNote(`Saved ${name ? `${name.split(/\s+/)[0]}'s` : "the"} review.`);
         loadEntries();
         onAdded();
@@ -225,6 +228,7 @@ const GuestReviewForm = ({ roomId, roomName, onAdded }: { roomId: string; roomNa
         // a date carried over would be saved against the wrong stay without
         // anyone noticing.
         clearForm();
+        setFormOpen(false);
         setNote(`Added to ${roomName}.`);
         loadEntries();
         // The room's file changed too (the review is appended to it), so the
@@ -240,181 +244,237 @@ const GuestReviewForm = ({ roomId, roomName, onAdded }: { roomId: string; roomNa
     }
   };
 
+  const closeForm = () => {
+    if (busy) return;
+    clearForm();
+    setNote("");
+    setFormOpen(false);
+  };
+
+  // The reviews are what this tab is FOR, so they fill it; adding one is a
+  // button that opens the form over them, and Edit opens the same form, filled
+  // (host, 2026-10-10). The form used to sit open above the list, and on a
+  // phone the reviews began a screen and a half down.
   return (
-    <div ref={formTop} className={`mt-3 rounded-xl border p-3 ${editingId ? "border-sky-300 bg-sky-50/40" : "border-gray-200"}`}>
-      <h4 className="text-xs font-bold text-gray-900">
-        {editingId
-          ? `Edit ${guestName.trim() ? `${guestName.trim().split(/\s+/)[0]}'s` : "this"} review of ${roomName}`
-          : `Add one guest's review of ${roomName}`}
-      </h4>
-      <p className="mt-0.5 text-[11px] leading-relaxed text-gray-500">
-        Kept for this room, this guest and this stay — so a complaint leads to who cleaned it, and a 5-star stay can be
-        thanked.
-      </p>
-
-      <div className="mt-2 grid grid-cols-2 gap-2">
-        <div>
-          <label htmlFor="rev-guest" className="mb-0.5 block text-[11px] font-semibold text-gray-600">
-            Guest
-          </label>
-          <input
-            id="rev-guest"
-            list="rev-guests"
-            value={guestName}
-            onChange={(e) => setGuestName(e.target.value)}
-            placeholder="Type a name"
-            autoComplete="off"
-            // 16px: below that, iOS Safari zooms the page in on focus.
-            className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-[16px] focus:border-gray-400 focus:outline-none sm:text-sm"
-          />
-          <datalist id="rev-guests">
-            {guests.slice(0, 200).map((g) => (
-              <option key={g.id} value={g.name} />
-            ))}
-          </datalist>
-          {guestName.trim() && (
-            <p className="mt-0.5 text-[10px] text-gray-400">{matched ? "On your guest list" : "Not on your guest list — kept as typed"}</p>
-          )}
-        </div>
-        <div>
-          <label htmlFor="rev-date" className="mb-0.5 block text-[11px] font-semibold text-gray-600">
-            Stay started
-          </label>
-          <input
-            id="rev-date"
-            type="date"
-            value={stayDate}
-            onChange={(e) => {
-              stayAuto.current = false;
-              setStayDate(e.target.value);
-            }}
-            className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-[16px] focus:border-gray-400 focus:outline-none sm:text-sm"
-          />
-          {/* Where the date came from, so the host knows to check it rather
-              than wonder. */}
-          {found && found !== "none" && stayAuto.current && stayDate === found.stayDate && (
-            <p className="mt-0.5 text-[10px] text-teal-700">
-              Found in the bookings: {found.nights} night{found.nights === 1 ? "" : "s"}, out{" "}
-              {format(parseISO(found.checkout), "MMM d")}
-              {found.others > 0 ? ` · ${found.others} earlier stay${found.others === 1 ? "" : "s"} too — check` : ""}
-            </p>
-          )}
-          {found === "none" && !stayDate && (
-            <p className="mt-0.5 text-[10px] text-gray-400">
-              No stay for {guestName.trim().split(/\s+/)[0]} in {roomName} around then — add it if you know it
-            </p>
-          )}
-        </div>
-      </div>
-
-      <div className="mt-2 flex items-center gap-1" role="group" aria-label="Stars">
-        <span className="mr-1 text-[11px] font-semibold text-gray-600">Stars</span>
-        {[1, 2, 3, 4, 5].map((n) => (
-          <button
-            key={n}
-            type="button"
-            aria-pressed={stars === n}
-            aria-label={`${n} star${n === 1 ? "" : "s"}`}
-            // Tapping the chosen one again clears it: not every review gives stars.
-            onClick={() => setStars(stars === n ? null : n)}
-            className={`h-8 w-8 rounded-lg text-sm font-bold transition-colors ${
-              stars != null && n <= stars ? "bg-amber-400 text-white" : "bg-gray-100 text-gray-400 hover:bg-gray-200"
-            }`}
-          >
-            ★
-          </button>
-        ))}
-      </div>
-
-      {reviewMonth && (
-        <p className="mt-1 text-[11px] text-gray-500">
-          Dated {when ? `“${when}” — ` : ""}
-          {reviewMonth}
-          {!stayDate ? " (the month only; add the stay date above if you know it)" : ""}
+    <div>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-semibold text-gray-800">
+          {search.trim() ? `Found: ${mine.length}` : `${mine.length} review${mine.length === 1 ? "" : "s"} on record`}
         </p>
-      )}
-      <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onPaste={(e) => {
-          if (fillFrom(e.clipboardData.getData("text"))) e.preventDefault();
-        }}
-        rows={4}
-        maxLength={MAX_REVIEW_CHARS}
-        placeholder={`Paste this guest's review of ${roomName}…`}
-        className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-[16px] focus:border-gray-400 focus:outline-none sm:text-sm"
-      />
-      <div className="mt-0.5 text-right text-[10px] text-gray-400">
-        {text.length.toLocaleString()} / {MAX_REVIEW_CHARS.toLocaleString()}
-      </div>
-
-      <div className="mt-1 flex gap-2">
-        {editingId && (
-          <button
-            type="button"
-            onClick={() => {
-              clearForm();
-              setNote("");
-            }}
-            disabled={busy}
-            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-        )}
         <button
           type="button"
-          onClick={add}
-          disabled={busy || !text.trim()}
-          className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-40 ${
-            editingId ? "bg-sky-600 hover:bg-sky-700" : "bg-gray-800 hover:bg-gray-900"
-          }`}
+          onClick={() => {
+            clearForm();
+            setNote("");
+            setFormOpen(true);
+          }}
+          className="shrink-0 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800"
         >
-          {busy ? "Saving…" : editingId ? "Save changes" : "Add review"}
+          + Add
         </button>
       </div>
-      {note && (
-        <p role="status" className="mt-1.5 text-xs text-gray-600">
+      <input
+        type="search"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search — a name, a word, a month (2026-09)"
+        aria-label={`Search ${roomName}'s reviews`}
+        // 16px: below that, iOS Safari zooms the page in on focus.
+        className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-[16px] focus:border-gray-400 focus:outline-none sm:text-sm"
+      />
+      {note && !formOpen && (
+        <p role="status" className="mt-1.5 text-xs font-medium text-teal-700">
           {note}
         </p>
       )}
-
-      {(mine.length > 0 || search.trim()) && (
-        <div className="mt-3 border-t border-gray-100 pt-2">
-          <p className="text-[11px] font-semibold text-gray-600">
-            {search.trim() ? `Found in ${roomName}: ${mine.length}` : `On record for ${roomName}: ${mine.length}`}
-          </p>
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search — a name, a word, a month (2026-09)"
-            aria-label={`Search ${roomName}'s reviews`}
-            // 16px: below that, iOS Safari zooms the page in on focus.
-            className="mt-1 w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-[16px] focus:border-gray-400 focus:outline-none sm:text-sm"
-          />
-          <p className="mt-1 text-[10px] text-gray-400">Tap a review to read it all · swipe it left to delete</p>
-          {search.trim() && mine.length === 0 && (
-            <p className="mt-1 text-xs text-gray-500">No review of {roomName} has all of those words.</p>
-          )}
-          <ul className="mt-1 max-h-72 divide-y divide-gray-100 overflow-y-auto">
-            {mine.map((e) => (
-              <ReviewEntryItem
-                // Keyed on what can change too: after a save the row starts
-                // fresh, rather than keep showing the words it opened with.
-                key={`${e.id}|${e.guestName}|${e.stars}|${e.stayDate}|${e.reviewMonth}|${e.snippet}`}
-                entry={e}
-                onEdit={startEdit}
-                onDeleted={() => {
-                  if (e.id === editingId) clearForm();
-                  loadEntries();
-                  onAdded();
-                }}
-              />
-            ))}
-          </ul>
-        </div>
+      <p className="mt-1.5 text-[11px] text-gray-400">Tap a review to read it all · swipe it left to delete</p>
+      {search.trim() && mine.length === 0 && (
+        <p className="mt-2 text-sm text-gray-500">No review of {roomName} has all of those words.</p>
       )}
+      {!search.trim() && mine.length === 0 && (
+        <p className="mt-2 text-sm text-gray-500">No reviews of {roomName} yet. Tap Add to put the first one in.</p>
+      )}
+      <ul className="mt-1 divide-y divide-gray-100">
+        {mine.map((e) => (
+          <ReviewEntryItem
+            // Keyed on what can change too: after a save the row starts
+            // fresh, rather than keep showing the words it opened with.
+            key={`${e.id}|${e.guestName}|${e.stars}|${e.stayDate}|${e.reviewMonth}|${e.snippet}`}
+            entry={e}
+            onEdit={startEdit}
+            onDeleted={() => {
+              if (e.id === editingId) clearForm();
+              loadEntries();
+              onAdded();
+            }}
+          />
+        ))}
+      </ul>
+
+      {formOpen &&
+        createPortal(
+          // Above the Guest reviews window (z-300). A bottom sheet on a phone,
+          // a centred card on a wider screen.
+          <div
+            className="modal-type fixed inset-0 z-[400] flex items-end justify-center bg-black/50 sm:items-center sm:p-3"
+            onClick={closeForm}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={editingId ? "Edit review" : "Add a review"}
+              className="flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-2 border-b border-gray-100 px-4 py-3">
+                <div>
+                  <h4 className="text-base font-bold text-gray-900">
+                    {editingId
+                      ? `Edit ${guestName.trim() ? `${guestName.trim().split(/\s+/)[0]}'s` : "this"} review`
+                      : `Add a review of ${roomName}`}
+                  </h4>
+                  <p className="mt-0.5 text-[11px] leading-relaxed text-gray-500">
+                    Paste it straight from AirBnB — the name, stars, month and stay fill themselves in.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeForm}
+                  aria-label="Close"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xl leading-none text-gray-400 hover:bg-gray-100"
+                >
+                  &times;
+                </button>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3">
+                <textarea
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  onPaste={(e) => {
+                    if (fillFrom(e.clipboardData.getData("text"))) e.preventDefault();
+                  }}
+                  rows={6}
+                  maxLength={MAX_REVIEW_CHARS}
+                  autoFocus={!editingId}
+                  placeholder={`Paste this guest's review of ${roomName}…`}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[16px] leading-relaxed focus:border-gray-400 focus:outline-none sm:text-sm"
+                />
+                <div className="mt-0.5 text-right text-[10px] text-gray-400">
+                  {text.length.toLocaleString()} / {MAX_REVIEW_CHARS.toLocaleString()}
+                </div>
+
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <div>
+                    <label htmlFor="rev-guest" className="mb-0.5 block text-[11px] font-semibold text-gray-600">
+                      Guest
+                    </label>
+                    <input
+                      id="rev-guest"
+                      list="rev-guests"
+                      value={guestName}
+                      onChange={(e) => setGuestName(e.target.value)}
+                      placeholder="Type a name"
+                      autoComplete="off"
+                      className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-[16px] focus:border-gray-400 focus:outline-none sm:text-sm"
+                    />
+                    <datalist id="rev-guests">
+                      {guests.slice(0, 200).map((g) => (
+                        <option key={g.id} value={g.name} />
+                      ))}
+                    </datalist>
+                    {guestName.trim() && (
+                      <p className="mt-0.5 text-[10px] text-gray-400">
+                        {matched ? "On your guest list" : "Not on your guest list — kept as typed"}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label htmlFor="rev-date" className="mb-0.5 block text-[11px] font-semibold text-gray-600">
+                      Stay started
+                    </label>
+                    <input
+                      id="rev-date"
+                      type="date"
+                      value={stayDate}
+                      onChange={(e) => {
+                        stayAuto.current = false;
+                        setStayDate(e.target.value);
+                      }}
+                      className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-[16px] focus:border-gray-400 focus:outline-none sm:text-sm"
+                    />
+                    {/* Where the date came from, so the host knows to check it
+                        rather than wonder. */}
+                    {found && found !== "none" && stayAuto.current && stayDate === found.stayDate && (
+                      <p className="mt-0.5 text-[10px] text-teal-700">
+                        Found in the bookings: {found.nights} night{found.nights === 1 ? "" : "s"}, out{" "}
+                        {format(parseISO(found.checkout), "MMM d")}
+                        {found.others > 0 ? ` · ${found.others} earlier stay${found.others === 1 ? "" : "s"} too — check` : ""}
+                      </p>
+                    )}
+                    {found === "none" && !stayDate && (
+                      <p className="mt-0.5 text-[10px] text-gray-400">
+                        No stay for {guestName.trim().split(/\s+/)[0]} in {roomName} around then — add it if you know it
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-2 flex items-center gap-1" role="group" aria-label="Stars">
+                  <span className="mr-1 text-[11px] font-semibold text-gray-600">Stars</span>
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      aria-pressed={stars === n}
+                      aria-label={`${n} star${n === 1 ? "" : "s"}`}
+                      // Tapping the chosen one again clears it: not every review gives stars.
+                      onClick={() => setStars(stars === n ? null : n)}
+                      className={`h-8 w-8 rounded-lg text-sm font-bold transition-colors ${
+                        stars != null && n <= stars ? "bg-amber-400 text-white" : "bg-gray-100 text-gray-400 hover:bg-gray-200"
+                      }`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+
+                {reviewMonth && (
+                  <p className="mt-1 text-[11px] text-gray-500">
+                    Dated {when ? `“${when}” — ` : ""}
+                    {reviewMonth}
+                    {!stayDate ? " (the month only; add the stay date above if you know it)" : ""}
+                  </p>
+                )}
+                {note && (
+                  <p role="status" className="mt-2 text-xs text-gray-600">
+                    {note}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex gap-2 border-t border-gray-100 px-4 py-3">
+                <button
+                  type="button"
+                  onClick={closeForm}
+                  disabled={busy}
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={add}
+                  disabled={busy || !text.trim()}
+                  className="flex-1 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-40"
+                >
+                  {busy ? "Saving…" : editingId ? "Save changes" : "Add review"}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 };
