@@ -371,6 +371,9 @@ const CalendarNavigator = ({
             >
               {occupancy.roomOccupancy
                 .filter((room) => room.name !== "Master") // Exclude "Master"
+                // Fullest first: the strip scrolls, so what shows without a
+                // swipe should be the rooms doing best (host, 2026-10-10).
+                .sort((a, b) => b.occupancy - a.occupancy)
                 .map((object, index) => {
                   // Determine the color class based on occupancy
                   const occupancyColor =
