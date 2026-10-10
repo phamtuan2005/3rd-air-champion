@@ -160,6 +160,46 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
           </button>
         </div>
 
+        {/* The two actions that cover the whole house at once — one draft writes
+            every summary, one publish sends them all to TiBook — so they sit
+            above the tabs, the same on every one. They were at the foot of the
+            window; the host wanted them under the title (2026-10-09). */}
+        {state && !error && (
+          <div className="shrink-0 border-b border-gray-100 bg-white px-4 py-2">
+            {/* Only what is happening now: a draft in progress, one that
+                failed, one to check. "What guests see now, published Oct 8"
+                gave the host nothing to act on (host, 2026-10-08). */}
+            {(drafting || state.draft.status === "failed" || showingDraft) && (
+              <p className="mb-2 text-[11px] text-gray-500">
+                {drafting
+                  ? "Claude is reading the reviews…"
+                  : state.draft.status === "failed"
+                    ? `The draft didn't finish: ${state.draft.error}`
+                    : `Claude's draft, from ${state.draft.reviewsRead} review${state.draft.reviewsRead === 1 ? "" : "s"} — check each tab says only what guests said, then publish.`}
+              </p>
+            )}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={draft}
+                disabled={!anyPasted || busy || drafting}
+                className="whitespace-nowrap rounded-lg border border-gray-300 px-3 py-1 text-sm font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-40"
+              >
+                {drafting ? "Drafting…" : "Draft all summaries"}
+              </button>
+              <button
+                type="button"
+                onClick={publish}
+                disabled={busy || drafting}
+                className="whitespace-nowrap rounded-lg bg-emerald-600 px-3 py-1 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-40"
+              >
+                Publish to TiBook
+              </button>
+            </div>
+            {note && <p className="mt-1.5 text-xs text-gray-600">{note}</p>}
+          </div>
+        )}
+
         {state && !error && (
           <div role="tablist" className="flex shrink-0 flex-wrap gap-1.5 border-b border-gray-100 px-4 py-2.5">
             {[...rooms, { roomId: "house", name: "House" }].map((r) => {
@@ -259,45 +299,6 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
             </>
           )}
         </div>
-
-        {/* The two actions that cover the whole house at once — one draft writes
-            every summary, one publish sends them all to TiBook — so they sit
-            under the tabs, the same on every one. */}
-        {state && !error && (
-          <div className="shrink-0 border-t border-gray-100 bg-white px-4 py-2">
-            {/* Only what is happening now: a draft in progress, one that
-                failed, one to check. "What guests see now, published Oct 8"
-                gave the host nothing to act on (host, 2026-10-08). */}
-            {(drafting || state.draft.status === "failed" || showingDraft) && (
-              <p className="mb-2 text-[11px] text-gray-500">
-                {drafting
-                  ? "Claude is reading the reviews…"
-                  : state.draft.status === "failed"
-                    ? `The draft didn't finish: ${state.draft.error}`
-                    : `Claude's draft, from ${state.draft.reviewsRead} review${state.draft.reviewsRead === 1 ? "" : "s"} — check each tab says only what guests said, then publish.`}
-              </p>
-            )}
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={draft}
-                disabled={!anyPasted || busy || drafting}
-                className="whitespace-nowrap rounded-lg border border-gray-300 px-3 py-1 text-sm font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-40"
-              >
-                {drafting ? "Drafting…" : "Draft all summaries"}
-              </button>
-              <button
-                type="button"
-                onClick={publish}
-                disabled={busy || drafting}
-                className="whitespace-nowrap rounded-lg bg-emerald-600 px-3 py-1 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-40"
-              >
-                Publish to TiBook
-              </button>
-            </div>
-            {note && <p className="mt-1.5 text-center text-xs text-gray-600">{note}</p>}
-          </div>
-        )}
       </div>
     </div>
   );
