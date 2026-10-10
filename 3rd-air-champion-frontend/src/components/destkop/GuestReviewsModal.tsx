@@ -161,51 +161,6 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
           </button>
         </div>
 
-        {/* The two actions that cover the whole house at once — one draft writes
-            every summary, one publish sends them all to TiBook — so they sit
-            above the tabs, the same on every one. They were at the foot of the
-            window; the host wanted them under the title (2026-10-09). */}
-        {state && !error && (
-          <div className="shrink-0 border-b border-gray-100 bg-white px-4 py-2">
-            {/* Only what is happening now: a draft in progress, one that
-                failed, one to check. "What guests see now, published Oct 8"
-                gave the host nothing to act on (host, 2026-10-08). */}
-            {(drafting || state.draft.status === "failed" || showingDraft) && (
-              <p className="mb-2 text-[11px] text-gray-500">
-                {drafting
-                  ? "Claude is reading the reviews…"
-                  : state.draft.status === "failed"
-                    ? `The draft didn't finish: ${state.draft.error}`
-                    : `Claude's draft, from ${state.draft.reviewsRead} review${state.draft.reviewsRead === 1 ? "" : "s"} — check each tab says only what guests said, then publish.`}
-              </p>
-            )}
-            {/* Short labels on one line each: "Draft all summaries" + "Publish to
-                TiBook" ran past the edge of a phone (2026-10-09). The window is
-                about what TT tells guests, so "Publish" needs no "to TiBook". */}
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={draft}
-                disabled={!anyPasted || busy || drafting}
-                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-300 px-3 py-1 text-sm font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-40"
-              >
-                <HiSparkles aria-hidden className={`h-4 w-4 shrink-0 text-violet-500 ${drafting ? "animate-pulse" : ""}`} />
-                {drafting ? "Drafting…" : "Draft summaries"}
-              </button>
-              <button
-                type="button"
-                onClick={publish}
-                disabled={busy || drafting}
-                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-emerald-600 px-3 py-1 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-40"
-              >
-                <HiPaperAirplane aria-hidden className="h-4 w-4 shrink-0" />
-                Publish
-              </button>
-            </div>
-            {note && <p className="mt-1.5 text-xs text-gray-600">{note}</p>}
-          </div>
-        )}
-
         {state && !error && (
           // One dropdown, not a row of tabs: six tabs took two rows on a phone
           // (host, 2026-10-09).
@@ -257,6 +212,53 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
                 placeholder="Empty — TT says it has no summary for the house yet"
                 className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm leading-relaxed focus:border-gray-400 focus:outline-none"
               />
+              {/* Drafting and publishing the summaries live HERE, on the House
+                  tab, not over every room: the host does it about once a month,
+                  when the count passes a milestone (400, 500…), and on top of
+                  each room they pushed the reviews down (host, 2026-10-10). */}
+              <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3">
+                <p className="text-sm font-semibold text-gray-900">Refresh the summaries</p>
+                <p className="mt-0.5 mb-2 text-xs text-gray-500">
+                  Every so often — when the reviews pass a milestone. Claude drafts the house's summary and each
+                  room's from all {onRecord} reviews; check them, then Publish to TiBook.
+                </p>
+                {/* Only what is happening now: a draft in progress, one that
+                    failed, one to check. "What guests see now, published Oct 8"
+                    gave the host nothing to act on (host, 2026-10-08). */}
+                {(drafting || state.draft.status === "failed" || showingDraft) && (
+                  <p className="mb-2 text-[11px] text-gray-500">
+                    {drafting
+                      ? "Claude is reading the reviews…"
+                      : state.draft.status === "failed"
+                        ? `The draft didn't finish: ${state.draft.error}`
+                        : `Claude's draft, from ${state.draft.reviewsRead} review${state.draft.reviewsRead === 1 ? "" : "s"} — check each room in the list above says only what guests said, then Publish.`}
+                  </p>
+                )}
+                {/* Short labels on one line each: "Draft all summaries" + "Publish to
+                    TiBook" ran past the edge of a phone (2026-10-09). The window is
+                    about what TT tells guests, so "Publish" needs no "to TiBook". */}
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={draft}
+                    disabled={!anyPasted || busy || drafting}
+                    className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-300 px-3 py-1 text-sm font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-40"
+                  >
+                    <HiSparkles aria-hidden className={`h-4 w-4 shrink-0 text-violet-500 ${drafting ? "animate-pulse" : ""}`} />
+                    {drafting ? "Drafting…" : "Draft summaries"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={publish}
+                    disabled={busy || drafting}
+                    className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-emerald-600 px-3 py-1 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-40"
+                  >
+                    <HiPaperAirplane aria-hidden className="h-4 w-4 shrink-0" />
+                    Publish
+                  </button>
+                </div>
+                {note && <p className="mt-1.5 text-xs text-gray-600">{note}</p>}
+              </div>
             </section>
           ) : (
             // ── One room ──
