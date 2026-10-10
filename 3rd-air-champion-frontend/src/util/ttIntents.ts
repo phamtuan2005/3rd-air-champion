@@ -38,7 +38,7 @@ export const TT_SCREENS: TTScreen[] = [
   { key: "stats", label: "Stats", hint: "Occupancy, profit and open nights", words: ["statistics", "occupancy", "profit", "availability", "trend"] },
   { key: "visitors", label: "TiBook visitors", hint: "Who has looked at TiBook", words: ["visitors", "tibook visits", "traffic"] },
   { key: "ttQuestions", label: "TT questions", hint: "What guests ask TT, and what it couldn't answer", words: ["questions", "guest questions", "unanswered", "tt log"] },
-  { key: "reviews", label: "Guest reviews", hint: "The review summaries TT shows guests", words: ["reviews", "airbnb reviews", "ratings", "review summary"] },
+  { key: "reviews", label: "Guest reviews", hint: "Every review by room — search, add, edit", words: ["reviews", "airbnb reviews", "ratings", "review summary"] },
   { key: "misc", label: "Misc", hint: "Other expenses", words: ["expenses", "miscellaneous", "costs"] },
   { key: "charges", label: "Charges", hint: "Fees with no stay, such as a cancellation", words: ["fees", "cancellation", "charge"] },
   { key: "rates", label: "Rates", hint: "Guest and room rates", words: ["prices", "pricing", "rate"] },
