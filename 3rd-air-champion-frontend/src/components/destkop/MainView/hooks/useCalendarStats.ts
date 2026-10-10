@@ -213,7 +213,11 @@ export const useCalendarStats = ({
 
     const roomSets = new Map();
     const getBaseRoomName = (roomName: string) => roomName.replace(/^(.+)\1$/, "$1");
-    const filteredRooms = selectedRoomName ? rooms.filter((r) => r.name === selectedRoomName) : rooms;
+    // EVERY room, whatever the calendar is filtered to. The occupancy strip
+    // lists each room to tap as a filter; computed for the filtered room
+    // alone, tapping King left a strip of King and nothing to tap back to
+    // (host, 2026-10-10: "do not just limit to a single room after tapping").
+    const filteredRooms = rooms;
     const blockedNightsMap = new Map<string, number>();
 
     filteredRooms.forEach((room) => {
@@ -295,7 +299,7 @@ export const useCalendarStats = ({
       totalAirbnbAvailableDays > 0 ? (totalAirbnbGuests / totalAirbnbAvailableDays) * 100 : 0;
 
     setOccupancy({ totalOccupancy, airbnbOccupancy, roomOccupancy });
-  }, [days, currentMonth, rooms, selectedRoomName]);
+  }, [days, currentMonth, rooms]);
 
   useEffect(() => {
     let guestProfit = 0;
