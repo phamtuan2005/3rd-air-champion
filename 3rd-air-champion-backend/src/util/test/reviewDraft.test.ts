@@ -88,4 +88,9 @@ describe("reviewPrompt", () => {
     const prompt = reviewPrompt([{ roomId: "k", name: "King", text: "all", latest: { text: "Newest words", month: "2026-09", stars: 4 } }]);
     expect(prompt).toContain('<latest-review month="2026-09" stars="4">\nNewest words\n</latest-review>');
   });
+
+  it("never hands the reviewer's name to the draft — a summary names no one", () => {
+    const prompt = reviewPrompt([{ roomId: "k", name: "King", text: "all", latest: { text: "Newest words", month: "2026-09", stars: 4, firstName: "Gail" } }]);
+    expect(prompt).not.toContain("Gail");
+  });
 });

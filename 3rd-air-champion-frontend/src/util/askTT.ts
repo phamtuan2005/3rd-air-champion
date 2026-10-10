@@ -201,6 +201,8 @@ export interface TTLatestReview {
   summary: string;
   month: string; // yyyy-MM
   stars?: number;
+  // The reviewer's first name, as AirBnB shows it beside the review.
+  guest?: string;
 }
 
 export interface ReturningGuest {
@@ -587,10 +589,11 @@ const askedForLatest = (q: string) => LATEST_WORDS.test(q.toLowerCase());
 const reviewsOf = (room: TTRoom): TTAction => ({ kind: "ask", label: `What guests say about ${room.name}`, query: `${room.name} reviews` });
 const latestOf = (room: TTRoom): TTAction => ({ kind: "ask", label: `${room.name}'s latest review`, query: `${room.name} latest review` });
 
-// "September 2026 · 5 ★" — how recent "latest" is, said every time, so a
-// guest never takes a review from a year ago for last week's.
+// "Gail · September 2026 · 5 ★" — who wrote it (first name, as on AirBnB;
+// host, 2026-10-09), and how recent "latest" is, said every time, so a guest
+// never takes a review from a year ago for last week's.
 const latestWhen = (l: TTLatestReview) =>
-  [format(parseISO(`${l.month}-01`), "MMMM yyyy"), l.stars ? `${l.stars} ★` : ""].filter(Boolean).join(" · ");
+  [l.guest ?? "", format(parseISO(`${l.month}-01`), "MMMM yyyy"), l.stars ? `${l.stars} ★` : ""].filter(Boolean).join(" · ");
 
 // The newest review of a room, as the host published its summary. No room
 // named: each room's, one line apiece, since "latest" of the house would be

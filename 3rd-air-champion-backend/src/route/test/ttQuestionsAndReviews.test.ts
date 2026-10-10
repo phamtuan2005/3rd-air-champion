@@ -186,8 +186,9 @@ describe("review summaries", () => {
     expect(byId.get(king).latest).toEqual({ text: "Newest by its date", month: "2026-09", stars: 5 });
     expect(byId.get(chill).latest).toBeUndefined();
 
-    // Before any publish: King's newest dated review, its month and stars, and
-    // never the reviewer. Chill has only undated reviews, so no "latest".
+    // Before any publish: King's newest dated review, its month and stars.
+    // Chill has only undated reviews, so no "latest". A review with no name
+    // carries none.
     expect((await request(guestApp).get(`/tt/reviews/${host}`)).body.rooms).toEqual([
       { roomId: king, summary: "", latest: "Newest by its date", latestMonth: "2026-09", latestStars: 5 },
     ]);
@@ -196,6 +197,13 @@ describe("review summaries", () => {
     await onRecord(host, king, "Even newer", { reviewMonth: "2026-10", stars: 4 });
     expect((await request(guestApp).get(`/tt/reviews/${host}`)).body.rooms).toEqual([
       { roomId: king, summary: "", latest: "Even newer", latestMonth: "2026-10", latestStars: 4 },
+    ]);
+
+    // The reviewer is named by FIRST name, as AirBnB shows it, even when the
+    // host typed the full name (host, 2026-10-09).
+    await onRecord(host, king, "Newest, named", { reviewMonth: "2026-11", stars: 5, guestName: "Gail Smith" });
+    expect((await request(guestApp).get(`/tt/reviews/${host}`)).body.rooms).toEqual([
+      { roomId: king, summary: "", latest: "Newest, named", latestMonth: "2026-11", latestStars: 5, latestGuest: "Gail" },
     ]);
   });
 

@@ -10,8 +10,9 @@ import mongoose from "mongoose";
 // review file (ttReviewSourceSchema), because that file is what drafting the
 // summaries and Ask TiMag read; this record is the structured copy.
 //
-// Like the file, it names a reviewer, so it is manager-only and never reaches a
-// guest or TiBook's TT.
+// Like the file, it names a reviewer, so it is manager-only. The one thing a
+// guest sees from it: a room's newest review, with the reviewer's FIRST name
+// as AirBnB shows it (host, 2026-10-09; it used to show no name at all).
 const ttReviewEntrySchema = new mongoose.Schema(
   {
     host: { type: mongoose.Schema.ObjectId, ref: "Host", required: true },

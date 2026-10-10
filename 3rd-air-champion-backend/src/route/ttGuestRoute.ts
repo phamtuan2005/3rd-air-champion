@@ -91,8 +91,10 @@ router.get("/reviews/:host", async (req: Request, res: any) => {
     // added. It used to be a summary Claude drafted and the host published,
     // so with 431 reviews on file TT still said it had none until a draft and
     // a publish went through (host, 2026-10-08: "I don't understand why
-    // loading the latest review is so complicated"). Never the reviewer's
-    // name. Capped, so a long review stays a chat message.
+    // loading the latest review is so complicated"). With the reviewer's
+    // FIRST name, as AirBnB shows it — it used to carry no name at all, and
+    // the host wanted the guest's name seen with their words (2026-10-09).
+    // Capped, so a long review stays a chat message.
     const LATEST_CHARS = 600;
     const latestOf = (roomId: string) => {
       const l = newest.get(roomId);
@@ -102,6 +104,7 @@ router.get("/reviews/:host", async (req: Request, res: any) => {
         latest: t.length > LATEST_CHARS ? `${t.slice(0, LATEST_CHARS).replace(/\s+\S*$/, "")}…` : t,
         latestMonth: l.month,
         ...(l.stars ? { latestStars: l.stars } : {}),
+        ...(l.firstName ? { latestGuest: l.firstName } : {}),
       };
     };
     const published = (p?.rooms ?? []).filter((r: any) => r?.room && r.summary);

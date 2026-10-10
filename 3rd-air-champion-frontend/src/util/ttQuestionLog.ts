@@ -66,7 +66,12 @@ export const fetchPublishedReviews = async (hostId: string): Promise<PublishedRe
     latest: Object.fromEntries(
       data.rooms
         .filter((r: any) => r.latest && /^\d{4}-\d{2}$/.test(r.latestMonth ?? ""))
-        .map((r: any) => [r.roomId, { summary: r.latest, month: r.latestMonth, ...(r.latestStars ? { stars: r.latestStars } : {}) }]),
+        .map((r: any) => [r.roomId, {
+          summary: r.latest,
+          month: r.latestMonth,
+          ...(r.latestStars ? { stars: r.latestStars } : {}),
+          ...(typeof r.latestGuest === "string" && r.latestGuest.trim() ? { guest: r.latestGuest.trim() } : {}),
+        }]),
     ),
   };
 };
