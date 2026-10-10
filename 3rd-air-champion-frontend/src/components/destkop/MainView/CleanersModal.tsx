@@ -3089,9 +3089,11 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                             <div key={group.key} className="rounded-lg bg-gray-50 p-2">
                             <div className="flex items-center gap-2">
                               <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm text-gray-600">
-                                  {format(new Date(group.date + "T00:00:00"), "EEE M/d")} ·{" "}
-                                  {group.assignments.map((a) => a.room?.name).join(", ")}
+                                <p className="text-sm font-semibold text-gray-800">
+                                  {format(new Date(group.date + "T00:00:00"), "EEE M/d")}
+                                  <span className="font-normal text-gray-500">
+                                    {" "}· {group.assignments.length} room{group.assignments.length === 1 ? "" : "s"}
+                                  </span>
                                 </p>
                               </div>
                               {editingDayKey === group.key ? (
@@ -3138,6 +3140,34 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                                   </button>
                                 </>
                               )}
+                            </div>
+                            {/* What the visit WAS, laid out the way TiWork shows
+                                it to the cleaner: one room per line in its own
+                                colour, with who came in after, then each extra
+                                job on its own magenta line. It used to be one
+                                line, "Fri 10/9 · Cute, …", cut off — and the host
+                                could not comment on work they could not see
+                                (host, 2026-10-09). */}
+                            <div className="mt-1 flex flex-col gap-1">
+                              {group.assignments.map((a) =>
+                                a.room ? (
+                                  <div key={a.id} className="flex items-center gap-2">
+                                    <RoomBadge
+                                      room={{ name: a.room.name, color: roomColorById.get(a.room.id) }}
+                                      rooms={group.assignments.map((x) => ({ name: x.room?.name ?? "" }))}
+                                    />
+                                    <span className="text-xs text-gray-500">{headcountFor(a.room.id, group.date) ?? ""}</span>
+                                  </div>
+                                ) : null,
+                              )}
+                              {extrasOf(group.cleaner.id, group.date).map((e) => (
+                                <div key={e.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                                  <span className="inline-flex items-center gap-1 rounded-md bg-fuchsia-600 px-2 py-0.5 text-xs font-bold text-white shadow-sm">
+                                    + {e.name}
+                                  </span>
+                                  <span className="text-xs font-semibold text-fuchsia-700">{e.note || "extra job"}</span>
+                                </div>
+                              ))}
                             </div>
                             <VisitFeedback
                               hostId={hostId}
