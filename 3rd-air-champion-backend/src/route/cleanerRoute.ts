@@ -6,6 +6,7 @@ import { computeCleanerPay, rateOn } from "../util/cleanerPay";
 import SentSchedule from "../model/sentScheduleSchema";
 import CleaningJob from "../model/cleaningJobSchema";
 import CleaningExtra from "../model/cleaningExtraSchema";
+import CleaningFeedback, { VERDICTS } from "../model/cleaningFeedbackSchema";
 
 // All routes here are mounted behind the JWT middleware in server.ts.
 const router = express.Router();
@@ -695,6 +696,56 @@ router.patch("/extras/note", async (req: Request, res: any) => {
     const row: any = await CleaningExtra.findOneAndUpdate({ host, date, cleaner, job }, { $set: { note } }, { new: true }).lean();
     if (!row) return res.status(404).json({ error: "That job is not on this visit." });
     res.status(200).json({ ok: true, note: row.note ?? "" });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ── Feedback on a visit (cleaningFeedbackSchema) ─────────────────────────────
+
+const serializeFeedback = (r: any) => ({
+  date: r.date,
+  cleaner: String(r.cleaner),
+  verdict: r.verdict ?? "",
+  text: r.text ?? "",
+  seenAt: r.seenAt ?? null,
+  updatedAt: r.updatedAt ?? null,
+});
+
+router.get("/feedback", async (req: Request, res: any) => {
+  const { host, start, end } = req.query;
+  if (!host || !start || !end) return res.status(400).json({ error: "host, start and end are required" });
+  try {
+    const rows: any[] = await CleaningFeedback.find({ host, date: { $gte: String(start), $lte: String(end) } }).lean();
+    res.status(200).json(rows.map(serializeFeedback));
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Writes the house's word on one visit, replacing what was there. Nothing in
+// both boxes takes it away. Only on a morning the cleaner actually had rooms:
+// feedback on a visit that never was would reach the cleaner as a riddle.
+router.put("/feedback", async (req: Request, res: any) => {
+  const { host, date, cleaner } = req.body;
+  if (!host || !date || !cleaner) return res.status(400).json({ error: "host, date and cleaner are required" });
+  const verdict = (VERDICTS as readonly string[]).includes(req.body.verdict) ? String(req.body.verdict) : "";
+  const text = String(req.body.text ?? "").trim().slice(0, 1000);
+  try {
+    if (!verdict && !text) {
+      await CleaningFeedback.deleteOne({ host, date, cleaner });
+      return res.status(200).json(null);
+    }
+    if (!(await CleaningAssignment.exists({ host, date, cleaner }))) {
+      return res.status(400).json({ error: "This cleaner had no rooms that morning, so there is no visit to comment on." });
+    }
+    const row: any = await CleaningFeedback.findOneAndUpdate(
+      { host, date, cleaner },
+      // seenAt cleared: changed words are new words to the cleaner.
+      { $set: { verdict, text, seenAt: null }, $setOnInsert: { host, date, cleaner } },
+      { new: true, upsert: true, runValidators: true }
+    ).lean();
+    res.status(200).json(serializeFeedback(row));
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

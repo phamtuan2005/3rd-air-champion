@@ -5,6 +5,7 @@ import CleaningAssignment from "../model/cleaningAssignmentSchema";
 import WorkEntry from "../model/workEntrySchema";
 import { findAssignments } from "../util/assignmentQuery";
 import CleaningExtra from "../model/cleaningExtraSchema";
+import CleaningFeedback from "../model/cleaningFeedbackSchema";
 import { monthlyPayHistory } from "../util/monthlyPay";
 import { computeCleanerPay } from "../util/cleanerPay";
 import { arrivingNeeds } from "../util/arrivingGuests";
@@ -390,6 +391,13 @@ router.post("/schedule", async (req: Request, res: any) => {
       .lean();
     const extrasOn = new Map<string, { name: string; note: string }[]>();
     for (const e of extras) extrasOn.set(e.date, [...(extrasOn.get(e.date) ?? []), { name: e.name, note: e.note ?? "" }]);
+    // The house's word on each visit — how it went, and anything to fix.
+    const feedback: any[] = await CleaningFeedback.find({
+      host: who.doc.host,
+      cleaner: who.doc._id,
+      date: { $in: [...byDate.keys()] },
+    }).lean();
+    const feedbackOn = new Map(feedback.map((f) => [f.date, f]));
 
     res.status(200).json(
       [...byDate.values()]
@@ -399,10 +407,12 @@ router.post("/schedule", async (req: Request, res: any) => {
         )
         .map((g: any) => {
         const claim = byDay.get(g.date);
+        const fb = feedbackOn.get(g.date);
         return {
           date: g.date,
           rooms: g.rooms,
           extras: extrasOn.get(g.date) ?? [],
+          feedback: fb ? { verdict: fb.verdict ?? "", text: fb.text ?? "", isNew: !fb.seenAt } : null,
           // What the host has on record for the whole visit.
           recordedHours: g.hasHours ? g.recordedHours : null,
           claim: claim
@@ -417,6 +427,28 @@ router.post("/schedule", async (req: Request, res: any) => {
         };
       }),
     );
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// The cleaner has read the house's feedback on these visits: it stops showing
+// as New. Only their OWN visits — the filter is on who signed in, never on
+// anything the body names.
+router.post("/feedback/seen", async (req: Request, res: any) => {
+  const { identifier, code, dates } = req.body;
+  try {
+    const who = await authenticate(identifier, code);
+    if (!who) return res.status(401).json({ error: "Not signed in." });
+    if (who.kind !== "cleaner") return res.status(200).json({ ok: true });
+    const days = (Array.isArray(dates) ? dates : []).filter((d: any) => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d));
+    if (days.length) {
+      await CleaningFeedback.updateMany(
+        { host: who.doc.host, cleaner: who.doc._id, date: { $in: days }, seenAt: null },
+        { $set: { seenAt: new Date() } },
+      );
+    }
+    res.status(200).json({ ok: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

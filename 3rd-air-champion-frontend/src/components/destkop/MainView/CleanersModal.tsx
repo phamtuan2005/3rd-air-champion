@@ -40,6 +40,8 @@ import {
   createCleaningJob,
   deleteCleaningJob,
   fetchCleaningExtras,
+  fetchVisitFeedback,
+  VisitFeedbackType,
   toggleCleaningExtra,
   setCleaningExtraNote,
   CleaningJobType,
@@ -56,6 +58,7 @@ import {
   updateCleaner,
 } from "../../../util/cleanerOperations";
 import { DANGER_BUTTON, SWIPE_DELETE } from "../../shared/dangerButton";
+import VisitFeedback from "./VisitFeedback";
 
 interface CleanersModalProps {
   hostId: string;
@@ -277,6 +280,9 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
   const [jobs, setJobs] = useState<CleaningJobType[]>([]);
   const [extras, setExtras] = useState<CleaningExtraType[]>([]);
   const [extraTarget, setExtraTarget] = useState<{ cleaner: CleanerType; date: string } | null>(null);
+  // The house's feedback on each done visit, by `${cleanerId}|${date}` — the
+  // key the Hours tab's visit groups already use. Read by the cleaner in TiWork.
+  const [feedback, setFeedback] = useState<Record<string, VisitFeedbackType>>({});
   const [newJob, setNewJob] = useState("");
   // The note being typed for a ticked job, per job id, until it is saved.
   const [noteDraft, setNoteDraft] = useState<Record<string, string>>({});
@@ -870,6 +876,9 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
     fetchCleaningExtras(hostId, start, end, token)
       .then(setExtras)
       .catch((err) => console.error("Error fetching extras:", err));
+    fetchVisitFeedback(hostId, start, end, token)
+      .then((rows) => setFeedback(Object.fromEntries(rows.map((f) => [`${f.cleaner}|${f.date}`, f]))))
+      .catch((err) => console.error("Error fetching visit feedback:", err));
     fetchSentSchedules(hostId, token)
       .then((rows) =>
         setSentSchedules(
@@ -3077,10 +3086,8 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                       {open && (
                         <div className="space-y-1.5 border-t border-gray-100 p-2">
                           {days.map((group) => (
-                            <div
-                              key={group.key}
-                              className="flex items-center gap-2 rounded-lg bg-gray-50 p-2"
-                            >
+                            <div key={group.key} className="rounded-lg bg-gray-50 p-2">
+                            <div className="flex items-center gap-2">
                               <div className="min-w-0 flex-1">
                                 <p className="truncate text-sm text-gray-600">
                                   {format(new Date(group.date + "T00:00:00"), "EEE M/d")} ·{" "}
@@ -3131,6 +3138,23 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                                   </button>
                                 </>
                               )}
+                            </div>
+                            <VisitFeedback
+                              hostId={hostId}
+                              token={token}
+                              cleanerId={group.cleaner.id}
+                              cleanerName={group.cleaner.name}
+                              date={group.date}
+                              feedback={feedback[group.key]}
+                              onSaved={(fb) =>
+                                setFeedback((p) => {
+                                  const next = { ...p };
+                                  if (fb) next[group.key] = fb;
+                                  else delete next[group.key];
+                                  return next;
+                                })
+                              }
+                            />
                             </div>
                           ))}
                         </div>

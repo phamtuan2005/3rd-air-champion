@@ -13,6 +13,7 @@ import RoomBadge from "../components/shared/RoomBadge";
 import GuestFigures from "../components/shared/GuestFigures";
 import SofaBedTag from "../components/shared/SofaBedTag";
 import MonthlyBars from "../components/shared/MonthlyBars";
+import { verdictLabel } from "../util/feedbackVerdict";
 import { HiPlusCircle } from "react-icons/hi2";
 import { decimalToHm, formatHrMin, hmToDecimal } from "../util/hoursFormat";
 import {
@@ -28,6 +29,7 @@ import {
   fetchMyEntries,
   fetchMyPay,
   fetchMySchedule,
+  markFeedbackSeen,
   workSignIn,
 } from "../util/workOperations";
 
@@ -408,6 +410,23 @@ const TiWork = () => {
         .sort((a, b) => b.date.localeCompare(a.date)),
     [shifts, todayKey],
   );
+  // Feedback from the house they have not read yet. The Done tab says how many,
+  // so it is found without opening every day (Cindy, 2026-10-09: the point is
+  // that the cleaner actually hears how the visit went).
+  const newFeedbackDates = useMemo(
+    () => shiftsDone.filter((sh) => sh.feedback?.isNew).map((sh) => sh.date),
+    [shiftsDone],
+  );
+  // Seen once the Done tab is on screen. The New badges stay up for this visit
+  // to the page — they are what drew the eye — and are gone next time.
+  const seenSent = useRef(new Set<string>());
+  useEffect(() => {
+    if (!creds || view !== "work" || shiftTab !== "done") return;
+    const fresh = newFeedbackDates.filter((d) => !seenSent.current.has(d));
+    if (!fresh.length) return;
+    fresh.forEach((d) => seenSent.current.add(d));
+    markFeedbackSeen(creds, fresh);
+  }, [creds, view, shiftTab, newFeedbackDates]);
   // Assigned, the day has passed, nothing logged. These are the ONLY days a
   // cleaner can put hours against — a claim has to name a day the business
   // scheduled, so there is no way to invent one. Leaving one alone is how you
@@ -726,6 +745,11 @@ const TiWork = () => {
                           {n}
                         </span>
                       )}
+                      {k === "done" && newFeedbackDates.length > 0 && (
+                        <span className="rounded-full bg-teal-600 px-2 py-0.5 text-[10px] font-black uppercase text-white">
+                          {newFeedbackDates.length} new
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -925,6 +949,24 @@ const TiWork = () => {
                           <span className="w-full text-xs text-gray-500">
                             Anh-Tuan says: {claim.hostNote}
                           </span>
+                        )}
+                        {/* The house's word on this visit, from TiMag's Clean
+                            screen. Teal: it is the house speaking, not the
+                            work itself. */}
+                        {sh.feedback && (sh.feedback.verdict || sh.feedback.text) && (
+                          <div className="w-full rounded-xl bg-teal-50 px-3 py-2">
+                            <p className="flex flex-wrap items-center gap-x-2 text-sm font-semibold text-teal-900">
+                              <span>How your visit went{sh.feedback.verdict ? `: ${verdictLabel(sh.feedback.verdict)}` : ""}</span>
+                              {sh.feedback.isNew && (
+                                <span className="rounded-full bg-teal-600 px-2 py-0.5 text-[10px] font-black uppercase text-white">
+                                  New
+                                </span>
+                              )}
+                            </p>
+                            {sh.feedback.text && (
+                              <p className="mt-0.5 whitespace-pre-line text-sm text-teal-900/80">{sh.feedback.text}</p>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>

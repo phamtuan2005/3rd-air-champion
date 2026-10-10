@@ -41,6 +41,9 @@ export interface WorkShift {
   // Extra jobs on this visit beyond its rooms (windows, baseboards…), by name:
   // the visit is longer than its rooms, and paid by the hours as always.
   extras?: { name: string; note: string }[];
+  // The house's word on this visit, written in TiMag's Clean screen. isNew
+  // until the worker has seen this wording; an edit makes it new again.
+  feedback?: { verdict: "" | "great" | "good" | "fix"; text: string; isNew: boolean } | null;
   recordedHours: number | null;
   claim: {
     id: string;
@@ -216,4 +219,11 @@ export const deleteMyEntry = async (creds: WorkCreds, id: string) => {
   } catch (err) {
     throw unwrap(err, "Couldn't remove that.");
   }
+};
+
+// The worker has read the house's feedback on these days, so it stops showing
+// as New next time. Best effort: failing only means it reads New once more.
+export const markFeedbackSeen = async (creds: WorkCreds, dates: string[]): Promise<void> => {
+  if (!dates.length) return;
+  await axios.post(`${BACKEND_ENDPOINT}/work/feedback/seen`, { ...creds, dates }).catch(() => {});
 };
