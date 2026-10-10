@@ -123,6 +123,21 @@ describe("parseAirbnbReview", () => {
     expect(parseAirbnbReview(han.replace("\n\n", "\nHan\n"), today)).toMatchObject({ guestName: "Han", stars: 5 });
   });
 
+  // Every way the header arrives: copied on a computer (name repeated) or a
+  // phone (the picture pastes as nothing), with a city or "N years on Airbnb",
+  // in the old layout or the later one. The name must come out whole each time.
+  it.each([
+    ["phone, years", ["Han", "3 years on Airbnb", "", "Rating, 5 stars"]],
+    ["computer, years", ["Han", "3 years on Airbnb", "Han", "Rating, 5 stars"]],
+    ["phone, two-word city", ["Han", "San Jose, CA", "", "Rating, 5 stars"]],
+    ["computer, two-word city", ["Han", "San Jose, CA", "Han", "Rating, 5 stars"]],
+    ["later layout, two-word city", ["Han", "San Jose, CA", "Rating 5 out of 5"]],
+    ["later layout, phone", ["Han", "San Jose, CA", "", "Rating 5 out of 5"]],
+  ])("finds the name: %s", (_, header) => {
+    const block = [...header, ",·", "1 week ago", ",·", "Stayed a few nights", "Quiet and private."].join("\n");
+    expect(parseAirbnbReview(block, today)).toMatchObject({ guestName: "Han", stars: 5, text: "Quiet and private." });
+  });
+
   it("leaves the host's reply out", () => {
     const r = parseAirbnbReview(`${LIM}\nResponse from Anh-Tuan\nThank you Lim!`, today) as any;
     expect(r.text).toBe("Clean and quiet, great host.\nWould stay again.");

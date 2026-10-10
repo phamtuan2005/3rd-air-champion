@@ -123,10 +123,16 @@ const nameFrom = (above: string, higher: string): string => {
     const rest = words.slice(-k);
     if (rest[0].endsWith(head[0]) && head.slice(1).join(" ") === rest.slice(1).join(" ")) return tail;
   }
-  // The later layout: the words before the city, taken as the one word before
-  // its comma. "San Jose, CA" would leave "Gail San" — the host sees it in the
-  // Guest box before pressing Add. Nothing before the city: the line above.
-  return above.split(",")[0].split(/\s+/).slice(0, -1).join(" ") || higher;
+  // The city on a line of its own — the later layout, or a phone copy where the
+  // picture stood in for the repeated name: the name is the line above it.
+  // Taking the words before the comma instead turned "San Jose, CA" into the
+  // name "San" (2026-10-10).
+  if (higher) return higher;
+  // Flattened, the name and the city share one line ("Gail Waco, TX"): the
+  // words before the city, taken as the one word before its comma. "Gail San
+  // Jose, CA" would leave "Gail San" — the host sees it in the Guest box before
+  // pressing Add.
+  return above.split(",")[0].split(/\s+/).slice(0, -1).join(" ");
 };
 
 /**
