@@ -40,7 +40,10 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
   // below the tabs, not inside any of them. They used to sit inside the room
   // tabs' section while the summaries below listed every room whatever tab was
   // chosen, which read as two designs on one screen (host, 2026-10-07).
-  const [pasteRoomId, setPasteRoomId] = useState("house");
+  // Nothing picked yet opens on the first ROOM, and House is the last tab: the
+  // window is used to add each new review to its room, and the house summary
+  // opening first stood in the way of that (host, 2026-10-09).
+  const [pickedId, setPasteRoomId] = useState("");
   const [edit, setEdit] = useState<Edit>({ house: "", rooms: {}, latest: {} });
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
@@ -76,6 +79,7 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
   }, [drafting, apply]);
 
   const rooms = state?.houseRooms ?? [];
+  const pasteRoomId = pickedId || rooms[0]?.roomId || "house";
   const pasteRoom = rooms.find((r) => r.roomId === pasteRoomId);
   // How many reviews each room has on record, for its tab.
   const countOf = Object.fromEntries((state?.onRecord ?? []).map((r) => [r.roomId, r.count]));
@@ -158,7 +162,7 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
 
         {state && !error && (
           <div role="tablist" className="flex shrink-0 flex-wrap gap-1.5 border-b border-gray-100 px-4 py-2.5">
-            {[{ roomId: "house", name: "House" }, ...rooms].map((r) => {
+            {[...rooms, { roomId: "house", name: "House" }].map((r) => {
               const on = r.roomId === pasteRoomId;
               const count = r.roomId === "house" ? onRecord : countOf[r.roomId] ?? 0;
               return (
@@ -212,24 +216,10 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
             </section>
           ) : (
             // ── One room ──
+            // Adding the new review comes first, the summary after it: adding
+            // is what the host opens this tab to do (host, 2026-10-09).
             <>
               <section>
-                <h3 className="text-sm font-bold text-gray-900">What guests say about {pasteRoom.name}</h3>
-                <p className="mt-0.5 text-xs text-gray-500">What TT tells a guest who asks about this room.</p>
-                <textarea
-                  id={`summary-${pasteRoom.roomId}`}
-                  rows={4}
-                  value={edit.rooms[pasteRoom.roomId] ?? ""}
-                  onChange={(e) => setEdit((x) => ({ ...x, rooms: { ...x.rooms, [pasteRoom.roomId]: e.target.value } }))}
-                  placeholder="Empty — TT says it has no summary for this room yet"
-                  className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm leading-relaxed focus:border-gray-400 focus:outline-none"
-                />
-                {/* No "Latest review" editor: TiBook reads each room's newest
-                    review straight from the record, as soon as it is added —
-                    nothing to draft or publish (host, 2026-10-08). */}
-              </section>
-
-              <section className="border-t border-gray-100 pt-4">
                 <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                   <h3 className="text-sm font-bold text-gray-900">
                     {pasteRoom.name}'s reviews{countOf[pasteRoom.roomId] ? ` · ${countOf[pasteRoom.roomId]} on record` : ""}
@@ -250,6 +240,22 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
                 </p>
                 <GuestReviewForm key={pasteRoom.roomId} roomId={pasteRoom.roomId} roomName={pasteRoom.name} onAdded={load} />
               </section>
+
+              <section className="border-t border-gray-100 pt-4">
+                <h3 className="text-sm font-bold text-gray-900">What guests say about {pasteRoom.name}</h3>
+                <p className="mt-0.5 text-xs text-gray-500">What TT tells a guest who asks about this room.</p>
+                <textarea
+                  id={`summary-${pasteRoom.roomId}`}
+                  rows={4}
+                  value={edit.rooms[pasteRoom.roomId] ?? ""}
+                  onChange={(e) => setEdit((x) => ({ ...x, rooms: { ...x.rooms, [pasteRoom.roomId]: e.target.value } }))}
+                  placeholder="Empty — TT says it has no summary for this room yet"
+                  className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm leading-relaxed focus:border-gray-400 focus:outline-none"
+                />
+                {/* No "Latest review" editor: TiBook reads each room's newest
+                    review straight from the record, as soon as it is added —
+                    nothing to draft or publish (host, 2026-10-08). */}
+              </section>
             </>
           )}
         </div>
@@ -258,7 +264,7 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
             every summary, one publish sends them all to TiBook — so they sit
             under the tabs, the same on every one. */}
         {state && !error && (
-          <div className="shrink-0 border-t border-gray-100 bg-white px-4 py-3">
+          <div className="shrink-0 border-t border-gray-100 bg-white px-4 py-2">
             {/* Only what is happening now: a draft in progress, one that
                 failed, one to check. "What guests see now, published Oct 8"
                 gave the host nothing to act on (host, 2026-10-08). */}
@@ -271,12 +277,12 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
                     : `Claude's draft, from ${state.draft.reviewsRead} review${state.draft.reviewsRead === 1 ? "" : "s"} — check each tab says only what guests said, then publish.`}
               </p>
             )}
-            <div className="flex gap-2">
+            <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={draft}
                 disabled={!anyPasted || busy || drafting}
-                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-40"
+                className="whitespace-nowrap rounded-lg border border-gray-300 px-3 py-1 text-sm font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-40"
               >
                 {drafting ? "Drafting…" : "Draft all summaries"}
               </button>
@@ -284,7 +290,7 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
                 type="button"
                 onClick={publish}
                 disabled={busy || drafting}
-                className="flex-1 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-40"
+                className="whitespace-nowrap rounded-lg bg-emerald-600 px-3 py-1 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-40"
               >
                 Publish to TiBook
               </button>
