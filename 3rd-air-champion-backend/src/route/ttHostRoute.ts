@@ -14,6 +14,7 @@ import { requireManager } from "../middleware/requireManager";
 import { questionStats } from "../util/ttQuestions";
 import { draftReviewSummaries, MAX_TOTAL_PASTE, PastedRoom, ReviewDraft } from "../util/reviewDraft";
 import { addPart, dropUpload, peekUpload, UploadError } from "../util/pasteUploads";
+import { lookupReviewStay } from "../util/reviewStayLookup";
 
 // The host's side of TiBook's TT: what guests have been asking it, and the
 // review summaries it shows them.
@@ -479,6 +480,24 @@ router.get("/reviews/stats", async (req: Request, res: any) => {
 // The reviews on record, one per guest per room per stay — the structured copy
 // the host reads back and Ask TiMag counts. A short snippet of each, not the
 // whole text: the screen needs to recognise a review, not reread it.
+// The stay a review is about, from the bookings: the guest's first name, the
+// room, and the review's month (util/reviewStay has the rules). The one-guest
+// form asks as soon as a pasted review gives it a name, and fills the stay
+// date — the host only checks it (host, 2026-10-10).
+router.get("/reviews/stay", async (req: Request, res: any) => {
+  const roomId = String(req.query.roomId ?? "");
+  const name = String(req.query.name ?? "").trim();
+  const month = String(req.query.month ?? "");
+  if (!mongoose.isValidObjectId(roomId) || !name || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+    return res.status(200).json(null);
+  }
+  try {
+    res.status(200).json(await lookupReviewStay(hostOf(req), roomId, name, month));
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get("/reviews/entries", async (req: Request, res: any) => {
   try {
     // Sorted here, by the review's own date (newestFirst), because most reviews
