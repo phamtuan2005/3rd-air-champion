@@ -427,7 +427,7 @@ describe("a room's latest review", () => {
   it("gives the room's newest review with its month and stars, not the overall summary", () => {
     const a = askTT("King's latest review", ctx({}, { reviews }));
     expect(a).toMatchObject({ category: "reviews", answered: true });
-    expect(text(a)).toContain("King's latest review — September 2026 · 5 ★:");
+    expect(text(a)).toContain("King's latest review — September 2026 · ★★★★★:");
     expect(text(a)).toContain("The latest guest found King spotless and slept well.");
     expect(text(a)).not.toContain("The bed is huge");
     // The overall summary stays one tap away.
@@ -442,7 +442,7 @@ describe("a room's latest review", () => {
 
   it("lists each room's latest when no room is named", () => {
     const a = askTT("latest reviews", ctx({}, { reviews }));
-    expect(text(a)).toContain("King (September 2026 · 5 ★): The latest guest found King spotless");
+    expect(text(a)).toContain("King (September 2026 · ★★★★★): The latest guest found King spotless");
   });
 
   it("falls back to the room's overall summary when it has no latest, and counts it unanswered", () => {
@@ -455,8 +455,13 @@ describe("a room's latest review", () => {
 
   it("names the reviewer by first name with the month and stars", () => {
     const named = { ...reviews, latest: { k: { ...reviews.latest.k, guest: "Gail" } } };
-    expect(text(askTT("King's latest review", ctx({}, { reviews: named })))).toContain("King's latest review — Gail · September 2026 · 5 ★:");
-    expect(text(askTT("latest reviews", ctx({}, { reviews: named })))).toContain("King (Gail · September 2026 · 5 ★): ");
+    expect(text(askTT("King's latest review", ctx({}, { reviews: named })))).toContain("King's latest review — Gail · September 2026 · ★★★★★:");
+    expect(text(askTT("latest reviews", ctx({}, { reviews: named })))).toContain("King (Gail · September 2026 · ★★★★★): ");
+  });
+
+  it("shows a lower score as a row of five, the missing stars hollow", () => {
+    const four = { ...reviews, latest: { k: { ...reviews.latest.k, stars: 4 } } };
+    expect(text(askTT("King's latest review", ctx({}, { reviews: four })))).toContain("September 2026 · ★★★★☆:");
   });
 
   it("still refuses to say WHO wrote the latest review", () => {

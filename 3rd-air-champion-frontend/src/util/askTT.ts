@@ -589,11 +589,14 @@ const askedForLatest = (q: string) => LATEST_WORDS.test(q.toLowerCase());
 const reviewsOf = (room: TTRoom): TTAction => ({ kind: "ask", label: `What guests say about ${room.name}`, query: `${room.name} reviews` });
 const latestOf = (room: TTRoom): TTAction => ({ kind: "ask", label: `${room.name}'s latest review`, query: `${room.name} latest review` });
 
-// "Gail · September 2026 · 5 ★" — who wrote it (first name, as on AirBnB;
+// "Gail · September 2026 · ★★★★★" — who wrote it (first name, as on AirBnB;
 // host, 2026-10-09), and how recent "latest" is, said every time, so a guest
-// never takes a review from a year ago for last week's.
+// never takes a review from a year ago for last week's. The stars are a ROW
+// of five, not "5 ★": that read as a data label, and TiBook colours a row of
+// stars so the score is seen at a glance (host, 2026-10-09).
+export const starRow = (n: number) => "★".repeat(n) + "☆".repeat(Math.max(0, 5 - n));
 const latestWhen = (l: TTLatestReview) =>
-  [l.guest ?? "", format(parseISO(`${l.month}-01`), "MMMM yyyy"), l.stars ? `${l.stars} ★` : ""].filter(Boolean).join(" · ");
+  [l.guest ?? "", format(parseISO(`${l.month}-01`), "MMMM yyyy"), l.stars ? starRow(l.stars) : ""].filter(Boolean).join(" · ");
 
 // The newest review of a room, as the host published its summary. No room
 // named: each room's, one line apiece, since "latest" of the house would be

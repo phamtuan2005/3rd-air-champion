@@ -320,16 +320,35 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
   // knows the room by sight. Answers and labels are plain strings (askTT.ts
   // knows nothing of colour), so the names are found in the text here.
   // Case-sensitive on purpose: "King" is the room, "king-size" is a bed.
+  //
+  // A ROW of stars (a review's "★★★★☆") is coloured too, so the score is
+  // seen at a glance rather than lost in the text (host, 2026-10-09). Two or
+  // more only: the lone ★ on "★ Wish list" is an icon, not a score.
+  const starify = (text: string): ReactNode => {
+    const parts = text.split(/([★☆]{2,})/);
+    if (parts.length === 1) return text;
+    return parts.map((part, i) =>
+      i % 2 === 1 ? (
+        <span key={i} className="tracking-wide" aria-label={`${part.split("★").length - 1} out of 5 stars`}>
+          <span className="text-amber-400">{part.replace(/☆/g, "")}</span>
+          <span className="text-amber-400/35">{part.replace(/★/g, "")}</span>
+        </span>
+      ) : (
+        <Fragment key={i}>{part}</Fragment>
+      ),
+    );
+  };
+
   const chipify = (text: string, compact = false): ReactNode => {
     const names = ctx.rooms.map((r) => r.name).filter(Boolean).sort((a, b) => b.length - a.length);
-    if (names.length === 0) return text;
+    if (names.length === 0) return starify(text);
     const escaped = names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
     // No lookbehind (older iPhones throw on that syntax and the sheet would
     // not open), so plain word boundaries.
     const parts = text.split(new RegExp(`\\b(${escaped.join("|")})\\b`));
     return parts.map((part, i) => {
       const room = i % 2 === 1 ? ctx.rooms.find((r) => r.name === part) : undefined;
-      if (!room) return <Fragment key={i}>{part}</Fragment>;
+      if (!room) return <Fragment key={i}>{starify(part)}</Fragment>;
       return (
         <span
           key={i}
