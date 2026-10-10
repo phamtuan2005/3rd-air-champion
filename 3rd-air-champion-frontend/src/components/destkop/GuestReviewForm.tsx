@@ -11,8 +11,10 @@ import {
   fetchReviewEntries,
   fetchReviewStay,
   MAX_REVIEW_CHARS,
+  ReviewEntryFull,
   ReviewEntryRow,
   ReviewStay,
+  updateReviewEntry,
 } from "../../util/ttQuestionLog";
 
 // One guest's review, passed in on its own — what the host does from now on.
@@ -38,17 +40,32 @@ const GuestReviewForm = ({ roomId, roomName, onAdded }: { roomId: string; roomNa
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
+  // The review being edited in this form, or null when it adds a new one.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const formTop = useRef<HTMLDivElement>(null);
+  // A search over this room's reviews — names, words, dates (host,
+  // 2026-10-10). Searched on the server, where the whole text is: the list
+  // holds only the first line of each.
+  const [search, setSearch] = useState("");
+  const searchNow = useRef("");
+  searchNow.current = search;
 
   const loadEntries = useCallback(() => {
-    fetchReviewEntries()
-      .then(setEntries)
+    const asked = searchNow.current;
+    fetchReviewEntries(asked)
+      // A slower answer to an older search must not replace a newer one.
+      .then((rows) => asked === searchNow.current && setEntries(rows))
       .catch(() => {});
   }, []);
+  useEffect(() => {
+    const t = setTimeout(loadEntries, 300);
+    return () => clearTimeout(t);
+  }, [search, loadEntries]);
 
   // The guest list is only to finish a name as it is typed; the form works
   // without it.
+  // (The reviews themselves load through the search effect above.)
   useEffect(() => {
-    loadEntries();
     const token = getToken();
     let hostId = "";
     try {
@@ -59,7 +76,7 @@ const GuestReviewForm = ({ roomId, roomName, onAdded }: { roomId: string; roomNa
     fetchGuests(hostId, token ?? "")
       .then((list: guestType[]) => setGuests(list ?? []))
       .catch(() => {});
-  }, [loadEntries]);
+  }, []);
 
   // A typed name that IS a guest on the list is matched to them; anything else
   // is kept as typed — AirBnB reviewers are often first names nobody here knows.
@@ -124,6 +141,39 @@ const GuestReviewForm = ({ roomId, roomName, onAdded }: { roomId: string; roomNa
     return true;
   };
 
+  // Empty for the next review. The stay date goes too: the next review is
+  // almost never the same stay, and a date carried over would be saved against
+  // the wrong stay without anyone noticing.
+  const clearForm = () => {
+    setText("");
+    setGuestName("");
+    setStayDate("");
+    stayAuto.current = false;
+    setFound(null);
+    setStars(null);
+    setReviewMonth("");
+    setWhen("");
+    setEditingId(null);
+  };
+
+  // Edit = this same form, holding the saved review: every field, the stay
+  // lookup and the stars, rather than a second, smaller form under the row
+  // (host, 2026-10-10: "this form is redundant").
+  const startEdit = (full: ReviewEntryFull) => {
+    setEditingId(full.id);
+    setGuestName(full.guestName);
+    // The date on record is the host's (or the backfill's): kept, never
+    // replaced by the lookup. Empty, the lookup may fill it.
+    stayAuto.current = false;
+    setStayDate(full.stayDate);
+    setStars(full.stars);
+    setReviewMonth(full.reviewMonth);
+    setWhen("");
+    setText(full.text);
+    setNote("");
+    formTop.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   const add = async () => {
     if (busy) return;
     setNote("");
@@ -142,6 +192,20 @@ const GuestReviewForm = ({ roomId, roomName, onAdded }: { roomId: string; roomNa
     setBusy(true);
     try {
       const name = (parts.guestName || guestName).trim();
+      if (editingId) {
+        await updateReviewEntry(editingId, {
+          guestName: name,
+          stars: parts.stars ?? stars,
+          reviewMonth: parts.reviewMonth || reviewMonth,
+          stayDate,
+          text: parts.text.trim(),
+        });
+        clearForm();
+        setNote(`Saved ${name ? `${name.split(/\s+/)[0]}'s` : "the"} review.`);
+        loadEntries();
+        onAdded();
+        return;
+      }
       // The guest whose stay was found wins: "Mai" on the review is "Mai
       // Nguyen" on the list, which a name match alone would miss.
       const fromStay = found && found !== "none" && stayAuto.current ? found.guestId : undefined;
@@ -160,14 +224,7 @@ const GuestReviewForm = ({ roomId, roomName, onAdded }: { roomId: string; roomNa
         // date is cleared too: the next review is almost never the same stay, and
         // a date carried over would be saved against the wrong stay without
         // anyone noticing.
-        setText("");
-        setGuestName("");
-        setStayDate("");
-        stayAuto.current = false;
-        setFound(null);
-        setStars(null);
-        setReviewMonth("");
-        setWhen("");
+        clearForm();
         setNote(`Added to ${roomName}.`);
         loadEntries();
         // The room's file changed too (the review is appended to it), so the
@@ -184,8 +241,12 @@ const GuestReviewForm = ({ roomId, roomName, onAdded }: { roomId: string; roomNa
   };
 
   return (
-    <div className="mt-3 rounded-xl border border-gray-200 p-3">
-      <h4 className="text-xs font-bold text-gray-900">Add one guest's review of {roomName}</h4>
+    <div ref={formTop} className={`mt-3 rounded-xl border p-3 ${editingId ? "border-sky-300 bg-sky-50/40" : "border-gray-200"}`}>
+      <h4 className="text-xs font-bold text-gray-900">
+        {editingId
+          ? `Edit ${guestName.trim() ? `${guestName.trim().split(/\s+/)[0]}'s` : "this"} review of ${roomName}`
+          : `Add one guest's review of ${roomName}`}
+      </h4>
       <p className="mt-0.5 text-[11px] leading-relaxed text-gray-500">
         Kept for this room, this guest and this stay — so a complaint leads to who cleaned it, and a 5-star stay can be
         thanked.
@@ -287,32 +348,65 @@ const GuestReviewForm = ({ roomId, roomName, onAdded }: { roomId: string; roomNa
         {text.length.toLocaleString()} / {MAX_REVIEW_CHARS.toLocaleString()}
       </div>
 
-      <button
-        type="button"
-        onClick={add}
-        disabled={busy || !text.trim()}
-        className="mt-1 w-full rounded-lg bg-gray-800 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-900 disabled:opacity-40"
-      >
-        {busy ? "Adding…" : "Add review"}
-      </button>
+      <div className="mt-1 flex gap-2">
+        {editingId && (
+          <button
+            type="button"
+            onClick={() => {
+              clearForm();
+              setNote("");
+            }}
+            disabled={busy}
+            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={add}
+          disabled={busy || !text.trim()}
+          className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-40 ${
+            editingId ? "bg-sky-600 hover:bg-sky-700" : "bg-gray-800 hover:bg-gray-900"
+          }`}
+        >
+          {busy ? "Saving…" : editingId ? "Save changes" : "Add review"}
+        </button>
+      </div>
       {note && (
         <p role="status" className="mt-1.5 text-xs text-gray-600">
           {note}
         </p>
       )}
 
-      {mine.length > 0 && (
+      {(mine.length > 0 || search.trim()) && (
         <div className="mt-3 border-t border-gray-100 pt-2">
           <p className="text-[11px] font-semibold text-gray-600">
-            On record for {roomName}: {mine.length}
+            {search.trim() ? `Found in ${roomName}: ${mine.length}` : `On record for ${roomName}: ${mine.length}`}
           </p>
-          <p className="text-[10px] text-gray-400">Tap a review to read it all · swipe it left to delete</p>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search — a name, a word, a month (2026-09)"
+            aria-label={`Search ${roomName}'s reviews`}
+            // 16px: below that, iOS Safari zooms the page in on focus.
+            className="mt-1 w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-[16px] focus:border-gray-400 focus:outline-none sm:text-sm"
+          />
+          <p className="mt-1 text-[10px] text-gray-400">Tap a review to read it all · swipe it left to delete</p>
+          {search.trim() && mine.length === 0 && (
+            <p className="mt-1 text-xs text-gray-500">No review of {roomName} has all of those words.</p>
+          )}
           <ul className="mt-1 max-h-72 divide-y divide-gray-100 overflow-y-auto">
             {mine.map((e) => (
               <ReviewEntryItem
-                key={e.id}
+                // Keyed on what can change too: after a save the row starts
+                // fresh, rather than keep showing the words it opened with.
+                key={`${e.id}|${e.guestName}|${e.stars}|${e.stayDate}|${e.reviewMonth}|${e.snippet}`}
                 entry={e}
+                onEdit={startEdit}
                 onDeleted={() => {
+                  if (e.id === editingId) clearForm();
                   loadEntries();
                   onAdded();
                 }}
