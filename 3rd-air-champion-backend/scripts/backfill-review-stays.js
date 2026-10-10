@@ -10,8 +10,14 @@
 // `npm run build` first.
 //
 // Touches only reviews with NO stay date, a guest name and a review month. A
-// date the host typed is never changed. Where several stays fit, the newest is
-// taken — as the form does — and the row is marked so it can be checked.
+// date the host typed is never changed.
+//
+// Where several stays fit, NOTHING is written: the row is listed as CHECK and
+// keeps its month. The first dry run (2026-10-10) had 24 of them, Wan-Lin
+// among them — she posted the same review for two different King stays, and
+// "the newest" would have given both reviews the same night. A wrong stay date
+// points a complaint at the wrong cleaner; no date points at nobody. The form
+// still takes the newest, because there the host sees the date before Add.
 //
 // Usage (from 3rd-air-champion-backend):
 //   node scripts/backfill-review-stays.js          show what it would fill
@@ -51,11 +57,16 @@ const APPLY = process.argv.includes("--apply");
       console.log(`  -  ${room.padEnd(6)} ${r.guestName.padEnd(18)} ${r.reviewMonth}  no stay found`);
       continue;
     }
+    if (stay.others > 0) {
+      checkThese++;
+      console.log(
+        `  ?  ${room.padEnd(6)} ${r.guestName.padEnd(18)} ${r.reviewMonth}  CHECK: ${stay.others + 1} stays fit, newest ${stay.stayDate} — left for you`,
+      );
+      continue;
+    }
     found++;
-    if (stay.others > 0) checkThese++;
     console.log(
-      `  ✓  ${room.padEnd(6)} ${r.guestName.padEnd(18)} ${r.reviewMonth}  → ${stay.stayDate} (${stay.nights}n, out ${stay.checkout})` +
-        (stay.others > 0 ? `  CHECK: ${stay.others} other stay(s) fit` : ""),
+      `  ✓  ${room.padEnd(6)} ${r.guestName.padEnd(18)} ${r.reviewMonth}  → ${stay.stayDate} (${stay.nights}n, out ${stay.checkout})`,
     );
     if (APPLY) {
       await TTReviewEntry.updateOne(
@@ -67,10 +78,14 @@ const APPLY = process.argv.includes("--apply");
   }
 
   console.log(
-    `\n${rows.length} review(s) without a stay date · ${found} matched to a stay · ${rows.length - found} not found` +
-      (checkThese ? ` · ${checkThese} to check (several stays fit; the newest was taken)` : ""),
+    `\n${rows.length} review(s) without a stay date · ${found} matched to one stay · ` +
+      `${checkThese} with several stays (left for you) · ${rows.length - found - checkThese} not found`,
   );
-  console.log(APPLY ? "Filled in." : "Dry run — nothing written. Run again with --apply to fill them in.");
+  console.log(
+    APPLY
+      ? `Filled in ${found}.`
+      : `Dry run — nothing written. Run again with --apply to fill in the ${found} matched to one stay.`,
+  );
   await mongoose.disconnect();
 })().catch(async (e) => {
   console.error(e);
