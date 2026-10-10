@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { DANGER_BUTTON, SWIPE_DELETE } from "../shared/dangerButton";
 import {
+  cleanerLeadLine,
   deleteReviewEntry,
   fetchReviewEntry,
   ReviewEntryFull,
@@ -186,6 +187,13 @@ const ReviewEntryItem = ({
                 </>
               )}
             </div>
+          )}
+          {/* Who cleaned the room for this stay — the reason reviews are kept
+              (host, 2026-10-10: "show under each review who the cleaner was,
+              like in Ask TT"). Teal: the house's own note, not the guest's
+              words; the same sentence TT gives. */}
+          {entry.basis && (
+            <p className="mt-0.5 text-[11px] font-medium text-teal-700">{cleanerLeadLine(entry.basis, entry.cleaners)}</p>
           )}
         </div>
       </div>

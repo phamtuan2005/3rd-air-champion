@@ -134,3 +134,25 @@ describe("GET /tt-host/reviews/entries?q=", () => {
     expect(await find("")).toHaveLength(2);
   });
 });
+
+// Under each review in the list: who cleaned the room for that stay (host,
+// 2026-10-10), the same lead TT gives.
+describe("GET /tt-host/reviews/entries — the cleaner lead", () => {
+  it("names who cleaned the room for the stay, and says when a stay predates the rota", async () => {
+    const s = await setup("leads@example.com");
+    const TTReviewEntry = (await import("../../model/ttReviewEntrySchema")).default;
+    const Cleaner = (await import("../../model/cleanerSchema")).default;
+    const CleaningAssignment = (await import("../../model/cleaningAssignmentSchema")).default;
+    const henry = await Cleaner.create({ host: s.hostId, name: "Henry" });
+    await CleaningAssignment.create({ host: s.hostId, date: "2026-09-28", room: s.king._id, cleaner: henry._id, hours: 2 });
+    await TTReviewEntry.create({ host: s.hostId, room: s.king._id, text: "Spotless.", hash: "l1", guestName: "Han", stayDate: "2026-09-28" });
+    await TTReviewEntry.create({ host: s.hostId, room: s.king._id, text: "Old one.", hash: "l2", guestName: "Ann", reviewMonth: "2025-03" });
+    await TTReviewEntry.create({ host: s.hostId, room: s.king._id, text: "No date.", hash: "l3", guestName: "Bo" });
+
+    const rows = (await request(appFor(s.hostId)).get("/tt-host/reviews/entries")).body.entries;
+    const by = (n: string) => rows.find((r: any) => r.guestName === n);
+    expect(by("Han")).toMatchObject({ cleaners: ["Henry"], basis: "night" });
+    expect(by("Ann")).toMatchObject({ cleaners: [], basis: "before" });
+    expect(by("Bo")).toMatchObject({ cleaners: [], basis: "none" });
+  });
+});

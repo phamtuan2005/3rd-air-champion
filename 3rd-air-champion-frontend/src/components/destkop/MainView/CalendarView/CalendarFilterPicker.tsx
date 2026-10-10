@@ -11,7 +11,7 @@ import { airbnbGuestList } from "../../../../util/airbnbGuestList";
 import { houseGuestList, isPhoneQuery, matchesTyped, topMatches } from "../../../../util/houseGuestList";
 import { matchesReservation, reviewsTyped, screensMatching, weekTyped, whenTyped, whoAndWhen, worthAsking, When } from "../../../../util/ttIntents";
 import { jwtDecode } from "jwt-decode";
-import { fetchPublishedReviews, fetchReviewStats, PublishedReviews, ReviewStats } from "../../../../util/ttQuestionLog";
+import { cleanerLeadLine, fetchPublishedReviews, fetchReviewStats, PublishedReviews, ReviewStats } from "../../../../util/ttQuestionLog";
 import { getToken } from "../../../../util/authSession";
 import { latestDateLabel, starRow } from "../../../../util/askTT";
 import type { SearchWorker } from "../../../../util/searchWorkers";
@@ -126,11 +126,7 @@ const ReviewLine = ({ r }: { r: NonNullable<ReviewStats["recent"]>[number] }) =>
         guest's words, and read as part of the review it was mistaken for one
         (host, 2026-10-08). Teal is TiMag's colour for operational things. */}
     <p className="mt-0.5 text-[11px] font-medium text-teal-700">
-      {r.basis === "none"
-        ? "No date on this review, so no cleaner to point to."
-        : r.cleaners.length > 0
-          ? `${r.basis === "night" ? "Cleaned for that stay by" : "Cleaned this room that month:"} ${r.cleaners.join(", ")} — a lead, not proof.`
-          : "No cleaning recorded for this room then."}
+      {cleanerLeadLine(r.basis, r.cleaners)}
     </p>
   </button>
   );

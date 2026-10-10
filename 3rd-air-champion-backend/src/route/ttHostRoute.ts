@@ -7,8 +7,8 @@ import TTReviewSource from "../model/ttReviewSourceSchema";
 import TTReviewEntry from "../model/ttReviewEntrySchema";
 import { fileBlock, latestFromEntries, MAX_ENTRY_CHARS, newestFirst, roomTextsFromEntries, saveEntry, withoutBlock } from "../util/reviewEntries";
 import { occurrenceKey, occurrences, splitReviews, SplitReview } from "../util/reviewSplit";
-import { cleaningWindow, lowReviews, recentReviews, roomAverages, ReviewRow, topicMentions } from "../util/reviewStats";
-import { findAssignments } from "../util/assignmentQuery";
+import { lowReviews, recentReviews, roomAverages, ReviewRow, topicMentions } from "../util/reviewStats";
+import { cleanerLeads } from "../util/reviewCleaners";
 import Guest from "../model/guestSchema";
 import { requireManager } from "../middleware/requireManager";
 import { questionStats } from "../util/ttQuestions";
@@ -417,26 +417,8 @@ router.get("/reviews/stats", async (req: Request, res: any) => {
     // across the whole span, then matched in memory. A LEAD, not proof — a month
     // (or a night) is all a review says — so each row says which it was.
     const listed = [...low, ...recent];
-    const windows = listed.map((r) => cleaningWindow(r));
-    const spans = windows.filter((w): w is { start: string; end: string } => !!w);
-    let rota: any[] = [];
-    if (spans.length) {
-      const start = spans.reduce((a, w) => (w.start < a ? w.start : a), spans[0].start);
-      const end = spans.reduce((a, w) => (w.end > a ? w.end : a), spans[0].end);
-      rota = (await findAssignments({ host: hostId, start, end })) as any[];
-    }
+    const leads = await cleanerLeads(hostId, listed);
     const withLead = (r: ReviewRow, i: number) => {
-      const w = windows[i];
-      const cleaners = w
-        ? [
-            ...new Set(
-              rota
-                .filter((a) => String(a.room?._id ?? a.room) === r.room && a.date >= w.start && a.date <= w.end)
-                .map((a) => String(a.cleaner?.name ?? ""))
-                .filter(Boolean),
-            ),
-          ]
-        : [];
       return {
         roomName: r.roomName,
         guestName: r.guestName,
@@ -448,9 +430,8 @@ router.get("/reviews/stats", async (req: Request, res: any) => {
         // a long one off mid-word with no way to read on (host, 2026-10-08).
         // Entries are capped at 2,000 characters when saved.
         text: r.text,
-        cleaners,
-        // "night" = the stay's start date was entered; "month" = only the month.
-        basis: w ? (r.stayDate ? "night" : "month") : "none",
+        // Who cleaned the room then, and on what basis (util/reviewCleaners).
+        ...leads[i],
       };
     };
     const lowOut = low.map((r, i) => withLead(r, i));
@@ -519,8 +500,15 @@ router.get("/reviews/entries", async (req: Request, res: any) => {
       if (at < 60) return text.slice(0, 160);
       return `…${text.slice(at - 40, at + 120)}`;
     };
+    // Who cleaned each review's room then — the same lead TT gives (host,
+    // 2026-10-10: "show under each review who the cleaner was").
+    const leads = await cleanerLeads(
+      hostOf(req),
+      rows.map((r) => ({ room: String(r.room), stayDate: r.stayDate ?? "", reviewMonth: r.reviewMonth ?? "" })),
+    );
     res.status(200).json({
-      entries: rows.map((r) => ({
+      entries: rows.map((r, i) => ({
+        ...leads[i],
         id: String(r._id),
         roomId: String(r.room),
         guestName: r.guestName ?? "",
