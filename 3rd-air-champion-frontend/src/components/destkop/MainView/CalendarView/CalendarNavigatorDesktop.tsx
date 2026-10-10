@@ -7,6 +7,7 @@ import { roomType } from "../../../../util/types/roomType";
 import { toZonedTime } from "date-fns-tz/toZonedTime";
 import { AddPaneContext } from "../../../../context";
 import CalendarFilterPicker from "./CalendarFilterPicker";
+import RoomBadge from "../../../shared/RoomBadge";
 import { guestType } from "../../../../util/types/guestType";
 import type { SearchWorker } from "../../../../util/searchWorkers";
 
@@ -359,9 +360,14 @@ const CalendarNavigator = ({
         {!currentGuest &&
           !currentAirBnBGuest &&
           (showDetails ? (
+            // Takes what the profit leaves and SCROLLS sideways — swipe on a
+            // phone — rather than run on: five rooms of "Queen: 94%" pushed the
+            // profit, the figure that matters, off to the right (host,
+            // 2026-10-10). No scrollbar drawn; the cut-off room says there is
+            // more. Each room as its coloured badge, as everywhere else.
             <div
               onClick={() => setShowDetails(false)}
-              className="basis-2/3 flex h-full w-full justify-start items-center cursor-pointer space-x-2 text-[0.85rem] text-nowrap"
+              className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-3 overflow-x-auto overscroll-x-contain whitespace-nowrap text-[0.85rem] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
               {occupancy.roomOccupancy
                 .filter((room) => room.name !== "Master") // Exclude "Master"
@@ -374,9 +380,12 @@ const CalendarNavigator = ({
                         ? "text-yellow-500"
                         : "text-green-500";
                   return (
-                    <div key={index} className="space-x-1">
-                      <span className="font-medium">{object.name}: </span>
-                      <span className={occupancyColor}>
+                    <div key={index} className="flex shrink-0 items-center gap-1">
+                      <RoomBadge
+                        room={{ name: object.name, color: rooms.find((r) => r.name === object.name)?.color }}
+                        className="text-xs font-semibold"
+                      />
+                      <span className={`font-semibold ${occupancyColor}`}>
                         {Math.round(object.occupancy)}%
                       </span>
                     </div>
@@ -385,7 +394,7 @@ const CalendarNavigator = ({
             </div>
           ) : (
             <div
-              className="basis-2/3 flex h-full w-full justify-start items-center cursor-pointer space-x-2 text-[0.85rem] text-nowrap"
+              className="flex h-full min-w-0 flex-1 cursor-pointer items-center space-x-2 overflow-hidden whitespace-nowrap text-[0.85rem]"
               onClick={() => setShowDetails(true)}
             >
               <span
@@ -416,7 +425,7 @@ const CalendarNavigator = ({
             figure is read as a part of the larger rather than as a rival to it.
             Total keeps its 2xl size; leading-none stops it growing the row. */}
         {!currentGuest && !currentAirBnBGuest && (
-          <div className="basis-1/3 flex justify-end items-baseline gap-1.5 w-full font-bold text-nowrap">
+          <div className="ml-3 flex shrink-0 items-baseline justify-end gap-1.5 font-bold text-nowrap">
             <span className="text-2xl leading-none text-emerald-600">
               ${Math.round(profit.total).toLocaleString()}
             </span>
