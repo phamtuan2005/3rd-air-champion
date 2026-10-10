@@ -57,6 +57,21 @@ export const countPendingReminders = (
 
 const dateKey = (d: Date) => d.toISOString().split("T")[0];
 
+// The SAME guest keeps the SAME room the next night: a stay that was split
+// (a few nights soft-held — host, 2026-10-10) ends one part and starts the
+// next on the same morning, and nobody leaves. Not a checkout, so no clean;
+// read as one, it put a cleaner into the middle of a guest's stay.
+const staysOn = (monthMap: Map<string, dayType>, b: bookingType, lastNightKey: string) => {
+  const nextKey = dateKey(addDays(new Date(lastNightKey + "T00:00:00Z"), 1));
+  // Only a guest KNOWN to be the same: two stays with no guest on record are
+  // not one guest staying on, and must still be cleaned between.
+  const guestId = b.guest?.id;
+  if (!guestId) return false;
+  return !!monthMap
+    .get(nextKey)
+    ?.bookings.some((n) => n.room?.id === b.room?.id && n.guest?.id === guestId && n.startDate.split("T")[0] === nextKey);
+};
+
 // Every room that currently needs cleaning. A room is dirty when its most recent
 // stay (within the lookback window) has checked out, no guest occupies it tonight,
 // and the cleaning task hasn't been completed. Today's checkouts are always listed
@@ -83,6 +98,7 @@ export const getCleaningItems = (
     for (const b of day.bookings) {
       if (!b.room) continue;
       if (b.endDate.split("T")[0] !== key) continue; // last night of the stay
+      if (staysOn(monthMap, b, key)) continue; // the guest stays on: a split stay
       if (!latestCheckout.has(b.room.id))
         latestCheckout.set(b.room.id, { booking: b, checkoutKey: key, daysAgo: i });
     }
@@ -295,7 +311,7 @@ export const getCheckoutsOn = (monthMap: Map<string, dayType>, morningKey: strin
   const lastNight = monthMap.get(lastNightKey);
   if (!lastNight) return [];
   return lastNight.bookings.filter(
-    (b) => b.room && b.endDate.split("T")[0] === lastNightKey,
+    (b) => b.room && b.endDate.split("T")[0] === lastNightKey && !staysOn(monthMap, b, lastNightKey),
   );
 };
 
@@ -314,7 +330,7 @@ export const isStaleCleaning = (
 ) => {
   const prevNight = dateKey(addDays(new Date(morningKey + "T00:00:00"), -1));
   const occupant = monthMap.get(prevNight)?.bookings.find((b) => b.room?.id === roomId);
-  return !!occupant && occupant.endDate.split("T")[0] !== prevNight;
+  return !!occupant && (occupant.endDate.split("T")[0] !== prevNight || staysOn(monthMap, occupant, prevNight));
 };
 
 // Precomputed inputs, so a caller looping over many mornings pays for the

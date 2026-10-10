@@ -21,6 +21,7 @@ import { toZonedTime } from "date-fns-tz";
 // to tick it.
 const SOFA_BED_FROM_GUESTS = 3;
 import { buildDateRange } from "../../util/dateRange";
+import { splitStay } from "../../util/holdSplit";
 import BookingRequest from "../../model/bookingRequestSchema";
 
 export const dayResolvers = {
@@ -875,6 +876,67 @@ export const dayResolvers = {
       );
 
       return await Day.find({ calendar, date: { $gte: startDate, $lte: endDate } })
+        .populate("bookings.guest")
+        .populate("bookings.room")
+        .populate("blockedRooms");
+    },
+    // Soft-holds SOME nights of a stay by splitting it (util/holdSplit): each run
+    // of picked nights becomes a held stay of its own, the rest stays as it was,
+    // and the stay's fees stay on one part only. All nights picked is the whole
+    // stay held, as setBookingReserved does (host, 2026-10-10).
+    holdNights: async (_: unknown, { _id, nights }: any) => {
+      const dayOfBooking = await Day.findOne({ "bookings._id": _id });
+      if (!dayOfBooking) throw new Error("Booking not found");
+      const calendar = dayOfBooking.calendar;
+      const cb: any = dayOfBooking.bookings.find((booking: any) => booking.id === _id);
+      if (!cb?.startDate || !cb?.endDate) throw new Error("This stay has no dates to split.");
+
+      // An AirBnB payout is recorded once per stay; split, every part would
+      // count it. AirBnB stays are paid through AirBnB, never held here.
+      const guest: any = await Guest.findById(cb.guest).select("name").lean();
+      if (guest?.name === "AirBnB" || (cb.airbnbPrice ?? 0) > 0) {
+        throw new Error("An AirBnB stay can't be partly held.");
+      }
+
+      const stayFilter = {
+        "matchingBooking.guest": cb.guest,
+        "matchingBooking.room": cb.room,
+        "matchingBooking.startDate": cb.startDate,
+      };
+      const stayDays: any[] = await Day.find({
+        calendar,
+        date: { $gte: cb.startDate, $lte: cb.endDate },
+        "bookings.guest": cb.guest,
+        "bookings.room": cb.room,
+      })
+        .select("date")
+        .sort({ date: 1 })
+        .lean();
+      const keyOf = (d: Date) => new Date(d).toISOString().slice(0, 10);
+      const dateOf = new Map(stayDays.map((d) => [keyOf(d.date), d.date]));
+      const picked = new Set((nights as string[]).filter((n) => dateOf.has(n)));
+      if (picked.size === 0) throw new Error("None of those nights are in this stay.");
+
+      const parts = splitStay([...dateOf.keys()], picked);
+      for (const part of parts) {
+        const first = dateOf.get(part.nights[0])!;
+        const last = dateOf.get(part.nights[part.nights.length - 1])!;
+        await Day.updateMany(
+          { calendar, date: { $gte: first, $lte: last }, "bookings.guest": cb.guest, "bookings.room": cb.room },
+          {
+            $set: {
+              "bookings.$[matchingBooking].startDate": first,
+              "bookings.$[matchingBooking].endDate": last,
+              "bookings.$[matchingBooking].duration": part.nights.length,
+              "bookings.$[matchingBooking].reserved": part.held ? true : !!cb.reserved,
+              "bookings.$[matchingBooking].fees": part.keepsFees ? cb.fees ?? [] : [],
+            },
+          },
+          { arrayFilters: [stayFilter], runValidators: true },
+        );
+      }
+
+      return await Day.find({ calendar, date: { $gte: cb.startDate, $lte: cb.endDate } })
         .populate("bookings.guest")
         .populate("bookings.room")
         .populate("blockedRooms");

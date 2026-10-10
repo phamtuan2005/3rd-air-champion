@@ -174,6 +174,21 @@ export const markAirBnBBlocked = async (
     });
 };
 
+// Soft-hold SOME nights of a stay (yyyy-MM-dd): the server splits it so those
+// nights are a held stay of their own. Resolves with the stay's Day docs.
+export const holdBookingNights = async (request: { id: string; nights: string[] }, token: string) => {
+  return axios
+    .post(`${BACKEND_ENDPOINT}/day/update/booking/hold-nights`, request, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    .then((result) => result.data)
+    .catch((err) => {
+      const d = err.response?.data;
+      if (d?.errors || d?.error) throw d.errors ?? d.error;
+      throw "An unexpected error occurred. Please try again.";
+    });
+};
+
 // Flip a stay's reserved (soft hold) flag; resolves with the updated Day docs.
 export const updateBookingReserved = async (
   request: { id: string; reserved: boolean },

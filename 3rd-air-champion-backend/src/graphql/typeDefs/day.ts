@@ -164,6 +164,7 @@ export const dayDefs = gql`
     markAirBnBBlocked(_id: String!, blocked: Boolean!): [Day]
 
     setBookingReserved(_id: String!, reserved: Boolean!): [Day]
+    holdNights(_id: String!, nights: [String!]!): [Day]
 
     updateBookingExpectedPayDate(_id: String!, expectedPayDate: String!): [Day]
 

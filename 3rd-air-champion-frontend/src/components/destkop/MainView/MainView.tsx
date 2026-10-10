@@ -25,7 +25,7 @@ import BookButton from "../BookButton";
 import { AddPaneContext, FooterContext, GuestModeContext, isSyncModalOpenContext } from "../../../context";
 import { formatPhone } from "../../../util/formatPhone";
 import DetailsModal from "./GuestView/DetailsModal";
-import { updateBookingGuest, updateBookingAirbnbPrice, updateBookingReserved, updateUnbookGuest } from "../../../util/bookingOperations";
+import { holdBookingNights, updateBookingGuest, updateBookingAirbnbPrice, updateBookingReserved, updateUnbookGuest } from "../../../util/bookingOperations";
 import { fetchAssignments, fetchCleaners, CleaningAssignmentType, CleanerType } from "../../../util/cleanerOperations";
 import { fetchSentReminders } from "../../../util/reminderOperations";
 import { CLEANING_FORECAST_DAYS, PLAN_DAYS_MAX, getCleaningForecast, getFullyBookedReach, isStaleCleaning } from "../../../util/cleaningTasks";
@@ -1213,23 +1213,31 @@ const MainView = ({
   // Distinct stays covered by the double-tapped (amber) dates, split by direction:
   // reserved stays get confirmed to firm, firm stays get downgraded to soft hold.
   // One entry per stay (guest+room+startDate) — actions flip the WHOLE stay.
-  const { reservedHoldStays, firmHoldStays, allHoldStays } = useMemo(() => {
+  const { reservedHoldStays, firmHoldStays, allHoldStays, firmHoldNights } = useMemo(() => {
     const reserved = new Map<string, string>(); // stayKey -> a booking id within the stay
     const firm = new Map<string, string>();
     const all = new Map<string, bookingType>(); // stayKey -> the stay (for batch unbook)
-    if (!currentGuest) return { reservedHoldStays: reserved, firmHoldStays: firm, allHoldStays: all };
+    // The nights PICKED of each firm stay: "→ soft hold" holds those nights
+    // only, splitting the stay when they are not all of it (host, 2026-10-10).
+    const firmNights = new Map<string, string[]>();
+    if (!currentGuest) return { reservedHoldStays: reserved, firmHoldStays: firm, allHoldStays: all, firmHoldNights: firmNights };
     holdDates.forEach((d) => {
-      const day = monthMap.get(format(d, "yyyy-MM-dd"));
+      const dateKey = format(d, "yyyy-MM-dd");
+      const day = monthMap.get(dateKey);
       day?.bookings.forEach((b) => {
         if (b.guest?.id !== currentGuest || !b.room) return;
         const key = `${b.room.id}|${b.startDate}`;
         if (b.reserved) reserved.set(key, b.id);
-        else firm.set(key, b.id);
+        else {
+          firm.set(key, b.id);
+          firmNights.set(key, [...(firmNights.get(key) ?? []), dateKey]);
+        }
         all.set(key, b);
       });
     });
-    return { reservedHoldStays: reserved, firmHoldStays: firm, allHoldStays: all };
+    return { reservedHoldStays: reserved, firmHoldStays: firm, allHoldStays: all, firmHoldNights: firmNights };
   }, [holdDates, monthMap, currentGuest]);
+  const firmHoldNightCount = [...firmHoldNights.values()].reduce((n, list) => n + list.length, 0);
 
   const totalHoldSelection = reservedHoldStays.size + firmHoldStays.size;
 
@@ -1277,7 +1285,37 @@ const MainView = ({
   };
 
   const onConfirmHolds = () => runHoldAction(reservedHoldStays, false);
-  const onDowngradeHolds = () => runHoldAction(firmHoldStays, true);
+  // Soft-hold the nights picked. A whole stay picked is held as before; part
+  // of one is split off by the server so only those nights are held — picking
+  // the 19th and 20th of a long stay used to hold every night of it (host,
+  // 2026-10-10).
+  const onDowngradeHolds = async () => {
+    if (firmHoldStays.size === 0) return;
+    setIsConfirmingHolds(true);
+    setConfirmHoldsError("");
+    const nightsIn = (b: bookingType) =>
+      Math.round(
+        (Date.parse(`${String(b.endDate).slice(0, 10)}T00:00:00Z`) - Date.parse(`${String(b.startDate).slice(0, 10)}T00:00:00Z`)) /
+          86_400_000,
+      ) + 1;
+    try {
+      // Sequential to avoid write races on shared Day docs.
+      for (const [key, id] of firmHoldStays) {
+        const stay = allHoldStays.get(key);
+        const picked = firmHoldNights.get(key) ?? [];
+        const updatedDays =
+          !stay || picked.length >= nightsIn(stay)
+            ? await updateBookingReserved({ id, reserved: true }, token as string)
+            : await holdBookingNights({ id, nights: picked }, token as string);
+        onDaysUpdate(updatedDays);
+      }
+      setHoldDates([]);
+    } catch (err) {
+      console.error("Error holding nights:", err);
+      setConfirmHoldsError(typeof err === "string" ? err : "Update failed. Please try again.");
+    }
+    setIsConfirmingHolds(false);
+  };
   // Unbook the whole hold selection — route it through the same confirmation the
   // per-card Unbook uses, which expands each stay to its night ids on Confirm.
   const onUnbookHolds = () => setUnbookBookings([...allHoldStays.values()]);
@@ -1567,7 +1605,9 @@ const MainView = ({
                       disabled={isConfirmingHolds}
                       className="border border-amber-400 text-amber-600 hover:bg-amber-50 text-sm font-semibold px-3.5 py-1.5 rounded-full disabled:opacity-50 whitespace-nowrap"
                     >
-                      {isConfirmingHolds ? "Working…" : `${firmHoldStays.size} → soft hold`}
+                      {isConfirmingHolds
+                        ? "Working…"
+                        : `${firmHoldNightCount} night${firmHoldNightCount === 1 ? "" : "s"} → soft hold`}
                     </button>
                   )}
                   {/* The paid confirmation, from the same bar as the hold
