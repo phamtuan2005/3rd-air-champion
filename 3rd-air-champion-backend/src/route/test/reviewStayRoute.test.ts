@@ -171,3 +171,26 @@ describe("GET /tt-host/reviews/stats — review ids", () => {
     expect(res.body.low[0].id).toBe(String(low._id));
   });
 });
+
+// One cleaning prepares a room for a stay (host, 2026-10-10): Han's Sep 29
+// stay read "prepared by Thalia, Henry" because Thalia's Sep 28 clean, the
+// previous guest's turnover, fell in the night-before window too.
+describe("the cleaner who prepared the room for a stay", () => {
+  it("is the latest cleaning on or before the stay's first night — one cleaner", async () => {
+    const s = await setup("one-cleaner@example.com");
+    const TTReviewEntry = (await import("../../model/ttReviewEntrySchema")).default;
+    const Cleaner = (await import("../../model/cleanerSchema")).default;
+    const CleaningAssignment = (await import("../../model/cleaningAssignmentSchema")).default;
+    const thalia = await Cleaner.create({ host: s.hostId, name: "Thalia" });
+    const henry = await Cleaner.create({ host: s.hostId, name: "Henry" });
+    await CleaningAssignment.create({ host: s.hostId, date: "2026-09-28", room: s.king._id, cleaner: thalia._id, hours: 1 });
+    await CleaningAssignment.create({ host: s.hostId, date: "2026-09-29", room: s.king._id, cleaner: henry._id, hours: 1 });
+    await TTReviewEntry.create({ host: s.hostId, room: s.king._id, text: "Quiet.", hash: "oc1", guestName: "Han", stayDate: "2026-09-29" });
+    // Cleaned only the day before: that clean prepared it.
+    await TTReviewEntry.create({ host: s.hostId, room: s.king._id, text: "Nice.", hash: "oc2", guestName: "Ann", stayDate: "2026-09-28" });
+
+    const rows = (await request(appFor(s.hostId)).get("/tt-host/reviews/entries")).body.entries;
+    expect(rows.find((r: any) => r.guestName === "Han")).toMatchObject({ cleaners: ["Henry"], basis: "night" });
+    expect(rows.find((r: any) => r.guestName === "Ann")).toMatchObject({ cleaners: ["Thalia"], basis: "night" });
+  });
+});
