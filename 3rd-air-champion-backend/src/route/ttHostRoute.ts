@@ -517,6 +517,10 @@ router.get("/reviews/entries", async (req: Request, res: any) => {
         reviewMonth: r.reviewMonth ?? "",
         stars: r.stars ?? null,
         snippet: snippetOf(String(r.text ?? "")),
+        // The whole review: the list shows each one in full rather than a
+        // line and a tap to open (host, 2026-10-10). At most 2,000 characters
+        // each when saved, and a host has a few hundred.
+        text: String(r.text ?? ""),
         addedAt: r.createdAt ?? null,
       })),
     });

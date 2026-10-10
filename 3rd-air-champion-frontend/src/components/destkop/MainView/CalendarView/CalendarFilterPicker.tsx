@@ -99,36 +99,33 @@ const RESULT_LIMIT = 8;
 // "3 stars or lower". A tap opens the whole review and a second closes it:
 // one line cut a long review off mid-word with no way to read on (host,
 // 2026-10-08).
-const ReviewLine = ({ r }: { r: NonNullable<ReviewStats["recent"]>[number] }) => {
-  const [open, setOpen] = useState(false);
-  const full = r.text ?? r.snippet;
+// Drawn the way Guest reviews draws one (host, 2026-10-10: "same design"):
+// the room as its coloured badge, the name and stars large, the WHOLE review
+// rather than a cut-off line and a tap to open, a date a person reads, and who
+// prepared the room under it. Editing lives in Guest reviews; here it is read.
+const reviewDate = (r: { stayDate: string; reviewMonth: string }) =>
+  r.stayDate
+    ? format(new Date(`${r.stayDate}T12:00:00`), "MMM d, yyyy")
+    : r.reviewMonth
+      ? format(new Date(`${r.reviewMonth}-01T12:00:00`), "MMM yyyy")
+      : "";
+
+const ReviewLine = ({ r, roomColor }: { r: NonNullable<ReviewStats["recent"]>[number]; roomColor?: string }) => {
+  const date = reviewDate(r);
   return (
-  <button
-    type="button"
-    onClick={() => setOpen((o) => !o)}
-    aria-expanded={open}
-    className="mt-1 block w-full rounded-md text-left hover:bg-gray-50"
-  >
-    <p className="text-gray-800">
-      <span className="font-semibold">{r.roomName}</span>
-      {r.guestName ? ` · ${r.guestName}` : ""}
-      <span className="text-amber-600"> · {"★".repeat(r.stars ?? 0)}</span>
-      <span className="text-gray-400"> · {r.stayDate || r.reviewMonth || "no date"}</span>
-    </p>
-    {open ? (
-      <p className="whitespace-pre-line leading-relaxed text-gray-700">{full}</p>
-    ) : (
-      <p className="truncate text-gray-500">{r.snippet}</p>
-    )}
-    {/* A lead, said as one: a review gives a month, or at best the night
-        a stay began — never who left the room how.
-        Teal, not the review's grey: it is the house's own note, not the
-        guest's words, and read as part of the review it was mistaken for one
-        (host, 2026-10-08). Teal is TiMag's colour for operational things. */}
-    <p className="mt-0.5 text-[11px] font-medium text-teal-700">
-      {cleanerLeadLine(r.basis, r.cleaners)}
-    </p>
-  </button>
+    <div className="mt-1.5 border-b border-gray-100 pb-2 last:border-0">
+      <p className="flex flex-wrap items-center gap-x-1.5">
+        <RoomBadge room={{ name: r.roomName, color: roomColor }} className="text-xs font-semibold" />
+        <span className="text-base font-semibold text-gray-900">{r.guestName || "A guest"}</span>
+        {r.stars != null && <span className="text-amber-500">· {"★".repeat(r.stars)}</span>}
+        {date && <span className="text-sm text-gray-500">· {date}</span>}
+      </p>
+      <p className="mt-0.5 whitespace-pre-line text-sm leading-relaxed text-gray-800">{r.text ?? r.snippet}</p>
+      {/* Teal, not the review's grey: it is the house's own note, not the
+          guest's words, and read as part of the review it was mistaken for one
+          (host, 2026-10-08). Teal is TiMag's colour for operational things. */}
+      <p className="mt-0.5 text-xs font-medium text-teal-700">{cleanerLeadLine(r.basis, r.cleaners)}</p>
+    </div>
   );
 };
 
@@ -651,7 +648,7 @@ const CalendarFilterPicker = ({
                           <div className="mt-2 border-t border-gray-100 pt-2">
                             <p className="font-semibold text-gray-900">Most recent reviews</p>
                             {reviewStats.recent.map((r, i) => (
-                              <ReviewLine key={i} r={r} />
+                              <ReviewLine key={i} r={r} roomColor={rooms.find((x) => x.name === r.roomName)?.color} />
                             ))}
                           </div>
                         )}
@@ -660,7 +657,7 @@ const CalendarFilterPicker = ({
                           {reviewStats.low.length === 0 ? (
                             <p className="text-gray-500">None with stars at 3 or below.</p>
                           ) : (
-                            reviewStats.low.map((r, i) => <ReviewLine key={i} r={r} />)
+                            reviewStats.low.map((r, i) => <ReviewLine key={i} r={r} roomColor={rooms.find((x) => x.name === r.roomName)?.color} />)
                           )}
                         </div>
                       </>

@@ -309,7 +309,7 @@ const GuestReviewForm = ({
           {note}
         </p>
       )}
-      <p className="mt-1.5 text-[11px] text-gray-400">Tap a review to read it all · swipe it left to delete</p>
+      <p className="mt-1.5 text-[11px] text-gray-400">Tap a review to edit · swipe it left to delete</p>
       {search.trim() && mine.length === 0 && (
         <p className="mt-2 text-sm text-gray-500">No review of {roomName} has all of those words.</p>
       )}
