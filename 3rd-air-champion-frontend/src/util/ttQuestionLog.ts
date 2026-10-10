@@ -186,6 +186,9 @@ export interface ReviewEntryRow {
   reviewMonth: string;
   stars: number | null;
   snippet: string;
+  // The whole review, shown in the list as it is (host, 2026-10-10). Absent
+  // from a server not yet updated, which sent the snippet alone.
+  text?: string;
   addedAt: string | null;
   // Who cleaned the room for this stay (util/reviewCleaners on the server).
   cleaners?: string[];

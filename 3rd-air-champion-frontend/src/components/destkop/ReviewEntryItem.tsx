@@ -1,6 +1,5 @@
 import { useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
-import { HiPencilSquare } from "react-icons/hi2";
 import { DANGER_BUTTON, SWIPE_DELETE } from "../shared/dangerButton";
 import {
   cleanerLeadLine,
@@ -12,9 +11,9 @@ import {
 
 // One review in the list under the form.
 //
-// TAP it to read the whole review — the list holds only the first line, and a
-// long review was cut off there with no way to see the rest (the host,
-// 2026-10-07). SWIPE it left for Delete, then confirm: TiMag's one way of
+// The WHOLE review, always: it began as one cut-off line, then a tap to open
+// (2026-10-07), and the host found the tap a cost on every review — reading
+// them is the point, scrolling is cheap (2026-10-10). SWIPE it left for Delete, then confirm: TiMag's one way of
 // removing a row (shared/dangerButton), never an × on the line. Delete was
 // missing entirely, so a review saved by mistake could not be taken back.
 //
@@ -59,9 +58,6 @@ const ReviewEntryItem = ({
   onEdit: (full: ReviewEntryFull) => void;
 }) => {
   const [offset, setOffset] = useState(0);
-  const [open, setOpen] = useState(false);
-  const [full, setFull] = useState<ReviewEntryFull | null>(null);
-  const [loadFailed, setLoadFailed] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
@@ -74,18 +70,27 @@ const ReviewEntryItem = ({
   const direction = useRef<"horizontal" | "vertical" | null>(null);
   const pressed = useRef(false);
 
-  const toggle = () => {
-    if (offset !== 0) {
-      setOffset(0);
+
+  // The edit form needs the whole review. The list sends it now; a server not
+  // yet updated sends only the first 160 characters, so fetch it then.
+  const edit = async () => {
+    if (entry.text != null) {
+      onEdit({
+        id: entry.id,
+        roomId: entry.roomId,
+        guestName: entry.guestName,
+        stayDate: entry.stayDate,
+        reviewMonth: entry.reviewMonth,
+        stars: entry.stars,
+        text: entry.text,
+        addedAt: entry.addedAt,
+      });
       return;
     }
-    const next = !open;
-    setOpen(next);
-    if (next && !full) {
-      setLoadFailed(false);
-      fetchReviewEntry(entry.id)
-        .then(setFull)
-        .catch(() => setLoadFailed(true));
+    try {
+      onEdit(await fetchReviewEntry(entry.id));
+    } catch {
+      setError("That review didn't open. Try again.");
     }
   };
 
@@ -124,10 +129,14 @@ const ReviewEntryItem = ({
         </div>
 
         <div
+          // A TAP edits it: the review is already shown in full, so there is
+          // nothing to open, and a pencil on every review was clutter (host,
+          // 2026-10-10: "I can tap on the body of each review to edit it").
+          // A tap on a swiped-open row only puts it back.
           role="button"
           tabIndex={0}
-          aria-expanded={open}
-          className="relative cursor-pointer rounded-lg bg-white px-2 py-2.5 text-sm text-gray-700"
+          aria-label={`Edit ${entry.guestName || "this"} review`}
+          className="relative cursor-pointer rounded-lg bg-white px-2 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
           style={{
             transform: `translateX(${offset}px)`,
             transition: snapping ? "transform 0.18s ease" : "none",
@@ -136,7 +145,7 @@ const ReviewEntryItem = ({
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              toggle();
+              edit();
             }
           }}
           onPointerDown={(e) => {
@@ -161,7 +170,8 @@ const ReviewEntryItem = ({
           onPointerUp={() => {
             pressed.current = false;
             if (!moved.current) {
-              toggle();
+              if (offset !== 0) setOffset(0);
+              else edit();
               return;
             }
             setOffset(offset < -SWIPE_THRESHOLD ? -SNAP_WIDTH : 0);
@@ -171,48 +181,14 @@ const ReviewEntryItem = ({
             setOffset(0);
           }}
         >
-          <div className="flex items-start gap-2">
-            <p className="min-w-0 flex-1">
-              <span className="text-lg font-semibold text-gray-900">{entry.guestName || "A guest"}</span>
-              {entry.stars != null && <span className="text-amber-500"> · {"★".repeat(entry.stars)}</span>}
-              {date && <span className="text-gray-500"> · {date}</span>}
-            </p>
-            {/* Edit on the line it mostly fixes — the name, stars and date —
-                once the review is open. It sat under the whole review in small
-                blue text, a scroll away on a long one (host, 2026-10-10).
-                Pointer events stop here, or the row's own tap would close it. */}
-            {open && full && !confirming && (
-              <button
-                type="button"
-                onPointerDown={(e) => e.stopPropagation()}
-                onPointerUp={(e) => e.stopPropagation()}
-                onKeyDown={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit(full);
-                }}
-                className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-              >
-                <HiPencilSquare aria-hidden className="h-4 w-4" />
-                Edit
-              </button>
-            )}
-          </div>
-          {!open && <p className="mt-0.5 line-clamp-2 text-base leading-snug text-gray-700">{entry.snippet}</p>}
-          {open && (
-            <div className="mt-1">
-              {!full && !loadFailed && <p className="text-gray-400">Opening…</p>}
-              {loadFailed && <p className="text-rose-600">It didn't open. Tap to try again.</p>}
-              {full && (
-                <>
-                  <p className="mt-0.5 whitespace-pre-line text-base leading-relaxed text-gray-800">{full.text}</p>
-                  {full.addedAt && (
-                    <p className="mt-1 text-xs text-gray-400">Added {format(new Date(full.addedAt), "MMM d, yyyy")}</p>
-                  )}
-                </>
-              )}
-            </div>
-          )}
+          <p>
+            <span className="text-lg font-semibold text-gray-900">{entry.guestName || "A guest"}</span>
+            {entry.stars != null && <span className="text-amber-500"> · {"★".repeat(entry.stars)}</span>}
+            {date && <span className="text-gray-500"> · {date}</span>}
+          </p>
+          {/* The whole review, every time: truncated to fit more on the screen,
+              each one cost a tap to read (host, 2026-10-10). */}
+          <p className="mt-0.5 whitespace-pre-line text-base leading-relaxed text-gray-800">{entry.text ?? entry.snippet}</p>
           {/* Who cleaned the room for this stay — the reason reviews are kept
               (host, 2026-10-10: "show under each review who the cleaner was,
               like in Ask TT"). Teal: the house's own note, not the guest's

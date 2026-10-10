@@ -131,6 +131,8 @@ describe("GET /tt-host/reviews/entries?q=", () => {
     expect(await find("mattress quiet")).toEqual([]);
     expect((await find("2026-09")).map((e: any) => e.guestName)).toEqual(["Han"]);
     expect((await find("mattress"))[0].snippet).toContain("The mattress was a bit soft");
+    // The whole review comes too: the list shows it in full.
+    expect((await find("mattress"))[0].text).toBe(long);
     expect(await find("")).toHaveLength(2);
   });
 });
