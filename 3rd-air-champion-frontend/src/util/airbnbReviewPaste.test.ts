@@ -98,6 +98,31 @@ describe("parseAirbnbReview", () => {
     });
   });
 
+  // Copied on a phone, the repeat of the name is the guest's picture, which
+  // pastes as an empty line (Han, King, 2026-10-10). The form took "3 years
+  // on" for the name.
+  it("takes the name from above '3 years on Airbnb' when the picture stood where the repeat was", () => {
+    const han = [
+      "Han",
+      "3 years on Airbnb",
+      "",
+      "Rating, 5 stars",
+      ",·",
+      "1 week ago",
+      ",·",
+      "Stayed a few nights",
+      "This house is very quiet and private. The stay was very comfortable.",
+    ].join("\n");
+    expect(parseAirbnbReview(han, today)).toMatchObject({
+      guestName: "Han",
+      stars: 5,
+      when: "1 week ago",
+      text: "This house is very quiet and private. The stay was very comfortable.",
+    });
+    // The same review copied on a computer, with the name repeated, still reads.
+    expect(parseAirbnbReview(han.replace("\n\n", "\nHan\n"), today)).toMatchObject({ guestName: "Han", stars: 5 });
+  });
+
   it("leaves the host's reply out", () => {
     const r = parseAirbnbReview(`${LIM}\nResponse from Anh-Tuan\nThank you Lim!`, today) as any;
     expect(r.text).toBe("Clean and quiet, great host.\nWould stay again.");

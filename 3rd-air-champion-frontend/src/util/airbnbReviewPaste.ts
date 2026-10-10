@@ -109,6 +109,11 @@ const nameFrom = (above: string, higher: string): string => {
   // The old layout repeats the name after the city: take the repeat.
   const afterYears = above.match(/\bon airbnb\s+(.+)$/i);
   if (afterYears) return afterYears[1];
+  // "3 years on Airbnb" ALONE above the stars: copied on a phone, the repeat
+  // of the name is the guest's PICTURE, which pastes as nothing — so the name
+  // is the line above. Read as a city, it gave "3 years on" (Han, King,
+  // 2026-10-10).
+  if (/\bon airbnb$/i.test(above)) return higher;
   const words = above.split(/\s+/);
   for (let k = Math.floor(words.length / 2); k >= 1; k--) {
     const tail = words.slice(-k).join(" ");
