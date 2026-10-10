@@ -94,11 +94,10 @@ const RESULT_LIMIT = 8;
  * calendar, and renaming the file would only move every line of its history.
  */
 
-// One review in TT's review answer: room, guest, stars, date, the opening
-// words, and who cleaned the room then. Shared by "Latest review of each room" and
-// "3 stars or lower". A tap opens the whole review and a second closes it:
-// one line cut a long review off mid-word with no way to read on (host,
-// 2026-10-08).
+// One review in TT's review answer, under "Latest review of each room": room,
+// guest, stars, date, the whole review, and who prepared the room. A tap opens
+// it to edit in Guest reviews. (A "3 stars or lower" list used it too until the
+// host found that list unnecessary, 2026-10-10.)
 // Drawn the way Guest reviews draws one (host, 2026-10-10: "same design"):
 // the room as its coloured badge, the name and stars large, the WHOLE review
 // rather than a cut-off line and a tap to open, a date a person reads, and who
@@ -709,14 +708,9 @@ const CalendarFilterPicker = ({
                             ))}
                           </div>
                         )}
-                        <div className="mt-2 border-t border-gray-100 pt-2">
-                          <p className="text-base font-semibold text-gray-900">3 stars or lower</p>
-                          {reviewStats.low.length === 0 ? (
-                            <p className="text-gray-500">None with stars at 3 or below.</p>
-                          ) : (
-                            reviewStats.low.map((r, i) => <ReviewLine key={i} r={r} roomColor={rooms.find((x) => x.name === r.roomName)?.color} onOpen={(id) => pickScreen(`reviews:${id}`)} />)
-                          )}
-                        </div>
+                        {/* No "3 stars or lower" list: the host found it unnecessary
+                            here (2026-10-10). A low review is in its room's list in
+                            Guest reviews, and a search finds it. */}
                       </>
                     )}
                   </div>
