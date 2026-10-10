@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { FaUser } from "react-icons/fa";
 import { HiSparkles } from "react-icons/hi2";
@@ -95,7 +95,7 @@ const RESULT_LIMIT = 8;
  */
 
 // One review in TT's review answer: room, guest, stars, date, the opening
-// words, and who cleaned the room then. Shared by "Most recent reviews" and
+// words, and who cleaned the room then. Shared by "Latest review of each room" and
 // "3 stars or lower". A tap opens the whole review and a second closes it:
 // one line cut a long review off mid-word with no way to read on (host,
 // 2026-10-08).
@@ -646,7 +646,15 @@ const CalendarFilterPicker = ({
                             at reading size (host, 2026-10-10). */}
                         <div className="mt-1.5 grid w-fit grid-cols-[auto_auto_auto] items-center gap-x-4 gap-y-1.5 text-base tabular-nums">
                           {reviewStats.rooms.map((r) => (
-                            <Fragment key={r.room}>
+                            // A whole line is one tap: it opens Guest reviews on that
+                            // room (host, 2026-10-10). Subgrid keeps the three columns
+                            // lined up across the rows, as they were as plain cells.
+                            <button
+                              key={r.room}
+                              type="button"
+                              onClick={() => pickScreen(`reviews:room:${r.room}`)}
+                              className="col-span-3 -mx-1 grid grid-cols-subgrid items-center rounded-md px-1 py-0.5 text-left hover:bg-gray-50"
+                            >
                               <RoomBadge
                                 room={{ name: r.name, color: rooms.find((x) => x.name === r.name)?.color }}
                                 rooms={reviewStats.rooms}
@@ -663,7 +671,7 @@ const CalendarFilterPicker = ({
                                 {r.reviews} review{r.reviews === 1 ? "" : "s"}
                                 {r.withStars !== r.reviews ? `, ${r.withStars} with stars` : ""}
                               </span>
-                            </Fragment>
+                            </button>
                           ))}
                         </div>
 
@@ -692,17 +700,17 @@ const CalendarFilterPicker = ({
                         {/* The newest reviews, whatever the stars, ABOVE the low ones:
                             most recent stays are 5 stars, and the host follows
                             those first — with the cleaner lead, to credit a
-                            good stay (host, 2026-10-08). */}
+                            good stay (host, 2026-10-08). One per room since 2026-10-10. */}
                         {reviewStats.recent && reviewStats.recent.length > 0 && (
                           <div className="mt-2 border-t border-gray-100 pt-2">
-                            <p className="font-semibold text-gray-900">Most recent reviews</p>
+                            <p className="text-base font-semibold text-gray-900">Latest review of each room</p>
                             {reviewStats.recent.map((r, i) => (
                               <ReviewLine key={i} r={r} roomColor={rooms.find((x) => x.name === r.roomName)?.color} onOpen={(id) => pickScreen(`reviews:${id}`)} />
                             ))}
                           </div>
                         )}
                         <div className="mt-2 border-t border-gray-100 pt-2">
-                          <p className="font-semibold text-gray-900">3 stars or lower</p>
+                          <p className="text-base font-semibold text-gray-900">3 stars or lower</p>
                           {reviewStats.low.length === 0 ? (
                             <p className="text-gray-500">None with stars at 3 or below.</p>
                           ) : (

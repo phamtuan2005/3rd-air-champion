@@ -1,4 +1,4 @@
-import { cleaningWindow, lowReviews, recentReviews, roomAverages, topicMentions, ReviewRow } from "../reviewStats";
+import { cleaningWindow, latestPerRoom, lowReviews, roomAverages, topicMentions, ReviewRow } from "../reviewStats";
 
 // The arithmetic the host reads as fact. Pinned because a wrong average on a
 // screen about whom to thank, or whom to speak to, is a person's reputation.
@@ -91,18 +91,17 @@ describe("topicMentions", () => {
   });
 });
 
-describe("recentReviews", () => {
-  // The host follows the newest reviews first, whatever the stars (2026-10-08).
-  it("lists the newest first, any stars, undated last, up to the limit", () => {
-    const out = recentReviews(
-      [
-        row({ guestName: "old", stars: 2, reviewMonth: "2025-01" }),
-        row({ guestName: "none", stars: 5 }),
-        row({ guestName: "new", stars: 5, stayDate: "2026-09-20" }),
-        row({ guestName: "mid", stars: 4, reviewMonth: "2026-03" }),
-      ],
-      3,
-    );
-    expect(out.map((r) => r.guestName)).toEqual(["new", "mid", "old"]);
+describe("latestPerRoom", () => {
+  // One per room, in room order (host, 2026-10-10): the five newest in the
+  // house could all be one busy room's.
+  it("gives each room its newest dated review, any stars, rooms in order", () => {
+    const out = latestPerRoom([
+      row({ room: "k", roomName: "King", guestName: "k-old", stars: 2, reviewMonth: "2025-01" }),
+      row({ room: "k", roomName: "King", guestName: "k-new", stars: 4, stayDate: "2026-09-20" }),
+      row({ room: "c", roomName: "Cozy", guestName: "c-undated", stars: 5 }),
+      row({ room: "c", roomName: "Cozy", guestName: "c-new", stars: 5, reviewMonth: "2026-10" }),
+      row({ room: "q", roomName: "Queen", guestName: "q-undated", stars: 5 }),
+    ]);
+    expect(out.map((r) => r.guestName)).toEqual(["c-new", "k-new"]);
   });
 });
