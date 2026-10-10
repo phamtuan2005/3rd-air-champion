@@ -54,7 +54,7 @@ const GuestReviewForm = ({
   // is opened from Ask TT ("add review") before any room was chosen (host,
   // 2026-10-10). openAdd opens it at once; onRoomChange turns the window to
   // the room a review was added to.
-  rooms?: { roomId: string; name: string; color?: string }[];
+  rooms?: { roomId: string; name: string; color?: string; airbnbUrl?: string }[];
   openAdd?: boolean;
   onAddOpened?: () => void;
   onRoomChange?: (roomId: string) => void;
@@ -64,7 +64,9 @@ const GuestReviewForm = ({
   // pop-up. An edited review keeps its own room.
   const [targetRoomId, setTargetRoomId] = useState(roomId);
   const [roomMenu, setRoomMenu] = useState(false);
-  const target = rooms.find((r) => r.roomId === targetRoomId) ?? { roomId, name: roomName, color: roomColor };
+  const target: { roomId: string; name: string; color?: string; airbnbUrl?: string } = rooms.find(
+    (r) => r.roomId === targetRoomId,
+  ) ?? { roomId, name: roomName, color: roomColor };
   const [guests, setGuests] = useState<guestType[]>([]);
   const [entries, setEntries] = useState<ReviewEntryRow[]>([]);
   const [guestName, setGuestName] = useState("");
@@ -452,6 +454,24 @@ const GuestReviewForm = ({
                         )}
                       </span>
                     )}
+                    {/* The room's listing, to fetch the review from — the coral tag
+                        the booking card uses (host, 2026-10-10: "bring the AirBnB link
+                        here so I can quickly go and copy the review"). The room
+                        picked, or an edited review's own room. */}
+                    {(() => {
+                      const url = editingId ? rooms.find((r) => r.roomId === roomId)?.airbnbUrl : target.airbnbUrl;
+                      return url ? (
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          title={`Open ${editingId ? roomName : target.name}'s listing on Airbnb`}
+                          className="shrink-0 rounded-full bg-[#FF5A5F] px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-white transition hover:brightness-110 active:brightness-95"
+                        >
+                          Airbnb ↗
+                        </a>
+                      ) : null;
+                    })()}
                   </h4>
                   <p className="mt-0.5 text-[11px] leading-relaxed text-gray-500">
                     Paste it straight from AirBnB — the name, stars, month and stay fill themselves in.
