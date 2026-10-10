@@ -126,7 +126,7 @@ const ReviewEntryItem = ({
           role="button"
           tabIndex={0}
           aria-expanded={open}
-          className="relative cursor-pointer rounded-lg bg-white px-2 py-1.5 text-xs text-gray-700"
+          className="relative cursor-pointer rounded-lg bg-white px-2 py-2.5 text-sm text-gray-700"
           style={{
             transform: `translateX(${offset}px)`,
             transition: snapping ? "transform 0.18s ease" : "none",
@@ -170,19 +170,19 @@ const ReviewEntryItem = ({
             setOffset(0);
           }}
         >
-          <span className="font-semibold text-gray-900">{entry.guestName || "A guest"}</span>
+          <span className="text-base font-semibold text-gray-900">{entry.guestName || "A guest"}</span>
           {entry.stars != null && <span className="text-amber-500"> · {"★".repeat(entry.stars)}</span>}
           {date && <span className="text-gray-500"> · {date}</span>}
-          {!open && <p className="truncate text-gray-500">{entry.snippet}</p>}
+          {!open && <p className="mt-0.5 line-clamp-2 text-[15px] leading-snug text-gray-600">{entry.snippet}</p>}
           {open && (
             <div className="mt-1">
               {!full && !loadFailed && <p className="text-gray-400">Opening…</p>}
               {loadFailed && <p className="text-rose-600">It didn't open. Tap to try again.</p>}
               {full && (
                 <>
-                  <p className="whitespace-pre-line leading-relaxed text-gray-700">{full.text}</p>
+                  <p className="mt-0.5 whitespace-pre-line text-base leading-relaxed text-gray-800">{full.text}</p>
                   {full.addedAt && (
-                    <p className="mt-1 text-[10px] text-gray-400">Added {format(new Date(full.addedAt), "MMM d, yyyy")}</p>
+                    <p className="mt-1 text-xs text-gray-400">Added {format(new Date(full.addedAt), "MMM d, yyyy")}</p>
                   )}
                 </>
               )}
@@ -193,7 +193,7 @@ const ReviewEntryItem = ({
               like in Ask TT"). Teal: the house's own note, not the guest's
               words; the same sentence TT gives. */}
           {entry.basis && (
-            <p className="mt-0.5 text-[11px] font-medium text-teal-700">{cleanerLeadLine(entry.basis, entry.cleaners)}</p>
+            <p className="mt-1 text-xs font-medium text-teal-700">{cleanerLeadLine(entry.basis, entry.cleaners)}</p>
           )}
         </div>
       </div>
