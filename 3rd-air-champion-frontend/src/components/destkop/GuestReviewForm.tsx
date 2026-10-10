@@ -270,10 +270,25 @@ const GuestReviewForm = ({
   // phone the reviews began a screen and a half down.
   return (
     <div>
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-semibold text-gray-800">
-          {search.trim() ? `Found: ${mine.length}` : `${mine.length} review${mine.length === 1 ? "" : "s"} on record`}
-        </p>
+      {/* Search and Add on one row. The count is the picker's above; it is
+          said here only for a search, where it is new (host, 2026-10-10:
+          "the info got duplicated at two positions next to each other"). */}
+      <div className="flex items-center gap-2">
+        {/* Two words and an icon: "Search — a name, a word, a month (2026-09)"
+            was cut off on a phone, and the cut-off part was the part that said
+            anything (host, 2026-10-10). A name, a word or a month all work. */}
+        <div className="relative min-w-0 flex-1">
+          <HiMagnifyingGlass aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search reviews"
+            aria-label={`Search ${roomName}'s reviews by name, word or month`}
+            // 16px: below that, iOS Safari zooms the page in on focus.
+            className="w-full rounded-lg border border-gray-200 py-2 pl-9 pr-3 text-[16px] focus:border-gray-400 focus:outline-none sm:text-sm"
+          />
+        </div>
         <button
           type="button"
           onClick={() => {
@@ -286,21 +301,9 @@ const GuestReviewForm = ({
           + Add
         </button>
       </div>
-      {/* Two words and an icon: "Search — a name, a word, a month (2026-09)"
-          was cut off on a phone, and the cut-off part was the part that said
-          anything (host, 2026-10-10). A name, a word or a month all work. */}
-      <div className="relative mt-2">
-        <HiMagnifyingGlass aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search reviews"
-          aria-label={`Search ${roomName}'s reviews by name, word or month`}
-          // 16px: below that, iOS Safari zooms the page in on focus.
-          className="w-full rounded-lg border border-gray-200 py-2 pl-9 pr-3 text-[16px] focus:border-gray-400 focus:outline-none sm:text-sm"
-        />
-      </div>
+      {search.trim() && mine.length > 0 && (
+        <p className="mt-1.5 text-sm font-semibold text-gray-800">Found: {mine.length}</p>
+      )}
       {note && !formOpen && (
         <p role="status" className="mt-1.5 text-xs font-medium text-teal-700">
           {note}
