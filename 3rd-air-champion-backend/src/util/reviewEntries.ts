@@ -157,6 +157,7 @@ export const latestFromEntries = async (hostId: string, roomIds?: string[]): Pro
       month: reviewDateKey(r).slice(0, 7),
       stars: r.stars ?? null,
       ...(firstName ? { firstName } : {}),
+      ...(r.stayDate ? { stayDate: String(r.stayDate) } : {}),
     });
   }
   return out;

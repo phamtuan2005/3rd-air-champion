@@ -105,6 +105,9 @@ router.get("/reviews/:host", async (req: Request, res: any) => {
         latestMonth: l.month,
         ...(l.stars ? { latestStars: l.stars } : {}),
         ...(l.firstName ? { latestGuest: l.firstName } : {}),
+        // The night the stay began, once on record — "Oct 8, 2026" rather
+        // than "October 2026" (host, 2026-10-10).
+        ...(l.stayDate ? { latestStayDate: l.stayDate } : {}),
       };
     };
     const published = (p?.rooms ?? []).filter((r: any) => r?.room && r.summary);

@@ -13,7 +13,7 @@ import { matchesReservation, reviewsTyped, screensMatching, weekTyped, whenTyped
 import { jwtDecode } from "jwt-decode";
 import { fetchPublishedReviews, fetchReviewStats, PublishedReviews, ReviewStats } from "../../../../util/ttQuestionLog";
 import { getToken } from "../../../../util/authSession";
-import { starRow } from "../../../../util/askTT";
+import { latestDateLabel, starRow } from "../../../../util/askTT";
 import type { SearchWorker } from "../../../../util/searchWorkers";
 
 interface CalendarFilterPickerProps {
@@ -561,7 +561,7 @@ const CalendarFilterPicker = ({
                           {reviewRoom.name}'s latest review
                           <span className="font-normal text-gray-500">
                             {roomLatest.guest ? ` · ${roomLatest.guest}` : ""} ·{" "}
-                            {format(new Date(`${roomLatest.month}-01T12:00:00`), "MMMM yyyy")}
+                            {latestDateLabel(roomLatest)}
                           </span>
                           {roomLatest.stars ? <span className="text-amber-500"> · {starRow(roomLatest.stars)}</span> : null}
                         </p>

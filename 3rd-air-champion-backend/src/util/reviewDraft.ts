@@ -40,6 +40,10 @@ export interface LatestReview {
   // it with the review (host, 2026-10-09). Not given to the draft: a summary
   // speaks for guests in general and names no one.
   firstName?: string;
+  // yyyy-MM-dd, the night the stay began, when it is on record. Shown with
+  // the review in TiBook and TiMag alike — the host's call (2026-10-10), made
+  // knowing it tells a guest the night another, first-named guest stayed.
+  stayDate?: string;
 }
 
 export interface DraftedRoom {

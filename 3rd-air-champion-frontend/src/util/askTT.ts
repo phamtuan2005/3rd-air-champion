@@ -203,6 +203,8 @@ export interface TTLatestReview {
   stars?: number;
   // The reviewer's first name, as AirBnB shows it beside the review.
   guest?: string;
+  // yyyy-MM-dd, the night the stay began, once it is on record.
+  stayDate?: string;
 }
 
 export interface ReturningGuest {
@@ -595,8 +597,13 @@ const latestOf = (room: TTRoom): TTAction => ({ kind: "ask", label: `${room.name
 // of five, not "5 ★": that read as a data label, and TiBook colours a row of
 // stars so the score is seen at a glance (host, 2026-10-09).
 export const starRow = (n: number) => "★".repeat(n) + "☆".repeat(Math.max(0, 5 - n));
+// The night of the stay when it is on record ("Oct 8, 2026"), else the month
+// the review gives ("October 2026") — the host asked for the day once the
+// stays were found (2026-10-10). Shared with TiMag's TT box so the two agree.
+export const latestDateLabel = (l: Pick<TTLatestReview, "month" | "stayDate">) =>
+  l.stayDate ? format(parseISO(l.stayDate), "MMM d, yyyy") : format(parseISO(`${l.month}-01`), "MMMM yyyy");
 const latestWhen = (l: TTLatestReview) =>
-  [l.guest ?? "", format(parseISO(`${l.month}-01`), "MMMM yyyy"), l.stars ? starRow(l.stars) : ""].filter(Boolean).join(" · ");
+  [l.guest ?? "", latestDateLabel(l), l.stars ? starRow(l.stars) : ""].filter(Boolean).join(" · ");
 
 // The newest review of a room, as the host published its summary. No room
 // named: each room's, one line apiece, since "latest" of the house would be

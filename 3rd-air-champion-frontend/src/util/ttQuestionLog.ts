@@ -71,6 +71,9 @@ export const fetchPublishedReviews = async (hostId: string): Promise<PublishedRe
           month: r.latestMonth,
           ...(r.latestStars ? { stars: r.latestStars } : {}),
           ...(typeof r.latestGuest === "string" && r.latestGuest.trim() ? { guest: r.latestGuest.trim() } : {}),
+          ...(typeof r.latestStayDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r.latestStayDate)
+            ? { stayDate: r.latestStayDate }
+            : {}),
         }]),
     ),
   };
