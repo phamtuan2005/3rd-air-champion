@@ -410,7 +410,9 @@ const CalendarNavigator = ({
                   aria-pressed={pick ? on : undefined}
                   title={isRoom ? (on ? "Show every room" : `Show only ${item.label}`) : item.key === "all" ? "Show everything" : on ? "Show every guest" : "Show only AirBnB stays"}
                   className={`flex shrink-0 items-center gap-1 rounded-md px-1 py-0.5 disabled:cursor-default ${
-                    on && item.key !== "all" ? "ring-2 ring-gray-900" : ""
+                    // The one in force wears the ring — All too, when nothing is
+                    // filtered (host, 2026-10-10).
+                    on ? "ring-2 ring-gray-900" : ""
                   } ${pick ? "hover:bg-gray-100" : ""}`}
                 >
                   <RoomBadge
