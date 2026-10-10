@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchReviewsState, publishReviews, ReviewsState, startReviewDraft, SummarySet } from "../../util/ttQuestionLog";
 import GuestReviewForm from "./GuestReviewForm";
+import RoomBadge from "../shared/RoomBadge";
 import { HiPaperAirplane, HiSparkles } from "react-icons/hi2";
 
 // What guests say, for TiBook's TT to tell the next guest.
@@ -84,6 +85,17 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
   const pasteRoom = rooms.find((r) => r.roomId === pasteRoomId);
   // How many reviews each room has on record, for its tab.
   const countOf = Object.fromEntries((state?.onRecord ?? []).map((r) => [r.roomId, r.count]));
+  const [pickerOpen, setPickerOpen] = useState(false);
+  // A room as RoomBadge draws it: its own colour when it has one, else the
+  // colour its name gives it everywhere else (util/getRoomColor).
+  const badgeOf = (id: string) => {
+    const r = rooms.find((x) => x.roomId === id);
+    return r ? { name: r.name, color: r.color || undefined } : { name: "House" };
+  };
+  const countLabel = (id: string) => {
+    const n = id === "house" ? (state?.onRecord ?? []).reduce((a, r) => a + r.count, 0) : countOf[id] ?? 0;
+    return n > 0 ? `${n} review${n === 1 ? "" : "s"}` : "no reviews yet";
+  };
 
   // A room's page of reviews — pasted, or chosen as a text file, then split by
   // Claude — is gone from this window. Reviews come in one at a time through
@@ -164,22 +176,61 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
         {state && !error && (
           // One dropdown, not a row of tabs: six tabs took two rows on a phone
           // (host, 2026-10-09).
-          <div className="shrink-0 border-b border-gray-100 px-4 py-2.5">
-            <select
-              aria-label="Room"
-              value={pasteRoomId}
-              onChange={(e) => setPasteRoomId(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-900 focus:border-gray-500 focus:outline-none"
+          // Each room in its own colour, the badge it wears on the calendar,
+          // in Clean and in TiWork — a plain <select> can only show grey text
+          // (host, 2026-10-10: "bring the room in consistent with the rest of
+          // Ti"). House last, in grey: it is every room, not one of them.
+          <div className="relative shrink-0 border-b border-gray-100 px-4 py-2.5">
+            <button
+              type="button"
+              aria-haspopup="listbox"
+              aria-expanded={pickerOpen}
+              onClick={() => setPickerOpen((o) => !o)}
+              className="flex w-full items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-left hover:bg-gray-50"
             >
-              {[...rooms, { roomId: "house", name: "House" }].map((r) => {
-                const count = r.roomId === "house" ? onRecord : countOf[r.roomId] ?? 0;
-                return (
-                  <option key={r.roomId} value={r.roomId}>
-                    {`${r.name}${count > 0 ? ` · ${count} review${count === 1 ? "" : "s"}` : ""}`}
-                  </option>
-                );
-              })}
-            </select>
+              <RoomBadge room={badgeOf(pasteRoomId)} override={pasteRoom ? undefined : "bg-gray-700"} className="text-sm font-semibold" />
+              <span className="flex-1 text-sm text-gray-500">{countLabel(pasteRoomId)}</span>
+              <span aria-hidden className="text-xs text-gray-400">
+                {pickerOpen ? "▲" : "▼"}
+              </span>
+            </button>
+            {pickerOpen && (
+              <>
+                {/* A tap anywhere else closes it. */}
+                <div className="fixed inset-0 z-10" onClick={() => setPickerOpen(false)} />
+                <ul
+                  role="listbox"
+                  aria-label="Room"
+                  className="absolute left-4 right-4 z-20 mt-1 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-xl"
+                >
+                  {[...rooms.map((r) => r.roomId), "house"].map((id) => (
+                    <li key={id}>
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={id === pasteRoomId}
+                        onClick={() => {
+                          setPasteRoomId(id);
+                          setPickerOpen(false);
+                        }}
+                        className={`flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-gray-50 ${
+                          id === pasteRoomId ? "bg-gray-50" : ""
+                        }`}
+                      >
+                        <RoomBadge
+                          room={badgeOf(id)}
+                          rooms={[...rooms, { name: "House" }]}
+                          override={id === "house" ? "bg-gray-700" : undefined}
+                          className="text-sm font-semibold"
+                        />
+                        <span className="flex-1 text-sm text-gray-500">{countLabel(id)}</span>
+                        {id === pasteRoomId && <span className="text-sm text-gray-900">✓</span>}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
           </div>
         )}
 
@@ -267,17 +318,22 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
             <>
               <section>
                 <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                  <h3 className="text-sm font-bold text-gray-900">
-                    {pasteRoom.name}'s reviews
+                  <h3 className="flex items-center gap-1.5 text-sm font-bold text-gray-900">
+                    <RoomBadge room={badgeOf(pasteRoom.roomId)} className="text-sm font-semibold" />
+                    reviews
                   </h3>
                   {pasteRoom.airbnbUrl && (
+                    // The booking card's Airbnb tag, the same coral pill: one
+                    // mark for "this opens on Airbnb" across TiMag (host,
+                    // 2026-10-10), in place of a blue "Open the listing ↗".
                     <a
                       href={pasteRoom.airbnbUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-xs font-semibold text-sky-600 hover:underline"
+                      title={`Open ${pasteRoom.name}'s listing on Airbnb`}
+                      className="shrink-0 rounded-full bg-[#FF5A5F] px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-white transition hover:brightness-110 active:brightness-95"
                     >
-                      Open the listing ↗
+                      Airbnb ↗
                     </a>
                   )}
                 </div>

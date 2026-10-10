@@ -135,7 +135,7 @@ export interface ReviewsState {
     startedAt: string | null;
   };
   // The house's rooms in service, to paste each one's reviews against.
-  houseRooms?: { roomId: string; name: string; airbnbUrl: string }[];
+  houseRooms?: { roomId: string; name: string; airbnbUrl: string; color?: string }[];
   // The review files kept on the server, one per room — name, size and date,
   // never the text.
   sources?: { roomId: string; name: string; chars: number; savedAt: string | null }[];
