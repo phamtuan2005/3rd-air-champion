@@ -204,26 +204,24 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
         )}
 
         {state && !error && (
-          <div role="tablist" className="flex shrink-0 flex-wrap gap-1.5 border-b border-gray-100 px-4 py-2.5">
-            {[...rooms, { roomId: "house", name: "House" }].map((r) => {
-              const on = r.roomId === pasteRoomId;
-              const count = r.roomId === "house" ? onRecord : countOf[r.roomId] ?? 0;
-              return (
-                <button
-                  key={r.roomId}
-                  type="button"
-                  role="tab"
-                  aria-selected={on}
-                  onClick={() => setPasteRoomId(r.roomId)}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                    on ? "bg-gray-800 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
-                >
-                  {r.name}
-                  {count > 0 && <span className={`ml-1 font-normal ${on ? "text-gray-300" : "text-gray-400"}`}>{count}</span>}
-                </button>
-              );
-            })}
+          // One dropdown, not a row of tabs: six tabs took two rows on a phone
+          // (host, 2026-10-09).
+          <div className="shrink-0 border-b border-gray-100 px-4 py-2.5">
+            <select
+              aria-label="Room"
+              value={pasteRoomId}
+              onChange={(e) => setPasteRoomId(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-900 focus:border-gray-500 focus:outline-none"
+            >
+              {[...rooms, { roomId: "house", name: "House" }].map((r) => {
+                const count = r.roomId === "house" ? onRecord : countOf[r.roomId] ?? 0;
+                return (
+                  <option key={r.roomId} value={r.roomId}>
+                    {`${r.name}${count > 0 ? ` · ${count} review${count === 1 ? "" : "s"}` : ""}`}
+                  </option>
+                );
+              })}
+            </select>
           </div>
         )}
 
