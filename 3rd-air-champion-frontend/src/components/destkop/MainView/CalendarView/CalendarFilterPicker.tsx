@@ -461,11 +461,16 @@ const CalendarFilterPicker = ({
           // dvh, never vh: on a phone vh is the tallest the viewport can be, so
           // the panel would be sized for a window the browser toolbar is
           // covering ([[project-mobile-dvh-calendar]]).
-          className="modal-type fixed inset-0 z-[300] flex items-start justify-center bg-black bg-opacity-40 pt-[8dvh]"
+          //
+          // Grows with what it holds, up to nearly the whole screen: capped at
+          // 78% and 320px wide, a long answer (the reviews) sat in a small
+          // scrolling well (host, 2026-10-10: "if the content is long, it
+          // should expand"). Short content still makes a short box.
+          className="modal-type fixed inset-0 z-[300] flex items-start justify-center bg-black bg-opacity-40 pt-[4dvh]"
           onClick={close}
         >
           <div
-            className="flex max-h-[78dvh] w-80 flex-col rounded-lg bg-white shadow-xl"
+            className="flex max-h-[92dvh] w-[min(28rem,calc(100vw_-_1.5rem))] flex-col rounded-lg bg-white shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
