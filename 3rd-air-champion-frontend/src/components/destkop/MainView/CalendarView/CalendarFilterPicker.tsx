@@ -315,7 +315,7 @@ const CalendarFilterPicker = ({
   const day = (key: string, pattern: string) => format(new Date(key + "T00:00:00"), pattern);
   // Where a room or guest row will take the calendar, said on the row.
   const thenLabel = split ? (
-    <span className="ml-auto shrink-0 text-[11px] font-semibold text-gray-400">
+    <span className="ml-auto shrink-0 text-sm font-semibold text-gray-500">
       {day(split.when.key, split.when.month ? "MMMM" : "MMM d")} ›
     </span>
   ) : null;
@@ -374,12 +374,14 @@ const CalendarFilterPicker = ({
   // Otherwise it is TT's own pill and needs none.
   const isFiltered = !!filteredName || !!selectedRoom;
 
-  const heading = "px-4 pb-1 pt-3 text-[11px] font-bold uppercase tracking-wide text-gray-400";
-  const rowClass = "flex w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-gray-50";
+  const heading = "px-4 pb-1 pt-3 text-xs font-bold uppercase tracking-wide text-gray-400";
+  // text-base: the rows read at the size of the reviews above them. Their
+  // hints were 11px, a size the host called "too tiny" (2026-10-10).
+  const rowClass = "flex w-full items-center gap-3 px-4 py-2.5 text-left text-base hover:bg-gray-50";
   const tick = <span className="ml-auto shrink-0 text-sm font-bold text-emerald-600">✓</span>;
   const more = (shown: number, total: number) =>
     total > shown ? (
-      <p className="px-4 pb-1 text-[11px] text-gray-400">
+      <p className="px-4 pb-1 text-xs text-gray-400">
         {total - shown} more. Type more of the name to narrow it.
       </p>
     ) : null;
@@ -513,11 +515,11 @@ const CalendarFilterPicker = ({
                       <span className="block truncate font-medium text-gray-800">
                         {day(when.key, when.month ? "MMMM yyyy" : "EEEE, MMM d, yyyy")}
                       </span>
-                      <span className="block truncate text-[11px] text-gray-400">
+                      <span className="block truncate text-sm text-gray-500">
                         {when.month ? "Turn the calendar to this month" : "Show this day on the calendar"}
                       </span>
                     </span>
-                    <span className="ml-auto shrink-0 text-[11px] font-semibold text-gray-400">Calendar ›</span>
+                    <span className="ml-auto shrink-0 text-sm font-semibold text-gray-500">Calendar ›</span>
                   </button>
                 </>
               )}
@@ -532,11 +534,11 @@ const CalendarFilterPicker = ({
                         {week.offset ? "Next week" : "This week"}
                         {weekCleaner ? ` · ${weekCleaner.name.split(" ")[0]}` : ""}
                       </span>
-                      <span className="block truncate text-[11px] text-gray-400">
+                      <span className="block truncate text-sm text-gray-500">
                         {weekCleaner ? `${weekCleaner.name.split(" ")[0]}'s rooms, morning by morning` : "Who cleans what, morning by morning"}
                       </span>
                     </span>
-                    <span className="ml-auto shrink-0 text-[11px] font-semibold text-gray-400">Clean ›</span>
+                    <span className="ml-auto shrink-0 text-sm font-semibold text-gray-500">Clean ›</span>
                   </button>
                 </>
               )}
@@ -687,9 +689,9 @@ const CalendarFilterPicker = ({
                     <button key={s.key} type="button" className={rowClass} onClick={() => pickScreen(s.key)}>
                       <span className="min-w-0">
                         <span className="block truncate font-medium text-gray-800">{s.label}</span>
-                        <span className="block truncate text-[11px] text-gray-400">{s.hint}</span>
+                        <span className="block truncate text-sm text-gray-500">{s.hint}</span>
                       </span>
-                      <span className="ml-auto shrink-0 text-[11px] font-semibold text-gray-400">Open ›</span>
+                      <span className="ml-auto shrink-0 text-sm font-semibold text-gray-500">Open ›</span>
                     </button>
                   ))}
                 </>
@@ -719,7 +721,7 @@ const CalendarFilterPicker = ({
                             one Susan from another faster than by surname. The
                             number shows when a number is what was typed, so the
                             host sees why this guest came up. */}
-                        <span className="block truncate text-[11px] text-gray-400">
+                        <span className="block truncate text-sm text-gray-500">
                           {r.next === todayKey
                             ? "Here now"
                             : r.next
@@ -752,7 +754,7 @@ const CalendarFilterPicker = ({
                         <span className="block truncate font-medium text-gray-800">{r.alias}</span>
                         {/* An AirBnB name is a first name, and the room is what
                             tells two Dannys apart. */}
-                        <span className="block truncate text-[11px] text-gray-400">
+                        <span className="block truncate text-sm text-gray-500">
                           {r.inHouse
                             ? "Here now"
                             : r.next
@@ -783,7 +785,7 @@ const CalendarFilterPicker = ({
                     <button key={`${w.kind}-${w.id}`} type="button" className={rowClass} onClick={() => pickWorker(w)}>
                       <span className="min-w-0">
                         <span className="block truncate font-medium text-gray-800">{w.name}</span>
-                        <span className="block truncate text-[11px] text-gray-400">
+                        <span className="block truncate text-sm text-gray-500">
                           {w.role}
                           {w.former ? " · left the team" : ""}
                           {byPhone && w.phone ? ` · ${w.phone}` : ""}
@@ -791,7 +793,7 @@ const CalendarFilterPicker = ({
                       </span>
                       {/* Said on the row, because this result leaves the
                           calendar: where the tap goes. */}
-                      <span className="ml-auto shrink-0 text-[11px] font-semibold text-gray-400">
+                      <span className="ml-auto shrink-0 text-sm font-semibold text-gray-500">
                         {w.kind === "cleaner" ? "Clean ›" : "Staffing ›"}
                       </span>
                     </button>
@@ -812,11 +814,11 @@ const CalendarFilterPicker = ({
                     {ttBadge("h-6 w-6", 14)}
                     <span className="min-w-0">
                       <span className="block truncate font-medium text-gray-800">“{q}”</span>
-                      <span className="block truncate text-[11px] text-gray-400">
+                      <span className="block truncate text-sm text-gray-500">
                         TT looks it up in your calendar, guests and cleanings
                       </span>
                     </span>
-                    <span className="ml-auto shrink-0 text-[11px] font-semibold text-gray-400">Ask ›</span>
+                    <span className="ml-auto shrink-0 text-sm font-semibold text-gray-500">Ask ›</span>
                   </button>
                 </>
               )}
