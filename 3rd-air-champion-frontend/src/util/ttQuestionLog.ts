@@ -187,7 +187,24 @@ export interface ReviewEntryRow {
   stars: number | null;
   snippet: string;
   addedAt: string | null;
+  // Who cleaned the room for this stay (util/reviewCleaners on the server).
+  cleaners?: string[];
+  basis?: LeadBasis;
 }
+
+// night = the stay's first night is known; month = only the review's month;
+// none = no date; before = the stay predates the cleaning rota (2026-07-20).
+export type LeadBasis = "night" | "month" | "none" | "before";
+
+// The one sentence under a review about who cleaned the room, for TT's answers
+// and the Guest reviews list alike. A LEAD, said as one: a review gives a
+// night at best, never who left the room how.
+export const cleanerLeadLine = (basis: LeadBasis | undefined, cleaners: string[] = []): string => {
+  if (basis === "before") return "Before cleaning was recorded (Jul 20, 2026), so no cleaner on file.";
+  if (!basis || basis === "none") return "No date on this review, so no cleaner to point to.";
+  if (cleaners.length === 0) return "No cleaning recorded for this room then.";
+  return `${basis === "night" ? "Cleaned for that stay by" : "Cleaned this room that month:"} ${cleaners.join(", ")} — a lead, not proof.`;
+};
 
 export interface ReviewEntryFull {
   id: string;
@@ -270,7 +287,7 @@ export interface ReviewStats {
     // The whole review. Absent from a backend that predates it.
     text?: string;
     cleaners: string[];
-    basis: "night" | "month" | "none";
+    basis: LeadBasis;
   }[];
   // The newest reviews, any stars, in the same shape — shown above `low`
   // (host, 2026-10-08). Absent from a backend that predates it.

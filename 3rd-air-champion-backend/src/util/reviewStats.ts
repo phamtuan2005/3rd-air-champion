@@ -74,7 +74,7 @@ export const recentReviews = (rows: ReviewRow[], limit = 5): ReviewRow[] =>
  * is cleaned the morning of arrival (or the day before). With only a month: the
  * whole month. With neither: nothing — no date, no lead.
  */
-export const cleaningWindow = (r: ReviewRow): { start: string; end: string } | null => {
+export const cleaningWindow = (r: Pick<ReviewRow, "stayDate" | "reviewMonth">): { start: string; end: string } | null => {
   if (r.stayDate) {
     const d = new Date(`${r.stayDate}T00:00:00.000Z`);
     d.setUTCDate(d.getUTCDate() - 1);
