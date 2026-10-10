@@ -1,7 +1,7 @@
 import CalendarModePicker from "./CalendarModePicker";
 import WeeksPerPagePicker from "./WeeksPerPagePicker";
 import { addDays, compareAsc, isSameDay, isSameMonth } from "date-fns";
-import { useContext, useState } from "react";
+import { useContext } from "react";
 import { dayType } from "../../../../util/types/dayType";
 import { roomType } from "../../../../util/types/roomType";
 import { toZonedTime } from "date-fns-tz/toZonedTime";
@@ -102,7 +102,6 @@ const CalendarNavigator = ({
     rowsPerPage: number;
     setRowsPerPage: React.Dispatch<React.SetStateAction<number>>;
   };
-  const [showDetails, setShowDetails] = useState(false);
 
   // "Aug 2026", not "August 2026". The header also carries the room filter, the
   // view picker, Today and the weeks control; September through December cost
@@ -357,73 +356,67 @@ const CalendarNavigator = ({
       )}
 
       <div className="flex h-full w-full">
-        {!currentGuest &&
-          !currentAirBnBGuest &&
-          (showDetails ? (
-            // Takes what the profit leaves and SCROLLS sideways — swipe on a
-            // phone — rather than run on: five rooms of "Queen: 94%" pushed the
-            // profit, the figure that matters, off to the right (host,
-            // 2026-10-10). No scrollbar drawn; the cut-off room says there is
-            // more. Each room as its coloured badge, as everywhere else.
-            <div
-              onClick={() => setShowDetails(false)}
-              className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-3 overflow-x-auto overscroll-x-contain whitespace-nowrap text-[0.85rem] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            >
-              {occupancy.roomOccupancy
+        {!currentGuest && !currentAirBnBGuest && (
+          // ONE strip, always shown: the house's totals, then each room,
+          // fullest first. It used to be two views a tap apart — "79% Occ.
+          // 26% (A)booking", or the rooms — and the host asked to lump them
+          // together (2026-10-10). It takes what the profit leaves and SCROLLS
+          // sideways (swipe on a phone) rather than push the profit, the figure
+          // that matters, off the right. No scrollbar drawn; the cut-off item
+          // says there is more. Everything as a badge and a percentage.
+          <div className="flex h-full min-w-0 flex-1 items-center gap-3 overflow-x-auto overscroll-x-contain whitespace-nowrap text-[0.85rem] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {[
+              // The house as a whole, in grey as on Guest reviews' House; AirBnB
+              // in its coral, as on the booking card's tag.
+              { key: "all", label: "All", badge: "bg-gray-700", pct: occupancy.totalOccupancy },
+              { key: "airbnb", label: "Airbnb", badge: "bg-[#FF5A5F]", pct: occupancy.airbnbOccupancy },
+              ...occupancy.roomOccupancy
                 .filter((room) => room.name !== "Master") // Exclude "Master"
-                // Fullest first: the strip scrolls, so what shows without a
-                // swipe should be the rooms doing best (host, 2026-10-10).
+                // Fullest first: what shows without a swipe should be the rooms
+                // doing best (host, 2026-10-10).
                 .sort((a, b) => b.occupancy - a.occupancy)
-                .map((object, index) => {
-                  // Determine the color class based on occupancy
-                  const occupancyColor =
-                    object.occupancy < 33.33
-                      ? "text-red-500"
-                      : object.occupancy < 66.67
-                        ? "text-yellow-500"
-                        : "text-green-500";
-                  return (
-                    <div key={index} className="flex shrink-0 items-center gap-1">
-                      <RoomBadge
-                        room={{ name: object.name, color: rooms.find((r) => r.name === object.name)?.color }}
-                        className="text-xs font-semibold"
-                      />
-                      <span className={`font-semibold ${occupancyColor}`}>
-                        {Math.round(object.occupancy)}%
-                      </span>
-                    </div>
-                  );
-                })}
-            </div>
-          ) : (
-            <div
-              className="flex h-full min-w-0 flex-1 cursor-pointer items-center space-x-2 overflow-hidden whitespace-nowrap text-[0.85rem]"
-              onClick={() => setShowDetails(true)}
-            >
-              <span
-                className={`cursor-pointer flex underline ${
-                  occupancy.totalOccupancy < 33.33
-                    ? "text-red-500"
-                    : occupancy.totalOccupancy < 66.67
-                      ? "text-yellow-500"
-                      : "text-green-500"
-                }`}
-              >
-                {Math.round(occupancy.totalOccupancy)}% Occ.
-              </span>
-              <span
-                className={`underline ${
-                  occupancy.airbnbOccupancy < 33.33
-                    ? "text-red-500"
-                    : occupancy.airbnbOccupancy < 66.67
-                      ? "text-yellow-500"
-                      : "text-green-500"
-                }`}
-              >
-                {Math.round(occupancy.airbnbOccupancy)}% (A)booking
-              </span>
-            </div>
-          ))}
+                .map((room) => ({ key: room.name, label: room.name, badge: undefined as string | undefined, pct: room.occupancy })),
+            ].map((item) => {
+              // A room filters the calendar to itself, the same filter Ask TT
+              // sets; a second tap, or All, shows every room again (host,
+              // 2026-10-10). The room filtered on wears a ring. Airbnb is a
+              // share of nights, not something to filter by, so it is not a
+              // button.
+              const isRoom = item.key !== "all" && item.key !== "airbnb";
+              const on = isRoom ? selectedRoomName === item.label : item.key === "all" && !selectedRoomName;
+              const pick =
+                item.key === "airbnb"
+                  ? undefined
+                  : () => setSelectedRoomName(isRoom && selectedRoomName !== item.label ? item.label : null);
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  disabled={!pick}
+                  onClick={pick}
+                  aria-pressed={pick ? on : undefined}
+                  title={isRoom ? (on ? "Show every room" : `Show only ${item.label}`) : item.key === "all" ? "Show every room" : undefined}
+                  className={`flex shrink-0 items-center gap-1 rounded-md px-1 py-0.5 disabled:cursor-default ${
+                    on && isRoom ? "ring-2 ring-gray-900" : ""
+                  } ${pick ? "hover:bg-gray-100" : ""}`}
+                >
+                  <RoomBadge
+                    room={{ name: item.label, color: rooms.find((r) => r.name === item.label)?.color }}
+                    override={item.badge}
+                    className="text-xs font-semibold"
+                  />
+                  <span
+                    className={`font-semibold ${
+                      item.pct < 33.33 ? "text-red-500" : item.pct < 66.67 ? "text-yellow-500" : "text-green-500"
+                    }`}
+                  >
+                    {Math.round(item.pct)}%
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
         {/* PROFIT — total and the AirBnB share as one group, so the smaller
             figure is read as a part of the larger rather than as a rival to it.
             Total keeps its 2xl size; leading-none stops it growing the row. */}
