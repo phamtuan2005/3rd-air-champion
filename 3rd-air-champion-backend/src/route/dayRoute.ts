@@ -1184,6 +1184,91 @@ router.post("/update/booking/reserved", async (req: Request, res: any) => {
     });
 });
 
+// Soft-holds SOME nights of a stay by splitting it (resolver holdNights,
+// util/holdSplit). Returns the stay's Day docs, as the whole-stay hold does.
+router.post("/update/booking/hold-nights", async (req: Request, res: any) => {
+  if (!("user" in req))
+    return res.status(401).json({ error: "Invalid or expired token" });
+
+  const { id, nights } = req.body;
+  if (!id || !Array.isArray(nights) || nights.length === 0)
+    return res.status(400).json({ error: "Which stay, and which nights?" });
+
+  const query = `
+        mutation HoldNights($id: String!, $nights: [String!]!) {
+          holdNights(_id: $id, nights: $nights) {
+            id
+            calendar
+            date
+            isAirBnB
+            isBlocked
+            blockedRooms {
+              host
+              id
+              name
+              price
+            }
+            bookings {
+              id
+              alias
+              notes
+              earlyCheckin
+              lateCheckout
+              sofaBed
+              price
+              airbnbPrice
+              fees {
+                label
+                amount
+              }
+              airbnbBlocked
+              guest {
+                id
+                name
+                alias
+                email
+                phone
+                numberOfGuests
+                returning
+                notes
+                character
+                host
+                pricing {
+                  id
+                  price
+                  room
+                }
+              }
+              room {
+                id
+                host
+                name
+                price
+              }
+              description
+              duration
+              numberOfGuests
+              startDate
+              endDate
+              reserved
+              expectedPayDate
+              bookedOn
+            }
+          }
+        }`;
+
+  sendGraphQLRequest(query, { id, nights })
+    .then((result: any) => {
+      if (result.errors) {
+        return res.status(400).json({ errors: result.errors[0].message });
+      }
+      res.status(200).json(result.data.holdNights);
+    })
+    .catch((error: any) => {
+      res.status(500).json({ error: error.message });
+    });
+});
+
 // Record when the GUEST said they would pay for a held stay. "" clears it back
 // to unasked. Returns the updated Day docs for the stay range.
 router.post("/update/booking/expected-pay-date", async (req: Request, res: any) => {
