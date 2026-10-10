@@ -223,6 +223,11 @@ const CalendarGrid = ({
     monthMap.forEach((day) =>
       day.bookings.forEach((b) => {
         if (!b.room || !b.startDate || !b.endDate) return;
+        // A room filtered on as well: only its stays take lanes. The AirBnB
+        // guest with Queen picked was packed across EVERY room — all of them
+        // overlapping — so Queen's one-stay-a-night calendar drew a stack of
+        // empty rows (host, 2026-10-10: "treat it like a single row").
+        if (selectedRoomName && b.room.name !== selectedRoomName) return;
         const key = `${b.room.id}|${dk(b.startDate)}|${dk(b.endDate)}`;
         if (!stays.has(key)) stays.set(key, { start: dk(b.startDate), end: dk(b.endDate) });
       }),
@@ -244,7 +249,7 @@ const CalendarGrid = ({
       laneOf.set(key, lane);
     }
     return { laneOf, count: Math.max(laneEnds.length, 1) };
-  }, [overrideRooms, monthMap]);
+  }, [overrideRooms, monthMap, selectedRoomName]);
 
   const maxRooms = guestLanes ? guestLanes.count : usedRooms.length;
   const minRowHeight = (maxRooms + 1) * laneHeight;

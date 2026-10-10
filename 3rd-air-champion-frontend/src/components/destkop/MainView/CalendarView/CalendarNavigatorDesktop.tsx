@@ -376,7 +376,8 @@ const CalendarNavigator = ({
               // The house as a whole, in grey as on Guest reviews' House; AirBnB
               // in its coral, as on the booking card's tag.
               { key: "all", label: "All", badge: "bg-gray-700", pct: occupancy.totalOccupancy },
-              { key: "airbnb", label: "Airbnb", badge: "bg-[#FF5A5F]", pct: occupancy.airbnbOccupancy },
+              // "(A)", the mark the profit beside it uses for AirBnB (host, 2026-10-10).
+              { key: "airbnb", label: "(A)", badge: "bg-[#FF5A5F]", pct: occupancy.airbnbOccupancy },
               ...occupancy.roomOccupancy
                 .filter((room) => room.name !== "Master") // Exclude "Master"
                 // Fullest first: what shows without a swipe should be the rooms
