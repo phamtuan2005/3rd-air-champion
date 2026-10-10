@@ -205,6 +205,20 @@ describe("review summaries", () => {
     expect((await request(guestApp).get(`/tt/reviews/${host}`)).body.rooms).toEqual([
       { roomId: king, summary: "", latest: "Newest, named", latestMonth: "2026-11", latestStars: 5, latestGuest: "Gail" },
     ]);
+
+    // The night of the stay, once on record, goes with it (host, 2026-10-10).
+    await onRecord(host, king, "With its night", { reviewMonth: "2026-12", stayDate: "2026-12-04", stars: 5, guestName: "Gail" });
+    expect((await request(guestApp).get(`/tt/reviews/${host}`)).body.rooms).toEqual([
+      {
+        roomId: king,
+        summary: "",
+        latest: "With its night",
+        latestMonth: "2026-12",
+        latestStars: 5,
+        latestGuest: "Gail",
+        latestStayDate: "2026-12-04",
+      },
+    ]);
   });
 
   it("drafts only from the host's own rooms, whatever ids are sent", async () => {

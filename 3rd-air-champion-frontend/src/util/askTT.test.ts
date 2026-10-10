@@ -459,6 +459,11 @@ describe("a room's latest review", () => {
     expect(text(askTT("latest reviews", ctx({}, { reviews: named })))).toContain("King (Gail · September 2026 · ★★★★★): ");
   });
 
+  it("gives the night of the stay once it is on record, not just the month", () => {
+    const dated = { ...reviews, latest: { k: { ...reviews.latest.k, guest: "Gail", stayDate: "2026-09-08" } } };
+    expect(text(askTT("King's latest review", ctx({}, { reviews: dated })))).toContain("King's latest review — Gail · Sep 8, 2026 · ★★★★★:");
+  });
+
   it("shows a lower score as a row of five, the missing stars hollow", () => {
     const four = { ...reviews, latest: { k: { ...reviews.latest.k, stars: 4 } } };
     expect(text(askTT("King's latest review", ctx({}, { reviews: four })))).toContain("September 2026 · ★★★★☆:");
