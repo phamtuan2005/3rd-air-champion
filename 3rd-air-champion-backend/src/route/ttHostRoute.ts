@@ -9,6 +9,7 @@ import { fileBlock, latestFromEntries, MAX_ENTRY_CHARS, newestFirst, roomTextsFr
 import { occurrenceKey, occurrences, splitReviews, SplitReview } from "../util/reviewSplit";
 import { latestPerRoom, lowReviews, roomAverages, ReviewRow, topicMentions } from "../util/reviewStats";
 import { cleanerLeads } from "../util/reviewCleaners";
+import { parseReviewSearch, starsFit } from "../util/reviewSearch";
 import Guest from "../model/guestSchema";
 import { requireManager } from "../middleware/requireManager";
 import { questionStats } from "../util/ttQuestions";
@@ -491,10 +492,13 @@ router.get("/reviews/entries", async (req: Request, res: any) => {
     // Every word must appear — in the guest's name, the review's words or its
     // dates — and the full text is searched here, since the list carries only
     // the first 160 characters of each.
-    const words = String(req.query.q ?? "").toLowerCase().split(/\s+/).filter(Boolean).slice(0, 8);
+    // A star range typed in the box — "3 stars and below", "4+" — narrows by
+    // stars; the rest are words (util/reviewSearch, 2026-10-10).
+    const asked = parseReviewSearch(String(req.query.q ?? ""));
+    const words = asked.words;
     const hay = (r: any) => `${r.guestName ?? ""} ${r.text ?? ""} ${r.stayDate ?? ""} ${r.reviewMonth ?? ""}`.toLowerCase();
     const rows: any[] = (await TTReviewEntry.find({ host: hostOf(req) }).lean())
-      .filter((r) => words.every((w) => hay(r).includes(w)))
+      .filter((r) => starsFit(r.stars, asked) && words.every((w) => hay(r).includes(w)))
       .sort(newestFirst)
       .slice(0, 2000);
     // On a search, the preview starts near the first match in the words, so the

@@ -194,3 +194,19 @@ describe("the cleaner who prepared the room for a stay", () => {
     expect(rows.find((r: any) => r.guestName === "Ann")).toMatchObject({ cleaners: ["Thalia"], basis: "night" });
   });
 });
+
+// "3 stars and below" typed in the search (host, 2026-10-10).
+describe("GET /tt-host/reviews/entries — stars in the search", () => {
+  it("narrows to the star range typed, alongside any words", async () => {
+    const s = await setup("search-stars@example.com");
+    const TTReviewEntry = (await import("../../model/ttReviewEntrySchema")).default;
+    await TTReviewEntry.create({ host: s.hostId, room: s.king._id, text: "Bathroom was dirty.", hash: "st1", guestName: "Low", stars: 2 });
+    await TTReviewEntry.create({ host: s.hostId, room: s.king._id, text: "Lovely bathroom.", hash: "st2", guestName: "High", stars: 5 });
+    await TTReviewEntry.create({ host: s.hostId, room: s.king._id, text: "No stars here.", hash: "st3", guestName: "None" });
+    const find = async (q: string) =>
+      (await request(appFor(s.hostId)).get("/tt-host/reviews/entries").query({ q })).body.entries.map((e: any) => e.guestName);
+    expect(await find("review 3 stars and below")).toEqual(["Low"]);
+    expect(await find("4 stars and up bathroom")).toEqual(["High"]);
+    expect(await find("bathroom")).toEqual(expect.arrayContaining(["Low", "High"]));
+  });
+});
