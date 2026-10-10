@@ -473,9 +473,9 @@ const GuestReviewForm = ({
                       ) : null;
                     })()}
                   </h4>
-                  <p className="mt-0.5 text-[11px] leading-relaxed text-gray-500">
-                    Paste it straight from AirBnB — the name, stars, month and stay fill themselves in.
-                  </p>
+                  {/* No line under the title: "Paste it straight from AirBnB — the
+                      name, stars, month and stay fill themselves in" told the
+                      host what they already do (2026-10-10: "no need"). */}
                 </div>
                 <button
                   type="button"
