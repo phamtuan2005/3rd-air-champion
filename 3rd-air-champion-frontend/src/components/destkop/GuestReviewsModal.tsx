@@ -146,10 +146,10 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-          <div>
-            <h2 className="text-base font-bold text-gray-900">⭐ Guest reviews</h2>
-            <p className="text-xs text-gray-500">What TT tells guests who ask what others thought</p>
-          </div>
+          {/* Title alone: the line under it ("What TT tells guests who ask
+              what others thought") read as a riddle, and the window is now
+              mostly the reviews themselves (host, 2026-10-10). */}
+          <h2 className="text-base font-bold text-gray-900">⭐ Guest reviews</h2>
           <button
             type="button"
             onClick={onClose}
