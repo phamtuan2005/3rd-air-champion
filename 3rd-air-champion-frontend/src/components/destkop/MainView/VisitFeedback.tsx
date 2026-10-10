@@ -61,13 +61,23 @@ const VisitFeedback = ({
   if (!open) {
     if (!feedback) {
       return (
-        <button type="button" onClick={start} className="mt-1 text-xs font-semibold text-teal-700 hover:underline">
+        // A real button, the size of the rest of the card: as a small link
+        // under the rooms it was easy to miss (host, 2026-10-09).
+        <button
+          type="button"
+          onClick={start}
+          className="mt-2 w-full rounded-lg border border-teal-300 bg-teal-50 px-3 py-2 text-sm font-semibold text-teal-800 transition-colors hover:bg-teal-100 active:scale-[0.99]"
+        >
           + Feedback for {first}
         </button>
       );
     }
     return (
-      <button type="button" onClick={start} className="mt-1 block w-full rounded-md text-left text-xs hover:bg-white">
+      <button
+        type="button"
+        onClick={start}
+        className="mt-2 block w-full rounded-lg bg-teal-50 px-3 py-2 text-left text-sm hover:bg-teal-100"
+      >
         <span className="font-semibold text-gray-800">{verdictLabel(feedback.verdict) || "Feedback"}</span>
         {/* Whether the cleaner has read it yet — so nobody has to ask. */}
         <span className="text-gray-400"> · {feedback.seenAt ? `${first} has seen it` : `${first} hasn't seen it yet`}</span>
