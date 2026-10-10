@@ -371,7 +371,10 @@ const CalendarNavigator = ({
           // sideways (swipe on a phone) rather than push the profit, the figure
           // that matters, off the right. No scrollbar drawn; the cut-off item
           // says there is more. Everything as a badge and a percentage.
-          <div className="flex h-full min-w-0 flex-1 items-center gap-3 overflow-x-auto overscroll-x-contain whitespace-nowrap text-[0.85rem] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          // p-1: a scrolling box clips what is drawn outside its edge, and the ring
+          // around the item in force sits just outside it — All's was cut off on
+          // the left (host, 2026-10-10).
+          <div className="flex h-full min-w-0 flex-1 items-center gap-3 overflow-x-auto overscroll-x-contain whitespace-nowrap p-1 text-[0.85rem] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {[
               // The house as a whole, in grey as on Guest reviews' House; AirBnB
               // in its coral, as on the booking card's tag.
