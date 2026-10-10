@@ -110,10 +110,32 @@ const reviewDate = (r: { stayDate: string; reviewMonth: string }) =>
       ? format(new Date(`${r.reviewMonth}-01T12:00:00`), "MMM yyyy")
       : "";
 
-const ReviewLine = ({ r, roomColor }: { r: NonNullable<ReviewStats["recent"]>[number]; roomColor?: string }) => {
+const ReviewLine = ({
+  r,
+  roomColor,
+  onOpen,
+}: {
+  r: NonNullable<ReviewStats["recent"]>[number];
+  roomColor?: string;
+  // A tap opens the review to edit, in Guest reviews (host, 2026-10-10).
+  onOpen?: (id: string) => void;
+}) => {
   const date = reviewDate(r);
+  const open = r.id && onOpen ? () => onOpen(r.id!) : undefined;
   return (
-    <div className="mt-1.5 border-b border-gray-100 pb-2 last:border-0">
+    <div
+      role={open ? "button" : undefined}
+      tabIndex={open ? 0 : undefined}
+      aria-label={open ? `Edit ${r.guestName || "this"} review` : undefined}
+      onClick={open}
+      onKeyDown={(e) => {
+        if (open && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          open();
+        }
+      }}
+      className={`mt-1.5 rounded-md border-b border-gray-100 pb-2 last:border-0 ${open ? "cursor-pointer hover:bg-gray-50" : ""}`}
+    >
       <p className="flex flex-wrap items-center gap-x-1.5">
         <RoomBadge room={{ name: r.roomName, color: roomColor }} className="text-xs font-semibold" />
         <span className="text-base font-semibold text-gray-900">{r.guestName || "A guest"}</span>
@@ -586,7 +608,21 @@ const CalendarFilterPicker = ({
                           // Reading size, like the reviews under it: the overview is
                           // what TT tells a guest, and at the box's 12px it was too
                           // small to read (host, 2026-10-10).
-                          <div className="mb-2 rounded-lg bg-gray-50 px-3 py-2">
+                          // A tap opens it where it is written and refreshed: the
+                          // House tab (Draft and Publish), or the named room's tab
+                          // (host, 2026-10-10).
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => pickScreen(named ? `reviews:room:${named.room}` : "reviews:house")}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                pickScreen(named ? `reviews:room:${named.room}` : "reviews:house");
+                              }
+                            }}
+                            className="mb-2 cursor-pointer rounded-lg bg-gray-50 px-3 py-2 hover:bg-gray-100"
+                          >
                             <p className="text-base font-semibold text-gray-900">
                               What guests say about {named ? named.name : "TT House"}:
                             </p>
@@ -661,7 +697,7 @@ const CalendarFilterPicker = ({
                           <div className="mt-2 border-t border-gray-100 pt-2">
                             <p className="font-semibold text-gray-900">Most recent reviews</p>
                             {reviewStats.recent.map((r, i) => (
-                              <ReviewLine key={i} r={r} roomColor={rooms.find((x) => x.name === r.roomName)?.color} />
+                              <ReviewLine key={i} r={r} roomColor={rooms.find((x) => x.name === r.roomName)?.color} onOpen={(id) => pickScreen(`reviews:${id}`)} />
                             ))}
                           </div>
                         )}
@@ -670,7 +706,7 @@ const CalendarFilterPicker = ({
                           {reviewStats.low.length === 0 ? (
                             <p className="text-gray-500">None with stars at 3 or below.</p>
                           ) : (
-                            reviewStats.low.map((r, i) => <ReviewLine key={i} r={r} roomColor={rooms.find((x) => x.name === r.roomName)?.color} />)
+                            reviewStats.low.map((r, i) => <ReviewLine key={i} r={r} roomColor={rooms.find((x) => x.name === r.roomName)?.color} onOpen={(id) => pickScreen(`reviews:${id}`)} />)
                           )}
                         </div>
                       </>

@@ -158,3 +158,16 @@ describe("GET /tt-host/reviews/entries — the cleaner lead", () => {
     expect(by("Bo")).toMatchObject({ cleaners: [], basis: "none" });
   });
 });
+
+// Ask TT's review lines carry each review's id, so a tap opens it to edit
+// (host, 2026-10-10).
+describe("GET /tt-host/reviews/stats — review ids", () => {
+  it("gives each recent and low review its id", async () => {
+    const s = await setup("stats-ids@example.com");
+    const TTReviewEntry = (await import("../../model/ttReviewEntrySchema")).default;
+    const low = await TTReviewEntry.create({ host: s.hostId, room: s.king._id, text: "Meh.", hash: "i1", guestName: "Bo", stars: 2, reviewMonth: "2026-09" });
+    const res = await request(appFor(s.hostId)).get("/tt-host/reviews/stats");
+    expect(res.body.recent[0].id).toBe(String(low._id));
+    expect(res.body.low[0].id).toBe(String(low._id));
+  });
+});

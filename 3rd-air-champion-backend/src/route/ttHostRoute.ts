@@ -403,6 +403,7 @@ router.get("/reviews/stats", async (req: Request, res: any) => {
     ]);
     const nameOf = new Map(rooms.map((r) => [String(r._id), String(r.name ?? "")]));
     const rows: ReviewRow[] = entries.map((e) => ({
+      id: String(e._id),
       room: String(e.room),
       roomName: nameOf.get(String(e.room)) ?? "a room",
       guestName: e.guestName ?? "",
@@ -421,6 +422,8 @@ router.get("/reviews/stats", async (req: Request, res: any) => {
     const leads = await cleanerLeads(hostId, listed);
     const withLead = (r: ReviewRow, i: number) => {
       return {
+        // A tap on it in Ask TT opens it to edit (host, 2026-10-10).
+        id: r.id ?? "",
         roomName: r.roomName,
         guestName: r.guestName,
         stars: r.stars,

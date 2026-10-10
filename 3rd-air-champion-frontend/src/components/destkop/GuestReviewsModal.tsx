@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchReviewsState, publishReviews, ReviewsState, startReviewDraft, SummarySet } from "../../util/ttQuestionLog";
+import {
+  fetchReviewEntry,
+  fetchReviewsState,
+  publishReviews,
+  ReviewEntryFull,
+  ReviewsState,
+  startReviewDraft,
+  SummarySet,
+} from "../../util/ttQuestionLog";
 import GuestReviewForm from "./GuestReviewForm";
 import RoomBadge from "../shared/RoomBadge";
 import { HiPaperAirplane, HiSparkles } from "react-icons/hi2";
@@ -33,7 +41,15 @@ const fromSet = (set: SummarySet): Edit => ({
 // be nothing for the server.
 const POLL_MS = 3000;
 
-const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
+const GuestReviewsModal = ({
+  onClose,
+  openAt = null,
+}: {
+  onClose: () => void;
+  // Where to open, when Ask TT sent the host here: "house", "room:<id>", or a
+  // review's id — that review, in its room, in the edit pop-up.
+  openAt?: string | null;
+}) => {
   const [state, setState] = useState<ReviewsState | null>(null);
   const [error, setError] = useState("");
   // The tab showing: "house", or a room's id. Each tab holds everything about
@@ -86,6 +102,24 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
   // How many reviews each room has on record, for its tab.
   const countOf = Object.fromEntries((state?.onRecord ?? []).map((r) => [r.roomId, r.count]));
   const [pickerOpen, setPickerOpen] = useState(false);
+  // The review Ask TT asked to edit, until the form has opened it.
+  const [pendingEdit, setPendingEdit] = useState<ReviewEntryFull | null>(null);
+  useEffect(() => {
+    if (!openAt) return;
+    if (openAt === "house") return setPasteRoomId("house");
+    if (openAt.startsWith("room:")) return setPasteRoomId(openAt.slice("room:".length));
+    let live = true;
+    fetchReviewEntry(openAt)
+      .then((full) => {
+        if (!live) return;
+        setPasteRoomId(full.roomId);
+        setPendingEdit(full);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [openAt]);
   // A room as RoomBadge draws it: its own colour when it has one, else the
   // colour its name gives it everywhere else (util/getRoomColor).
   const badgeOf = (id: string) => {
@@ -343,6 +377,8 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
                   roomId={pasteRoom.roomId}
                   roomName={pasteRoom.name}
                   roomColor={pasteRoom.color}
+                  openForEdit={pendingEdit?.roomId === pasteRoom.roomId ? pendingEdit : null}
+                  onEditOpened={() => setPendingEdit(null)}
                   onAdded={load}
                 />
               </section>

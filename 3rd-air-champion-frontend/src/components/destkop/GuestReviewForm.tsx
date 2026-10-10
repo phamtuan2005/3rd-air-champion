@@ -34,12 +34,18 @@ const GuestReviewForm = ({
   roomId,
   roomName,
   roomColor,
+  openForEdit = null,
+  onEditOpened,
   onAdded,
 }: {
   roomId: string;
   roomName: string;
   // The room's own colour, when it has one; RoomBadge falls back to its name's.
   roomColor?: string;
+  // A review to open in the edit pop-up as soon as the form is up — the one
+  // the host tapped in Ask TT. onEditOpened says it has been taken.
+  openForEdit?: ReviewEntryFull | null;
+  onEditOpened?: () => void;
   onAdded: () => void;
 }) => {
   const [guests, setGuests] = useState<guestType[]>([]);
@@ -188,6 +194,14 @@ const GuestReviewForm = ({
     setNote("");
     setFormOpen(true);
   };
+
+  // The review tapped in Ask TT, opened once.
+  useEffect(() => {
+    if (!openForEdit) return;
+    startEdit(openForEdit);
+    onEditOpened?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openForEdit]);
 
   const add = async () => {
     if (busy) return;

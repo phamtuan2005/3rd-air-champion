@@ -5,6 +5,8 @@
 // for such trivial questions").
 
 export interface ReviewRow {
+  // The review's own id, so a tap on it in TiMag can open it to edit.
+  id?: string;
   room: string; // room id
   roomName: string;
   guestName: string;
