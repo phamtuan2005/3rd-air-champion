@@ -178,14 +178,17 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
                     : `Claude's draft, from ${state.draft.reviewsRead} review${state.draft.reviewsRead === 1 ? "" : "s"} — check each tab says only what guests said, then publish.`}
               </p>
             )}
-            <div className="flex gap-2">
+            {/* Short labels on one line each: "Draft all summaries" + "Publish to
+                TiBook" ran past the edge of a phone (2026-10-09). The window is
+                about what TT tells guests, so "Publish" needs no "to TiBook". */}
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={draft}
                 disabled={!anyPasted || busy || drafting}
                 className="whitespace-nowrap rounded-lg border border-gray-300 px-3 py-1 text-sm font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-40"
               >
-                {drafting ? "Drafting…" : "Draft all summaries"}
+                {drafting ? "Drafting…" : "Draft summaries"}
               </button>
               <button
                 type="button"
@@ -193,7 +196,7 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
                 disabled={busy || drafting}
                 className="whitespace-nowrap rounded-lg bg-emerald-600 px-3 py-1 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-40"
               >
-                Publish to TiBook
+                Publish
               </button>
             </div>
             {note && <p className="mt-1.5 text-xs text-gray-600">{note}</p>}
