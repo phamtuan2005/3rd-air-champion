@@ -120,7 +120,7 @@ const ReviewLine = ({ r, roomColor }: { r: NonNullable<ReviewStats["recent"]>[nu
         {r.stars != null && <span className="text-amber-500">· {"★".repeat(r.stars)}</span>}
         {date && <span className="text-sm text-gray-500">· {date}</span>}
       </p>
-      <p className="mt-0.5 whitespace-pre-line text-sm leading-relaxed text-gray-800">{r.text ?? r.snippet}</p>
+      <p className="mt-0.5 whitespace-pre-line text-base leading-relaxed text-gray-800">{r.text ?? r.snippet}</p>
       {/* Teal, not the review's grey: it is the house's own note, not the
           guest's words, and read as part of the review it was mistaken for one
           (host, 2026-10-08). Teal is TiMag's colour for operational things. */}
@@ -550,7 +550,7 @@ const CalendarFilterPicker = ({
                     {!reviewStats && !reviewFailed && <p className="text-gray-400">Adding them up…</p>}
                     {reviewRoom && roomLatest && (
                       <div className="mb-2 rounded-lg bg-gray-50 px-3 py-2">
-                        <p className="font-semibold text-gray-900">
+                        <p className="text-base font-semibold text-gray-900">
                           {reviewRoom.name}'s latest review
                           <span className="font-normal text-gray-500">
                             {roomLatest.guest ? ` · ${roomLatest.guest}` : ""} ·{" "}
@@ -558,7 +558,7 @@ const CalendarFilterPicker = ({
                           </span>
                           {roomLatest.stars ? <span className="text-amber-500"> · {starRow(roomLatest.stars)}</span> : null}
                         </p>
-                        <p className="mt-0.5 whitespace-pre-line leading-relaxed text-gray-700">{roomLatest.summary}</p>
+                        <p className="mt-1 whitespace-pre-line text-base leading-relaxed text-gray-800">{roomLatest.summary}</p>
                       </div>
                     )}
                     {reviewStats && reviewStats.total === 0 && (
@@ -581,11 +581,14 @@ const CalendarFilterPicker = ({
                           );
                         }
                         return (
+                          // Reading size, like the reviews under it: the overview is
+                          // what TT tells a guest, and at the box's 12px it was too
+                          // small to read (host, 2026-10-10).
                           <div className="mb-2 rounded-lg bg-gray-50 px-3 py-2">
-                            <p className="font-semibold text-gray-900">
+                            <p className="text-base font-semibold text-gray-900">
                               What guests say about {named ? named.name : "TT House"}:
                             </p>
-                            <p className="mt-0.5 whitespace-pre-line leading-relaxed text-gray-700">{text}</p>
+                            <p className="mt-1 whitespace-pre-line text-base leading-relaxed text-gray-800">{text}</p>
                           </div>
                         );
                       })()}
