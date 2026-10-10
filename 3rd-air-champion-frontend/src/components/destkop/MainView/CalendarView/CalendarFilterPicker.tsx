@@ -9,7 +9,7 @@ import { dayType } from "../../../../util/types/dayType";
 import RoomBadge from "../../../shared/RoomBadge";
 import { airbnbGuestList } from "../../../../util/airbnbGuestList";
 import { houseGuestList, isPhoneQuery, matchesTyped, topMatches } from "../../../../util/houseGuestList";
-import { matchesReservation, reviewsTyped, screensMatching, weekTyped, whenTyped, whoAndWhen, worthAsking, When } from "../../../../util/ttIntents";
+import { addReviewTyped, matchesReservation, reviewsTyped, screensMatching, weekTyped, whenTyped, whoAndWhen, worthAsking, When } from "../../../../util/ttIntents";
 import { jwtDecode } from "jwt-decode";
 import {
   cleanerLeadLine,
@@ -219,7 +219,11 @@ const CalendarFilterPicker = ({
     : undefined;
   const week = weekAsked && (!weekAsked.who || weekCleaner) ? weekAsked : null;
   // A screen, by its name or another word for it.
-  const screens = q ? screensMatching(q) : [];
+  // "add review King": the add pop-up, King already picked (2026-10-10).
+  const addReview = q ? addReviewTyped(q, rooms.map((r) => r.name)) : null;
+  const addReviewRoom = addReview?.room ? rooms.find((r) => r.name === addReview.room) : undefined;
+  // Its own row below, so the plain "Add a guest review" entry would be a twin.
+  const screens = q ? screensMatching(q).filter((x) => !(addReview && x.key === "reviews:add")) : [];
   // A question about the guest reviews — averages, the low ones, what guests say
   // about something. Answered from the server's own arithmetic, no model in the
   // way (the host: "I don't want to use API for such trivial questions").
@@ -302,7 +306,7 @@ const CalendarFilterPicker = ({
   );
   const byPhone = isPhoneQuery(who);
   const foundAnything =
-    !!when || !!week || !!reviewAsked || screens.length > 0 || roomHits.length > 0 || house.total > 0 || airbnb.total > 0 || team.total > 0;
+    !!when || !!week || !!reviewAsked || !!addReview || screens.length > 0 || roomHits.length > 0 || house.total > 0 || airbnb.total > 0 || team.total > 0;
   // A guest called May, or June: her exact name beats the month on Enter.
   const exactGuest = when?.month ? house.shown.find((r) => r.name.toLowerCase() === q.toLowerCase()) : undefined;
   // A sentence, or a word that found nothing, is offered to TT as a question.
@@ -792,6 +796,29 @@ const CalendarFilterPicker = ({
               {/* A screen, by its name or another word for it. Under the
                   week's heading when there is one: "cleaning schedule" is a
                   week and the Clean screen, and one "Open" covers both. */}
+              {addReview && (
+                <>
+                  {sectionHeading("Add")}
+                  <button
+                    type="button"
+                    className={rowClass}
+                    onClick={() => pickScreen(addReviewRoom ? `reviews:add:${addReviewRoom.id}` : "reviews:add")}
+                  >
+                    <span className="flex min-w-0 items-center gap-1.5 font-medium text-gray-800">
+                      {addReviewRoom ? (
+                        <>
+                          Add a review of
+                          <RoomBadge room={{ name: addReviewRoom.name, color: addReviewRoom.color }} className="text-sm font-semibold" />
+                        </>
+                      ) : (
+                        "Add a guest review"
+                      )}
+                    </span>
+                    <span className="ml-auto shrink-0 text-sm font-semibold text-gray-500">Open ›</span>
+                  </button>
+                </>
+              )}
+
               {screens.length > 0 && (
                 <>
                   {!week && sectionHeading("Open")}
