@@ -765,7 +765,17 @@ const MainView = ({
   // self-contained modal, so TT mounts its own copy rather than reaching into
   // those components for their switches.
   const [ttModal, setTtModal] = useState<"reminderTemplate" | "bookingTemplate" | "visitors" | "ttQuestions" | "reviews" | null>(null);
+  // Guest reviews opened from Ask TT at a place: "reviews:<review id>" opens
+  // that review in its edit pop-up, "reviews:house" the House tab with Draft
+  // and Publish, "reviews:room:<id>" a room (host, 2026-10-10: "tap there and
+  // bring me to edit it" — the review, or the overview).
+  const [reviewsAt, setReviewsAt] = useState<string | null>(null);
   const onScreen = (key: string) => {
+    if (key.startsWith("reviews:")) {
+      setReviewsAt(key.slice("reviews:".length));
+      setTtModal("reviews");
+      return;
+    }
     const open: Record<string, () => void> = {
       book: () => setIsModalOpen(true),
       requests: () => setIsRequestManagerOpen(true),
@@ -2093,7 +2103,15 @@ const MainView = ({
       {ttModal === "bookingTemplate" && <BookingTemplateModal onClose={() => setTtModal(null)} />}
       {ttModal === "visitors" && <TiBookVisitorsModal onClose={() => setTtModal(null)} />}
       {ttModal === "ttQuestions" && <TTQuestionsModal onClose={() => setTtModal(null)} />}
-      {ttModal === "reviews" && <GuestReviewsModal onClose={() => setTtModal(null)} />}
+      {ttModal === "reviews" && (
+        <GuestReviewsModal
+          openAt={reviewsAt}
+          onClose={() => {
+            setTtModal(null);
+            setReviewsAt(null);
+          }}
+        />
+      )}
       {isUrgentActionOpen && (
         <UrgentActionModal
           monthMap={monthMap}

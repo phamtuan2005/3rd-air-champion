@@ -285,6 +285,8 @@ export interface ReviewStats {
   total: number;
   rooms: { room: string; name: string; reviews: number; withStars: number; average: number | null }[];
   low: {
+    // The review's id: a tap on it in Ask TT opens it to edit.
+    id?: string;
     roomName: string;
     guestName: string;
     stars: number | null;
