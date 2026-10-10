@@ -62,12 +62,21 @@ export const lowReviews = (rows: ReviewRow[], max = 3, limit = 12): ReviewRow[] 
     .slice(0, limit);
 
 /**
- * The newest reviews, whatever their stars. What the host asked to see first
- * (2026-10-08: "the most recent review, not 3 stars") — most recent ones are 5
- * stars, and each carries the cleaner lead, so a good stay can be credited.
+ * Each room's newest DATED review, whatever its stars, in room order — one
+ * per room, the same rooms as the averages above it in Ask TT.
+ *
+ * Was the five newest in the house (2026-10-08: "the most recent review, not
+ * 3 stars"); a busy room filled all five and the others never showed, so the
+ * host asked for one per room (2026-10-10). Undated reviews are left out: one
+ * cannot be called the latest. Each carries the cleaner who prepared the room.
  */
-export const recentReviews = (rows: ReviewRow[], limit = 5): ReviewRow[] =>
-  [...rows].sort((a, b) => when(b).localeCompare(when(a))).slice(0, limit);
+export const latestPerRoom = (rows: ReviewRow[]): ReviewRow[] => {
+  const byRoom = new Map<string, ReviewRow>();
+  for (const r of rows.filter((x) => when(x)).sort((x, y) => when(y).localeCompare(when(x)))) {
+    if (!byRoom.has(r.room)) byRoom.set(r.room, r);
+  }
+  return [...byRoom.values()].sort((x, y) => x.roomName.localeCompare(y.roomName));
+};
 
 /**
  * The nights a review's room should be looked up in the cleaning rota for.

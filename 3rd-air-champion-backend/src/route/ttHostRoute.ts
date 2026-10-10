@@ -7,7 +7,7 @@ import TTReviewSource from "../model/ttReviewSourceSchema";
 import TTReviewEntry from "../model/ttReviewEntrySchema";
 import { fileBlock, latestFromEntries, MAX_ENTRY_CHARS, newestFirst, roomTextsFromEntries, saveEntry, withoutBlock } from "../util/reviewEntries";
 import { occurrenceKey, occurrences, splitReviews, SplitReview } from "../util/reviewSplit";
-import { lowReviews, recentReviews, roomAverages, ReviewRow, topicMentions } from "../util/reviewStats";
+import { latestPerRoom, lowReviews, roomAverages, ReviewRow, topicMentions } from "../util/reviewStats";
 import { cleanerLeads } from "../util/reviewCleaners";
 import Guest from "../model/guestSchema";
 import { requireManager } from "../middleware/requireManager";
@@ -414,7 +414,7 @@ router.get("/reviews/stats", async (req: Request, res: any) => {
     }));
 
     const low = lowReviews(rows);
-    const recent = recentReviews(rows);
+    const recent = latestPerRoom(rows);
     // Who cleaned each listed review's room around then: one read of the rota
     // across the whole span, then matched in memory. A LEAD, not proof — a month
     // (or a night) is all a review says — so each row says which it was.
