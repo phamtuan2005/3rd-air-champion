@@ -146,6 +146,13 @@ const CalendarNavigator = ({
   // the effect caused.
   const guestBill = currentGuest ? getCurrentGuestBill(currentGuest) : null;
 
+  // Every AirBnB stay hangs off one shared "AirBnB" guest, so filtering to it
+  // shows all of them — what the strip's Airbnb tap does (host, 2026-10-10).
+  // That filter keeps the strip, so All is there to tap back.
+  const airbnbGuestId = guests.find((g) => g.name === "AirBnB")?.id ?? null;
+  const airbnbOn = !!airbnbGuestId && currentGuestId === airbnbGuestId;
+  const showStrip = (!currentGuest && !currentAirBnBGuest) || airbnbOn;
+
   const airBnBGuestBill = (() => {
     if (!currentAirBnBGuest) return null;
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -356,7 +363,7 @@ const CalendarNavigator = ({
       )}
 
       <div className="flex h-full w-full">
-        {!currentGuest && !currentAirBnBGuest && (
+        {showStrip && (
           // ONE strip, always shown: the house's totals, then each room,
           // fullest first. It used to be two views a tap apart — "79% Occ.
           // 26% (A)booking", or the rooms — and the host asked to lump them
@@ -378,16 +385,22 @@ const CalendarNavigator = ({
                 .map((room) => ({ key: room.name, label: room.name, badge: undefined as string | undefined, pct: room.occupancy })),
             ].map((item) => {
               // A room filters the calendar to itself, the same filter Ask TT
-              // sets; a second tap, or All, shows every room again (host,
-              // 2026-10-10). The room filtered on wears a ring. Airbnb is a
-              // share of nights, not something to filter by, so it is not a
-              // button.
+              // sets; Airbnb filters it to the AirBnB stays; a second tap, or
+              // All, shows everything again (host, 2026-10-10). What is
+              // filtered on wears a ring.
               const isRoom = item.key !== "all" && item.key !== "airbnb";
-              const on = isRoom ? selectedRoomName === item.label : item.key === "all" && !selectedRoomName;
+              const on = isRoom ? selectedRoomName === item.label : item.key === "airbnb" ? airbnbOn : !selectedRoomName && !airbnbOn;
               const pick =
                 item.key === "airbnb"
-                  ? undefined
-                  : () => setSelectedRoomName(isRoom && selectedRoomName !== item.label ? item.label : null);
+                  ? airbnbGuestId
+                    ? () => onGuestFilter(airbnbOn ? null : airbnbGuestId)
+                    : undefined
+                  : item.key === "all"
+                    ? () => {
+                        setSelectedRoomName(null);
+                        if (airbnbOn) onGuestFilter(null);
+                      }
+                    : () => setSelectedRoomName(selectedRoomName !== item.label ? item.label : null);
               return (
                 <button
                   key={item.key}
@@ -395,9 +408,9 @@ const CalendarNavigator = ({
                   disabled={!pick}
                   onClick={pick}
                   aria-pressed={pick ? on : undefined}
-                  title={isRoom ? (on ? "Show every room" : `Show only ${item.label}`) : item.key === "all" ? "Show every room" : undefined}
+                  title={isRoom ? (on ? "Show every room" : `Show only ${item.label}`) : item.key === "all" ? "Show everything" : on ? "Show every guest" : "Show only AirBnB stays"}
                   className={`flex shrink-0 items-center gap-1 rounded-md px-1 py-0.5 disabled:cursor-default ${
-                    on && isRoom ? "ring-2 ring-gray-900" : ""
+                    on && item.key !== "all" ? "ring-2 ring-gray-900" : ""
                   } ${pick ? "hover:bg-gray-100" : ""}`}
                 >
                   <RoomBadge
@@ -420,7 +433,7 @@ const CalendarNavigator = ({
         {/* PROFIT — total and the AirBnB share as one group, so the smaller
             figure is read as a part of the larger rather than as a rival to it.
             Total keeps its 2xl size; leading-none stops it growing the row. */}
-        {!currentGuest && !currentAirBnBGuest && (
+        {showStrip && (
           <div className="ml-3 flex shrink-0 items-baseline justify-end gap-1.5 font-bold text-nowrap">
             <span className="text-2xl leading-none text-emerald-600">
               ${Math.round(profit.total).toLocaleString()}
