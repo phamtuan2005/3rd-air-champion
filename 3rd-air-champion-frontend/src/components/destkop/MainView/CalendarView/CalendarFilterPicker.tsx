@@ -396,7 +396,18 @@ const CalendarFilterPicker = ({
       <HiSparkles size={icon} />
     </span>
   );
-  const triggerContent = filteredName ? (
+  // EVERY AirBnB stay — the shared "AirBnB" guest, which the occupancy strip's
+  // (A) filters to — is not one person: it reads as the strip does, the coral
+  // (A) and the room on ONE line. Drawn as a guest — icon, a large "AirBnB",
+  // the room under it — it stood two lines tall and pushed the strip into the
+  // calendar (host, 2026-10-10: "simplify that by just putting (A) Queen").
+  const allAirbnb = selectedGuest?.name === "AirBnB";
+  const triggerContent = allAirbnb ? (
+    <span className="flex items-center gap-1.5">
+      <RoomBadge room={{ name: "(A)" }} override="bg-[#FF5A5F]" className="text-sm font-semibold" />
+      {selectedRoom && <RoomBadge room={selectedRoom} rooms={activeRooms} className="text-sm font-semibold" />}
+    </span>
+  ) : filteredName ? (
     // Guest and room STACK when both are on. Side by side they shared one line's
     // width, so each had to shrink to fit the other — and the name is the half
     // that must not. On two lines each gets its own full width at full size.
