@@ -180,20 +180,34 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
           // in Clean and in TiWork — a plain <select> can only show grey text
           // (host, 2026-10-10: "bring the room in consistent with the rest of
           // Ti"). House last, in grey: it is every room, not one of them.
-          <div className="relative shrink-0 border-b border-gray-100 px-4 py-2.5">
+          <div className="relative flex shrink-0 items-center gap-2 border-b border-gray-100 px-4 py-2.5">
             <button
               type="button"
               aria-haspopup="listbox"
               aria-expanded={pickerOpen}
               onClick={() => setPickerOpen((o) => !o)}
-              className="flex w-full items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-left hover:bg-gray-50"
+              className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-left hover:bg-gray-50"
             >
               <RoomBadge room={badgeOf(pasteRoomId)} override={pasteRoom ? undefined : "bg-gray-700"} className="text-sm font-semibold" />
-              <span className="flex-1 text-sm text-gray-500">{countLabel(pasteRoomId)}</span>
+              <span className="flex-1 truncate text-sm text-gray-500">{countLabel(pasteRoomId)}</span>
               <span aria-hidden className="text-xs text-gray-400">
                 {pickerOpen ? "▲" : "▼"}
               </span>
             </button>
+            {pasteRoom?.airbnbUrl && (
+              // The booking card's Airbnb tag, the same coral pill: one mark for
+              // "this opens on Airbnb" across TiMag (host, 2026-10-10), in place
+              // of a blue "Open the listing ↗". Beside the room it opens.
+              <a
+                href={pasteRoom.airbnbUrl}
+                target="_blank"
+                rel="noreferrer"
+                title={`Open ${pasteRoom.name}'s listing on Airbnb`}
+                className="shrink-0 rounded-full bg-[#FF5A5F] px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-white transition hover:brightness-110 active:brightness-95"
+              >
+                Airbnb ↗
+              </a>
+            )}
             {pickerOpen && (
               <>
                 {/* A tap anywhere else closes it. */}
@@ -316,28 +330,10 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
             // Adding the new review comes first, the summary after it: adding
             // is what the host opens this tab to do (host, 2026-10-09).
             <>
+              {/* No heading of its own: the picker above already names the room
+                  and its count, and "[Chill] reviews · 74 on record" right
+                  under it said it all twice (host, 2026-10-10). */}
               <section>
-                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                  <h3 className="flex items-center gap-1.5 text-sm font-bold text-gray-900">
-                    <RoomBadge room={badgeOf(pasteRoom.roomId)} className="text-sm font-semibold" />
-                    reviews
-                  </h3>
-                  {pasteRoom.airbnbUrl && (
-                    // The booking card's Airbnb tag, the same coral pill: one
-                    // mark for "this opens on Airbnb" across TiMag (host,
-                    // 2026-10-10), in place of a blue "Open the listing ↗".
-                    <a
-                      href={pasteRoom.airbnbUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      title={`Open ${pasteRoom.name}'s listing on Airbnb`}
-                      className="shrink-0 rounded-full bg-[#FF5A5F] px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-white transition hover:brightness-110 active:brightness-95"
-                    >
-                      Airbnb ↗
-                    </a>
-                  )}
-                </div>
-                <div className="mt-2" />
                 <GuestReviewForm
                   key={pasteRoom.roomId}
                   roomId={pasteRoom.roomId}
