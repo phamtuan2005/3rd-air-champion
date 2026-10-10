@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
+import { HiPencilSquare } from "react-icons/hi2";
 import { DANGER_BUTTON, SWIPE_DELETE } from "../shared/dangerButton";
 import {
   cleanerLeadLine,
@@ -170,9 +171,33 @@ const ReviewEntryItem = ({
             setOffset(0);
           }}
         >
-          <span className="text-lg font-semibold text-gray-900">{entry.guestName || "A guest"}</span>
-          {entry.stars != null && <span className="text-amber-500"> · {"★".repeat(entry.stars)}</span>}
-          {date && <span className="text-gray-500"> · {date}</span>}
+          <div className="flex items-start gap-2">
+            <p className="min-w-0 flex-1">
+              <span className="text-lg font-semibold text-gray-900">{entry.guestName || "A guest"}</span>
+              {entry.stars != null && <span className="text-amber-500"> · {"★".repeat(entry.stars)}</span>}
+              {date && <span className="text-gray-500"> · {date}</span>}
+            </p>
+            {/* Edit on the line it mostly fixes — the name, stars and date —
+                once the review is open. It sat under the whole review in small
+                blue text, a scroll away on a long one (host, 2026-10-10).
+                Pointer events stop here, or the row's own tap would close it. */}
+            {open && full && !confirming && (
+              <button
+                type="button"
+                onPointerDown={(e) => e.stopPropagation()}
+                onPointerUp={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(full);
+                }}
+                className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                <HiPencilSquare aria-hidden className="h-4 w-4" />
+                Edit
+              </button>
+            )}
+          </div>
           {!open && <p className="mt-0.5 line-clamp-2 text-base leading-snug text-gray-700">{entry.snippet}</p>}
           {open && (
             <div className="mt-1">
@@ -197,14 +222,6 @@ const ReviewEntryItem = ({
           )}
         </div>
       </div>
-
-      {open && full && !confirming && (
-        <div className="mt-0.5 flex justify-end">
-          <button type="button" onClick={() => onEdit(full)} className="rounded-md px-2 py-0.5 text-xs font-semibold text-sky-700 hover:bg-sky-50">
-            Edit
-          </button>
-        </div>
-      )}
 
       {confirming && (
         <div className="mt-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-2 text-xs">
