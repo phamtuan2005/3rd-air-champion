@@ -42,14 +42,20 @@ export const cleanerLeads = async (
     const w = windows[i];
     if (!w) return { cleaners: [], basis: "none" };
     if (w.end < ROTA_STARTS) return { cleaners: [], basis: "before" };
-    const cleaners = [
-      ...new Set(
-        rota
-          .filter((a) => String(a.room?._id ?? a.room) === String(r.room) && a.date >= w.start && a.date <= w.end)
-          .map((a) => String(a.cleaner?.name ?? ""))
-          .filter(Boolean),
-      ),
-    ];
-    return { cleaners, basis: r.stayDate ? "night" : "month" };
+    const inWindow = rota
+      .filter((a) => String(a.room?._id ?? a.room) === String(r.room) && a.date >= w.start && a.date <= w.end)
+      .filter((a) => a.cleaner?.name);
+    if (r.stayDate) {
+      // ONE cleaning prepares a room for a stay: the latest on or before the
+      // night it starts. The window reaches back to the night before (a room
+      // can be cleaned the day ahead), so it also caught the previous guest's
+      // turnover — Han's Sep 29 stay read "prepared by Thalia, Henry" when
+      // Thalia's Sep 28 clean was for the guest before (host, 2026-10-10:
+      // "each room was assigned to a single cleaner"). Newest first, take one.
+      const latest = [...inWindow].sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
+      return { cleaners: latest ? [String(latest.cleaner.name)] : [], basis: "night" };
+    }
+    // Month only: everyone who cleaned the room that month — the line says so.
+    return { cleaners: [...new Set(inWindow.map((a) => String(a.cleaner.name)))], basis: "month" };
   });
 };
