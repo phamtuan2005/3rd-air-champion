@@ -3089,12 +3089,12 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                       {open && (
                         <div className="space-y-1.5 border-t border-gray-100 p-2">
                           {days.map((group) => (
-                            <div key={group.key} className="rounded-lg bg-gray-50 p-2">
+                            <div key={group.key} className="rounded-xl border border-gray-200 bg-white px-3 py-2.5">
                             <div className="flex items-center gap-2">
                               <div className="min-w-0 flex-1">
-                                <p className="text-sm font-semibold text-gray-800">
-                                  {format(new Date(group.date + "T00:00:00"), "EEE M/d")}
-                                  <span className="font-normal text-gray-500">
+                                <p className="text-base font-semibold text-gray-800">
+                                  {format(new Date(group.date + "T00:00:00"), "EEE, MMM d")}
+                                  <span className="text-sm font-semibold text-gray-500">
                                     {" "}· {group.assignments.length} room{group.assignments.length === 1 ? "" : "s"}
                                   </span>
                                 </p>
@@ -3125,7 +3125,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                                 </>
                               ) : (
                                 <>
-                                  <span className="shrink-0 text-sm font-bold text-gray-900">
+                                  <span className="shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-800">
                                     {formatHrMin(group.hours)}
                                   </span>
                                   <button
