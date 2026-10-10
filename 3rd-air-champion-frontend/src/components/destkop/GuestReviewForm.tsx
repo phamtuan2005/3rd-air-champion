@@ -36,6 +36,10 @@ const GuestReviewForm = ({
   roomColor,
   openForEdit = null,
   onEditOpened,
+  rooms = [],
+  openAdd = false,
+  onAddOpened,
+  onRoomChange,
   onAdded,
 }: {
   roomId: string;
@@ -46,8 +50,21 @@ const GuestReviewForm = ({
   // the host tapped in Ask TT. onEditOpened says it has been taken.
   openForEdit?: ReviewEntryFull | null;
   onEditOpened?: () => void;
+  // Every room, so the add pop-up can file a review under any of them — it
+  // is opened from Ask TT ("add review") before any room was chosen (host,
+  // 2026-10-10). openAdd opens it at once; onRoomChange turns the window to
+  // the room a review was added to.
+  rooms?: { roomId: string; name: string; color?: string }[];
+  openAdd?: boolean;
+  onAddOpened?: () => void;
+  onRoomChange?: (roomId: string) => void;
   onAdded: () => void;
 }) => {
+  // The room a NEW review goes to: this tab's, unless picked otherwise in the
+  // pop-up. An edited review keeps its own room.
+  const [targetRoomId, setTargetRoomId] = useState(roomId);
+  const [roomMenu, setRoomMenu] = useState(false);
+  const target = rooms.find((r) => r.roomId === targetRoomId) ?? { roomId, name: roomName, color: roomColor };
   const [guests, setGuests] = useState<guestType[]>([]);
   const [entries, setEntries] = useState<ReviewEntryRow[]>([]);
   const [guestName, setGuestName] = useState("");
@@ -124,7 +141,7 @@ const GuestReviewForm = ({
     let live = true;
     // Typing a name fires this per keystroke: wait until they pause.
     const t = setTimeout(() => {
-      fetchReviewStay(roomId, name, reviewMonth)
+      fetchReviewStay(targetRoomId, name, reviewMonth)
         .then((s) => {
           if (!live) return;
           setFound(s ?? "none");
@@ -141,7 +158,7 @@ const GuestReviewForm = ({
     };
     // stayDate is read, not watched: the host changing it must not re-run this.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomId, guestName, reviewMonth]);
+  }, [targetRoomId, guestName, reviewMonth]);
 
   // A review copied from AirBnB is taken apart where it lands: the name, stars
   // and date go in their fields and only the guest's words stay in the box.
@@ -203,6 +220,17 @@ const GuestReviewForm = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openForEdit]);
 
+  // "add review" in Ask TT: the add pop-up, empty, open at once.
+  useEffect(() => {
+    if (!openAdd) return;
+    clearForm();
+    setNote("");
+    setTargetRoomId(roomId);
+    setFormOpen(true);
+    onAddOpened?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openAdd]);
+
   const add = async () => {
     if (busy) return;
     setNote("");
@@ -241,7 +269,7 @@ const GuestReviewForm = ({
       const fromStay = found && found !== "none" && stayAuto.current ? found.guestId : undefined;
       const guestId = fromStay ?? guests.find((g) => g.name.trim().toLowerCase() === name.toLowerCase())?.id;
       const { added } = await addReviewEntry({
-        roomId,
+        roomId: targetRoomId,
         guestId,
         guestName: name || undefined,
         stayDate: stayDate || undefined,
@@ -256,13 +284,15 @@ const GuestReviewForm = ({
         // anyone noticing.
         clearForm();
         setFormOpen(false);
-        setNote(`Added to ${roomName}.`);
+        setNote(`Added to ${target.name}.`);
         loadEntries();
         // The room's file changed too (the review is appended to it), so the
-        // screen above has to reload what is on file.
+        // screen above has to reload what is on file. Added to another room:
+        // the window turns to it, where the new review now is.
+        if (targetRoomId !== roomId) onRoomChange?.(targetRoomId);
         onAdded();
       } else {
-        setNote(`That review is already on file for ${roomName} — not added again.`);
+        setNote(`That review is already on file for ${target.name} — not added again.`);
       }
     } catch (e: any) {
       setNote(e?.response?.data?.error ?? "That didn't save. Check the connection and try again.");
@@ -308,6 +338,7 @@ const GuestReviewForm = ({
           onClick={() => {
             clearForm();
             setNote("");
+            setTargetRoomId(roomId);
             setFormOpen(true);
           }}
           className="shrink-0 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800"
@@ -370,7 +401,57 @@ const GuestReviewForm = ({
                     {editingId
                       ? `Edit ${guestName.trim() ? `${guestName.trim().split(/\s+/)[0]}'s` : "this"} review of`
                       : "Add a review of"}
-                    <RoomBadge room={{ name: roomName, color: roomColor || undefined }} className="text-sm font-semibold" />
+                    {editingId || rooms.length < 2 ? (
+                      <RoomBadge room={{ name: roomName, color: roomColor || undefined }} className="text-sm font-semibold" />
+                    ) : (
+                      // A NEW review can go to any room: a dropdown of the room
+                      // badges, as the window's own picker (host, 2026-10-10:
+                      // "the add review form with a drop down list of rooms").
+                      <span className="relative inline-flex">
+                        <button
+                          type="button"
+                          aria-haspopup="listbox"
+                          aria-expanded={roomMenu}
+                          onClick={() => setRoomMenu((o) => !o)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-2 py-1 hover:bg-gray-50"
+                        >
+                          <RoomBadge room={{ name: target.name, color: target.color || undefined }} className="text-sm font-semibold" />
+                          <span aria-hidden className="text-xs text-gray-400">
+                            {roomMenu ? "▲" : "▼"}
+                          </span>
+                        </button>
+                        {roomMenu && (
+                          <>
+                            <span className="fixed inset-0 z-10" onClick={() => setRoomMenu(false)} />
+                            <ul
+                              role="listbox"
+                              aria-label="Room"
+                              className="absolute left-0 top-full z-20 mt-1 min-w-[10rem] rounded-xl border border-gray-200 bg-white py-1 font-normal shadow-xl"
+                            >
+                              {rooms.map((r) => (
+                                <li key={r.roomId}>
+                                  <button
+                                    type="button"
+                                    role="option"
+                                    aria-selected={r.roomId === targetRoomId}
+                                    onClick={() => {
+                                      setTargetRoomId(r.roomId);
+                                      setRoomMenu(false);
+                                    }}
+                                    className={`flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-gray-50 ${
+                                      r.roomId === targetRoomId ? "bg-gray-50" : ""
+                                    }`}
+                                  >
+                                    <RoomBadge room={{ name: r.name, color: r.color || undefined }} rooms={rooms} className="text-sm font-semibold" />
+                                    {r.roomId === targetRoomId && <span className="ml-auto text-sm text-gray-900">✓</span>}
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          </>
+                        )}
+                      </span>
+                    )}
                   </h4>
                   <p className="mt-0.5 text-[11px] leading-relaxed text-gray-500">
                     Paste it straight from AirBnB — the name, stars, month and stay fill themselves in.
@@ -396,7 +477,7 @@ const GuestReviewForm = ({
                   rows={6}
                   maxLength={MAX_REVIEW_CHARS}
                   autoFocus={!editingId}
-                  placeholder={`Paste this guest's review of ${roomName}…`}
+                  placeholder={`Paste this guest's review of ${target.name}…`}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[16px] leading-relaxed focus:border-gray-400 focus:outline-none sm:text-sm"
                 />
                 <div className="mt-0.5 text-right text-[10px] text-gray-400">
@@ -453,7 +534,7 @@ const GuestReviewForm = ({
                     )}
                     {found === "none" && !stayDate && (
                       <p className="mt-0.5 text-[10px] text-gray-400">
-                        No stay for {guestName.trim().split(/\s+/)[0]} in {roomName} around then — add it if you know it
+                        No stay for {guestName.trim().split(/\s+/)[0]} in {target.name} around then — add it if you know it
                       </p>
                     )}
                   </div>
