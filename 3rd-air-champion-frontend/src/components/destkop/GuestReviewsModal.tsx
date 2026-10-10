@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchReviewsState, publishReviews, ReviewsState, startReviewDraft, SummarySet } from "../../util/ttQuestionLog";
 import GuestReviewForm from "./GuestReviewForm";
+import { HiPaperAirplane, HiSparkles } from "react-icons/hi2";
 
 // What guests say, for TiBook's TT to tell the next guest.
 //
@@ -186,16 +187,18 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
                 type="button"
                 onClick={draft}
                 disabled={!anyPasted || busy || drafting}
-                className="whitespace-nowrap rounded-lg border border-gray-300 px-3 py-1 text-sm font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-300 px-3 py-1 text-sm font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-40"
               >
+                <HiSparkles aria-hidden className={`h-4 w-4 shrink-0 text-violet-500 ${drafting ? "animate-pulse" : ""}`} />
                 {drafting ? "Drafting…" : "Draft summaries"}
               </button>
               <button
                 type="button"
                 onClick={publish}
                 disabled={busy || drafting}
-                className="whitespace-nowrap rounded-lg bg-emerald-600 px-3 py-1 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-emerald-600 px-3 py-1 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-40"
               >
+                <HiPaperAirplane aria-hidden className="h-4 w-4 shrink-0" />
                 Publish
               </button>
             </div>
