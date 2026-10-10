@@ -170,10 +170,10 @@ const ReviewEntryItem = ({
             setOffset(0);
           }}
         >
-          <span className="text-base font-semibold text-gray-900">{entry.guestName || "A guest"}</span>
+          <span className="text-lg font-semibold text-gray-900">{entry.guestName || "A guest"}</span>
           {entry.stars != null && <span className="text-amber-500"> · {"★".repeat(entry.stars)}</span>}
           {date && <span className="text-gray-500"> · {date}</span>}
-          {!open && <p className="mt-0.5 line-clamp-2 text-[15px] leading-snug text-gray-600">{entry.snippet}</p>}
+          {!open && <p className="mt-0.5 line-clamp-2 text-base leading-snug text-gray-700">{entry.snippet}</p>}
           {open && (
             <div className="mt-1">
               {!full && !loadFailed && <p className="text-gray-400">Opening…</p>}
