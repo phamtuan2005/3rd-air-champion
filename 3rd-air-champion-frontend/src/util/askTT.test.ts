@@ -453,6 +453,12 @@ describe("a room's latest review", () => {
     expect(a.actions).toContainEqual({ kind: "ask", label: "King's latest review", query: "King latest review" });
   });
 
+  it("names the reviewer by first name with the month and stars", () => {
+    const named = { ...reviews, latest: { k: { ...reviews.latest.k, guest: "Gail" } } };
+    expect(text(askTT("King's latest review", ctx({}, { reviews: named })))).toContain("King's latest review — Gail · September 2026 · 5 ★:");
+    expect(text(askTT("latest reviews", ctx({}, { reviews: named })))).toContain("King (Gail · September 2026 · 5 ★): ");
+  });
+
   it("still refuses to say WHO wrote the latest review", () => {
     expect(askTT("who wrote the latest review of King?", ctx({}, { reviews })).category).toBe("privacy");
   });

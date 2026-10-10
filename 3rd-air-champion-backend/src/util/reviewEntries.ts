@@ -149,7 +149,15 @@ export const latestFromEntries = async (hostId: string, roomIds?: string[]): Pro
   for (const r of rows) {
     const k = String(r.room);
     if (out.has(k) || !reviewDateKey(r)) continue;
-    out.set(k, { text: String(r.text ?? ""), month: reviewDateKey(r).slice(0, 7), stars: r.stars ?? null });
+    // First name only, even when the host typed the full one: that is all
+    // AirBnB itself publishes beside a review.
+    const firstName = String(r.guestName ?? "").trim().split(/\s+/)[0];
+    out.set(k, {
+      text: String(r.text ?? ""),
+      month: reviewDateKey(r).slice(0, 7),
+      stars: r.stars ?? null,
+      ...(firstName ? { firstName } : {}),
+    });
   }
   return out;
 };

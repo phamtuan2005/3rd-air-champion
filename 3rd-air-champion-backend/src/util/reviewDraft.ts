@@ -36,6 +36,10 @@ export interface LatestReview {
   text: string;
   month: string; // yyyy-MM
   stars: number | null;
+  // The reviewer's FIRST name, as AirBnB shows it on the listing. TiBook shows
+  // it with the review (host, 2026-10-09). Not given to the draft: a summary
+  // speaks for guests in general and names no one.
+  firstName?: string;
 }
 
 export interface DraftedRoom {
