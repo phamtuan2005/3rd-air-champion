@@ -594,18 +594,26 @@ const CalendarFilterPicker = ({
                       })()}
                     {reviewStats && reviewStats.total > 0 && (
                       <>
-                        <p className="font-semibold text-gray-900">
+                        <p className="text-base font-semibold text-gray-900">
                           {reviewStats.total} review{reviewStats.total === 1 ? "" : "s"} on record
                         </p>
                         {/* Three real columns — room, stars, count — with the
                             numbers right-aligned on tabular digits. As one run
                             of text per row, "4.97 ★ · 115 reviews" and "4.98 ★
                             · 42 reviews" ended together and their stars and
-                            counts zig-zagged down the list (host, 2026-10-08). */}
-                        <div className="mt-1 grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 gap-y-0.5 tabular-nums">
+                            counts zig-zagged down the list (host, 2026-10-08).
+                            Each column as wide as its widest entry, not the name
+                            stretched across the box: that left a gulf between a
+                            room and its numbers. The room as its coloured badge,
+                            at reading size (host, 2026-10-10). */}
+                        <div className="mt-1.5 grid w-fit grid-cols-[auto_auto_auto] items-center gap-x-4 gap-y-1.5 text-base tabular-nums">
                           {reviewStats.rooms.map((r) => (
                             <Fragment key={r.room}>
-                              <span className="truncate font-medium text-gray-800">{r.name}</span>
+                              <RoomBadge
+                                room={{ name: r.name, color: rooms.find((x) => x.name === r.name)?.color }}
+                                rooms={reviewStats.rooms}
+                                className="text-sm font-semibold"
+                              />
                               <span className="text-right">
                                 {r.average != null ? (
                                   <span className="font-semibold text-amber-600">{r.average.toFixed(2)} ★</span>
