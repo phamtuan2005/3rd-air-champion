@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { airbnbReservationDetails, dateTyped, matchesReservation, reviewsTyped, screensMatching, weekTyped, whenTyped, whoAndWhen, worthAsking } from "./ttIntents";
+import { addReviewTyped, airbnbReservationDetails, dateTyped, matchesReservation, reviewsTyped, screensMatching, weekTyped, whenTyped, whoAndWhen, worthAsking } from "./ttIntents";
 
 // What TT understands beyond names. A box that guesses wrong sends the host
 // somewhere they did not ask to go, so each rule is pinned.
@@ -228,5 +228,24 @@ describe("a question about the guest reviews", () => {
     expect(reviewsTyped("newest reviews")).toEqual({ topic: null });
     expect(screensMatching("add review").map((s) => s.key)).toContain("reviews:add");
     expect(screensMatching("paste a review").map((s) => s.key)).toContain("reviews:add");
+  });
+});
+
+describe("adding a review", () => {
+  // "add review king" found nothing: the screen list matches from the start
+  // of a phrase (host, 2026-10-10).
+  const rooms = ["Chill", "Cozy", "Cute", "King", "Queen"];
+  it("reads the room named anywhere, any case", () => {
+    expect(addReviewTyped("add review king", rooms)).toEqual({ room: "King" });
+    expect(addReviewTyped("new review for Cozy", rooms)).toEqual({ room: "Cozy" });
+    expect(addReviewTyped("King add a review", rooms)).toEqual({ room: "King" });
+  });
+  it("still adds with no room named", () => {
+    expect(addReviewTyped("add review", rooms)).toEqual({ room: null });
+  });
+  it("is not a question about the reviews, nor adding something else", () => {
+    expect(addReviewTyped("newest reviews", rooms)).toBeNull();
+    expect(addReviewTyped("add booking king", rooms)).toBeNull();
+    expect(addReviewTyped("review king", rooms)).toBeNull();
   });
 });

@@ -293,3 +293,24 @@ export const matchesReservation = (query: string, codes: string[], last4s: strin
   if (/^[A-Za-z0-9]{4,}$/.test(q) && codes.some((c) => c.startsWith(q.toUpperCase()))) return "code";
   return null;
 };
+
+// ── Adding a review ─────────────────────────────────────────────────────────
+
+/**
+ * Whether the host asked to ADD a review — "add review", "new review King",
+ * "paste a review for Cozy" — and which room, when one is named.
+ *
+ * The screen list matches from the start of a phrase, so "add review king"
+ * found nothing at all; read here, the room is picked in the pop-up before it
+ * opens (host, 2026-10-10). Room names are matched whole and case-blind, the
+ * longest first, so "King" is not found inside another word.
+ */
+export const addReviewTyped = (query: string, roomNames: string[]): { room: string | null } | null => {
+  const q = query.trim().toLowerCase();
+  if (!/\b(?:add|new|paste)\b/.test(q) || !/\breviews?\b/.test(q)) return null;
+  const room = [...roomNames]
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length)
+    .find((n) => new RegExp(`\\b${n.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(q));
+  return { room: room ?? null };
+};

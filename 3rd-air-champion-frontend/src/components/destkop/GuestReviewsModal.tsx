@@ -46,8 +46,9 @@ const GuestReviewsModal = ({
   openAt = null,
 }: {
   onClose: () => void;
-  // Where to open, when Ask TT sent the host here: "house", "room:<id>", or a
-  // review's id — that review, in its room, in the edit pop-up.
+  // Where to open, when Ask TT sent the host here: "house", "room:<id>", "add"
+  // or "add:<room id>" (the add pop-up, that room picked), or a review's id —
+  // that review, in its room, in the edit pop-up.
   openAt?: string | null;
 }) => {
   const [state, setState] = useState<ReviewsState | null>(null);
@@ -110,6 +111,11 @@ const GuestReviewsModal = ({
     if (!openAt) return;
     if (openAt === "house") return setPasteRoomId("house");
     if (openAt === "add") return setPendingAdd(true);
+    // "add review King": that room's tab, so the pop-up opens with King picked.
+    if (openAt.startsWith("add:")) {
+      setPasteRoomId(openAt.slice("add:".length));
+      return setPendingAdd(true);
+    }
     if (openAt.startsWith("room:")) return setPasteRoomId(openAt.slice("room:".length));
     let live = true;
     fetchReviewEntry(openAt)
