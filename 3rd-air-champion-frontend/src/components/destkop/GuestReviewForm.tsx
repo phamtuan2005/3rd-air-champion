@@ -8,6 +8,7 @@ import { fetchGuests } from "../../util/guestOperations";
 import { guestType } from "../../util/types/guestType";
 import { parseAirbnbReview } from "../../util/airbnbReviewPaste";
 import ReviewEntryItem from "./ReviewEntryItem";
+import RoomBadge from "../shared/RoomBadge";
 import {
   addReviewEntry,
   fetchReviewEntries,
@@ -29,7 +30,18 @@ import {
 //
 // Small by design: a review fits in one ordinary request, so none of the
 // sent-in-parts machinery a whole review file needs (util/pasteParts).
-const GuestReviewForm = ({ roomId, roomName, onAdded }: { roomId: string; roomName: string; onAdded: () => void }) => {
+const GuestReviewForm = ({
+  roomId,
+  roomName,
+  roomColor,
+  onAdded,
+}: {
+  roomId: string;
+  roomName: string;
+  // The room's own colour, when it has one; RoomBadge falls back to its name's.
+  roomColor?: string;
+  onAdded: () => void;
+}) => {
   const [guests, setGuests] = useState<guestType[]>([]);
   const [entries, setEntries] = useState<ReviewEntryRow[]>([]);
   const [guestName, setGuestName] = useState("");
@@ -335,10 +347,13 @@ const GuestReviewForm = ({ roomId, roomName, onAdded }: { roomId: string; roomNa
             >
               <div className="flex items-start justify-between gap-2 border-b border-gray-100 px-4 py-3">
                 <div>
-                  <h4 className="text-base font-bold text-gray-900">
+                  {/* The room as its badge, in its colour — the same mark as
+                      the picker and the calendar (host, 2026-10-10). */}
+                  <h4 className="flex flex-wrap items-center gap-1.5 text-base font-bold text-gray-900">
                     {editingId
-                      ? `Edit ${guestName.trim() ? `${guestName.trim().split(/\s+/)[0]}'s` : "this"} review`
-                      : `Add a review of ${roomName}`}
+                      ? `Edit ${guestName.trim() ? `${guestName.trim().split(/\s+/)[0]}'s` : "this"} review of`
+                      : "Add a review of"}
+                    <RoomBadge room={{ name: roomName, color: roomColor || undefined }} className="text-sm font-semibold" />
                   </h4>
                   <p className="mt-0.5 text-[11px] leading-relaxed text-gray-500">
                     Paste it straight from AirBnB — the name, stars, month and stay fill themselves in.

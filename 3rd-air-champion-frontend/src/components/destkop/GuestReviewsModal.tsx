@@ -338,7 +338,13 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
                   )}
                 </div>
                 <div className="mt-2" />
-                <GuestReviewForm key={pasteRoom.roomId} roomId={pasteRoom.roomId} roomName={pasteRoom.name} onAdded={load} />
+                <GuestReviewForm
+                  key={pasteRoom.roomId}
+                  roomId={pasteRoom.roomId}
+                  roomName={pasteRoom.name}
+                  roomColor={pasteRoom.color}
+                  onAdded={load}
+                />
               </section>
 
               <section className="border-t border-gray-100 pt-4">
