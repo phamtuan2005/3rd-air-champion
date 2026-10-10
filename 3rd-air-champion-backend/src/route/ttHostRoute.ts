@@ -89,9 +89,10 @@ router.get("/reviews", async (req: Request, res: any) => {
     // size and date, and nothing needs the reviewers' words.
     const sources = await TTReviewSource.find({ host: hostId }, { room: 1, name: 1, chars: 1, updatedAt: 1 }).lean();
     // The rooms to paste for, with their listing link so the screen can open
-    // each listing's reviews in one tap. Name, id and link only — never the
+    // each listing's reviews in one tap, and its colour so the room looks the
+    // same here as everywhere else in Ti. Name, id, link and colour only — never the
     // door code the room record also carries.
-    const rooms = await Room.find({ host: hostId, active: { $ne: false } }, { name: 1, airbnbUrl: 1 }).sort({ name: 1 }).lean();
+    const rooms = await Room.find({ host: hostId, active: { $ne: false } }, { name: 1, airbnbUrl: 1, color: 1 }).sort({ name: 1 }).lean();
     // How many reviews each room has on record — what a draft reads.
     const counts = await TTReviewEntry.aggregate([
       { $match: { host: new mongoose.Types.ObjectId(hostId) } },
@@ -101,7 +102,7 @@ router.get("/reviews", async (req: Request, res: any) => {
       onRecord: counts.map((c: any) => ({ roomId: String(c._id), count: c.count })),
       ...view(await TTReviews.findOne({ host: hostId }).lean()),
       sources: sources.map((r: any) => ({ roomId: String(r.room), name: r.name ?? "", chars: r.chars ?? 0, savedAt: r.updatedAt ?? null })),
-      houseRooms: rooms.map((r: any) => ({ roomId: String(r._id), name: r.name ?? "", airbnbUrl: r.airbnbUrl ?? "" })),
+      houseRooms: rooms.map((r: any) => ({ roomId: String(r._id), name: r.name ?? "", airbnbUrl: r.airbnbUrl ?? "", color: r.color ?? "" })),
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

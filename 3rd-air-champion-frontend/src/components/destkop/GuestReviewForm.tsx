@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { createPortal } from "react-dom";
+import { HiMagnifyingGlass } from "react-icons/hi2";
 import { jwtDecode } from "jwt-decode";
 import { getToken } from "../../util/authSession";
 import { fetchGuests } from "../../util/guestOperations";
@@ -273,15 +274,21 @@ const GuestReviewForm = ({ roomId, roomName, onAdded }: { roomId: string; roomNa
           + Add
         </button>
       </div>
-      <input
-        type="search"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search — a name, a word, a month (2026-09)"
-        aria-label={`Search ${roomName}'s reviews`}
-        // 16px: below that, iOS Safari zooms the page in on focus.
-        className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-[16px] focus:border-gray-400 focus:outline-none sm:text-sm"
-      />
+      {/* Two words and an icon: "Search — a name, a word, a month (2026-09)"
+          was cut off on a phone, and the cut-off part was the part that said
+          anything (host, 2026-10-10). A name, a word or a month all work. */}
+      <div className="relative mt-2">
+        <HiMagnifyingGlass aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search reviews"
+          aria-label={`Search ${roomName}'s reviews by name, word or month`}
+          // 16px: below that, iOS Safari zooms the page in on focus.
+          className="w-full rounded-lg border border-gray-200 py-2 pl-9 pr-3 text-[16px] focus:border-gray-400 focus:outline-none sm:text-sm"
+        />
+      </div>
       {note && !formOpen && (
         <p role="status" className="mt-1.5 text-xs font-medium text-teal-700">
           {note}
