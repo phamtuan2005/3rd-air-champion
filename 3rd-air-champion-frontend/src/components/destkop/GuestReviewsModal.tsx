@@ -382,7 +382,7 @@ const GuestReviewsModal = ({
                   roomColor={pasteRoom.color}
                   openForEdit={pendingEdit?.roomId === pasteRoom.roomId ? pendingEdit : null}
                   onEditOpened={() => setPendingEdit(null)}
-                  rooms={rooms.map((r) => ({ roomId: r.roomId, name: r.name, color: r.color }))}
+                  rooms={rooms.map((r) => ({ roomId: r.roomId, name: r.name, color: r.color, airbnbUrl: r.airbnbUrl }))}
                   openAdd={pendingAdd}
                   onAddOpened={() => setPendingAdd(false)}
                   onRoomChange={setPasteRoomId}
