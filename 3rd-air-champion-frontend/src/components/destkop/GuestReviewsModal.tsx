@@ -263,7 +263,7 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
               <section>
                 <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                   <h3 className="text-sm font-bold text-gray-900">
-                    {pasteRoom.name}'s reviews{countOf[pasteRoom.roomId] ? ` · ${countOf[pasteRoom.roomId]} on record` : ""}
+                    {pasteRoom.name}'s reviews
                   </h3>
                   {pasteRoom.airbnbUrl && (
                     <a
@@ -276,9 +276,7 @@ const GuestReviewsModal = ({ onClose }: { onClose: () => void }) => {
                     </a>
                   )}
                 </div>
-                <p className="mt-0.5 text-xs text-gray-500">
-                  Add each new review as it comes in: paste it below. Each one is kept on its own record, for you only.
-                </p>
+                <div className="mt-2" />
                 <GuestReviewForm key={pasteRoom.roomId} roomId={pasteRoom.roomId} roomName={pasteRoom.name} onAdded={load} />
               </section>
 
