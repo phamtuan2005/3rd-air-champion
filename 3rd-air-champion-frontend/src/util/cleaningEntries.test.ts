@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addDays, format, startOfToday } from "date-fns";
-import { getCleaningEntriesFor } from "./cleaningTasks";
+import { getCleaningEntriesFor, isStaleCleaning } from "./cleaningTasks";
 import { dayType } from "./types/dayType";
 
 // One room, one clean, one morning.
@@ -172,5 +172,29 @@ describe("a soft-held arrival", () => {
     map.set(arrival, { date: arrival, bookings: [held], blockedRooms: [] } as unknown as dayType);
     const queen = getCleaningEntriesFor(map, morning).filter((e) => e.checkoutBooking.room.id === "queen");
     expect(queen).toHaveLength(1);
+  });
+});
+
+// The reaper in Clean deletes an unworked assignment when isStaleCleaning says
+// no turnover was due. It looked at the FIRST stay in the room that night; a
+// cancelled AirBnB copy kept beside the live one ran on past it, so today's
+// real Cute and King cleans were deleted on every open (2026-10-11).
+describe("a stale cleaning", () => {
+  const dayOf = (k: string, bookings: never[]) => ({ date: k, bookings, blockedRooms: [] }) as unknown as dayType;
+  it("is not stale when ANY stay in the room ended the night before, whatever is listed first", () => {
+    const last = key(addDays(startOfToday(), -1));
+    const morning = key(startOfToday());
+    const later = key(addDays(startOfToday(), 3));
+    const map = new Map<string, dayType>();
+    map.set(last, dayOf(last, [booking("cute", "Cute", last, later, { id: "cancelled" }), booking("cute", "Cute", last, last, { id: "live" })]));
+    expect(isStaleCleaning(map, "cute", morning)).toBe(false);
+  });
+  it("is stale when the guest stays on and nobody left", () => {
+    const last = key(addDays(startOfToday(), -1));
+    const morning = key(startOfToday());
+    const later = key(addDays(startOfToday(), 3));
+    const map = new Map<string, dayType>();
+    map.set(last, dayOf(last, [booking("cute", "Cute", last, later)]));
+    expect(isStaleCleaning(map, "cute", morning)).toBe(true);
   });
 });
