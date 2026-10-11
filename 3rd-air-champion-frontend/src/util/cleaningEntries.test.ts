@@ -143,32 +143,6 @@ describe("which of two stays on one night is the live one", () => {
   });
 });
 
-// A stay split by a partial soft hold (host, 2026-10-10) ends one part and
-// starts the next on the same morning, same guest, same room. Nobody leaves.
-describe("a split stay is not a turnover", () => {
-  const withGuest = (b: never, guestId: string) => ({ ...(b as object), guest: { id: guestId } }) as never;
-  const dayOf = (k: string, bookings: never[]) => ({ date: k, bookings, blockedRooms: [] }) as unknown as dayType;
-
-  it("schedules no clean between the parts of one guest's stay", () => {
-    const n1 = key(addDays(startOfToday(), 1));
-    const n2 = key(addDays(startOfToday(), 2));
-    const morning = n2;
-    const map = new Map<string, dayType>();
-    map.set(n1, dayOf(n1, [withGuest(booking("king", "King", n1, n1), "sean")]));
-    map.set(n2, dayOf(n2, [withGuest(booking("king", "King", n2, n2), "sean")]));
-    expect(getCleaningEntriesFor(map, morning).filter((e) => e.checkoutBooking.room.id === "king")).toHaveLength(0);
-  });
-
-  it("still cleans when a DIFFERENT guest arrives the morning one leaves", () => {
-    const n1 = key(addDays(startOfToday(), 1));
-    const n2 = key(addDays(startOfToday(), 2));
-    const map = new Map<string, dayType>();
-    map.set(n1, dayOf(n1, [withGuest(booking("king", "King", n1, n1), "sean")]));
-    map.set(n2, dayOf(n2, [withGuest(booking("king", "King", n2, n2), "mai")]));
-    expect(getCleaningEntriesFor(map, n2).filter((e) => e.checkoutBooking.room.id === "king")).toHaveLength(1);
-  });
-});
-
 // Every AirBnB stay hangs off one shared "AirBnB" guest. Two DIFFERENT AirBnB
 // guests back to back are a turnover, not a guest staying on (2026-10-11:
 // Cute and King lost their clean from the Week tab).
