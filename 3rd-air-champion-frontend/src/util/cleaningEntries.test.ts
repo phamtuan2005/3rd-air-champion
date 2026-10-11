@@ -168,3 +168,18 @@ describe("a split stay is not a turnover", () => {
     expect(getCleaningEntriesFor(map, n2).filter((e) => e.checkoutBooking.room.id === "king")).toHaveLength(1);
   });
 });
+
+// Every AirBnB stay hangs off one shared "AirBnB" guest. Two DIFFERENT AirBnB
+// guests back to back are a turnover, not a guest staying on (2026-10-11:
+// Cute and King lost their clean from the Week tab).
+describe("back-to-back AirBnB guests", () => {
+  it("are still a turnover, though they share the AirBnB guest record", () => {
+    const n1 = key(addDays(startOfToday(), 1));
+    const n2 = key(addDays(startOfToday(), 2));
+    const airbnb = (b: never) => ({ ...(b as object), guest: { id: "airbnb", name: "AirBnB" } }) as never;
+    const map = new Map<string, dayType>();
+    map.set(n1, { date: n1, bookings: [airbnb(booking("cute", "Cute", n1, n1))], blockedRooms: [] } as unknown as dayType);
+    map.set(n2, { date: n2, bookings: [airbnb(booking("cute", "Cute", n2, n2))], blockedRooms: [] } as unknown as dayType);
+    expect(getCleaningEntriesFor(map, n2).filter((e) => e.checkoutBooking.room.id === "cute")).toHaveLength(1);
+  });
+});
