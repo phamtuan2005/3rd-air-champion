@@ -67,6 +67,11 @@ const staysOn = (monthMap: Map<string, dayType>, b: bookingType, lastNightKey: s
   // not one guest staying on, and must still be cleaned between.
   const guestId = b.guest?.id;
   if (!guestId) return false;
+  // Never an AirBnB stay. Every AirBnB stay hangs off ONE shared "AirBnB"
+  // guest, so two different AirBnB guests back to back look like one guest
+  // staying on — and the turnover between them vanished from Clean (Cute and
+  // King, 2026-10-11). AirBnB stays are never split, so nothing is lost.
+  if (b.guest?.name === "AirBnB") return false;
   return !!monthMap
     .get(nextKey)
     ?.bookings.some((n) => n.room?.id === b.room?.id && n.guest?.id === guestId && n.startDate.split("T")[0] === nextKey);
