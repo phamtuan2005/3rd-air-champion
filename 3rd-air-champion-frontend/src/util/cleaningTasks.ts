@@ -385,15 +385,18 @@ export const getCleaningEntriesFor = (
     const day = monthMap.get(nightKey);
     return !!(day?.isBlocked || day?.blockedRooms?.some((r) => r.id === roomId));
   };
-  // Next confirmed (non-reserved) arrival for a room on/after this morning — its
-  // presence means the room is still in service, bounding the gap.
-  const nextConfirmedArrival = (roomId: string) => {
+  // Next arrival for a room on/after this morning — its presence means the
+  // room is still in service, bounding the gap. A soft hold counts exactly as a
+  // booking: the cleaning schedule treats a held stay as an established one
+  // (host, 2026-10-11). It used to skip held arrivals here, so the empty nights
+  // before a held guest had no clean planned.
+  const nextArrival = (roomId: string) => {
     for (let j = 0; j <= GAP_ARRIVAL_SCAN_DAYS; j++) {
       const key = dateKey(addDays(morning, j));
       const found = monthMap
         .get(key)
         ?.bookings.find(
-          (b) => b.room?.id === roomId && !b.reserved && b.startDate.split("T")[0] === key,
+          (b) => b.room?.id === roomId && b.startDate.split("T")[0] === key,
         );
       if (found) return { arriving: found, key };
     }
@@ -434,7 +437,7 @@ export const getCleaningEntriesFor = (
       if (covered.has(roomId)) continue;
       if (isOccupied(roomId, lastNightKey)) continue; // slept in → not a turnover
       if (isBlockedNight(roomId, lastNightKey)) continue; // couldn't sell that night
-      const next = nextConfirmedArrival(roomId);
+      const next = nextArrival(roomId);
       if (!next) continue; // open-ended vacancy → not a gap, don't forecast
       entries.push({
         checkoutBooking: next.arriving, // carries the room identity for the chip

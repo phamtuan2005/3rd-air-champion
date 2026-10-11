@@ -157,3 +157,20 @@ describe("back-to-back AirBnB guests", () => {
     expect(getCleaningEntriesFor(map, n2).filter((e) => e.checkoutBooking.room.id === "cute")).toHaveLength(1);
   });
 });
+
+// A soft hold is an established booking to the cleaning schedule (host,
+// 2026-10-11). The empty nights before a HELD arrival used to get no planned
+// clean, because only confirmed arrivals bounded the gap.
+describe("a soft-held arrival", () => {
+  it("bounds a gap like any booking, so the empty night before it gets a clean", () => {
+    const before = key(addDays(startOfToday(), 1));
+    const morning = key(addDays(startOfToday(), 4));
+    const arrival = key(addDays(startOfToday(), 5));
+    const held = { ...(booking("queen", "Queen", arrival, arrival) as object), reserved: true } as never;
+    const map = new Map<string, dayType>();
+    map.set(before, { date: before, bookings: [booking("queen", "Queen", before, before)], blockedRooms: [] } as unknown as dayType);
+    map.set(arrival, { date: arrival, bookings: [held], blockedRooms: [] } as unknown as dayType);
+    const queen = getCleaningEntriesFor(map, morning).filter((e) => e.checkoutBooking.room.id === "queen");
+    expect(queen).toHaveLength(1);
+  });
+});
