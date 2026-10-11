@@ -313,8 +313,14 @@ export const isStaleCleaning = (
   morningKey: string,
 ) => {
   const prevNight = dateKey(addDays(new Date(morningKey + "T00:00:00"), -1));
-  const occupant = monthMap.get(prevNight)?.bookings.find((b) => b.room?.id === roomId);
-  return !!occupant && occupant.endDate.split("T")[0] !== prevNight;
+  // EVERY stay in the room that night, not the first one found: a cancelled
+  // AirBnB stay is kept beside the live one ([[project-duplicate-night-bookings]]),
+  // and when the kept copy ran on past the night it hid the checkout — so the
+  // reaper deleted Cute and King's real clean every time Clean opened, while
+  // the list beside it (getCheckoutsOn) still asked for them (2026-10-11). Any
+  // stay ending that night is a checkout, the same question getCheckoutsOn asks.
+  const inRoom = monthMap.get(prevNight)?.bookings.filter((b) => b.room?.id === roomId) ?? [];
+  return inRoom.length > 0 && !inRoom.some((b) => b.endDate.split("T")[0] === prevNight);
 };
 
 // Precomputed inputs, so a caller looping over many mornings pays for the
