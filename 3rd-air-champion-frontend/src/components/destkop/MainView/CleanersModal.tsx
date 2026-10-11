@@ -95,6 +95,13 @@ interface CleanersModalProps {
 
 const inputCls =
   "rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:border-gray-400 focus:outline-none";
+// Clean's weeks run SUNDAY to Saturday, as the calendar and Stats do. They
+// ran Monday to Sunday, so the same "week" meant two different sets of days
+// a tap apart (host, 2026-10-11: "I don't get it"). The names below still
+// say "Monday" — weekMonday, thisMonday, and the server's sent-schedule key —
+// but each now holds the week's FIRST day, a Sunday.
+const WEEK_STARTS_ON = 0;
+
 const pillDark = "rounded-lg bg-gray-900 px-2.5 py-1.5 text-sm font-semibold text-white";
 const pillNeutral =
   "rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-700";
@@ -329,7 +336,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
     sameDay: boolean;
   } | null>(null);
   const autoTabDone = useRef(false);
-  // The cleaner-facing schedule is a FIXED Mon–Sun week (unlike the rolling
+  // The cleaner-facing schedule is a FIXED Sun–Sat week (unlike the rolling
   // Upcoming forecast) — texted schedules must not shift under the cleaner's
   // feet as days pass. 0 = this week, 1 = next week.
   const [weekOffset, setWeekOffset] = useState<0 | 1>(initialWeek ?? 0);
@@ -527,8 +534,8 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
       .then(setSummary)
       .catch((err) => console.error("Error fetching cleaner summary:", err));
 
-  // Selected fixed week (Mon–Sun)
-  const weekMonday = addDays(startOfWeek(startOfToday(), { weekStartsOn: 1 }), weekOffset * 7);
+  // Selected fixed week (Sun–Sat, see WEEK_STARTS_ON)
+  const weekMonday = addDays(startOfWeek(startOfToday(), { weekStartsOn: WEEK_STARTS_ON }), weekOffset * 7);
   const weekDates = Array.from({ length: 7 }, (_, i) =>
     format(addDays(weekMonday, i), "yyyy-MM-dd"),
   );
@@ -607,7 +614,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
   // Fixed Monday of this/next week. The Team-tab Message menu offers both
   // explicitly, so a schedule text never depends on which week the Week tab
   // happens to be showing — each item spells out its own dates.
-  const thisMonday = startOfWeek(startOfToday(), { weekStartsOn: 1 });
+  const thisMonday = startOfWeek(startOfToday(), { weekStartsOn: WEEK_STARTS_ON });
   const nextMonday = addDays(thisMonday, 7);
   const weekAssignmentCount = (cleanerId: string, monday: Date) => {
     const d0 = format(monday, "yyyy-MM-dd");
@@ -857,10 +864,10 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
     // Three horizons, and the window is the widest of them: the month for hours
     // and pay, the fortnight for the fixed schedule, and the plan for whatever
     // the host has set it to.
-    const thisMonday = format(startOfWeek(startOfToday(), { weekStartsOn: 1 }), "yyyy-MM-dd");
+    const thisMonday = format(startOfWeek(startOfToday(), { weekStartsOn: WEEK_STARTS_ON }), "yyyy-MM-dd");
     const start = thisMonday < `${monthKey}-01` ? thisMonday : `${monthKey}-01`;
     const fortnightEnd = format(
-      addDays(startOfWeek(startOfToday(), { weekStartsOn: 1 }), 13),
+      addDays(startOfWeek(startOfToday(), { weekStartsOn: WEEK_STARTS_ON }), 13),
       "yyyy-MM-dd",
     );
     const planEnd = format(addDays(startOfToday(), planDays), "yyyy-MM-dd");
@@ -2163,7 +2170,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
 
           {activeTab === "week" && (
           <>
-          {/* Fixed Mon–Sun schedule — the frame all cleaner-facing actions
+          {/* Fixed Sun–Sat schedule — the frame all cleaner-facing actions
               (like the texted schedule) bind to, unlike the rolling Upcoming */}
           <div className="mb-2 grid grid-cols-2 gap-1 rounded-lg bg-gray-100 p-0.5">
             {(
@@ -2633,7 +2640,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                               Team Message menu. */}
                           <button
                             type="button"
-                            onClick={() => textSchedule(cleaner, startOfWeek(morning, { weekStartsOn: 1 }))}
+                            onClick={() => textSchedule(cleaner, startOfWeek(morning, { weekStartsOn: WEEK_STARTS_ON }))}
                             disabled={!cleaner.phone}
                             title={cleaner.phone ? `Text ${cleaner.name.split(" ")[0]} this week's schedule` : cleaner.name}
                             className="flex w-24 shrink-0 items-center gap-1.5 rounded-lg py-0.5 text-left transition-colors hover:bg-violet-50 disabled:cursor-default disabled:hover:bg-transparent"
@@ -2657,7 +2664,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                               week — each row is its own re-send tap. */}
                           {scheduleStatus(
                             cleaner.id,
-                            startOfWeek(morning, { weekStartsOn: 1 }),
+                            startOfWeek(morning, { weekStartsOn: WEEK_STARTS_ON }),
                           ) === "changed" && <ResendBadge />}
                         </div>
                       ))}
