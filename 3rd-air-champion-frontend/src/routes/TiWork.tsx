@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { addDays, format, parseISO, startOfToday } from "date-fns";
 import {
   FaChevronDown,
@@ -1145,17 +1145,25 @@ const TiWork = () => {
                       2026-10-07). The tip keeps its own column: a tip and a
                       payout look the same in a list of amounts, and only one of
                       them settles what was earned. */}
-                  <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                    <span className="w-16 shrink-0">Paid</span>
-                    <span className="flex-1">Earning</span>
-                    <span className="w-14 shrink-0 text-right">Tip</span>
-                    <span className="w-20 shrink-0 text-right">Total</span>
-                  </div>
+                  {/* One grid for the header and every row, its columns sized
+                      to what is in them. They were fixed widths (w-16, w-14,
+                      w-20) picked at 14px, and this screen sets type 1.2× — so
+                      "Wed 10/12" broke over two lines, a $100 tip ran into the
+                      earning beside it, and a minus sign was left on its own
+                      line above "$12.00" (2026-10-12). Dates and amounts never
+                      wrap now; only the note gives way, by truncating. On a
+                      phone too narrow for even that (320px) the box scrolls
+                      sideways rather than letting two numbers share a place. */}
+                  <div className="grid grid-cols-[auto_minmax(auto,1fr)_auto_auto] items-center gap-x-2 gap-y-1 text-sm">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Paid</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Earning</span>
+                  <span className="text-right text-[11px] font-semibold uppercase tracking-wide text-gray-400">Tip</span>
+                  <span className="text-right text-[11px] font-semibold uppercase tracking-wide text-gray-400">Total</span>
                   {(() => {
                     const byDay = new Map<string, typeof payments>();
                     for (const p of payments) byDay.set(p.paidOn, [...(byDay.get(p.paidOn) ?? []), p]);
                     const amount = (p: (typeof payments)[number]) => (
-                      <span key={p.id} className={`font-semibold ${p.amount < 0 ? "text-red-600" : ""}`}>
+                      <span key={p.id} className={`whitespace-nowrap font-semibold ${p.amount < 0 ? "text-red-600" : ""}`}>
                         {p.amount < 0 ? "−" : ""}${Math.abs(p.amount).toFixed(2)}
                       </span>
                     );
@@ -1167,20 +1175,33 @@ const TiWork = () => {
                         // the one figure a cleaner counts in their hand (2026-10-07).
                         const total = list.reduce((n, p) => n + p.amount, 0);
                         return (
-                          <div key={paidOn} className="flex items-center gap-2 py-0.5 text-sm">
-                            <span className="w-16 shrink-0 text-gray-600">{format(parseISO(paidOn), "EEE M/d")}</span>
-                            <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 text-gray-900">
-                              {list.filter((p) => !p.tip).map(amount)}
-                              {notes && <span className="truncate text-xs font-normal text-gray-400">{notes}</span>}
+                          <Fragment key={paidOn}>
+                            {/* The weekday under the date, small, as the note sits
+                                under an amount. "Wed 10/12" on one line made the
+                                date the widest column, and four columns at this
+                                type size need ~290px — wider than the box on a
+                                360 or 375px phone. */}
+                            <span className="flex flex-col leading-tight">
+                              <span className="whitespace-nowrap text-gray-600">{format(parseISO(paidOn), "M/d")}</span>
+                              <span className="text-xs text-gray-400">{format(parseISO(paidOn), "EEE")}</span>
                             </span>
-                            <span className="flex w-14 shrink-0 flex-wrap items-center justify-end gap-x-2 text-violet-700">
+                            <span className="flex flex-col text-gray-900">
+                              {/* Several earnings the same day stack, one per line,
+                                  rather than wrapping into each other. */}
+                              {list.filter((p) => !p.tip).map(amount)}
+                              {/* w-0 min-w-full: the note takes the column's width
+                                  but never sets it, so the amounts decide how
+                                  narrow the column may go and the note truncates. */}
+                              {notes && <span className="w-0 min-w-full truncate text-xs font-normal text-gray-400">{notes}</span>}
+                            </span>
+                            <span className="flex flex-col items-end text-violet-700">
                               {list.filter((p) => p.tip).map(amount)}
                             </span>
                             {/* Green: the money that reached the cleaner's hand. */}
-                            <span className="w-20 shrink-0 text-right font-bold text-emerald-600">
+                            <span className="whitespace-nowrap text-right font-bold text-emerald-600">
                               {total < 0 ? "−" : ""}${Math.abs(total).toFixed(2)}
                             </span>
-                          </div>
+                          </Fragment>
                         );
                       });
                   })()}
@@ -1188,14 +1209,18 @@ const TiWork = () => {
                       dropped: without it the payments listed add up to less than
                       what was really paid, and the balance looks wrong. */}
                   {opening > 0.005 && (
-                    <div className="flex items-center gap-2 py-0.5 text-sm">
-                      <span className="flex-1 text-gray-500">before this</span>
-                      <span className="text-xs text-gray-400">no breakdown</span>
-                      <span className="w-20 text-right font-semibold text-gray-500">
+                    <>
+                      {/* Across the first three columns, so "before this" does
+                          not widen the date column for every row above it. */}
+                      <span className="col-span-3 truncate text-gray-500">
+                        before this <span className="text-xs text-gray-400">· no breakdown</span>
+                      </span>
+                      <span className="whitespace-nowrap text-right font-semibold text-gray-500">
                         ${opening.toFixed(2)}
                       </span>
-                    </div>
+                    </>
                   )}
+                  </div>
                 </div>
               </>
             )}
