@@ -29,6 +29,14 @@ export default defineConfig({
         name: "TiMag – TT House",
         short_name: "TiMag",
         description: "Manage your TT House property",
+        // id "/" is what TiMag's identity already was (it defaults to
+        // start_url), so a TiMag already installed stays the same app. TiBook
+        // and TiWork declare their own id and scope (/book, /work) in their
+        // manifests: without one, a manifest's scope defaults to "/", every
+        // app claimed the whole site, and with TiMag installed a phone opened
+        // /book as TiMag and never offered to install TiBook (Samsung Internet,
+        // host, 2026-10-11).
+        id: "/",
         start_url: "/",
         display: "standalone",
         background_color: "#ffffff",
