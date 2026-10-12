@@ -853,7 +853,11 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
           }}
         >
           <input
-            autoFocus
+            // Focused on open only with a mouse or trackpad. On a phone it
+            // threw the keyboard up the moment TT opened, covering half of
+            // what TT had just put there to read (Anh-Tri, 2026-10-12): a
+            // guest reads first and taps the box when THEY decide to ask.
+            autoFocus={window.matchMedia("(pointer: fine)").matches}
             type="text"
             enterKeyHint="send"
             autoComplete="off"
