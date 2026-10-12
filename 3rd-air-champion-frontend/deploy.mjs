@@ -15,7 +15,19 @@ const DIST_DIR = join(__dirname, "dist");
 const s3 = new S3Client({ region: REGION });
 
 // Files browsers must always revalidate
-const NO_CACHE = new Set(["index.html", "sw.js", "manifest.webmanifest", "registerSW.js"]);
+// Every app's install manifest, not only TiMag's. TiBook's and TiWork's were
+// cached for an hour, so a phone installed TiBook from a copy that predated its
+// scope: TiBook then claimed the whole site and blocked TiWork and TiMag
+// (2026-10-11). Their links carry ?v=2 to get past copies already saved.
+const NO_CACHE = new Set([
+  "index.html",
+  "sw.js",
+  "manifest.webmanifest",
+  "timagmanifest.webmanifest",
+  "tibookmanifest.webmanifest",
+  "tiworkmanifest.webmanifest",
+  "registerSW.js",
+]);
 
 const getCacheControl = (key) => {
   if (NO_CACHE.has(key)) return "no-cache, no-store, must-revalidate";

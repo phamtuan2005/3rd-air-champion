@@ -114,7 +114,7 @@ const TiWork = () => {
   useEffect(() => {
     const link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
     const prev = link?.getAttribute("href") ?? null;
-    link?.setAttribute("href", "/tiworkmanifest.webmanifest");
+    link?.setAttribute("href", "/tiworkmanifest.webmanifest?v=2");
     return () => {
       if (link && prev) link.setAttribute("href", prev);
     };

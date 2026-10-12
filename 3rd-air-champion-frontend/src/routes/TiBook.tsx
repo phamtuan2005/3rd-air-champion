@@ -68,7 +68,7 @@ const TiBookInner = () => {
   useEffect(() => {
     const link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
     const prev = link?.getAttribute("href") ?? null;
-    link?.setAttribute("href", "/tibookmanifest.webmanifest");
+    link?.setAttribute("href", "/tibookmanifest.webmanifest?v=2");
     return () => { if (link && prev) link.setAttribute("href", prev); };
   }, []);
   // Counted for the host's TiBook visitors screen in TiMag. Not waiting on the

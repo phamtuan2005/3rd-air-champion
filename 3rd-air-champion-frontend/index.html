@@ -19,8 +19,8 @@
       // logo simply because the old branch only knew about /book.
       (function () {
         var APPS = {
-          '/book': { manifest: '/tibookmanifest.webmanifest', icon: '/tibook-icon-192.png', title: 'TiBook', theme: '#0d9488' },
-          '/work': { manifest: '/tiworkmanifest.webmanifest', icon: '/tiwork-icon-192.png', title: 'TiWork', theme: '#b45309' }
+          '/book': { manifest: '/tibookmanifest.webmanifest?v=2', icon: '/tibook-icon-192.png', title: 'TiBook', theme: '#0d9488' },
+          '/work': { manifest: '/tiworkmanifest.webmanifest?v=2', icon: '/tiwork-icon-192.png', title: 'TiWork', theme: '#b45309' }
         };
         var path = window.location.pathname;
         var app = Object.keys(APPS).filter(function (p) { return path.indexOf(p) === 0; })[0];
