@@ -443,9 +443,11 @@ const BookingCard = ({
           )}
         </div>
 
-        {/* Notes */}
+        {/* Notes — bold red: a note here is something to DO for this guest
+            ("remove the mattress protector, put double sheets"), and as small
+            grey italics it read as an aside and was missed (host, 2026-10-11). */}
         {(booking.guest.notes || booking.notes) && (
-          <p className="mt-2 text-sm italic text-gray-500">
+          <p className="mt-2 whitespace-pre-line text-sm font-bold text-red-600">
             {booking.guest.notes || booking.notes}
           </p>
         )}
