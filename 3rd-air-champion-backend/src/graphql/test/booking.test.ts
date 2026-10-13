@@ -240,6 +240,52 @@ describe("bookAirBnB reconciliation", () => {
     expect(nights.every((n) => n.b.alias === "Conrad")).toBe(true);
   });
 
+  // Dejah, King, Oct 9 2026: her phone number changed on the reservation, the
+  // feed's description changed with it, and the sync wrote the same stay onto
+  // the night a second time — two cards, counted twice.
+  it("a changed phone line on the same reservation updates the stay, never adds a second", async () => {
+    const withPhone = (last4: string) => `${DESC}\nPhone Number (Last 4 Digits): ${last4}`;
+    const book = (description: string) =>
+      request(app)
+        .post("/graphql")
+        .send({
+          query: BOOK_AIRBNB,
+          variables: { calendar: calendarId, date: "2027-06-03", guest: airbnbGuestId, description, room: roomId, duration: 2 },
+        });
+
+    await book(withPhone("2275"));
+    await Day.updateMany(
+      { calendar: calendarId },
+      { $set: { "bookings.$[].notes": "Need to prepare BDay gift", "bookings.$[].airbnbPrice": 82.81 } },
+    );
+    await book(withPhone("3444"));
+
+    const days = await Day.find({ calendar: calendarId }).sort({ date: 1 });
+    expect(days).toHaveLength(2);
+    for (const d of days) {
+      expect(d.bookings).toHaveLength(1);
+      const b: any = d.bookings[0];
+      expect(b.description).toBe(withPhone("3444"));
+      expect(b.notes).toBe("Need to prepare BDay gift");
+      expect(b.airbnbPrice).toBe(82.81);
+    }
+  });
+
+  it("a different reservation code on the same night is still a second booking", async () => {
+    await bookAirBnB(2);
+    await request(app)
+      .post("/graphql")
+      .send({
+        query: BOOK_AIRBNB,
+        variables: {
+          calendar: calendarId, date: "2027-06-03", guest: airbnbGuestId, room: roomId, duration: 2,
+          description: "Reservation URL: https://www.airbnb.com/hosting/reservations/details/HMTEST1234",
+        },
+      });
+    const days = await Day.find({ calendar: calendarId });
+    expect(days.every((d) => d.bookings.length === 2)).toBe(true);
+  });
+
   // ── A stay that has already begun ──────────────────────────────────────────
   //
   // Kyle, King, Oct 2–6 2026, added a night from inside the house. The feed
