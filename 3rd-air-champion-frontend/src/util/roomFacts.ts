@@ -214,8 +214,14 @@ export const hostOnSite = (hostFirstName?: string) =>
 export const houseBathrooms = "Smart toilet, warm seat, bidet, all bathrooms";
 
 const housePhotos = [
-  // The front of the house, from the street.
-  "https://a0.muscache.com/im/pictures/hosting/Hosting-1586635483950294231/original/98a07cfc-7ac1-4717-9245-09091f2463d1.jpeg?im_w=1200",
+  // The front of the house, from the street, in daylight — the Cute listing's
+  // "Exterior image 9". The shot that stood here (98a07cfc…, King listing) was
+  // taken off AirBnB and its URL went 404, so every room's gallery showed a
+  // blank third picture (found 2026-10-12). The same view at night (King's
+  // "Exterior image 1") was tried first; a daytime one was asked for instead.
+  // A photo removed on AirBnB breaks here too: if one goes blank, check its
+  // URL before anything else.
+  "https://a0.muscache.com/im/pictures/hosting/Hosting-1144526275550691711/original/9383c8f5-27cf-4def-bf67-12685dbf6038.jpeg?im_w=1200",
   // The back garden and its covered patio.
   "https://a0.muscache.com/im/pictures/hosting/Hosting-1144526275550691711/original/fc9ba443-bae5-4060-8556-4845ad5268b6.jpeg?im_w=1200",
   // The hallway a guest walks in through.

@@ -416,6 +416,22 @@ const HeroShell = ({
   }, [activeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activeRoom = activeRooms.find((r) => r.id === activeId) ?? null;
+  // The rooms the month is about, in deck order. picked is rebuilt each
+  // render, so this keys on selectedRoomIds, the Set TiBook actually holds.
+  const pickedRooms = useMemo(
+    () => activeRooms.filter((r) => selectedRoomIds?.has(r.id)),
+    [activeRooms, selectedRoomIds],
+  );
+
+  // A chip in the room row. Adding a room turns the deck to its card, so the
+  // guest sees the room they just added; dropping one leaves the deck alone.
+  const toggleFromRow = (id: string) => {
+    const adding = !picked.has(id);
+    onToggleRoom(id);
+    if (!adding) return;
+    if (picked.size >= 1) setMultiFront(id);
+    bringToFront(id);
+  };
   // The HOST is the person, not the listing. airbnbName is the title of the
   // place ("TT House in Silicon Valley"), so taking a first name off it gave a
   // card that said "TT picks the room".
@@ -437,11 +453,13 @@ const HeroShell = ({
       const taken = new Set<string>(day.bookings?.map((b) => b.room?.id).filter(Boolean) as string[] ?? []);
       reservedMap.get(key)?.forEach((id) => taken.add(id));
       day.blockedRooms?.forEach((r) => { if (r?.id) taken.add(r.id); });
-      const scope = activeRoom ? [activeRoom] : activeRooms;
+      // The picked rooms, as the grid scopes by them — not the card in front,
+      // which with several picked is only where the deck is turned.
+      const scope = pickedRooms.length > 0 ? pickedRooms : activeRooms;
       if (scope.some((r) => !taken.has(r.id))) n += 1;
     });
     return n;
-  }, [monthMap, currentMonth, activeRoom, activeRooms, reservedMap]);
+  }, [monthMap, currentMonth, pickedRooms, activeRooms, reservedMap]);
 
   /*
    * A room's list price is not a price anyone pays. What a guest pays is
@@ -487,7 +505,7 @@ const HeroShell = ({
               name the thing being swiped through now. */}
           <div className={`truncate text-[11px] leading-tight ${theme.chromeMuted}`}>
             {multi
-              ? `${picked.size} rooms picked · tap a name to add or drop one`
+              ? `${picked.size} rooms picked · swipe to see each`
               : activeRoom
               ? `Room ${activeRooms.findIndex((r) => r.id === activeId) + 1} of ${activeRooms.length} · swipe for more`
               : `Any room · swipe through all ${activeRooms.length}`}
@@ -511,7 +529,8 @@ const HeroShell = ({
       </nav>
 
       {/* ── The rooms: 2 of the 5 parts under the header ─────────────────── */}
-      <div ref={deckRef} className="relative min-h-0 flex-[2]">
+      <div className="flex min-h-0 flex-[2] flex-col">
+      <div ref={deckRef} className="relative min-h-0 flex-1">
         <div
           ref={trackRef}
           onScroll={onScroll}
@@ -634,17 +653,71 @@ const HeroShell = ({
 
       </div>
 
+        {/* Every room as a chip, in one row above the month. Picking several
+            rooms was already possible — the name on each card toggles — but
+            nothing said so, and the picks were spread over cards you had to
+            swipe to: Anh-Tri asked for it as if it did not exist (2026-10-12).
+            Here every pick is in sight at once, the way the classic banner
+            has always shown them. Same selectedRoomIds, same toggle.
+            It sits in the deck's column, not the month's: inside the month it
+            cost the grid its height, and on a 6-inch phone the nights lost
+            their "2 left" counts to make room for it. The photos give way
+            instead. */}
+        <div
+          role="group"
+          aria-label="Rooms to show in the month"
+          className="flex shrink-0 gap-1.5 overflow-x-auto px-3 pb-1 pt-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          <button
+            type="button"
+            aria-pressed={picked.size === 0}
+            onClick={() => pick(ANY)}
+            className={`flex h-8 shrink-0 items-center rounded-full border px-3 text-[13px] font-semibold transition-colors ${
+              picked.size === 0 ? `border-transparent text-white ${theme.btn}` : `${theme.surfaceBorder} ${theme.surfaceMuted}`
+            }`}
+          >
+            Any room
+          </button>
+          {activeRooms.map((r) => {
+            const on = picked.has(r.id);
+            return (
+              <button
+                key={r.id}
+                type="button"
+                aria-pressed={on}
+                onClick={() => toggleFromRow(r.id)}
+                className={`flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold transition-colors ${
+                  on ? `border-transparent text-white ${roomChip(r)}` : `${theme.surfaceBorder} ${theme.surfaceText}`
+                }`}
+              >
+                {on ? <span aria-hidden>✓</span> : <span aria-hidden className={`h-2 w-2 rounded-full ${roomChip(r)}`} />}
+                {r.name}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* ── The month: the other 3 ───────────────────────────────────────── */}
       <div className={`flex min-h-0 flex-[3] flex-col border-t ${theme.line} ${theme.surface}`}>
         <div className="flex shrink-0 items-center gap-2 px-4 pb-1 pt-1.5">
+          {/* One dot per picked room, so the line names what the month shows. */}
+          {pickedRooms.length > 1 ? (
+            <span className="flex shrink-0 -space-x-1">
+              {pickedRooms.map((r) => (
+                <span key={r.id} className={`h-2.5 w-2.5 rounded-full ring-1 ${theme.ringOffset} ${roomChip(r)}`} />
+              ))}
+            </span>
+          ) : (
           <span
             className="h-2.5 w-2.5 shrink-0 rounded-full"
-            style={activeRoom
+            style={pickedRooms.length === 1
               ? { boxShadow: "0 0 9px 0 currentColor" }
               : undefined}
           >
-            <span className={`block h-full w-full rounded-full ${activeRoom ? roomChip(activeRoom) : theme.btn}`} />
+            <span className={`block h-full w-full rounded-full ${pickedRooms.length === 1 ? roomChip(pickedRooms[0]) : theme.btn}`} />
           </span>
+          )}
           {/* The year is named only when it is not this year. "December" alone
               was 2026 or 2027 to a guest who scrolled on, so those say which;
               the months of the year they are in do not need it said again. */}
@@ -655,7 +728,14 @@ const HeroShell = ({
             })}
           </span>
           <span className={`min-w-0 flex-1 truncate text-[13px] ${theme.surfaceMuted}`}>
-            · {activeRoom ? `${activeRoom.name} is free ${freeNights} night${freeNights === 1 ? "" : "s"}` : `${freeNights} night${freeNights === 1 ? "" : "s"} open`}
+            {/* Said of the PICKED rooms. It was said of the card in front, so
+                with Cozy and Cute picked it read "Cozy is free 30 nights" over
+                a month counting both. */}
+            · {pickedRooms.length === 1
+              ? `${pickedRooms[0].name} is free ${freeNights} night${freeNights === 1 ? "" : "s"}`
+              : pickedRooms.length > 1
+              ? `${pickedRooms.map((r) => r.name).join(" or ")} · ${freeNights} night${freeNights === 1 ? "" : "s"} open`
+              : `${freeNights} night${freeNights === 1 ? "" : "s"} open`}
           </span>
           {/* The same way back to now the stacked layout has always had, and
               the same component, so it disables itself on the current month

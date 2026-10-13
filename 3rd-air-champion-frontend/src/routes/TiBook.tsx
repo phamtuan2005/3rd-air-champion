@@ -1128,13 +1128,22 @@ const TiBookInner = () => {
   // see and the calendar sits below the fold, looking like it never rendered.
   // 100dvh tracks the visible height; h-screen stays as the fallback for
   // anything without dvh. Same fix TiMag's root already carries.
+  //
+  // Hero goes further and pins the root to the screen's edges (fixed inset-0),
+  // taking no viewport unit at all. In the INSTALLED TiBook app 100dvh still
+  // came out taller than the screen, and after the keyboard had been up the
+  // page was left scrolled — either way overflow-hidden cut off the bottom,
+  // and in Hero the bottom is the bar with Request a Booking on it (Anh-Tri,
+  // 2026-10-12). The stacked layout keeps its height rule untouched.
   return (
     <div
       /* The vivid skin hangs off the root: the radius knob in index.css is
          inherited, so every rounded corner below opens up at once, and the neon
          wash sits behind the whole app rather than behind one panel. Classic
          carries neither class and is byte-for-byte the TiBook it always was. */
-      className={`flex h-screen flex-col overflow-hidden supports-[height:100dvh]:h-[100dvh] ${
+      className={`flex flex-col overflow-hidden ${
+        layout === "hero" ? "fixed inset-0" : "h-screen supports-[height:100dvh]:h-[100dvh]"
+      } ${
         vibe === "vivid" ? "tibook-vibe-vivid tibook-vibe-vivid-backdrop" : ""
       }`}
     >
