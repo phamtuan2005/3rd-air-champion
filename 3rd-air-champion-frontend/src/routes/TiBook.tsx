@@ -1141,8 +1141,13 @@ const TiBookInner = () => {
          inherited, so every rounded corner below opens up at once, and the neon
          wash sits behind the whole app rather than behind one panel. Classic
          carries neither class and is byte-for-byte the TiBook it always was. */
-      className={`flex flex-col overflow-hidden ${
-        layout === "hero" ? "fixed inset-0" : "h-screen supports-[height:100dvh]:h-[100dvh]"
+      // Hero is no longer pinned to the screen (fixed inset-0, overflow-hidden):
+      // it scrolls as a page so the browser can slide its address bar away,
+      // with its nav and bottom bar sticky (HeroShell, host 2026-10-12). Sticky
+      // also keeps Request a Booking on screen after the keyboard — what the
+      // pinned root was for. The stacked layout keeps its height rule.
+      className={`flex flex-col ${
+        layout === "hero" ? "min-h-[100dvh]" : "overflow-hidden h-screen supports-[height:100dvh]:h-[100dvh]"
       } ${
         vibe === "vivid" ? "tibook-vibe-vivid tibook-vibe-vivid-backdrop" : ""
       }`}

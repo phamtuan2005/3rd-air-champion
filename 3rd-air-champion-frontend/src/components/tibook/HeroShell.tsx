@@ -340,6 +340,18 @@ const HeroShell = ({
    */
   const navRef = useRef<HTMLElement>(null);
   const deckRef = useRef<HTMLDivElement>(null);
+  // The nav's height, so the month can fill exactly what is left of the screen
+  // between it and the bottom bar once the room photos have scrolled away.
+  const [navH, setNavH] = useState(48);
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+    const measure = () => setNavH(nav.offsetHeight);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(nav);
+    return () => ro.disconnect();
+  }, []);
   const wheelState = useRef({ activeId, cards, pick });
   wheelState.current = { activeId, cards, pick };
 
@@ -475,7 +487,14 @@ const HeroShell = ({
   const myRate = (r: roomType) => myRates?.get(r.id);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    // Hero SCROLLS AS A PAGE (host, 2026-10-12): it filled the screen in fixed
+    // shares and nothing scrolled, so a phone's browser never hid its address
+    // bar the way it does on AirBnB's site. Now swiping up moves the room
+    // photos off the top — a page scroll, which slides the address bar away —
+    // and the month then fills the screen between the nav and the bottom bar,
+    // which both stay pinned (sticky) so Ask TT and Request a Booking are
+    // always in reach. Swiping down brings the photos back.
+    <div className="flex flex-col">
 
       {/* The header used to ride ON the photo, with a scrim across the top of
           the card, to buy the picture another 46px. It bought the wrong thing:
@@ -488,7 +507,7 @@ const HeroShell = ({
           it MEASURES that bar rather than guessing — with a plain div here it
           found nothing, fell back to a hardcoded 72px, and left a strip of the
           room deck showing above the sheet. */}
-      <nav ref={navRef} className={`flex shrink-0 items-center gap-2 px-3 py-2 ${theme.chrome}`}>
+      <nav ref={navRef} className={`sticky top-0 z-30 flex shrink-0 items-center gap-2 px-3 py-2 ${theme.chrome}`}>
         {/* TiBook's own icon, not TiMag's logo: this is the guest's app, and
             the one place in Hero where it can say so — the stacked layout says
             it in a nav bar Hero does not have. */}
@@ -529,7 +548,10 @@ const HeroShell = ({
       </nav>
 
       {/* ── The rooms: 2 of the 5 parts under the header ─────────────────── */}
-      <div className="flex min-h-0 flex-[2] flex-col">
+      {/* A fixed height, not a share of the screen: this is the part that
+          scrolls away. svh — the screen WITH the browser bar — so the photos
+          do not jump in size as the bar slides in and out. */}
+      <div className="flex h-[40svh] shrink-0 flex-col">
       <div ref={deckRef} className="relative min-h-0 flex-1">
         <div
           ref={trackRef}
@@ -699,7 +721,13 @@ const HeroShell = ({
       </div>
 
       {/* ── The month: the other 3 ───────────────────────────────────────── */}
-      <div className={`flex min-h-0 flex-[3] flex-col border-t ${theme.line} ${theme.surface}`}>
+      {/* Exactly the screen less the nav and the bottom bar: once the photos
+          are scrolled away the month fills what is left. dvh follows the
+          browser bar as it hides, so the month grows into the freed space. */}
+      <div
+        className={`flex shrink-0 flex-col border-t ${theme.line} ${theme.surface}`}
+        style={{ height: `calc(100dvh - ${navH}px - 4.6rem)` }}
+      >
         <div className="flex shrink-0 items-center gap-2 px-4 pb-1 pt-1.5">
           {/* One dot per picked room, so the line names what the month shows. */}
           {pickedRooms.length > 1 ? (
@@ -797,7 +825,7 @@ const HeroShell = ({
           grows ("2 dates · ★ 1 wish list"), so no fixed width would have held.
           In the row it takes the space it needs and the other two keep theirs;
           the lift is cosmetic and cannot overlap anything. */}
-      <div className={`flex h-[4.6rem] shrink-0 items-center gap-2 border-t px-3 ${theme.surfaceBorder} ${theme.chrome}`}>
+      <div className={`sticky bottom-0 z-30 flex h-[4.6rem] shrink-0 items-center gap-2 border-t px-3 ${theme.surfaceBorder} ${theme.chrome}`}>
         {/* The stays TT lined up, where Dates used to be. Dates did what the
             Today button above the calendar does — the same door twice (host,
             2026-10-07: "Dates should be removed … replaced by 35 stays"). For
