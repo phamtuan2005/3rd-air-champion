@@ -49,13 +49,18 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
       className={`px-3 flex items-center gap-2 w-full h-12 sm:h-16 ${theme.chrome} drop-shadow-md z-50 shrink-0`}
     >
       <img
-        className="h-8 w-8 sm:h-10 sm:w-10"
+        className="h-8 w-8 shrink-0 sm:h-10 sm:w-10"
         alt="TT House Logo"
         title="TT House Logo"
         src="./TiMagLogo.svg"
       />
       {isFullCalendar && host ? (
-        <div className="flex items-center gap-2 flex-1 min-w-0">
+        // No min-w-0 here: this row's floor is the faces. shrink-0 on the
+        // faces alone was not enough — the ROW could still shrink to nothing
+        // under them, and a cherished guest's name pill then drew over the
+        // host's face (Anh-Tri, 2026-10-14). The house name truncates (a
+        // truncated flex item has no min-content), so the floor is the faces.
+        <div className="flex items-center gap-2 flex-1">
           {/* shrink-0: the faces are the one thing here that must never give
               way. Without it the "★ N stays" and TT pills beside them squeezed
               this row to nothing on a phone and sat on the host's face — those
@@ -80,11 +85,10 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
           <span className="hidden sm:inline">TiBook · Book with TT House</span>
         </h1>
       )}
-      {/* min-w-0, and the guest's name below truncates: a returning guest's
-          "★ N stays", TT and name-with-tier pills once ran this row off the
-          right edge of a phone, taking the Look button with them — a guest
-          moved into Classic had no way back to Hero (host, 2026-10-14). The
-          Look button is the one thing here that never gives way. */}
+      {/* min-w-0, so the guest's pill below can give way. Nothing in this
+          group could shrink, so a long name with a "Cherished" badge pushed the
+          Look menu off the right edge of a phone — a guest with fifty stays
+          was the one guest who could not change how TiBook looks. */}
       <div className="flex min-w-0 items-center gap-2">
         {usualCount != null && onOpenUsual ? <UsualStaysButton count={usualCount} onClick={onOpenUsual} /> : null}
         {onAskTT && <AskTTButton onClick={onAskTT} nudge={ttNudge} unread={ttUnread} guestFirstName={guestFirstName} />}
@@ -98,6 +102,9 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
                bar and take that height off the calendar. The guest's own name is
                a greeting, so it reads at the same size as the house name it sits
                beside instead of at badge size. */
+            /* The one thing in the bar that gives way when a phone is too
+               narrow: the name truncates, down to the initial if it must.
+               Everything else here is a control; the name is a greeting. */
             className={`flex min-w-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-sm font-semibold whitespace-nowrap transition-colors ${theme.chromeBorder} ${theme.chromeHover} ${
               guestFirstName ? theme.chromeAccent : theme.chromeMuted
             }`}
@@ -109,15 +116,19 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
                 >
                   {guestFirstName[0].toUpperCase()}
                 </span>
-                <span className="min-w-0 truncate">{guestFirstName}</span>
-                {/* Wide screens only: on a phone it was the pill that pushed
-                    the Look button off the bar (see the row above). */}
+                {/* With a tier badge, a phone gets the initial and the star
+                    only: squeezed to nothing, the name left a sliver of its
+                    first letter beside the same letter in the circle. */}
+                <span className={`min-w-0 truncate ${loyaltyTier ? "hidden sm:inline" : ""}`}>{guestFirstName}</span>
                 {loyaltyTier && (
                   <span
-                    className={`hidden shrink-0 rounded-full border px-1.5 py-0.5 text-[11px] font-bold leading-none sm:inline ${loyaltyTier.color}`}
+                    className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[11px] font-bold leading-none ${loyaltyTier.color}`}
                     title={loyaltyTier.label}
                   >
-                    {loyaltyTier.label.split(" ")[0]}
+                    {/* A star on a phone, in the tier's own colours: "Cherished"
+                        alone is wider than the Look menu it was crowding out. */}
+                    <span className="sm:hidden">★</span>
+                    <span className="hidden sm:inline">{loyaltyTier.label.split(" ")[0]}</span>
                   </span>
                 )}
               </>
@@ -138,9 +149,7 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
             Home
           </button>
         ) : (
-          <div className="shrink-0">
-            <AppearanceMenu />
-          </div>
+          <AppearanceMenu />
         )}
       </div>
     </nav>

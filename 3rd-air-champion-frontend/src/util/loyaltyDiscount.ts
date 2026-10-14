@@ -97,6 +97,26 @@ export const loyaltyFee = (perNight: number, nights: number): feeType | null => 
   return { label: LOYALTY_FEE_LABEL, amount: -(cents / 100) };
 };
 
+// What a guest with a loyalty discount actually pays a night, for TiBook to
+// print beside their agreed rate struck through. The discount was only ever
+// told to her inside My Bookings, so the room cards quoted the undiscounted
+// figure as "your rate" — the right number, minus the thing she was promised.
+//
+// null means "nothing to strike": no agreed rate to show, no discount, or a
+// family guest on a deliberate $0, who is told "no charge" and must never see
+// a struck-through $0 next to a $0. Never below zero — a discount cannot turn
+// into the house paying the guest.
+export const discountedNightly = (
+  rate: number | undefined,
+  perNight: number | undefined,
+): number | null => {
+  if (rate == null || !Number.isFinite(rate) || rate <= 0) return null;
+  const off = Number(perNight);
+  if (!Number.isFinite(off) || off <= 0) return null;
+  // Cents, as loyaltyFee does, so $72.50 less $5 is not $67.49999.
+  return Math.max(0, Math.round(rate * 100) - Math.round(off * 100)) / 100;
+};
+
 // The fees a stay keeps when it is MODIFIED.
 //
 // Modify Booking does not edit a stay in place: it unbooks every night and

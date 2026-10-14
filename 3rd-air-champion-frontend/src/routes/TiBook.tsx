@@ -466,9 +466,14 @@ const TiBookInner = () => {
   // booking request, so the room cards quoted them a price that was not theirs.
   // Asking "what's my rate?" should not require starting a booking.
   const [myRates, setMyRates] = useState<Map<string, number>>(new Map());
+  // Dollars off every night for a guest who has earned it. Fetched with the
+  // rates so the room cards can strike her rate through and print what she
+  // actually pays — she was only ever told about it inside My Bookings.
+  const [myLoyaltyPerNight, setMyLoyaltyPerNight] = useState(0);
   useEffect(() => {
     if (!guestPhone || !currentHost) {
       setMyRates(new Map());
+      setMyLoyaltyPerNight(0);
       setMyGuestId(undefined);
       return;
     }
@@ -479,11 +484,12 @@ const TiBookInner = () => {
           if (typeof p.price === "number") next.set(p.room, p.price);
         });
         setMyRates(next);
+        setMyLoyaltyPerNight(Number(guest?.loyaltyDiscountPerNight) || 0);
         setMyGuestId(guest?.id);
       })
       // A rate we cannot fetch is simply not shown. The room's own price is
       // still there, and a wrong price is far worse than a missing one.
-      .catch(() => { setMyRates(new Map()); setMyGuestId(undefined); });
+      .catch(() => { setMyRates(new Map()); setMyLoyaltyPerNight(0); setMyGuestId(undefined); });
   }, [guestPhone, currentHost]);
 
   const reservedStays = useMemo(
@@ -1197,6 +1203,7 @@ const TiBookInner = () => {
           onSelectRoom={(id) => setSelectedRoomIds(id ? new Set([id]) : null)}
           onToggleRoom={handleToggleRoom}
           myRates={myRates}
+          loyaltyPerNight={myLoyaltyPerNight}
           cartDates={cartDates}
           wishListDates={wishListDates}
           newWishListDates={newWishListDates}
@@ -1282,6 +1289,7 @@ const TiBookInner = () => {
               onToggleRoom={handleToggleRoom}
               onSelectAll={() => setSelectedRoomIds(null)}
               myRates={myRates}
+              loyaltyPerNight={myLoyaltyPerNight}
               hostPhone={currentHost?.phone}
               hostName={currentHost?.name}
               onOpenChat={() => setChatOpen(true)}
@@ -1603,6 +1611,7 @@ const TiBookInner = () => {
           hostPhone={currentHost?.phone}
           hostName={currentHost?.name}
           myRate={myRates.get(heroGalleryRoom.id)}
+          loyaltyPerNight={myLoyaltyPerNight}
           // The gallery stays open UNDERNEATH the chat sheet, which covers it
           // whole. Closing the photos to ask a question about them would send
           // the guest back through the room card and 29 pictures to reach the
