@@ -109,17 +109,26 @@ const TiBookInner = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedRoomIds, setSelectedRoomIds] = useState<Set<string> | null>(null);
   const [cartDates, setCartDates] = useState<Map<string, string | null>>(new Map());
-  // The calendar is a draggable panel: dragOffset is how far (px) it has been
-  // pulled up over the banner + room filter (0 = browse, headerH = full window).
-  // "Selecting" (interactive calendar) is derived — any real expansion counts.
-  const [dragOffset, setDragOffset] = useState(0);
+  // The stacked layout SCROLLS AS A PAGE (host, 2026-10-14), as Hero already
+  // did. The calendar used to be a panel dragged up over the banner + room
+  // filter inside a screen-high box; nothing scrolled the page, so a phone's
+  // browser never slid its address bar away — and the stacked layout is what a
+  // NEW guest sees. Now swiping up scrolls the banner and rooms off the top and
+  // the calendar fills the screen under the sticky nav.
+  // pageScroll is how far the page has scrolled; "selecting" (the interactive
+  // calendar) is once the header is all but gone.
+  const [pageScroll, setPageScroll] = useState(0);
   const [headerH, setHeaderH] = useState(0);
-  const [dragging, setDragging] = useState(false);
   const headerRef = useRef<HTMLDivElement>(null);
-  const gripRef = useRef<{ y: number; start: number } | null>(null);
-  const isSelecting = dragOffset > 24;
-  const expandCal = () => setDragOffset(headerRef.current?.offsetHeight ?? headerH);
-  const collapseCal = () => setDragOffset(0);
+  const isSelecting = headerH > 0 && pageScroll >= headerH - 24;
+  // Hero has no headerRef and scrolls its own page; these leave it alone.
+  const expandCal = () => {
+    const el = headerRef.current;
+    if (el) window.scrollTo({ top: el.offsetHeight, behavior: "smooth" });
+  };
+  const collapseCal = () => {
+    if (headerRef.current) window.scrollTo({ top: 0, behavior: "smooth" });
+  };
   const [wishListDates, setWishListDates] = useState<Set<string>>(new Set());
   const [persistedWishListDates, setPersistedWishListDates] = useState<Set<string>>(new Set());
   // Read through the consent gate, never straight from localStorage: a number
@@ -317,19 +326,12 @@ const TiBookInner = () => {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [refreshCalendar]);
 
-  // Measure the header stack (banner + room filter) so the calendar can slide
-  // up over exactly its height and stop at full window. Keep a fully-open panel
-  // pinned open if the header height changes (e.g. banner image loads).
+  // Measure the header stack (banner + room filter): scrolled past all but the
+  // last 24px of it, the calendar counts as open (isSelecting).
   useEffect(() => {
     const el = headerRef.current;
     if (!el) return;
-    const measure = () => {
-      const nh = el.offsetHeight;
-      setHeaderH((prev) => {
-        setDragOffset((off) => (prev > 0 && off >= prev - 2 ? nh : Math.min(off, nh)));
-        return nh;
-      });
-    };
+    const measure = () => setHeaderH(el.offsetHeight);
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
@@ -340,29 +342,33 @@ const TiBookInner = () => {
     // while it is on and this effect bails at the guard above. Without layout
     // in the deps it never runs again when the guest switches back to Classic
     // or Neon: the header remounts, but headerH stays whatever it was — 0 for
-    // anyone whose first screen this visit was Hero. onGripMove clamps to
-    // Math.min(headerH, ...), so a 0 pins the calendar shut and the grip drags
-    // against nothing.
+    // anyone whose first screen this visit was Hero, and a 0 here once pinned
+    // the calendar shut.
     //
-    // Reproduced by opening in Hero, switching to Classic, and pulling the
-    // grip: the panel stayed at 346px instead of growing to 654px.
+    // Reproduced (in the drag-grip days) by opening in Hero, switching to
+    // Classic, and pulling the grip: the panel stayed at 346px instead of
+    // growing to 654px.
   }, [currentHost, rooms.length, layout]);
 
-  const onGripDown = (e: React.PointerEvent) => {
-    gripRef.current = { y: e.clientY, start: dragOffset };
-    setDragging(true);
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  };
-  const onGripMove = (e: React.PointerEvent) => {
-    const g = gripRef.current;
-    if (!g) return;
-    const dy = g.y - e.clientY; // drag up => positive => expand
-    setDragOffset(Math.max(0, Math.min(headerH, g.start + dy)));
-  };
-  const onGripUp = () => {
-    gripRef.current = null;
-    setDragging(false);
-  };
+  // How far the page has scrolled — the stacked layout only. Hero scrolls its
+  // own page too, and reading it there would flip isSelecting under Hero.
+  useEffect(() => {
+    if (layout === "hero") {
+      setPageScroll(0);
+      return;
+    }
+    const onScroll = () => setPageScroll(window.scrollY);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [layout]);
+
+  // The nav's and the selection bar's heights, so the calendar can fill
+  // exactly the screen between them once the header has scrolled away.
+  const navWrapRef = useRef<HTMLDivElement>(null);
+  const selectionBarRef = useRef<HTMLDivElement>(null);
+  const [navH, setNavH] = useState(48);
+  const [selectionBarH, setSelectionBarH] = useState(0);
 
   // How many of the host's replies the guest has not read yet.
   //
@@ -795,6 +801,19 @@ const TiBookInner = () => {
     [wishListDates, persistedWishListDates],
   );
   const hasSelection = cartDates.size > 0 || newWishListDates.size > 0;
+  useEffect(() => {
+    const nav = navWrapRef.current;
+    const bar = selectionBarRef.current;
+    const measure = () => {
+      if (nav) setNavH(nav.offsetHeight);
+      setSelectionBarH(bar ? bar.offsetHeight : 0);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (nav) ro.observe(nav);
+    if (bar) ro.observe(bar);
+    return () => ro.disconnect();
+  }, [layout, currentHost, hasSelection]);
   const barLabel = cartDates.size > 0 && newWishListDates.size > 0
     ? `${cartDates.size} date${cartDates.size > 1 ? "s" : ""} · ★ ${newWishListDates.size} wish list`
     : cartDates.size > 0
@@ -1136,7 +1155,8 @@ const TiBookInner = () => {
   // came out taller than the screen, and after the keyboard had been up the
   // page was left scrolled — either way overflow-hidden cut off the bottom,
   // and in Hero the bottom is the bar with Request a Booking on it (Anh-Tri,
-  // 2026-10-12). The stacked layout keeps its height rule untouched.
+  // 2026-10-12). Both layouts have since moved on to scrolling as a page
+  // (below).
   return (
     <div
       /* The vivid skin hangs off the root: the radius knob in index.css is
@@ -1147,10 +1167,10 @@ const TiBookInner = () => {
       // it scrolls as a page so the browser can slide its address bar away,
       // with its nav and bottom bar sticky (HeroShell, host 2026-10-12). Sticky
       // also keeps Request a Booking on screen after the keyboard — what the
-      // pinned root was for. The stacked layout keeps its height rule.
-      className={`flex flex-col ${
-        layout === "hero" ? "min-h-[100dvh]" : "overflow-hidden h-screen supports-[height:100dvh]:h-[100dvh]"
-      } ${
+      // pinned root was for. The stacked layout followed (host, 2026-10-14):
+      // its screen-high, overflow-hidden root is what kept the address bar
+      // from ever hiding for a new guest.
+      className={`flex min-h-[100dvh] flex-col ${
         vibe === "vivid" ? "tibook-vibe-vivid tibook-vibe-vivid-backdrop" : ""
       }`}
     >
@@ -1209,6 +1229,8 @@ const TiBookInner = () => {
         )
       ) : (
       <>
+      {/* Sticky: the page scrolls under it, the nav stays. */}
+      <div ref={navWrapRef} className="sticky top-0 z-40">
       <NavBarDesktop
         onBack={isSelecting ? collapseCal : undefined}
         host={currentHost}
@@ -1226,20 +1248,15 @@ const TiBookInner = () => {
         usualCount={isSelecting ? undefined : usualCount}
         onOpenUsual={() => setUsualOpen(true)}
       />
-      {/* Scrolls when it has to.
-          The column was overflow-hidden at a fixed viewport height, which only
-          works if you assume the screen is tall enough for the header stack AND
-          a usable calendar. On a short phone the calendar was squeezed to a
-          sliver with no way to reach it — the layout had decided the device was
-          wrong. Now the calendar keeps a floor (below) and this container
-          scrolls if the sum no longer fits. On a normal phone nothing overflows,
-          so nothing scrolls and the behaviour is exactly as before. */}
-      {/* Holds the floating pills below in place: they hang off this, not off
-          the column that scrolls, so they stay put while it moves. */}
-      <div className="relative flex flex-1 min-h-0 flex-col">
-      <div className="relative flex flex-1 min-h-0 flex-col overflow-y-auto">
-        {/* Header stack — host banner + room filter. The calendar panel slides up
-            over these as the grip is dragged, until it fills the window. */}
+      </div>
+      {/* The page itself scrolls; nothing in here does. This column was once
+          overflow-hidden at a fixed viewport height, which on a short phone
+          squeezed the calendar to a sliver; then a scroll box of its own, which
+          a phone's browser does not count as the page scrolling, so it never
+          hid its address bar. */}
+      <div className="flex flex-col">
+        {/* Header stack — host banner + room filter. Swiping up scrolls it off
+            the top of the page, and the calendar below fills the screen. */}
         <div ref={headerRef} className="shrink-0">
           {currentHost && (
             <HostProfileBanner
@@ -1280,22 +1297,27 @@ const TiBookInner = () => {
           </div>
         ) : currentHost ? (
           <div
-            className={`relative z-10 flex flex-1 min-h-0 flex-col ${theme.surface}`}
-            style={{
-              marginTop: -dragOffset,
-              transition: dragging ? "none" : "margin-top 0.25s ease",
-            }}
+            className={`relative z-10 flex shrink-0 flex-col ${theme.surface}`}
+            // Exactly the screen less the nav and the selection bar, so once the
+            // header has scrolled away the calendar fills what is left. dvh
+            // follows the browser bar as it hides, so the calendar grows into
+            // the freed space. The 26rem floor keeps six week-rows at a
+            // tappable height (17rem) under the grip, the compact room filter
+            // and the month header on a short phone; past it the page simply
+            // scrolls further.
+            style={{ height: `max(26rem, calc(100dvh - ${navH + selectionBarH}px))` }}
           >
-            {/* Drag grip — pull up to grow the calendar over the banner & rooms
-                (all the way to full window), pull down to bring them back. */}
-            <div
-              className={`flex shrink-0 cursor-ns-resize touch-none select-none items-center justify-center pb-1 pt-1.5 ${theme.chrome}`}
-              onPointerDown={onGripDown}
-              onPointerMove={onGripMove}
-              onPointerUp={onGripUp}
+            {/* The grip, now a tap: swiping is the page's own scroll. It was a
+                drag handle (touch-none), and a drag that started on it could not
+                scroll the page — so it opens or closes the calendar instead. */}
+            <button
+              type="button"
+              aria-label={isSelecting ? "Show the rooms" : "Open the calendar"}
+              className={`flex shrink-0 select-none items-center justify-center pb-1 pt-1.5 ${theme.chrome}`}
+              onClick={isSelecting ? collapseCal : expandCal}
             >
               <span className={`h-1.5 w-10 rounded-full ${theme.handle}`} />
-            </div>
+            </button>
             {/* Reduced room filter — kept visible once the calendar covers the
                 full room banner, so the guest can still scope rooms at full size. */}
             {rooms.length > 0 && isSelecting && (
@@ -1328,10 +1350,10 @@ const TiBookInner = () => {
                 ⏳ {reservedStays.length} booking{reservedStays.length === 1 ? "" : "s"} held for you — tap to review &amp; pay
               </button>
             )}
-            {/* The floor. Six week-rows at a tappable height: below this the
-                grid stops being a calendar, so instead of shrinking further it
-                keeps this height and the column above scrolls to reach it. */}
-            <div className="flex min-h-[17rem] flex-1 flex-col">
+            {/* The floor that used to sit here (17rem, six week-rows at a
+                tappable height) is the panel's own 26rem now: a fixed-height
+                panel, not this row, decides how short the calendar may get. */}
+            <div className="flex min-h-0 flex-1 flex-col">
               <GuestCalendar
                 currentMonth={currentMonth}
                 monthMap={monthMap}
@@ -1368,9 +1390,13 @@ const TiBookInner = () => {
           carries the faces and Home, and there is not the width for all of it.
           Side by side in the bottom-right corner, they sit over the last row
           of the month, which most months leave empty, and above the
-          selection bar rather than on it. TT's callout opens upwards here. */}
+          selection bar rather than on it. TT's callout opens upwards here.
+          Fixed to the screen, now that the page is what scrolls. */}
       {isSelecting && (
-        <div className={`absolute bottom-3 right-3 z-30 flex items-center gap-1.5 rounded-full p-1 shadow-lg ${theme.chrome}`}>
+        <div
+          className={`fixed right-3 z-30 flex items-center gap-1.5 rounded-full p-1 shadow-lg ${theme.chrome}`}
+          style={{ bottom: selectionBarH + 12 }}
+        >
           {usualCount != null && <UsualStaysButton count={usualCount} onClick={() => setUsualOpen(true)} />}
           <AskTTButton
             onClick={() => setAskTTOpen(true)}
@@ -1382,18 +1408,19 @@ const TiBookInner = () => {
           />
         </div>
       )}
-      </div>
 
       {/* Selection bar — shown for cart dates, wish list dates, or both.
           A ROW of the column, not a fixed overlay. Fixed, it sat on top of the
           calendar and hid the last week or two — and on a short phone those are
           exactly the nights being picked, so the bar covered the thing it was
           reporting on. As a row it takes its own height and the calendar keeps
-          the rest.
+          the rest (the calendar's height subtracts it).
+          Sticky to the bottom, now that the page scrolls: with the rooms still
+          showing, its row is below the fold, and Review Request must not be.
           Same type step as the request modal it opens, so the last thing read
           before that modal is not smaller than what follows. */}
       {hasSelection && (
-        <div className={`tibook-type tibook-type-lg shrink-0 ${theme.btn} ${theme.glow} ${theme.btnMotion} px-4 py-2.5 flex items-center justify-between gap-3 z-40 shadow-lg`}>
+        <div ref={selectionBarRef} className={`tibook-type tibook-type-lg sticky bottom-0 shrink-0 ${theme.btn} ${theme.glow} ${theme.btnMotion} px-4 py-2.5 flex items-center justify-between gap-3 z-40 shadow-lg`}>
           <span className="min-w-0 text-white text-sm font-medium">{barLabel}</span>
           <button
             type="button"
