@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type TouchEvent as ReactTouchEvent } from 
 import { createPortal } from "react-dom";
 import { roomType } from "../../util/types/roomType";
 import { getRoomFacts, getRoomPhotos, houseKitchen, houseParking } from "../../util/roomFacts";
+import { discountedNightly } from "../../util/loyaltyDiscount";
 import { useRoomChip, useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import BedIcon from "./BedIcon";
 import ParkingIcon from "./ParkingIcon";
@@ -26,6 +27,8 @@ interface RoomGalleryModalProps {
   // This guest's own agreed rate for THIS room, where they have one. Absent for
   // a stranger, and for a returning guest who has never been quoted this room.
   myRate?: number;
+  // Dollars off every night for a guest with a loyalty discount.
+  loyaltyPerNight?: number;
   // Opens TiBook's own chat. Offered beside the text link because an sms: to a
   // US number is the one way out of this screen that quietly fails a guest
   // abroad — it leans on their carrier, it bills as an international text, and
@@ -37,7 +40,8 @@ interface RoomGalleryModalProps {
   onClose: () => void;
 }
 
-const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate, onOpenChat, onClose }: RoomGalleryModalProps) => {
+const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate, loyaltyPerNight, onOpenChat, onClose }: RoomGalleryModalProps) => {
+  const loyalRate = discountedNightly(myRate, loyaltyPerNight);
   const photos = getRoomPhotos(room).map(resolveUrl);
   const [index, setIndex] = useState(initialIndex);
   // Undefined for any room not transcribed yet, and the footer then reads
@@ -595,7 +599,13 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
               ) : (
                 <>
                   Your price for this room is{" "}
-                  <span className="font-semibold text-white">${myRate}/night</span>, agreed with{" "}
+                  {/* Same strike as the room card, so the two agree. Red on
+                      this always-dark sheet, like the gray-300 around it. */}
+                  {loyalRate != null && (
+                    <span className="mr-1 text-red-400 line-through">${myRate}</span>
+                  )}
+                  <span className="font-semibold text-white">${loyalRate ?? myRate}/night</span>
+                  {loyalRate != null ? " with your loyalty discount" : ""}, agreed with{" "}
                   {hostFirstName}.
                 </>
               )}

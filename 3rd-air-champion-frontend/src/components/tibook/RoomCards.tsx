@@ -4,6 +4,7 @@ import RoomGalleryModal from "./RoomGalleryModal";
 import { getRoomPhotos } from "../../util/roomFacts";
 import { useTiBookTheme, useRoomChip } from "../../contexts/TiBookThemeContext";
 import RoomBadge from "../shared/RoomBadge";
+import { discountedNightly } from "../../util/loyaltyDiscount";
 
 const BACKEND = import.meta.env.VITE_BACKEND_ENDPOINT || "";
 const resolveUrl = (url: string) => url.startsWith("/") ? `${BACKEND}${url}` : url;
@@ -23,6 +24,9 @@ interface RoomCardsProps {
   // stranger, and for a returning guest with no special price — both of whom
   // simply see the room's own rate.
   myRates?: Map<string, number>;
+  // Dollars off every night for a guest with a loyalty discount; 0 or absent
+  // for everyone else.
+  loyaltyPerNight?: number;
   // Passed straight through to the gallery, which offers to text the host about
   // the price. Absent where the host record carries no number, and the gallery
   // then simply does not offer it.
@@ -42,6 +46,7 @@ const RoomCard = ({
   onSelect,
   onViewPhotos,
   myRate,
+  loyaltyPerNight,
 }: {
   room: roomType;
   allRooms: roomType[];
@@ -49,8 +54,10 @@ const RoomCard = ({
   onSelect: () => void;
   onViewPhotos: () => void;
   myRate?: number;
+  loyaltyPerNight?: number;
 }) => {
   const { theme } = useTiBookTheme();
+  const loyalRate = discountedNightly(myRate, loyaltyPerNight);
   const roomChip = useRoomChip();
   // Same list the gallery pages through, so the count badge below cannot
   // promise more pictures than the gallery actually has.
@@ -113,6 +120,15 @@ const RoomCard = ({
             <span className={`font-bold ${theme.textPrimary}`}>
               Family — no charge
             </span>
+          ) : loyalRate != null ? (
+            // Her agreed rate struck through in red, what she pays beside it
+            // (host, 2026-10-14). One strike only: the room's list price as
+            // well would be two crossed-out numbers on a 96px card.
+            <>
+              <span className={`mr-1 line-through ${theme.alertText}`}>${myRate}</span>
+              <span className={`font-bold ${theme.surfaceText}`}>${loyalRate}</span>
+              <span className={theme.surfaceMuted}>/night</span>
+            </>
           ) : (
             <>
               {myRate < room.price && (
@@ -148,7 +164,7 @@ const RoomCard = ({
   );
 };
 
-const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact = false, onToggleCompact, myRates, hostPhone, hostName, onOpenChat }: RoomCardsProps) => {
+const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact = false, onToggleCompact, myRates, loyaltyPerNight, hostPhone, hostName, onOpenChat }: RoomCardsProps) => {
   const { theme } = useTiBookTheme();
   const roomChip = useRoomChip();
   const [galleryRoom, setGalleryRoom] = useState<roomType | null>(null);
@@ -279,6 +295,7 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
               onSelect={() => onToggleRoom(room.id)}
               onViewPhotos={() => setGalleryRoom(room)}
               myRate={myRates?.get(room.id)}
+              loyaltyPerNight={loyaltyPerNight}
             />
           ))}
         </div>
@@ -290,6 +307,7 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
           hostPhone={hostPhone}
           hostName={hostName}
           myRate={myRates?.get(galleryRoom.id)}
+          loyaltyPerNight={loyaltyPerNight}
           onOpenChat={onOpenChat}
           onClose={() => setGalleryRoom(null)}
         />

@@ -348,6 +348,54 @@ const TiBookInner = () => {
     // grip: the panel stayed at 346px instead of growing to 654px.
   }, [currentHost, rooms.length, layout]);
 
+  // The calendar GROWS as the grip is pulled — it does not just slide up.
+  //
+  // The panel is flex-1 under a column that scrolls when the header stack and
+  // the calendar's 17rem floor do not both fit (725bf83). On a phone they do
+  // not: the banner, the house facts and the rooms are taller than what is
+  // left. There the panel sat at its floor, flex-1 had no free space to hand
+  // it, and pulling the grip only slid a fixed-size calendar up over the
+  // banner — it looked and felt like scrolling, and the grip did nothing a
+  // swipe could not (Anh-Tri, 2026-10-14). So the panel's height is set from
+  // the drag instead: from its height at rest up to the whole column, in step
+  // with the finger. Where everything fits this works out to exactly what
+  // flex-1 already gave it, so a tall screen behaves as before.
+  const scrollColRef = useRef<HTMLDivElement>(null);
+  const calPanelRef = useRef<HTMLDivElement>(null);
+  const calFloorRef = useRef<HTMLDivElement>(null);
+  const [colH, setColH] = useState(0);
+  // The panel at rest, at its floor: its own bars plus the grid's min-height.
+  // Measured from the floor rather than read off the panel, whose height is
+  // the thing being set — reading it back would pin it at whatever it was.
+  const [calRestH, setCalRestH] = useState(0);
+  const dragOffsetRef = useRef(dragOffset);
+  dragOffsetRef.current = dragOffset;
+  useEffect(() => {
+    const col = scrollColRef.current;
+    const panel = calPanelRef.current;
+    const floor = calFloorRef.current;
+    if (!col || !panel || !floor) return;
+    const measure = () => {
+      setColH(col.clientHeight);
+      // Only at rest: expanded, the compact room strip joins the panel and the
+      // held-stays banner leaves it, and neither is part of the resting size.
+      if (dragOffsetRef.current === 0) {
+        const floorMin = parseFloat(getComputedStyle(floor).minHeight) || 0;
+        setCalRestH(panel.offsetHeight - floor.offsetHeight + floorMin);
+      }
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(col);
+    ro.observe(panel);
+    return () => ro.disconnect();
+  }, [currentHost, isLoading, layout]);
+  const calMinH = (() => {
+    if (!colH || !headerH) return undefined;
+    const rest = Math.min(colH, Math.max(colH - headerH, calRestH));
+    return rest + ((colH - rest) * dragOffset) / headerH;
+  })();
+
   const onGripDown = (e: React.PointerEvent) => {
     gripRef.current = { y: e.clientY, start: dragOffset };
     setDragging(true);
@@ -460,9 +508,14 @@ const TiBookInner = () => {
   // booking request, so the room cards quoted them a price that was not theirs.
   // Asking "what's my rate?" should not require starting a booking.
   const [myRates, setMyRates] = useState<Map<string, number>>(new Map());
+  // Dollars off every night for a guest who has earned it. Fetched with the
+  // rates so the room cards can strike her rate through and print what she
+  // actually pays — she was only ever told about it inside My Bookings.
+  const [myLoyaltyPerNight, setMyLoyaltyPerNight] = useState(0);
   useEffect(() => {
     if (!guestPhone || !currentHost) {
       setMyRates(new Map());
+      setMyLoyaltyPerNight(0);
       setMyGuestId(undefined);
       return;
     }
@@ -473,11 +526,12 @@ const TiBookInner = () => {
           if (typeof p.price === "number") next.set(p.room, p.price);
         });
         setMyRates(next);
+        setMyLoyaltyPerNight(Number(guest?.loyaltyDiscountPerNight) || 0);
         setMyGuestId(guest?.id);
       })
       // A rate we cannot fetch is simply not shown. The room's own price is
       // still there, and a wrong price is far worse than a missing one.
-      .catch(() => { setMyRates(new Map()); setMyGuestId(undefined); });
+      .catch(() => { setMyRates(new Map()); setMyLoyaltyPerNight(0); setMyGuestId(undefined); });
   }, [guestPhone, currentHost]);
 
   const reservedStays = useMemo(
@@ -1177,6 +1231,7 @@ const TiBookInner = () => {
           onSelectRoom={(id) => setSelectedRoomIds(id ? new Set([id]) : null)}
           onToggleRoom={handleToggleRoom}
           myRates={myRates}
+          loyaltyPerNight={myLoyaltyPerNight}
           cartDates={cartDates}
           wishListDates={wishListDates}
           newWishListDates={newWishListDates}
@@ -1237,7 +1292,7 @@ const TiBookInner = () => {
       {/* Holds the floating pills below in place: they hang off this, not off
           the column that scrolls, so they stay put while it moves. */}
       <div className="relative flex flex-1 min-h-0 flex-col">
-      <div className="relative flex flex-1 min-h-0 flex-col overflow-y-auto">
+      <div ref={scrollColRef} className="relative flex flex-1 min-h-0 flex-col overflow-y-auto">
         {/* Header stack — host banner + room filter. The calendar panel slides up
             over these as the grip is dragged, until it fills the window. */}
         <div ref={headerRef} className="shrink-0">
@@ -1265,6 +1320,7 @@ const TiBookInner = () => {
               onToggleRoom={handleToggleRoom}
               onSelectAll={() => setSelectedRoomIds(null)}
               myRates={myRates}
+              loyaltyPerNight={myLoyaltyPerNight}
               hostPhone={currentHost?.phone}
               hostName={currentHost?.name}
               onOpenChat={() => setChatOpen(true)}
@@ -1280,10 +1336,13 @@ const TiBookInner = () => {
           </div>
         ) : currentHost ? (
           <div
+            ref={calPanelRef}
             className={`relative z-10 flex flex-1 min-h-0 flex-col ${theme.surface}`}
             style={{
               marginTop: -dragOffset,
-              transition: dragging ? "none" : "margin-top 0.25s ease",
+              // Grows with the drag — see calMinH.
+              minHeight: calMinH,
+              transition: dragging ? "none" : "margin-top 0.25s ease, min-height 0.25s ease",
             }}
           >
             {/* Drag grip — pull up to grow the calendar over the banner & rooms
@@ -1331,7 +1390,7 @@ const TiBookInner = () => {
             {/* The floor. Six week-rows at a tappable height: below this the
                 grid stops being a calendar, so instead of shrinking further it
                 keeps this height and the column above scrolls to reach it. */}
-            <div className="flex min-h-[17rem] flex-1 flex-col">
+            <div ref={calFloorRef} className="flex min-h-[17rem] flex-1 flex-col">
               <GuestCalendar
                 currentMonth={currentMonth}
                 monthMap={monthMap}
@@ -1576,6 +1635,7 @@ const TiBookInner = () => {
           hostPhone={currentHost?.phone}
           hostName={currentHost?.name}
           myRate={myRates.get(heroGalleryRoom.id)}
+          loyaltyPerNight={myLoyaltyPerNight}
           // The gallery stays open UNDERNEATH the chat sheet, which covers it
           // whole. Closing the photos to ask a question about them would send
           // the guest back through the room card and 29 pictures to reach the

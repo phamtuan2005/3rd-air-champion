@@ -3,6 +3,7 @@ import { isSameMonth } from "date-fns";
 import { roomType } from "../../util/types/roomType";
 import { dayType } from "../../util/types/dayType";
 import { getRoomPhotos } from "../../util/roomFacts";
+import { discountedNightly } from "../../util/loyaltyDiscount";
 import { useTiBookTheme, useRoomChip, useCalendarView } from "../../contexts/TiBookThemeContext";
 import { AppearanceMenu } from "./NavBarDesktop";
 import { AskTTButton } from "./AskTT";
@@ -64,6 +65,8 @@ interface HeroShellProps {
   // guest can pick two or three rooms here as they can there.
   onToggleRoom: (id: string) => void;
   myRates?: Map<string, number>;
+  // Dollars off every night for a guest with a loyalty discount.
+  loyaltyPerNight?: number;
   cartDates: Map<string, string | null>;
   wishListDates: Set<string>;
   newWishListDates: Set<string>;
@@ -110,7 +113,7 @@ const HeroWeekdays = () => {
 };
 
 const HeroShell = ({
-  host, rooms, monthMap, selectedRoomIds, onSelectRoom, onToggleRoom, myRates,
+  host, rooms, monthMap, selectedRoomIds, onSelectRoom, onToggleRoom, myRates, loyaltyPerNight,
   cartDates, wishListDates, newWishListDates, myBookingDates, myStays,
   reservedStays, reservedMap, currentMonth, onMonthChange, onDateClick,
   onWishListClick, onMyStayClick, onMyStayDetails, onReservedClick, scrollToTodayTrigger,
@@ -624,6 +627,14 @@ const HeroShell = ({
                             "$0" reads as a bug, so it says what it means. */}
                         {myRate(room) === 0 ? (
                           <span className={`text-lg font-bold ${theme.textPrimary}`}>Family — no charge</span>
+                        ) : discountedNightly(myRate(room), loyaltyPerNight) != null ? (
+                          // Her agreed rate struck through in red and what
+                          // she pays beside it, as on the classic room cards.
+                          <>
+                            <span className={`text-base font-bold line-through ${theme.alertText}`}>${myRate(room)}</span>
+                            <span className={`text-2xl font-extrabold tracking-tight ${theme.textPrimary}`}>${discountedNightly(myRate(room), loyaltyPerNight)}</span>
+                            <span className="text-xs text-white/80">/ night · your rate</span>
+                          </>
                         ) : myRate(room) != null ? (
                           <>
                             <span className={`text-2xl font-extrabold tracking-tight ${theme.textPrimary}`}>${myRate(room)}</span>

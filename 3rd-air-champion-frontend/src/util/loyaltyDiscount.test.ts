@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   LOYALTY_FEE_LABEL,
   carryFeesToNewSpan,
+  discountedNightly,
   loyaltyFee,
   mergeAdjustments,
   splitAdjustments,
@@ -193,5 +194,30 @@ describe("carrying fees across a modified stay", () => {
   it("is empty when there was nothing to carry", () => {
     expect(carryFeesToNewSpan(undefined, 6, 3)).toEqual([]);
     expect(carryFeesToNewSpan([], 6, 3)).toEqual([]);
+  });
+});
+
+// The rate TiBook prints beside the guest's agreed rate struck through.
+describe("a guest's nightly rate after her loyalty discount", () => {
+  it("takes the discount off the agreed rate", () => {
+    expect(discountedNightly(60, 5)).toBe(55);
+  });
+
+  it("counts in cents", () => {
+    expect(discountedNightly(72.5, 4.35)).toBe(68.15);
+  });
+
+  it("has nothing to strike for a family guest on a deliberate $0", () => {
+    expect(discountedNightly(0, 5)).toBeNull();
+  });
+
+  it("has nothing to strike without a discount or without a rate", () => {
+    expect(discountedNightly(60, 0)).toBeNull();
+    expect(discountedNightly(60, undefined)).toBeNull();
+    expect(discountedNightly(undefined, 5)).toBeNull();
+  });
+
+  it("never goes below zero", () => {
+    expect(discountedNightly(4, 5)).toBe(0);
   });
 });
