@@ -32,7 +32,7 @@ import HeroShell from "../components/tibook/HeroShell";
 import RoomGalleryModal from "../components/tibook/RoomGalleryModal";
 import { getConsent, readRememberedGuest, rememberGuest, setConsent, revokeConsent } from "../util/guestConsent";
 import HostChatSheet from "../components/tibook/HostChatSheet";
-import AskTTSheet from "../components/tibook/AskTT";
+import AskTTSheet, { AskTTButton } from "../components/tibook/AskTT";
 import StatsViewerGate from "../components/tibook/StatsViewerGate";
 import { usHolidayOn } from "../util/usHolidays";
 import type { TTNudge, TTSendOutcome } from "../components/tibook/AskTT";
@@ -44,7 +44,7 @@ import { linkTiBookVisitToGuest, recordTiBookVisit, saveStatsCode, unlinkTiBookV
 import { fetchPublishedReviews, PublishedReviews } from "../util/ttQuestionLog";
 import { markTiBookVisited } from "../util/tibookReturning";
 import { fillRate, habitsOf, lastStayOffer, seriesFor, Proposal } from "../util/bookingHabit";
-import UsualStayCard, { chosenStays, isSnoozed, snooze } from "../components/tibook/UsualStayCard";
+import UsualStayCard, { chosenStays, isSnoozed, snooze, UsualStaysButton } from "../components/tibook/UsualStayCard";
 
 // The nights held by "reserved" booking requests (unpaid holds), per night, as
 // room ids — they are taken, not free, everywhere TiBook offers a night.
@@ -995,6 +995,8 @@ const TiBookInner = () => {
     // availableRoomsForDate reads monthMap, reservedMap and rooms.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isKnownVisitor, guestBookings, rooms, monthMap, reservedMap]);
+  // "★ N stays" — the header button's count, hidden while the popup is open.
+  const usualCount = usualStay && !usualOpen ? chosenStays(usualStay.series.proposals, usualOff).length : undefined;
 
   // Opens the proposal once per visit, and only over a quiet page: never on top
   // of the request, the bookings sheet, a chat, the pending-payment notice or the
@@ -1201,7 +1203,7 @@ const TiBookInner = () => {
           guestName={greetedName}
           actionLabel={barLabel}
           hasSelection={hasSelection}
-          usualCount={usualStay && !usualOpen ? chosenStays(usualStay.series.proposals, usualOff).length : undefined}
+          usualCount={usualCount}
           onOpenUsual={() => setUsualOpen(true)}
         />
         )
@@ -1213,12 +1215,15 @@ const TiBookInner = () => {
         cohostNames={cohostNames}
         isFullCalendar={isSelecting}
         onMyBookings={() => { setBookingsFocusKey(null); setMyBookingsOpen((o) => !o); }}
-          onAskTT={() => setAskTTOpen(true)}
-          ttNudge={ttNudge}
-          ttUnread={unreadFromHost}
+        // With the calendar expanded these two float over it (below) rather
+        // than ride in the nav: that is when the nav also carries the host's
+        // face and Home, and on a phone the pills sat on top of the face.
+        onAskTT={isSelecting ? undefined : () => setAskTTOpen(true)}
+        ttNudge={ttNudge}
+        ttUnread={unreadFromHost}
         guestName={greetedName}
         guestStays={guestBookings.filter((b) => b.status === "confirmed").length}
-        usualCount={usualStay && !usualOpen ? chosenStays(usualStay.series.proposals, usualOff).length : undefined}
+        usualCount={isSelecting ? undefined : usualCount}
         onOpenUsual={() => setUsualOpen(true)}
       />
       {/* Scrolls when it has to.
@@ -1229,6 +1234,9 @@ const TiBookInner = () => {
           wrong. Now the calendar keeps a floor (below) and this container
           scrolls if the sum no longer fits. On a normal phone nothing overflows,
           so nothing scrolls and the behaviour is exactly as before. */}
+      {/* Holds the floating pills below in place: they hang off this, not off
+          the column that scrolls, so they stay put while it moves. */}
+      <div className="relative flex flex-1 min-h-0 flex-col">
       <div className="relative flex flex-1 min-h-0 flex-col overflow-y-auto">
         {/* Header stack — host banner + room filter. The calendar panel slides up
             over these as the grip is dragged, until it fills the window. */}
@@ -1354,6 +1362,26 @@ const TiBookInner = () => {
             <p className={`text-sm ${theme.surfaceMuted2}`}>No host selected</p>
           </div>
         )}
+      </div>
+      {/* "★ N stays" and TT, floating, while the calendar is expanded. In the
+          nav they sat on the host's face on a phone: expanded, the nav also
+          carries the faces and Home, and there is not the width for all of it.
+          Side by side in the bottom-right corner, they sit over the last row
+          of the month, which most months leave empty, and above the
+          selection bar rather than on it. TT's callout opens upwards here. */}
+      {isSelecting && (
+        <div className={`absolute bottom-3 right-3 z-30 flex items-center gap-1.5 rounded-full p-1 shadow-lg ${theme.chrome}`}>
+          {usualCount != null && <UsualStaysButton count={usualCount} onClick={() => setUsualOpen(true)} />}
+          <AskTTButton
+            onClick={() => setAskTTOpen(true)}
+            nudge={ttNudge}
+            unread={unreadFromHost}
+            guestFirstName={greetedName?.trim().split(" ")[0]}
+            align="right"
+            drop="up"
+          />
+        </div>
+      )}
       </div>
 
       {/* Selection bar — shown for cart dates, wish list dates, or both.

@@ -56,7 +56,12 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
       />
       {isFullCalendar && host ? (
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <div className="flex items-center">
+          {/* shrink-0: the faces are the one thing here that must never give
+              way. Without it the "★ N stays" and TT pills beside them squeezed
+              this row to nothing on a phone and sat on the host's face — those
+              two float over the calendar now instead (TiBook.tsx), and the
+              house name is what truncates. */}
+          <div className="flex shrink-0 items-center">
             <MiniAvatar name={host.name} />
             {cohostNames.map((name) => (
               <div key={name} className="-ml-2">
