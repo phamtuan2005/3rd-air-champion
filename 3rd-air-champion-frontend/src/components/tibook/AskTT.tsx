@@ -99,6 +99,7 @@ export const AskTTButton = ({
   nudge,
   guestFirstName,
   align = "center",
+  drop = "down",
   unread = 0,
 }: {
   onClick: () => void;
@@ -112,6 +113,10 @@ export const AskTTButton = ({
   // TT sits mid-bar; from the right in Hero, where it sits near the edge and a
   // centred callout would run off the screen.
   align?: "center" | "right";
+  // Which way the callout opens. Down from a nav bar; up when TT floats at the
+  // bottom of the screen (Classic, calendar expanded), where opening down
+  // would hang it off the bottom edge.
+  drop?: "down" | "up";
 }) => {
   const { theme } = useTiBookTheme();
   const [showing, setShowing] = useState<TTNudge | null>(null);
@@ -174,15 +179,15 @@ export const AskTTButton = ({
       {showing && (
         <div
           role="note"
-          className={`absolute top-full z-50 mt-2 w-60 rounded-2xl border p-3 shadow-xl ${theme.surface} ${theme.chromeBorder} ${
-            align === "right" ? "right-0" : "left-1/2 -translate-x-1/2"
-          }`}
+          className={`absolute z-50 w-60 rounded-2xl border p-3 shadow-xl ${theme.surface} ${theme.chromeBorder} ${
+            drop === "up" ? "bottom-full mb-2" : "top-full mt-2"
+          } ${align === "right" ? "right-0" : "left-1/2 -translate-x-1/2"}`}
         >
           <span
             aria-hidden
-            className={`absolute -top-1.5 h-3 w-3 rotate-45 border-l border-t ${theme.surface} ${theme.chromeBorder} ${
-              align === "right" ? "right-5" : "left-1/2 -ml-1.5"
-            }`}
+            className={`absolute h-3 w-3 rotate-45 ${theme.surface} ${theme.chromeBorder} ${
+              drop === "up" ? "-bottom-1.5 border-r border-b" : "-top-1.5 border-l border-t"
+            } ${align === "right" ? "right-5" : "left-1/2 -ml-1.5"}`}
           />
           <div className="relative flex items-start gap-2">
             <TTBadge />
