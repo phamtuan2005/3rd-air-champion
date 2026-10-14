@@ -80,7 +80,12 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
           <span className="hidden sm:inline">TiBook · Book with TT House</span>
         </h1>
       )}
-      <div className="flex items-center gap-2">
+      {/* min-w-0, and the guest's name below truncates: a returning guest's
+          "★ N stays", TT and name-with-tier pills once ran this row off the
+          right edge of a phone, taking the Look button with them — a guest
+          moved into Classic had no way back to Hero (host, 2026-10-14). The
+          Look button is the one thing here that never gives way. */}
+      <div className="flex min-w-0 items-center gap-2">
         {usualCount != null && onOpenUsual ? <UsualStaysButton count={usualCount} onClick={onOpenUsual} /> : null}
         {onAskTT && <AskTTButton onClick={onAskTT} nudge={ttNudge} unread={ttUnread} guestFirstName={guestFirstName} />}
         {onMyBookings && (
@@ -93,21 +98,23 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
                bar and take that height off the calendar. The guest's own name is
                a greeting, so it reads at the same size as the house name it sits
                beside instead of at badge size. */
-            className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-sm font-semibold whitespace-nowrap transition-colors ${theme.chromeBorder} ${theme.chromeHover} ${
+            className={`flex min-w-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-sm font-semibold whitespace-nowrap transition-colors ${theme.chromeBorder} ${theme.chromeHover} ${
               guestFirstName ? theme.chromeAccent : theme.chromeMuted
             }`}
           >
             {guestFirstName ? (
               <>
                 <span
-                  className={`flex h-5 w-5 items-center justify-center rounded-full ${theme.btn} text-[11px] font-bold text-white`}
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${theme.btn} text-[11px] font-bold text-white`}
                 >
                   {guestFirstName[0].toUpperCase()}
                 </span>
-                {guestFirstName}
+                <span className="min-w-0 truncate">{guestFirstName}</span>
+                {/* Wide screens only: on a phone it was the pill that pushed
+                    the Look button off the bar (see the row above). */}
                 {loyaltyTier && (
                   <span
-                    className={`rounded-full border px-1.5 py-0.5 text-[11px] font-bold leading-none ${loyaltyTier.color}`}
+                    className={`hidden shrink-0 rounded-full border px-1.5 py-0.5 text-[11px] font-bold leading-none sm:inline ${loyaltyTier.color}`}
                     title={loyaltyTier.label}
                   >
                     {loyaltyTier.label.split(" ")[0]}
@@ -131,7 +138,9 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
             Home
           </button>
         ) : (
-          <AppearanceMenu />
+          <div className="shrink-0">
+            <AppearanceMenu />
+          </div>
         )}
       </div>
     </nav>
