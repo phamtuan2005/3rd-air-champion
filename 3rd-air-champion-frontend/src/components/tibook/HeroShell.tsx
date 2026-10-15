@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { isSameMonth } from "date-fns";
 import { roomType } from "../../util/types/roomType";
 import { dayType } from "../../util/types/dayType";
@@ -96,6 +96,10 @@ interface HeroShellProps {
   // The usual-stay proposal's header button, when TT has stays lined up.
   usualCount?: number;
   onOpenUsual?: () => void;
+  // Who the hosts are and the house's promise — the classic layout's host
+  // banner, handed in from TiBook.tsx so both layouts show the same one. Given
+  // the sheet's close, so the banner's own header can shut it.
+  hostIntro?: (close: () => void) => ReactNode;
 }
 
 // The weekday letters over the grid, and not over the list, where every row
@@ -112,15 +116,33 @@ const HeroWeekdays = () => {
   );
 };
 
+/*
+ * A line that SLIDES when it does not fit, instead of ending in "…" — the
+ * same as TiMag's occupancy strip, and asked for here for the same reason.
+ * On a phone Ask TT and the appearance menu leave the nav's lines about 150px,
+ * and "Any room · swipe through all 5" lost the part that says how many rooms
+ * there are: the line told the guest to swipe and hid what for (host,
+ * 2026-10-15). No scrollbar drawn; the text cut off at the edge says there
+ * is more, as it does in TiMag.
+ */
+const SLIDES = "overflow-x-auto overscroll-x-contain whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+
 const HeroShell = ({
   host, rooms, monthMap, selectedRoomIds, onSelectRoom, onToggleRoom, myRates, loyaltyPerNight,
   cartDates, wishListDates, newWishListDates, myBookingDates, myStays,
   reservedStays, reservedMap, currentMonth, onMonthChange, onDateClick,
   onWishListClick, onMyStayClick, onMyStayDetails, onReservedClick, scrollToTodayTrigger,
   scrollToMonthTrigger, onOpenPhotos, onScrollToToday, onMyBookings, onAskTT, ttNudge, ttUnread, onRequest, guestName,
-  actionLabel, hasSelection, usualCount, onOpenUsual,
+  actionLabel, hasSelection, usualCount, onOpenUsual, hostIntro,
 }: HeroShellProps) => {
   const { theme } = useTiBookTheme();
+  const [hostOpen, setHostOpen] = useState(false);
+  useEffect(() => {
+    if (!hostOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setHostOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [hostOpen]);
   const roomChip = useRoomChip();
   // In the order TiBook gives (roomsForGuest: a returning guest's rooms
   // first, then by price) — not re-sorted here, or their rooms would sink.
@@ -514,18 +536,41 @@ const HeroShell = ({
         {/* TiBook's own icon, not TiMag's logo: this is the guest's app, and
             the one place in Hero where it can say so — the stacked layout says
             it in a nav bar Hero does not have. */}
+        {/* The icon and the house name open the host banner. Hero had no
+            banner at all, so a guest here never learned who the hosts are or
+            what the house promises them — the first thing the classic layout
+            says. Behind a tap rather than on the page: Hero gives its height
+            to the photos and the month. A plain row when there is nothing to
+            open, so it does not look like a button that does nothing. */}
+        <button
+          type="button"
+          disabled={!hostIntro}
+          onClick={() => setHostOpen((o) => !o)}
+          aria-expanded={hostIntro ? hostOpen : undefined}
+          aria-label={hostIntro ? `About ${host.airbnbName || host.name} and its hosts` : undefined}
+          className="flex min-w-0 flex-1 items-center gap-2 text-left disabled:cursor-default"
+        >
         <img
           src="/tibook-icon-192.png"
           alt="TiBook"
           className="h-7 w-7 shrink-0 rounded-lg"
         />
         <div className="min-w-0 flex-1">
-          <div className={`truncate text-sm font-extrabold leading-tight ${theme.chromeText}`}>
-            {host.airbnbName || host.name}
+          <div className={`flex min-w-0 items-center gap-1 text-sm font-extrabold leading-tight ${theme.chromeText}`}>
+            <span className={`min-w-0 ${SLIDES}`}>{host.airbnbName || host.name}</span>
+            {hostIntro && (
+              <svg
+                aria-hidden
+                className={`h-3.5 w-3.5 shrink-0 transition-transform ${theme.chromeMuted} ${hostOpen ? "rotate-180" : ""}`}
+                fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            )}
           </div>
           {/* "1 of 5 · swipe" said what to do and never what for. Both lines
               name the thing being swiped through now. */}
-          <div className={`truncate text-[11px] leading-tight ${theme.chromeMuted}`}>
+          <div className={`${SLIDES} text-[11px] leading-tight ${theme.chromeMuted}`}>
             {multi
               ? `${picked.size} rooms picked · swipe to see each`
               : activeRoom
@@ -533,6 +578,7 @@ const HeroShell = ({
               : `Any room · swipe through all ${activeRooms.length}`}
           </div>
         </div>
+        </button>
         {/* The bookings pill used to sit here as well as in the bottom bar,
             which is the same door twice — and for a guest we do not know yet it
             reads "Your bookings", 110px of a 320px bar, which is what pushed
@@ -549,6 +595,27 @@ const HeroShell = ({
         />
         <AppearanceMenu />
       </nav>
+
+      {/* Drops from under the nav, not over it, so the name that opened it
+          stays in sight as the way to close it. Fixed, so it holds still if
+          the page has scrolled the photos away. */}
+      {hostOpen && hostIntro && (
+        <>
+          <div
+            className={`fixed inset-x-0 bottom-0 z-40 ${theme.scrim}`}
+            style={{ top: navH }}
+            onClick={() => setHostOpen(false)}
+          />
+          <div
+            role="dialog"
+            aria-label={`About ${host.airbnbName || host.name}`}
+            className={`fixed inset-x-0 z-40 max-h-[70dvh] overflow-y-auto overscroll-contain rounded-b-2xl shadow-2xl ${theme.surface}`}
+            style={{ top: navH }}
+          >
+            {hostIntro(() => setHostOpen(false))}
+          </div>
+        </>
+      )}
 
       {/* ── The rooms: 2 of the 5 parts under the header ─────────────────── */}
       {/* A fixed height, not a share of the screen: this is the part that
@@ -766,7 +833,7 @@ const HeroShell = ({
               ...(currentMonth.getFullYear() !== new Date().getFullYear() ? { year: "numeric" as const } : {}),
             })}
           </span>
-          <span className={`min-w-0 flex-1 truncate text-[13px] ${theme.surfaceMuted}`}>
+          <span className={`min-w-0 flex-1 ${SLIDES} text-[13px] ${theme.surfaceMuted}`}>
             {/* Said of the PICKED rooms. It was said of the card in front, so
                 with Cozy and Cute picked it read "Cozy is free 30 nights" over
                 a month counting both. */}
