@@ -27,6 +27,15 @@ export interface Habit {
   rooms: string[];
   /** How many stays share this start day and length. */
   times: number;
+  /**
+   * How many weeks apart the stays come: 1 every week, 2 every other week.
+   * Absent = 1. Kelly stays Friday to Sunday every OTHER week, and TiBook
+   * proposed every week — half of what it lined up she never wanted (host,
+   * 2026-10-15).
+   */
+  everyWeeks?: number;
+  /** A start the cadence counts from — the latest of the habit's stays. */
+  anchor?: string;
 }
 
 const key = (d: Date) => format(d, "yyyy-MM-dd");
@@ -37,6 +46,28 @@ const weekdayOf = (k: string) => parseISO(k).getDay();
 // stopped does not keep being pushed.
 export const MIN_TIMES = 2;
 export const LOOKBACK_DAYS = 183;
+// Stays further apart than this are not a cadence a person keeps to — a gap
+// of six weeks is a guest who came back, not "every sixth week".
+export const MAX_EVERY_WEEKS = 4;
+
+/**
+ * Every how many weeks the stays of one shape come, and the latest of them to
+ * count from. The most common gap between them, in weeks; a tie goes to the
+ * shorter, so a weekly guest who skipped one week is still weekly. Gaps longer
+ * than MAX_EVERY_WEEKS are breaks, not the cadence; with none shorter, weekly.
+ */
+export const cadenceOf = (shape: PastStay[]): { everyWeeks: number; anchor: string } => {
+  const starts = [...new Set(shape.map((s) => s.start))].sort();
+  const anchor = starts[starts.length - 1];
+  const gaps = starts
+    .slice(1)
+    .map((s, i) => Math.round(differenceInCalendarDays(parseISO(s), parseISO(starts[i])) / 7))
+    .filter((g) => g >= 1 && g <= MAX_EVERY_WEEKS);
+  const count = new Map<number, number>();
+  for (const g of gaps) count.set(g, (count.get(g) ?? 0) + 1);
+  const everyWeeks = [...count.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0]?.[0] ?? 1;
+  return { everyWeeks, anchor };
+};
 
 /**
  * Every habit the guest has — up to three, most repeated first. A guest who
@@ -77,7 +108,13 @@ export const habitOf = (stays: PastStay[], today: Date): Habit | null => {
   )[0];
   if (!best || best.length < MIN_TIMES) return null;
 
-  return { startWeekday: weekdayOf(best[0].start), nights: best[0].nights, rooms: rankRooms(best, recent, today), times: best.length };
+  return {
+    startWeekday: weekdayOf(best[0].start),
+    nights: best[0].nights,
+    rooms: rankRooms(best, recent, today),
+    times: best.length,
+    ...cadenceOf(best),
+  };
 };
 
 // Rooms by nights spent in them — the habit's own stays first, then the rest,
@@ -94,10 +131,22 @@ const rankRooms = (shape: PastStay[], all: PastStay[], today: Date): string[] =>
 const nightsFrom = (start: string, nights: number) =>
   Array.from({ length: nights }, (_, i) => key(addDays(parseISO(start), i)));
 
-/** The next `weeks` starts on the habit's weekday, after today. */
+/**
+ * The habit's starts after today, over the next `weeks` weeks — every week, or
+ * every `everyWeeks` weeks in step with the guest's own stays (counted from
+ * `anchor`), so an every-other-week guest is offered THEIR weeks and not the
+ * ones between.
+ */
 export const upcomingStarts = (habit: Habit, today: Date, weeks: number): string[] => {
   const ahead = (habit.startWeekday - today.getDay() + 7) % 7 || 7;
-  return Array.from({ length: weeks }, (_, i) => key(addDays(today, ahead + 7 * i)));
+  const every = Math.max(1, habit.everyWeeks ?? 1);
+  let first = addDays(today, ahead);
+  if (every > 1 && habit.anchor) {
+    const weeksFromAnchor = Math.round(differenceInCalendarDays(first, parseISO(habit.anchor)) / 7);
+    first = addDays(first, 7 * ((((-weeksFromAnchor) % every) + every) % every));
+  }
+  const span = weeks * 7 - differenceInCalendarDays(first, addDays(today, ahead));
+  return Array.from({ length: Math.max(0, Math.ceil(span / (7 * every))) }, (_, i) => key(addDays(first, 7 * every * i)));
 };
 
 /**

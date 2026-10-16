@@ -51,6 +51,18 @@ export const nightsPhrase = (habits: Habit[]) => {
   return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]} nights`;
 };
 
+/**
+ * How often, when it is not every week: " every other week" for a guest who
+ * comes fortnightly (Kelly, host 2026-10-15), so the card does not promise a
+ * weekly routine she does not keep. Said only when every habit agrees.
+ */
+export const everyPhrase = (habits: Habit[]) => {
+  const every = new Set(habits.map((h) => h.everyWeeks ?? 1));
+  if (every.size !== 1) return "";
+  const n = [...every][0];
+  return n === 2 ? " every other week" : n === 3 ? " every third week" : n === 4 ? " every fourth week" : "";
+};
+
 // The NIGHTS of a stay, month first and every day with its weekday — "Nov 24
 // Tue – 25 Wed" — matching "Tuesday and Wednesday nights" above. It used to end
 // on the check-out day ("Tue Nov 24 – 26"), and 26 read as a night slept (host,
@@ -332,7 +344,7 @@ const UsualStayCard = ({
             {/* "TT noted that…", not "your habit" — the house's assistant noticing,
                 the way a host who knows a regular would say it (host, 2026-10-07). */}
             <p className={`text-base ${theme.surfaceText}`}>
-              TT noted that you usually stay <span className="font-semibold">{nightsPhrase(habits)}</span>
+              TT noted that you usually stay <span className="font-semibold">{nightsPhrase(habits)}{everyPhrase(habits)}</span>
               {theirRooms.length > 0 ? (
                 <>
                   {" "}in{" "}

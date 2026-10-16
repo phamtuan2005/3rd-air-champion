@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fillRate, habitOf, habitsOf, lastStayOffer, proposalsFor, proposalsForAll, seriesFor, upcomingStarts } from "./bookingHabit";
+import { cadenceOf, fillRate, habitOf, habitsOf, lastStayOffer, proposalsFor, proposalsForAll, seriesFor, upcomingStarts } from "./bookingHabit";
 
 // TiBook works a returning guest's habit out and proposes the next stays that
 // fit it. These pin that it reads the habit a person would, never invents one
@@ -233,5 +233,47 @@ describe("back-to-back proposals in one room", () => {
     });
     expect(ps.find((p) => p.start === "2026-10-13")?.nights).toEqual(["2026-10-13"]);
     expect(ps.find((p) => p.start === "2026-10-14")?.roomId).toBe("king");
+  });
+});
+
+// Kelly stays Friday to Sunday every OTHER week, and TiBook proposed every
+// week (host, 2026-10-15). Today is Wed Oct 7; her Fridays fall on Oct 9,
+// Oct 23, Nov 6, Nov 20 — never on Oct 16 or Oct 30.
+describe("a guest who comes every other week", () => {
+  const kelly = [
+    stay("2026-08-28", 3, "queen"),
+    stay("2026-09-11", 3, "cute"),
+    stay("2026-09-25", 3, "king"),
+    // Booked ahead, after a six-week break — a break, not the cadence.
+    stay("2026-11-06", 3, "queen"),
+    stay("2026-11-20", 3, "queen"),
+  ];
+
+  it("reads every other week, counted from her latest stay", () => {
+    expect(habitOf(kelly, today)).toMatchObject({ startWeekday: 5, nights: 3, everyWeeks: 2, anchor: "2026-11-20" });
+  });
+
+  it("offers her Fridays and not the ones between", () => {
+    const h = habitOf(kelly, today)!;
+    expect(upcomingStarts(h, today, 8)).toEqual(["2026-10-09", "2026-10-23", "2026-11-06", "2026-11-20"]);
+  });
+
+  it("lines up her next stays a fortnight apart, after the ones she has", () => {
+    const free = () => true;
+    const s = seriesFor(habitsOf(kelly, today), today, free, kelly);
+    const starts = s.proposals.map((p) => p.start);
+    expect(starts.slice(0, 4)).toEqual(["2026-10-09", "2026-10-23", "2026-12-04", "2026-12-18"]);
+    expect(starts).not.toContain("2026-10-16");
+    expect(starts).not.toContain("2026-11-27");
+  });
+
+  it("keeps a weekly guest weekly when they skip a week", () => {
+    expect(cadenceOf([stay("2026-09-07", 2, "k"), stay("2026-09-14", 2, "k"), stay("2026-09-28", 2, "k"), stay("2026-10-05", 2, "k")]).everyWeeks).toBe(1);
+    // One week, then two: a tie goes to weekly — fewer missed weeks.
+    expect(cadenceOf([stay("2026-09-07", 2, "k"), stay("2026-09-14", 2, "k"), stay("2026-09-28", 2, "k")]).everyWeeks).toBe(1);
+  });
+
+  it("is weekly when the stays are further apart than a cadence", () => {
+    expect(cadenceOf([stay("2026-07-06", 2, "k"), stay("2026-09-07", 2, "k")]).everyWeeks).toBe(1);
   });
 });
