@@ -126,6 +126,16 @@ const GuestReviewForm = ({
   );
 
   const mine = entries.filter((e) => e.roomId === roomId);
+  // A search reaches every room (host, 2026-10-15): it had to be started from
+  // the right room's tab, so finding a review meant knowing up front which room
+  // it was about. The server always searched the whole house; the other rooms'
+  // matches were simply dropped here. They list after this room's, each with
+  // its badge. Without a search the tab is this room's reviews alone.
+  const others = search.trim() ? entries.filter((e) => e.roomId !== roomId) : [];
+  const roomOf = (id: string) => {
+    const r = rooms.find((x) => x.roomId === id);
+    return r ? { name: r.name, color: r.color || undefined } : undefined;
+  };
 
   // The stay the review is about, looked up in the bookings as soon as there is
   // a name and a month — the host used to find it on the calendar and type it
@@ -201,6 +211,9 @@ const GuestReviewForm = ({
   // (host, 2026-10-10: "this form is redundant").
   const startEdit = (full: ReviewEntryFull) => {
     setEditingId(full.id);
+    // The review's OWN room — a search can open one from another room, and the
+    // pop-up's badge, Airbnb link and stay lookup must all be that room's.
+    setTargetRoomId(full.roomId || roomId);
     setGuestName(full.guestName);
     // The date on record is the host's (or the backfill's): kept, never
     // replaced by the lookup. Empty, the lookup may fill it.
@@ -330,7 +343,7 @@ const GuestReviewForm = ({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search reviews"
-            aria-label={`Search ${roomName}'s reviews by name, word or month`}
+            aria-label="Search every room's reviews by name, word or month"
             // 16px: below that, iOS Safari zooms the page in on focus.
             className="w-full rounded-lg border border-gray-200 py-2 pl-9 pr-3 text-[16px] focus:border-gray-400 focus:outline-none sm:text-sm"
           />
@@ -348,8 +361,8 @@ const GuestReviewForm = ({
           + Add
         </button>
       </div>
-      {search.trim() && mine.length > 0 && (
-        <p className="mt-1.5 text-sm font-semibold text-gray-800">Found: {mine.length}</p>
+      {search.trim() && mine.length + others.length > 0 && (
+        <p className="mt-1.5 text-sm font-semibold text-gray-800">Found: {mine.length + others.length}</p>
       )}
       {note && !formOpen && (
         <p role="status" className="mt-1.5 text-xs font-medium text-teal-700">
@@ -358,7 +371,11 @@ const GuestReviewForm = ({
       )}
       <p className="mt-1.5 text-[11px] text-gray-400">Tap a review to edit · swipe it left to delete</p>
       {search.trim() && mine.length === 0 && (
-        <p className="mt-2 text-sm text-gray-500">No review of {roomName} has all of those words.</p>
+        <p className="mt-2 text-sm text-gray-500">
+          {others.length > 0
+            ? `None of ${roomName}'s — these are from the other rooms.`
+            : "No review in any room has all of those words."}
+        </p>
       )}
       {!search.trim() && mine.length === 0 && (
         <p className="mt-2 text-sm text-gray-500">No reviews of {roomName} yet. Tap Add to put the first one in.</p>
@@ -379,6 +396,28 @@ const GuestReviewForm = ({
           />
         ))}
       </ul>
+      {others.length > 0 && (
+        <>
+          {mine.length > 0 && (
+            <p className="mt-3 border-t border-gray-100 pt-2 text-sm font-semibold text-gray-800">In other rooms: {others.length}</p>
+          )}
+          <ul className="mt-1 divide-y divide-gray-100">
+            {others.map((e) => (
+              <ReviewEntryItem
+                key={`${e.id}|${e.guestName}|${e.stars}|${e.stayDate}|${e.reviewMonth}|${e.snippet}`}
+                entry={e}
+                room={roomOf(e.roomId)}
+                onEdit={startEdit}
+                onDeleted={() => {
+                  if (e.id === editingId) clearForm();
+                  loadEntries();
+                  onAdded();
+                }}
+              />
+            ))}
+          </ul>
+        </>
+      )}
 
       {formOpen &&
         createPortal(
@@ -404,7 +443,7 @@ const GuestReviewForm = ({
                       ? `Edit ${guestName.trim() ? `${guestName.trim().split(/\s+/)[0]}'s` : "this"} review of`
                       : "Add a review of"}
                     {editingId || rooms.length < 2 ? (
-                      <RoomBadge room={{ name: roomName, color: roomColor || undefined }} className="text-sm font-semibold" />
+                      <RoomBadge room={{ name: target.name, color: target.color || undefined }} className="text-sm font-semibold" />
                     ) : (
                       // A NEW review can go to any room: a dropdown of the room
                       // badges, as the window's own picker (host, 2026-10-10:
@@ -459,13 +498,13 @@ const GuestReviewForm = ({
                         here so I can quickly go and copy the review"). The room
                         picked, or an edited review's own room. */}
                     {(() => {
-                      const url = editingId ? rooms.find((r) => r.roomId === roomId)?.airbnbUrl : target.airbnbUrl;
+                      const url = target.airbnbUrl;
                       return url ? (
                         <a
                           href={url}
                           target="_blank"
                           rel="noreferrer"
-                          title={`Open ${editingId ? roomName : target.name}'s listing on Airbnb`}
+                          title={`Open ${target.name}'s listing on Airbnb`}
                           className="shrink-0 rounded-full bg-[#FF5A5F] px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-white transition hover:brightness-110 active:brightness-95"
                         >
                           Airbnb ↗
