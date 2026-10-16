@@ -835,8 +835,11 @@ const TiWork = () => {
                             {/* How far off, not just that it is: "coming up"
                                 said nothing the date did not (host,
                                 2026-10-15). Both are yyyy-MM-dd days, so no
-                                timezone gets between them. */}
-                            <span className="text-sm italic text-gray-400">
+                                timezone gets between them. Red and bold:
+                                in grey italic it read as switched off, when it
+                                is the one thing on the line that is about to
+                                need them (host, 2026-10-16). */}
+                            <span className="text-sm font-bold text-red-600">
                               {(() => {
                                 const n = differenceInCalendarDays(parseISO(sh.date), parseISO(todayKey));
                                 return n === 1 ? "tomorrow" : `in ${n} days`;
