@@ -62,6 +62,11 @@ const heldNightsOf = (requests: any[] | undefined) => {
   return map;
 };
 
+// How much of the calendar shows under a header taller than the screen before
+// the header holds still: the grip and the month's name, so the guest can see
+// there is a calendar to pull up over it.
+const CAL_PEEK_PX = 72;
+
 const TiBookInner = () => {
   const { theme, vibe, layout, setLook } = useTiBookTheme();
   useEffect(() => { document.title = "TiBook"; }, []);
@@ -128,6 +133,49 @@ const TiBookInner = () => {
   };
   const collapseCal = () => {
     if (headerRef.current) window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  // The grip is a DRAG again, on top of the page scroll. When the page began
+  // scrolling (d32da58) the grip became a tap, and pulling on it was just an
+  // ordinary swipe: the calendar coasted on the phone's momentum and stopped
+  // wherever it ran out, half open, with nothing settling it — the smooth
+  // pull-to-expand the grip had always given was gone (Anh-Tri, 2026-10-16).
+  // Now the page follows the finger on the grip, 1:1, and on release it glides
+  // the rest of the way, open or shut — a flick decides, otherwise whichever
+  // side of halfway it was let go. It drives window.scrollTo, so the page is
+  // still what scrolls; a swipe anywhere else is the browser's own and still
+  // slides the address bar away. A press that never moves is the old tap.
+  const gripRef = useRef<{ y: number; start: number; moved: boolean; lastY: number; lastT: number; v: number } | null>(null);
+  const onGripDown = (e: React.PointerEvent) => {
+    if (!headerRef.current) return;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    gripRef.current = { y: e.clientY, start: window.scrollY, moved: false, lastY: e.clientY, lastT: e.timeStamp, v: 0 };
+  };
+  const onGripMove = (e: React.PointerEvent) => {
+    const g = gripRef.current;
+    if (!g) return;
+    const dy = g.y - e.clientY; // pulled up => positive => opens
+    if (Math.abs(dy) > 4) g.moved = true;
+    const dt = e.timeStamp - g.lastT;
+    // Upward speed in px/ms, smoothed over the last few moves so one jittery
+    // sample at release cannot flip the snap.
+    if (dt > 0) g.v = 0.6 * ((g.lastY - e.clientY) / dt) + 0.4 * g.v;
+    g.lastY = e.clientY;
+    g.lastT = e.timeStamp;
+    if (g.moved) window.scrollTo(0, Math.max(0, Math.min(Math.max(headerH, g.start), g.start + dy)));
+  };
+  const onGripUp = () => {
+    const g = gripRef.current;
+    gripRef.current = null;
+    if (!g) return;
+    if (!g.moved) {
+      if (isSelecting) collapseCal();
+      else expandCal();
+      return;
+    }
+    if (g.v > 0.3) expandCal();
+    else if (g.v < -0.3) collapseCal();
+    else if (window.scrollY > headerH / 2) expandCal();
+    else collapseCal();
   };
   const [wishListDates, setWishListDates] = useState<Set<string>>(new Set());
   const [persistedWishListDates, setPersistedWishListDates] = useState<Set<string>>(new Set());
@@ -1271,9 +1319,24 @@ const TiBookInner = () => {
           a phone's browser does not count as the page scrolling, so it never
           hid its address bar. */}
       <div className="flex flex-col">
-        {/* Header stack — host banner + room filter. Swiping up scrolls it off
-            the top of the page, and the calendar below fills the screen. */}
-        <div ref={headerRef} className="shrink-0">
+        {/* Header stack — host banner + room filter. It STAYS PUT while the
+            calendar slides up over it as a layer (Anh-Tri, 2026-10-16): with
+            the page scrolling, the header used to scroll off the top with the
+            calendar beneath it, which read as one long page moving rather
+            than a calendar opening over the house. Sticky rather than fixed,
+            so the page is still what scrolls and a phone's browser still
+            slides its address bar away.
+            Pinned under the nav when it fits. On a phone it usually does not
+            — banner, facts and rooms are taller than the screen — so `top`
+            goes negative: the header scrolls normally until its bottom (plus
+            a peek of the calendar's grip and month) is on screen, and only
+            then holds still for the calendar to cover it. A plain top: navH
+            there would have left the rooms forever below the fold. */}
+        <div
+          ref={headerRef}
+          className="sticky shrink-0"
+          style={{ top: `min(${navH}px, calc(100dvh - ${headerH + selectionBarH + CAL_PEEK_PX}px))` }}
+        >
           {currentHost && (
             <HostProfileBanner
               host={currentHost}
@@ -1324,14 +1387,24 @@ const TiBookInner = () => {
             // scrolls further.
             style={{ height: `max(26rem, calc(100dvh - ${navH + selectionBarH}px))` }}
           >
-            {/* The grip, now a tap: swiping is the page's own scroll. It was a
-                drag handle (touch-none), and a drag that started on it could not
-                scroll the page — so it opens or closes the calendar instead. */}
+            {/* The grip: pull it and the calendar follows the finger, then
+                glides open or shut (see onGripDown). touch-none so the browser
+                hands the pull to us rather than scrolling with momentum; the
+                rest of the page still scrolls natively. */}
             <button
               type="button"
               aria-label={isSelecting ? "Show the rooms" : "Open the calendar"}
-              className={`flex shrink-0 select-none items-center justify-center pb-1 pt-1.5 ${theme.chrome}`}
-              onClick={isSelecting ? collapseCal : expandCal}
+              className={`flex shrink-0 cursor-ns-resize touch-none select-none items-center justify-center pb-1 pt-1.5 ${theme.chrome}`}
+              onPointerDown={onGripDown}
+              onPointerMove={onGripMove}
+              onPointerUp={onGripUp}
+              onPointerCancel={onGripUp}
+              // A pointer press is handled on pointerup; this is the keyboard's.
+              onClick={(e) => {
+                if (e.detail !== 0) return;
+                if (isSelecting) collapseCal();
+                else expandCal();
+              }}
             >
               <span className={`h-1.5 w-10 rounded-full ${theme.handle}`} />
             </button>
@@ -1387,6 +1460,7 @@ const TiBookInner = () => {
                 scrollToTodayTrigger={scrollToTodayTrigger}
                 scrollToMonthTrigger={scrollToMonthTrigger ?? undefined}
                 simplified={!isSelecting}
+                holidayBottom={`${selectionBarH}px`}
                 onMonthChange={setCurrentMonth}
                 onDateClick={toggleCartDate}
                 onWishListClick={handleWishListClick}

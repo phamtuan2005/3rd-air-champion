@@ -10,6 +10,7 @@ import type { GuestCalendarProps } from "./GuestCalendar";
 import { MONTHS_FORWARD, appliedMonthTrigger, HOLD_HATCH, HOLD_HATCH_TILE } from "./calendarScroll";
 import { dayListMonths } from "../../../util/dayListMonths";
 import { holidayLabel, usHolidayOn } from "../../../util/usHolidays";
+import MonthHolidayLine from "./MonthHolidayLine";
 
 /*
  * The calendar as a list: one row per night, the grid's months top to
@@ -651,6 +652,7 @@ const GuestDayList = ({
   onMyStayClick,
   onMyStayDetails,
   onReservedClick,
+  holidayBottom,
 }: GuestCalendarProps) => {
   const { theme } = useTiBookTheme();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -819,6 +821,7 @@ const GuestDayList = ({
   };
 
   return (
+    <div className="flex flex-1 min-h-0 flex-col">
     <div
       ref={scrollRef}
       // overscroll-contain for the same reason as the grid: reaching the end
@@ -870,6 +873,9 @@ const GuestDayList = ({
           />
         ))}
       </div>
+    </div>
+    {/* The month the guest is reading, the one onMonthChange reports. */}
+    <MonthHolidayLine month={sections[shownIdx]?.month} bottom={holidayBottom} />
     </div>
   );
 };

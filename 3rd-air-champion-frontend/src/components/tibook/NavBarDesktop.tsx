@@ -133,20 +133,32 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
                 )}
               </>
             ) : (
-              "Your bookings"
+              // In a span that truncates. Bare text in a min-w-0 button did not
+              // give way: squeezed, the button shrank and the words ran on out
+              // of its pill and over Home (Anh-Tri, 2026-10-16).
+              <span className="min-w-0 truncate">Your bookings</span>
             )}
           </button>
         )}
         {onBack ? (
+          // Just the house on a phone. With the calendar expanded this bar also
+          // carries the faces and the house name, and with no guest signed in
+          // the "Your bookings" pill has no name to shorten to — the bar is
+          // about 30px too narrow for all of it, and "Your bookings" ran over
+          // Home (Anh-Tri, 2026-10-16). A house icon is Home without the word;
+          // the guest's own bookings pill keeps its words. shrink-0 so the
+          // bookings pill is what gives way if anything still must.
           <button
             type="button"
             onClick={onBack}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-colors ${theme.chromeBorder} ${theme.chromeMuted} ${theme.chromeHover}`}
+            aria-label="Home"
+            title="Home"
+            className={`flex shrink-0 items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full border text-xs font-semibold transition-colors ${theme.chromeBorder} ${theme.chromeMuted} ${theme.chromeHover}`}
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+            <svg className="w-4 h-4 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
             </svg>
-            Home
+            <span className="hidden sm:inline">Home</span>
           </button>
         ) : (
           <AppearanceMenu />

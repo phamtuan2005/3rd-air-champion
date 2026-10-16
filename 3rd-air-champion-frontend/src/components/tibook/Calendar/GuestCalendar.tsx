@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "../../../styles/calendarStyle.css";
 import { addDays, format, getDay, isSameDay, isSameMonth, parseISO, startOfToday } from "date-fns";
-import { holidayLabel, usHolidayOn, usHolidaysInMonth } from "../../../util/usHolidays";
+import { holidayLabel, usHolidayOn } from "../../../util/usHolidays";
+import MonthHolidayLine from "./MonthHolidayLine";
 import { dayType } from "../../../util/types/dayType";
 import { roomType } from "../../../util/types/roomType";
 import { getRoomColor } from "../../../util/getRoomColor";
@@ -52,6 +53,10 @@ export interface GuestCalendarProps {
   // The month grid a size up. Only the Hero layout asks for it — see the note
   // on the type formulas below for why the classic layout does not.
   largeType?: boolean;
+  // Where the holiday line pins itself on screen: the height of whatever
+  // sticks to the bottom of the page under the calendar (the selection bar,
+  // Hero's bottom bar). See the line itself for why it pins.
+  holidayBottom?: string;
 }
 
 const NUM_ROWS = 6;
@@ -206,6 +211,7 @@ const MonthGrid = ({
   onMyStayClick,
   onReservedClick,
   largeType = false,
+  holidayBottom = "0px",
 }: GuestCalendarProps) => {
   const { theme } = useTiBookTheme();
   const roomChip = useRoomChip();
@@ -796,7 +802,6 @@ const MonthGrid = ({
   // went, the grid below would change height as the guest paged, and every
   // row would resize under their thumb.
   const shownMonth = pageLayouts[visibleIndex]?.month;
-  const monthHolidays = shownMonth ? usHolidaysInMonth(shownMonth.getFullYear(), shownMonth.getMonth()) : [];
 
   return (
     <div className="flex flex-1 min-h-0 flex-col">
@@ -838,26 +843,7 @@ const MonthGrid = ({
         );
       })}
     </div>
-    {/* No banner at all for a month without a holiday. It used to print "No US
-        federal holidays in August", a whole row spent saying nothing; the grid
-        takes the room instead. */}
-    {shownMonth && monthHolidays.length > 0 && (
-      <div
-        className={`flex h-6 shrink-0 items-center gap-1.5 overflow-x-auto overflow-y-hidden whitespace-nowrap border-t px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden text-[12px] leading-none ${theme.gridLine} ${theme.surfaceMuted}`}
-      >
-        {/* The line swipes sideways instead of clipping at "…". A month with
-            three holidays is longer than a phone is wide, and the ones past the
-            edge were unreadable — only the first could be seen.
-            Every holiday opens with its own bullet, in the same text as the
-            line. A drawn dot before the first and a typed "•" between the rest
-            came out two sizes, so one bullet does both jobs now. */}
-        <span className={`shrink-0 whitespace-pre font-semibold ${theme.alertText}`}>
-          {monthHolidays
-            .map(({ key, holiday }) => `• ${format(parseISO(key), "EEE MMM d")} – ${holidayLabel(holiday)}`)
-            .join("  ")}
-        </span>
-      </div>
-    )}
+    <MonthHolidayLine month={shownMonth} bottom={holidayBottom} />
     </div>
   );
 };
