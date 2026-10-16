@@ -1456,27 +1456,34 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
           );
           const chipClass =
             "rounded-md border border-dashed border-fuchsia-300 bg-fuchsia-50 px-2 py-1 text-left text-[13px] font-semibold text-fuchsia-700";
-          // Tapped, the window is about this extra alone.
+          // Tapped, the window is about this extra alone. Swiped left, it
+          // shows Delete, which asks before it takes the job off the visit —
+          // the window's red "Remove from this visit" button was one more
+          // thing in it, and every other row in TiMag deletes by the swipe
+          // (host, 2026-10-15).
+          const open = (removing: boolean) => {
+            // A job taken off the list is still on the visits it was on;
+            // its name comes from the visit then.
+            setExtraTarget({ cleaner, date, job: jobs.find((j) => j.id === e.job) ?? { id: e.job, name: e.name } });
+            setManageJobs(false);
+            setRemovingJob(null);
+            setRemovingExtra(removing);
+            setRenameDraft(null);
+            setRenameError("");
+            setNoteDraft({});
+          };
+          // min-w: the 72px Delete behind a chip as short as "+ Hall" would not fit.
           return editable ? (
-            <button
-              key={e.id}
-              type="button"
-              onClick={() => {
-                // A job taken off the list is still on the visits it was on;
-                // its name comes from the visit then.
-                setExtraTarget({ cleaner, date, job: jobs.find((j) => j.id === e.job) ?? { id: e.job, name: e.name } });
-                setManageJobs(false);
-                setRemovingJob(null);
-                setRemovingExtra(false);
-                setRenameDraft(null);
-                setRenameError("");
-                setNoteDraft({});
-              }}
-              title={`Change ${e.name} on this visit`}
-              className={`${chipClass} transition-colors hover:border-fuchsia-400 hover:bg-fuchsia-100`}
-            >
-              {chip}
-            </button>
+            <SwipeToDelete key={e.id} className="min-w-[96px] rounded-md" onDelete={() => open(true)}>
+              <button
+                type="button"
+                onClick={() => open(false)}
+                title={`Change ${e.name} on this visit`}
+                className={`${chipClass} block w-full transition-colors hover:border-fuchsia-400 hover:bg-fuchsia-100`}
+              >
+                {chip}
+              </button>
+            </SwipeToDelete>
           ) : (
             <span key={e.id} title={e.note ? `${e.name} — ${e.note}` : e.name} className={chipClass}>
               {chip}
@@ -4144,29 +4151,68 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
             onClick={(e) => e.stopPropagation()}
           >
             {extraTarget.job ? (
-              // ── One extra, tapped on its chip: its note, or off the visit ──
+              // ── One extra: tapped on its chip (its name and note), or swiped
+              // and Delete tapped (the confirm, alone) ──
               (() => {
                 const job = extraTarget.job;
                 const onVisit = extrasOf(extraTarget.cleaner.id, extraTarget.date).find((e) => e.job === job.id);
-                return (
-                  <>
-                    {renameDraft === null ? (
-                      <div className="flex items-baseline justify-between gap-2">
-                        <p className="min-w-0 text-sm font-bold text-fuchsia-700">+ {job.name}</p>
-                        {/* A typo in the name is fixed here, not by adding the
-                            job again under the right spelling (host, 2026-10-15). */}
+                const who = extraTarget.cleaner.name.split(" ")[0];
+                const visitLine = (
+                  <p className="mb-3 text-sm text-gray-500">
+                    {who} · {format(new Date(extraTarget.date + "T00:00:00"), "EEE, MMM d")}
+                  </p>
+                );
+                if (removingExtra) {
+                  return (
+                    <>
+                      <p className="text-sm font-bold text-fuchsia-700">+ {job.name}</p>
+                      {visitLine}
+                      <p className="text-sm text-gray-800">Take {job.name} off {who}'s visit? The job stays on the list.</p>
+                      <div className="mt-3 flex justify-end gap-2">
                         <button
                           type="button"
                           onClick={() => {
-                            setRenameDraft(job.name);
-                            setRenameError("");
                             setRemovingExtra(false);
+                            setExtraTarget(null);
                           }}
-                          className="shrink-0 text-xs font-semibold text-gray-500 hover:text-gray-700"
+                          className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700"
                         >
-                          Rename
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await toggleExtra(extraTarget.cleaner, extraTarget.date, job, false);
+                            setRemovingExtra(false);
+                            setExtraTarget(null);
+                          }}
+                          className={DANGER_BUTTON}
+                        >
+                          Delete
                         </button>
                       </div>
+                    </>
+                  );
+                }
+                return (
+                  <>
+                    {renameDraft === null ? (
+                      // The name IS the way to rename it — a tap on the words,
+                      // not a "Rename" link beside them (host, 2026-10-15). A
+                      // typo is fixed here, not by adding the job again under
+                      // the right spelling. The dotted line says it can be
+                      // tapped.
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRenameDraft(job.name);
+                          setRenameError("");
+                        }}
+                        title="Tap to change the name"
+                        className="max-w-full text-left text-sm font-bold text-fuchsia-700 underline decoration-fuchsia-300 decoration-dotted underline-offset-4 hover:decoration-fuchsia-500"
+                      >
+                        + {job.name}
+                      </button>
                     ) : (
                       <div>
                         <div className="flex gap-2">
@@ -4195,68 +4241,27 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                         {renameError && <p className="mt-1 text-xs font-medium text-rose-600">{renameError}</p>}
                       </div>
                     )}
-                    <p className="mb-3 text-sm text-gray-500">
-                      {extraTarget.cleaner.name.split(" ")[0]} ·{" "}
-                      {format(new Date(extraTarget.date + "T00:00:00"), "EEE, MMM d")}
-                    </p>
+                    {visitLine}
                     {onVisit ? (
-                      <>
-                        <input
-                          autoFocus
-                          value={noteDraft[job.id] ?? onVisit.note ?? ""}
-                          onChange={(e) => setNoteDraft((d) => ({ ...d, [job.id]: e.target.value }))}
-                          onBlur={() => saveNote(extraTarget.cleaner, extraTarget.date, job)}
-                          onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-                          maxLength={120}
-                          placeholder="Where or what, for this visit — e.g. Cute & King"
-                          className="w-full rounded-md border border-fuchsia-200 bg-white px-2 py-1.5 text-[16px] focus:border-fuchsia-400 focus:outline-none sm:text-sm"
-                        />
-                        {removingExtra ? (
-                          <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-2.5 py-2 text-xs">
-                            <p className="text-gray-800">
-                              Take {job.name} off {extraTarget.cleaner.name.split(" ")[0]}'s visit? The job stays on the list.
-                            </p>
-                            <div className="mt-1.5 flex justify-end gap-2">
-                              <button
-                                type="button"
-                                onClick={() => setRemovingExtra(false)}
-                                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700"
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  await toggleExtra(extraTarget.cleaner, extraTarget.date, job, false);
-                                  setRemovingExtra(false);
-                                  setExtraTarget(null);
-                                }}
-                                className={DANGER_BUTTON}
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="mt-3 flex items-center justify-between">
-                            <button type="button" onClick={() => setRemovingExtra(true)} className={DANGER_BUTTON}>
-                              Remove from this visit
-                            </button>
-                            <button type="button" onClick={() => setExtraTarget(null)} className="text-sm font-semibold text-gray-700">
-                              Done
-                            </button>
-                          </div>
-                        )}
-                      </>
+                      <input
+                        autoFocus={renameDraft === null}
+                        value={noteDraft[job.id] ?? onVisit.note ?? ""}
+                        onChange={(e) => setNoteDraft((d) => ({ ...d, [job.id]: e.target.value }))}
+                        onBlur={() => saveNote(extraTarget.cleaner, extraTarget.date, job)}
+                        onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+                        maxLength={120}
+                        placeholder="Where or what, for this visit — e.g. Cute & King"
+                        className="w-full rounded-md border border-fuchsia-200 bg-white px-2 py-1.5 text-[16px] focus:border-fuchsia-400 focus:outline-none sm:text-sm"
+                      />
                     ) : (
                       // Taken off in the meantime (another device, or a reload).
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm text-gray-500">Not on this visit any more.</p>
-                        <button type="button" onClick={() => setExtraTarget(null)} className="text-sm font-semibold text-gray-700">
-                          Done
-                        </button>
-                      </div>
+                      <p className="text-sm text-gray-500">Not on this visit any more.</p>
                     )}
+                    <div className="mt-3 flex justify-end">
+                      <button type="button" onClick={() => setExtraTarget(null)} className="text-sm font-semibold text-gray-700">
+                        Done
+                      </button>
+                    </div>
                   </>
                 );
               })()
