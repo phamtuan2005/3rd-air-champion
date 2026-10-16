@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { DANGER_BUTTON, SWIPE_DELETE } from "../shared/dangerButton";
+import RoomBadge from "../shared/RoomBadge";
 import {
   cleanerLeadLine,
   deleteReviewEntry,
@@ -48,10 +49,15 @@ const dayLabel = (key: string) => {
 
 const ReviewEntryItem = ({
   entry,
+  room,
   onDeleted,
   onEdit,
 }: {
   entry: ReviewEntryRow;
+  // The review's room, as its badge — given only where the list mixes rooms
+  // (a search turns up reviews from every room, host 2026-10-15). In a room's
+  // own list the room is already named above it.
+  room?: { name: string; color?: string };
   onDeleted: () => void;
   // Hands the review to the add form above, which edits it in place of a new
   // one — every field, the stay lookup and the stars, with nothing doubled.
@@ -182,6 +188,7 @@ const ReviewEntryItem = ({
           }}
         >
           <p>
+            {room && <RoomBadge room={room} className="mr-1.5 text-sm font-semibold" />}
             <span className="text-lg font-semibold text-gray-900">{entry.guestName || "A guest"}</span>
             {entry.stars != null && <span className="text-amber-500"> · {"★".repeat(entry.stars)}</span>}
             {date && <span className="text-gray-500"> · {date}</span>}
