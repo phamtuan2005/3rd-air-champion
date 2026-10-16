@@ -30,11 +30,17 @@ import {
   fetchMyEntries,
   fetchMyPay,
   fetchMySchedule,
+  fetchMyReviews,
   markFeedbackSeen,
+  MyReviews,
   workSignIn,
 } from "../util/workOperations";
+import { PraiseBanner, ReviewQuote } from "../components/tiwork/GuestReviews";
 
 const CREDS_KEY = "tiWorkCreds";
+
+const NO_REVIEWS: MyReviews = { reviews: [], praise: null };
+const jobKey = (date: string, roomName: string) => `${date}|${roomName}`;
 
 // The house mark and the promise, as ONE thing.
 //
@@ -160,6 +166,19 @@ const TiWork = () => {
   // The month picked on the pay charts — both charts name the same month.
   const [chartMonth, setChartMonth] = useState("");
   const [pay, setPay] = useState<PaySummary | null>(null);
+  // Guests' reviews of rooms this cleaner prepared. Empty for office staff,
+  // and on any failure: a missing review is a card not shown, never an error
+  // on a screen people open to see today's rooms.
+  const [myReviews, setMyReviews] = useState<MyReviews>(NO_REVIEWS);
+  // The congratulation's button: to the Done tab, where each review sits under
+  // the room and morning it is about, and down to the first of them. After a
+  // frame, so the tab has rendered them to scroll to.
+  const readReviews = () => {
+    setShiftTab("done");
+    requestAnimationFrame(() =>
+      document.querySelector("[data-guest-review]")?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
+  };
   // How far back the history reaches. Not all time by default: someone two years
   // in would load hundreds of rows to check last week. Not three weeks either —
   // this is the tab people check their pay against, and a pay cycle is longer
@@ -237,6 +256,7 @@ const TiWork = () => {
           // "still to come" or year to date above it, and the two figures people
           // actually open TiWork for appeared only once they had typed hours.
           fetchMyPay(creds).then(setPay).catch(() => {}),
+          fetchMyReviews(creds).then(setMyReviews).catch(() => {}),
         ]);
       })
       .catch((err) => {
@@ -294,6 +314,8 @@ const TiWork = () => {
     setEntries([]);
     setShifts([]);
     setPay(null);
+    // Their reviews and congratulation are theirs too — see above.
+    setMyReviews(NO_REVIEWS);
     setShiftDraft({});
     setDraft({ date: todayKey, h: "", m: "", report: "", rooms: "" });
     setEditingId(null);
@@ -418,6 +440,16 @@ const TiWork = () => {
     () => shiftsDone.filter((sh) => sh.feedback?.isNew).map((sh) => sh.date),
     [shiftsDone],
   );
+  // Guests' reviews by cleaning JOB — the morning and the room — so each sits
+  // under the room it is about. Room names are unique per house.
+  const reviewsByJob = useMemo(() => {
+    const m = new Map<string, MyReviews["reviews"]>();
+    for (const r of myReviews.reviews) {
+      const k = jobKey(r.cleanDate, r.roomName);
+      m.set(k, [...(m.get(k) ?? []), r]);
+    }
+    return m;
+  }, [myReviews]);
   // Seen once the Done tab is on screen. The New badges stay up for this visit
   // to the page — they are what drew the eye — and are gone next time.
   const seenSent = useRef(new Set<string>());
@@ -683,6 +715,14 @@ const TiWork = () => {
       </div>
 
       <div className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-3 px-4 py-3">
+        {view === "work" && me.kind === "cleaner" && myReviews.praise && (
+          <PraiseBanner
+            praise={myReviews.praise}
+            firstName={me.name.trim().split(/\s+/)[0]}
+            onRead={readReviews}
+          />
+        )}
+
         {/* A cleaner's rota. Hours go against a turnover rather than a bare date:
             the host already knows which room was cleaned that morning, and
             asking someone to retype it invites a mismatch nobody can resolve
@@ -862,7 +902,8 @@ const TiWork = () => {
                           meet a grey one here. */}
                       <div className="flex flex-col gap-1">
                         {sh.rooms.map((r, i) => (
-                          <div key={`${r.name}-${i}`} className="flex items-center gap-2">
+                          <Fragment key={`${r.name}-${i}`}>
+                          <div className="flex items-center gap-2">
                             <RoomBadge room={{ name: r.name, color: r.color }} rooms={sh.rooms} />
                             {/* How many people arrive after this clean — asked
                                 for by a cleaner, who sets out beds and towels for
@@ -875,6 +916,19 @@ const TiWork = () => {
                             <GuestFigures n={r.guests ?? 0} />
                             <SofaBedTag on={r.sofaBed} />
                           </div>
+                          {/* What the guest who stayed after THIS clean of THIS
+                              room said — under the room, not under the day. Hung
+                              off the visit as a whole, a two-room morning showed
+                              both reviews in a pile and the cleaner could not
+                              tell which room each was about (Anh-Tri,
+                              2026-10-16: "for each cleaning job … display the
+                              review if there is any"). */}
+                          {(reviewsByJob.get(jobKey(sh.date, r.name)) ?? []).map((rv) => (
+                            <div key={rv.id} data-guest-review className="scroll-mt-24 pl-2">
+                              <ReviewQuote review={rv} />
+                            </div>
+                          ))}
+                          </Fragment>
                         ))}
                         {/* Extra jobs on top of the rooms, each on its own line
                             like a room, with a bold violet "+" badge. A plain
@@ -1012,7 +1066,6 @@ const TiWork = () => {
             )}
           </div>
         )}
-
         {/* Pay — the host's Pay tab, from the worker's side.
             Deliberately the same layout and the same words: the two of them read
             these numbers to each other, and a figure that looks different on the

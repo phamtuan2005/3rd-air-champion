@@ -25,6 +25,29 @@ export interface CleanerLead {
   basis: LeadBasis;
 }
 
+// The ONE clean that prepared a room for a stay starting on `stayDate`, out of
+// the rota (findAssignments rows). Shared by TiMag's leads below and TiWork's
+// "reviews of rooms you cleaned" (cleanerReviews.ts), so the host and the
+// cleaner are never told two different people prepared the same stay.
+//
+// ONE cleaning prepares a room for a stay: the latest on or before the night it
+// starts. The window reaches back to the night before (a room can be cleaned
+// the day ahead), so it also caught the previous guest's turnover — Han's Sep
+// 29 stay read "prepared by Thalia, Henry" when Thalia's Sep 28 clean was for
+// the guest before (host, 2026-10-10: "each room was assigned to a single
+// cleaner"). Newest first, take one. A row with no cleaner on it is not a clean.
+export const preparingClean = <A extends { room?: any; date: string; cleaner?: any }>(
+  rota: A[],
+  room: string,
+  stayDate: string,
+): A | undefined => {
+  const w = cleaningWindow({ stayDate, reviewMonth: "" });
+  if (!w) return undefined;
+  return rota
+    .filter((a) => String(a.room?._id ?? a.room) === String(room) && a.date >= w.start && a.date <= w.end && a.cleaner)
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
+};
+
 export const cleanerLeads = async (
   hostId: string,
   rows: { room: string; stayDate?: string; reviewMonth?: string }[],
@@ -46,13 +69,7 @@ export const cleanerLeads = async (
       .filter((a) => String(a.room?._id ?? a.room) === String(r.room) && a.date >= w.start && a.date <= w.end)
       .filter((a) => a.cleaner?.name);
     if (r.stayDate) {
-      // ONE cleaning prepares a room for a stay: the latest on or before the
-      // night it starts. The window reaches back to the night before (a room
-      // can be cleaned the day ahead), so it also caught the previous guest's
-      // turnover — Han's Sep 29 stay read "prepared by Thalia, Henry" when
-      // Thalia's Sep 28 clean was for the guest before (host, 2026-10-10:
-      // "each room was assigned to a single cleaner"). Newest first, take one.
-      const latest = [...inWindow].sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
+      const latest = preparingClean(inWindow, r.room, r.stayDate);
       return { cleaners: latest ? [String(latest.cleaner.name)] : [], basis: "night" };
     }
     // Month only: everyone who cleaned the room that month — the line says so.

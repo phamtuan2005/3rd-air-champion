@@ -233,6 +233,44 @@ export const replyToFeedback = async (creds: WorkCreds, date: string, text: stri
   }
 };
 
+// A guest's review of a stay this cleaner prepared — 4-5 stars, about the
+// cleaning work, dated to the morning they cleaned the room. Which reviews,
+// and why only those, is decided on the server (util/cleanerReviews.ts in the
+// backend).
+export interface CleanerReview {
+  id: string;
+  cleanDate: string; // yyyy-MM-dd, the morning they cleaned
+  stayDate: string; // yyyy-MM-dd, the night the guest arrived
+  roomName: string;
+  roomColor: string;
+  guestFirstName: string;
+  stars: number;
+  text: string;
+  // The words, as written in `text`, that make it about the work.
+  workWords: string[];
+}
+
+// Present when there has been a run of good reviews lately — the server's call.
+export interface CleanerPraise {
+  count: number;
+  fiveStars: number;
+  days: number;
+}
+
+export interface MyReviews {
+  reviews: CleanerReview[];
+  praise: CleanerPraise | null;
+}
+
+export const fetchMyReviews = async (creds: WorkCreds): Promise<MyReviews> => {
+  try {
+    const res = await axios.post(`${BACKEND_ENDPOINT}/work/reviews`, creds);
+    return { reviews: res.data?.reviews ?? [], praise: res.data?.praise ?? null };
+  } catch (err) {
+    throw unwrap(err, "Couldn't load the guest reviews.");
+  }
+};
+
 // The worker has read the house's feedback on these days, so it stops showing
 // as New next time. Best effort: failing only means it reads New once more.
 export const markFeedbackSeen = async (creds: WorkCreds, dates: string[]): Promise<void> => {
