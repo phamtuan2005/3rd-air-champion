@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nightsPhrase } from "./UsualStayCard";
+import { everyPhrase, nightsPhrase } from "./UsualStayCard";
 
 // How TiBook says a regular's nights to them. Written after "Tue → Thu, 2
 // nights and Wednesday night" — two patterns in program terms — which a guest
@@ -23,5 +23,16 @@ describe("nightsPhrase", () => {
   });
   it("puts the week in order from Monday, Sunday last", () => {
     expect(nightsPhrase([h(5, 3)])).toBe("Friday through Sunday nights");
+  });
+});
+
+describe("everyPhrase", () => {
+  it("says every other week for a fortnightly guest, and nothing for a weekly one", () => {
+    const h = (everyWeeks?: number) => ({ startWeekday: 5, nights: 3, rooms: [], times: 3, everyWeeks });
+    expect(everyPhrase([h(2)])).toBe(" every other week");
+    expect(everyPhrase([h(1)])).toBe("");
+    expect(everyPhrase([h()])).toBe("");
+    // Two habits that disagree: no promise either way.
+    expect(everyPhrase([h(2), h(1)])).toBe("");
   });
 });
