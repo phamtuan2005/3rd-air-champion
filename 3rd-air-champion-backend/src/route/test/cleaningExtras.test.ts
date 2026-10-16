@@ -48,6 +48,38 @@ describe("the list of extra jobs", () => {
   });
 });
 
+describe("renaming a job — a typo put right (host, 2026-10-15)", () => {
+  it("renames it on the list and on every visit it is on", async () => {
+    const h = host();
+    const henry = await cleaner(h, "Henry");
+    await request(app).post("/cleaner/assign").send({ host: h, date: "2026-10-10", room: room(), cleaner: henry });
+    await request(app).post("/cleaner/assign").send({ host: h, date: "2026-10-17", room: room(), cleaner: henry });
+    const f = await job(h, "Clean flor");
+    await request(app).post("/cleaner/extras/toggle").send({ host: h, date: "2026-10-10", cleaner: henry, job: f.id, on: true, note: "Cute" });
+    await toggle(h, "2026-10-17", henry, f.id, true);
+    const r = await request(app).patch(`/cleaner/jobs/${f.id}`).send({ host: h, name: " Clean  floor " });
+    expect(r.body).toEqual({ id: f.id, name: "Clean floor", visits: 2 });
+    const extras = await request(app).get(`/cleaner/extras?host=${h}&start=2026-10-01&end=2026-10-31`);
+    expect(extras.body.map((e: any) => [e.name, e.note])).toEqual([["Clean floor", "Cute"], ["Clean floor", ""]]);
+    // Typed again, the new name is the same job.
+    expect((await job(h, "clean floor")).id).toBe(f.id);
+  });
+
+  it("refuses a name another job already has", async () => {
+    const h = host();
+    await job(h, "Windows");
+    const b = await job(h, "Baseboard");
+    const r = await request(app).patch(`/cleaner/jobs/${b.id}`).send({ host: h, name: "windows" });
+    expect(r.status).toBe(409);
+    expect(r.body.error).toMatch(/already a job called Windows/);
+  });
+
+  it("will not rename another host's job", async () => {
+    const w = await job(host(), "Windows");
+    expect((await request(app).patch(`/cleaner/jobs/${w.id}`).send({ host: host(), name: "Doors" })).status).toBe(404);
+  });
+});
+
 describe("extra jobs on a visit", () => {
   it("goes on only a visit with rooms, and comes off again", async () => {
     const h = host();

@@ -271,6 +271,18 @@ export const deleteCleaningJob = async (hostId: string, id: string, token: strin
   await axios.delete(`${BACKEND_ENDPOINT}/cleaner/jobs/${id}`, { params: { host: hostId }, ...auth(token) });
 };
 
+// A typo put right: the job on the list and on every visit it is on. 409 when
+// another job already has the name.
+export const renameCleaningJob = async (
+  hostId: string,
+  id: string,
+  name: string,
+  token: string,
+): Promise<{ id: string; name: string; visits: number }> => {
+  const response = await axios.patch(`${BACKEND_ENDPOINT}/cleaner/jobs/${id}`, { host: hostId, name }, auth(token));
+  return response.data;
+};
+
 export const fetchCleaningExtras = async (
   hostId: string,
   start: string,
