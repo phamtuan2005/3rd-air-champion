@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { addDays, format, parseISO, startOfToday } from "date-fns";
+import { addDays, differenceInCalendarDays, format, parseISO, startOfToday } from "date-fns";
 import {
   FaChevronDown,
   FaRegCalendarAlt,
@@ -831,7 +831,16 @@ const TiWork = () => {
                         ) : upcoming ? (
                           <>
                             <span className="text-gray-300">&middot;</span>
-                            <span className="text-sm italic text-gray-400">coming up</span>
+                            {/* How far off, not just that it is: "coming up"
+                                said nothing the date did not (host,
+                                2026-10-15). Both are yyyy-MM-dd days, so no
+                                timezone gets between them. */}
+                            <span className="text-sm italic text-gray-400">
+                              {(() => {
+                                const n = differenceInCalendarDays(parseISO(sh.date), parseISO(todayKey));
+                                return n === 1 ? "tomorrow" : `in ${n} days`;
+                              })()}
+                            </span>
                           </>
                         ) : null}
                       </div>
