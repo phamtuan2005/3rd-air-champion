@@ -6,6 +6,9 @@ import WorkEntry from "../model/workEntrySchema";
 import { findAssignments } from "../util/assignmentQuery";
 import CleaningExtra from "../model/cleaningExtraSchema";
 import CleaningFeedback from "../model/cleaningFeedbackSchema";
+import TTReviewEntry from "../model/ttReviewEntrySchema";
+import { ROTA_STARTS } from "../util/reviewCleaners";
+import { POSITIVE_STARS, praiseFor, reviewsForCleaner } from "../util/cleanerReviews";
 import { monthlyPayHistory } from "../util/monthlyPay";
 import { computeCleanerPay } from "../util/cleanerPay";
 import { arrivingNeeds } from "../util/arrivingGuests";
@@ -475,6 +478,57 @@ router.post("/feedback/reply", async (req: Request, res: any) => {
     ).lean();
     if (!row) return res.status(404).json({ error: "There is no feedback on that visit to reply to." });
     res.status(200).json({ reply: row.reply ?? "" });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// What guests said about the rooms this cleaner prepared, and a congratulation
+// when there has been a run of good ones. The rules — which reviews, which
+// clean, how much a guest's name is shown — are in util/cleanerReviews.ts.
+//
+// Only their OWN: the cleaner is who signed in, never anything the body names.
+// The review records themselves are manager-only (ttHostRoute sits behind
+// requireManager); this hands a cleaner the few fields of the few reviews that
+// are about their work, and nothing else in the record.
+router.post("/reviews", async (req: Request, res: any) => {
+  try {
+    const who = await authenticate(req.body?.identifier, req.body?.code);
+    if (!who) return res.status(401).json({ error: "Not signed in." });
+    // Office staff prepare no rooms, so no review is theirs.
+    if (who.kind !== "cleaner") return res.status(200).json({ reviews: [], praise: null });
+    const rows: any[] = await TTReviewEntry.find({
+      host: who.doc.host,
+      stayDate: { $gte: ROTA_STARTS },
+      stars: { $gte: POSITIVE_STARS },
+    })
+      .select("room stayDate stars text guestName")
+      .lean();
+    const today = new Date().toISOString().slice(0, 10);
+    if (!rows.length) return res.status(200).json({ reviews: [], praise: null });
+    // The whole rota across those stays, EVERY cleaner's — preparingClean has
+    // to see a later clean by someone else to know the stay was not theirs.
+    const nights = rows.map((r) => String(r.stayDate)).sort();
+    const start = new Date(`${nights[0]}T00:00:00.000Z`);
+    start.setUTCDate(start.getUTCDate() - 1);
+    const rota = (await findAssignments({
+      host: who.doc.host,
+      start: start.toISOString().slice(0, 10),
+      end: nights[nights.length - 1],
+    }).lean()) as any[];
+    const reviews = reviewsForCleaner(
+      String(who.doc._id),
+      rows.map((r) => ({
+        id: String(r._id),
+        room: String(r.room),
+        stayDate: String(r.stayDate),
+        stars: r.stars ?? null,
+        text: String(r.text ?? ""),
+        guestName: String(r.guestName ?? ""),
+      })),
+      rota,
+    );
+    res.status(200).json({ reviews, praise: praiseFor(reviews, today) });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
