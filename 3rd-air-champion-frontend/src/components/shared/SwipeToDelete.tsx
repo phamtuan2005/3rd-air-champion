@@ -30,6 +30,11 @@ const SwipeToDelete = ({ children, onDelete, label = "Delete", className = "" }:
   const open = useRef(false);
   const startX = useRef<number | null>(null);
   const moved = useRef(false);
+  // A swipe, or a tap that only shuts an open row, is not a tap on what the
+  // row holds. The rows used to hold nothing tappable; an extra job's chip in
+  // Clean opens its window on a tap, and a swipe on it opened that too
+  // (2026-10-15).
+  const swallowClick = useRef(false);
 
   const settle = (isOpen: boolean) => {
     open.current = isOpen;
@@ -58,16 +63,26 @@ const SwipeToDelete = ({ children, onDelete, label = "Delete", className = "" }:
           transition: dragging ? "none" : "transform 160ms ease-out",
           touchAction: "pan-y",
         }}
+        onClickCapture={(e) => {
+          if (!swallowClick.current) return;
+          swallowClick.current = false;
+          e.stopPropagation();
+          e.preventDefault();
+        }}
         onPointerDown={(e) => {
           startX.current = e.clientX;
           moved.current = false;
+          swallowClick.current = open.current;
           setDragging(true);
           (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
         }}
         onPointerMove={(e) => {
           if (startX.current === null) return;
           const d = e.clientX - startX.current + (open.current ? -REVEAL : 0);
-          if (Math.abs(e.clientX - startX.current) > SLOP) moved.current = true;
+          if (Math.abs(e.clientX - startX.current) > SLOP) {
+            moved.current = true;
+            swallowClick.current = true;
+          }
           setDx(Math.max(-REVEAL, Math.min(0, d)));
         }}
         onPointerUp={() => {
