@@ -89,3 +89,56 @@ describe("feedback on a cleaner's visit", () => {
     expect((await henrysDay()).feedback.verdict).toBe("");
   });
 });
+
+// The cleaner answers the house's feedback from TiWork (host, 2026-10-15).
+describe("a cleaner's reply to the feedback", () => {
+  const reply = (identifier: string, code: string, text: string, date = DAY) =>
+    request(app).post("/work/feedback/reply").send({ identifier, code, date, text });
+  const hostsView = async (host: string) =>
+    (await request(app).get(`/cleaner/feedback?host=${host}&start=2026-10-01&end=2026-10-31`)).body[0];
+
+  it("reaches the host as unread, and is read once the host has seen it", async () => {
+    const { host, henry } = await setup();
+    await write(host, henry, { verdict: "fix", text: "Did you clean the bathroom next to Chill as well?" });
+    const r = await reply("4085550101", "HNRY7", " Yes — it was used, so I did it too. ");
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ reply: "Yes — it was used, so I did it too." });
+
+    expect(await hostsView(host)).toMatchObject({ reply: "Yes — it was used, so I did it too.", replySeenAt: null });
+    expect((await henrysDay()).feedback.reply).toBe("Yes — it was used, so I did it too.");
+
+    await request(app).post("/cleaner/feedback/reply-seen").send({ host, date: DAY, cleaner: henry });
+    expect((await hostsView(host)).replySeenAt).not.toBeNull();
+
+    // A changed reply is unread again.
+    await reply("4085550101", "HNRY7", "Yes, the guest asked me to.");
+    expect(await hostsView(host)).toMatchObject({ reply: "Yes, the guest asked me to.", replySeenAt: null });
+  });
+
+  it("stays when the house changes its feedback", async () => {
+    const { host, henry } = await setup();
+    await write(host, henry, { verdict: "fix", text: "Slow today?" });
+    await reply("4085550101", "HNRY7", "Two extra rooms were used.");
+    await write(host, henry, { verdict: "good", text: "Thanks — makes sense." });
+    expect((await hostsView(host)).reply).toBe("Two extra rooms were used.");
+  });
+
+  it("needs feedback to answer, and only on the cleaner's own visit", async () => {
+    const { host, henry } = await setup();
+    expect((await reply("4085550101", "HNRY7", "Hello")).status).toBe(404);
+    await write(host, henry, { verdict: "fix", text: "Slow today?" });
+    // Mai signs in and names Henry's day: she has no feedback there.
+    expect((await reply("4085550102", "MAI42", "Not me")).status).toBe(404);
+    expect((await hostsView(host)).reply).toBe("");
+    expect((await reply("4085550101", "WRONG", "Hi")).status).toBe(401);
+  });
+
+  it("is taken back when emptied", async () => {
+    const { host, henry } = await setup();
+    await write(host, henry, { verdict: "fix", text: "Slow today?" });
+    await reply("4085550101", "HNRY7", "Traffic.");
+    await reply("4085550101", "HNRY7", "  ");
+    expect(await hostsView(host)).toMatchObject({ reply: "", repliedAt: null });
+    expect((await henrysDay()).feedback.reply).toBeUndefined();
+  });
+});

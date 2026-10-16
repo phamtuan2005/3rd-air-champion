@@ -412,7 +412,9 @@ router.post("/schedule", async (req: Request, res: any) => {
           date: g.date,
           rooms: g.rooms,
           extras: extrasOn.get(g.date) ?? [],
-          feedback: fb ? { verdict: fb.verdict ?? "", text: fb.text ?? "", isNew: !fb.seenAt } : null,
+          feedback: fb
+            ? { verdict: fb.verdict ?? "", text: fb.text ?? "", isNew: !fb.seenAt, ...(fb.reply ? { reply: fb.reply } : {}) }
+            : null,
           // What the host has on record for the whole visit.
           recordedHours: g.hasHours ? g.recordedHours : null,
           claim: claim
@@ -449,6 +451,30 @@ router.post("/feedback/seen", async (req: Request, res: any) => {
       );
     }
     res.status(200).json({ ok: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// The cleaner's reply to the house's feedback on one of their visits — an
+// explanation, an answer to a question. Only their OWN visit, found by who
+// signed in, and only where there is feedback to answer. An empty reply takes
+// it back.
+router.post("/feedback/reply", async (req: Request, res: any) => {
+  const { identifier, code, date } = req.body;
+  const text = String(req.body?.text ?? "").trim().slice(0, 1000);
+  try {
+    const who = await authenticate(identifier, code);
+    if (!who) return res.status(401).json({ error: "Not signed in." });
+    if (who.kind !== "cleaner") return res.status(400).json({ error: "Only the cleaner on the visit can reply." });
+    if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: "Which day?" });
+    const row: any = await CleaningFeedback.findOneAndUpdate(
+      { host: who.doc.host, cleaner: who.doc._id, date },
+      { $set: { reply: text, repliedAt: text ? new Date() : null, replySeenAt: null } },
+      { new: true },
+    ).lean();
+    if (!row) return res.status(404).json({ error: "There is no feedback on that visit to reply to." });
+    res.status(200).json({ reply: row.reply ?? "" });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

@@ -313,7 +313,18 @@ export interface VisitFeedbackType {
   text: string;
   // When the cleaner first saw this wording in TiWork; null = not yet.
   seenAt: string | null;
+  // The cleaner's answer from TiWork ("" = none), and when the house first
+  // read it (null = not yet). Absent from a server not yet updated.
+  reply?: string;
+  repliedAt?: string | null;
+  replySeenAt?: string | null;
 }
+
+// The house has read the cleaner's reply on this visit. Best effort: failing
+// only means it reads New once more.
+export const markReplySeen = async (data: { host: string; date: string; cleaner: string }, token: string): Promise<void> => {
+  await axios.post(`${BACKEND_ENDPOINT}/cleaner/feedback/reply-seen`, data, auth(token)).catch(() => {});
+};
 
 export const fetchVisitFeedback = async (
   hostId: string,
