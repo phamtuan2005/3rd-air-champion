@@ -873,6 +873,8 @@ const HeroShell = ({
         <div className="flex min-h-0 flex-1 flex-col">
           <GuestCalendar
             largeType
+            // Above the sticky bottom bar (h-[4.6rem]).
+            holidayBottom="4.6rem"
             currentMonth={currentMonth}
             monthMap={monthMap}
             rooms={rooms}
