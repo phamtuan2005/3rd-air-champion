@@ -7,6 +7,10 @@ interface HostProfileBannerProps {
   cohostNames?: string[];
   // False for a guest we already greet by name — see the note in the component.
   defaultExpanded?: boolean;
+  // Hero shows this banner in a sheet off the house name. There the summary
+  // row closes the sheet instead of folding the banner: folded inside a sheet
+  // it left one line of name with nothing under it — a sheet about nothing.
+  onSummaryTap?: () => void;
 }
 
 const HostAvatar = ({ name, profileUrl }: { name: string; profileUrl?: string }) => {
@@ -52,6 +56,7 @@ const HostProfileBanner = ({
   host,
   cohostNames = [],
   defaultExpanded = true,
+  onSummaryTap,
 }: HostProfileBannerProps) => {
   // Expanded for a first visit, where the welcome gets to lead. This was once
   // collapsed on short phones for space, back when a short screen squeezed the
@@ -84,6 +89,7 @@ const HostProfileBanner = ({
         type="button"
         className={`w-full px-4 py-2 flex items-center gap-2 transition-colors ${theme.chromeHover}`}
         onClick={() => {
+          if (onSummaryTap) { onSummaryTap(); return; }
           touched.current = true;
           setExpanded((v) => !v);
         }}

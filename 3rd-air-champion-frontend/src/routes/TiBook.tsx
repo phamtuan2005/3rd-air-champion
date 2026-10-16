@@ -1232,6 +1232,15 @@ const TiBookInner = () => {
           hasSelection={hasSelection}
           usualCount={usualCount}
           onOpenUsual={() => setUsualOpen(true)}
+          // The classic layout's banner and house facts, the same components
+          // fed the same host, so the two layouts cannot introduce the hosts
+          // differently. Always open: the guest tapped to read it.
+          hostIntro={currentHost ? (close) => (
+            <>
+              <HostProfileBanner host={currentHost} cohostNames={cohostNames} onSummaryTap={close} />
+              <HouseFactsStrip hostName={currentHost.name} />
+            </>
+          ) : undefined}
         />
         )
       ) : (
