@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addReviewTyped, airbnbReservationDetails, dateTyped, matchesReservation, reviewsTyped, screensMatching, weekTyped, whenTyped, whoAndWhen, worthAsking } from "./ttIntents";
+import { addReviewTyped, airbnbReservationDetails, dateTyped, matchesReservation, reviewSearchTyped, reviewsTyped, screensMatching, weekTyped, whenTyped, whoAndWhen, worthAsking } from "./ttIntents";
 
 // What TT understands beyond names. A box that guesses wrong sends the host
 // somewhere they did not ask to go, so each rule is pinned.
@@ -247,5 +247,35 @@ describe("adding a review", () => {
     expect(addReviewTyped("newest reviews", rooms)).toBeNull();
     expect(addReviewTyped("add booking king", rooms)).toBeNull();
     expect(addReviewTyped("review king", rooms)).toBeNull();
+  });
+});
+
+// Ask TT searching the reviews, as the Guest reviews box does (host, 2026-10-15).
+describe("a word search inside a review question", () => {
+  const rooms = ["King", "Chill", "Cozy"];
+
+  it("keeps the word and drops the question around it", () => {
+    expect(reviewSearchTyped("Guest review towel", rooms)).toEqual({ q: "towel", room: null });
+    expect(reviewSearchTyped("what do guests say about the wifi?", rooms)).toEqual({ q: "wifi", room: null });
+  });
+
+  it("keeps to a room named in the question", () => {
+    expect(reviewSearchTyped("Chill reviews mentioning noise", rooms)).toEqual({ q: "noise", room: "Chill" });
+    expect(reviewSearchTyped("King's reviews towel", rooms)).toEqual({ q: "towel", room: "King" });
+  });
+
+  it("passes a star range on for the server to read", () => {
+    expect(reviewSearchTyped("review 3 stars and below", rooms)?.q).toBe("3 below");
+    expect(reviewSearchTyped("reviews 4+", rooms)?.q).toBe("4+");
+  });
+
+  it("has nothing to search when only the numbers or the latest were asked", () => {
+    expect(reviewSearchTyped("average rating of each room", rooms)).toBeNull();
+    expect(reviewSearchTyped("latest review Chill", rooms)).toBeNull();
+    expect(reviewSearchTyped("guest reviews", rooms)).toBeNull();
+  });
+
+  it("is not a review question without a review word", () => {
+    expect(reviewSearchTyped("towel", rooms)).toBeNull();
   });
 });
