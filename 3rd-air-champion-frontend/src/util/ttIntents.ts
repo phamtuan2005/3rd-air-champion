@@ -267,6 +267,45 @@ export const reviewsTyped = (query: string): { topic: string | null } | null => 
   return { topic: REVIEW_TOPICS.find((t) => t.pattern.test(q))?.key ?? null };
 };
 
+// The words of a review question that say nothing about WHAT to find in the
+// reviews — the question's own grammar, and the asking for numbers.
+const REVIEW_FILLER = new Set([
+  "guest", "guests", "review", "reviews", "rating", "ratings", "rated", "feedback", "complaint", "complaints",
+  "say", "says", "said", "think", "thinks", "about", "what", "whats", "what's", "which", "who", "how", "many", "much",
+  "do", "does", "did", "is", "are", "was", "were", "the", "a", "an", "of", "in", "on", "for", "to", "from", "by",
+  "with", "and", "or", "any", "all", "every", "each", "per", "me", "my", "our", "their", "them", "they", "it",
+  "search", "find", "show", "list", "give", "tell", "mention", "mentions", "mentioned", "mentioning",
+  "latest", "newest", "recent", "most", "last", "average", "avg", "overall", "score", "scores", "summary",
+  "total", "count", "number", "room", "rooms", "house", "tt", "star", "stars",
+]);
+
+/**
+ * The search inside a review question: "guest review towel" → "towel",
+ * "Chill reviews mentioning noise" → "noise" in Chill (host, 2026-10-15: a
+ * quick search of the reviews from Ask TT, as the Guest reviews box does).
+ *
+ * `q` goes to the same server search as that box, which needs every word and
+ * reads a star range itself ("3 stars and below" arrives as "3 below", which
+ * it still reads). `room` is a room named in the question, to keep to. Null
+ * when nothing is left to look for — "average rating", "latest review Chill"
+ * — and those are answered as before.
+ */
+export const reviewSearchTyped = (query: string, roomNames: string[]): { q: string; room: string | null } | null => {
+  if (!reviewsTyped(query)) return null;
+  let s = ` ${query.toLowerCase()} `;
+  const room =
+    [...roomNames]
+      .filter(Boolean)
+      .sort((a, b) => b.length - a.length)
+      .find((n) => new RegExp(`\\b${n.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(s)) ?? null;
+  if (room) s = s.replace(new RegExp(`\\b${room.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}('s)?\\b`, "g"), " ");
+  const words = s
+    .split(/\s+/)
+    .map((w) => w.replace(/^[^\p{L}\p{N}★<>=≤≥+]+|[^\p{L}\p{N}★+]+$/gu, ""))
+    .filter((w) => w && !REVIEW_FILLER.has(w));
+  return words.length ? { q: words.join(" "), room } : null;
+};
+
 // ── An AirBnB reservation ───────────────────────────────────────────────────
 
 /** The reservation code and the phone's last four digits, from what AirBnB's feed writes on a booking. */

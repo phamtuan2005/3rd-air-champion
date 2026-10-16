@@ -9,7 +9,7 @@ import { dayType } from "../../../../util/types/dayType";
 import RoomBadge from "../../../shared/RoomBadge";
 import { airbnbGuestList } from "../../../../util/airbnbGuestList";
 import { houseGuestList, isPhoneQuery, matchesTyped, topMatches } from "../../../../util/houseGuestList";
-import { addReviewTyped, matchesReservation, reviewsTyped, screensMatching, weekTyped, whenTyped, whoAndWhen, worthAsking, When } from "../../../../util/ttIntents";
+import { addReviewTyped, matchesReservation, reviewSearchTyped, reviewsTyped, screensMatching, weekTyped, whenTyped, whoAndWhen, worthAsking, When } from "../../../../util/ttIntents";
 import { jwtDecode } from "jwt-decode";
 import {
   cleanerLeadLine,
@@ -273,28 +273,32 @@ const CalendarFilterPicker = ({
   }, [!!reviewRoom]);
   const roomLatest = reviewRoom ? latestReviews?.[reviewRoom.id] : undefined;
 
-  // A star range in a review question — "review 3 stars and below", "4+" —
-  // lists the reviews that fit, from every room, through the same search as
-  // Guest reviews (host, 2026-10-10). The server reads the phrase.
-  const starsAsked =
-    !!reviewAsked && /\b[1-5]\s*(?:\+|★|stars?)|\b(?:below|under|above|over|less than|more than)\s*[1-5]\b|[<>]=?\s*[1-5]/i.test(q);
-  const [starHits, setStarHits] = useState<ReviewEntryRow[] | null>(null);
+  // A search inside a review question — "guest review towel", "Chill reviews
+  // noise", "review 3 stars and below" — lists the reviews that fit, through
+  // the same server search as the Guest reviews box (host, 2026-10-15: a quick
+  // search from Ask TT). It answers the question on its own: the summary and
+  // the numbers under it pushed the matches a screen down. A star range alone
+  // used to list its reviews at the very bottom (2026-10-10); it is a search
+  // like any other now. A room named keeps it to that room.
+  const reviewSearch = reviewAsked ? reviewSearchTyped(q, rooms.map((r) => r.name)) : null;
+  const reviewSearchQ = reviewSearch?.q ?? "";
+  const reviewSearchRoom = reviewSearch?.room ? rooms.find((r) => r.name === reviewSearch.room) : undefined;
+  const [reviewHits, setReviewHits] = useState<ReviewEntryRow[] | null>(null);
   useEffect(() => {
-    if (!starsAsked) {
-      setStarHits(null);
-      return;
-    }
+    setReviewHits(null);
+    if (!reviewSearchQ) return;
     let live = true;
     const t = setTimeout(() => {
-      fetchReviewEntries(q)
-        .then((rows) => live && setStarHits(rows))
-        .catch(() => live && setStarHits([]));
+      fetchReviewEntries(reviewSearchQ)
+        .then((rows) => live && setReviewHits(rows))
+        .catch(() => live && setReviewHits([]));
     }, 300);
     return () => {
       live = false;
       clearTimeout(t);
     };
-  }, [starsAsked, q]);
+  }, [reviewSearchQ]);
+  const shownHits = reviewHits && reviewSearchRoom ? reviewHits.filter((e) => e.roomId === reviewSearchRoom.id) : reviewHits;
   const roomNameOf = (id: string) => rooms.find((x) => x.id === id)?.name ?? "a room";
   // Staff and cleaners, by name or phone like a guest — and by what they do,
   // so "cleaner" brings up the cleaners and "intern" the intern. Not with a
@@ -621,6 +625,48 @@ const CalendarFilterPicker = ({
                 <>
                   {sectionHeading("Guest reviews")}
                   <div className="px-3 py-2 text-[12px] text-gray-700">
+                    {reviewSearch ? (
+                      <div>
+                        <p className="flex flex-wrap items-center gap-1.5 text-base font-semibold text-gray-900">
+                          {shownHits == null ? "Searching…" : `Found: ${shownHits.length}`}
+                          {reviewSearchRoom && (
+                            <>
+                              <span className="font-normal text-gray-500">in</span>
+                              <RoomBadge room={reviewSearchRoom} rooms={activeRooms} className="text-sm font-semibold" />
+                            </>
+                          )}
+                          <span className="font-normal text-gray-500">· “{reviewSearchQ}”</span>
+                        </p>
+                        {shownHits?.length === 0 && (
+                          <p className="mt-1 text-sm text-gray-500">
+                            No review{reviewSearchRoom ? ` of ${reviewSearchRoom.name}` : ""} has all of those words.
+                          </p>
+                        )}
+                        {shownHits?.slice(0, 30).map((e) => (
+                          <ReviewLine
+                            key={e.id}
+                            r={{
+                              id: e.id,
+                              roomName: roomNameOf(e.roomId),
+                              guestName: e.guestName,
+                              stars: e.stars,
+                              stayDate: e.stayDate,
+                              reviewMonth: e.reviewMonth,
+                              snippet: e.snippet,
+                              text: e.text ?? e.snippet,
+                              cleaners: e.cleaners ?? [],
+                              basis: e.basis ?? "none",
+                            }}
+                            roomColor={rooms.find((x) => x.id === e.roomId)?.color}
+                            onOpen={(id) => pickScreen(`reviews:${id}`)}
+                          />
+                        ))}
+                        {shownHits && shownHits.length > 30 && (
+                          <p className="mt-1 text-xs text-gray-400">The newest 30 — the same search in Guest reviews shows them all.</p>
+                        )}
+                      </div>
+                    ) : (
+                    <>
                     {reviewFailed && <p className="text-rose-600">The reviews didn't load. Try again in a moment.</p>}
                     {!reviewStats && !reviewFailed && <p className="text-gray-400">Adding them up…</p>}
                     {reviewRoom && roomLatest && (
@@ -766,41 +812,6 @@ const CalendarFilterPicker = ({
                             most recent stays are 5 stars, and the host follows
                             those first — with the cleaner lead, to credit a
                             good stay (host, 2026-10-08). One per room since 2026-10-10. */}
-                        {/* The reviews a star range asked for, every room, newest
-                            first — what the "3 stars or lower" list used to show,
-                            now when asked (host, 2026-10-10). */}
-                        {starsAsked && (
-                          <div className="mt-2 border-t border-gray-100 pt-2">
-                            <p className="text-base font-semibold text-gray-900">
-                              {starHits == null ? "Finding them…" : `Matching reviews: ${starHits.length}`}
-                            </p>
-                            {starHits?.length === 0 && <p className="text-gray-500">No review fits that.</p>}
-                            {starHits?.slice(0, 30).map((e) => (
-                              <ReviewLine
-                                key={e.id}
-                                r={{
-                                  id: e.id,
-                                  roomName: roomNameOf(e.roomId),
-                                  guestName: e.guestName,
-                                  stars: e.stars,
-                                  stayDate: e.stayDate,
-                                  reviewMonth: e.reviewMonth,
-                                  snippet: e.snippet,
-                                  text: e.text ?? e.snippet,
-                                  cleaners: e.cleaners ?? [],
-                                  basis: e.basis ?? "none",
-                                }}
-                                roomColor={rooms.find((x) => x.id === e.roomId)?.color}
-                                onOpen={(id) => pickScreen(`reviews:${id}`)}
-                              />
-                            ))}
-                            {starHits && starHits.length > 30 && (
-                              <p className="mt-1 text-xs text-gray-400">
-                                The newest 30 — search a room in Guest reviews for the rest.
-                              </p>
-                            )}
-                          </div>
-                        )}
                         {reviewStats.recent && reviewStats.recent.length > 0 && (
                           <div className="mt-2 border-t border-gray-100 pt-2">
                             <p className="text-base font-semibold text-gray-900">Latest review of each room</p>
@@ -813,6 +824,8 @@ const CalendarFilterPicker = ({
                             here (2026-10-10). A low review is in its room's list in
                             Guest reviews, and a search finds it. */}
                       </>
+                    )}
+                    </>
                     )}
                   </div>
                 </>
