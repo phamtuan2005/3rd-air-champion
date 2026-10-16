@@ -625,8 +625,12 @@ const CalendarFilterPicker = ({
                     {!reviewStats && !reviewFailed && <p className="text-gray-400">Adding them up…</p>}
                     {reviewRoom && roomLatest && (
                       <div className="mb-2 rounded-lg bg-gray-50 px-3 py-2">
+                        {/* The room as its coloured badge, as the review lines
+                            below draw it — the plain name read as one more
+                            word of the sentence (host, 2026-10-15). */}
                         <p className="text-base font-semibold text-gray-900">
-                          {reviewRoom.name}'s latest review
+                          <RoomBadge room={reviewRoom} rooms={activeRooms} className="mr-1 text-sm font-semibold" />
+                          latest review
                           <span className="font-normal text-gray-500">
                             {roomLatest.guest ? ` · ${roomLatest.guest}` : ""} ·{" "}
                             {latestDateLabel(roomLatest)}
@@ -675,7 +679,17 @@ const CalendarFilterPicker = ({
                             className="mb-2 cursor-pointer rounded-lg bg-gray-50 px-3 py-2 hover:bg-gray-100"
                           >
                             <p className="text-base font-semibold text-gray-900">
-                              What guests say about {named ? named.name : "TT House"}:
+                              What guests say about{" "}
+                              {named ? (
+                                <RoomBadge
+                                  room={{ name: named.name, color: rooms.find((x) => x.name === named.name)?.color }}
+                                  rooms={activeRooms}
+                                  className="text-sm font-semibold"
+                                />
+                              ) : (
+                                "TT House"
+                              )}
+                              :
                             </p>
                             <p className="mt-1 whitespace-pre-line text-base leading-relaxed text-gray-800">{text}</p>
                           </div>
