@@ -628,6 +628,29 @@ router.post("/jobs", async (req: Request, res: any) => {
   }
 });
 
+// A new name for a job — almost always a typo put right (host, 2026-10-15:
+// "sometimes I made a typo and I need to change"). It reaches every visit the
+// job is on, past ones included: unlike taking a job off the list (below),
+// which must not rewrite what a visit says was done, a misspelt name was never
+// what was done — it was the same job, written wrong. Refused when another job
+// on the list already has the name, since the list keeps one job per name.
+router.patch("/jobs/:id", async (req: Request, res: any) => {
+  const { host } = req.body;
+  const name = String(req.body?.name ?? "").trim().replace(/\s+/g, " ").slice(0, 40);
+  if (!host || !name) return res.status(400).json({ error: "host and name are required" });
+  try {
+    const key = name.toLowerCase();
+    const clash: any = await CleaningJob.findOne({ host, key, _id: { $ne: req.params.id } }).lean();
+    if (clash) return res.status(409).json({ error: `There is already a job called ${clash.name}.` });
+    const job: any = await CleaningJob.findOneAndUpdate({ _id: req.params.id, host }, { $set: { name, key } }, { new: true }).lean();
+    if (!job) return res.status(404).json({ error: "That job is not on the list." });
+    const visits = await CleaningExtra.updateMany({ host, job: job._id }, { $set: { name } });
+    res.status(200).json({ id: String(job._id), name: job.name, visits: visits.modifiedCount });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Off the list. Visits it was already scheduled on keep it (they carry the name),
 // so the record of what was done is not rewritten.
 router.delete("/jobs/:id", async (req: Request, res: any) => {

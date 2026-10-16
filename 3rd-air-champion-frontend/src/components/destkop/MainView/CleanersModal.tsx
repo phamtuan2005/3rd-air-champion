@@ -39,6 +39,7 @@ import {
   fetchCleaningJobs,
   createCleaningJob,
   deleteCleaningJob,
+  renameCleaningJob,
   fetchCleaningExtras,
   fetchVisitFeedback,
   VisitFeedbackType,
@@ -297,6 +298,11 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
   const [extraTarget, setExtraTarget] = useState<{ cleaner: CleanerType; date: string; job?: CleaningJobType } | null>(null);
   // Armed by "Remove from this visit", until confirmed.
   const [removingExtra, setRemovingExtra] = useState(false);
+  // The job's new name while it is being typed (null = not renaming), and why
+  // the last try was refused.
+  const [renameDraft, setRenameDraft] = useState<string | null>(null);
+  const [renameError, setRenameError] = useState("");
+  const renameBusy = useRef(false);
   // The house's feedback on each done visit, by `${cleanerId}|${date}` — the
   // key the Hours tab's visit groups already use. Read by the cleaner in TiWork.
   const [feedback, setFeedback] = useState<Record<string, VisitFeedbackType>>({});
@@ -1399,6 +1405,31 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
     }
   };
 
+  // A typo put right, on the list and on every visit the job is on — the
+  // server does both (PATCH /cleaner/jobs/:id), and the screen follows here
+  // rather than waiting on a reload.
+  const renameJob = async (job: CleaningJobType) => {
+    const name = (renameDraft ?? "").trim().replace(/\s+/g, " ");
+    if (!name || renameBusy.current) return;
+    if (name === job.name) {
+      setRenameDraft(null);
+      return;
+    }
+    renameBusy.current = true;
+    setRenameError("");
+    try {
+      const r = await renameCleaningJob(hostId, job.id, name, token);
+      setJobs((prev) => prev.map((j) => (j.id === r.id ? { ...j, name: r.name } : j)).sort((a, b) => a.name.localeCompare(b.name)));
+      setExtras((prev) => prev.map((e) => (e.job === r.id ? { ...e, name: r.name } : e)));
+      setExtraTarget((t) => (t && t.job?.id === r.id ? { ...t, job: { ...t.job, name: r.name } } : t));
+      setRenameDraft(null);
+    } catch (err: any) {
+      setRenameError(err.response?.data?.error ?? "That didn't rename. Try again.");
+    } finally {
+      renameBusy.current = false;
+    }
+  };
+
   const removeJob = async (job: CleaningJobType) => {
     try {
       await deleteCleaningJob(hostId, job.id, token);
@@ -1437,6 +1468,8 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                 setManageJobs(false);
                 setRemovingJob(null);
                 setRemovingExtra(false);
+                setRenameDraft(null);
+                setRenameError("");
                 setNoteDraft({});
               }}
               title={`Change ${e.name} on this visit`}
@@ -1456,6 +1489,8 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
             onClick={() => {
               setExtraTarget({ cleaner, date });
               setRemovingExtra(false);
+              setRenameDraft(null);
+              setRenameError("");
               setManageJobs(false);
               setRemovingJob(null);
               setNoteDraft({});
@@ -4115,7 +4150,51 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                 const onVisit = extrasOf(extraTarget.cleaner.id, extraTarget.date).find((e) => e.job === job.id);
                 return (
                   <>
-                    <p className="text-sm font-bold text-fuchsia-700">+ {job.name}</p>
+                    {renameDraft === null ? (
+                      <div className="flex items-baseline justify-between gap-2">
+                        <p className="min-w-0 text-sm font-bold text-fuchsia-700">+ {job.name}</p>
+                        {/* A typo in the name is fixed here, not by adding the
+                            job again under the right spelling (host, 2026-10-15). */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRenameDraft(job.name);
+                            setRenameError("");
+                            setRemovingExtra(false);
+                          }}
+                          className="shrink-0 text-xs font-semibold text-gray-500 hover:text-gray-700"
+                        >
+                          Rename
+                        </button>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="flex gap-2">
+                          <input
+                            autoFocus
+                            value={renameDraft}
+                            onChange={(e) => setRenameDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") renameJob(job);
+                              if (e.key === "Escape") setRenameDraft(null);
+                            }}
+                            maxLength={40}
+                            aria-label="The job's name"
+                            className="min-w-0 flex-1 rounded-md border border-fuchsia-300 bg-white px-2 py-1 text-[16px] font-semibold text-fuchsia-700 focus:border-fuchsia-500 focus:outline-none sm:text-sm"
+                          />
+                          <button type="button" onClick={() => renameJob(job)} disabled={!renameDraft.trim()} className={`${pillDark} disabled:opacity-40`}>
+                            Save
+                          </button>
+                        </div>
+                        <p className="mt-1 text-xs text-gray-500">
+                          Renames it on the list and on every visit it is on.{" "}
+                          <button type="button" onClick={() => setRenameDraft(null)} className="font-semibold text-gray-600 hover:text-gray-800">
+                            Cancel
+                          </button>
+                        </p>
+                        {renameError && <p className="mt-1 text-xs font-medium text-rose-600">{renameError}</p>}
+                      </div>
+                    )}
                     <p className="mb-3 text-sm text-gray-500">
                       {extraTarget.cleaner.name.split(" ")[0]} ·{" "}
                       {format(new Date(extraTarget.date + "T00:00:00"), "EEE, MMM d")}
