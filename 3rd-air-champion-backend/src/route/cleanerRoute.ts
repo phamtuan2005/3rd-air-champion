@@ -733,6 +733,10 @@ const serializeFeedback = (r: any) => ({
   text: r.text ?? "",
   seenAt: r.seenAt ?? null,
   updatedAt: r.updatedAt ?? null,
+  // The cleaner's answer from TiWork, and whether the house has read it.
+  reply: r.reply ?? "",
+  repliedAt: r.repliedAt ?? null,
+  replySeenAt: r.replySeenAt ?? null,
 });
 
 router.get("/feedback", async (req: Request, res: any) => {
@@ -769,6 +773,21 @@ router.put("/feedback", async (req: Request, res: any) => {
       { new: true, upsert: true, runValidators: true }
     ).lean();
     res.status(200).json(serializeFeedback(row));
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// The house has read the cleaner's reply on this visit: it stops showing as New.
+router.post("/feedback/reply-seen", async (req: Request, res: any) => {
+  const { host, date, cleaner } = req.body;
+  if (!host || !date || !cleaner) return res.status(400).json({ error: "host, date and cleaner are required" });
+  try {
+    await CleaningFeedback.updateOne(
+      { host, date, cleaner, reply: { $ne: "" }, replySeenAt: null },
+      { $set: { replySeenAt: new Date() } },
+    );
+    res.status(200).json({ ok: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

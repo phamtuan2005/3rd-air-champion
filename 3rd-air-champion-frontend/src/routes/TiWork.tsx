@@ -14,6 +14,7 @@ import GuestFigures from "../components/shared/GuestFigures";
 import SofaBedTag from "../components/shared/SofaBedTag";
 import MonthlyBars from "../components/shared/MonthlyBars";
 import { verdictLabel } from "../util/feedbackVerdict";
+import FeedbackReply from "../components/shared/FeedbackReply";
 import { HiPlusCircle } from "react-icons/hi2";
 import { decimalToHm, formatHrMin, hmToDecimal } from "../util/hoursFormat";
 import {
@@ -974,6 +975,20 @@ const TiWork = () => {
                             </p>
                             {sh.feedback.text && (
                               <p className="mt-0.5 whitespace-pre-line text-sm text-teal-900/80">{sh.feedback.text}</p>
+                            )}
+                            {creds && (
+                              <FeedbackReply
+                                creds={creds}
+                                date={sh.date}
+                                reply={sh.feedback.reply ?? ""}
+                                onSaved={(reply) =>
+                                  setShifts((prev) =>
+                                    prev.map((x) =>
+                                      x.date === sh.date && x.feedback ? { ...x, feedback: { ...x.feedback, reply } } : x,
+                                    ),
+                                  )
+                                }
+                              />
                             )}
                           </div>
                         )}

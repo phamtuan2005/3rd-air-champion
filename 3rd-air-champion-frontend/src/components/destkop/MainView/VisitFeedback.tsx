@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { FeedbackVerdict, saveVisitFeedback, VisitFeedbackType } from "../../../util/cleanerOperations";
+import { useEffect, useRef, useState } from "react";
+import { FeedbackVerdict, markReplySeen, saveVisitFeedback, VisitFeedbackType } from "../../../util/cleanerOperations";
 import { VERDICT_OPTIONS, verdictLabel } from "../../../util/feedbackVerdict";
 
 // The house's word to a cleaner on one done visit, under that visit's row in
@@ -34,6 +34,25 @@ const VisitFeedback = ({
   // A second tap while the first save is in flight would send it twice.
   const busy = useRef(false);
   const first = cleanerName.trim().split(/\s+/)[0] || "the cleaner";
+  // The cleaner's reply, from TiWork. Read once it is on screen; the New badge
+  // stays up for this look, which is what drew the eye, and is gone next time.
+  const reply = feedback?.reply ?? "";
+  const replyIsNew = !!reply && !feedback?.replySeenAt;
+  useEffect(() => {
+    if (replyIsNew) markReplySeen({ host: hostId, date, cleaner: cleanerId }, token);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [replyIsNew, reply]);
+  const replyBlock = reply ? (
+    <span className="mt-1.5 block rounded-md border border-teal-200 bg-white px-2 py-1.5">
+      <span className="flex items-center gap-1.5 text-xs font-semibold text-teal-800">
+        {first} replied
+        {replyIsNew && (
+          <span className="rounded-full bg-teal-600 px-1.5 py-0.5 text-[10px] font-black uppercase text-white">New</span>
+        )}
+      </span>
+      <span className="block whitespace-pre-line text-gray-700">{reply}</span>
+    </span>
+  ) : null;
 
   const start = () => {
     setVerdict(feedback?.verdict ?? "");
@@ -82,6 +101,7 @@ const VisitFeedback = ({
         {/* Whether the cleaner has read it yet — so nobody has to ask. */}
         <span className="text-gray-400"> · {feedback.seenAt ? `${first} has seen it` : `${first} hasn't seen it yet`}</span>
         {feedback.text && <span className="block whitespace-pre-line text-gray-600">{feedback.text}</span>}
+        {replyBlock}
       </button>
     );
   }

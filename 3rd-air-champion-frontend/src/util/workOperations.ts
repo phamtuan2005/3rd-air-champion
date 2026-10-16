@@ -43,7 +43,8 @@ export interface WorkShift {
   extras?: { name: string; note: string }[];
   // The house's word on this visit, written in TiMag's Clean screen. isNew
   // until the worker has seen this wording; an edit makes it new again.
-  feedback?: { verdict: "" | "great" | "good" | "fix"; text: string; isNew: boolean } | null;
+  // reply: the worker's own answer to it, when they have written one.
+  feedback?: { verdict: "" | "great" | "good" | "fix"; text: string; isNew: boolean; reply?: string } | null;
   recordedHours: number | null;
   claim: {
     id: string;
@@ -218,6 +219,17 @@ export const deleteMyEntry = async (creds: WorkCreds, id: string) => {
     return res.data;
   } catch (err) {
     throw unwrap(err, "Couldn't remove that.");
+  }
+};
+
+// The worker's answer to the house's feedback on one of their visits. An empty
+// text takes the reply back. Returns the reply as saved.
+export const replyToFeedback = async (creds: WorkCreds, date: string, text: string): Promise<string> => {
+  try {
+    const res = await axios.post(`${BACKEND_ENDPOINT}/work/feedback/reply`, { ...creds, date, text });
+    return res.data?.reply ?? "";
+  } catch (err) {
+    throw unwrap(err, "Couldn't send that reply.");
   }
 };
 

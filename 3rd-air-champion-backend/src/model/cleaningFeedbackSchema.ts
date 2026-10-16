@@ -23,6 +23,16 @@ const cleaningFeedbackSchema = new mongoose.Schema(
     // When the cleaner first saw THIS wording in TiWork. Cleared on every
     // change, so an edited comment shows as new again rather than slipping by.
     seenAt: { type: Date, default: null },
+    // The cleaner's answer, from TiWork (host, 2026-10-15: "When the cleaner
+    // got a feedback, definitely they want to explain"). A "Needs a fix" that
+    // asks "did you clean the bathroom next to Chill as well?" is a question,
+    // and the cleaner had no way to answer it but to text. One reply, which
+    // they can change, as the feedback itself is one word that can change.
+    // It stays when the house edits its feedback: it is still their answer.
+    reply: { type: String, default: "", maxlength: 1000 },
+    repliedAt: { type: Date, default: null },
+    // When the house first saw THIS reply in TiMag. Cleared on every change.
+    replySeenAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
