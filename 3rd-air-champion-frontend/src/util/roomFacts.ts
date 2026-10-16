@@ -19,7 +19,7 @@ import { roomType } from "./types/roomType";
 //
 // The rooms are NOT variations on one template, and the differences are the
 // ones a guest cares about most: Chill and Cozy share a bathroom rather than
-// having their own, and Cozy has no air conditioning and no TV. Copying one
+// having their own, and Cozy has no air conditioning. Copying one
 // room's list onto another would promise things the house cannot deliver,
 // which a guest finds out at 11pm.
 //
@@ -243,6 +243,9 @@ const factsByListing: Record<string, roomFacts> = {
       "Air conditioning",
       "Heating",
       "Dedicated workspace",
+      // Every room has a TV now (house, 2026-10-16); King and Queen have the
+      // big ones. Sized, because the size is what tells them apart.
+      "75-inch Samsung UHD TV",
       // No "Kitchen" chip: the shared kitchen is now a line of its own on every
       // room, and saying it twice on this one is the repetition just taken out
       // of Chill's and Cozy's bathrooms.
@@ -274,6 +277,7 @@ const factsByListing: Record<string, roomFacts> = {
       "Air conditioning",
       "Heating",
       "Dedicated workspace",
+      "75-inch Samsung UHD TV",
       "Mini fridge",
       "Microwave",
       // Street parking, like every other room — see `houseParking`. This read
@@ -306,6 +310,7 @@ const factsByListing: Record<string, roomFacts> = {
       "Central air conditioning",
       "Heating",
       "Dedicated workspace",
+      "44-inch Samsung UHD TV",
       "Mini fridge",
       "Coffee maker",
       "Backyard",
@@ -333,7 +338,7 @@ const factsByListing: Record<string, roomFacts> = {
       "Air conditioning",
       "Heating",
       "Dedicated workspace",
-      "TV",
+      "44-inch Samsung UHD TV",
       "Mini fridge",
       "Microwave",
       "Free street parking",
@@ -353,13 +358,19 @@ const factsByListing: Record<string, roomFacts> = {
     beds: [{ kind: "double", label: "1 double bed" }],
     bathroom: "Shared bathroom, with a bathtub, hot water and a smart toilet\u00a0— warm seat and built-in bidet",
     privacy: "Your own room, with a lock on the door",
-    // No air conditioning and no TV on this listing — both are listed as
-    // unavailable. Do not add them back by copying another room's list.
+    // No air conditioning on this listing — it is listed as unavailable. Do
+    // not add it back by copying another room's list.
+    //
+    // The TV used to be in the same warning: the listing said none. Cozy has
+    // a 44-inch now, the house confirming 2026-10-16. If the AirBnB listing
+    // still says "TV unavailable", it is the listing that is stale, as it was
+    // about the kitchen and the parking.
     highlights: [
       "Wifi",
       "Heating",
       "Portable fans",
       "Dedicated workspace",
+      "44-inch Samsung UHD TV",
       "Towels and bed linen",
       // Street parking, like every other room — see `houseParking`. This read
       // "Free parking on premises", off the listing, until the house
