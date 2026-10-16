@@ -289,7 +289,14 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
   // visits. See extrasLine below.
   const [jobs, setJobs] = useState<CleaningJobType[]>([]);
   const [extras, setExtras] = useState<CleaningExtraType[]>([]);
-  const [extraTarget, setExtraTarget] = useState<{ cleaner: CleanerType; date: string } | null>(null);
+  // The extra-jobs window for one visit. With `job`, it is about that one
+  // extra alone — its note, or taking it off — opened by tapping its chip;
+  // without, it adds one ("+ Extra"). The two used to be one window, reached
+  // only through "+ Extra", so changing the extra already there meant the
+  // button that says ADD (host, 2026-10-15).
+  const [extraTarget, setExtraTarget] = useState<{ cleaner: CleanerType; date: string; job?: CleaningJobType } | null>(null);
+  // Armed by "Remove from this visit", until confirmed.
+  const [removingExtra, setRemovingExtra] = useState(false);
   // The house's feedback on each done visit, by `${cleanerId}|${date}` — the
   // key the Hours tab's visit groups already use. Read by the cleaner in TiWork.
   const [feedback, setFeedback] = useState<Record<string, VisitFeedbackType>>({});
@@ -1385,6 +1392,8 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
       setJobs((prev) => [...prev.filter((j) => j.id !== job.id), job].sort((a, b) => a.name.localeCompare(b.name)));
       setNewJob("");
       await toggleExtra(extraTarget.cleaner, extraTarget.date, job, true);
+      // Turn to the job just added, where its note for this visit is typed.
+      setExtraTarget({ ...extraTarget, job });
     } catch (err: any) {
       setError(err.response?.data?.error ?? "Could not add that job");
     }
@@ -1407,21 +1416,46 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
     if (!editable && mine.length === 0) return null;
     return (
       <>
-        {mine.map((e) => (
-          <span
-            key={e.id}
-            title={e.note ? `${e.name} — ${e.note}` : e.name}
-            className="rounded-md border border-dashed border-fuchsia-300 bg-fuchsia-50 px-2 py-1 text-[13px] font-semibold text-fuchsia-700"
-          >
-            + {e.name}
-            {e.note && <span className="font-normal"> · {e.note}</span>}
-          </span>
-        ))}
+        {mine.map((e) => {
+          const chip = (
+            <>
+              + {e.name}
+              {e.note && <span className="font-normal"> · {e.note}</span>}
+            </>
+          );
+          const chipClass =
+            "rounded-md border border-dashed border-fuchsia-300 bg-fuchsia-50 px-2 py-1 text-left text-[13px] font-semibold text-fuchsia-700";
+          // Tapped, the window is about this extra alone.
+          return editable ? (
+            <button
+              key={e.id}
+              type="button"
+              onClick={() => {
+                // A job taken off the list is still on the visits it was on;
+                // its name comes from the visit then.
+                setExtraTarget({ cleaner, date, job: jobs.find((j) => j.id === e.job) ?? { id: e.job, name: e.name } });
+                setManageJobs(false);
+                setRemovingJob(null);
+                setRemovingExtra(false);
+                setNoteDraft({});
+              }}
+              title={`Change ${e.name} on this visit`}
+              className={`${chipClass} transition-colors hover:border-fuchsia-400 hover:bg-fuchsia-100`}
+            >
+              {chip}
+            </button>
+          ) : (
+            <span key={e.id} title={e.note ? `${e.name} — ${e.note}` : e.name} className={chipClass}>
+              {chip}
+            </span>
+          );
+        })}
         {editable && (
           <button
             type="button"
             onClick={() => {
               setExtraTarget({ cleaner, date });
+              setRemovingExtra(false);
               setManageJobs(false);
               setRemovingJob(null);
               setNoteDraft({});
@@ -4074,7 +4108,82 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
             className="w-full max-w-xs overflow-hidden rounded-2xl bg-white p-4 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="text-sm font-bold text-gray-900">Extra jobs · {extraTarget.cleaner.name.split(" ")[0]}</p>
+            {extraTarget.job ? (
+              // ── One extra, tapped on its chip: its note, or off the visit ──
+              (() => {
+                const job = extraTarget.job;
+                const onVisit = extrasOf(extraTarget.cleaner.id, extraTarget.date).find((e) => e.job === job.id);
+                return (
+                  <>
+                    <p className="text-sm font-bold text-fuchsia-700">+ {job.name}</p>
+                    <p className="mb-3 text-sm text-gray-500">
+                      {extraTarget.cleaner.name.split(" ")[0]} ·{" "}
+                      {format(new Date(extraTarget.date + "T00:00:00"), "EEE, MMM d")}
+                    </p>
+                    {onVisit ? (
+                      <>
+                        <input
+                          autoFocus
+                          value={noteDraft[job.id] ?? onVisit.note ?? ""}
+                          onChange={(e) => setNoteDraft((d) => ({ ...d, [job.id]: e.target.value }))}
+                          onBlur={() => saveNote(extraTarget.cleaner, extraTarget.date, job)}
+                          onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+                          maxLength={120}
+                          placeholder="Where or what, for this visit — e.g. Cute & King"
+                          className="w-full rounded-md border border-fuchsia-200 bg-white px-2 py-1.5 text-[16px] focus:border-fuchsia-400 focus:outline-none sm:text-sm"
+                        />
+                        {removingExtra ? (
+                          <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-2.5 py-2 text-xs">
+                            <p className="text-gray-800">
+                              Take {job.name} off {extraTarget.cleaner.name.split(" ")[0]}'s visit? The job stays on the list.
+                            </p>
+                            <div className="mt-1.5 flex justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setRemovingExtra(false)}
+                                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  await toggleExtra(extraTarget.cleaner, extraTarget.date, job, false);
+                                  setRemovingExtra(false);
+                                  setExtraTarget(null);
+                                }}
+                                className={DANGER_BUTTON}
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="mt-3 flex items-center justify-between">
+                            <button type="button" onClick={() => setRemovingExtra(true)} className={DANGER_BUTTON}>
+                              Remove from this visit
+                            </button>
+                            <button type="button" onClick={() => setExtraTarget(null)} className="text-sm font-semibold text-gray-700">
+                              Done
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      // Taken off in the meantime (another device, or a reload).
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-gray-500">Not on this visit any more.</p>
+                        <button type="button" onClick={() => setExtraTarget(null)} className="text-sm font-semibold text-gray-700">
+                          Done
+                        </button>
+                      </div>
+                    )}
+                  </>
+                );
+              })()
+            ) : (
+            <>
+            <p className="text-sm font-bold text-gray-900">Add an extra job · {extraTarget.cleaner.name.split(" ")[0]}</p>
             <p className="mb-3 text-sm text-gray-500">
               {format(new Date(extraTarget.date + "T00:00:00"), "EEE, MMM d")} · on top of the rooms. Paid by the hours, as
               always — this says why the visit is longer.
@@ -4082,42 +4191,36 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
 
             {!manageJobs ? (
               <>
-                {jobs.length === 0 && (
-                  <p className="mb-2 text-center text-sm text-gray-400">No extra jobs yet — add the first below.</p>
-                )}
-                {/* One row per job: tick it onto this visit, then say where or
-                    what exactly for THIS visit — "Cute & King". The job's name
-                    stays general so it is picked again next time. */}
-                <div className="flex flex-col gap-1.5">
-                  {jobs.map((job) => {
-                    const onVisit = extrasOf(extraTarget.cleaner.id, extraTarget.date).find((e) => e.job === job.id);
-                    const on = !!onVisit;
-                    return (
-                      <div key={job.id} className={`rounded-lg border px-2 py-1.5 ${on ? "border-fuchsia-300 bg-fuchsia-50" : "border-gray-200"}`}>
+                {/* Only the jobs NOT on this visit: this window adds. One already
+                    on is changed from its own chip. Picked, it is added and the
+                    window turns to it, for its note — the where or what for THIS
+                    visit ("Cute & King"); the job's name stays general so it is
+                    picked again next time. */}
+                {(() => {
+                  const onIds = new Set(extrasOf(extraTarget.cleaner.id, extraTarget.date).map((e) => e.job));
+                  const addable = jobs.filter((j) => !onIds.has(j.id));
+                  if (jobs.length === 0)
+                    return <p className="mb-2 text-center text-sm text-gray-400">No extra jobs yet — add the first below.</p>;
+                  if (addable.length === 0)
+                    return <p className="mb-2 text-center text-sm text-gray-400">Every job on the list is on this visit. Add a new one below.</p>;
+                  return (
+                    <div className="flex flex-col gap-1.5">
+                      {addable.map((job) => (
                         <button
+                          key={job.id}
                           type="button"
-                          aria-pressed={on}
-                          onClick={() => toggleExtra(extraTarget.cleaner, extraTarget.date, job, !on)}
-                          className={`w-full text-left text-sm font-semibold ${on ? "text-fuchsia-700" : "text-gray-700"}`}
+                          onClick={async () => {
+                            await toggleExtra(extraTarget.cleaner, extraTarget.date, job, true);
+                            setExtraTarget({ ...extraTarget, job });
+                          }}
+                          className="rounded-lg border border-gray-200 px-2 py-1.5 text-left text-sm font-semibold text-gray-700 hover:border-fuchsia-300 hover:bg-fuchsia-50 hover:text-fuchsia-700"
                         >
-                          {on ? "✓ " : "+ "}
-                          {job.name}
+                          + {job.name}
                         </button>
-                        {on && (
-                          <input
-                            value={noteDraft[job.id] ?? onVisit?.note ?? ""}
-                            onChange={(e) => setNoteDraft((d) => ({ ...d, [job.id]: e.target.value }))}
-                            onBlur={() => saveNote(extraTarget.cleaner, extraTarget.date, job)}
-                            onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-                            maxLength={120}
-                            placeholder="Where or what, for this visit — e.g. Cute & King"
-                            className="mt-1 w-full rounded-md border border-fuchsia-200 bg-white px-2 py-1 text-[16px] focus:border-fuchsia-400 focus:outline-none sm:text-sm"
-                          />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                      ))}
+                    </div>
+                  );
+                })()}
                 <div className="mt-3 flex gap-2">
                   <input
                     value={newJob}
@@ -4181,6 +4284,8 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                   </button>
                 </div>
               </>
+            )}
+            </>
             )}
           </div>
         </div>
