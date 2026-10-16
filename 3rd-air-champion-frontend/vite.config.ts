@@ -75,7 +75,11 @@ export default defineConfig({
     host: true,
     proxy: {
       "/api": {
-        target: "http://13.59.73.109:8080",
+        // The server's Elastic IP. It was 13.59.73.109 — an auto-assigned
+        // address, not a reserved one — until the box was stopped on
+        // 2026-10-16 and came back on another; 3.131.53.9 stays through any
+        // stop and start.
+        target: "http://3.131.53.9:8080",
         changeOrigin: true,
         headers: { origin: "http://localhost:5173" },
       },
