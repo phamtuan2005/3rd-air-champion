@@ -153,8 +153,9 @@ const HeroShell = ({
   }, [hostOpen]);
 
   /*
-   * A first look opens the host banner by itself and closes it after
-   * HOST_INTRO_MS (Anh-Tri, 2026-10-17). A first look used to get Classic,
+   * Hero opens the host banner by itself and closes it after HOST_INTRO_MS
+   * (Anh-Tri, 2026-10-17) — on every visit since the same day (host: first
+   * visits only was not enough), once per page load. A first look used to get Classic,
    * whose banner sits on the page; Hero keeps it behind the house name, so a
    * newcomer in Hero never learned who the hosts are or what the house
    * promises them. The guest can shut it sooner the usual ways — the arrow,
