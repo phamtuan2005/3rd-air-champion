@@ -1283,7 +1283,7 @@ const TiBookInner = () => {
           // The classic layout's banner and house facts, the same components
           // fed the same host, so the two layouts cannot introduce the hosts
           // differently. Always open: the guest tapped to read it.
-          // Every visit opens the banner by itself for ten seconds — see
+          // Every visit opens the banner by itself for five seconds — see
           // introduceHost in HeroShell. It was a first visit only; the host
           // wants every guest, every time, to see who the hosts are and the
           // house's promise to them (2026-10-17).
