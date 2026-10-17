@@ -42,7 +42,7 @@ import type { AskTTContext, TTAction } from "../util/askTT";
 import { fetchGuestThread } from "../util/guestMessageOperations";
 import { linkTiBookVisitToGuest, recordTiBookVisit, saveStatsCode, unlinkTiBookVisitGuest } from "../util/tibookVisitOperations";
 import { fetchPublishedReviews, PublishedReviews } from "../util/ttQuestionLog";
-import { hasVisitedTiBookBefore, markTiBookVisited } from "../util/tibookReturning";
+import { markTiBookVisited } from "../util/tibookReturning";
 import { fillRate, habitsOf, lastStayOffer, seriesFor, Proposal } from "../util/bookingHabit";
 import UsualStayCard, { chosenStays, isSnoozed, snooze, UsualStaysButton } from "../components/tibook/UsualStayCard";
 
@@ -1283,9 +1283,11 @@ const TiBookInner = () => {
           // The classic layout's banner and house facts, the same components
           // fed the same host, so the two layouts cannot introduce the hosts
           // differently. Always open: the guest tapped to read it.
-          // A first look opens the banner by itself for a few seconds — see
-          // introduceHost in HeroShell.
-          introduceHost={!hasVisitedTiBookBefore()}
+          // Every visit opens the banner by itself for ten seconds — see
+          // introduceHost in HeroShell. It was a first visit only; the host
+          // wants every guest, every time, to see who the hosts are and the
+          // house's promise to them (2026-10-17).
+          introduceHost
           hostIntro={currentHost ? (close) => (
             <>
               <HostProfileBanner host={currentHost} cohostNames={cohostNames} onSummaryTap={close} />
