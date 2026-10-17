@@ -193,7 +193,7 @@ them; this is the index.
 
    A guest who has never picked a look starts in Hero, first visit or not
    (until 2026-10-17 a first visit got Classic). On EVERY visit (once per page
-   load) Hero opens the host banner by itself and closes it after five seconds,
+   load) Hero opens the host banner by itself and closes it after three seconds,
    so every guest meets the hosts; TT's nudge and the Look nudge wait until it
    closes. It was a first visit only for its first day; the host asked for
    every visit (2026-10-17).
