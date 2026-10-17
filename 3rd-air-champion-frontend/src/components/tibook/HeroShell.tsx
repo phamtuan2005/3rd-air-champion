@@ -104,8 +104,10 @@ interface HeroShellProps {
   introduceHost?: boolean;
 }
 
-// How long the host banner stays open when Hero opens it for a first look.
-const HOST_INTRO_MS = 10_000;
+// How long the host banner stays open when Hero opens it by itself. Ten
+// seconds at first; halved by the host the same day (2026-10-17), now that it
+// opens on every visit and a regular sees it each time.
+const HOST_INTRO_MS = 5_000;
 // Once per page load, not per mount: switching look and back remounts Hero,
 // and a guest who has met the hosts should not be introduced twice.
 let hostIntroduced = false;
