@@ -57,6 +57,9 @@ export interface GuestCalendarProps {
   // sticks to the bottom of the page under the calendar (the selection bar,
   // Hero's bottom bar). See the line itself for why it pins.
   holidayBottom?: string;
+  // While only the top of the calendar is on screen, show this month from
+  // today's week rather than from the 1st. Only Hero asks for it — see todayRow.
+  todayOnTop?: boolean;
 }
 
 const NUM_ROWS = 6;
@@ -126,6 +129,12 @@ const barRadiusFor = (barHeight: number) =>
  * hero calendar font size so huge"). Hero still reads a step above classic,
  * which is what was asked for on the 1st: 16px / 12.5px at the floor against
  * classic's 13 / 11.
+ *
+ * RAISED AGAIN 2026-10-17, part way: the host found Hero's month too quiet
+ * ("make the font size of the calendar bigger/more noticeable"). The day number to 18 / 21 — still short of the 19 / 22 that
+ * read as shouting — and "3 left" / "sold out" to 13.5 at the floor. Those
+ * two lines stay capped by the tile's width, so "sold out" cannot be
+ * clipped to "old ou" again however large the floor goes.
  */
 const px = (n: number) => Math.round(n * 10) / 10;
 
@@ -140,16 +149,17 @@ const barLabelFor = (barHeight: number, large: boolean) =>
 // The day number. Classic leaves it unboosted and capped below the others:
 // "the least useful thing in the cell", found from its column, and boosted it
 // became the loudest thing on a page it should stay quiet on. In Hero the
-// month is the larger part of the screen and the number leads: 16px at the
-// floor, 19 at the reference tile (19 and 22 until 2026-10-05 — see above).
+// month is the larger part of the screen and the number leads: 18px at the
+// floor, 21 at the reference tile (19 / 22 until 2026-10-05, then 16 / 19
+// until 2026-10-17 — see above).
 const dateFor = (tile: number, large: boolean) =>
-  large ? px(clamp(16, (tile / REF_TILE) * 19, 26)) : px(clamp(13, (tile / REF_TILE) * 16, 24));
+  large ? px(clamp(18, (tile / REF_TILE) * 21, 28)) : px(clamp(13, (tile / REF_TILE) * 16, 24));
 
 // "3 left" / "sold out" — the line that actually answers "can I book this
 // night". Classic: was 9px, the smallest type in TiBook, now 11 at the floor.
 const metaFor = (tile: number, large: boolean) =>
   large
-    ? px(clamp(12.5, (tile / REF_TILE) * 11 * TYPE_BOOST, 20))
+    ? px(clamp(13.5, (tile / REF_TILE) * 12 * TYPE_BOOST, 20))
     : px(clamp(11, (tile / REF_TILE) * 9 * TYPE_BOOST, 19));
 
 // The wish-list star and the ⏳ hold badge — classic was 11px, 13 at the floor.
@@ -212,6 +222,7 @@ const MonthGrid = ({
   onReservedClick,
   largeType = false,
   holidayBottom = "0px",
+  todayOnTop = false,
 }: GuestCalendarProps) => {
   const { theme } = useTiBookTheme();
   const roomChip = useRoomChip();
@@ -389,6 +400,46 @@ const MonthGrid = ({
     setMonths(arr);
   }, []);
 
+  /*
+   * Hero's small calendar opens with today's week on its top row.
+   *
+   * Hero's month is a full screen tall, but until the guest scrolls the room
+   * photos away only its top rows are on screen — and a month page starts on
+   * the 1st, so from mid-month on those rows were nights already gone (host,
+   * 2026-10-17: "90% of calendar space shows the past").
+   *
+   * So while the calendar is SMALL (not wholly on screen), this month's page
+   * sits scrolled down by today's row, with a snap point there: the past is a
+   * swipe up, next month a swipe down. Once the guest expands it — the photos
+   * scrolled away, the calendar wholly on screen — it slides back to the 1st
+   * and shows the whole month; shrunk again on this month's 1st, it returns
+   * to today.
+   *
+   * Two tries before this were not wanted, and are why it is an offset into
+   * the ordinary month pages rather than pages of its own. Scrolling week by
+   * week lost the month-by-month paging, and snapping only at the month rows
+   * of that scroll pulled short swipes back to where they began. A page that
+   * opened on today's week, ahead of the month pages, showed this month twice
+   * ("DO NOT DUPLICATE A MONTH").
+   */
+  const todayRow = useMemo(() => {
+    if (!todayOnTop) return 0;
+    const t = startOfToday();
+    // The row buildMonthCells puts today in.
+    return Math.floor((getDay(new Date(t.getFullYear(), t.getMonth(), 1)) + t.getDate() - 1) / 7);
+  }, [todayOnTop]);
+
+  // Whether the calendar is the small one, still partly below the screen.
+  const [compact, setCompact] = useState(true);
+  const compactRef = useRef(true);
+  // Rows this month's page is scrolled down by: todayRow while the small
+  // calendar shows today on top, else 0. Every write to scrollTop goes
+  // through posOf, so a resize keeps today on top rather than losing it.
+  const offsetRowsRef = useRef(0);
+  const posOf = (index: number, h: number) => index * h + offsetRowsRef.current * Math.floor(h / NUM_ROWS);
+  // Today on top applies to this month's page, while the calendar is small.
+  const offsetFor = (index: number) => (todayOnTop && index === 0 && compactRef.current ? todayRow : 0);
+
   useEffect(() => {
     if (scrollContainerRef.current && months.length > 0) {
       const today = new Date();
@@ -397,18 +448,21 @@ const MonthGrid = ({
         (currentMonth.getMonth() - today.getMonth());
       const targetIndex = Math.max(0, monthDiff);
       const h = scrollContainerRef.current.offsetHeight;
-      scrollContainerRef.current.scrollTop = targetIndex * h;
+      offsetRowsRef.current = offsetFor(targetIndex);
+      scrollContainerRef.current.scrollTop = posOf(targetIndex, h);
       visibleIndexRef.current = targetIndex;
+      setVisibleIndex(targetIndex);
     }
   }, [months]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (scrollToTodayTrigger > 0 && scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = 0;
+      offsetRowsRef.current = offsetFor(0);
+      scrollContainerRef.current.scrollTop = posOf(0, scrollContainerRef.current.offsetHeight);
       visibleIndexRef.current = 0;
       setVisibleIndex(0);
     }
-  }, [scrollToTodayTrigger]);
+  }, [scrollToTodayTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Apply a scroll-to-month request ONCE per trigger, but only once the calendar
   // is actually ready (months built + a real height). Depending on months +
@@ -426,10 +480,11 @@ const MonthGrid = ({
       (scrollToMonthTrigger.month.getFullYear() - today.getFullYear()) * 12 +
       (scrollToMonthTrigger.month.getMonth() - today.getMonth())
     );
-    el.scrollTop = idx * el.offsetHeight;
+    offsetRowsRef.current = offsetFor(idx);
+    el.scrollTop = posOf(idx, el.offsetHeight);
     visibleIndexRef.current = idx;
     setVisibleIndex(idx);
-  }, [scrollToMonthTrigger, months, containerHeight]);
+  }, [scrollToMonthTrigger, months, containerHeight]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const el = scrollContainerRef.current;
@@ -438,12 +493,51 @@ const MonthGrid = ({
       const h = entry.contentRect.height;
       setContainerHeight(h);
       setTileWidth(entry.contentRect.width / 7);
-      if (h > 0) el.scrollTop = visibleIndexRef.current * h;
+      if (h > 0) el.scrollTop = posOf(visibleIndexRef.current, h);
     });
     obs.observe(el);
     setContainerHeight(el.clientHeight);
     return () => obs.disconnect();
   }, []);
+
+  // Small or expanded, read from how much of the calendar is on screen.
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!todayOnTop || !el || todayRow === 0) return;
+    const io = new IntersectionObserver(([entry]) => {
+      const nowCompact = entry.intersectionRatio < 0.97;
+      if (nowCompact === compactRef.current) return;
+      compactRef.current = nowCompact;
+      setCompact(nowCompact);
+    }, { threshold: [0, 0.5, 0.97, 1] });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [todayOnTop, todayRow]);
+
+  // The slide between today on top and the whole month. An effect, after the
+  // render, not in the observer: the snap point at today's row is drawn only
+  // while small, and a scroll to it sent before it was drawn was snapped
+  // straight back to the 1st.
+  const compactSeen = useRef(false);
+  useEffect(() => {
+    // The first run is the mount, where the months effect places the page.
+    if (!compactSeen.current) {
+      compactSeen.current = true;
+      return;
+    }
+    const el = scrollContainerRef.current;
+    if (!todayOnTop || !el || todayRow === 0) return;
+    const h = el.offsetHeight;
+    if (!compact && offsetRowsRef.current > 0) {
+      // Expanded: the whole month, from its 1st.
+      offsetRowsRef.current = 0;
+      el.scrollTo({ top: posOf(visibleIndexRef.current, h), behavior: "smooth" });
+    } else if (compact && visibleIndexRef.current === 0 && Math.abs(el.scrollTop) < 3) {
+      // Small again, on this month's 1st: back to today on top.
+      offsetRowsRef.current = todayRow;
+      el.scrollTo({ top: posOf(0, h), behavior: "smooth" });
+    }
+  }, [compact]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pageLayouts = useMemo(
     () => months.map((month) => ({ month, cells: buildMonthCells(month) })),
@@ -453,11 +547,20 @@ const MonthGrid = ({
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const el = e.target as HTMLElement;
     const h = el.offsetHeight;
-    const snappedIndex = Math.round(el.scrollTop / h);
+    // Scrolled down to today, a late-month page sits most of a page past its
+    // top, and rounding would name next month. The page whose rows are at the
+    // top of the screen is the one the guest is in.
+    const snappedIndex = todayOnTop ? Math.floor((el.scrollTop + 3) / h) : Math.round(el.scrollTop / h);
 
     if (Math.abs(snappedIndex - visibleIndexRef.current) > 1) {
-      el.scrollTop = visibleIndexRef.current * h;
+      el.scrollTop = posOf(visibleIndexRef.current, h);
       return;
+    }
+
+    if (todayOnTop) {
+      const atToday = snappedIndex === 0 && todayRow > 0 &&
+        Math.abs(el.scrollTop - todayRow * Math.floor(h / NUM_ROWS)) < 3;
+      offsetRowsRef.current = atToday ? todayRow : 0;
     }
 
     const snappedMonth = months[snappedIndex];
@@ -474,6 +577,12 @@ const MonthGrid = ({
   const renderTile = (date: Date, pageMonth: Date) => {
     const isOutside = !isSameMonth(date, pageMonth);
     const isToday = isSameDay(date, startOfToday());
+    // Today wears a 5px ring inside its cell (calendarStyle.css), so its lines
+    // have 10px less to fit in than the cap above allows. At Hero's raised
+    // size the ring clipped today's "sold out" at both ends (2026-10-17).
+    const TODAY_RING = 12;
+    const cellSold = isToday && largeType ? widthCap(metaSize, tileWidth - TODAY_RING, SOLD_OUT_EMS) : soldSize;
+    const cellLeft = isToday && largeType ? widthCap(metaSize, tileWidth - TODAY_RING, LEFT_EMS) : leftSize;
     const { status, roomsLeft } = getStatus(date);
     const canBook = !isOutside && (status === "available" || status === "partial");
     const canWishList = !isOutside && !!onWishListClick && (status === "full" || status === "blocked");
@@ -645,7 +754,7 @@ const MonthGrid = ({
             className={`relative z-10 font-semibold leading-none ${inCart ? "text-white" : theme.tileText}`}
             // A picked night carries the tick as well, a wider line with its
             // own cap.
-            style={{ fontSize: inCart ? pickedSize : leftSize }}
+            style={{ fontSize: inCart ? pickedSize : cellLeft }}
           >
             {/* The tick stays whatever the scope: it is the guest's own
                 selection, not a count. */}
@@ -659,7 +768,7 @@ const MonthGrid = ({
             <div className="relative z-10 flex flex-col items-center gap-0.5">
               {/* Keep "sold out" visible even when wish-listed — the gray wish-list
                   overlay otherwise hides it and the date looks bookable again. */}
-              <span className={`${largeType ? "whitespace-nowrap " : ""}font-medium leading-none ${theme.surfaceMuted}`} style={{ fontSize: soldSize }}>
+              <span className={`${largeType ? "whitespace-nowrap " : ""}font-medium leading-none ${theme.surfaceMuted}`} style={{ fontSize: cellSold }}>
                 sold out
               </span>
               {canWishList && !tightRow && (
@@ -811,13 +920,29 @@ const MonthGrid = ({
       // screen, and without this a swipe that reaches the first or last month
       // would carry on into the page — paging the calendar would drag the whole
       // layout about under the guest's thumb.
-      className="flex-1 min-h-0 overflow-y-scroll overscroll-contain snap-y snap-mandatory"
+      //
+      // overflow-anchor none: every page is placed by index × height, and the
+      // browser's scroll anchoring undid that. Hero opens on its second page,
+      // and as the grid settled from 487px to 464 its rows shrank 4px each;
+      // the browser shifted scrollTop 20px to hold a tile still, and the page
+      // above showed through a strip across the top (2026-10-17).
+      className="flex-1 min-h-0 overflow-y-scroll overscroll-contain snap-y snap-mandatory [overflow-anchor:none]"
       onScroll={handleScroll}
     >
       {pageLayouts.map((layout, index) => {
         const inWindow = Math.abs(index - visibleIndex) <= 1;
         return (
-          <div key={index} className="snap-start h-full">
+          <div key={index} className="relative snap-start h-full">
+            {/* A second resting place on this month's page, at today's row,
+                for the small calendar only — see todayRow. Expanded, the
+                pages snap at their 1sts alone, as they always have. */}
+            {todayOnTop && compact && index === 0 && todayRow > 0 && (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-x-0 h-px snap-start"
+                style={{ top: todayRow * rowHeight }}
+              />
+            )}
             {inWindow && (
               <div
                 style={{
@@ -843,7 +968,7 @@ const MonthGrid = ({
         );
       })}
     </div>
-    <MonthHolidayLine month={shownMonth} bottom={holidayBottom} />
+    <MonthHolidayLine month={shownMonth} bottom={holidayBottom} large={largeType} />
     </div>
   );
 };

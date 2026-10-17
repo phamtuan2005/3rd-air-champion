@@ -16,6 +16,15 @@ npm install
 npm run dev          # then open http://localhost:5173/book
 ```
 
+To see what a brand-new guest sees on every load (Hero introducing the hosts,
+the nudges after it), run a second server that forgets this origin's storage
+each time — `src/util/devFreshGuest.ts`:
+
+```bash
+VITE_ALWAYS_NEW_GUEST=true npx vite --host --port 5174 --strictPort   # Git Bash
+$env:VITE_ALWAYS_NEW_GUEST="true"; npx vite --host --port 5174 --strictPort   # PowerShell
+```
+
 You need `.env.development`, which is **not** in git. Ask Anh-Tuan for it. It
 holds `VITE_BACKEND_ENDPOINT` plus the TiBook sign-in variables.
 
@@ -190,6 +199,12 @@ them; this is the index.
    rounded sheet lifted over it. The facts, the amenities and the price
    conversation are the same markup in both. That is the line: a layout may
    change how a screen is arranged, never what it says.
+
+   A guest who has never picked a look starts in Hero, first visit or not
+   (until 2026-10-17 a first visit got Classic). On a first visit Hero opens
+   the host banner by itself and closes it after ten seconds, so a newcomer
+   still meets the hosts; TT's nudge and the Look nudge wait until it closes.
+   "First visit" is `util/tibookReturning`'s answer, and only its answer.
 
 9. **There are two SKINS, and neither is a second app.** A guest picks Classic
    or Neon in the nav and the choice is remembered per device, alongside the

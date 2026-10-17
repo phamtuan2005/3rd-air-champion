@@ -100,7 +100,15 @@ interface HeroShellProps {
   // banner, handed in from TiBook.tsx so both layouts show the same one. Given
   // the sheet's close, so the banner's own header can shut it.
   hostIntro?: (close: () => void) => ReactNode;
+  // A first look at TiBook: open the host banner by itself, then close it.
+  introduceHost?: boolean;
 }
+
+// How long the host banner stays open when Hero opens it for a first look.
+const HOST_INTRO_MS = 10_000;
+// Once per page load, not per mount: switching look and back remounts Hero,
+// and a guest who has met the hosts should not be introduced twice.
+let hostIntroduced = false;
 
 // The weekday letters over the grid, and not over the list, where every row
 // names its own day. Its own component so that flipping Month/List redraws
@@ -133,7 +141,7 @@ const HeroShell = ({
   reservedStays, reservedMap, currentMonth, onMonthChange, onDateClick,
   onWishListClick, onMyStayClick, onMyStayDetails, onReservedClick, scrollToTodayTrigger,
   scrollToMonthTrigger, onOpenPhotos, onScrollToToday, onMyBookings, onAskTT, ttNudge, ttUnread, onRequest, guestName,
-  actionLabel, hasSelection, usualCount, onOpenUsual, hostIntro,
+  actionLabel, hasSelection, usualCount, onOpenUsual, hostIntro, introduceHost,
 }: HeroShellProps) => {
   const { theme } = useTiBookTheme();
   const [hostOpen, setHostOpen] = useState(false);
@@ -143,6 +151,40 @@ const HeroShell = ({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [hostOpen]);
+
+  /*
+   * A first look opens the host banner by itself and closes it after
+   * HOST_INTRO_MS (Anh-Tri, 2026-10-17). A first look used to get Classic,
+   * whose banner sits on the page; Hero keeps it behind the house name, so a
+   * newcomer in Hero never learned who the hosts are or what the house
+   * promises them. The guest can shut it sooner the usual ways — the arrow,
+   * a tap outside, Escape.
+   *
+   * While it is up, TT's nudge and the Look nudge wait. Both point at buttons
+   * in the nav, under the banner, and TT's would have played out unseen
+   * behind it; held back, they follow it in their usual order.
+   */
+  const [introducing, setIntroducing] = useState(() => !!introduceHost && !hostIntroduced);
+  const introOpened = useRef(false);
+  useEffect(() => {
+    if (!introducing) return;
+    // The banner needs the host. If they never load, give up on the intro
+    // rather than holding the nudges back for good.
+    if (!hostIntro) {
+      const giveUp = setTimeout(() => { hostIntroduced = true; setIntroducing(false); }, 4000);
+      return () => clearTimeout(giveUp);
+    }
+    hostIntroduced = true;
+    setHostOpen(true);
+    const t = setTimeout(() => setHostOpen(false), HOST_INTRO_MS);
+    return () => clearTimeout(t);
+  }, [introducing, !!hostIntro]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Over once the banner has been open and is shut, by the timer or the guest.
+  useEffect(() => {
+    if (!introducing) return;
+    if (hostOpen) introOpened.current = true;
+    else if (introOpened.current) setIntroducing(false);
+  }, [hostOpen, introducing]);
   const roomChip = useRoomChip();
   // In the order TiBook gives (roomsForGuest: a returning guest's rooms
   // first, then by price) — not re-sorted here, or their rooms would sink.
@@ -588,12 +630,12 @@ const HeroShell = ({
             Silico…" against it. It lives in the bottom bar now, where Dates was. */}
         <AskTTButton
           onClick={onAskTT}
-          nudge={ttNudge}
+          nudge={introducing ? null : ttNudge}
           unread={ttUnread}
           guestFirstName={guestName?.trim().split(" ")[0]}
           align="right"
         />
-        <AppearanceMenu />
+        <AppearanceMenu holdHint={introducing} />
       </nav>
 
       {/* Drops from under the nav, not over it, so the name that opened it
@@ -827,13 +869,17 @@ const HeroShell = ({
           {/* The year is named only when it is not this year. "December" alone
               was 2026 or 2027 to a guest who scrolled on, so those say which;
               the months of the year they are in do not need it said again. */}
-          <span className={`shrink-0 text-sm font-bold ${theme.surfaceText}`}>
+          {/* 18px, and the line beside it 15: the holiday line under the
+              month went up to 15px, and the host asked for the month to read
+              as large (2026-10-17). The name stays a step above it, as the
+              heading the holidays sit under. */}
+          <span className={`shrink-0 text-[18px] font-bold leading-tight ${theme.surfaceText}`}>
             {currentMonth.toLocaleString("en-US", {
               month: "long",
               ...(currentMonth.getFullYear() !== new Date().getFullYear() ? { year: "numeric" as const } : {}),
             })}
           </span>
-          <span className={`min-w-0 flex-1 ${SLIDES} text-[13px] ${theme.surfaceMuted}`}>
+          <span className={`min-w-0 flex-1 ${SLIDES} text-[15px] ${theme.surfaceMuted}`}>
             {/* Said of the PICKED rooms. It was said of the card in front, so
                 with Cozy and Cute picked it read "Cozy is free 30 nights" over
                 a month counting both. */}
@@ -873,6 +919,9 @@ const HeroShell = ({
         <div className="flex min-h-0 flex-1 flex-col">
           <GuestCalendar
             largeType
+            // The small calendar opens on today's week, not on the 1st,
+            // which by the 15th is mostly the past (host, 2026-10-17).
+            todayOnTop
             // Above the sticky bottom bar (h-[4.6rem]).
             holidayBottom="4.6rem"
             currentMonth={currentMonth}

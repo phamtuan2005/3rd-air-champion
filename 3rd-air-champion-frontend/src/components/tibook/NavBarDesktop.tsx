@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
+import { hasVisitedTiBookBefore } from "../../util/tibookReturning";
 import type { LayoutName, VibeName } from "../../contexts/TiBookThemeContext";
 import type { hostType } from "../../util/types/hostType";
 import { getLoyaltyTier } from "./GuestLoyaltyBanner";
@@ -238,7 +239,9 @@ const readHintSeen = () => {
   }
 };
 
-export const AppearanceMenu = () => {
+// holdHint: something else has the screen (Hero's host banner, on a first
+// look). The nudge waits until it is false, then runs its usual timer.
+export const AppearanceMenu = ({ holdHint = false }: { holdHint?: boolean }) => {
   const { theme, setTheme, vibe, layout, setLook, allThemes } = useTiBookTheme();
   const [open, setOpen] = useState(false);
   const [hint, setHint] = useState(false);
@@ -253,7 +256,7 @@ export const AppearanceMenu = () => {
   // overlap and neither is read. This one follows a moment after TT's is
   // answered.
   useEffect(() => {
-    if (readHintSeen()) return;
+    if (holdHint || readHintSeen()) return;
     let t: ReturnType<typeof setTimeout> | undefined;
     let stopWaiting: (() => void) | undefined;
     const show = () => {
@@ -265,7 +268,7 @@ export const AppearanceMenu = () => {
       clearTimeout(t);
       stopWaiting?.();
     };
-  }, []);
+  }, [holdHint]);
 
   const dismissHint = () => {
     setHint(false);
@@ -286,8 +289,8 @@ export const AppearanceMenu = () => {
    * Two different guests can be standing in front of this nudge, and they are
    * owed different sentences.
    *
-   * Somebody new is looking at Classic and has simply never been told the menu
-   * is there — an invitation. A guest coming back is looking at Hero, which
+   * Somebody new has simply never been told the menu is there — an
+   * invitation. A guest coming back is looking at Hero, which
    * TiBook picked for them (see util/tibookReturning) and which is NOT the app
    * they left: dark, and the rooms moved. Handing that guest "make it yours"
    * explains nothing and quietly leaves them to work out on their own what
@@ -300,8 +303,13 @@ export const AppearanceMenu = () => {
    *
    * The nudge only ever shows to a guest with NO saved look (readHintSeen), so
    * arriving in Hero here always means TiBook chose it, never that they did.
+   *
+   * And it was reconsidered (2026-10-17): a first look opens in Hero as well.
+   * Hero alone stopped meaning "coming back", and "Welcome back" would have
+   * greeted a stranger — so the rearranged sentence also asks whether this
+   * device has been here, and a newcomer in Hero gets the invitation.
    */
-  const rearranged = layout === "hero";
+  const rearranged = layout === "hero" && hasVisitedTiBookBefore();
 
   // Closes on a tap anywhere else and on Escape. Without the first, the panel
   // sits over the calendar the guest is trying to get back to, and the only way

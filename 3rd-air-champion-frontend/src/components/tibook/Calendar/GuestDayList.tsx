@@ -653,6 +653,7 @@ const GuestDayList = ({
   onMyStayDetails,
   onReservedClick,
   holidayBottom,
+  largeType = false,
 }: GuestCalendarProps) => {
   const { theme } = useTiBookTheme();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -875,7 +876,7 @@ const GuestDayList = ({
       </div>
     </div>
     {/* The month the guest is reading, the one onMonthChange reports. */}
-    <MonthHolidayLine month={sections[shownIdx]?.month} bottom={holidayBottom} />
+    <MonthHolidayLine month={sections[shownIdx]?.month} bottom={holidayBottom} large={largeType} />
     </div>
   );
 };

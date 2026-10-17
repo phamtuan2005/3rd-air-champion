@@ -42,7 +42,7 @@ import type { AskTTContext, TTAction } from "../util/askTT";
 import { fetchGuestThread } from "../util/guestMessageOperations";
 import { linkTiBookVisitToGuest, recordTiBookVisit, saveStatsCode, unlinkTiBookVisitGuest } from "../util/tibookVisitOperations";
 import { fetchPublishedReviews, PublishedReviews } from "../util/ttQuestionLog";
-import { markTiBookVisited } from "../util/tibookReturning";
+import { hasVisitedTiBookBefore, markTiBookVisited } from "../util/tibookReturning";
 import { fillRate, habitsOf, lastStayOffer, seriesFor, Proposal } from "../util/bookingHabit";
 import UsualStayCard, { chosenStays, isSnoozed, snooze, UsualStaysButton } from "../components/tibook/UsualStayCard";
 
@@ -93,8 +93,8 @@ const TiBookInner = () => {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
   // Remembers that TiBook has been open on this device, which is what decides
-  // the look a guest who has never chosen one gets NEXT time (Hero for someone
-  // coming back, Classic for a first look — see util/tibookReturning).
+  // whether NEXT time is a first look (Hero introduces the hosts, the Look
+  // nudge invites rather than welcomes back — see util/tibookReturning).
   //
   // Kept out of recordTiBookVisit on purpose, even though both mean "somebody
   // opened TiBook". That one is the host's counting and is skipped on the dev
@@ -1283,6 +1283,9 @@ const TiBookInner = () => {
           // The classic layout's banner and house facts, the same components
           // fed the same host, so the two layouts cannot introduce the hosts
           // differently. Always open: the guest tapped to read it.
+          // A first look opens the banner by itself for a few seconds — see
+          // introduceHost in HeroShell.
+          introduceHost={!hasVisitedTiBookBefore()}
           hostIntro={currentHost ? (close) => (
             <>
               <HostProfileBanner host={currentHost} cohostNames={cohostNames} onSummaryTap={close} />

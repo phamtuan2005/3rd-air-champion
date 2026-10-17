@@ -1,3 +1,5 @@
+// First, before anything that reads storage — see the file for why.
+import "./util/devFreshGuest";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
