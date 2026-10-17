@@ -51,7 +51,7 @@ describe("tibookReturning", () => {
   });
 
   // Private browsing throws on access rather than returning null. The guest
-  // gets the quiet white app every time, which is the harmless way round — the
+  // is treated as new every time, which is the harmless way round — the
   // alternative is a provider that throws before anything is drawn.
   it("reads as a first look, and does not throw, where storage is refused", () => {
     vi.stubGlobal("localStorage", {

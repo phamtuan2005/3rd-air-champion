@@ -191,6 +191,12 @@ them; this is the index.
    conversation are the same markup in both. That is the line: a layout may
    change how a screen is arranged, never what it says.
 
+   A guest who has never picked a look starts in Hero, first visit or not
+   (until 2026-10-17 a first visit got Classic). On a first visit Hero opens
+   the host banner by itself and closes it after ten seconds, so a newcomer
+   still meets the hosts; TT's nudge and the Look nudge wait until it closes.
+   "First visit" is `util/tibookReturning`'s answer, and only its answer.
+
 9. **There are two SKINS, and neither is a second app.** A guest picks Classic
    or Neon in the nav and the choice is remembered per device, alongside the
    palette — which survives the switch rather than being replaced by it. Both

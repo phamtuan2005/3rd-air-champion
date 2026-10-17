@@ -1,11 +1,13 @@
 // Has this device opened TiBook before?
 //
-// One question, asked in one place. TiBook uses it for exactly one decision:
-// which look a guest who has never picked one starts in (see
-// TiBookThemeContext). A first look gets Classic, someone coming back gets
-// Hero. A second way of working out "new or returning" would eventually
-// disagree with this one, and what the guest would see is the app changing
-// shape for no reason they could name — the same trap as two availability
+// One question, asked in one place. It used to decide which look a guest who
+// had never picked one started in — Classic for a first look, Hero for someone
+// coming back. Since 2026-10-17 everyone starts in Hero, and this decides what
+// Hero says to a first look: it opens the host banner by itself (HeroShell's
+// introduceHost) and the Look nudge invites rather than welcomes back
+// (NavBarDesktop). A second way of working out "new or returning" would
+// eventually disagree with this one, and what the guest would see is the app
+// greeting them as two different people — the same trap as two availability
 // rules (TIBOOK.md rule 1).
 //
 // It is a per-DEVICE fact and deliberately says nothing about WHO: one flag,
@@ -17,8 +19,8 @@ const SEEN_KEY = "tiBookSeen";
 
 // Private browsing throws on localStorage rather than returning null, so every
 // access is wrapped. A device we cannot read is treated as a first look, which
-// is the harmless way round: a guest gets the quiet white app rather than a
-// nav that will not render.
+// is the harmless way round: a guest is introduced to the hosts once more
+// rather than meeting a nav that will not render.
 const readKey = (key: string): string | null => {
   try {
     return localStorage.getItem(key);
@@ -30,8 +32,8 @@ const readKey = (key: string): string | null => {
 // Traces TiBook was already leaving on devices before this flag existed.
 //
 // Without these, every guest who has been coming here for months would be
-// greeted as brand new on their next visit — one Classic visit each before the
-// flag caught up. A small thing, but the wrong thing to say to a returning
+// greeted as brand new on their next visit — one first-look visit each before
+// the flag caught up. A small thing, but the wrong thing to say to a returning
 // guest, and the evidence to avoid it is already sitting on their device.
 //
 // Any one of them means TiBook has been open here before: the visitor id is

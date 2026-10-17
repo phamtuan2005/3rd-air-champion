@@ -10,7 +10,14 @@ import { holidayLabel, usHolidaysInMonth } from "../../../util/usHolidays";
  * (Veterans Day) was 25 rows below the fold, so a guest in the list never saw
  * a holiday at all (Anh-Tri, 2026-10-16).
  */
-const MonthHolidayLine = ({ month, bottom = "0px" }: { month?: Date; bottom?: string }) => {
+/*
+ * `large` is Hero's size: 15px in a 32px line, against the classic 12 in 24.
+ * At 12px the host found the holidays hard to read under Hero's raised month
+ * (2026-10-17). Hero only, like the rest of Hero's type — a size raised in
+ * both layouts once had to be taken back out of the classic (see the type
+ * notes in GuestCalendar).
+ */
+const MonthHolidayLine = ({ month, bottom = "0px", large = false }: { month?: Date; bottom?: string; large?: boolean }) => {
   const { theme } = useTiBookTheme();
   const monthHolidays = month ? usHolidaysInMonth(month.getFullYear(), month.getMonth()) : [];
   // No line at all for a month without a holiday. It used to print "No US
@@ -27,7 +34,7 @@ const MonthHolidayLine = ({ month, bottom = "0px" }: { month?: Date; bottom?: st
     // under the calendar once it is fully open. Opaque, or the dates
     // scrolling under it would show through.
     <div
-      className={`sticky z-20 flex h-6 shrink-0 items-center gap-1.5 overflow-x-auto overflow-y-hidden whitespace-nowrap border-t px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden text-[12px] leading-none ${theme.gridLine} ${theme.surface} ${theme.surfaceMuted}`}
+      className={`sticky z-20 flex ${large ? "h-8 px-3 text-[15px]" : "h-6 px-2 text-[12px]"} shrink-0 items-center gap-1.5 overflow-x-auto overflow-y-hidden whitespace-nowrap border-t [scrollbar-width:none] [&::-webkit-scrollbar]:hidden leading-none ${theme.gridLine} ${theme.surface} ${theme.surfaceMuted}`}
       style={{ bottom }}
     >
       {/* The line swipes sideways instead of clipping at "…". A month with

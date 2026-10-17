@@ -1,6 +1,5 @@
 import { createContext, useContext, useMemo, useState, ReactNode } from "react";
 import { getRoomColor } from "../util/getRoomColor";
-import { hasVisitedTiBookBefore } from "../util/tibookReturning";
 
 export type ThemeName = "green" | "amber" | "teal" | "rose" | "indigo";
 
@@ -748,26 +747,21 @@ const readKey = (key: string): string | null => {
 };
 
 /*
- * Which look a guest who has NEVER chosen one starts in.
+ * Which look a guest who has NEVER chosen one starts in: Hero, first visit or
+ * not.
  *
- * A first look gets Classic: white, stacked, quiet. Somebody coming back gets
- * Hero — rooms first, actions under the thumb — because they already know what
- * the house is and have come to pick a room and a date, not to be introduced
- * to the place. The house asked for it in those words.
+ * It used to be Classic for a first look — white, stacked, quiet — and Hero
+ * only for somebody coming back, on the reasoning that a newcomer needed
+ * introducing to the place before picking a room. Changed 2026-10-17 (Anh-Tri):
+ * a first visit opens in Hero too, and Hero does the introducing itself — it
+ * opens the host banner on its own for a first look and closes it again (see
+ * introduceHost in HeroShell).
  *
- * A guest's own CHOICE beats both and always has. This only fills in the
- * blank, so a returning guest who picked Classic keeps Classic however many
- * times they come back, and picking Classic once is how a returning guest opts
- * out of Hero for good.
- *
- * Whether they have been here before is not decided here — util/tibookReturning
- * owns that question, and freezes its answer for the page load so nobody's app
- * changes shape underneath them mid-visit.
+ * A guest's own CHOICE beats this and always has. This only fills in the
+ * blank, so a guest who picked Classic keeps Classic however many times they
+ * come back, and picking Classic once is how anyone opts out of Hero for good.
  */
-const startingLook = (): { vibe: VibeName; layout: LayoutName } =>
-  hasVisitedTiBookBefore()
-    ? { vibe: "vivid", layout: "hero" }
-    : { vibe: "classic", layout: "stack" };
+const startingLook = (): { vibe: VibeName; layout: LayoutName } => ({ vibe: "vivid", layout: "hero" });
 
 export const TiBookThemeProvider = ({ children }: { children: ReactNode }) => {
   const saved = (readKey(STORAGE_KEY) as ThemeName) || "green";
