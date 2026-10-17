@@ -16,15 +16,6 @@ npm install
 npm run dev          # then open http://localhost:5173/book
 ```
 
-To see what a brand-new guest sees on every load (Hero introducing the hosts,
-the nudges after it), run a second server that forgets this origin's storage
-each time — `src/util/devFreshGuest.ts`:
-
-```bash
-VITE_ALWAYS_NEW_GUEST=true npx vite --host --port 5174 --strictPort   # Git Bash
-$env:VITE_ALWAYS_NEW_GUEST="true"; npx vite --host --port 5174 --strictPort   # PowerShell
-```
-
 You need `.env.development`, which is **not** in git. Ask Anh-Tuan for it. It
 holds `VITE_BACKEND_ENDPOINT` plus the TiBook sign-in variables.
 
