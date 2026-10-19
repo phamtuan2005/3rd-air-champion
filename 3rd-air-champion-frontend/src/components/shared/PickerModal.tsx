@@ -28,6 +28,11 @@ interface PickerModalProps<T extends string | number> {
   // screen (the guest list), pure clutter on a list of four (weeks per page).
   searchable?: boolean;
   searchPlaceholder?: string;
+  // When a search matches nothing, offer to make the thing searched for. The
+  // host searching for a guest who is not there is about to add them, and a
+  // dead end saying "Nothing matches" left them hunting for where to do it.
+  onCreate?: (query: string) => void;
+  createLabel?: (query: string) => string;
 }
 
 // A centred choice modal for the calendar header controls.
@@ -47,6 +52,8 @@ const PickerModal = <T extends string | number>({
   onClose,
   searchable = false,
   searchPlaceholder = "Search",
+  onCreate,
+  createLabel = (q) => `Add "${q}"`,
 }: PickerModalProps<T>) => {
   const [query, setQuery] = useState("");
 
@@ -112,11 +119,26 @@ const PickerModal = <T extends string | number>({
         )}
 
         <div className="max-h-[60vh] overflow-y-auto">
-          {visible.length === 0 && (
-            <p className="px-4 py-6 text-center text-xs text-gray-500">
-              Nothing matches "{query}".
-            </p>
-          )}
+          {visible.length === 0 &&
+            (onCreate && query.trim() ? (
+              <div className="px-4 py-4 text-center">
+                <p className="text-xs text-gray-500">Nothing matches "{query.trim()}".</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onCreate(query.trim());
+                    onClose();
+                  }}
+                  className="mt-2 w-full rounded-xl bg-gray-900 py-2.5 text-sm font-semibold text-white"
+                >
+                  {createLabel(query.trim())}
+                </button>
+              </div>
+            ) : (
+              <p className="px-4 py-6 text-center text-xs text-gray-500">
+                Nothing matches "{query}".
+              </p>
+            ))}
           {visible.map((o) => {
             const selected = o.value === value;
             return (

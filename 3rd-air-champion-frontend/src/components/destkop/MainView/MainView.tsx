@@ -2193,10 +2193,22 @@ const MainView = ({
       )}
       {isManageGuestOpen && (guestPrefill || guests.length > 0) && (
         <ManageGuestModal
+          // Remounts when switching between editing and adding, so the rates and
+          // avatar held in the modal's state start blank rather than carrying the
+          // last-selected guest's values onto the new person.
+          key={guestPrefill ? "new" : "manage"}
           guests={guests}
           rooms={rooms}
           prefill={guestPrefill}
+          // Opened from the menu there used to be no way to add anyone except
+          // typing a new name over an existing guest and catching the "Add new"
+          // prompt below the form. Now a guest search that finds nobody offers
+          // the same add form a booking request opens.
+          onNewGuest={openGuestPrefill}
           onClose={() => {
+            // Forgotten on close, or the next add (from any path) would post its
+            // rates onto whoever a half-failed earlier add created.
+            createdGuestIdRef.current = null;
             setIsManageGuestOpen(false);
             setGuestPrefill(null);
           }}

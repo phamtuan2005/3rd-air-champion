@@ -66,6 +66,8 @@ interface ManageGuestModalProps {
   // from a booking request by somebody who is not in the guest list yet. The
   // host confirms what the guest typed rather than retyping it.
   prefill?: { name: string; phone: string } | null;
+  // Switches to the add form, seeded from a guest search that found nobody.
+  onNewGuest?: (prefill: { name: string; phone: string }) => void;
 }
 
 const ManageGuestModal = ({
@@ -76,6 +78,7 @@ const ManageGuestModal = ({
   onAdd,
   onDelete,
   prefill,
+  onNewGuest,
 }: ManageGuestModalProps) => {
   // Adding, not editing. The guest picker, the avatar, the rates and Delete all
   // belong to an existing record, so none of them are shown — /guest/create
@@ -250,8 +253,10 @@ const ManageGuestModal = ({
           <div className="flex min-h-0 flex-col gap-3 overflow-y-auto p-4">
             {addMode ? (
               <p className="rounded-xl bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-800">
-                From their booking request. Check the details and set their
-                rates before adding them — an avatar can be picked afterwards.
+                {/* Opened from a booking request or from a guest search that
+                    found nobody, so it does not claim to know which. */}
+                Check the details and set their rates before adding them — an
+                avatar can be picked afterwards.
               </p>
             ) : (
             /* Guest selector — a picker, not a native select, which opens the
@@ -563,6 +568,19 @@ const ManageGuestModal = ({
         onClose={() => setGuestPickerOpen(false)}
         searchable
         searchPlaceholder="Search name or phone"
+        // The search box is where the host looks for a guest, so it is also
+        // where a missing one gets added. What they typed goes into the form —
+        // as the phone if it is a number, the name otherwise — rather than being
+        // typed a second time.
+        onCreate={
+          onNewGuest
+            ? (q) =>
+                /^[\d\s()+.-]+$/.test(q)
+                  ? onNewGuest({ name: "", phone: q })
+                  : onNewGuest({ name: q, phone: "" })
+            : undefined
+        }
+        createLabel={(q) => `Add "${q}" as a new guest`}
       />
     </div>,
     document.body,
