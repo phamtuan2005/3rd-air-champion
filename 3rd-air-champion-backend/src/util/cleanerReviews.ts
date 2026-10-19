@@ -70,8 +70,34 @@ const WORK_WORDS = new RegExp(
   "gi",
 );
 
-/** The words in a review that are about the cleaning work, as written. */
-export const workWords = (text: string): string[] => [...new Set(String(text ?? "").match(WORK_WORDS) ?? [])];
+// A guest saying the cleaning fell short. Four or five stars is no guarantee
+// against one — "great stay, but the room could have been cleaner" — and
+// WORK_WORDS alone finds "cleaner" in that and shows it to the cleaner, in
+// bold, as praise for their visit: exactly the blame this card must never
+// carry. Any of these and the review is not praise for the work at all.
+//
+// Negated praise, unless it is "not only" / "not just" (still praise).
+// "Not a speck of dust" is praise and passes: "speck" is not a work word.
+// "n't" is not behind \b — the "n" belongs to "wasn" — so it is spelled out.
+// The trouble words — dirty, stained — count unless the guest said there were
+// none: "no stains anywhere", "nothing dirty", "not dusty at all".
+const WORK_COMPLAINT = new RegExp(
+  [
+    "(?:\\bnot|\\bnever|\\bhardly|\\bbarely|n't)\\s+(?!only\\b|just\\b)(?:\\w+\\s+){0,2}?(?:clean\\w*|tidy|spotless|immaculate|neat|fresh)\\b",
+    "\\bcould\\s+(?:have\\s+been|be|use|do\\s+with)\\s+(?:\\w+\\s+){0,2}?(?:clean\\w*|tidier)\\b",
+    "\\b(?:towels?|sheets|linens?|bedding)\\s+(?:was|were)\\s+(?:missing|dirty|stained)\\b",
+    "\\bno\\s+(?:clean\\s+)?(?:towels?|sheets|linens?|bedding)\\b",
+    "(?<!\\b(?:no|not|nothing|never|without|n't)\\s+(?:\\w+\\s+)?)\\b(?:dirty|dusty|stain(?:s|ed)?|grimy|mou?ldy|musty|smelly)\\b",
+  ].join("|"),
+  "i",
+);
+
+/** The words in a review that are about the cleaning work, as written — none if it complains about the work. */
+export const workWords = (text: string): string[] => {
+  const t = String(text ?? "");
+  if (WORK_COMPLAINT.test(t)) return [];
+  return [...new Set(t.match(WORK_WORDS) ?? [])];
+};
 
 export interface ReviewRow {
   id: string;
