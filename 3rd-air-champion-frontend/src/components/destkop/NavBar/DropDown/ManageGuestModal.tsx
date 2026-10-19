@@ -182,15 +182,14 @@ const ManageGuestModal = ({
   const pricingFromInputs = () =>
     activeRooms
       .filter((room) => (prices[room.id] ?? "").trim() !== "")
-      .map((room) => ({ room: room.id, price: Number(prices[room.id]), usual: room.price }))
-      .filter((p) => Number.isFinite(p.price) && p.price >= 0)
-      // A new guest's boxes start at the room's usual rate. Left as they are,
-      // they are NOT saved as overrides: an override equal to today's rate
-      // would freeze the guest there, and a later rise in the room's price
-      // would pass them by — a rate that has quietly fallen behind is what
-      // the Rates modal exists to catch. Only a changed box is a real rate.
-      .filter((p) => !addMode || p.price !== p.usual)
-      .map(({ room, price }) => ({ room, price }));
+      .map((room) => ({ room: room.id, price: Number(prices[room.id]) }))
+      // A new guest's boxes start at the room's usual rate, and what is in
+      // the box is saved — all of it. Skipping the boxes left at the usual
+      // rate was tried (2026-10-18), to keep the guest following the room's
+      // price; the host pressed Add, found no rates on the guest, and read it
+      // as the form ignoring them. A rate that falls behind a later room
+      // price is the Rates modal's to catch.
+      .filter((p) => Number.isFinite(p.price) && p.price >= 0);
 
   const onSubmit: SubmitHandler<ManageGuestFormData> = (data) => {
     setErrorMessage("");
@@ -435,7 +434,7 @@ const ManageGuestModal = ({
                       one would be a lie the host only discovers later. */}
                   <p className="mt-1 text-[11px] leading-tight text-gray-400">
                     {addMode
-                      ? "Filled in with each room's usual rate. Change one to give this guest their own price, or enter 0 to comp a room."
+                      ? "Filled in with each room's usual rate, and saved as this guest's rates. Change one for their own price, or enter 0 to comp a room."
                       : "Blank means this guest pays the room's usual rate. Enter 0 to comp a room. A saved rate can be changed, but not cleared."}
                   </p>
                 </div>
