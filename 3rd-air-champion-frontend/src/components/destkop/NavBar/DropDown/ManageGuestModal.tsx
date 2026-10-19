@@ -125,11 +125,14 @@ const ManageGuestModal = ({
     selectableGuests.find((g) => g.id === selectedGuestId) ??
     selectableGuests[0];
 
-  // Empty in add mode. Seeding from selectedGuest here would open the form with
-  // whichever guest sorts first already priced in, and their rates would be
-  // saved onto a different person.
+  // In add mode, each room's usual rate, typed in (host, 2026-10-18: "load
+  // default room rate"). Never seeded from selectedGuest here: that opened the
+  // form with whichever guest sorts first already priced in, and their rates
+  // were saved onto a different person.
   const [prices, setPrices] = useState<Record<string, string>>(() =>
-    prefill ? pricesFor(undefined) : pricesFor(selectedGuest),
+    prefill
+      ? Object.fromEntries(rooms.map((r) => [r.id, r.price != null ? String(r.price) : ""]))
+      : pricesFor(selectedGuest),
   );
   // Seeded from the guest on first render; kept in step by handleGuestChange.
   const [characterInit, setCharacterInit] = useState(false);
@@ -179,8 +182,15 @@ const ManageGuestModal = ({
   const pricingFromInputs = () =>
     activeRooms
       .filter((room) => (prices[room.id] ?? "").trim() !== "")
-      .map((room) => ({ room: room.id, price: Number(prices[room.id]) }))
-      .filter((p) => Number.isFinite(p.price) && p.price >= 0);
+      .map((room) => ({ room: room.id, price: Number(prices[room.id]), usual: room.price }))
+      .filter((p) => Number.isFinite(p.price) && p.price >= 0)
+      // A new guest's boxes start at the room's usual rate. Left as they are,
+      // they are NOT saved as overrides: an override equal to today's rate
+      // would freeze the guest there, and a later rise in the room's price
+      // would pass them by — a rate that has quietly fallen behind is what
+      // the Rates modal exists to catch. Only a changed box is a real rate.
+      .filter((p) => !addMode || p.price !== p.usual)
+      .map(({ room, price }) => ({ room, price }));
 
   const onSubmit: SubmitHandler<ManageGuestFormData> = (data) => {
     setErrorMessage("");
@@ -424,8 +434,9 @@ const ManageGuestModal = ({
                       delete a saved rate, so promising that a cleared box removes
                       one would be a lie the host only discovers later. */}
                   <p className="mt-1 text-[11px] leading-tight text-gray-400">
-                    Blank means this guest pays the room's usual rate. Enter 0 to comp a
-                    room. A saved rate can be changed, but not cleared.
+                    {addMode
+                      ? "Filled in with each room's usual rate. Change one to give this guest their own price, or enter 0 to comp a room."
+                      : "Blank means this guest pays the room's usual rate. Enter 0 to comp a room. A saved rate can be changed, but not cleared."}
                   </p>
                 </div>
               )}
