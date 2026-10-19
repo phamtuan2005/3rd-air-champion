@@ -231,6 +231,19 @@ describe("a question about the guest reviews", () => {
   });
 });
 
+// "Add guest" fell through to a question for the model (host, 2026-10-18).
+describe("add guest", () => {
+  it("opens the add form, and not the add-review one", () => {
+    const keys = screensMatching("Add guest").map((s) => s.key);
+    expect(keys).toContain("guests:add");
+    expect(keys).not.toContain("reviews:add");
+    expect(screensMatching("new guest").map((s) => s.key)).toContain("guests:add");
+  });
+  it("puts Manage guest first for a bare 'Guest'", () => {
+    expect(screensMatching("Guest")[0].key).toBe("guests");
+  });
+});
+
 describe("adding a review", () => {
   // "add review king" found nothing: the screen list matches from the start
   // of a phrase (host, 2026-10-10).

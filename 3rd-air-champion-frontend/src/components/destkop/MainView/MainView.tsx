@@ -778,6 +778,9 @@ const MainView = ({
     }
     const open: Record<string, () => void> = {
       book: () => setIsModalOpen(true),
+      guests: () => setIsManageGuestOpen(true),
+      // A blank prefill is the add form — the one a booking request opens.
+      "guests:add": () => openGuestPrefill({ name: "", phone: "" }),
       requests: () => setIsRequestManagerOpen(true),
       messages: () => setIsGuestInboxOpen(true),
       blockAirbnb: () => setIsBlockAirBnBModalOpen(true),
