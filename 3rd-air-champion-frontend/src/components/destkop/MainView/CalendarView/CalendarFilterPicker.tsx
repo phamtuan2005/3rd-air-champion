@@ -684,6 +684,27 @@ const CalendarFilterPicker = ({
                           {roomLatest.stars ? <span className="text-amber-500"> · {starRow(roomLatest.stars)}</span> : null}
                         </p>
                         <p className="mt-1 whitespace-pre-line text-base leading-relaxed text-gray-800">{roomLatest.summary}</p>
+                        {/* Who prepared the room, as every other review line in
+                            TT shows it — this card left it off (host, 2026-10-18).
+                            The card is read from the guests' route, which rightly
+                            carries no cleaner, so the lead comes from the host's
+                            stats for the same room — and only when guest and date
+                            agree, so two reviews tied on a date can never put one
+                            cleaner's name under the other's review. */}
+                        {(() => {
+                          const lead = reviewStats?.recent?.find(
+                            (r) =>
+                              r.roomName === reviewRoom.name &&
+                              (r.stayDate || r.reviewMonth).slice(0, 7) === roomLatest.month &&
+                              (r.stayDate ?? "") === (roomLatest.stayDate ?? r.stayDate ?? "") &&
+                              (r.guestName ?? "").trim().split(/\s+/)[0] === (roomLatest.guest ?? ""),
+                          );
+                          return lead ? (
+                            <p className="mt-0.5 text-xs font-medium text-teal-700">
+                              {cleanerLeadLine(lead.basis, lead.cleaners)}
+                            </p>
+                          ) : null;
+                        })()}
                       </div>
                     )}
                     {reviewStats && reviewStats.total === 0 && (

@@ -26,6 +26,13 @@ export interface TTScreen {
 
 export const TT_SCREENS: TTScreen[] = [
   { key: "book", label: "Book a stay", hint: "Add a booking", words: ["booking", "new booking", "reserve", "add stay"] },
+  // Second only to booking, and above Messages and the reviews: "Guest" listed
+  // four screens ABOUT guests and not the guest list itself (host, 2026-10-18).
+  // Order here is the order shown.
+  { key: "guests", label: "Manage guest", hint: "A guest's details, avatar and rates", words: ["guests", "guest list", "edit guest"] },
+  // Straight to the blank add form (host, 2026-10-18: "Add guest should pop up
+  // manage guest modal" — it fell through to a question for the model).
+  { key: "guests:add", label: "Add a guest", hint: "A new guest, with their rates", words: ["add guest", "add a guest", "new guest"] },
   { key: "requests", label: "Requests", hint: "Booking requests from TiBook", words: ["booking requests", "tibook requests", "wish list"] },
   { key: "messages", label: "Messages", hint: "What guests have written", words: ["inbox", "guest messages", "chat"] },
   { key: "blockAirbnb", label: "Block AirBnB", hint: "Nights to block on AirBnB", words: ["airbnb block"] },
