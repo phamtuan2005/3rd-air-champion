@@ -55,11 +55,13 @@ describe("reviewsForCleaner", () => {
     expect(reviewsForCleaner(HENRY, [review({})], [clean("2026-09-10", HENRY)])[0].guestFirstName).toBe("Sarah");
   });
 
-  it("leaves out a good review that says nothing about the cleaning work", () => {
-    // Five stars after Henry's clean, but about the street and the mattress:
-    // not praise for his visit.
+  it("shows a good review that says nothing about the cleaning, with no work words", () => {
+    // Used to be left out. Henry prepared four rooms for 2026-10-16 and saw
+    // two reviews; the reviews are public on AirBnB anyway (host, 2026-10-19).
     const rota = [clean("2026-09-10", HENRY)];
-    expect(reviewsForCleaner(HENRY, [review({ text: "Comfortable bed and a quiet street. Great location!" })], rota)).toEqual([]);
+    const out = reviewsForCleaner(HENRY, [review({ text: "Comfortable bed and a quiet street. Great location!" })], rota);
+    expect(out).toHaveLength(1);
+    expect(out[0].workWords).toEqual([]);
   });
 
   it("says which words tie the review to the work", () => {
@@ -93,5 +95,10 @@ describe("praiseFor", () => {
   it("stays quiet for two, or when the third is older than sixty days", () => {
     expect(praiseFor([r("2026-10-01"), r("2026-09-20")], "2026-10-16")).toBeNull();
     expect(praiseFor([r("2026-10-01"), r("2026-09-20"), r("2026-08-01")], "2026-10-16")).toBeNull();
+  });
+
+  it("counts only reviews about the work — a general 'great stay' is shown, not counted", () => {
+    const general = { ...r("2026-10-05"), workWords: [] };
+    expect(praiseFor([r("2026-10-01"), r("2026-09-20"), general], "2026-10-16")).toBeNull();
   });
 });
