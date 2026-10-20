@@ -168,6 +168,13 @@ const glyphFor = (tile: number, large: boolean) =>
     ? px(clamp(14, (tile / REF_TILE) * 12 * TYPE_BOOST, 24))
     : px(clamp(13, (tile / REF_TILE) * 11 * TYPE_BOOST, 24));
 
+// The wish-list star on its own, apart from the ⏳ badge. In Hero it sat at
+// 14px under "sold out" — the one thing a guest can still DO on a sold-out
+// night, drawn smaller than the words saying they cannot, and a hard target
+// for a thumb (Anh-Tri, 2026-10-20: make it bigger). Classic keeps glyphFor.
+const starFor = (tile: number, large: boolean) =>
+  large ? px(clamp(22, (tile / REF_TILE) * 22 * TYPE_BOOST, 34)) : glyphFor(tile, large);
+
 // The largest size at which a line `ems` wide still fits across a tile, with
 // a pixel of air each side. Before the tile has been measured there is no cap.
 const widthCap = (size: number, tileWidth: number, ems: number) =>
@@ -246,6 +253,7 @@ const MonthGrid = ({
   const dateSize = dateFor(rowHeight, largeType);
   const metaSize = metaFor(rowHeight, largeType);
   const glyphSize = glyphFor(rowHeight, largeType);
+  const starSize = starFor(rowHeight, largeType);
   // The two meta lines, each as large as the tile is wide enough for. Only the
   // large sizes need the cap; the classic ones fit a tile at every width and
   // are left exactly as they were.
@@ -302,7 +310,7 @@ const MonthGrid = ({
   const TILE_PAD = 4; // the tile's own pt-1
   const STACK_GAP = 2; // gap-0.5 between stacked lines
   const tightRow = largeType
-    ? rowHeight < TILE_PAD + dateSize + STACK_GAP + soldSize + STACK_GAP + glyphSize + STACK_GAP
+    ? rowHeight < TILE_PAD + dateSize + STACK_GAP + soldSize + STACK_GAP + starSize + STACK_GAP
     : rowHeight < 52;
 
   /*
@@ -774,7 +782,7 @@ const MonthGrid = ({
               {canWishList && !tightRow && (
                 <span
                   className="leading-none z-10 relative cursor-pointer"
-                  style={{ fontSize: glyphSize }}
+                  style={{ fontSize: starSize }}
                   title={isWishlisted ? "Remove from wish list" : "Add to wish list"}
                   onClick={(e) => { e.stopPropagation(); onWishListClick!(date); }}
                 >
@@ -786,7 +794,7 @@ const MonthGrid = ({
             {canWishList && tightRow && (
               <span
                 className="absolute bottom-0 right-0.5 z-20 cursor-pointer leading-none"
-                style={{ fontSize: glyphSize }}
+                style={{ fontSize: starSize }}
                 title={isWishlisted ? "Remove from wish list" : "Add to wish list"}
                 onClick={(e) => { e.stopPropagation(); onWishListClick!(date); }}
               >
