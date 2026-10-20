@@ -49,33 +49,43 @@ const WorkWords = ({ text, words }: { text: string; words: string[] }) => {
  * THIS clean of THIS room (Anh-Tri, 2026-10-16).
  */
 export const ReviewQuote = ({ review }: { review: CleanerReview }) => {
-  // Clamped to four lines: a long review is a wall on a phone, and the first
-  // lines are where guests say what stayed with them.
+  // Closed to its stars until tapped. Even clamped to four lines each, a
+  // cleaner with many reviews had the visit list buried under guest text
+  // (Anh-Tri, 2026-10-20) — the rooms and mornings are what this screen is
+  // for. The stars, name and label stay visible so the review is still seen
+  // at a glance; the words are one tap away, and a second tap folds them back.
   const [open, setOpen] = useState(false);
-  const long = review.text.length > 220;
   return (
     <div className="w-full rounded-xl bg-amber-50 px-3 py-2">
-      <p className="flex flex-wrap items-center gap-x-2 text-sm font-semibold text-amber-950">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex w-full flex-wrap items-center gap-x-2 text-left text-sm font-semibold text-amber-950"
+      >
         <Stars n={review.stars} />
         {/* The guest who stayed after the clean, by first name, as AirBnB
             shows them. Not "the next guest": a cleaner reads that as a
             stranger; a name is a person who slept in a room they made. */}
         <span>{review.guestFirstName || "A guest"}</span>
-      </p>
-      {/* Says which kind of review this is. Every good review of a stay they
-          prepared is shown now (host, 2026-10-19), and one that never mentions
-          the cleaning must not read as praise for it — it is a happy guest in
-          a room they made ready, which is still worth knowing. */}
-      <p className="text-xs font-semibold text-amber-700">
-        {review.workWords.length ? "About your work" : "A guest enjoyed the stay you prepared"}
-      </p>
-      <p className={`mt-0.5 whitespace-pre-line text-sm text-amber-950/80 ${long && !open ? "line-clamp-4" : ""}`}>
-        “<WorkWords text={review.text} words={review.workWords} />”
-      </p>
-      {long && (
-        <button type="button" onClick={() => setOpen((o) => !o)} className="mt-0.5 text-xs font-bold text-amber-700">
-          {open ? "Show less" : "Read all of it"}
-        </button>
+        {/* Says which kind of review this is. Every good review of a stay they
+            prepared is shown now (host, 2026-10-19), and one that never mentions
+            the cleaning must not read as praise for it — it is a happy guest in
+            a room they made ready, which is still worth knowing. Kept on the
+            closed row for that reason: five stars alone would read as praise. */}
+        <span className="text-xs font-semibold text-amber-700">
+          {review.workWords.length ? "About your work" : "A guest enjoyed the stay you prepared"}
+        </span>
+        {/* The arrow is what tells a cleaner the stars open; without it a row
+            of stars looks finished. */}
+        <span aria-hidden className={`ml-auto text-amber-700 transition-transform ${open ? "rotate-180" : ""}`}>
+          ▾
+        </span>
+      </button>
+      {open && (
+        <p className="mt-1 whitespace-pre-line text-sm text-amber-950/80">
+          “<WorkWords text={review.text} words={review.workWords} />”
+        </p>
       )}
     </div>
   );
