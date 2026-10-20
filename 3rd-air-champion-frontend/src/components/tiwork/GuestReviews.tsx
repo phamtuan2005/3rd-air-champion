@@ -15,10 +15,11 @@ const Stars = ({ n }: { n: number }) => (
 
 /*
  * The review with the words about the cleaner's work in bold — "spotless",
- * "fresh towels", "the bed was made". Every review here is shown BECAUSE of
- * those words, so they are what connects it to the visit, and the cleaner
- * should not have to hunt for them. Which words they are is the server's
- * call (workWords in the backend); this only finds them in the text.
+ * "fresh towels", "the bed was made". Those words are what connects a review
+ * to the visit, so the cleaner should not have to hunt for them. Since
+ * 2026-10-19 a good review without them is shown too, with nothing in bold.
+ * Which words they are is the server's call (workWords in the backend); this
+ * only finds them in the text.
  */
 const WorkWords = ({ text, words }: { text: string; words: string[] }) => {
   if (!words.length) return <>{text}</>;
@@ -61,6 +62,13 @@ export const ReviewQuote = ({ review }: { review: CleanerReview }) => {
             stranger; a name is a person who slept in a room they made. */}
         <span>{review.guestFirstName || "A guest"}</span>
       </p>
+      {/* Says which kind of review this is. Every good review of a stay they
+          prepared is shown now (host, 2026-10-19), and one that never mentions
+          the cleaning must not read as praise for it — it is a happy guest in
+          a room they made ready, which is still worth knowing. */}
+      <p className="text-xs font-semibold text-amber-700">
+        {review.workWords.length ? "About your work" : "A guest enjoyed the stay you prepared"}
+      </p>
       <p className={`mt-0.5 whitespace-pre-line text-sm text-amber-950/80 ${long && !open ? "line-clamp-4" : ""}`}>
         “<WorkWords text={review.text} words={review.workWords} />”
       </p>
@@ -95,7 +103,7 @@ export const PraiseBanner = ({
 }) => (
   <div className="rounded-3xl bg-gradient-to-br from-amber-300 via-amber-200 to-yellow-100 px-4 py-3 text-amber-950 shadow-lg shadow-amber-200/50">
     <p className="text-lg font-black leading-tight">🎉 Congratulations, {firstName}!</p>
-    {/* Counts only reviews that praise the cleaning itself (see ReviewQuote),
+    {/* Counts only reviews that praise the cleaning itself (praiseFor),
         so it says that rather than "4 or 5 stars" — a five-star stay is not
         by itself praise for the clean. */}
     <p className="mt-1 text-sm font-semibold">
