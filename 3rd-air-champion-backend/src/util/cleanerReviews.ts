@@ -8,7 +8,7 @@ import { ROTA_STARTS, preparingClean } from "./reviewCleaners";
 // the other way, and through the same preparingClean, so a review the host sees
 // "prepared by Henry" is the review Henry sees in TiWork, and nobody else does.
 //
-// Four deliberate limits:
+// Three deliberate limits, and one that was lifted:
 //
 // - Only reviews that give the NIGHT the stay began. A review dated only by
 //   its month points at every clean of that room that month, which is a lead
@@ -18,12 +18,16 @@ import { ROTA_STARTS, preparingClean } from "./reviewCleaners";
 //   a visit already reaches the cleaner as the house's own feedback on it, in
 //   the house's words; a guest's complaint is often about noise, the bed or the
 //   price, and shown here it would read as blame for something they did not do.
-// - Only reviews that speak to the WORK — how clean the room was, the towels,
-//   the sheets, a made bed, how it smelled. A five-star "great location" came
-//   after their clean but says nothing about it, and shown to a cleaner as
-//   praise for their visit it is praise they did not get (Anh-Tri, 2026-10-16:
-//   "it should in some way be connected to the work done"). The words that
-//   connect it are sent along, so the screen can show them.
+// - LIFTED (host, 2026-10-19): only reviews that speak to the WORK — the room
+//   clean, the towels, the sheets. It hid half of what guests said: Henry
+//   prepared four rooms for Oct 16 and saw two reviews, because "good stay,
+//   definitely coming back" never says "clean" — guests mention cleaning when
+//   it is wrong, not when it is fine. And the reviews are public on AirBnB
+//   anyway, so keeping them from the cleaner protected nothing. Every good
+//   review of a stay they prepared is shown now. The work words are still
+//   found and sent: the screen marks those reviews as about the work, and
+//   only those count toward the congratulation (Anh-Tri's point, 2026-10-16,
+//   still holds there: "it should in some way be connected to the work done").
 // - The guest's FIRST name only. A review record names its reviewer and is
 //   otherwise manager-only (ttReviewEntrySchema); a first name is what AirBnB
 //   itself shows, and what TiBook shows guests.
@@ -92,14 +96,14 @@ export interface CleanerReview {
   guestFirstName: string;
   stars: number;
   text: string;
-  // The words that make this review about the work (workWords) — never empty,
-  // or the review would not be here.
+  // The words that make this review about the work (workWords). Empty for a
+  // good review that is about the stay in general.
   workWords: string[];
 }
 
 const firstName = (name: string) => String(name ?? "").trim().split(/\s+/)[0] ?? "";
 
-/** The positive, night-dated reviews that praise the work, of stays this cleaner prepared, newest clean first. */
+/** The positive, night-dated reviews of stays this cleaner prepared, newest clean first. */
 export const reviewsForCleaner = (
   cleanerId: string,
   reviews: ReviewRow[],
@@ -112,7 +116,6 @@ export const reviewsForCleaner = (
     if (!r.stayDate || r.stayDate < ROTA_STARTS) continue;
     if (r.stars == null || r.stars < POSITIVE_STARS) continue;
     const words = workWords(r.text);
-    if (!words.length) continue;
     const clean = preparingClean(rota, r.room, r.stayDate);
     if (!clean || String(clean.cleaner?._id ?? clean.cleaner) !== String(cleanerId)) continue;
     out.push({
@@ -141,7 +144,9 @@ export const praiseFor = (reviews: CleanerReview[], today: string): Praise | nul
   const since = new Date(`${today}T00:00:00.000Z`);
   since.setUTCDate(since.getUTCDate() - PRAISE_DAYS);
   const from = since.toISOString().slice(0, 10);
-  const recent = reviews.filter((r) => r.cleanDate >= from && r.cleanDate <= today);
+  // Only reviews about the work: the banner says guests "praised how you left
+  // their room", which a general "great stay" does not say.
+  const recent = reviews.filter((r) => r.workWords.length > 0 && r.cleanDate >= from && r.cleanDate <= today);
   if (recent.length < PRAISE_COUNT) return null;
   return { count: recent.length, fiveStars: recent.filter((r) => r.stars === 5).length, days: PRAISE_DAYS };
 };
