@@ -1,3 +1,4 @@
+import { dropUsCountryCode } from "../../util/formatPhone";
 import { useEffect, useRef, useState } from "react";
 import { format, isValid } from "date-fns";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
@@ -339,7 +340,7 @@ const HostChatSheet = ({
               />
               <input
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => setPhone(dropUsCountryCode(e.target.value))}
                 inputMode="tel"
                 placeholder="Your phone"
                 className={`min-w-0 flex-1 rounded-lg border px-2.5 py-1.5 text-sm ${theme.field} ${theme.fieldFocus}`}

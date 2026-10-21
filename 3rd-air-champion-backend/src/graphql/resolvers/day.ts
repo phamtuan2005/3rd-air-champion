@@ -2,6 +2,7 @@ import Day from "../../model/daySchema";
 import Room from "../../model/roomSchema";
 import Calendar from "../../model/calendarSchema";
 import Guest from "../../model/guestSchema";
+import { phoneRegex } from "../../util/usPhone";
 import { GraphQLDate } from "graphql-scalars";
 import mongoose from "mongoose";
 import {
@@ -122,9 +123,7 @@ export const dayResolvers = {
       const cal = await Calendar.findById(calendarId);
       if (!cal) return [];
 
-      const digits = phone.replace(/\D/g, "");
-      const phoneRegex = new RegExp(digits.split("").join("\\D*"));
-      const guest = await Guest.findOne({ host: cal.host, phone: { $regex: phoneRegex } });
+      const guest = await Guest.findOne({ host: cal.host, phone: { $regex: phoneRegex(phone) } });
       if (!guest) return [];
 
       const days = await Day.find({ calendar: calendarId, "bookings.guest": guest._id })

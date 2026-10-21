@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, SubmitHandler } from "react-hook-form";
+import { withUsCodeDropped } from "../../util/formatPhone";
 import { roomType } from "../../util/types/roomType";
 import { dayType } from "../../util/types/dayType";
 import { createBookingRequest, fetchBookingRequestsByGuest, fetchCalendarBookingsByGuest } from "../../util/bookingRequestOperations";
@@ -974,6 +975,7 @@ const BookingRequestModal = ({
                     className={`border ${theme.lineStrong} rounded-xl px-3 py-2 w-full text-sm focus:outline-none focus:ring-2 ${theme.focusRing}`}
                     placeholder="So we can reach you"
                     {...register("guestPhone", { required: "Please enter your phone number" })}
+                    onChange={withUsCodeDropped(register("guestPhone", { required: "Please enter your phone number" }).onChange)}
                   />
                   {isLookingUp && (
                     <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs ${theme.surfaceMuted2}`}>

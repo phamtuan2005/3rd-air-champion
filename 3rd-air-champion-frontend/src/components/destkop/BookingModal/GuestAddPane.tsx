@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { SubmitHandler, useForm } from "react-hook-form";
 import { guestAddSchema, guestAddZodObject } from "./zodAddGuest";
-import { toStoredPhone } from "../../../util/formatPhone";
+import { toStoredPhone, withUsCodeDropped } from "../../../util/formatPhone";
 
 interface GuestAddPaneProps {
   guestErrorMessage: string;
@@ -49,6 +49,7 @@ const GuestAddPane = ({ guestErrorMessage, onAddGuest }: GuestAddPaneProps) => {
             type="tel"
             className="border border-gray-300 rounded px-2 py-1 w-full"
             {...register("phone")}
+            onChange={withUsCodeDropped(register("phone").onChange)}
           />
           {errors.phone && (
             <span className="text-red-500 text-sm">{errors.phone.message}</span>

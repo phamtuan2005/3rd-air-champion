@@ -1,3 +1,4 @@
+import { dropUsCountryCode } from "../../util/formatPhone";
 import { useEffect, useRef, useState } from "react";
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { roomType } from "../../util/types/roomType";
@@ -512,7 +513,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
                 type="tel"
                 placeholder="Your phone number"
                 value={phone}
-                onChange={(e) => { setPhone(e.target.value); setGuestPricing(new Map()); }}
+                onChange={(e) => { setPhone(dropUsCountryCode(e.target.value)); setGuestPricing(new Map()); }}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                 className={`flex-1 border ${theme.line} ${theme.field} rounded-xl px-3 py-2.5 text-sm focus:outline-none ${theme.fieldFocus}`}
               />

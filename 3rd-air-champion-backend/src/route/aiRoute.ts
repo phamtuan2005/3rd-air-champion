@@ -13,6 +13,7 @@ import { findAssignments } from "../util/assignmentQuery";
 import { loadCleaningDays } from "../util/cleaningDays";
 import { cleaningPlan, planCounts, UNASSIGNED } from "../util/cleaningPlan";
 import { fetchMonthSpend } from "../util/apiSpend";
+import { phoneKey } from "../util/usPhone";
 
 // TiMag's agent — a conversation with somebody who can actually see the books.
 //
@@ -178,7 +179,7 @@ const buildTools = (hostId: string) => {
         .filter((g) =>
           !q ||
           String(g.name ?? "").toLowerCase().includes(q) ||
-          String(g.phone ?? "").replace(/\D/g, "").includes(q.replace(/\D/g, "")),
+          phoneKey(String(g.phone ?? "")).includes(phoneKey(q)),
         )
         .map((g) => {
           const row: Record<string, unknown> = { name: g.name };

@@ -1,3 +1,4 @@
+import { dropUsCountryCode } from "../../util/formatPhone";
 import { useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
@@ -111,7 +112,7 @@ const WishListSummarySheet = ({
                   type="tel"
                   placeholder="Your phone number"
                   value={phone}
-                  onChange={(e) => handlePhoneChange(e.target.value)}
+                  onChange={(e) => handlePhoneChange(dropUsCountryCode(e.target.value))}
                   className={`w-full border ${theme.line} rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 ${theme.focusRing}`}
                 />
                 {lookingUp && <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs ${theme.surfaceMuted2}`}>looking up...</span>}

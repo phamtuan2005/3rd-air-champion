@@ -1,3 +1,4 @@
+import { dropUsCountryCode } from "../../util/formatPhone";
 ﻿import { useEffect, useRef, useState } from "react";
 import { roomType } from "../../util/types/roomType";
 import { guestType } from "../../util/types/guestType";
@@ -1123,7 +1124,7 @@ const BookingRequestManagerModal = ({
                   type="tel"
                   placeholder="Guest phone"
                   value={addPhone}
-                  onChange={(e) => handleAddPhoneChange(e.target.value)}
+                  onChange={(e) => handleAddPhoneChange(dropUsCountryCode(e.target.value))}
                   className="w-full border border-gray-200 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:border-amber-400"
                 />
                 <div className="relative">

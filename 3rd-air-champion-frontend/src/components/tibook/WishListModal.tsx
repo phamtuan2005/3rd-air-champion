@@ -1,3 +1,4 @@
+import { dropUsCountryCode } from "../../util/formatPhone";
 import { useEffect, useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
@@ -109,7 +110,7 @@ const WishListModal = ({
                 type="tel"
                 placeholder="Your phone number"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => setPhone(dropUsCountryCode(e.target.value))}
                 className={`w-full border ${theme.line} rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 ${theme.focusRing}`}
                 autoFocus
               />

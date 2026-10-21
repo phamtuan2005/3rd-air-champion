@@ -10,7 +10,7 @@ import RoomBadge from "../../../shared/RoomBadge";
 import PickerModal, { PickerOption } from "../../../shared/PickerModal";
 import CleanerAvatar from "../../../shared/CleanerAvatar";
 import { GUEST_AVATAR_PRESETS } from "../../../../util/guestAvatars";
-import { toStoredPhone } from "../../../../util/formatPhone";
+import { toStoredPhone, withUsCodeDropped } from "../../../../util/formatPhone";
 import { DANGER_BUTTON } from "../../../shared/dangerButton";
 
 const manageGuestSchema = z.object({
@@ -317,7 +317,10 @@ const ManageGuestModal = ({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className={LABEL}>Phone</label>
-                  <input type="tel" className={`mt-1 ${FIELD}`} {...register("phone")} />
+                  {(() => {
+                    const field = register("phone");
+                    return <input type="tel" className={`mt-1 ${FIELD}`} {...field} onChange={withUsCodeDropped(field.onChange)} />;
+                  })()}
                   {errors.phone && (
                     <span className="text-xs text-red-500">{errors.phone.message}</span>
                   )}
