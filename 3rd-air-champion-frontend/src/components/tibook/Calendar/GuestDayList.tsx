@@ -654,6 +654,7 @@ const GuestDayList = ({
   onMyStayDetails,
   onReservedClick,
   holidayBottom,
+  holidayFallback,
   largeType = false,
 }: GuestCalendarProps) => {
   const { theme } = useTiBookTheme();
@@ -877,7 +878,7 @@ const GuestDayList = ({
       </div>
     </div>
     {/* The month the guest is reading, the one onMonthChange reports. */}
-    <MonthHolidayLine month={sections[shownIdx]?.month} bottom={holidayBottom} large={largeType} />
+    <MonthHolidayLine month={sections[shownIdx]?.month} bottom={holidayBottom} large={largeType} fallback={holidayFallback} />
     </div>
   );
 };

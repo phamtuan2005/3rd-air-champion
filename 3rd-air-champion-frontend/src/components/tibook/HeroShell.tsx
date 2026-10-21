@@ -11,6 +11,7 @@ import type { TTNudge } from "./AskTT";
 import GuestCalendar, { MyStay } from "./Calendar/GuestCalendar";
 import TodayButton from "./Calendar/TodayButton";
 import CalendarViewToggle from "./Calendar/CalendarViewToggle";
+import { upcomingHolidaysInMonth } from "../../util/usHolidays";
 
 const BACKEND = import.meta.env.VITE_BACKEND_ENDPOINT || "";
 const resolveUrl = (url: string) => (url.startsWith("/") ? `${BACKEND}${url}` : url);
@@ -544,6 +545,20 @@ const HeroShell = ({
     return n;
   }, [monthMap, currentMonth, pickedRooms, activeRooms, reservedMap]);
 
+  // The month's line, said of the PICKED rooms. It was said of the card in
+  // front, so with Cozy and Cute picked it read "Cozy is free 30 nights" over
+  // a month counting both.
+  const nightsWord = `night${freeNights === 1 ? "" : "s"}`;
+  const monthSummary =
+    pickedRooms.length === 1
+      ? `${pickedRooms[0].name} is free ${freeNights} ${nightsWord}`
+      : pickedRooms.length > 1
+        ? `${pickedRooms.map((r) => r.name).join(" or ")} · ${freeNights} ${nightsWord} open`
+        : `${freeNights} ${nightsWord} open`;
+  // Beside the month name while the holiday line under the calendar has
+  // holidays to name; in the line's strip when it has none left.
+  const summaryInHeader = upcomingHolidaysInMonth(currentMonth).length > 0;
+
   /*
    * A room's list price is not a price anyone pays. What a guest pays is
    * agreed with the host, which is why the gallery says so and why the room
@@ -883,15 +898,12 @@ const HeroShell = ({
               ...(currentMonth.getFullYear() !== new Date().getFullYear() ? { year: "numeric" as const } : {}),
             })}
           </span>
+          {/* Beside the month name — unless the month has no holiday left, when
+              it moves down into the holiday line's strip, which would otherwise
+              sit empty, and gets its whole width there instead of being cut
+              off at the toggle (host, 2026-10-20). See monthSummary below. */}
           <span className={`min-w-0 flex-1 ${SLIDES} text-[15px] ${theme.surfaceMuted}`}>
-            {/* Said of the PICKED rooms. It was said of the card in front, so
-                with Cozy and Cute picked it read "Cozy is free 30 nights" over
-                a month counting both. */}
-            · {pickedRooms.length === 1
-              ? `${pickedRooms[0].name} is free ${freeNights} night${freeNights === 1 ? "" : "s"}`
-              : pickedRooms.length > 1
-              ? `${pickedRooms.map((r) => r.name).join(" or ")} · ${freeNights} night${freeNights === 1 ? "" : "s"} open`
-              : `${freeNights} night${freeNights === 1 ? "" : "s"} open`}
+            {summaryInHeader && `· ${monthSummary}`}
           </span>
           {/* The same way back to now the stacked layout has always had, and
               the same component, so it disables itself on the current month
@@ -928,6 +940,7 @@ const HeroShell = ({
             todayOnTop
             // Above the sticky bottom bar (h-[4.6rem]).
             holidayBottom="4.6rem"
+            holidayFallback={summaryInHeader ? undefined : monthSummary}
             currentMonth={currentMonth}
             monthMap={monthMap}
             rooms={rooms}
