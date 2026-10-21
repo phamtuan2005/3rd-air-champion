@@ -182,6 +182,10 @@ const TiBookInner = () => {
   const [persistedWishListDates, setPersistedWishListDates] = useState<Set<string>>(new Set());
   // The saved wish-list night tapped, while its popup is open.
   const [wishPopupDate, setWishPopupDate] = useState<Date | null>(null);
+  // The night just removed from the wish list, while its Undo bar shows.
+  const [wishUndo, setWishUndo] = useState<{ key: string; date: Date; name: string } | null>(null);
+  const wishUndoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wishUndoBusy = useRef(false);
   // Read through the consent gate, never straight from localStorage: a number
   // saved before we started asking, or one belonging to a guest who has since
   // said no, must not come back to greet them. See util/guestConsent.
@@ -761,6 +765,19 @@ const TiBookInner = () => {
     // Otherwise open the picker to DISCLOSE which room(s) are free and let the
     // guest choose (or "Any") — even for "1 left" it names the exact room.
     if (availableRoomsForDate(date).length > 0) setRoomPickerDate(date);
+  };
+
+  // The server's saved wish list after a change to night `key`: it is the
+  // truth, so saved and on-screen both follow it. Other nights starred this
+  // visit and not yet sent stay as they are.
+  const applySavedWishList = (dates: string[], key: string) => {
+    const saved = new Set<string>(dates);
+    setPersistedWishListDates(saved);
+    setWishListDates((prev) => {
+      const next = new Set([...prev].filter((d) => d !== key || saved.has(d)));
+      saved.forEach((d) => next.add(d));
+      return next;
+    });
   };
 
   const handleWishListClick = (date: Date) => {
@@ -1715,16 +1732,49 @@ const TiBookInner = () => {
             }
             const key = keyOfDate(wishPopupDate);
             const result = await toggleWishListDate({ host: currentHost.id, guestPhone, guestName: name, date: key });
-            // The server's list is the truth; on screen and saved both follow it.
-            const saved = new Set<string>(result.dates);
-            setPersistedWishListDates(saved);
-            setWishListDates((prev) => {
-              const next = new Set([...prev].filter((d) => d !== key || saved.has(d)));
-              saved.forEach((d) => next.add(d));
-              return next;
-            });
+            applySavedWishList(result.dates, key);
+            // A few seconds to take it back (host, 2026-10-20). No second
+            // "are you sure?" in the popup — that asks the same question
+            // twice — but a slip is still one tap from undone.
+            if (wishUndoTimer.current) clearTimeout(wishUndoTimer.current);
+            setWishUndo({ key, date: wishPopupDate, name });
+            wishUndoTimer.current = setTimeout(() => setWishUndo(null), 6000);
           }}
         />
+      )}
+
+      {/* The Undo bar after a night comes off the wish list. Above the bottom
+          bar, so it never covers Request a Booking. */}
+      {wishUndo && currentHost && (
+        <div className="tibook-type pointer-events-none fixed inset-x-0 bottom-24 z-[130] flex justify-center px-4">
+          <div className={`pointer-events-auto flex items-center gap-3 rounded-xl border ${theme.surface} px-4 py-2.5 text-sm shadow-2xl ${theme.line}`}>
+            <span className={theme.surfaceText3}>{format(wishUndo.date, "MMM d")} removed from your wish list</span>
+            <button
+              type="button"
+              className={`font-bold ${theme.textPrimary}`}
+              onClick={async () => {
+                // Guards the write: a second tap lands before the bar goes.
+                if (wishUndoBusy.current) return;
+                wishUndoBusy.current = true;
+                const { key, name } = wishUndo;
+                if (wishUndoTimer.current) clearTimeout(wishUndoTimer.current);
+                setWishUndo(null);
+                try {
+                  // /toggle again puts the night back, as the server keeps it.
+                  const result = await toggleWishListDate({ host: currentHost.id, guestPhone, guestName: name, date: key });
+                  applySavedWishList(result.dates, key);
+                } catch {
+                  // The night is still off the list; the empty star says so,
+                  // and a tap on it starts it again.
+                } finally {
+                  wishUndoBusy.current = false;
+                }
+              }}
+            >
+              Undo
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Hero opens the gallery from its own card; the stacked layout keeps
