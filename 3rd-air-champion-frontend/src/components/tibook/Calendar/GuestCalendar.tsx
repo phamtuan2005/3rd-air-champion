@@ -598,6 +598,16 @@ const MonthGrid = ({
     const inCart = cartDates.has(dateKey);
     const isWishlisted = wishListDates?.has(dateKey) ?? false;
     const isNewWishList = newWishListDates?.has(dateKey) ?? false;
+    // A night on the guest's wish list, in Hero: a gold star with a soft glow.
+    // Drawn in the tile's muted grey it sat among the "sold out"s and their
+    // empty stars, and the guest could not find the night they had starred
+    // (host, 2026-10-20: "very difficult to catch the eye"). Inline, not a
+    // Tailwind arbitrary class, so nothing depends on the build seeing it.
+    // Classic is left as it was.
+    const starStyle = (size: number) =>
+      largeType && isWishlisted
+        ? { fontSize: size, color: "#fbbf24", filter: "drop-shadow(0 0 5px rgba(251, 191, 36, 0.85))" }
+        : { fontSize: size };
     const holiday = isOutside ? undefined : usHolidayOn(dateKey);
     const bars = stayBars.get(dateKey);
     // Only an OCCUPIED night (a PM bar) is "your stay" for interaction — it opens
@@ -782,7 +792,7 @@ const MonthGrid = ({
               {canWishList && !tightRow && (
                 <span
                   className="leading-none z-10 relative cursor-pointer"
-                  style={{ fontSize: starSize }}
+                  style={starStyle(starSize)}
                   title={isWishlisted ? "Remove from wish list" : "Add to wish list"}
                   onClick={(e) => { e.stopPropagation(); onWishListClick!(date); }}
                 >
@@ -794,7 +804,7 @@ const MonthGrid = ({
             {canWishList && tightRow && (
               <span
                 className="absolute bottom-0 right-0.5 z-20 cursor-pointer leading-none"
-                style={{ fontSize: starSize }}
+                style={starStyle(starSize)}
                 title={isWishlisted ? "Remove from wish list" : "Add to wish list"}
                 onClick={(e) => { e.stopPropagation(); onWishListClick!(date); }}
               >
