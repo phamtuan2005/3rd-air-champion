@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "../../../styles/calendarStyle.css";
 import { addDays, format, getDay, isSameDay, isSameMonth, parseISO, startOfToday } from "date-fns";
-import { holidayLabel, usHolidayOn } from "../../../util/usHolidays";
+import { holidayLabelForGuest, usHolidayOn } from "../../../util/usHolidays";
 import MonthHolidayLine from "./MonthHolidayLine";
+import { useTiBookLang } from "../../../contexts/TiBookLanguageContext";
 import { dayType } from "../../../util/types/dayType";
 import { roomType } from "../../../util/types/roomType";
 import { getRoomColor } from "../../../util/getRoomColor";
@@ -189,6 +190,10 @@ const widthCap = (size: number, tileWidth: number, ems: number) =>
 const SOLD_OUT_EMS = 3.75; // "sold out"
 const LEFT_EMS = 2.45; // "3 left"
 const PICKED_EMS = 3.25; // "✓ 3 left", on a night the guest has picked
+// German is held to these same widths by its WORDS, not by new numbers:
+// "belegt" for "sold out" and "noch 3" for "3 left" are no wider than the
+// English. "Ausgebucht" was the obvious word, but at ~4.6em it would either
+// run out of the tile or need a cap that takes the type under its 11px floor.
 // A room name on a ribbon, per letter, at bold: "King" measured 2.32em.
 const BAR_LABEL_EMS_PER_CHAR = 0.6;
 
@@ -237,6 +242,7 @@ const MonthGrid = ({
 }: GuestCalendarProps) => {
   const { theme } = useTiBookTheme();
   const roomChip = useRoomChip();
+  const { t, fmtDate } = useTiBookLang();
   const [months, setMonths] = useState<Date[]>([]);
   const [visibleIndex, setVisibleIndex] = useState(0);
   const [containerHeight, setContainerHeight] = useState(0);
@@ -738,8 +744,8 @@ const MonthGrid = ({
         className={tileClass}
         // The holiday's name, for a mouse and for a screen reader. A phone
         // reads it in the line above the grid instead.
-        title={holiday ? holidayLabel(holiday) : undefined}
-        aria-label={holiday ? `${format(date, "MMMM d")}, ${holidayLabel(holiday)}` : undefined}
+        title={holiday ? holidayLabelForGuest(holiday) : undefined}
+        aria-label={holiday ? `${fmtDate(date, "MMMM d")}, ${holidayLabelForGuest(holiday)}` : undefined}
         disabled={!canBook && !inCart && !canWishList && !isStayNight && !isReservedNight}
         onClick={
           isStayNight && stayId ? () => onMyStayClick?.(stayId) :
@@ -785,7 +791,7 @@ const MonthGrid = ({
             {/* The tick stays whatever the scope: it is the guest's own
                 selection, not a count. */}
             {inCart ? "✓" : ""}
-            {showRoomsLeft && !veryTightRow ? `${inCart ? " " : ""}${roomsLeft} left` : ""}
+            {showRoomsLeft && !veryTightRow ? `${inCart ? " " : ""}${t("{n} left", { n: roomsLeft })}` : ""}
           </span>
         )}
         {!simplified && !inCart && !isStayNight && (status === "full" || status === "blocked") && (
@@ -795,13 +801,13 @@ const MonthGrid = ({
               {/* Keep "sold out" visible even when wish-listed — the gray wish-list
                   overlay otherwise hides it and the date looks bookable again. */}
               <span className={`${largeType ? "whitespace-nowrap " : ""}font-medium leading-none ${theme.surfaceMuted}`} style={{ fontSize: cellSold }}>
-                sold out
+                {t("sold out")}
               </span>
               {canWishList && !tightRow && (
                 <span
                   className="leading-none z-10 relative cursor-pointer"
                   style={starStyle(starSize)}
-                  title={isWishlisted ? "Remove from wish list" : "Add to wish list"}
+                  title={t(isWishlisted ? "Remove from wish list" : "Add to wish list")}
                   onClick={(e) => { e.stopPropagation(); onWishListClick!(date); }}
                 >
                   {isWishlisted ? "★" : "☆"}
@@ -813,7 +819,7 @@ const MonthGrid = ({
               <span
                 className="absolute bottom-0 right-0.5 z-20 cursor-pointer leading-none"
                 style={starStyle(starSize)}
-                title={isWishlisted ? "Remove from wish list" : "Add to wish list"}
+                title={t(isWishlisted ? "Remove from wish list" : "Add to wish list")}
                 onClick={(e) => { e.stopPropagation(); onWishListClick!(date); }}
               >
                 {isWishlisted ? "★" : "☆"}

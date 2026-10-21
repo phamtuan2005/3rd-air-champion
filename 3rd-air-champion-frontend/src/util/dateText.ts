@@ -26,6 +26,19 @@ export const MONTHS: Record<string, number> = {
   oct: 9, october: 9,
   nov: 10, november: 10,
   dec: 11, december: 11,
+  // German, for the guests TiBook now speaks German to. Only the spellings
+  // English does not already cover — "april", "august", "september" and
+  // "november" are the same word, and "jan"/"feb"/"apr"/"aug"/"sep"/"nov" the
+  // same short form. Without these "1. Mai" fell through to the note and the
+  // guest's dates silently did not appear.
+  januar: 0, jänner: 0,
+  februar: 1,
+  märz: 2, maerz: 2, mär: 2,
+  mai: 4,
+  juni: 5,
+  juli: 6,
+  okt: 9, oktober: 9,
+  dez: 11, dezember: 11,
 };
 
 // Sunday-first, matching Date.getDay(). Short forms and plurals both appear in
@@ -158,6 +171,20 @@ export const parseDateText = (text: string, today: Date = new Date()): ParsedDat
     used.push([hit.index, hit.index + hit[0].length]);
   }
 
+  // ── 3.11. and 3.11.2026 — the German day.month. ───────────────────────────
+  //
+  // Day FIRST, the opposite of the slash form above. The closing dot is
+  // required, so a bare "1.5" (a price, a bathroom count) is never read as a
+  // date.
+  const dotted = /\b(\d{1,2})\.(\d{1,2})\.(\d{4}|\d{2}(?!\d))?/g;
+  for (let hit = dotted.exec(lower); hit; hit = dotted.exec(lower)) {
+    const d = Number(hit[1]);
+    const m = Number(hit[2]) - 1;
+    const yr = hit[3] ? Number(hit[3].length === 2 ? "20" + hit[3] : hit[3]) : undefined;
+    addDay(m, d, yr);
+    used.push([hit.index, hit.index + hit[0].length]);
+  }
+
   // ── A month name, then every number that follows it ────────────────────────
   //
   // The run of numbers after a month is the whole point: "Aug 23, 24, 25, 27"
@@ -177,9 +204,26 @@ export const parseDateText = (text: string, today: Date = new Date()): ParsedDat
     // Whitespace only between the two. A COMMA means the number closed the
     // previous month's list: in "Aug 23, Sept 2", the 23 is August's and must
     // not be handed to September as well.
-    const before = lower.slice(Math.max(0, hit.index - 12), hit.index);
-    const trailing = before.match(/(\d{1,2})(?:st|nd|rd|th)?\s*(?:of\s+)?$/);
-    if (trailing) {
+    const before = lower.slice(Math.max(0, hit.index - 20), hit.index);
+    // German puts the whole span before the month: "10.–12. Dezember", "vom
+    // 10. bis 12. Dezember". Only the 12 was caught below, so a German guest
+    // asking for three nights was answered about one. Read as the dash is in
+    // "Dec 10-12" — every day from the first to the last.
+    const spanHit = before.match(/(?<![\d/.])(\d{1,2})\.?\s*(?:-|bis(?: zum)?)\s*(\d{1,2})\.?\s*$/);
+    // Not when the span is the end of the PREVIOUS month's run: in "Aug 20-25
+    // Sept 2" the 20-25 is August's, and handing it to September as well
+    // would add six nights nobody asked for.
+    const prevEnd = monthHits[i - 1]?.end ?? -1;
+    const span = spanHit && !(prevEnd >= 0 && /^[\s,.;&]*$/.test(lower.slice(prevEnd, hit.index - spanHit[0].length))) ? spanHit : null;
+    // The optional dot is German's ordinal: "1. Mai" is the first of May.
+    const trailing = before.match(/(\d{1,2})(?:st|nd|rd|th|\.)?\s*(?:of\s+)?$/);
+    if (span) {
+      const a = Number(span[1]);
+      const b = Number(span[2]);
+      const yr = yearFor(hit.month, Math.max(a, b));
+      for (let d = Math.min(a, b); d <= Math.max(a, b); d++) addDay(hit.month, d, yr);
+      used.push([Math.max(0, hit.index - span[0].length), hit.index]);
+    } else if (trailing) {
       addDay(hit.month, Number(trailing[1]));
       const at = hit.index - (trailing[0].length);
       used.push([Math.max(0, at), hit.index]);

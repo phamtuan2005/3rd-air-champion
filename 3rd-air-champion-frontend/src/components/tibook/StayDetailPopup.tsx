@@ -1,6 +1,7 @@
 import { addDays, differenceInCalendarDays, format, startOfToday } from "date-fns";
 import { useTiBookTheme, useRoomChip } from "../../contexts/TiBookThemeContext";
-import { holidayLabel, usHolidayOn } from "../../util/usHolidays";
+import { useTiBookLang } from "../../contexts/TiBookLanguageContext";
+import { holidayLabelForGuest, usHolidayOn } from "../../util/usHolidays";
 
 interface StayDetailPopupProps {
   roomName: string;
@@ -41,7 +42,12 @@ const StayDetailPopup = ({
   const { theme } = useTiBookTheme();
   const roomChip = useRoomChip();
   const hostFirstName = (hostName ?? "").split(" ")[0] || "the host";
+  const { t, fmtDate } = useTiBookLang();
+  // On screen in the guest's language; hostFirstName stays English because it
+  // opens the text the host receives.
+  const hostShown = (hostName ?? "").split(" ")[0] || t("the host");
 
+  // Kept English: the host reads it.
   // One-tap text to the host, pre-filled with the stay so changes / "add a room"
   // reach them personally with context (their preferred way to handle it).
   const textHost = () => {
@@ -56,13 +62,13 @@ const StayDetailPopup = ({
   const isStaying = today >= checkIn && today < checkOut;
   const isPast = today >= checkOut;
   const countdown = isStaying
-    ? "Staying now"
+    ? t("Staying now")
     : daysUntil === 0
-      ? "Check-in today"
+      ? t("Check-in today")
       : daysUntil > 0
-        ? `in ${daysUntil} day${daysUntil === 1 ? "" : "s"}`
+        ? t(daysUntil === 1 ? "in {n} day" : "in {n} days", { n: daysUntil })
         : isPast
-          ? "Completed"
+          ? t("Completed")
           : "";
   // Practical codes only when they're actually needed (during the stay or within
   // a few days of arrival) — no early clutter, mildly more secure.
@@ -73,7 +79,7 @@ const StayDetailPopup = ({
   // yyyy-MM-dd key is the one the holiday table is keyed by.
   const stayHolidays = Array.from({ length: Math.max(nights, 0) }, (_, i) => addDays(checkIn, i)).flatMap((d) => {
     const h = usHolidayOn(format(d, "yyyy-MM-dd"));
-    return h ? [{ date: d, label: holidayLabel(h) }] : [];
+    return h ? [{ date: d, label: holidayLabelForGuest(h) }] : [];
   });
   const mapsHref = address
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address.replace(/\n/g, ", "))}`
@@ -93,7 +99,7 @@ const StayDetailPopup = ({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t("Close")}
             className={`flex h-8 w-8 items-center justify-center rounded-lg text-xl leading-none ${theme.surfaceMuted2} ${theme.surfaceHover2}`}
           >
             &times;
@@ -103,11 +109,11 @@ const StayDetailPopup = ({
         <div className="px-4 pb-4">
           {/* Dates + meta */}
           <p className={`text-base font-bold ${theme.surfaceStrong}`}>
-            {format(checkIn, "EEE MMM d")} <span className={`${theme.dim}`}>→</span>{" "}
-            {format(checkOut, "EEE MMM d")}
+            {fmtDate(checkIn, "EEE MMM d")} <span className={`${theme.dim}`}>→</span>{" "}
+            {fmtDate(checkOut, "EEE MMM d")}
           </p>
           <p className={`mt-0.5 text-xs ${theme.surfaceMuted}`}>
-            {nights} night{nights === 1 ? "" : "s"} · {guests} guest{guests === 1 ? "" : "s"}
+            {t(nights === 1 ? "{n} night" : "{n} nights", { n: nights })} · {t(guests === 1 ? "{n} guest" : "{n} guests", { n: guests })}
             {countdown && (
               <>
                 {" · "}
@@ -124,7 +130,7 @@ const StayDetailPopup = ({
             <ul className={`mt-2 space-y-0.5 text-xs font-semibold ${theme.alertText}`}>
               {stayHolidays.map(({ date, label }) => (
                 <li key={label + date.getTime()}>
-                  • {format(date, "EEE MMM d")} – {label}
+                  • {fmtDate(date, "EEE MMM d")} – {label}
                 </li>
               ))}
             </ul>
@@ -136,13 +142,13 @@ const StayDetailPopup = ({
               {doorCode && (
                 <div className={`flex items-center gap-1.5 rounded-xl border ${theme.tagBorder} ${theme.tagBg} px-2.5 py-1.5`}>
                   <span className="text-sm">🔑</span>
-                  <span className={`text-[10px] font-semibold uppercase tracking-wide ${theme.surfaceMuted}`}>Door</span>
+                  <span className={`text-[10px] font-semibold uppercase tracking-wide ${theme.surfaceMuted}`}>{t("Door")}</span>
                   <span className={`text-sm font-bold tracking-widest ${theme.surfaceStrong}`}>{doorCode}</span>
                 </div>
               )}
               {roomCode && (
                 <div className={`flex items-center gap-1.5 rounded-xl border ${theme.tagBorder} ${theme.tagBg} px-2.5 py-1.5`}>
-                  <span className={`text-[10px] font-semibold uppercase tracking-wide ${theme.surfaceMuted}`}>Room</span>
+                  <span className={`text-[10px] font-semibold uppercase tracking-wide ${theme.surfaceMuted}`}>{t("Room")}</span>
                   <span className={`text-sm font-bold tracking-widest ${theme.surfaceStrong}`}>{roomCode}</span>
                 </div>
               )}
@@ -173,11 +179,11 @@ const StayDetailPopup = ({
               onClick={onViewDetails}
               className={`mt-3 w-full rounded-lg ${theme.btn} py-2.5 text-sm font-bold text-white`}
             >
-              View full details
+              {t("View full details")}
             </button>
           ) : (
             <p className={`mt-3 text-center text-[11px] ${theme.surfaceMuted2}`}>
-              This stay is complete — thank you for staying with us. 🏠
+              {t("This stay is complete — thank you for staying with us. 🏠")}
             </p>
           )}
 
@@ -189,7 +195,7 @@ const StayDetailPopup = ({
               onClick={onBookAnother}
               className={`mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border ${theme.tagBorder} py-2 text-sm font-semibold ${theme.textPrimary} ${theme.chromeHover}`}
             >
-              ➕ Book another room for these dates
+              ➕ {t("Book another room for these dates")}
             </button>
           )}
 
@@ -200,7 +206,7 @@ const StayDetailPopup = ({
               onClick={textHost}
               className={`mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border ${theme.line} py-2 text-sm font-semibold ${theme.surfaceText3} ${theme.chromeHover}`}
             >
-              💬 Text {hostFirstName} about this stay
+              💬 {t("Text {host} about this stay", { host: hostShown })}
             </button>
           )}
         </div>

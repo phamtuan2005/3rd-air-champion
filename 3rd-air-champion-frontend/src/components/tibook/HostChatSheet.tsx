@@ -1,7 +1,8 @@
 import { dropUsCountryCode } from "../../util/formatPhone";
 import { useEffect, useRef, useState } from "react";
-import { format, isValid } from "date-fns";
+import { isValid } from "date-fns";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
+import { useTiBookLang } from "../../contexts/TiBookLanguageContext";
 import TypingDots from "../shared/TypingDots";
 import {
   GuestMessage,
@@ -63,6 +64,9 @@ const HostChatSheet = ({
   onClose,
 }: HostChatSheetProps) => {
   const { theme } = useTiBookTheme();
+  // The guest's own words and anything that reaches the host (the "Guest"
+  // stand-in name, the SMS greeting) stay as they are: he reads them in English.
+  const { t, fmtDate } = useTiBookLang();
 
   const [phone, setPhone] = useState(savedPhone);
   const [name, setName] = useState(savedName);
@@ -98,7 +102,7 @@ const HostChatSheet = ({
         return markGuestThreadRead(hostId, forPhone).catch(() => undefined);
       })
       .catch(() => {
-        if (!quiet) setError("Could not load your messages just now.");
+        if (!quiet) setError(t("Could not load your messages just now."));
       })
       .finally(() => {
         if (!quiet) setLoading(false);
@@ -159,7 +163,7 @@ const HostChatSheet = ({
 
     const digits = phone.replace(/\D/g, "");
     if (digits.length < 7) {
-      setError("A phone number lets him write back — please add yours.");
+      setError(t("A phone number lets him write back — please add yours."));
       return;
     }
 
@@ -200,7 +204,7 @@ const HostChatSheet = ({
       // Put it back in the box rather than losing what they wrote.
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
       setDraft(body);
-      setError("That did not send. Your message is still here — try again?");
+      setError(t("That did not send. Your message is still here — try again?"));
     } finally {
       sendingRef.current = false;
       setSending(false);
@@ -209,7 +213,7 @@ const HostChatSheet = ({
 
   const dayLabel = (ts: string) => {
     const d = messageDate(ts);
-    return isValid(d) ? format(d, "EEE, MMM d · h:mma") : "";
+    return isValid(d) ? fmtDate(d, "EEE, MMM d · h:mma") : "";
   };
 
   return (
@@ -235,13 +239,13 @@ const HostChatSheet = ({
           <div className="min-w-0 flex-1">
             <p className={`truncate text-sm font-bold ${theme.surfaceText}`}>{hostName}</p>
             <p className={`text-[11px] leading-tight ${theme.surfaceMuted}`}>
-              Your host. He reads these himself.
+              {t("Your host. He reads these himself.")}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t("Close")}
             className={`rounded-full p-1.5 transition-colors ${theme.surfaceHover2} ${theme.surfaceMuted}`}
           >
             <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -261,12 +265,10 @@ const HostChatSheet = ({
           {!loading && messages.length === 0 && (
             <div className={`rounded-xl border p-3 ${theme.surfaceBorder} ${theme.surfaceSubtle}`}>
               <p className={`text-sm font-semibold ${theme.surfaceText}`}>
-                Ask {hostName} anything about the house.
+                {t("Ask {host} anything about the house.", { host: hostName })}
               </p>
               <p className={`mt-1 text-[12px] leading-snug ${theme.surfaceMuted}`}>
-                Parking, the kitchen, a late arrival, what a room is really like — whatever you
-                would like to know before you book. Your message goes straight to him and his reply
-                comes back here.
+                {t("Parking, the kitchen, a late arrival, what a room is really like — whatever you would like to know before you book. Your message goes straight to him and his reply comes back here.")}
               </p>
             </div>
           )}
@@ -299,14 +301,14 @@ const HostChatSheet = ({
                     className={`mt-0.5 text-[10px] ${theme.surfaceMuted} ${mine ? "text-right" : "text-left"}`}
                   >
                     <span className="font-semibold">
-                      {mine ? "You" : hostName || "Your host"}
+                      {mine ? t("You") : hostName || t("Your host")}
                     </span>
                     {" · "}
-                    {pending ? "Sending…" : dayLabel(m.createdAt)}
+                    {pending ? t("Sending…") : dayLabel(m.createdAt)}
                     {receipts && lastMine && !pending && (
                       <span className={m.readByHost ? theme.textPrimary : undefined}>
                         {" · "}
-                        {m.readByHost ? `Read by ${hostName}` : "Sent"}
+                        {m.readByHost ? t("Read by {host}", { host: hostName }) : t("Sent")}
                       </span>
                     )}
                   </p>
@@ -322,7 +324,7 @@ const HostChatSheet = ({
               <div
                 className={`rounded-2xl rounded-bl-sm border px-3 py-2.5 ${theme.surfaceSubtle} ${theme.surfaceBorder}`}
               >
-                <TypingDots dotClass={theme.dot} label={`${hostName} is typing`} />
+                <TypingDots dotClass={theme.dot} label={t("{host} is typing", { host: hostName })} />
               </div>
             </div>
           )}
@@ -335,14 +337,14 @@ const HostChatSheet = ({
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Your name"
+                placeholder={t("Your name")}
                 className={`min-w-0 flex-1 rounded-lg border px-2.5 py-1.5 text-sm ${theme.field} ${theme.fieldFocus}`}
               />
               <input
                 value={phone}
                 onChange={(e) => setPhone(dropUsCountryCode(e.target.value))}
                 inputMode="tel"
-                placeholder="Your phone"
+                placeholder={t("Your phone")}
                 className={`min-w-0 flex-1 rounded-lg border px-2.5 py-1.5 text-sm ${theme.field} ${theme.fieldFocus}`}
               />
             </div>
@@ -368,7 +370,7 @@ const HostChatSheet = ({
                 }
               }}
               rows={1}
-              placeholder={`Write to ${hostName}…`}
+              placeholder={t("Write to {host}…", { host: hostName })}
               className={`max-h-28 min-h-[38px] flex-1 resize-y rounded-lg border px-2.5 py-2 text-sm ${theme.field} ${theme.fieldFocus}`}
             />
             <button
@@ -379,7 +381,7 @@ const HostChatSheet = ({
                 sending || !draft.trim() ? "opacity-40" : ""
               }`}
             >
-              {sending ? "Sending…" : "Send"}
+              {sending ? t("Sending…") : t("Send")}
             </button>
           </div>
 
@@ -404,22 +406,23 @@ const HostChatSheet = ({
               className="h-3.5 w-3.5 shrink-0 cursor-pointer accent-current"
             />
             <span className={`text-[11px] leading-tight ${theme.surfaceMuted}`}>
-              Show me when {hostName} has read my messages
+              {t("Show me when {host} has read my messages", { host: hostName })}
             </span>
           </label>
 
           {hostPhone && (
             <p className={`mt-2 text-[11px] ${theme.surfaceMuted}`}>
-              In a hurry?{" "}
+              {t("In a hurry?")}{" "}
               <a href={`tel:${hostPhone}`} className={`font-semibold underline ${theme.textPrimary}`}>
-                Call {hostName}
+                {t("Call {host}", { host: hostName })}
               </a>{" "}
-              or{" "}
+              {t("or")}{" "}
+              {/* The SMS greeting stays English: it is the start of a text the host reads. */}
               <a
                 href={`sms:${hostPhone}?&body=${encodeURIComponent(`Hi ${hostName}, `)}`}
                 className={`font-semibold underline ${theme.textPrimary}`}
               >
-                text his phone
+                {t("text his phone")}
               </a>
               .
             </p>

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import { formatPhone } from "../../util/formatPhone";
+import { useTiBookLang } from "../../contexts/TiBookLanguageContext";
 
 interface RememberMeDisclaimerProps {
   // The number they just gave, shown back so they can see exactly what is being
@@ -17,6 +18,7 @@ interface RememberMeDisclaimerProps {
 // there waiting for them next time.
 const RememberMeDisclaimer = ({ phone, onAllow, onDeny }: RememberMeDisclaimerProps) => {
   const { theme } = useTiBookTheme();
+  const { t } = useTiBookLang();
   const panelRef = useRef<HTMLDivElement>(null);
   const allowRef = useRef<HTMLButtonElement>(null);
 
@@ -71,30 +73,28 @@ const RememberMeDisclaimer = ({ phone, onAllow, onDeny }: RememberMeDisclaimerPr
           <span className="text-xl">🔒</span>
           <div>
             <p id="remember-me-title" className={`text-sm font-bold ${theme.tagText}`}>
-              Save your number on this device?
+              {t("Save your number on this device?")}
             </p>
-            <p className={`text-[11px] ${theme.surfaceMuted}`}>So you don't have to type it again</p>
+            <p className={`text-[11px] ${theme.surfaceMuted}`}>{t("So you don't have to type it again")}</p>
           </div>
         </div>
 
         <div className="px-4 pb-4 pt-3">
           <p className={`text-xs leading-relaxed ${theme.surfaceText3}`}>
-            If you say yes, we'll keep{" "}
-            <span className={`font-semibold ${theme.surfaceText}`}>{formatPhone(phone)}</span> and your name
-            in this browser's storage on your own phone or computer. Next time you open TiBook,
-            your stays, your wish list and your rate are already here.
+            {t("If you say yes, we'll keep")}{" "}
+            <span className={`font-semibold ${theme.surfaceText}`}>{formatPhone(phone)}</span>{" "}
+            {t("and your name in this browser's storage on your own phone or computer. Next time you open TiBook, your stays, your wish list and your rate are already here.")}
           </p>
 
           <ul className={`mt-3 flex flex-col gap-1.5 text-xs ${theme.surfaceText3}`}>
             <li className="flex gap-2">
               <span className={theme.textPrimary}>•</span>
-              <span>It stays on this device — it isn't a tracking cookie and no one else can read it.</span>
+              <span>{t("It stays on this device — it isn't a tracking cookie and no one else can read it.")}</span>
             </li>
             <li className="flex gap-2">
               <span className={theme.textPrimary}>•</span>
               <span>
-                Your booking request reaches the house either way — this is only about saving you
-                the typing next visit.
+                {t("Your booking request reaches the house either way — this is only about saving you the typing next visit.")}
               </span>
             </li>
             {/* This says exactly what the button does, because it did not once:
@@ -103,8 +103,7 @@ const RememberMeDisclaimer = ({ phone, onAllow, onDeny }: RememberMeDisclaimerPr
             <li className="flex gap-2">
               <span className={theme.textPrimary}>•</span>
               <span>
-                Change your mind whenever you like: "Not you?" in Your Bookings clears your number
-                and this choice from this device, and we'll ask again next time.
+                {t("Change your mind whenever you like: \"Not you?\" in Your Bookings clears your number and this choice from this device, and we'll ask again next time.")}
               </span>
             </li>
           </ul>
@@ -115,7 +114,7 @@ const RememberMeDisclaimer = ({ phone, onAllow, onDeny }: RememberMeDisclaimerPr
             onClick={onAllow}
             className={`mt-4 w-full rounded-lg ${theme.btn} ${theme.btnHover} ${theme.btnActive} py-2.5 text-sm font-bold text-white`}
           >
-            Yes, remember me
+            {t("Yes, remember me")}
           </button>
           {/* Deliberately as easy to press as the yes. A refusal that takes more
               work than an agreement is not really a choice being offered. */}
@@ -124,7 +123,7 @@ const RememberMeDisclaimer = ({ phone, onAllow, onDeny }: RememberMeDisclaimerPr
             onClick={onDeny}
             className={`mt-2 w-full rounded-lg border ${theme.line} py-2 text-sm font-semibold ${theme.surfaceMuted} ${theme.chromeHover}`}
           >
-            No, just for this visit
+            {t("No, just for this visit")}
           </button>
         </div>
       </div>

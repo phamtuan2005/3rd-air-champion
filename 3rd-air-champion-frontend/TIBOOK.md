@@ -44,6 +44,27 @@ Two things about that file:
 | `src/util/ttBooking.ts` | Booking a stay by talking to TT: reading the stay, choosing the room, the read-back |
 | `src/util/tibookVisitOperations.ts` | Counts that a guest opened TiBook, for the host's **TiBook visitors** screen in TiMag (Money menu) |
 
+### German
+
+TiBook speaks English or German (`src/contexts/TiBookLanguageContext.tsx`). A
+phone set to German opens in German; the guest can switch under **Look →
+Sprache**, and the choice is remembered per device.
+
+- Words go through `t("the English")`, and dates the guest reads through
+  `fmtDate` (German puts the day first). The German is in `src/i18n/de/`, keyed
+  by the exact English, so a new line with no German yet shows in English.
+  A component that shows words calls `useTiBookLang()` — that is what redraws
+  it when the guest switches.
+- **Only what the guest reads is translated.** Booking request notes, texts
+  to the host and logged questions stay English: the host reads them.
+- Informal "du", worded like Airbnb.de and Booking.com. "Ask TT" is a name
+  and stays English.
+- The date box and TT also read German dates ("1. Mai", "3.9.", "vom 10. bis
+  12. Dezember") and a few German words (buchen, ja/nein, zu zweit, WLAN…).
+  Questions TT does not recognise go to the host, as in English.
+- The host's highlight pills are typed in TiMag in English; a new one shows
+  in English until its German is added to `src/i18n/de/shell.ts`.
+
 ### Visitor counting
 
 TiBook tells the backend once a day per device that someone is looking: a

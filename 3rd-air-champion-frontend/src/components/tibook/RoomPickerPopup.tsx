@@ -1,8 +1,8 @@
-import { format } from "date-fns";
+import { useTiBookLang } from "../../contexts/TiBookLanguageContext";
 import { roomType } from "../../util/types/roomType";
 import { useTiBookTheme, useRoomChip } from "../../contexts/TiBookThemeContext";
 import RoomBadge from "../shared/RoomBadge";
-import { holidayLabel, usHolidayOn } from "../../util/usHolidays";
+import { holidayLabelForGuest, usHolidayOn } from "../../util/usHolidays";
 import { nightKey } from "../../util/nightStatus";
 
 interface RoomPickerPopupProps {
@@ -21,6 +21,7 @@ interface RoomPickerPopupProps {
 const RoomPickerPopup = ({ date, rooms, onPick, onAny, onClose, title, subtitle }: RoomPickerPopupProps) => {
   const { theme } = useTiBookTheme();
   const roomChip = useRoomChip();
+  const { t, fmtDate } = useTiBookLang();
   const only = rooms.length === 1;
   const holiday = usHolidayOn(nightKey(date));
 
@@ -33,14 +34,14 @@ const RoomPickerPopup = ({ date, rooms, onPick, onAny, onClose, title, subtitle 
         <div className="flex items-center justify-between gap-2 px-4 pb-1 pt-3">
           <div className="min-w-0">
             <p className={`text-sm font-bold ${theme.textPrimary}`}>
-              {title ?? (only ? "Only 1 room left" : "Pick your room")}
+              {title ?? (only ? t("Only 1 room left") : t("Pick your room"))}
             </p>
-            <p className={`text-xs ${theme.surfaceMuted}`}>{subtitle ?? format(date, "EEEE, MMM d")}</p>
+            <p className={`text-xs ${theme.surfaceMuted}`}>{subtitle ?? fmtDate(date, "EEEE, MMM d")}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t("Close")}
             className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xl leading-none ${theme.surfaceMuted2} ${theme.surfaceHover2}`}
           >
             &times;
@@ -54,15 +55,15 @@ const RoomPickerPopup = ({ date, rooms, onPick, onAny, onClose, title, subtitle 
             night in it anyway. */}
         {!subtitle && holiday && (
           <div className={`mx-4 mb-1 mt-1 rounded-xl border px-3 py-2 text-xs ${theme.cardAlert}`}>
-            <p className={`font-bold ${theme.alertText}`}>{holidayLabel(holiday)} — a US holiday</p>
-            <p className={`mt-0.5 ${theme.surfaceText3}`}>Make sure you mean to stay this night before you add it.</p>
+            <p className={`font-bold ${theme.alertText}`}>{t("{holiday} — a US holiday", { holiday: holidayLabelForGuest(holiday) })}</p>
+            <p className={`mt-0.5 ${theme.surfaceText3}`}>{t("Make sure you mean to stay this night before you add it.")}</p>
           </div>
         )}
 
         <div className="flex flex-col gap-1.5 px-4 pb-4 pt-1">
           {rooms.length === 0 && (
             <p className={`py-3 text-center text-xs ${theme.surfaceMuted2}`}>
-              No other room is free for these dates.
+              {t("No other room is free for these dates.")}
             </p>
           )}
           {rooms.map((r) => (
@@ -73,7 +74,7 @@ const RoomPickerPopup = ({ date, rooms, onPick, onAny, onClose, title, subtitle 
               className={`flex items-center justify-between gap-2 rounded-xl border ${theme.line} px-2.5 py-2 ${theme.chromeHover}`}
             >
               <RoomBadge room={r} rooms={rooms} override={roomChip(r)} className="text-sm" />
-              <span className={`shrink-0 text-xs font-bold ${theme.textPrimary}`}>Select ›</span>
+              <span className={`shrink-0 text-xs font-bold ${theme.textPrimary}`}>{t("Select ›")}</span>
             </button>
           ))}
           {/* Flexible guest — no preference; the host picks any free room. Only
@@ -84,8 +85,8 @@ const RoomPickerPopup = ({ date, rooms, onPick, onAny, onClose, title, subtitle 
               onClick={onAny}
               className={`flex items-center justify-between gap-2 rounded-xl border border-dashed ${theme.lineStrong} px-2.5 py-2 ${theme.chromeHover}`}
             >
-              <span className={`text-sm font-semibold ${theme.surfaceText3}`}>Any available room</span>
-              <span className={`shrink-0 text-xs font-bold ${theme.textPrimary}`}>Select ›</span>
+              <span className={`text-sm font-semibold ${theme.surfaceText3}`}>{t("Any available room")}</span>
+              <span className={`shrink-0 text-xs font-bold ${theme.textPrimary}`}>{t("Select ›")}</span>
             </button>
           )}
         </div>

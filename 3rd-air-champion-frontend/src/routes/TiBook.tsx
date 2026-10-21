@@ -3,6 +3,7 @@ import { addDays, format, parseISO, startOfToday } from "date-fns";
 import CalendarNavigator from "../components/tibook/Calendar/CalendarNavigatorDesktop";
 import NavBarDesktop from "../components/tibook/NavBarDesktop";
 import { TiBookThemeProvider, useTiBookTheme } from "../contexts/TiBookThemeContext";
+import { TiBookLanguageProvider, useTiBookLang } from "../contexts/TiBookLanguageContext";
 import { fetchHost } from "../util/hostOperations";
 import { authorizeUser } from "../util/authorizeUser";
 import { hostType } from "../util/types/hostType";
@@ -70,6 +71,7 @@ const CAL_PEEK_PX = 72;
 
 const TiBookInner = () => {
   const { theme, vibe, layout, setLook } = useTiBookTheme();
+  const { t, fmtDate } = useTiBookLang();
   useEffect(() => { document.title = "TiBook"; }, []);
   useEffect(() => {
     const link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
@@ -896,10 +898,10 @@ const TiBookInner = () => {
     return () => ro.disconnect();
   }, [layout, currentHost, hasSelection]);
   const barLabel = cartDates.size > 0 && newWishListDates.size > 0
-    ? `${cartDates.size} date${cartDates.size > 1 ? "s" : ""} · ★ ${newWishListDates.size} wish list`
+    ? t(cartDates.size > 1 ? "{n} dates · ★ {w} wish list" : "{n} date · ★ {w} wish list", { n: cartDates.size, w: newWishListDates.size })
     : cartDates.size > 0
-    ? `${cartDates.size} date${cartDates.size > 1 ? "s" : ""} selected`
-    : `★ ${newWishListDates.size} wish list date${newWishListDates.size > 1 ? "s" : ""}`;
+    ? t(cartDates.size > 1 ? "{n} dates selected" : "{n} date selected", { n: cartDates.size })
+    : t(newWishListDates.size > 1 ? "★ {n} wish list dates" : "★ {n} wish list date", { n: newWishListDates.size });
 
   // The same name the nav bar greets them by. Tying the two together means the
   // banner can only shrink on a screen that already says who the guest is —
@@ -1263,7 +1265,7 @@ const TiBookInner = () => {
              pick — every time they opened the app. */
           <div className={`flex min-h-0 flex-1 flex-col items-center justify-center gap-3 ${theme.surface}`}>
             <span className={`h-6 w-6 animate-spin rounded-full border-2 ${theme.spinner}`} />
-            <p className={`text-sm ${theme.surfaceMuted}`}>Loading…</p>
+            <p className={`text-sm ${theme.surfaceMuted}`}>{t("Loading…")}</p>
           </div>
         ) : (
         /* Same state, same handlers, same calendar — a different arrangement
@@ -1405,7 +1407,7 @@ const TiBookInner = () => {
 
         {isLoading ? (
           <div className="flex flex-1 flex-col items-center justify-center">
-            <p className={`text-sm ${theme.surfaceMuted2}`}>Loading...</p>
+            <p className={`text-sm ${theme.surfaceMuted2}`}>{t("Loading...")}</p>
           </div>
         ) : currentHost ? (
           <div
@@ -1425,7 +1427,7 @@ const TiBookInner = () => {
                 rest of the page still scrolls natively. */}
             <button
               type="button"
-              aria-label={isSelecting ? "Show the rooms" : "Open the calendar"}
+              aria-label={isSelecting ? t("Show the rooms") : t("Open the calendar")}
               className={`flex shrink-0 cursor-ns-resize touch-none select-none items-center justify-center pb-1 pt-1.5 ${theme.chrome}`}
               onPointerDown={onGripDown}
               onPointerMove={onGripMove}
@@ -1469,7 +1471,7 @@ const TiBookInner = () => {
                 {/* Bookings, not rooms — this counts held STAYS, and thirteen
                     of them across a five-room house read as a house of
                     thirteen. Same wording as the popup it opens. */}
-                ⏳ {reservedStays.length} booking{reservedStays.length === 1 ? "" : "s"} held for you — tap to review &amp; pay
+                ⏳ {t(reservedStays.length === 1 ? "{n} booking held for you — tap to review & pay" : "{n} bookings held for you — tap to review & pay", { n: reservedStays.length })}
               </button>
             )}
             {/* The floor that used to sit here (17rem, six week-rows at a
@@ -1504,7 +1506,7 @@ const TiBookInner = () => {
           </div>
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center">
-            <p className={`text-sm ${theme.surfaceMuted2}`}>No host selected</p>
+            <p className={`text-sm ${theme.surfaceMuted2}`}>{t("No host selected")}</p>
           </div>
         )}
       </div>
@@ -1550,7 +1552,7 @@ const TiBookInner = () => {
             className={`shrink-0 whitespace-nowrap bg-white ${theme.reviewText} text-sm font-semibold px-4 py-1.5 rounded-full ${theme.tileActive}`}
             onClick={() => openBookingModal(null)}
           >
-            Review Request →
+            {t("Review Request")} →
           </button>
         </div>
       )}
@@ -1704,12 +1706,12 @@ const TiBookInner = () => {
       {/* Book another room for an existing stay's exact dates (e.g. parents) */}
       {bookAnother && (() => {
         const checkOut = addDays(bookAnother.checkIn, bookAnother.nights);
-        const subtitle = `${format(bookAnother.checkIn, "MMM d")} → ${format(checkOut, "MMM d")} · ${bookAnother.nights} night${bookAnother.nights === 1 ? "" : "s"}`;
+        const subtitle = `${fmtDate(bookAnother.checkIn, "MMM d")} → ${fmtDate(checkOut, "MMM d")} · ${t(bookAnother.nights === 1 ? "{n} night" : "{n} nights", { n: bookAnother.nights })}`;
         return (
           <RoomPickerPopup
             date={bookAnother.checkIn}
             rooms={availableRoomsForRange(bookAnother.checkIn, bookAnother.nights)}
-            title="Book another room"
+            title={t("Book another room")}
             subtitle={subtitle}
             onPick={(roomId) => startRangeSelection(bookAnother.checkIn, bookAnother.nights, roomId)}
             onAny={() => startRangeSelection(bookAnother.checkIn, bookAnother.nights, null)}
@@ -1728,7 +1730,8 @@ const TiBookInner = () => {
             // so the guest's own, never a stand-in that would overwrite it.
             const name = (greetedName || guestName || "").trim();
             if (!guestPhone || !name) {
-              throw new Error("Open Your Bookings with your phone number first, then try again.");
+              // The popup shows this message to the guest, so it is in their language.
+              throw new Error(t("Open Your Bookings with your phone number first, then try again."));
             }
             const key = keyOfDate(wishPopupDate);
             const result = await toggleWishListDate({ host: currentHost.id, guestPhone, guestName: name, date: key });
@@ -1748,7 +1751,7 @@ const TiBookInner = () => {
       {wishUndo && currentHost && (
         <div className="tibook-type pointer-events-none fixed inset-x-0 bottom-24 z-[130] flex justify-center px-4">
           <div className={`pointer-events-auto flex items-center gap-3 rounded-xl border ${theme.surface} px-4 py-2.5 text-sm shadow-2xl ${theme.line}`}>
-            <span className={theme.surfaceText3}>{format(wishUndo.date, "MMM d")} removed from your wish list</span>
+            <span className={theme.surfaceText3}>{t("{date} removed from your wish list", { date: fmtDate(wishUndo.date, "MMM d") })}</span>
             <button
               type="button"
               className={`font-bold ${theme.textPrimary}`}
@@ -1771,7 +1774,7 @@ const TiBookInner = () => {
                 }
               }}
             >
-              Undo
+              {t("Undo")}
             </button>
           </div>
         </div>
@@ -1801,7 +1804,7 @@ const TiBookInner = () => {
           date={roomPickerDate}
           // "Only 1 room left" is wrong for a guest who picked their one room
           // and was stopped here because the night is a holiday.
-          title={usHolidayOn(keyOfDate(roomPickerDate)) ? "Add this holiday night?" : undefined}
+          title={usHolidayOn(keyOfDate(roomPickerDate)) ? t("Add this holiday night?") : undefined}
           rooms={availableRoomsForDate(roomPickerDate)}
           onPick={(roomId) => addCartDateForRoom(roomPickerDate, roomId)}
           onAny={() => addCartDateAny(roomPickerDate)}
@@ -1902,9 +1905,11 @@ const TiBookInner = () => {
 };
 
 const TiBook = () => (
-  <TiBookThemeProvider>
-    <TiBookInner />
-  </TiBookThemeProvider>
+  <TiBookLanguageProvider>
+    <TiBookThemeProvider>
+      <TiBookInner />
+    </TiBookThemeProvider>
+  </TiBookLanguageProvider>
 );
 
 export default TiBook;

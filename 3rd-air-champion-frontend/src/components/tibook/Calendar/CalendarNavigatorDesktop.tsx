@@ -1,7 +1,8 @@
-import { format, isSameMonth } from "date-fns";
+import { isSameMonth } from "date-fns";
 import TodayButton from "./TodayButton";
 import CalendarViewToggle from "./CalendarViewToggle";
 import { useTiBookTheme, useCalendarView } from "../../../contexts/TiBookThemeContext";
+import { useTiBookLang } from "../../../contexts/TiBookLanguageContext";
 
 interface CalendarNavigatorProps {
   currentMonth: Date;
@@ -18,7 +19,8 @@ const CalendarNavigator = ({
 }: CalendarNavigatorProps) => {
   const { theme } = useTiBookTheme();
   const { calendarView } = useCalendarView();
-  const formattedDate = format(currentMonth, "MMMM yyyy");
+  const { t, fmtDate } = useTiBookLang();
+  const formattedDate = fmtDate(currentMonth, "MMMM yyyy");
   const isCurrentMonth = isSameMonth(currentMonth, new Date());
 
   return (
@@ -37,11 +39,15 @@ const CalendarNavigator = ({
           {DAYS.map((day, index) => (
             <abbr
               key={index}
-              title={day}
+              title={t(day)}
               className={`text-xs sm:text-sm font-medium no-underline ${theme.chromeMuted}`}
             >
-              <span className="sm:hidden">{day[0]}</span>
-              <span className="hidden sm:inline">{day.substring(0, 3)}</span>
+              {/* The letter is the first of the day's name in the guest's
+                  language (German: S M D M D F S, columns unchanged). The
+                  short form is looked up whole: German shortens to two
+                  letters, "Mo", where cutting at three gave "Mon". */}
+              <span className="sm:hidden">{t(day)[0]}</span>
+              <span className="hidden sm:inline">{t(day.substring(0, 3))}</span>
             </abbr>
           ))}
         </div>
@@ -55,7 +61,7 @@ const CalendarNavigator = ({
         className={`w-full ${theme.btn} ${theme.btnHover} ${theme.btnActive} ${theme.glow} ${theme.btnMotion} text-white py-2.5 rounded-xl text-lg font-semibold transition-colors mt-0.5`}
         onClick={onBookingRequest}
       >
-        Request a Booking
+        {t("Request a Booking")}
       </button>
     </div>
   );

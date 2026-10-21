@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { useRoomChip, useTiBookTheme } from "../../contexts/TiBookThemeContext";
+import { currentLang, fmtDate, t, useTiBookLang } from "../../contexts/TiBookLanguageContext";
 import type { Habit, PastStay, Proposal, Series } from "../../util/bookingHabit";
 import { holidayLabel, usHolidayOn } from "../../util/usHolidays";
 
@@ -29,6 +30,37 @@ const addDaysTo = (k: string, n: number) => {
 
 const DAY = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
+// "Tuesday and Wednesday" in the guest's language, for the lines below the
+// sentence (full days, the night that completes a stay).
+const dayList = (days: number[]) => days.map((d) => t(DAY[d])).join(t(" and "));
+
+// A sentence with one bold piece in it, split around its {slot}: German puts
+// the bold words in a different place than English, so the split follows the
+// translation rather than the English word order.
+const around = (s: string, slot: string): [string, string] => {
+  const i = s.indexOf(`{${slot}}`);
+  return i < 0 ? [s, ""] : [s.slice(0, i), s.slice(i + slot.length + 2)];
+};
+
+// German has no "Tuesday nights": a habit is said as an adverb ("dienstags",
+// on Tuesdays) and a single past stay with "-nacht" ("Dienstag- und
+// Mittwochnacht"), and neither comes out of word-for-word keys.
+const DAY_DE = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
+const nightsPhraseDe = (order: number[], consecutive: boolean, once: boolean) => {
+  const day = (m: number) => DAY_DE[(m + 1) % 7];
+  if (!once) {
+    const adv = (m: number) => `${day(m).toLowerCase()}s`;
+    if (order.length === 1) return adv(order[0]);
+    if (consecutive && order.length >= 3) return `${adv(order[0])} bis ${adv(order[order.length - 1])}`;
+    const names = order.map(adv);
+    return `${names.slice(0, -1).join(", ")} und ${names[names.length - 1]}`;
+  }
+  if (order.length === 1) return `${day(order[0])}nacht`;
+  if (consecutive && order.length >= 3) return `${day(order[0])}- bis ${day(order[order.length - 1])}nacht`;
+  const names = order.map(day);
+  return `${names.slice(0, -1).map((n) => `${n}-`).join(", ")} und ${names[names.length - 1]}nacht`;
+};
+
 /**
  * The nights a guest stays, the way a person says them: "Tuesday and Wednesday
  * nights", "Monday through Thursday nights", "Monday and Thursday nights".
@@ -38,13 +70,15 @@ const DAY = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "
  * a stay, two overlapping patterns glued together, and a guest could not tell
  * what it meant (host, 2026-10-07).
  */
-export const nightsPhrase = (habits: Habit[]) => {
+export const nightsPhrase = (habits: Habit[], once = false) => {
   const set = new Set<number>();
   for (const h of habits) for (let i = 0; i < h.nights; i++) set.add((h.startWeekday + i) % 7);
   // Monday-first: Mon=0 … Sun=6.
   const order = [...set].map((d) => (d + 6) % 7).sort((a, b) => a - b);
   const name = (m: number) => DAY[(m + 1) % 7];
   const consecutive = order.every((m, i) => i === 0 || m === order[i - 1] + 1);
+  // `once` changes only the German: English says a habit and a last stay alike.
+  if (currentLang() === "de") return nightsPhraseDe(order, consecutive, once);
   if (order.length === 1) return `${name(order[0])} nights`;
   if (consecutive && order.length >= 3) return `${name(order[0])} through ${name(order[order.length - 1])} nights`;
   const names = order.map(name);
@@ -60,7 +94,7 @@ export const everyPhrase = (habits: Habit[]) => {
   const every = new Set(habits.map((h) => h.everyWeeks ?? 1));
   if (every.size !== 1) return "";
   const n = [...every][0];
-  return n === 2 ? " every other week" : n === 3 ? " every third week" : n === 4 ? " every fourth week" : "";
+  return n === 2 ? t(" every other week") : n === 3 ? t(" every third week") : n === 4 ? t(" every fourth week") : "";
 };
 
 // The NIGHTS of a stay, month first and every day with its weekday — "Nov 24
@@ -73,12 +107,13 @@ const stayDates = (p: Proposal) => {
   // The count after the dates, so the length is read at a glance — the host
   // asked for ", 2 nights" on each row (2026-10-07).
   // A no-break space keeps "2 nights" on one line — it split as "2 / nights".
-  const count = `, ${p.nights.length} night${p.nights.length === 1 ? "" : "s"}`;
+  const count = t(p.nights.length === 1 ? ", {n} night" : ", {n} nights", { n: p.nights.length });
   // Date, then weekday — "Dec 21 Mon" — as a guest asked (2026-10-07).
-  if (p.nights.length === 1) return `${format(first, "MMM d EEE")}${count}`;
+  // German turns it round to its own "Mo. 21. Dez." (see fmtDate).
+  if (p.nights.length === 1) return `${fmtDate(first, "MMM d EEE")}${count}`;
   return first.getMonth() === last.getMonth()
-    ? `${format(first, "MMM d EEE")} – ${format(last, "d EEE")}${count}`
-    : `${format(first, "MMM d EEE")} – ${format(last, "MMM d EEE")}${count}`;
+    ? `${fmtDate(first, "MMM d EEE")} – ${fmtDate(last, "d EEE")}${count}`
+    : `${fmtDate(first, "MMM d EEE")} – ${fmtDate(last, "MMM d EEE")}${count}`;
 };
 
 /**
@@ -158,6 +193,8 @@ const UsualStayCard = ({
       return next;
     });
   const { theme } = useTiBookTheme();
+  // Subscribes to the language; the helpers above read the module-level t().
+  useTiBookLang();
   const roomChip = useRoomChip();
   const main = habits[0];
   const usual = roomOf(main.rooms[0]);
@@ -172,6 +209,10 @@ const UsualStayCard = ({
   // Said only when it is true and worth saying: at least three weeks seen, and
   // the room taken on half or more of them.
   const goingFast = fill.known >= 3 && fill.taken / fill.known >= 0.5;
+  // The words either side of each bold piece, in the guest's language.
+  const [lastA, lastB] = around(t("Last time you stayed {nights}"), "nights");
+  const [usualA, usualB] = around(t("TT noted that you usually stay {nights}"), "nights");
+  const [bookedA, bookedB] = around(t("You're booked up to {date}."), "date");
 
   // ── Floating: position, size, minimised ──────────────────────────────────
   const initW = Math.min(400, window.innerWidth - 24);
@@ -254,7 +295,7 @@ const UsualStayCard = ({
         onPointerUp={onMiniUp}
         onPointerCancel={() => (miniRef.current = null)}
         onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setMinimised(false)}
-        title="Tap to open · drag to move"
+        title={t("Tap to open · drag to move")}
         // touch-none: without it a drag on a phone scrolls the calendar
         // underneath instead of moving the badge.
         style={miniPos ? { left: miniPos.x, top: miniPos.y } : undefined}
@@ -274,8 +315,8 @@ const UsualStayCard = ({
         <span className="flex flex-col items-center whitespace-nowrap leading-tight">
           {/* The ticked stays, as the button and the bottom-bar box count them —
               it said every stay offered, 23 beside their 22 (host, 2026-10-07). */}
-          <span>TT has {chosen.length} stay{chosen.length === 1 ? "" : "s"}</span>
-          <span>lined up for you</span>
+          <span>{t(chosen.length === 1 ? "TT has {n} stay" : "TT has {n} stays", { n: chosen.length })}</span>
+          <span>{t("lined up for you")}</span>
         </span>
         <span aria-hidden className="opacity-80">▲</span>
       </button>
@@ -288,7 +329,7 @@ const UsualStayCard = ({
       <div className={`fixed inset-0 z-[129] ${theme.scrim}`} onClick={onClose} />
       <div
         role="dialog"
-        aria-label="Stays to book ahead"
+        aria-label={t("Stays to book ahead")}
         className={`tibook-type fixed z-[130] flex flex-col overflow-hidden rounded-2xl shadow-2xl ${theme.surface}`}
         style={{ left: pos.x, top: pos.y, width: size.w, height: size.h }}
       >
@@ -299,13 +340,13 @@ const UsualStayCard = ({
           onPointerMove={onDragMove}
           onPointerUp={() => (dragRef.current = null)}
         >
-          <p className={`truncate text-lg font-bold ${theme.surfaceStrong}`}>{firstName ? `Welcome back, ${firstName}` : "Welcome back"}</p>
+          <p className={`truncate text-lg font-bold ${theme.surfaceStrong}`}>{firstName ? t("Welcome back, {name}", { name: firstName }) : t("Welcome back")}</p>
           <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"
               onClick={() => setMinimised(true)}
-              aria-label="Minimise"
-              title="Minimise"
+              aria-label={t("Minimise")}
+              title={t("Minimise")}
               className={`flex h-8 w-8 items-center justify-center rounded-lg text-xl leading-none ${theme.surfaceMuted}`}
             >
               –
@@ -313,8 +354,8 @@ const UsualStayCard = ({
             <button
               type="button"
               onClick={onClose}
-              aria-label="Close"
-              title="Close"
+              aria-label={t("Close")}
+              title={t("Close")}
               className={`flex h-8 w-8 items-center justify-center rounded-lg text-xl leading-none ${theme.surfaceMuted}`}
             >
               ×
@@ -327,30 +368,30 @@ const UsualStayCard = ({
           // No pattern yet — say what TT actually knows: the last stay.
           <>
             <p className={`text-base ${theme.surfaceText}`}>
-              Last time you stayed <span className="font-semibold">{nightsPhrase(habits)}</span>
+              {lastA}<span className="font-semibold">{nightsPhrase(habits, true)}</span>{lastB}
               {usual ? (
                 <>
                   {" "}in{" "}
                   <span className={`${roomChip(usual)} rounded-md px-1.5 py-0.5 font-bold text-black`}>{usual.name}</span>
                 </>
               ) : null}{" "}
-              ({format(parseISO(lastStay.start), "MMM d")}
-              {lastStay.nights > 1 ? ` – ${format(addDaysTo(lastStay.start, lastStay.nights - 1), "MMM d")}` : ""}).
+              ({fmtDate(parseISO(lastStay.start), "MMM d")}
+              {lastStay.nights > 1 ? ` – ${fmtDate(addDaysTo(lastStay.start, lastStay.nights - 1), "MMM d")}` : ""}).
             </p>
-            <p className={`mt-2 text-sm ${theme.surfaceMuted}`}>Want the same again? These are open in the coming weeks:</p>
+            <p className={`mt-2 text-sm ${theme.surfaceMuted}`}>{t("Want the same again? These are open in the coming weeks:")}</p>
           </>
         ) : (
           <>
             {/* "TT noted that…", not "your habit" — the house's assistant noticing,
                 the way a host who knows a regular would say it (host, 2026-10-07). */}
             <p className={`text-base ${theme.surfaceText}`}>
-              TT noted that you usually stay <span className="font-semibold">{nightsPhrase(habits)}{everyPhrase(habits)}</span>
+              {usualA}<span className="font-semibold">{nightsPhrase(habits)}{everyPhrase(habits)}</span>{usualB}
               {theirRooms.length > 0 ? (
                 <>
                   {" "}in{" "}
                   {theirRooms.map((r, i) => (
                     <span key={r.name}>
-                      {i > 0 && (i === theirRooms.length - 1 ? " and " : ", ")}
+                      {i > 0 && (i === theirRooms.length - 1 ? t(" and ") : ", ")}
                       <span className={`${roomChip(r)} rounded-md px-1.5 py-0.5 font-bold text-black`}>{r.name}</span>
                     </span>
                   ))}
@@ -360,13 +401,16 @@ const UsualStayCard = ({
             </p>
             {series.lastBooked && (
               <p className={`mt-1 text-base ${theme.surfaceText}`}>
-                You're booked up to <span className="font-semibold">{format(parseISO(series.lastBooked), "EEEE, MMMM d, yyyy")}</span>.
+                {bookedA}<span className="font-semibold">{fmtDate(parseISO(series.lastBooked), "EEEE, MMMM d, yyyy")}</span>{bookedB}
               </p>
             )}
             <p className={`mt-2 text-sm ${theme.surfaceMuted}`}>
-              TT can line up the next ones for you, to {format(parseISO(series.until), "MMMM yyyy")}
-              {goingFast && usual ? ` — ${usual.name} is already booked ${fill.taken} of the next ${fill.known} weeks on those nights` : ""}.
-              Untick any week you won't need.
+              {t("TT can line up the next ones for you, to {month}", { month: fmtDate(parseISO(series.until), "MMMM yyyy") })}
+              {goingFast && usual
+                ? t(" — {room} is already booked {taken} of the next {known} weeks on those nights", { room: usual.name, taken: fill.taken, known: fill.known })
+                : ""}
+              .{" "}
+              {t("Untick any week you won't need.")}
             </p>
           </>
         )}
@@ -377,8 +421,12 @@ const UsualStayCard = ({
           disabled={chosen.length === 0}
           className={`mt-3 w-full rounded-xl px-4 py-3 text-base font-bold text-white disabled:opacity-40 ${theme.btn} ${theme.btnHover}`}
         >
-          Request {allOn ? "all " : ""}
-          {chosen.length} stay{chosen.length === 1 ? "" : "s"}
+          {t(
+            allOn
+              ? chosen.length === 1 ? "Request all {n} stay" : "Request all {n} stays"
+              : chosen.length === 1 ? "Request {n} stay" : "Request {n} stays",
+            { n: chosen.length },
+          )}
         </button>
 
         {/* Select all / none: one tap clears every week, one tap brings them
@@ -394,7 +442,11 @@ const UsualStayCard = ({
             className="h-5 w-5 shrink-0"
           />
           <span className={`text-sm font-semibold ${theme.surfaceText}`}>
-            {allOn ? "All selected" : noneOn ? "None selected" : `${allNights.filter((n) => !off.has(n)).length} of ${allNights.length} nights selected`}
+            {allOn
+              ? t("All selected")
+              : noneOn
+                ? t("None selected")
+                : t("{k} of {n} nights selected", { k: allNights.filter((n) => !off.has(n)).length, n: allNights.length })}
           </span>
         </label>
 
@@ -403,8 +455,9 @@ const UsualStayCard = ({
         <div className="mt-1">
           {proposals.map((p, i) => {
             const room = roomOf(p.roomId);
-            const month = format(parseISO(p.start), "MMMM yyyy");
-            const newMonth = i === 0 || format(parseISO(proposals[i - 1].start), "MMMM yyyy") !== month;
+            const monthKey = format(parseISO(p.start), "yyyy-MM");
+            const month = fmtDate(parseISO(p.start), "MMMM yyyy");
+            const newMonth = i === 0 || format(parseISO(proposals[i - 1].start), "yyyy-MM") !== monthKey;
             const kept = p.nights.filter((n) => !off.has(n));
             const on = kept.length > 0;
             const some = on && kept.length < p.nights.length;
@@ -424,7 +477,7 @@ const UsualStayCard = ({
                 >
                   <input
                     type="checkbox"
-                    aria-label={`${stayDates(p)} in ${room?.name ?? "the room"}`}
+                    aria-label={t("{dates} in {room}", { dates: stayDates(p), room: room?.name ?? t("the room") })}
                     checked={on && !some}
                     ref={(el) => {
                       if (el) el.indeterminate = some;
@@ -442,13 +495,13 @@ const UsualStayCard = ({
                       .filter((x) => x.h)
                       .map(({ n, h }) => (
                         <span key={n} className={`block text-xs font-semibold ${theme.alertText}`}>
-                          • {format(parseISO(n), "MMM d EEE")} – {holidayLabel(h!)}
+                          • {fmtDate(parseISO(n), "MMM d EEE")} – {holidayLabel(h!)}
                         </span>
                       ))}
                     {p.full && p.full.length > 0 && (
                       // Part of the usual week, because no room has the rest.
                       <span className={`block text-xs ${theme.surfaceMuted}`}>
-                        {[...new Set(p.full)].map((d) => DAY[d]).join(" and ")} {p.full.length === 1 ? "is" : "are"} full that week
+                        {t(p.full.length === 1 ? "{days} is full that week" : "{days} are full that week", { days: dayList([...new Set(p.full)]) })}
                       </span>
                     )}
                     {/* No "King is taken that week" line: the chip shows the
@@ -470,7 +523,11 @@ const UsualStayCard = ({
                           }
                           className={`mt-0.5 block text-xs font-semibold underline decoration-dotted underline-offset-2 ${theme.surfaceMuted}`}
                         >
-                          {isOpen ? "Done choosing" : some ? `${kept.length} of ${p.nights.length} nights — change` : "Choose nights"}
+                          {isOpen
+                            ? t("Done choosing")
+                            : some
+                              ? t("{k} of {n} nights — change", { k: kept.length, n: p.nights.length })
+                              : t("Choose nights")}
                         </button>
                         {isOpen && (
                           <span className="mt-1 flex flex-wrap gap-1.5">
@@ -487,7 +544,7 @@ const UsualStayCard = ({
                                   }`}
                                 >
                                   {nightOn ? "✓ " : ""}
-                                  {format(parseISO(n), "d EEE")}
+                                  {fmtDate(parseISO(n), "d EEE")}
                                 </button>
                               );
                             })}
@@ -500,9 +557,9 @@ const UsualStayCard = ({
                       // when it cannot be in the same room, which room and why,
                       // so a move between nights is not a surprise on the day.
                       <span className="block text-xs font-semibold text-emerald-600">
-                        adds to your {[...new Set(p.completes)].map((d) => DAY[d]).join(" and ")} stay
+                        {t("adds to your {days} stay", { days: dayList([...new Set(p.completes)]) })}
                         {p.theirRoom && p.theirRoom !== p.roomId && room
-                          ? ` — in ${room.name}, as ${roomOf(p.theirRoom)?.name ?? "your room"} is taken that night`
+                          ? t(" — in {room}, as {theirs} is taken that night", { room: room.name, theirs: roomOf(p.theirRoom)?.name ?? t("your room") })
                           : ""}
                       </span>
                     )}
@@ -514,9 +571,9 @@ const UsualStayCard = ({
           })}
         </div>
 
-        <p className={`mt-3 text-xs ${theme.surfaceMuted}`}>You'll see the request before anything is sent — each stay goes to the host on its own.</p>
+        <p className={`mt-3 text-xs ${theme.surfaceMuted}`}>{t("You'll see the request before anything is sent — each stay goes to the host on its own.")}</p>
         <button type="button" onClick={onClose} className={`mt-3 w-full rounded-xl py-2.5 text-base font-semibold ${theme.surfaceMuted}`}>
-          Not now
+          {t("Not now")}
         </button>
         </div>
 
@@ -526,7 +583,7 @@ const UsualStayCard = ({
           onPointerMove={onResizeMove}
           onPointerUp={() => (resizeRef.current = null)}
           className="absolute bottom-0 right-0 flex h-6 w-6 cursor-nwse-resize touch-none items-end justify-end p-1"
-          aria-label="Resize"
+          aria-label={t("Resize")}
         >
           <span className="h-3 w-3 rounded-br-md border-b-2 border-r-2 border-gray-400" />
         </div>
@@ -570,15 +627,16 @@ export const snooze = (signature: string) => {
 /** The small header button that opens the proposal any time: "★ 19 stays". */
 export const UsualStaysButton = ({ count, onClick }: { count: number; onClick: () => void }) => {
   const { theme } = useTiBookTheme();
+  useTiBookLang();
   return (
     <button
       type="button"
       onClick={onClick}
-      title="Stays TT lined up for you"
+      title={t("Stays TT lined up for you")}
       className={`flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-sm font-bold text-white shadow-sm ${theme.btn} ${theme.btnHover}`}
     >
       <span aria-hidden>★</span>
-      {count} stay{count === 1 ? "" : "s"}
+      {t(count === 1 ? "{n} stay" : "{n} stays", { n: count })}
     </button>
   );
 };

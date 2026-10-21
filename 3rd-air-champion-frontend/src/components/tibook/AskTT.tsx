@@ -20,8 +20,9 @@ import {
   TTBookingRequest,
   TTBookingStep,
 } from "../../util/ttBooking";
-import { holidayLabel, usHolidayOn } from "../../util/usHolidays";
+import { holidayLabelForGuest, usHolidayOn } from "../../util/usHolidays";
 import { addDays, format, parseISO } from "date-fns";
+import { fmtDate, useTiBookLang } from "../../contexts/TiBookLanguageContext";
 
 // TT's mark, the same one TiMag's Ask TT wears: a sparkle on the
 // emerald-to-violet gradient. Kept identical on purpose — TT is the house's
@@ -119,6 +120,7 @@ export const AskTTButton = ({
   drop?: "down" | "up";
 }) => {
   const { theme } = useTiBookTheme();
+  const { t } = useTiBookLang();
   const [showing, setShowing] = useState<TTNudge | null>(null);
 
   useEffect(() => {
@@ -153,8 +155,8 @@ export const AskTTButton = ({
       <button
         type="button"
         onClick={open}
-        title="Ask TT"
-        aria-label="Ask TT, your booking helper"
+        title={t("Ask TT")}
+        aria-label={t("Ask TT, your booking helper")}
         className={`relative flex shrink-0 items-center gap-1 rounded-full border py-0.5 pl-0.5 pr-2.5 transition-colors ${theme.chromeBorder} ${theme.chromeHover} ${theme.chromeText}`}
       >
         {/* The same soft ring the Look nudge uses, only while TT's callout is
@@ -194,20 +196,22 @@ export const AskTTButton = ({
             <p className={`flex-1 text-xs leading-snug ${theme.surfaceText}`}>
               {showing === "new" ? (
                 <>
-                  <span className="font-bold">New here? Meet TT, your AI helper.</span> Ask about the rooms, parking
-                  or your dates, and TT will walk you through booking.
+                  <span className="font-bold">{t("New here? Meet TT, your AI helper.")}</span>{" "}
+                  {t("Ask about the rooms, parking or your dates, and TT will walk you through booking.")}
                 </>
               ) : (
                 <>
-                  <span className="font-bold">Welcome back{guestFirstName ? `, ${guestFirstName}` : ""}.</span> Tell
-                  TT your dates and it sets up the request — in your usual room when it's free.
+                  <span className="font-bold">
+                    {guestFirstName ? t("Welcome back, {name}.", { name: guestFirstName }) : t("Welcome back.")}
+                  </span>{" "}
+                  {t("Tell TT your dates and it sets up the request — in your usual room when it's free.")}
                 </>
               )}
             </p>
             <button
               type="button"
               onClick={dismiss}
-              aria-label="Dismiss"
+              aria-label={t("Dismiss")}
               className={`shrink-0 text-sm leading-none ${theme.surfaceMuted} ${theme.mutedHover}`}
             >
               ×
@@ -218,7 +222,7 @@ export const AskTTButton = ({
             onClick={open}
             className={`relative mt-2 w-full rounded-full py-1.5 text-xs font-semibold text-white ${theme.btn} ${theme.btnHover} ${theme.glow}`}
           >
-            {showing === "new" ? "Ask TT" : "Book with TT"}
+            {showing === "new" ? t("Ask TT") : t("Book with TT")}
           </button>
         </div>
       )}
@@ -269,7 +273,8 @@ interface AskTTSheetProps {
   onClose: () => void;
 }
 
-const nightsAfter = (k: string) => format(addDays(parseISO(k), 1), "EEE MMM d");
+// Shown to the guest, so in their language (fmtDate); asTyped below is not.
+const nightsAfter = (k: string) => fmtDate(addDays(parseISO(k), 1), "EEE MMM d");
 
 // Nights written the way the date parser reads them ("10/10/2026, 10/11/2026"),
 // to ask TT about them again. It does not read yyyy-MM-dd.
@@ -302,6 +307,7 @@ const withoutEdgeHolidays = (dates: string[]) => {
  */
 const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, roomColors, onAction, onClose }: AskTTSheetProps) => {
   const { theme } = useTiBookTheme();
+  const { t, lang } = useTiBookLang();
   const roomChip = useRoomChip();
   const [draft, setDraft] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -334,7 +340,7 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
     if (parts.length === 1) return text;
     return parts.map((part, i) =>
       i % 2 === 1 ? (
-        <span key={i} className="tracking-wide" aria-label={`${part.split("★").length - 1} out of 5 stars`}>
+        <span key={i} className="tracking-wide" aria-label={t("{n} out of 5 stars", { n: part.split("★").length - 1 })}>
           <span className="text-amber-400">{part.replace(/☆/g, "")}</span>
           <span className="text-amber-400/35">{part.replace(/★/g, "")}</span>
         </span>
@@ -383,28 +389,28 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
   const promptFor = (b: TTBookingDraft): Reply & { step: TTBookingStep } => {
     const s = nextStep(b);
     const room = roomOf(b.roomId)!;
-    const cancel = step({ do: "cancel" }, "Start over");
+    const cancel = step({ do: "cancel" }, t("Start over"));
     switch (s) {
       case "party": {
         const max = maxGuestsOf(room);
         return {
           step: s,
-          lines: [`How many guests? ${room.name} sleeps up to ${max}.`],
-          actions: [...Array.from({ length: max }, (_, i) => step({ do: "party", n: i + 1 }, i === 0 ? "Just me" : `${i + 1} guests`)), cancel],
+          lines: [t("How many guests? {room} sleeps up to {max}.", { room: room.name, max })],
+          actions: [...Array.from({ length: max }, (_, i) => step({ do: "party", n: i + 1 }, i === 0 ? t("Just me") : t("{n} guests", { n: i + 1 }))), cancel],
         };
       }
       case "contact":
         return {
           step: s,
           lines: b.name.trim()
-            ? [`What number should ${host} text about it, ${b.name.trim().split(/\s+/)[0]}?`]
-            : [`Who should ${host} text about it? Type your name and phone number — like “Mai, 408 555 0123”.`],
+            ? [t("What number should {host} text about it, {name}?", { host, name: b.name.trim().split(/\s+/)[0] })]
+            : [t("Who should {host} text about it? Type your name and phone number — like “Mai, 408 555 0123”.", { host })],
           // Said before they type it: where the number goes, and that the
           // question log never sees it (this reply is not logged at all).
           actions: [cancel],
         };
       case "name":
-        return { step: s, lines: ["And the name to put the request under?"], actions: [cancel] };
+        return { step: s, lines: [t("And the name to put the request under?")], actions: [cancel] };
       case "holiday": {
         const hols = holidaysIn(b.dates);
         const trimmed = withoutEdgeHolidays(b.dates);
@@ -412,11 +418,16 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
         return {
           step: s,
           lines: [
-            `Heads up — your stay includes ${hols.map((k) => `${format(parseISO(k), "EEE MMM d")} (${holidayLabel(usHolidayOn(k)!)})`).join(", ")}, a US holiday. Do you mean to stay ${hols.length === 1 ? "that night" : "those nights"}?`,
+            t(
+              hols.length === 1
+                ? "Heads up — your stay includes {days}, a US holiday. Do you mean to stay that night?"
+                : "Heads up — your stay includes {days}, a US holiday. Do you mean to stay those nights?",
+              { days: hols.map((k) => `${fmtDate(parseISO(k), "EEE MMM d")} (${holidayLabelForGuest(usHolidayOn(k)!)})`).join(", ") },
+            ),
           ],
           actions: [
-            step({ do: "keepHolidays" }, hols.length === 1 ? "Yes, keep it" : "Yes, keep them"),
-            ...(canDrop ? [step({ do: "dropHolidays" }, hols.length === 1 ? "Leave it out" : "Leave them out")] : []),
+            step({ do: "keepHolidays" }, hols.length === 1 ? t("Yes, keep it") : t("Yes, keep them")),
+            ...(canDrop ? [step({ do: "dropHolidays" }, hols.length === 1 ? t("Leave it out") : t("Leave them out"))] : []),
             cancel,
           ],
         };
@@ -426,11 +437,11 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
           step: s,
           lines: summaryLines(b, room, ctx),
           actions: [
-            step({ do: "send" }, testMode ? "Send (test — nothing is sent)" : `Send to ${host}`),
+            step({ do: "send" }, testMode ? t("Send (test — nothing is sent)") : t("Send to {host}", { host })),
             // "Oct 10-12" read as three nights; this is the two-night reading.
-            ...(b.alt ? [step({ do: "alt" }, `I check out ${nightsAfter(b.alt[b.alt.length - 1])} instead`)] : []),
-            ...(b.phone && b.phone === guestPhone ? [step({ do: "notMe" }, "Not me — change name or number")] : []),
-            step({ do: "form" }, "Open in the booking form"),
+            ...(b.alt ? [step({ do: "alt" }, t("I check out {day} instead", { day: nightsAfter(b.alt[b.alt.length - 1]) }))] : []),
+            ...(b.phone && b.phone === guestPhone ? [step({ do: "notMe" }, t("Not me — change name or number"))] : []),
+            step({ do: "form" }, t("Open in the booking form")),
             cancel,
           ],
         };
@@ -468,13 +479,18 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
     const label = a.label.replace(/\s*→$/, "");
     if (!room || chooseRoom(a.dates, ctx, room, null).kind !== "room") {
       say(label, {
-        lines: [`${room?.name ?? "That room"} has just been taken for some of those nights. Here's what's free now:`, ...askTT(asTyped(a.dates), ctx).lines],
+        lines: [
+          room
+            ? t("{room} has just been taken for some of those nights. Here's what's free now:", { room: room.name })
+            : t("That room has just been taken for some of those nights. Here's what's free now:"),
+          ...askTT(asTyped(a.dates), ctx).lines,
+        ],
         actions: askTT(asTyped(a.dates), ctx, { booking: true }).actions,
       });
       return;
     }
     const b = begin({ roomId: a.roomId, dates: a.dates, party: a.party, alt: a.alt });
-    advance(b, label, [`${room.name} — ${stayLine(b.dates)}.`]);
+    advance(b, label, [t("{room} — {stay}.", { room: room.name, stay: stayLine(b.dates) })]);
   };
 
   const finish = (guestSaid: string, reply: Reply) => {
@@ -488,8 +504,8 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
     // Once more at the last moment: the house is booked by other people too.
     if (chooseRoom(b.dates, ctx, room, null).kind !== "room") {
       finish(guestSaid, {
-        lines: [`${room.name} was taken for some of those nights while we talked — nothing was sent. Want to look at other rooms?`],
-        actions: [{ kind: "ask", label: "What's free then?", query: `book ${asTyped(b.dates)}` }],
+        lines: [t("{room} was taken for some of those nights while we talked — nothing was sent. Want to look at other rooms?", { room: room.name })],
+        actions: [{ kind: "ask", label: t("What's free then?"), query: `book ${asTyped(b.dates)}` }],
       });
       return;
     }
@@ -500,22 +516,23 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
       if (outcome === "dryRun") {
         finish(guestSaid, {
           lines: [
-            `🧪 Test mode — nothing was sent to ${host}. This is the request ${host} would have received:`,
-            `Room: ${room.name}`,
+            t("🧪 Test mode — nothing was sent to {host}. This is the request {host} would have received:", { host }),
+            t("Room: {room}", { room: room.name }),
             stayLine(b.dates),
-            `Guests: ${request.numberOfGuests}`,
-            `Name: ${request.guestName} · ${phoneHint(request.guestPhone)}`,
-            `Note: ${request.notes}`,
+            t("Guests: {n}", { n: request.numberOfGuests }),
+            t("Name: {name} · {phone}", { name: request.guestName, phone: phoneHint(request.guestPhone) }),
+            // The note itself stays English: it is what the host receives.
+            t("Note: {note}", { note: request.notes }),
           ],
-          actions: [{ kind: "ask", label: "Try another booking", query: "I'd like to book" }],
+          actions: [{ kind: "ask", label: t("Try another booking"), query: "I'd like to book" }],
         });
       } else {
         finish(guestSaid, {
           lines: [
-            `Sent ✓ ${host} has your request for ${room.name} — ${stayLine(b.dates)}.`,
-            `Nothing is booked until ${host} confirms — you'll hear back by text. It's under Your bookings in the meantime.`,
+            t("Sent ✓ {host} has your request for {room} — {stay}.", { host, room: room.name, stay: stayLine(b.dates) }),
+            t("Nothing is booked until {host} confirms — you'll hear back by text. It's under Your bookings in the meantime.", { host }),
           ],
-          actions: [{ kind: "bookings", label: "Open Your bookings" }],
+          actions: [{ kind: "bookings", label: t("Open Your bookings") }],
         });
       }
     } catch {
@@ -523,8 +540,8 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
       say(
         guestSaid,
         {
-          lines: ["That didn't go through — the connection may have dropped. Nothing was sent."],
-          actions: [step({ do: "send" }, "Try again"), { kind: "chat", label: `Chat ${host}` }],
+          lines: [t("That didn't go through — the connection may have dropped. Nothing was sent.")],
+          actions: [step({ do: "send" }, t("Try again")), { kind: "chat", label: t("Chat {host}", { host }) }],
         },
         { draftId: b.id, step: "confirm" },
       );
@@ -543,10 +560,10 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
         return advance({ ...b, holidaysKept: true }, label);
       case "dropHolidays": {
         const dates = withoutEdgeHolidays(b.dates);
-        return advance({ ...b, dates, alt: undefined }, label, [`Done — ${stayLine(dates)}.`]);
+        return advance({ ...b, dates, alt: undefined }, label, [t("Done — {stay}.", { stay: stayLine(dates) })]);
       }
       case "alt":
-        return b.alt ? advance({ ...b, dates: b.alt, alt: undefined, holidaysKept: false }, label, [`Got it — ${stayLine(b.alt)}.`]) : undefined;
+        return b.alt ? advance({ ...b, dates: b.alt, alt: undefined, holidaysKept: false }, label, [t("Got it — {stay}.", { stay: stayLine(b.alt) })]) : undefined;
       case "notMe":
         return advance({ ...b, name: "", phone: "" }, label);
       case "send":
@@ -558,8 +575,8 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
         return onAction({ kind: "pick", label, dates: b.dates, roomId: b.roomId, review: true });
       case "cancel":
         return finish(label, {
-          lines: ["No problem — nothing was sent. Tell me other dates whenever you like."],
-          actions: [{ kind: "ask", label: "This weekend", query: "book this weekend" }],
+          lines: [t("No problem — nothing was sent. Tell me other dates whenever you like.")],
+          actions: [{ kind: "ask", label: t("This weekend"), query: "book this weekend" }],
         });
     }
   };
@@ -584,7 +601,7 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
     if (s === "party" && !q.includes("?")) {
       const c = readContact(q);
       if (phoneLooksReal(c.phone)) {
-        advance({ ...b, phone: c.phone, name: c.name || b.name }, q, ["Thanks."]);
+        advance({ ...b, phone: c.phone, name: c.name || b.name }, q, [t("Thanks.")]);
         return true;
       }
     }
@@ -593,7 +610,14 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
       if (n == null) return false;
       if (n < 1 || n > maxGuestsOf(room)) {
         const p = promptFor(b);
-        say(q, { lines: [`${room.name} sleeps up to ${maxGuestsOf(room)}. For ${n}, ${host} can help split the party across two rooms.`], actions: [...p.actions, { kind: "chat", label: `Chat ${host}` }] }, { draftId: b.id, step: s });
+        say(
+          q,
+          {
+            lines: [t("{room} sleeps up to {max}. For {n}, {host} can help split the party across two rooms.", { room: room.name, max: maxGuestsOf(room), n, host })],
+            actions: [...p.actions, { kind: "chat", label: t("Chat {host}", { host }) }],
+          },
+          { draftId: b.id, step: s },
+        );
         return true;
       }
       advance({ ...b, party: n }, q);
@@ -611,11 +635,11 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
         return true;
       }
       if (c.name && !/\d/.test(q)) {
-        advance({ ...b, name: c.name }, q, [`Thanks, ${c.name.split(/\s+/)[0]}.`]);
+        advance({ ...b, name: c.name }, q, [t("Thanks, {name}.", { name: c.name.split(/\s+/)[0] })]);
         return true;
       }
       if (/\d/.test(q)) {
-        say(q, { lines: ["That number looks too short — type it with the area code, like 408 555 0123."], actions: promptFor(b).actions }, { draftId: b.id, step: s });
+        say(q, { lines: [t("That number looks too short — type it with the area code, like 408 555 0123.")], actions: promptFor(b).actions }, { draftId: b.id, step: s });
         return true;
       }
       return false;
@@ -639,9 +663,15 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
   // are logged: a tap sends TT's own wording ("parking", "King reviews"), and
   // the host's screen is for what guests ask in THEIR words — the taps would
   // fill it with the buttons' layout instead.
-  const ask = (question: string, typed = true) => {
+  //
+  // `shown` is what the guest's bubble says, when that is not the question
+  // itself: a German chip ("Parken") sends TT its English query ("parking"),
+  // because the parser reads English, and the guest should see the words they
+  // tapped rather than English they never chose.
+  const ask = (question: string, typed = true, shown?: string) => {
     const q = question.trim();
     if (!q) return;
+    const said = shown ?? q;
     setDraft("");
     if (typed && bookingTook(q)) return;
     const answer = askTT(q, ctx, { booking: bookingAsked });
@@ -651,7 +681,7 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
     // understood that" — and does not log it: it was a reply, not a question.
     if (booking && answer.category === "other") {
       const p = promptFor(booking);
-      say(q, { lines: ["Sorry, I didn't catch that.", ...p.lines], actions: p.actions }, { draftId: booking.id, step: p.step });
+      say(said, { lines: [t("Sorry, I didn't catch that."), ...p.lines], actions: p.actions }, { draftId: booking.id, step: p.step });
       return;
     }
     // "Book" with no dates yet: the next dates the guest gives are a booking.
@@ -661,10 +691,10 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
       // Asked to book, and one room is free for it: TT goes straight on to
       // what it still needs, in the same message.
       const b = begin(answer.book);
-      advance(b, q, answer.lines);
+      advance(b, said, answer.lines);
       return;
     }
-    say(q, { lines: answer.lines, actions: answer.actions });
+    say(said, { lines: answer.lines, actions: answer.actions });
   };
 
   // The newest answer in view, as a chat thread would.
@@ -673,7 +703,9 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
   }, [turns.length]);
 
   const act = (a: TTAction) => {
-    if (a.kind === "ask") return ask(a.query, false);
+    // In English the bubble shows the query, as it always has; in German, the
+    // chip's own (German) label — the query underneath stays English.
+    if (a.kind === "ask") return ask(a.query, false, lang === "de" ? a.label : undefined);
     if (a.kind === "book") return bookFrom(a);
     if (a.kind === "booking") return onStep(a.step, a.label);
     onAction(a);
@@ -709,7 +741,7 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
               } disabled:cursor-default disabled:opacity-40`}
             >
               {sending && a.kind === "booking" && a.step.do === "send" && booking && stage?.draftId === booking.id
-                ? "Sending…"
+                ? t("Sending…")
                 : chipify(a.label, true)}
             </button>
           );
@@ -731,25 +763,25 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
         <div className={`flex shrink-0 items-center gap-3 border-b px-4 py-3 ${theme.surfaceBorder}`}>
           <TTBadge box="h-9 w-9" icon={18} />
           <div className="min-w-0 flex-1">
-            <p className={`text-sm font-bold ${theme.surfaceText}`}>Ask TT</p>
+            <p className={`text-sm font-bold ${theme.surfaceText}`}>{t("Ask TT")}</p>
             <p className={`text-[11px] leading-tight ${theme.surfaceMuted}`}>
-              TT House's assistant · answers from this page
+              {t("TT House's assistant · answers from this page")}
             </p>
           </div>
           {/* Only on the dev server (ttBookingIsDryRun). A status chip, so it
               carries its own colours and reads the same in every look. */}
           {testMode && (
             <span
-              title="Bookings made here are shown, not sent to the host"
+              title={t("Bookings made here are shown, not sent to the host")}
               className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-900"
             >
-              Test mode
+              {t("Test mode")}
             </span>
           )}
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t("Close")}
             className={`rounded-full p-1.5 transition-colors ${theme.surfaceHover2} ${theme.surfaceMuted}`}
           >
             <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -769,46 +801,52 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
                   {/* A returning guest came to book, so TT says that it can,
                       and in which room, before anything else. */}
                   <p>
-                    Welcome back{first ? `, ${first}` : ""}! TT is your assistant. Tell me your dates and I'll book
-                    them
+                    {first
+                      ? t("Welcome back, {name}! TT is your assistant. Tell me your dates and I'll book them", { name: first })
+                      : t("Welcome back! TT is your assistant. Tell me your dates and I'll book them")}
                     {usualNames.length > 0 ? (
                       <>
-                        {" in "}
+                        {t(" in ")}
                         {/* The rooms as they are everywhere else in TiBook —
                             coloured chips — and the SAME rooms, in the same
                             order, as the usual-stay popup names. */}
                         {usualNames.map((n, i) => (
                           <span key={n}>
-                            {i > 0 && (i === usualNames.length - 1 ? " or " : ", ")}
+                            {i > 0 && (i === usualNames.length - 1 ? t(" or ") : ", ")}
                             {chipify(n)}
                           </span>
                         ))}
                         {ctx.guest?.roomsAre === "last"
-                          ? ", the room you stayed in last time"
+                          ? t(", the room you stayed in last time")
                           : usualNames.length > 1
-                            ? " — the rooms you stay in, in that order"
-                            : ", your usual room"}
+                            ? t(" — the rooms you stay in, in that order")
+                            : t(", your usual room")}
                       </>
                     ) : null}
-                    {" — you check the request before it's sent."}
+                    {t(" — you check the request before it's sent.")}
                   </p>
                   {ctx.guest.wishList.length > 0 && (
                     <p className={`mt-1 text-[12px] ${theme.surfaceMuted}`}>
-                      You have {ctx.guest.wishList.length} night{ctx.guest.wishList.length === 1 ? "" : "s"} on your
-                      wish list — I can check them all at once.
+                      {t(
+                        ctx.guest.wishList.length === 1
+                          ? "You have {n} night on your wish list — I can check them all at once."
+                          : "You have {n} nights on your wish list — I can check them all at once.",
+                        { n: ctx.guest.wishList.length },
+                      )}
                     </p>
                   )}
                 </>
               ) : (
                 <>
                   <p>
-                    Hello{first ? ` ${first}` : ""}, TT is your assistant. I will do my best to assist you. What can I
-                    do for you today?
+                    {first
+                      ? t("Hello {name}, TT is your assistant. I will do my best to assist you. What can I do for you today?", { name: first })
+                      : t("Hello, TT is your assistant. I will do my best to assist you. What can I do for you today?")}
                   </p>
                   <p className={`mt-1 text-[12px] ${theme.surfaceMuted}`}>
-                    New to TT House? Ask me anything — the rooms, parking, check-in. When you're ready, say “book
-                    Oct 10-12” or “book this weekend for 2” and I'll book it for you. You see the whole request
-                    before anything is sent.
+                    {t(
+                      "New to TT House? Ask me anything — the rooms, parking, check-in. When you're ready, say “book Oct 10-12” or “book this weekend for 2” and I'll book it for you. You see the whole request before anything is sent.",
+                    )}
                   </p>
                 </>
               )}
@@ -839,14 +877,13 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
           {/* The house's promise, named as one — CLAUDE.md asks that it never
               be left to read as a promise to whoever happens to be reading. */}
           <p className={`pt-1 text-center text-[11px] ${theme.surfaceMuted}`}>
-            “Your comfort. Our mission.” — TT House's promise to you
+            {t("“Your comfort. Our mission.” — TT House's promise to you")}
           </p>
           {/* Said before the first question, in a guest's terms: what is
               kept, what is not, and why. Phone numbers and emails are taken
               out before anything leaves the phone (ttQuestionLog). */}
           <p className={`text-center text-[11px] leading-snug ${theme.surfaceMuted}`}>
-            Your questions are kept, without any phone number or email in them, so TT House can teach TT what guests
-            ask.
+            {t("Your questions are kept, without any phone number or email in them, so TT House can teach TT what guests ask.")}
           </p>
         </div>
 
@@ -870,10 +907,10 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
             onChange={(e) => setDraft(e.target.value)}
             placeholder={
               booking && nextStep(booking) === "contact"
-                ? "Your name and phone number"
+                ? t("Your name and phone number")
                 : booking && nextStep(booking) === "name"
-                  ? "Your name"
-                  : "Ask, or say “book Oct 10-12”…"
+                  ? t("Your name")
+                  : t("Ask, or say “book Oct 10-12”…")
             }
             // 16px on the field itself: below that, iOS Safari zooms the page
             // in on focus and leaves it zoomed after the keyboard goes.
@@ -884,7 +921,7 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
             disabled={!draft.trim()}
             className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold text-white disabled:opacity-40 ${theme.btn} ${theme.btnHover}`}
           >
-            Ask
+            {t("Ask")}
           </button>
         </form>
       </div>

@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
-import { format } from "date-fns";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
+import { useTiBookLang } from "../../contexts/TiBookLanguageContext";
 
 interface WishListDatePopupProps {
   date: Date;
@@ -24,6 +24,7 @@ interface WishListDatePopupProps {
  */
 const WishListDatePopup = ({ date, onRemove, onClose }: WishListDatePopupProps) => {
   const { theme } = useTiBookTheme();
+  const { t, fmtDate } = useTiBookLang();
   const [removing, setRemoving] = useState(false);
   const [error, setError] = useState("");
   // Guards the write itself, not just the button's look: a second tap lands
@@ -39,7 +40,9 @@ const WishListDatePopup = ({ date, onRemove, onClose }: WishListDatePopupProps) 
       await onRemove();
       onClose();
     } catch (e) {
-      setError(e instanceof Error && e.message ? e.message : "That didn't go through. Please try again.");
+      // The thrower writes its message in English, as a key: t() turns a known
+      // one into German and lets an unknown one through as it is.
+      setError(e instanceof Error && e.message ? t(e.message) : t("That didn't go through. Please try again."));
     } finally {
       inFlight.current = false;
       setRemoving(false);
@@ -55,14 +58,14 @@ const WishListDatePopup = ({ date, onRemove, onClose }: WishListDatePopupProps) 
         <div className="flex items-center justify-between gap-2 px-4 pb-1 pt-3">
           <div className="min-w-0">
             <p className={`text-sm font-bold ${theme.textPrimary}`}>
-              <span style={{ color: "#fbbf24" }}>★</span> On your wish list
+              <span style={{ color: "#fbbf24" }}>★</span> {t("On your wish list")}
             </p>
-            <p className={`text-xs ${theme.surfaceMuted}`}>{format(date, "EEEE, MMM d")}</p>
+            <p className={`text-xs ${theme.surfaceMuted}`}>{fmtDate(date, "EEEE, MMM d")}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t("Close")}
             className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xl leading-none ${theme.surfaceMuted2} ${theme.surfaceHover2}`}
           >
             &times;
@@ -70,7 +73,7 @@ const WishListDatePopup = ({ date, onRemove, onClose }: WishListDatePopupProps) 
         </div>
 
         <p className={`px-4 pt-1 text-sm ${theme.surfaceText3}`}>
-          This night is sold out, and it's saved on your wish list. We'll let you know as soon as a room opens up.
+          {t("This night is sold out, and it's saved on your wish list. We'll let you know as soon as a room opens up.")}
         </p>
 
         {error && <p className={`mx-4 mt-2 text-xs font-semibold ${theme.alertText}`}>{error}</p>}
@@ -81,7 +84,7 @@ const WishListDatePopup = ({ date, onRemove, onClose }: WishListDatePopupProps) 
             onClick={onClose}
             className={`rounded-xl py-2.5 text-sm font-bold text-white ${theme.btn}`}
           >
-            Keep waiting
+            {t("Keep waiting")}
           </button>
           <button
             type="button"
@@ -89,7 +92,7 @@ const WishListDatePopup = ({ date, onRemove, onClose }: WishListDatePopupProps) 
             disabled={removing}
             className={`rounded-xl border ${theme.line} py-2 text-sm font-semibold ${theme.surfaceText3} ${theme.chromeHover} disabled:opacity-50`}
           >
-            {removing ? "Removing…" : "Remove from wish list"}
+            {removing ? t("Removing…") : t("Remove from wish list")}
           </button>
         </div>
       </div>

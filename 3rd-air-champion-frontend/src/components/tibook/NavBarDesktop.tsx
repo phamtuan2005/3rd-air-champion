@@ -7,6 +7,8 @@ import { getLoyaltyTier } from "./GuestLoyaltyBanner";
 import { AskTTButton, onTTNudgeDone, ttNudgeActive } from "./AskTT";
 import { UsualStaysButton } from "./UsualStayCard";
 import type { TTNudge } from "./AskTT";
+import { useTiBookLang } from "../../contexts/TiBookLanguageContext";
+import type { LangName } from "../../contexts/TiBookLanguageContext";
 
 interface NavBarDesktopProps {
   onBack?: () => void;
@@ -40,6 +42,7 @@ const MiniAvatar = ({ name }: { name: string }) => {
 
 const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false, onMyBookings, guestName, guestStays, onAskTT, ttNudge, ttUnread, usualCount, onOpenUsual }: NavBarDesktopProps) => {
   const { theme } = useTiBookTheme();
+  const { t } = useTiBookLang();
   const guestFirstName = guestName?.trim().split(" ")[0];
   const loyaltyTier = guestStays ? getLoyaltyTier(guestStays) : null;
 
@@ -51,8 +54,8 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
     >
       <img
         className="h-8 w-8 shrink-0 sm:h-10 sm:w-10"
-        alt="TT House Logo"
-        title="TT House Logo"
+        alt={t("TT House Logo")}
+        title={t("TT House Logo")}
         src="./TiMagLogo.svg"
       />
       {isFullCalendar && host ? (
@@ -77,13 +80,13 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
           </div>
           <span className={`text-sm sm:text-base font-bold tracking-wide truncate ${theme.chromeText}`}>
             <span className="sm:hidden">TT House</span>
-            <span className="hidden sm:inline">Book with TT House</span>
+            <span className="hidden sm:inline">{t("Book with TT House")}</span>
           </span>
         </div>
       ) : (
         <h1 className={`text-sm sm:text-base font-bold tracking-wide flex-1 min-w-0 truncate ${theme.chromeText}`}>
           <span className="sm:hidden">TiBook</span>
-          <span className="hidden sm:inline">TiBook · Book with TT House</span>
+          <span className="hidden sm:inline">TiBook · {t("Book with TT House")}</span>
         </h1>
       )}
       {/* min-w-0, so the guest's pill below can give way. Nothing in this
@@ -97,7 +100,7 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
           <button
             type="button"
             onClick={onMyBookings}
-            title="Your bookings"
+            title={t("Your bookings")}
             /* Sized by hand rather than by the tibook-type scale: the nav has a
                fixed h-12/h-16 and the scale moves --spacing, which would grow the
                bar and take that height off the calendar. The guest's own name is
@@ -124,12 +127,14 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
                 {loyaltyTier && (
                   <span
                     className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[11px] font-bold leading-none ${loyaltyTier.color}`}
-                    title={loyaltyTier.label}
+                    title={t(loyaltyTier.label)}
                   >
                     {/* A star on a phone, in the tier's own colours: "Cherished"
                         alone is wider than the Look menu it was crowding out. */}
                     <span className="sm:hidden">★</span>
-                    <span className="hidden sm:inline">{loyaltyTier.label.split(" ")[0]}</span>
+                    {/* The first English word is the key, so German gets its own
+                        short form rather than half of "Geschätzter Gast". */}
+                    <span className="hidden sm:inline">{t(loyaltyTier.label.split(" ")[0])}</span>
                   </span>
                 )}
               </>
@@ -137,7 +142,7 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
               // In a span that truncates. Bare text in a min-w-0 button did not
               // give way: squeezed, the button shrank and the words ran on out
               // of its pill and over Home (Anh-Tri, 2026-10-16).
-              <span className="min-w-0 truncate">Your bookings</span>
+              <span className="min-w-0 truncate">{t("Your bookings")}</span>
             )}
           </button>
         )}
@@ -152,14 +157,14 @@ const NavBarDesktop = ({ onBack, host, cohostNames = [], isFullCalendar = false,
           <button
             type="button"
             onClick={onBack}
-            aria-label="Home"
-            title="Home"
+            aria-label={t("Home")}
+            title={t("Home")}
             className={`flex shrink-0 items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full border text-xs font-semibold transition-colors ${theme.chromeBorder} ${theme.chromeMuted} ${theme.chromeHover}`}
           >
             <svg className="w-4 h-4 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
             </svg>
-            <span className="hidden sm:inline">Home</span>
+            <span className="hidden sm:inline">{t("Home")}</span>
           </button>
         ) : (
           <AppearanceMenu />
@@ -205,6 +210,11 @@ const LOOKS: { key: string; label: string; hint: string; dot: string; vibe: Vibe
   { key: "hero", label: "Hero", hint: "Neon, rooms first", dot: "bg-gradient-to-br from-rose-500 via-fuchsia-500 to-cyan-400", vibe: "vivid", layout: "hero" },
 ];
 
+const LANGS: { key: LangName; label: string }[] = [
+  { key: "en", label: "English" },
+  { key: "de", label: "Deutsch" },
+];
+
 /*
  * Shown once, to a guest who has never opened the menu.
  *
@@ -243,6 +253,7 @@ const readHintSeen = () => {
 // look). The nudge waits until it is false, then runs its usual timer.
 export const AppearanceMenu = ({ holdHint = false }: { holdHint?: boolean }) => {
   const { theme, setTheme, vibe, layout, setLook, allThemes } = useTiBookTheme();
+  const { lang, setLang, t } = useTiBookLang();
   const [open, setOpen] = useState(false);
   const [hint, setHint] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -257,15 +268,15 @@ export const AppearanceMenu = ({ holdHint = false }: { holdHint?: boolean }) => 
   // answered.
   useEffect(() => {
     if (holdHint || readHintSeen()) return;
-    let t: ReturnType<typeof setTimeout> | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     let stopWaiting: (() => void) | undefined;
     const show = () => {
-      if (ttNudgeActive()) stopWaiting = onTTNudgeDone(() => { t = setTimeout(() => setHint(true), 1200); });
+      if (ttNudgeActive()) stopWaiting = onTTNudgeDone(() => { timer = setTimeout(() => setHint(true), 1200); });
       else setHint(true);
     };
-    t = setTimeout(show, 1200);
+    timer = setTimeout(show, 1200);
     return () => {
-      clearTimeout(t);
+      clearTimeout(timer);
       stopWaiting?.();
     };
   }, [holdHint]);
@@ -342,8 +353,8 @@ export const AppearanceMenu = ({ holdHint = false }: { holdHint?: boolean }) => 
         onClick={toggle}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label="Change how TiBook looks"
-        title="Change how TiBook looks"
+        aria-label={t("Change how TiBook looks")}
+        title={t("Change how TiBook looks")}
         className={`relative flex items-center gap-1 rounded-full border pl-1 pr-1.5 py-1 transition-colors ${theme.chromeBorder} ${theme.chromeHover} ${theme.chromeText}`}
       >
         {/* One soft ring, only while the nudge is up, and only ever once. It
@@ -360,7 +371,7 @@ export const AppearanceMenu = ({ holdHint = false }: { holdHint?: boolean }) => 
         {/* The trigger wears the current answer: the palette dot in the skin it
             is currently rendered in. */}
         <span className={`relative h-5 w-5 shrink-0 rounded-full ${theme.btn}`} />
-        <span className="relative hidden text-xs font-semibold sm:inline">Look</span>
+        <span className="relative hidden text-xs font-semibold sm:inline">{t("Look")}</span>
         {/* A caret is the part that says "this opens something". It stays on the
             narrowest phone, where the word does not fit. */}
         <svg
@@ -390,21 +401,20 @@ export const AppearanceMenu = ({ holdHint = false }: { holdHint?: boolean }) => 
             <p className={`flex-1 text-xs leading-snug ${theme.surfaceText}`}>
               {rearranged ? (
                 <>
-                  <span className="font-bold">Welcome back.</span>{" "}
-                  We put the rooms first this time. Tap here for Classic, or any
-                  look you like.
+                  <span className="font-bold">{t("Welcome back.")}</span>{" "}
+                  {t("We put the rooms first this time. Tap here for Classic, or any look you like.")}
                 </>
               ) : (
                 <>
-                  <span className="font-bold">Make it yours.</span>{" "}
-                  Tap here for Classic, Neon or Hero, in the colour you like.
+                  <span className="font-bold">{t("Make it yours.")}</span>{" "}
+                  {t("Tap here for Classic, Neon or Hero, in the colour you like.")}
                 </>
               )}
             </p>
             <button
               type="button"
               onClick={dismissHint}
-              aria-label="Dismiss"
+              aria-label={t("Dismiss")}
               className={`shrink-0 text-sm leading-none ${theme.surfaceMuted} ${theme.mutedHover}`}
             >
               ×
@@ -415,7 +425,7 @@ export const AppearanceMenu = ({ holdHint = false }: { holdHint?: boolean }) => 
             onClick={toggle}
             className={`relative mt-2 w-full rounded-full py-1.5 text-xs font-semibold text-white ${theme.btn} ${theme.btnHover} ${theme.glow}`}
           >
-            Show me
+            {t("Show me")}
           </button>
         </div>
       )}
@@ -426,7 +436,7 @@ export const AppearanceMenu = ({ holdHint = false }: { holdHint?: boolean }) => 
           className={`absolute right-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-2xl border shadow-xl ${theme.surface} ${theme.chromeBorder}`}
         >
           <p className={`px-3 pt-2.5 pb-1 text-[11px] font-semibold uppercase tracking-wide ${theme.surfaceMuted}`}>
-            Look
+            {t("Look")}
           </p>
           {LOOKS.map((o) => {
             const on = vibe === o.vibe && layout === o.layout;
@@ -442,7 +452,8 @@ export const AppearanceMenu = ({ holdHint = false }: { holdHint?: boolean }) => 
                 <span className={`h-4 w-4 shrink-0 rounded-full ${o.dot}`} />
                 <span className="min-w-0 flex-1">
                   <span className={`block text-sm font-semibold leading-tight ${theme.surfaceText}`}>{o.label}</span>
-                  <span className={`block text-[11px] leading-tight ${theme.surfaceMuted}`}>{o.hint}</span>
+                  {/* The look's name stays as it is in every language; its hint is read. */}
+                  <span className={`block text-[11px] leading-tight ${theme.surfaceMuted}`}>{t(o.hint)}</span>
                 </span>
                 {on && (
                   <svg className={`h-4 w-4 shrink-0 ${theme.chromeAccent}`} fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
@@ -455,7 +466,7 @@ export const AppearanceMenu = ({ holdHint = false }: { holdHint?: boolean }) => 
 
           <div className={`mt-1 border-t ${theme.surfaceBorder}`} />
           <p className={`px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide ${theme.surfaceMuted}`}>
-            Colour
+            {t("Colour")}
           </p>
           <div className="flex items-center gap-2 px-3 pb-3 pt-0.5">
             {/* Drawn from the skin in use, not from a fixed list of flat
@@ -468,8 +479,8 @@ export const AppearanceMenu = ({ holdHint = false }: { holdHint?: boolean }) => 
                 type="button"
                 role="menuitemradio"
                 aria-checked={theme.name === s.name}
-                title={s.name}
-                aria-label={`${s.name} colour`}
+                title={t(s.name)}
+                aria-label={t("{name} colour", { name: t(s.name) })}
                 onClick={() => setTheme(s.name)}
                 className={`h-6 w-6 rounded-full ${s.btn} transition-transform ${
                   theme.name === s.name
@@ -477,6 +488,33 @@ export const AppearanceMenu = ({ holdHint = false }: { holdHint?: boolean }) => 
                     : "opacity-60 hover:opacity-100"
                 }`}
               />
+            ))}
+          </div>
+
+          {/* In the Look menu rather than a flag of its own in the bar: the bar
+              has no width left on a phone (see the comment on the guest pill),
+              and a German phone already opens TiBook in German, so this is for
+              the guest who wants the other one. Each name in its own language,
+              so a guest who cannot read the current one still finds theirs. */}
+          <div className={`border-t ${theme.surfaceBorder}`} />
+          <p className={`px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide ${theme.surfaceMuted}`}>
+            {t("Language")}
+          </p>
+          <div className="flex gap-1.5 px-3 pb-3 pt-0.5">
+            {LANGS.map((l) => (
+              <button
+                key={l.key}
+                type="button"
+                role="menuitemradio"
+                aria-checked={lang === l.key}
+                lang={l.key}
+                onClick={() => setLang(l.key)}
+                className={`flex-1 rounded-full border px-2 py-1 text-xs font-semibold transition-colors ${
+                  lang === l.key ? `${theme.btn} border-transparent text-white` : `${theme.chromeBorder} ${theme.surfaceText} ${theme.chromeHover}`
+                }`}
+              >
+                {l.label}
+              </button>
             ))}
           </div>
         </div>

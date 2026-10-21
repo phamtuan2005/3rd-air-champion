@@ -11,6 +11,8 @@
 // builds its cells (nightKey), so a key here finds the same cell the grid draws.
 // A holiday is a date, not an instant: nothing here goes through a timezone.
 
+import { t } from "../contexts/TiBookLanguageContext";
+
 export interface Holiday {
   name: string;
   // The weekday it is kept on when the date falls on a weekend: Friday for a
@@ -109,3 +111,9 @@ export const upcomingHolidaysInMonth = (month?: Date, today: Date = new Date()) 
 // How a holiday is written: "Independence Day", or "Independence Day
 // (observed)" on the weekday it is kept.
 export const holidayLabel = (h: Holiday) => (h.observed ? `${h.name} (observed)` : h.name);
+
+// The same label in the guest's language, for TiBook screens. A separate
+// function rather than a change to holidayLabel, so a caller building text the
+// host will read (which stays English) keeps getting English from that one.
+export const holidayLabelForGuest = (h: Holiday) =>
+  h.observed ? t("{name} (observed)", { name: t(h.name) }) : t(h.name);

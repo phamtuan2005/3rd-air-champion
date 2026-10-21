@@ -1,7 +1,8 @@
 import { dropUsCountryCode } from "../../util/formatPhone";
 import { useEffect, useRef, useState } from "react";
-import { format, parseISO } from "date-fns";
+import { parseISO } from "date-fns";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
+import { useTiBookLang } from "../../contexts/TiBookLanguageContext";
 import { toggleWishListDate } from "../../util/wishListOperations";
 import { fetchGuestByPhone } from "../../util/guestOperations";
 
@@ -25,6 +26,7 @@ const WishListModal = ({
   onSuccess,
 }: WishListModalProps) => {
   const { theme } = useTiBookTheme();
+  const { t, fmtDate } = useTiBookLang();
   const [phone, setPhone] = useState(savedPhone);
   const [name, setName] = useState(savedName);
   const [lookingUp, setLookingUp] = useState(false);
@@ -34,7 +36,7 @@ const WishListModal = ({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const needsIdentity = !savedPhone || !savedName;
-  const formattedDate = format(parseISO(date), "EEE, MMM d yyyy");
+  const formattedDate = fmtDate(parseISO(date), "EEE, MMM d yyyy");
 
   useEffect(() => {
     if (!needsIdentity) return;
@@ -61,7 +63,7 @@ const WishListModal = ({
 
   const handleSubmit = async () => {
     if (!phone.trim() || !name.trim()) {
-      setError("Please enter your phone number and name.");
+      setError(t("Please enter your phone number and name."));
       return;
     }
     setError("");
@@ -75,7 +77,7 @@ const WishListModal = ({
       });
       onSuccess(phone.trim(), name.trim(), result.dates);
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError(t("Something went wrong. Please try again."));
     } finally {
       setLoading(false);
     }
@@ -87,7 +89,7 @@ const WishListModal = ({
       <div className={`relative ${theme.surface} rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm p-5 flex flex-col gap-4 shadow-xl`}>
         <div className="flex items-center justify-between">
           <h2 className={`font-bold text-base ${theme.textPrimaryDark}`}>
-            {isWishlisted ? "Remove from Wish List" : "Add to Wish List"}
+            {isWishlisted ? t("Remove from Wish List") : t("Add to Wish List")}
           </h2>
           <button type="button" onClick={onClose} className={`${theme.surfaceMuted2} ${theme.mutedHover} text-xl leading-none`}>
             ×
@@ -98,8 +100,8 @@ const WishListModal = ({
           <p className={`text-sm font-semibold ${theme.surfaceText2}`}>{formattedDate}</p>
           <p className={`text-xs ${theme.surfaceMuted2} mt-0.5`}>
             {isWishlisted
-              ? "This date is on your wish list. Tap below to remove it."
-              : "Sold out for now — we'll keep this date saved for you."}
+              ? t("This date is on your wish list. Tap below to remove it.")
+              : t("Sold out for now — we'll keep this date saved for you.")}
           </p>
         </div>
 
@@ -108,7 +110,7 @@ const WishListModal = ({
             <div className="relative">
               <input
                 type="tel"
-                placeholder="Your phone number"
+                placeholder={t("Your phone number")}
                 value={phone}
                 onChange={(e) => setPhone(dropUsCountryCode(e.target.value))}
                 className={`w-full border ${theme.line} rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 ${theme.focusRing}`}
@@ -116,12 +118,12 @@ const WishListModal = ({
               />
               {lookingUp && (
                 <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs ${theme.surfaceMuted2}`}>
-                  looking up...
+                  {t("looking up...")}
                 </span>
               )}
               {foundGuest && !lookingUp && (
                 <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs ${theme.textPrimary}`}>
-                  ✓ found
+                  {t("✓ found")}
                 </span>
               )}
             </div>
@@ -133,13 +135,13 @@ const WishListModal = ({
                   className={`text-xs ${theme.surfaceMuted2} ${theme.mutedHover}`}
                   onClick={() => { setFoundGuest(false); setName(""); }}
                 >
-                  edit
+                  {t("edit")}
                 </button>
               </div>
             ) : (
               <input
                 type="text"
-                placeholder="Your name"
+                placeholder={t("Your name")}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className={`border ${theme.line} rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 ${theme.focusRing}`}
@@ -161,8 +163,8 @@ const WishListModal = ({
           {loading
             ? "..."
             : isWishlisted
-            ? "Remove from Wish List"
-            : "Save to Wish List"}
+            ? t("Remove from Wish List")
+            : t("Save to Wish List")}
         </button>
       </div>
     </div>

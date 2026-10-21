@@ -10,9 +10,10 @@ import { getAvailableRooms } from "../../util/bookingOperations";
 import { fetchGuestByPhone } from "../../util/guestOperations";
 import { format, parseISO } from "date-fns";
 import { parseDateText } from "../../util/dateText";
-import { holidayLabel, usHolidayOn } from "../../util/usHolidays";
+import { holidayLabelForGuest, usHolidayOn } from "../../util/usHolidays";
 import { groupConsecutiveDates } from "../../util/cartGrouping";
 import { useTiBookTheme, useRoomChip } from "../../contexts/TiBookThemeContext";
+import { useTiBookLang, t, localeTag } from "../../contexts/TiBookLanguageContext";
 import RoomBadge from "../shared/RoomBadge";
 import GuestLoyaltyBanner from "./GuestLoyaltyBanner";
 
@@ -103,13 +104,24 @@ const buildCartGroups = (
 
 const parseLocalDate = (s: string) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
 
-const formatRangeLabel = (r: { start: string; end: string; nights: number }) => {
+// Kept English and apart from the guest's label below: this one goes into the
+// request's note, and the host reads it in TiMag.
+const rangeLabelForHost = (r: { start: string; end: string; nights: number }) => {
   const s = parseLocalDate(r.start);
   const e = parseLocalDate(r.end);
   const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   return r.start === r.end
     ? `${fmt(s)} · 1 night`
     : `${fmt(s)} – ${fmt(e)} · ${r.nights} nights`;
+};
+
+const formatRangeLabel = (r: { start: string; end: string; nights: number }) => {
+  const s = parseLocalDate(r.start);
+  const e = parseLocalDate(r.end);
+  const fmt = (d: Date) => d.toLocaleDateString(localeTag(), { month: "short", day: "numeric" });
+  return r.start === r.end
+    ? t("{date} · 1 night", { date: fmt(s) })
+    : t("{start} – {end} · {n} nights", { start: fmt(s), end: fmt(e), n: r.nights });
 };
 
 const BookingRequestModal = ({
@@ -141,6 +153,7 @@ const BookingRequestModal = ({
 }: BookingRequestModalProps) => {
   const { theme } = useTiBookTheme();
   const roomChip = useRoomChip();
+  const { fmtDate } = useTiBookLang();
   const [step, setStep] = useState<1 | 2>(1);
   // Open by default: a refund term the guest is agreeing to should be readable
   // without a tap. The collapse is there to get it out of the way once read, not
@@ -236,8 +249,13 @@ const BookingRequestModal = ({
   // the rule, and the guest has no reason to know it. The year is only added
   // where it differs, so the common case stays short.
   const thisYear = String(new Date().getFullYear());
+  // The year is added after the day rather than as one "EEE d MMM yyyy"
+  // pattern: that pattern has no German order of its own, and this reads the
+  // same in English either way.
   const dayLabel = (key: string) =>
-    format(parseISO(key), key.slice(0, 4) === thisYear ? "EEE d MMM" : "EEE d MMM yyyy");
+    key.slice(0, 4) === thisYear
+      ? fmtDate(parseISO(key), "EEE d MMM")
+      : `${fmtDate(parseISO(key), "EEE d MMM")} ${key.slice(0, 4)}`;
 
   const datesOfRange = (range: { start: string; end: string }) => {
     const dates: string[] = [];
@@ -378,7 +396,7 @@ const BookingRequestModal = ({
             const earliest = all
               .map((b) => parseISO(String(b.date).slice(0, 10)))
               .sort((a, z) => a.getTime() - z.getTime())[0];
-            setGuestMemberSince(format(earliest, "MMMM yyyy"));
+            setGuestMemberSince(fmtDate(earliest, "MMMM yyyy"));
           } else {
             setGuestMemberSince(null);
           }
@@ -482,11 +500,11 @@ const BookingRequestModal = ({
   const holidayNights = [...cartDates.keys()].filter((k) => usHolidayOn(k)).sort();
   const unansweredHolidays = holidayNights.filter((k) => !keptHolidays.has(k));
   const holidayDay = (k: string) =>
-    parseLocalDate(k).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    parseLocalDate(k).toLocaleDateString(localeTag(), { weekday: "short", month: "short", day: "numeric" });
 
   const handleNextStep = () => {
     if (cartDates.size === 0 && !notes.trim() && !hasWishList) {
-      setDatesError("Please pick dates on the calendar or write your dates below.");
+      setDatesError(t("Please pick dates on the calendar or write your dates below."));
       return;
     }
     if (unansweredHolidays.length > 0) {
@@ -509,7 +527,7 @@ const BookingRequestModal = ({
   const onSubmit: SubmitHandler<FormData> = async (data) => {
     if (submittingRef.current) return;
     if (stayMissingRoom) {
-      setDatesError(`Please pick a room for ${formatRangeLabel(stayMissingRoom)}.`);
+      setDatesError(t("Please pick a room for {stay}.", { stay: formatRangeLabel(stayMissingRoom) }));
       return;
     }
     submittingRef.current = true;
@@ -528,7 +546,8 @@ const BookingRequestModal = ({
             // is never sent roomless.
             const roomId = group.roomId ?? rangeRooms[rangeKey(range)] ?? data.room;
             const notesText = [
-              "Dates from calendar: " + formatRangeLabel(range),
+              // Kept English: the host reads this note in TiMag.
+              "Dates from calendar: " + rangeLabelForHost(range),
               notes.trim(),
             ].filter(Boolean).join("\n");
             requests.push(createBookingRequest({
@@ -597,12 +616,12 @@ const BookingRequestModal = ({
   // local pair only as a fallback for a caller that does not pass it.
   const isKnownGuest = isReturningGuest || !!savedName.trim() || !!savedPhone.trim();
 
-  const stepLabel = step === 1 ? "Your Dates" : isKnownGuest ? "Your Booking" : "About You";
+  const stepLabel = step === 1 ? t("Your Dates") : isKnownGuest ? t("Your Booking") : t("About You");
   const stepHint = step === 1
-    ? "Pick your dates — just one more step after this"
+    ? t("Pick your dates — just one more step after this")
     : isKnownGuest
-    ? "Check it over and send — we have the rest"
-    : "Last step — fill in your info and you're done";
+    ? t("Check it over and send — we have the rest")
+    : t("Last step — fill in your info and you're done");
 
   return (
     <div
@@ -626,7 +645,7 @@ const BookingRequestModal = ({
                   ←
                 </button>
               )}
-              <h2 className="text-lg font-bold leading-tight">{submitted ? "All done!" : stepLabel}</h2>
+              <h2 className="text-lg font-bold leading-tight">{submitted ? t("All done!") : stepLabel}</h2>
             </div>
             {!submitted && <p className={`text-xs ${theme.surfaceMuted2}`}>{stepHint}</p>}
           </div>
@@ -636,7 +655,7 @@ const BookingRequestModal = ({
                 free to squeeze it and it broke after "Step 2". */}
             {!submitted && (
               <span className={`shrink-0 whitespace-nowrap text-xs font-semibold px-2.5 py-1 rounded-full ${theme.tagBg} ${theme.tagText}`}>
-                Step {step} of 2
+                {t("Step {step} of 2", { step })}
               </span>
             )}
             <button
@@ -666,12 +685,12 @@ const BookingRequestModal = ({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <p className={`text-center font-semibold ${theme.surfaceText} text-lg`}>Request sent!</p>
+            <p className={`text-center font-semibold ${theme.surfaceText} text-lg`}>{t("Request sent!")}</p>
             <p className={`text-center text-sm ${theme.surfaceMuted} leading-relaxed`}>
               {cartDates.size > 0
-                ? "We'll be in touch shortly to confirm your stay. Can't wait to host you!"
-                : "We'll let you know as soon as those dates open up!"}
-              {hasWishList && cartDates.size > 0 && " We'll also notify you if your wish list dates become available."}
+                ? t("We'll be in touch shortly to confirm your stay. Can't wait to host you!")
+                : t("We'll let you know as soon as those dates open up!")}
+              {hasWishList && cartDates.size > 0 && ` ${t("We'll also notify you if your wish list dates become available.")}`}
             </p>
             {/* House rules — shown here, after sending, when the guest has time to read them */}
             {houseRules?.trim() && (
@@ -680,7 +699,7 @@ const BookingRequestModal = ({
                   <svg className={`w-3.5 h-3.5 shrink-0 ${theme.textPrimary}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                   </svg>
-                  <span className={`text-[11px] font-semibold ${theme.textPrimary}`}>While you wait — our house rules</span>
+                  <span className={`text-[11px] font-semibold ${theme.textPrimary}`}>{t("While you wait — our house rules")}</span>
                 </div>
                 <p className={`text-[11px] ${theme.surfaceMuted} leading-relaxed whitespace-pre-line max-h-48 overflow-y-auto`}>
                   {houseRules.trim()}
@@ -692,7 +711,7 @@ const BookingRequestModal = ({
               className={`mt-2 text-sm ${theme.surfaceMuted2} underline`}
               onClick={() => { onSuccess(); onClose(); }}
             >
-              Close
+              {t("Close")}
             </button>
           </div>
         ) : step === 1 ? (
@@ -717,20 +736,24 @@ const BookingRequestModal = ({
                   {unansweredHolidays.length > 0 ? (
                     <div className={`rounded-xl border-2 px-3 py-2.5 ${theme.cardAlert}`}>
                       <p className={`text-sm font-bold ${theme.alertText}`}>
-                        Your dates include {unansweredHolidays.length === 1 ? "a US holiday" : `${unansweredHolidays.length} US holidays`}
+                        {unansweredHolidays.length === 1
+                          ? t("Your dates include a US holiday")
+                          : t("Your dates include {n} US holidays", { n: unansweredHolidays.length })}
                       </p>
                       <ul className={`mt-1 text-sm ${theme.surfaceText}`}>
                         {unansweredHolidays.map((k) => (
                           <li key={k}>
-                            <span className="font-semibold">{holidayDay(k)}</span> · {holidayLabel(usHolidayOn(k)!)}
+                            <span className="font-semibold">{holidayDay(k)}</span> · {holidayLabelForGuest(usHolidayOn(k)!)}
                           </li>
                         ))}
                       </ul>
                       <p className={`mt-1 text-xs ${theme.surfaceText3}`}>
-                        Holidays are easy to pick by mistake with a run of nights. Do you mean to stay {unansweredHolidays.length === 1 ? "that night" : "those nights"}?
+                        {unansweredHolidays.length === 1
+                          ? t("Holidays are easy to pick by mistake with a run of nights. Do you mean to stay that night?")
+                          : t("Holidays are easy to pick by mistake with a run of nights. Do you mean to stay those nights?")}
                       </p>
                       {holidayNudge && (
-                        <p className={`mt-1 text-xs font-bold ${theme.alertText}`}>Choose one to continue.</p>
+                        <p className={`mt-1 text-xs font-bold ${theme.alertText}`}>{t("Choose one to continue.")}</p>
                       )}
                       <div className="mt-2 flex flex-wrap gap-2">
                         <button
@@ -741,7 +764,7 @@ const BookingRequestModal = ({
                           }}
                           className={`rounded-full px-3 py-1.5 text-xs font-semibold text-white ${theme.btn} ${theme.btnHover}`}
                         >
-                          Take {unansweredHolidays.length === 1 ? "it" : "them"} out
+                          {unansweredHolidays.length === 1 ? t("Take it out") : t("Take them out")}
                         </button>
                         <button
                           type="button"
@@ -751,7 +774,7 @@ const BookingRequestModal = ({
                           }}
                           className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${theme.line} ${theme.surfaceText} ${theme.surfaceHover2}`}
                         >
-                          Keep — I'll be staying
+                          {t("Keep — I'll be staying")}
                         </button>
                       </div>
                     </div>
@@ -759,15 +782,15 @@ const BookingRequestModal = ({
                     // Answered: a quiet line, so the guest can still see what
                     // they agreed to without it asking again.
                     <p className={`text-xs ${theme.surfaceMuted}`}>
-                      Holiday {holidayNights.length === 1 ? "night" : "nights"} kept:{" "}
-                      {holidayNights.map((k) => `${holidayDay(k)} (${usHolidayOn(k)!.name})`).join(", ")}
+                      {holidayNights.length === 1 ? t("Holiday night kept:") : t("Holiday nights kept:")}{" "}
+                      {holidayNights.map((k) => `${holidayDay(k)} (${t(usHolidayOn(k)!.name)})`).join(", ")}
                     </p>
                   )}
                 </div>
               )}
 
               <div className={cartGroups.length === 0 ? "order-3" : ""}>
-                <p className="text-sm font-medium mb-2">Dates picked from calendar</p>
+                <p className="text-sm font-medium mb-2">{t("Dates picked from calendar")}</p>
                 {cartGroups.length > 0 ? (
                   <div className="flex flex-col gap-3">
                     {cartGroups.map((group) => (
@@ -781,7 +804,7 @@ const BookingRequestModal = ({
                             ))
                           )}
                           <span className={`text-xs ${theme.surfaceMuted2}`}>
-                            {group.totalNights} night{group.totalNights > 1 ? "s" : ""}
+                            {t(group.totalNights > 1 ? "{n} nights" : "{n} night", { n: group.totalNights })}
                           </span>
                         </div>
                         <div className="flex flex-col gap-1 pl-1">
@@ -789,20 +812,20 @@ const BookingRequestModal = ({
                             const rangeId = `${group.key}:${r.start}`;
                             return pendingRemoveCart === rangeId ? (
                               <div key={r.start} className={`flex items-center gap-2 px-3 py-2 rounded-xl ${theme.alertFill} border ${theme.alertBorder}`}>
-                                <span className={`flex-1 text-sm ${theme.alertText} font-medium`}>Remove {formatRangeLabel(r).split(" ·")[0]}?</span>
+                                <span className={`flex-1 text-sm ${theme.alertText} font-medium`}>{t("Remove {what}?", { what: formatRangeLabel(r).split(" ·")[0] })}</span>
                                 <button
                                   type="button"
                                   onClick={() => { onRemoveCartRange?.(getRangeKeys(r.start, r.end)); setPendingRemoveCart(null); }}
                                   className={`text-xs font-semibold ${theme.alertText2} ${theme.alertHover} px-2 py-0.5 rounded-lg border ${theme.alertBorder} ${theme.alertBorderHover} transition-colors`}
                                 >
-                                  Yes, remove
+                                  {t("Yes, remove")}
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => setPendingRemoveCart(null)}
                                   className={`text-xs font-semibold ${theme.surfaceMuted2} ${theme.mutedHover} px-2 py-0.5 rounded-lg border ${theme.line} transition-colors`}
                                 >
-                                  Keep
+                                  {t("Keep")}
                                 </button>
                               </div>
                             ) : (
@@ -812,7 +835,7 @@ const BookingRequestModal = ({
                                   type="button"
                                   onClick={() => setPendingRemoveCart(rangeId)}
                                   className={`${theme.surfaceMuted2} ${theme.alertHover} transition-colors text-base leading-none px-1`}
-                                  aria-label="Remove"
+                                  aria-label={t("Remove")}
                                 >
                                   ×
                                 </button>
@@ -828,7 +851,7 @@ const BookingRequestModal = ({
                       className={`mt-1 flex items-center gap-1.5 text-xs ${theme.textPrimary} font-medium`}
                     >
                       <span className={`w-5 h-5 rounded-full border-2 ${theme.selectedBorder} flex items-center justify-center text-[10px]`}>+</span>
-                      Calendar — tap to pick more dates
+                      {t("Calendar — tap to pick more dates")}
                     </button>
                   </div>
                 ) : (
@@ -838,10 +861,10 @@ const BookingRequestModal = ({
                     className={`w-full border border-dashed ${theme.line} rounded-xl px-4 py-5 text-center ${theme.surfaceSubtle} ${theme.surfaceActive} transition-colors`}
                   >
                     <p className={`text-sm font-medium ${theme.textPrimary}`}>
-                      Tap here to browse the calendar
+                      {t("Tap here to browse the calendar")}
                     </p>
                     <p className={`text-xs ${theme.surfaceMuted2} mt-1`}>
-                      Pick your dates and come back to complete your request
+                      {t("Pick your dates and come back to complete your request")}
                     </p>
                   </button>
                 )}
@@ -850,13 +873,13 @@ const BookingRequestModal = ({
               {/* Wish list dates */}
               {hasWishList && (
                 <div className={cartGroups.length === 0 ? "order-4" : ""}>
-                  <p className="text-sm font-medium mb-2">Sold-out dates (wish list)</p>
+                  <p className="text-sm font-medium mb-2">{t("Sold-out dates (wish list)")}</p>
                   <div className="flex flex-col gap-1.5">
                     {sortedWishListDates.map((d) => (
                       <div key={d} className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-colors ${pendingRemove === d ? `${theme.alertFill} ${theme.alertBorder}` : `${theme.warmFill} ${theme.warmBorder}`}`}>
                         {pendingRemove === d ? (
                           <>
-                            <span className={`flex-1 text-sm ${theme.alertText} font-medium`}>Remove {format(new Date(d + "T12:00:00"), "MMMM d")}?</span>
+                            <span className={`flex-1 text-sm ${theme.alertText} font-medium`}>{t("Remove {what}?", { what: fmtDate(new Date(d + "T12:00:00"), "MMMM d") })}</span>
                             <button
                               type="button"
                               onClick={() => {
@@ -866,27 +889,27 @@ const BookingRequestModal = ({
                               }}
                               className={`text-xs font-semibold ${theme.alertText2} ${theme.alertHover} px-2 py-0.5 rounded-lg border ${theme.alertBorder} ${theme.alertBorderHover} transition-colors`}
                             >
-                              Yes, remove
+                              {t("Yes, remove")}
                             </button>
                             <button
                               type="button"
                               onClick={() => setPendingRemove(null)}
                               className={`text-xs font-semibold ${theme.surfaceMuted2} ${theme.mutedHover} px-2 py-0.5 rounded-lg border ${theme.line} transition-colors`}
                             >
-                              Keep
+                              {t("Keep")}
                             </button>
                           </>
                         ) : (
                           <>
                             <span className={`${theme.warmDim} text-sm`}>★</span>
                             <span className={`flex-1 text-sm ${theme.surfaceText2} font-medium`}>
-                              {format(new Date(d + "T12:00:00"), "EEE, MMM d yyyy")}
+                              {fmtDate(new Date(d + "T12:00:00"), "EEE, MMM d yyyy")}
                             </span>
                             <button
                               type="button"
                               onClick={() => setPendingRemove(d)}
                               className={`${theme.surfaceMuted2} ${theme.alertHover} transition-colors text-base leading-none px-1`}
-                              aria-label="Remove"
+                              aria-label={t("Remove")}
                             >
                               ×
                             </button>
@@ -895,14 +918,14 @@ const BookingRequestModal = ({
                       </div>
                     ))}
                   </div>
-                  <p className={`text-xs ${theme.surfaceMuted2} mt-1.5`}>We'll notify you if these open up.</p>
+                  <p className={`text-xs ${theme.surfaceMuted2} mt-1.5`}>{t("We'll notify you if these open up.")}</p>
                 </div>
               )}
 
               {/* Divider */}
               <div className={`flex items-center gap-2 ${cartGroups.length === 0 ? "order-2" : ""}`}>
                 <div className={`flex-1 h-px ${theme.surfaceInset}`} />
-                <span className={`text-xs ${theme.surfaceMuted2}`}>and / or</span>
+                <span className={`text-xs ${theme.surfaceMuted2}`}>{t("and / or")}</span>
                 <div className={`flex-1 h-px ${theme.surfaceInset}`} />
               </div>
 
@@ -914,7 +937,7 @@ const BookingRequestModal = ({
                   still writing. Writing gets its own screen now, and hands them
                   back here when they are done. */}
               <div className={cartGroups.length === 0 ? "order-1" : ""}>
-                <p className="text-sm font-medium mb-2">Write your dates</p>
+                <p className="text-sm font-medium mb-2">{t("Write your dates")}</p>
                 <button
                   type="button"
                   onClick={() => setDateSheetOpen(true)}
@@ -925,16 +948,19 @@ const BookingRequestModal = ({
                   {notes.trim() ? (
                     <span className="line-clamp-2 whitespace-pre-line">{notes.trim()}</span>
                   ) : (
-                    "e.g. May 1, 3–5, 20–21 — or anything else you'd like us to know"
+                    // The German keeps "May 1" as the example: parseDateText
+                    // reads English month names only, so that is the form to
+                    // show a guest who wants their dates picked up.
+                    t("e.g. May 1, 3–5, 20–21 — or anything else you'd like us to know")
                   )}
                 </button>
                 {datesError && <p className={`${theme.alertText2} text-xs mt-1`}>{datesError}</p>}
                 {typed.dates.length > 0 && (
                   <p className={`mt-1.5 text-xs font-semibold ${theme.surfaceMuted}`}>
                     {typed.dates.length === 1
-                      ? "1 date read from what you wrote"
-                      : `${typed.dates.length} dates read from what you wrote`}
-                    {typedFree.length > 0 ? " — tap to add them" : ""}
+                      ? t("1 date read from what you wrote")
+                      : t("{n} dates read from what you wrote", { n: typed.dates.length })}
+                    {typedFree.length > 0 ? t(" — tap to add them") : ""}
                   </p>
                 )}
                 {/* Said here too, next to the box they are typing in, because
@@ -943,9 +969,9 @@ const BookingRequestModal = ({
                 {typed.past.length > 0 && (
                   <p className={`mt-1 text-xs font-medium ${theme.warmText2}`}>
                     {typed.past.length === 1
-                      ? `${dayLabel(typed.past[0])} has already gone by`
-                      : `${typed.past.length} of those nights have already gone by`}
-                    {typed.dates.length > 0 ? " — we've kept the rest." : "."}
+                      ? t("{day} has already gone by", { day: dayLabel(typed.past[0]) })
+                      : t("{n} of those nights have already gone by", { n: typed.past.length })}
+                    {typed.dates.length > 0 ? t(" — we've kept the rest.") : "."}
                   </p>
                 )}
               </div>
@@ -957,7 +983,7 @@ const BookingRequestModal = ({
                 className={`w-full ${theme.btn} ${theme.btnHover} ${theme.btnActive} text-white py-3 rounded-xl font-semibold transition-colors`}
                 onClick={handleNextStep}
               >
-                {isKnownGuest ? "Next — Finalize your booking →" : "Next — Tell us about you →"}
+                {isKnownGuest ? t("Next — Finalize your booking →") : t("Next — Tell us about you →")}
               </button>
             </div>
           </div>
@@ -968,25 +994,25 @@ const BookingRequestModal = ({
 
               {/* Phone */}
               <div>
-                <label className="block text-sm font-medium mb-1">Your phone number</label>
+                <label className="block text-sm font-medium mb-1">{t("Your phone number")}</label>
                 <div className="relative">
                   <input
                     type="tel"
                     className={`border ${theme.lineStrong} rounded-xl px-3 py-2 w-full text-sm focus:outline-none focus:ring-2 ${theme.focusRing}`}
-                    placeholder="So we can reach you"
-                    {...register("guestPhone", { required: "Please enter your phone number" })}
-                    onChange={withUsCodeDropped(register("guestPhone", { required: "Please enter your phone number" }).onChange)}
+                    placeholder={t("So we can reach you")}
+                    {...register("guestPhone", { required: t("Please enter your phone number") })}
+                    onChange={withUsCodeDropped(register("guestPhone", { required: t("Please enter your phone number") }).onChange)}
                   />
                   {isLookingUp && (
                     <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs ${theme.surfaceMuted2}`}>
-                      looking up...
+                      {t("looking up...")}
                     </span>
                   )}
                 </div>
                 {errors.guestPhone && <span className={`${theme.alertText2} text-xs`}>{errors.guestPhone.message}</span>}
                 {!isLookingUp && watchedPhone?.trim().length >= 7 && (
                   guestPricing === null && (
-                    <p className={`text-xs ${theme.surfaceMuted2} mt-0.5`}>We'll sort out pricing together after your request.</p>
+                    <p className={`text-xs ${theme.surfaceMuted2} mt-0.5`}>{t("We'll sort out pricing together after your request.")}</p>
                   )
                 )}
               </div>
@@ -1003,12 +1029,12 @@ const BookingRequestModal = ({
 
               {/* Name */}
               <div>
-                <label className="block text-sm font-medium mb-1">Your name</label>
+                <label className="block text-sm font-medium mb-1">{t("Your name")}</label>
                 <input
                   type="text"
                   className={`border ${theme.lineStrong} rounded-xl px-3 py-2 w-full text-sm focus:outline-none focus:ring-2 ${theme.focusRing}`}
-                  placeholder="e.g. John Smith"
-                  {...register("guestName", { required: "Please enter your name" })}
+                  placeholder={t("e.g. John Smith")}
+                  {...register("guestName", { required: t("Please enter your name") })}
                 />
                 {errors.guestName && <span className={`${theme.alertText2} text-xs`}>{errors.guestName.message}</span>}
               </div>
@@ -1016,7 +1042,7 @@ const BookingRequestModal = ({
               {/* Room section — hidden when guest only has wish list dates, no cart or notes */}
               {!isWishListOnly && (cartDates.size > 0 ? (
                 <div>
-                  <label className="block text-sm font-medium mb-2">Room summary</label>
+                  <label className="block text-sm font-medium mb-2">{t("Room summary")}</label>
                   <div className="flex flex-col gap-2">
                     {cartGroups.filter((g) => g.roomId !== null).map((group) => (
                       <div key={group.key} className={`${theme.tagBg} border ${theme.tagBorder} rounded-xl px-3 py-2.5`}>
@@ -1025,7 +1051,7 @@ const BookingRequestModal = ({
                             {group.room?.name ?? "—"}
                           </p>
                           <p className={`text-xs ${theme.surfaceMuted2}`}>
-                            {group.totalNights}n
+                            {t("{n}n", { n: group.totalNights })}
                           </p>
                         </div>
                         <p className={`text-xs ${theme.surfaceMuted}`}>
@@ -1033,7 +1059,7 @@ const BookingRequestModal = ({
                         </p>
                         {group.room && getRoomPrice(group.room.id) !== null && (
                           <p className={`text-xs font-semibold ${theme.textPrimary} mt-1`}>
-                            ~${getRoomPrice(group.room.id)! * group.totalNights} estimated
+                            {t("~${amount} estimated", { amount: getRoomPrice(group.room.id)! * group.totalNights })}
                           </p>
                         )}
                       </div>
@@ -1052,7 +1078,7 @@ const BookingRequestModal = ({
                               for the stay actually being chosen. */}
                           {many && (
                             <p className={`text-xs ${theme.surfaceMuted}`}>
-                              {anyGroup.ranges.length} separate stays — pick a room for each.
+                              {t("{n} separate stays — pick a room for each.", { n: anyGroup.ranges.length })}
                             </p>
                           )}
                           <input type="hidden" {...register("room", { required: hasAnyRoomGroup })} />
@@ -1070,7 +1096,7 @@ const BookingRequestModal = ({
                                     {formatRangeLabel(range)}
                                   </span>
                                   <span className={`shrink-0 text-xs ${theme.surfaceMuted2}`}>
-                                    {range.nights}n
+                                    {t("{n}n", { n: range.nights })}
                                   </span>
                                 </div>
                                 <button
@@ -1082,7 +1108,7 @@ const BookingRequestModal = ({
                                     <RoomBadge room={chosen} rooms={activeRooms} override={roomChip(chosen)} />
                                   ) : (
                                     <span className={`${theme.surfaceMuted2}`}>
-                                      {free.length === 0 ? "No room free for these nights" : "Select a room"}
+                                      {free.length === 0 ? t("No room free for these nights") : t("Select a room")}
                                     </span>
                                   )}
                                   <span className={`${theme.surfaceMuted2} text-xs`}>▾</span>
@@ -1107,7 +1133,7 @@ const BookingRequestModal = ({
                                           <input type="radio" readOnly checked={chosenId === room.id} className="pointer-events-none w-4 h-4" />
                                           <RoomBadge room={room} rooms={activeRooms} override={roomChip(room)} />
                                           {rate !== null && (
-                                            <span className={`text-xs ${theme.surfaceMuted2} ml-auto`}>${rate}/night</span>
+                                            <span className={`text-xs ${theme.surfaceMuted2} ml-auto`}>{t("${rate}/night", { rate })}</span>
                                           )}
                                         </li>
                                       );
@@ -1146,7 +1172,7 @@ const BookingRequestModal = ({
                       if (!hasSomePricing) return null;
                       return (
                         <div className={`flex justify-between items-center px-3 py-2 ${theme.tagBg} border ${theme.tagBorder} rounded-xl mt-1`}>
-                          <span className={`text-sm font-semibold ${theme.surfaceText2}`}>Total estimate</span>
+                          <span className={`text-sm font-semibold ${theme.surfaceText2}`}>{t("Total estimate")}</span>
                           <span className={`text-sm font-bold ${theme.textPrimary}`}>~${total}</span>
                         </div>
                       );
@@ -1155,16 +1181,16 @@ const BookingRequestModal = ({
                 </div>
               ) : (
                 <div>
-                  <label className="block text-sm font-medium mb-1">Which room?</label>
+                  <label className="block text-sm font-medium mb-1">{t("Which room?")}</label>
                   {isLoadingRooms ? (
-                    <p className={`text-sm ${theme.surfaceMuted2}`}>Checking availability...</p>
+                    <p className={`text-sm ${theme.surfaceMuted2}`}>{t("Checking availability...")}</p>
                   ) : displayRooms.length === 0 ? (
-                    <p className="text-sm text-red-400">No rooms available — try different dates.</p>
+                    <p className="text-sm text-red-400">{t("No rooms available — try different dates.")}</p>
                   ) : (() => {
                     const selectedRoom = activeRooms.find((r) => r.id === watchedRoom);
                     return (
                       <>
-                        <input type="hidden" {...register("room", { required: "Please choose a room" })} />
+                        <input type="hidden" {...register("room", { required: t("Please choose a room") })} />
                         <button
                           type="button"
                           onClick={() => setRoomDropdownOpen((o) => (o === "single" ? null : "single"))}
@@ -1173,7 +1199,7 @@ const BookingRequestModal = ({
                           {selectedRoom ? (
                             <RoomBadge room={selectedRoom} rooms={activeRooms} override={roomChip(selectedRoom)} />
                           ) : (
-                            <span className={`${theme.surfaceMuted2}`}>Select a room</span>
+                            <span className={`${theme.surfaceMuted2}`}>{t("Select a room")}</span>
                           )}
                           <span className={`${theme.surfaceMuted2} text-xs`}>▾</span>
                         </button>
@@ -1190,7 +1216,7 @@ const BookingRequestModal = ({
                                   <input type="radio" readOnly checked={watchedRoom === room.id} className="pointer-events-none w-4 h-4" />
                                   <RoomBadge room={room} rooms={activeRooms} override={roomChip(room)} />
                                   {price !== null && (
-                                    <span className={`text-xs ${theme.surfaceMuted2} ml-auto`}>${price}/night</span>
+                                    <span className={`text-xs ${theme.surfaceMuted2} ml-auto`}>{t("${rate}/night", { rate: price })}</span>
                                   )}
                                 </li>
                               );
@@ -1203,10 +1229,10 @@ const BookingRequestModal = ({
                   {errors.room && <span className={`${theme.alertText2} text-xs`}>{errors.room.message}</span>}
                   {watchedRoom && watchedDuration > 0 && getRoomPrice(watchedRoom) !== null && (
                     <div className={`flex justify-between items-center px-3 py-2 ${theme.tagBg} border ${theme.tagBorder} rounded-xl mt-2`}>
-                      <span className={`text-sm font-semibold ${theme.surfaceText2}`}>Total estimate</span>
+                      <span className={`text-sm font-semibold ${theme.surfaceText2}`}>{t("Total estimate")}</span>
                       <span className={`text-sm font-bold ${theme.textPrimary}`}>
                         ~${getRoomPrice(watchedRoom)! * watchedDuration}
-                        <span className={`font-normal ${theme.surfaceMuted2} ml-1`}>({watchedDuration}n × ${getRoomPrice(watchedRoom)}/night)</span>
+                        <span className={`font-normal ${theme.surfaceMuted2} ml-1`}>{t("({n}n × ${rate}/night)", { n: watchedDuration, rate: getRoomPrice(watchedRoom)! })}</span>
                       </span>
                     </div>
                   )}
@@ -1216,34 +1242,34 @@ const BookingRequestModal = ({
               {/* Wish list summary */}
               {hasWishList && (
                 <div>
-                  <label className="block text-sm font-medium mb-2">Wish list dates</label>
+                  <label className="block text-sm font-medium mb-2">{t("Wish list dates")}</label>
                   <div className={`${theme.tagBg} border ${theme.tagBorder} rounded-xl px-3 py-2.5 flex flex-col gap-1`}>
                     {sortedWishListDates.map((d) => (
                       <div key={d} className="flex items-center gap-2">
                         <span className={`${theme.warmDim} text-sm`}>★</span>
-                        <span className={`text-sm ${theme.surfaceText2}`}>{format(new Date(d + "T12:00:00"), "EEE, MMM d yyyy")}</span>
+                        <span className={`text-sm ${theme.surfaceText2}`}>{fmtDate(new Date(d + "T12:00:00"), "EEE, MMM d yyyy")}</span>
                       </div>
                     ))}
-                    <p className={`text-xs ${theme.surfaceMuted2} mt-0.5`}>We'll notify you if these open up.</p>
+                    <p className={`text-xs ${theme.surfaceMuted2} mt-0.5`}>{t("We'll notify you if these open up.")}</p>
                   </div>
                 </div>
               )}
 
               {/* Number of guests */}
               <div className="w-44">
-                <label className="block text-sm font-medium mb-1">How many people?</label>
+                <label className="block text-sm font-medium mb-1">{t("How many people?")}</label>
                 <select
                   className={`border ${theme.lineStrong} rounded-xl px-3 py-2 w-full text-sm focus:outline-none focus:ring-2 ${theme.focusRing}`}
                   {...register("numberOfGuests", { valueAsNumber: true })}
                 >
                   {[1, 2, 3, 4].map((n) => (
-                    <option key={n} value={n}>{n} {n === 1 ? "person" : "people"}</option>
+                    <option key={n} value={n}>{t(n === 1 ? "{n} person" : "{n} people", { n })}</option>
                   ))}
                 </select>
               </div>
 
               {submitError && (
-                <p className={`${theme.alertText2} text-sm`}>Something went wrong — please try again.</p>
+                <p className={`${theme.alertText2} text-sm`}>{t("Something went wrong — please try again.")}</p>
               )}
 
               {/* Cancellation policy — in the scroll flow, and quiet.
@@ -1264,15 +1290,15 @@ const BookingRequestModal = ({
                       <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z" />
                     </svg>
                     <span className={`flex-1 text-xs ${theme.surfaceMuted}`}>
-                      {cancellationHeadline(cancellationFullRefundDays)}
+                      {cancellationHeadline(cancellationFullRefundDays, t)}
                     </span>
                     <span className={`shrink-0 whitespace-nowrap text-xs font-semibold ${theme.surfaceMuted2}`}>
-                      {policyOpen ? "Hide ▴" : "Details ▾"}
+                      {policyOpen ? t("Hide ▴") : t("Details ▾")}
                     </span>
                   </button>
                   {policyOpen && (
                     <p className={`px-3 pb-2.5 text-xs leading-relaxed ${theme.surfaceMuted}`}>
-                      {formatCancellationPolicy(cancellationFullRefundDays, cancellationHalfRefundDays)}
+                      {formatCancellationPolicy(cancellationFullRefundDays, cancellationHalfRefundDays, t)}
                     </p>
                   )}
                 </div>
@@ -1285,7 +1311,7 @@ const BookingRequestModal = ({
                 disabled={isSubmitting || (!isWishListOnly && cartDates.size === 0 && displayRooms.length === 0)}
                 className={`w-full ${theme.btn} ${theme.btnHover} ${theme.btnActive} text-white py-3 rounded-xl font-semibold disabled:opacity-50 transition-colors`}
               >
-                {isSubmitting ? "Sending..." : "Send My Request"}
+                {isSubmitting ? t("Sending...") : t("Send My Request")}
               </button>
             </div>
           </form>
@@ -1306,12 +1332,12 @@ const BookingRequestModal = ({
             onClick={(e) => e.stopPropagation()}
           >
             <div className={`flex shrink-0 items-center justify-between border-b ${theme.surfaceBorder} px-4 py-3`}>
-              <p className={`text-base font-bold ${theme.surfaceStrong}`}>Write your dates</p>
+              <p className={`text-base font-bold ${theme.surfaceStrong}`}>{t("Write your dates")}</p>
               <button
                 type="button"
                 onClick={() => setDateSheetOpen(false)}
                 className={`px-1 text-xl leading-none ${theme.surfaceMuted2}`}
-                aria-label="Close"
+                aria-label={t("Close")}
               >
                 &times;
               </button>
@@ -1326,7 +1352,7 @@ const BookingRequestModal = ({
                   setNotes(e.target.value);
                   if (datesError) setDatesError("");
                 }}
-                placeholder={"e.g. May 1, 3–5, 20–21\nor anything else you'd like us to know"}
+                placeholder={t("e.g. May 1, 3–5, 20–21\nor anything else you'd like us to know")}
                 className={`w-full resize-none rounded-xl border ${theme.lineStrong} px-3 py-2 text-sm focus:outline-none focus:ring-2 ${theme.focusRing}`}
               />
 
@@ -1342,8 +1368,8 @@ const BookingRequestModal = ({
                   {typed.dates.length > 0 && (
                     <p className={`text-xs font-semibold ${theme.surfaceMuted}`}>
                       {typed.dates.length === 1
-                        ? "We read this date"
-                        : `We read these ${typed.dates.length} dates`}
+                        ? t("We read this date")
+                        : t("We read these {n} dates", { n: typed.dates.length })}
                     </p>
                   )}
                   <div className="mt-1.5 flex flex-wrap gap-1">
@@ -1388,8 +1414,8 @@ const BookingRequestModal = ({
                     <div className={typed.dates.length > 0 ? `mt-2 border-t ${theme.line} pt-2` : ""}>
                       <p className={`text-xs font-semibold ${theme.warmText2}`}>
                         {typed.past.length === 1
-                          ? "This night has already gone by"
-                          : `${typed.past.length} of these nights have already gone by`}
+                          ? t("This night has already gone by")
+                          : t("{n} of these nights have already gone by", { n: typed.past.length })}
                       </p>
                       <div className="mt-1.5 flex flex-wrap gap-1">
                         {typed.past.map((d) => (
@@ -1403,11 +1429,14 @@ const BookingRequestModal = ({
                       </div>
                       <p className={`mt-1.5 text-xs leading-relaxed ${theme.surfaceMuted}`}>
                         {typed.dates.length > 0
-                          ? "We've left those out and kept the rest."
-                          : "Nothing to add from this yet."}{" "}
-                        If you meant next year, add the year — "
-                        {format(parseISO(typed.past[0]), "d MMM")}{" "}
-                        {parseISO(typed.past[0]).getFullYear() + 1}" — and we'll pick it up.
+                          ? t("We've left those out and kept the rest.")
+                          : t("Nothing to add from this yet.")}{" "}
+                        {/* The example stays in English date form, German or
+                            not: it is what to type, and parseDateText reads
+                            English month names only. */}
+                        {t("If you meant next year, add the year — \"{example}\" — and we'll pick it up.", {
+                          example: `${format(parseISO(typed.past[0]), "d MMM")} ${parseISO(typed.past[0]).getFullYear() + 1}`,
+                        })}
                       </p>
                     </div>
                   )}
@@ -1418,26 +1447,28 @@ const BookingRequestModal = ({
                     <p className={`mt-1.5 text-xs font-semibold leading-relaxed ${theme.textPrimary}`}>
                       {typedMine.length === typed.dates.length
                         ? typedMine.length === 1
-                          ? "No need to book — that night is already yours."
-                          : "No need to book — those nights are already yours."
-                        : `${typedMine.length} of these ${typedMine.length === 1 ? "night is" : "nights are"} already booked in your name — nothing to do for ${typedMine.length === 1 ? "it" : "them"}.`}
+                          ? t("No need to book — that night is already yours.")
+                          : t("No need to book — those nights are already yours.")
+                        : typedMine.length === 1
+                          ? t("{n} of these night is already booked in your name — nothing to do for it.", { n: typedMine.length })
+                          : t("{n} of these nights are already booked in your name — nothing to do for them.", { n: typedMine.length })}
                     </p>
                   )}
                   {typedFull.length > 0 && (
                     <p className={`mt-1.5 text-xs leading-relaxed ${theme.surfaceMuted}`}>
-                      The crossed-out {typedFull.length === 1 ? "date is" : "dates are"} full
-                      tonight — we'll watch {typedFull.length === 1 ? "it" : "them"} for you and
-                      tell you the moment {typedFull.length === 1 ? "it opens" : "they open"} up.
+                      {typedFull.length === 1
+                        ? t("The crossed-out date is full tonight — we'll watch it for you and tell you the moment it opens up.")
+                        : t("The crossed-out dates are full tonight — we'll watch them for you and tell you the moment they open up.")}
                     </p>
                   )}
                   {typedFree.length === 0 && typedNew.length === 0 && typedMine.length === 0 && (
                     <p className={`mt-1.5 text-xs font-medium ${theme.surfaceMuted}`}>
-                      All of these are already in your request.
+                      {t("All of these are already in your request.")}
                     </p>
                   )}
                   {typed.leftover && (
                     <p className={`mt-1.5 border-l-2 ${theme.lineStrong} pl-2 text-xs italic leading-relaxed ${theme.surfaceMuted}`}>
-                      We'll pass this on too: "{typed.leftover}"
+                      {t("We'll pass this on too: \"{text}\"", { text: typed.leftover })}
                     </p>
                   )}
                 </div>
@@ -1455,10 +1486,10 @@ const BookingRequestModal = ({
                   className={`w-full rounded-xl ${theme.btn} ${theme.btnHover} py-3 text-sm font-semibold text-white`}
                 >
                   {typedFree.length > 0 && typedFullNew.length > 0
-                    ? `Request ${typedFree.length} date${typedFree.length > 1 ? "s" : ""}, watch ${typedFullNew.length} more`
+                    ? t(typedFree.length > 1 ? "Request {n} dates, watch {m} more" : "Request {n} date, watch {m} more", { n: typedFree.length, m: typedFullNew.length })
                     : typedFree.length > 0
-                      ? `Add ${typedFree.length} date${typedFree.length > 1 ? "s" : ""} to my request`
-                      : `Watch ${typedFullNew.length} full date${typedFullNew.length > 1 ? "s" : ""} for me`}
+                      ? t(typedFree.length > 1 ? "Add {n} dates to my request" : "Add {n} date to my request", { n: typedFree.length })
+                      : t(typedFullNew.length > 1 ? "Watch {n} full dates for me" : "Watch {n} full date for me", { n: typedFullNew.length })}
                 </button>
               ) : (
                 <button
@@ -1466,7 +1497,7 @@ const BookingRequestModal = ({
                   onClick={() => setDateSheetOpen(false)}
                   className={`w-full rounded-xl ${theme.surfaceInset} py-3 text-sm font-semibold ${theme.surfaceText2}`}
                 >
-                  Done
+                  {t("Done")}
                 </button>
               )}
             </div>
