@@ -81,6 +81,24 @@ describe("workWords", () => {
   it("does not take the room, the bed or the house for the work", () => {
     expect(workWords("Lovely room, comfy bed, beautiful house, great host.")).toEqual([]);
   });
+
+  it("finds no praise in a good review that complains about the cleaning", () => {
+    // Four stars, and "cleaner" was being bolded as praise for the visit.
+    expect(workWords("Great stay, but the room could have been cleaner.")).toEqual([]);
+    expect(workWords("Nice host, room wasn't very clean though.")).toEqual([]);
+    expect(workWords("Not clean when we arrived.")).toEqual([]);
+    expect(workWords("Clean room but the towels were missing.")).toEqual([]);
+    expect(workWords("Tidy, but there were no towels.")).toEqual([]);
+    expect(workWords("Clean overall, a stained pillow.")).toEqual([]);
+    expect(workWords("Mostly tidy, the bathroom was a bit dusty.")).toEqual([]);
+  });
+
+  it("still finds praise that only sounds like a complaint", () => {
+    expect(workWords("Not only clean but spotless.")).toEqual(["clean", "spotless"]);
+    expect(workWords("Clean, no stains anywhere.")).toEqual(["Clean"]);
+    expect(workWords("Nothing dirty, everything tidy.")).toEqual(["tidy"]);
+    expect(workWords("Spotless, not dusty at all.")).toEqual(["Spotless"]);
+  });
 });
 
 describe("praiseFor", () => {
