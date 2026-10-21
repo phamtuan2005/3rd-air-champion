@@ -27,11 +27,23 @@ const MonthHolidayLine = ({ month, bottom = "0px", large = false }: { month?: Da
   const monthHolidays = (month ? usHolidaysInMonth(month.getFullYear(), month.getMonth()) : []).filter(
     ({ key }) => key >= todayKey,
   );
-  // No line at all for a month without a holiday. It used to print "No US
-  // federal holidays in August", a whole row spent saying nothing; the
-  // calendar takes the room instead. A month whose holidays have all passed
-  // gets no line either.
-  if (monthHolidays.length === 0) return null;
+  // A month without a holiday keeps the line's ROOM, empty. It used to print
+  // "No US federal holidays in August", a row spent saying nothing; then it
+  // drew nothing at all and the calendar took the room — but the rows share
+  // the height that is left, so they grew taller in a month without one and
+  // slimmed again in the next, and paging between October and November
+  // jumped (host, 2026-10-20: "bumpy change of the calendar"). Hiding the
+  // holidays already past made that far more common. Same height every month,
+  // nothing written in it.
+  if (monthHolidays.length === 0) {
+    return (
+      <div
+        aria-hidden
+        className={`sticky z-20 ${large ? "h-8" : "h-6"} shrink-0 border-t ${theme.gridLine} ${theme.surface}`}
+        style={{ bottom }}
+      />
+    );
+  }
   return (
     // Sticky to the bottom of the SCREEN, not just of the calendar. Since
     // both layouts scroll as a page, the calendar is a whole screen tall and
