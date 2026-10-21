@@ -427,6 +427,9 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
   // The days ticked for a "Pick the days" schedule text, or null when that
   // picker is not open. See textScheduleDays.
   const [pickedDays, setPickedDays] = useState<Set<string> | null>(null);
+  // Set when the picker was opened by tapping a cleaner on Week, so leaving it
+  // lands back on Week rather than on Team, where the host never was.
+  const [pickFromWeek, setPickFromWeek] = useState(false);
   // Which cleaners' recorded-days accordions are expanded (Hours tab). Collapsed
   // by default so 5 cleaners × 15–20 records stays a short, scannable list.
   const [expandedRecord, setExpandedRecord] = useState<Set<string>>(new Set());
@@ -1638,6 +1641,18 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
     if (!cleaner.phone) return;
     const picked = [...days].filter((d) => d >= todayKey).sort();
     if (picked.length === 0) return;
+    // Exactly one Sun–Sat week (from today on) is the weekly text, sent as
+    // one — so Week's "✓ sent" and "changed — re-send" keep tracking it. A tap
+    // on a cleaner in Week opens here with that week ticked, and sending it
+    // unchanged must count the same as the one-tap weekly text it replaced.
+    const sunday = startOfWeek(new Date(picked[0] + "T00:00:00"), { weekStartsOn: WEEK_STARTS_ON });
+    const wholeWeek = Array.from({ length: 7 }, (_, i) => format(addDays(sunday, i), "yyyy-MM-dd")).filter(
+      (d) => d >= todayKey,
+    );
+    if (wholeWeek.length === picked.length && wholeWeek.every((d, i) => d === picked[i])) {
+      textSchedule(cleaner, sunday);
+      return;
+    }
     const keep = new Set(picked);
     const mine = assignments
       .filter((a) => a.cleaner?.id === cleaner.id && a.room && keep.has(a.date) && !isStaleCleaning(a.room.id, a.date))
@@ -1675,6 +1690,28 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
         setSentSchedules((p) => ({ ...p, [sentKey(cleaner.id, first)]: { signature: sig, sentAt: new Date().toISOString() } })),
       )
       .catch(() => {});
+  };
+
+  // Leaves the one-cleaner message screen, back to wherever the host came from.
+  const closeMsgScreen = () => {
+    setMsgMenuId(null);
+    setPickedDays(null);
+    if (pickFromWeek) setActiveTab("week");
+    setPickFromWeek(false);
+  };
+
+  // Tapping a cleaner on Week opens "Pick the days" for them with the week on
+  // screen already ticked (host, 2026-10-20: tap the name or avatar). It used
+  // to text that Sun–Sat week on the spot, which left no way to send Vu her
+  // Mon–Sun without leaving Week for Team. Sun–Sat is still one more tap.
+  const openPickFromWeek = (cleaner: CleanerType) => {
+    const shown = Array.from({ length: 7 }, (_, i) => format(addDays(weekMonday, i), "yyyy-MM-dd")).filter(
+      (d) => d >= todayKey,
+    );
+    setMsgMenuId(cleaner.id);
+    setPickedDays(new Set(shown));
+    setPickFromWeek(true);
+    setActiveTab("roster");
   };
 
   // A standing quality reminder (comforter/pillow covers laundered, etc.) the
@@ -1925,13 +1962,10 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
             <div>
               <button
                 type="button"
-                onClick={() => {
-                  setMsgMenuId(null);
-                  setPickedDays(null);
-                }}
+                onClick={closeMsgScreen}
                 className="mb-3 flex items-center gap-1 text-sm font-semibold text-gray-500 hover:text-gray-700"
               >
-                ‹ Back to team
+                {pickFromWeek ? "‹ Back to week" : "‹ Back to team"}
               </button>
 
               <div className="mb-3 flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
@@ -2030,7 +2064,13 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                 // tick adds. Two weeks covers a Mon–Sun period that starts next
                 // Monday even when it is Sunday today.
                 if (pickedDays) {
-                  const days = Array.from({ length: 15 }, (_, i) => format(addDays(startOfToday(), i), "yyyy-MM-dd"));
+                  // Far enough to show every day already ticked — a Week tapped
+                  // three weeks ahead opens with that week in the list.
+                  const lastTicked = [...pickedDays].sort().pop();
+                  const span = lastTicked
+                    ? Math.round((new Date(lastTicked + "T00:00:00").getTime() - startOfToday().getTime()) / 86400000) + 1
+                    : 0;
+                  const days = Array.from({ length: Math.max(15, span) }, (_, i) => format(addDays(startOfToday(), i), "yyyy-MM-dd"));
                   const roomsOn = (d: string) =>
                     assignments
                       .filter((a) => a.cleaner?.id === cleaner.id && a.room && a.date === d && !isStaleCleaning(a.room.id, a.date))
@@ -2076,7 +2116,9 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                       <div className="flex gap-2">
                         <button
                           type="button"
-                          onClick={() => setPickedDays(null)}
+                          // From Week, back is back to Week; from the menu, back
+                          // to the menu.
+                          onClick={() => (pickFromWeek ? closeMsgScreen() : setPickedDays(null))}
                           className="rounded-xl bg-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-700"
                         >
                           Back
@@ -2086,8 +2128,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                           disabled={pickedRooms === 0}
                           onClick={() => {
                             textScheduleDays(cleaner, [...pickedDays]);
-                            setPickedDays(null);
-                            setMsgMenuId(null);
+                            closeMsgScreen();
                           }}
                           className="flex-1 rounded-xl bg-sky-600 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
                         >
@@ -2546,15 +2587,16 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                   <div className="divide-y divide-gray-100">
                     {shownGroups.map(({ cleaner, rooms }) => (
                       <div key={cleaner.id} className="flex items-center gap-2 px-3 py-1.5">
-                        {/* Tap the cleaner to text them THIS displayed week's plan */}
+                        {/* Tap the cleaner to pick the days to text them, this
+                            displayed week already ticked (openPickFromWeek). */}
                         <button
                           type="button"
                           disabled={!cleaner.phone}
-                          onClick={() => textSchedule(cleaner, weekMonday)}
+                          onClick={() => openPickFromWeek(cleaner)}
                           title={
                             !cleaner.phone
                               ? "Add a phone number to text"
-                              : `Text ${cleaner.name.split(" ")[0]} the ${format(weekMonday, "MMM d")}–${format(addDays(weekMonday, 6), "MMM d")} schedule`
+                              : `Pick the days to text ${cleaner.name.split(" ")[0]}`
                           }
                           className={`-mx-1 flex w-24 shrink-0 items-center gap-1.5 rounded-md px-1 py-0.5 text-left transition-colors ${
                             cleaner.phone ? "hover:bg-gray-100" : "opacity-50"
