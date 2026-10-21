@@ -22,7 +22,8 @@ import MyBookingsSheet, { GuestBooking } from "../components/tibook/MyBookingsSh
 import StayDetailPopup from "../components/tibook/StayDetailPopup";
 import RoomPickerPopup from "../components/tibook/RoomPickerPopup";
 import ReservedHoldsPopup from "../components/tibook/ReservedHoldsPopup";
-import { getGuestWishList } from "../util/wishListOperations";
+import { getGuestWishList, toggleWishListDate } from "../util/wishListOperations";
+import WishListDatePopup from "../components/tibook/WishListDatePopup";
 import { createBookingRequest, fetchBookingRequestsByHost, fetchCalendarBookingsByGuest } from "../util/bookingRequestOperations";
 import { ttBookingIsDryRun, TTBookingRequest } from "../util/ttBooking";
 import { mergeOverlappingStays } from "../util/overlappingStays";
@@ -179,6 +180,8 @@ const TiBookInner = () => {
   };
   const [wishListDates, setWishListDates] = useState<Set<string>>(new Set());
   const [persistedWishListDates, setPersistedWishListDates] = useState<Set<string>>(new Set());
+  // The saved wish-list night tapped, while its popup is open.
+  const [wishPopupDate, setWishPopupDate] = useState<Date | null>(null);
   // Read through the consent gate, never straight from localStorage: a number
   // saved before we started asking, or one belonging to a guest who has since
   // said no, must not come back to greet them. See util/guestConsent.
@@ -764,6 +767,13 @@ const TiBookInner = () => {
     expandCal();
     setScrollToMonthTrigger({ month: new Date(date.getFullYear(), date.getMonth(), 1), seq: Date.now() });
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    // A night already SAVED asks first (WishListDatePopup). A night starred
+    // this visit and not yet sent still toggles on the spot — nothing is
+    // saved yet, so there is nothing to confirm.
+    if (persistedWishListDates.has(key)) {
+      setWishPopupDate(date);
+      return;
+    }
     setWishListDates((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key); else next.add(key);
@@ -1690,6 +1700,32 @@ const TiBookInner = () => {
           />
         );
       })()}
+
+      {/* A saved wish-list night, tapped: keep waiting, or remove it. */}
+      {wishPopupDate && currentHost && (
+        <WishListDatePopup
+          date={wishPopupDate}
+          onClose={() => setWishPopupDate(null)}
+          onRemove={async () => {
+            // The /toggle route needs a name, and stores the one it is given —
+            // so the guest's own, never a stand-in that would overwrite it.
+            const name = (greetedName || guestName || "").trim();
+            if (!guestPhone || !name) {
+              throw new Error("Open Your Bookings with your phone number first, then try again.");
+            }
+            const key = keyOfDate(wishPopupDate);
+            const result = await toggleWishListDate({ host: currentHost.id, guestPhone, guestName: name, date: key });
+            // The server's list is the truth; on screen and saved both follow it.
+            const saved = new Set<string>(result.dates);
+            setPersistedWishListDates(saved);
+            setWishListDates((prev) => {
+              const next = new Set([...prev].filter((d) => d !== key || saved.has(d)));
+              saved.forEach((d) => next.add(d));
+              return next;
+            });
+          }}
+        />
+      )}
 
       {/* Hero opens the gallery from its own card; the stacked layout keeps
           RoomCards' copy. Same modal either way. */}
