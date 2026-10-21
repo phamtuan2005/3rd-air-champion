@@ -57,6 +57,9 @@ export interface GuestCalendarProps {
   // sticks to the bottom of the page under the calendar (the selection bar,
   // Hero's bottom bar). See the line itself for why it pins.
   holidayBottom?: string;
+  // What the holiday line says in a month with no holiday left (see
+  // MonthHolidayLine). Hero hands it the line from beside its month name.
+  holidayFallback?: React.ReactNode;
   // While only the top of the calendar is on screen, show this month from
   // today's week rather than from the 1st. Only Hero asks for it — see todayRow.
   todayOnTop?: boolean;
@@ -229,6 +232,7 @@ const MonthGrid = ({
   onReservedClick,
   largeType = false,
   holidayBottom = "0px",
+  holidayFallback,
   todayOnTop = false,
 }: GuestCalendarProps) => {
   const { theme } = useTiBookTheme();
@@ -990,7 +994,7 @@ const MonthGrid = ({
         );
       })}
     </div>
-    <MonthHolidayLine month={shownMonth} bottom={holidayBottom} large={largeType} />
+    <MonthHolidayLine month={shownMonth} bottom={holidayBottom} large={largeType} fallback={holidayFallback} />
     </div>
   );
 };

@@ -1,6 +1,7 @@
-import { format, parseISO, startOfToday } from "date-fns";
+import type { ReactNode } from "react";
+import { format, parseISO } from "date-fns";
 import { useTiBookTheme } from "../../../contexts/TiBookThemeContext";
-import { holidayLabel, usHolidaysInMonth } from "../../../util/usHolidays";
+import { holidayLabel, upcomingHolidaysInMonth } from "../../../util/usHolidays";
 
 /*
  * The US federal holidays in the month on screen, named in one line under the
@@ -17,16 +18,28 @@ import { holidayLabel, usHolidaysInMonth } from "../../../util/usHolidays";
  * both layouts once had to be taken back out of the classic (see the type
  * notes in GuestCalendar).
  */
-const MonthHolidayLine = ({ month, bottom = "0px", large = false }: { month?: Date; bottom?: string; large?: boolean }) => {
+// Today onward only (upcomingHolidaysInMonth); the grid drops the past ones'
+// tint and dot to match.
+/*
+ * `fallback` is what the line says in a month with no holiday left. Hero puts
+ * the line from beside its month name there ("King or Queen · 6 nights
+ * open"), which the header had to cut short at the toggle and here has the
+ * whole width — and the line stops being an empty strip (host, 2026-10-20:
+ * "such an info can be moved to here if the bottom banner got empty").
+ */
+const MonthHolidayLine = ({
+  month,
+  bottom = "0px",
+  large = false,
+  fallback,
+}: {
+  month?: Date;
+  bottom?: string;
+  large?: boolean;
+  fallback?: ReactNode;
+}) => {
   const { theme } = useTiBookTheme();
-  // Today onward only. A guest booking a stay has no use for a holiday that
-  // has passed — Columbus Day still named under October on the 20th was one
-  // more thing to read on the way to booking (host, 2026-10-20). The grid
-  // drops the past ones' tint and dot to match.
-  const todayKey = format(startOfToday(), "yyyy-MM-dd");
-  const monthHolidays = (month ? usHolidaysInMonth(month.getFullYear(), month.getMonth()) : []).filter(
-    ({ key }) => key >= todayKey,
-  );
+  const monthHolidays = upcomingHolidaysInMonth(month);
   // A month without a holiday keeps the line's ROOM, empty. It used to print
   // "No US federal holidays in August", a row spent saying nothing; then it
   // drew nothing at all and the calendar took the room — but the rows share
@@ -38,10 +51,12 @@ const MonthHolidayLine = ({ month, bottom = "0px", large = false }: { month?: Da
   if (monthHolidays.length === 0) {
     return (
       <div
-        aria-hidden
-        className={`sticky z-20 ${large ? "h-8" : "h-6"} shrink-0 border-t ${theme.gridLine} ${theme.surface}`}
+        aria-hidden={fallback ? undefined : true}
+        className={`sticky z-20 flex ${large ? "h-8 px-3 text-[15px]" : "h-6 px-2 text-[12px]"} shrink-0 items-center overflow-x-auto overflow-y-hidden whitespace-nowrap border-t [scrollbar-width:none] [&::-webkit-scrollbar]:hidden leading-none ${theme.gridLine} ${theme.surface} ${theme.surfaceMuted}`}
         style={{ bottom }}
-      />
+      >
+        {fallback}
+      </div>
     );
   }
   return (

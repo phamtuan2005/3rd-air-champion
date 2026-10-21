@@ -95,6 +95,17 @@ export const usHolidaysInMonth = (year: number, month: number): { key: string; h
     .map(([key, holiday]) => ({ key, holiday }));
 };
 
+// The month's holidays from today onward (the guest's own today, as a
+// yyyy-MM-dd string). A guest booking a stay has no use for a holiday that has
+// passed — Columbus Day still named under October on the 20th was one more
+// thing to read on the way to booking (host, 2026-10-20). TiBook's holiday
+// line names only these, and Hero reads it to know whether that line is free.
+export const upcomingHolidaysInMonth = (month?: Date, today: Date = new Date()) => {
+  if (!month) return [];
+  const todayKey = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+  return usHolidaysInMonth(month.getFullYear(), month.getMonth()).filter(({ key }) => key >= todayKey);
+};
+
 // How a holiday is written: "Independence Day", or "Independence Day
 // (observed)" on the weekday it is kept.
 export const holidayLabel = (h: Holiday) => (h.observed ? `${h.name} (observed)` : h.name);
