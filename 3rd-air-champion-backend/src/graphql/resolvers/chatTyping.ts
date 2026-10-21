@@ -1,4 +1,5 @@
 import ChatTyping from "../../model/chatTypingSchema";
+import { phoneKey } from "../../util/usPhone";
 
 // How long a "still typing" ping stays true. The clients re-ping every ~2.5s, so
 // this is comfortably longer than one interval — a single dropped request must
@@ -6,7 +7,8 @@ import ChatTyping from "../../model/chatTypingSchema";
 // mid-sentence stops showing as typing within a breath or two.
 export const TYPING_WINDOW_MS = 6000;
 
-const phoneKeyOf = (phone: string) => (phone ?? "").replace(/\D/g, "");
+// The same key the message threads use, so "+1 408…" and "408…" type into one.
+const phoneKeyOf = (phone: string) => phoneKey(phone ?? "");
 
 export const chatTypingResolvers = {
   Mutation: {

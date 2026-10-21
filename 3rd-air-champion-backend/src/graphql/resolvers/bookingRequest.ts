@@ -1,4 +1,5 @@
 import BookingRequest from "../../model/bookingRequestSchema";
+import { dropUsCountryCode, phoneRegex } from "../../util/usPhone";
 
 export const bookingRequestResolvers = {
   Query: {
@@ -12,11 +13,9 @@ export const bookingRequestResolvers = {
       return await BookingRequest.find({ host: hostId });
     },
     bookingRequestsByGuest: async (_: unknown, { hostId, phone }: any) => {
-      const digits = phone.replace(/\D/g, "");
-      const phoneRegex = new RegExp(digits.split("").join("\\D*"));
       return await BookingRequest.find({
         host: hostId,
-        guestPhone: { $regex: phoneRegex },
+        guestPhone: { $regex: phoneRegex(phone) },
         status: { $in: ["pending", "confirmed", "reserved"] },
       }).sort({ date: 1 });
     },
@@ -24,8 +23,10 @@ export const bookingRequestResolvers = {
   Mutation: {
     createBookingRequest: async (
       _: unknown,
-      { host, guestName, guestPhone, date, room, duration, numberOfGuests, notes }: any
+      { host, guestName, guestPhone: typedPhone, date, room, duration, numberOfGuests, notes }: any
     ) => {
+      // Stored without a +1, as every guest phone is (util/usPhone).
+      const guestPhone = dropUsCountryCode(typedPhone);
       const existing = await BookingRequest.findOne({
         host,
         guestPhone,

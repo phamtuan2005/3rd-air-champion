@@ -8,6 +8,7 @@ import { hashStatsCode } from "./tibookStatsAccessRoute";
 import { tibookVisitorStats, utcDay } from "../util/tibookVisitorStats";
 import TTQuestion from "../model/ttQuestionSchema";
 import { questionStats } from "../util/ttQuestions";
+import { phoneKey } from "../util/usPhone";
 
 // A guest the host chose reading TiBook's visitor numbers, with the code TiMag
 // gave them (see tibookStatsAccessRoute).
@@ -62,7 +63,7 @@ const recordMiss = (ip: string) => {
 // that regex is unanchored, and "4" would match half the guest list.
 router.post("/has-access", async (req: Request, res: any) => {
   const host = String(req.body?.host ?? "");
-  const digits = String(req.body?.phone ?? "").replace(/\D/g, "");
+  const digits = phoneKey(String(req.body?.phone ?? ""));
   if (!mongoose.isValidObjectId(redirectHost(host)) || digits.length < 7) {
     return res.status(200).json({ hasAccess: false });
   }

@@ -1,14 +1,13 @@
 import GuestMessage from "../../model/guestMessageSchema";
+import { dropUsCountryCode, phoneKey, phoneRegex } from "../../util/usPhone";
 
 // Phones are stored however the guest typed them — "(408) 555-1234" and
 // "4085551234" are the same person. Matching on the digits with anything
 // allowed between them is what bookingRequestsByGuest, guestByPhone and the
 // wish list all already do; a message thread has to find the same guest they do
 // or a guest who wrote from the booking form would not see their own reply.
-const phoneMatcher = (phone: string) => {
-  const digits = phone.replace(/\D/g, "");
-  return new RegExp(digits.split("").join("\\D*"));
-};
+// A +1 counts for nothing either (util/usPhone).
+const phoneMatcher = phoneRegex;
 
 export const guestMessageResolvers = {
   Query: {
@@ -32,8 +31,9 @@ export const guestMessageResolvers = {
 
       for (const m of all) {
         // Key on digits so the same guest writing from two forms, one with
-        // dashes and one without, is one thread and not two.
-        const key = (m.guestPhone || "").replace(/\D/g, "");
+        // dashes and one without, is one thread and not two — and one with a
+        // +1 and one without (host, 2026-10-20).
+        const key = phoneKey(m.guestPhone || "");
         const existing = byGuest.get(key);
         if (!existing) {
           byGuest.set(key, {
@@ -79,7 +79,7 @@ export const guestMessageResolvers = {
       return await new GuestMessage({
         host,
         guestName,
-        guestPhone,
+        guestPhone: dropUsCountryCode(guestPhone),
         sender,
         body: text,
         readByHost: sender === "host",
@@ -118,12 +118,13 @@ export const guestMessageResolvers = {
     // equality, which is the same key guestMessageThreads groups the list by —
     // what gets deleted is exactly the row that was swiped, no more.
     deleteGuestThread: async (_: unknown, { hostId, phone }: any) => {
-      const digits = (phone ?? "").replace(/\D/g, "");
+      // phoneKey, the key guestMessageThreads groups by — still exact equality.
+      const digits = phoneKey(phone ?? "");
       if (!digits) throw new Error("A conversation is identified by a phone number.");
 
       const mine = await GuestMessage.find({ host: hostId });
       const ids = mine
-        .filter((m) => (m.guestPhone || "").replace(/\D/g, "") === digits)
+        .filter((m) => phoneKey(m.guestPhone || "") === digits)
         .map((m) => m._id);
       if (ids.length === 0) return 0;
 

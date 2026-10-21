@@ -1,5 +1,6 @@
 import Guest from "../../model/guestSchema";
 import { redirectHost } from "../../util/hostRedirect";
+import { phoneRegex } from "../../util/usPhone";
 
 export const guestResolvers = {
   Query: {
@@ -10,9 +11,8 @@ export const guestResolvers = {
       return await Guest.find({ host: redirectHost(host) });
     },
     guestByPhone: async (_: unknown, { host, phone }: any) => {
-      const digits = phone.replace(/\D/g, "");
-      const phoneRegex = new RegExp(digits.split("").join("\\D*"));
-      return await Guest.findOne({ host: redirectHost(host), phone: { $regex: phoneRegex } });
+      // "+1 408…" finds the guest stored as "(408) …" (util/usPhone).
+      return await Guest.findOne({ host: redirectHost(host), phone: { $regex: phoneRegex(phone) } });
     },
     guest: async (_: unknown, { _id }: any) => {
       return await Guest.findById(_id);
