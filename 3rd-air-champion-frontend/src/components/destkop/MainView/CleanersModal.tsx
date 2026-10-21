@@ -424,6 +424,9 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
   // Which cleaner's "Message" menu is open on the Team tab (one home for every
   // text we send a cleaner — schedule, earnings, cleaning rules, and future ones)
   const [msgMenuId, setMsgMenuId] = useState<string | null>(null);
+  // The days ticked for a "Pick the days" schedule text, or null when that
+  // picker is not open. See textScheduleDays.
+  const [pickedDays, setPickedDays] = useState<Set<string> | null>(null);
   // Which cleaners' recorded-days accordions are expanded (Hours tab). Collapsed
   // by default so 5 cleaners × 15–20 records stays a short, scannable list.
   const [expandedRecord, setExpandedRecord] = useState<Set<string>>(new Set());
@@ -1620,6 +1623,60 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
       .catch(() => {});
   };
 
+  // A schedule text over the days the host TICKS, not a fixed week. Clean's
+  // weeks run Sunday to Saturday, and some cleaners plan theirs Monday to
+  // Sunday (Vu asked, 2026-10-20). A setting per cleaner was built for that and
+  // dropped the same day: the host would rather build the period each time —
+  // all of Mon–Sun for one, Sun–Sat for another, three days for a third —
+  // than have the app remember who wants what.
+  //
+  // Today onward only, like textSchedule: a text about days already worked
+  // reads as a request to go back. Recorded as sent under its first day, so a
+  // later text for the same period says UPDATED; the This/Next week items keep
+  // their own records and their "changed — re-send" flags.
+  const textScheduleDays = (cleaner: CleanerType, days: string[]) => {
+    if (!cleaner.phone) return;
+    const picked = [...days].filter((d) => d >= todayKey).sort();
+    if (picked.length === 0) return;
+    const keep = new Set(picked);
+    const mine = assignments
+      .filter((a) => a.cleaner?.id === cleaner.id && a.room && keep.has(a.date) && !isStaleCleaning(a.room.id, a.date))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    if (mine.length === 0) return;
+    const byDay = new Map<string, string[]>();
+    mine.forEach((a) => {
+      byDay.set(a.date, [...(byDay.get(a.date) ?? []), `${a.room!.name}${arrivalSuffix(a.room!.id, a.date)}`]);
+    });
+    const lines = [...byDay.entries()].map(([date, rooms]) => {
+      const more = extrasOf(cleaner.id, date).map((e) => (e.note ? `${e.name} (${e.note})` : e.name));
+      return `* ${format(new Date(date + "T00:00:00"), "EEEE M/d")}: ${rooms.join(", ")}${more.length ? ` + ${more.join(", ")}` : ""}`;
+    });
+    // The span ticked, first day to last — the period the host built.
+    const first = new Date(picked[0] + "T00:00:00");
+    const last = new Date(picked[picked.length - 1] + "T00:00:00");
+    const label = picked.length === 1 ? format(first, "MMM d") : `${format(first, "MMM d")} – ${format(last, "MMM d")}`;
+    const isResend = !!sentSchedules[sentKey(cleaner.id, first)];
+    const message = isResend
+      ? `Hi ${cleaner.name}, here's your UPDATED cleaning schedule for ${label} — this replaces what I sent before:\n${lines.join("\n")}\n${legendFor(lines)}\n\n${cleanerSignoff(senderName)}`
+      : `Hi ${cleaner.name}, your cleaning schedule for ${label}:\n${lines.join("\n")}\n${legendFor(lines)}\n\n${cleanerSignoff(senderName)}`;
+    window.location.href = `sms:${cleaner.phone}?&body=${encodeURIComponent(message)}`;
+    // scheduleSignature's format, limited to the ticked days: a period starting
+    // on a Sunday shares that week's record, and ticking the whole Sun–Sat
+    // reads as that week "✓ sent", as it should.
+    const sig = mine
+      .map((a) => `${a.date}:${a.room!.id}:${arrivalSuffix(a.room!.id, a.date)}`)
+      .concat(
+        picked.flatMap((d) => extrasOf(cleaner.id, d).map((e) => `x:${d}:${e.name}${e.note ? `:${e.note}` : ""}`)),
+      )
+      .sort()
+      .join("|");
+    recordScheduleSent({ host: hostId, cleaner: cleaner.id, weekMonday: picked[0], signature: sig }, token)
+      .then(() =>
+        setSentSchedules((p) => ({ ...p, [sentKey(cleaner.id, first)]: { signature: sig, sentAt: new Date().toISOString() } })),
+      )
+      .catch(() => {});
+  };
+
   // A standing quality reminder (comforter/pillow covers laundered, etc.) the
   // host keeps in Settings → My AirBnB. Not tied to any week — sendable anytime.
   const textCleaningRules = (cleaner: CleanerType) => {
@@ -1868,7 +1925,10 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
             <div>
               <button
                 type="button"
-                onClick={() => setMsgMenuId(null)}
+                onClick={() => {
+                  setMsgMenuId(null);
+                  setPickedDays(null);
+                }}
                 className="mb-3 flex items-center gap-1 text-sm font-semibold text-gray-500 hover:text-gray-700"
               >
                 ‹ Back to team
@@ -1938,6 +1998,19 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                     run: () => textSchedule(cleaner, nextMonday),
                   },
                   {
+                    key: "pick",
+                    icon: "🗓️",
+                    tint: "bg-sky-100 text-sky-700",
+                    labelColor: "text-gray-900",
+                    accent: "text-sky-600",
+                    label: "Pick the days",
+                    sub: "Tick the dates — Mon–Sun, or any period",
+                    disabled: false,
+                    // Opens the day list here instead of texting straight away.
+                    keepOpen: true,
+                    run: () => setPickedDays(new Set()),
+                  },
+                  {
                     key: "earn",
                     icon: "💵",
                     tint: "bg-amber-100 text-amber-700",
@@ -1950,7 +2023,83 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                     disabled: !entry,
                     run: () => entry && textPayment(entry),
                   },
-                ];
+                ] as { key: string; icon: string; tint: string; labelColor: string; accent: string; label: string; sub: string; disabled: boolean; keepOpen?: boolean; run: () => void }[];
+
+                // "Pick the days": today and the next two weeks, one row each,
+                // with this cleaner's rooms that morning so the host sees what a
+                // tick adds. Two weeks covers a Mon–Sun period that starts next
+                // Monday even when it is Sunday today.
+                if (pickedDays) {
+                  const days = Array.from({ length: 15 }, (_, i) => format(addDays(startOfToday(), i), "yyyy-MM-dd"));
+                  const roomsOn = (d: string) =>
+                    assignments
+                      .filter((a) => a.cleaner?.id === cleaner.id && a.room && a.date === d && !isStaleCleaning(a.room.id, a.date))
+                      .map((a) => a.room!.name);
+                  const pickedRooms = days.filter((d) => pickedDays.has(d)).reduce((n, d) => n + roomsOn(d).length, 0);
+                  const toggle = (d: string) =>
+                    setPickedDays((p) => {
+                      const next = new Set(p);
+                      if (next.has(d)) next.delete(d);
+                      else next.add(d);
+                      return next;
+                    });
+                  return (
+                    <div className="flex flex-col gap-2">
+                      <div className="divide-y divide-gray-100 rounded-xl border border-gray-200">
+                        {days.map((d) => {
+                          const on = pickedDays.has(d);
+                          const rooms = roomsOn(d);
+                          const date = new Date(d + "T00:00:00");
+                          return (
+                            <button
+                              key={d}
+                              type="button"
+                              onClick={() => toggle(d)}
+                              aria-pressed={on}
+                              className={`flex w-full items-center gap-3 px-3 py-2.5 text-left ${on ? "bg-sky-50" : "bg-white"}`}
+                            >
+                              <span
+                                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs font-bold ${
+                                  on ? "border-sky-600 bg-sky-600 text-white" : "border-gray-300 text-transparent"
+                                }`}
+                              >
+                                ✓
+                              </span>
+                              <span className="w-24 shrink-0 text-sm font-semibold text-gray-900">{format(date, "EEE M/d")}</span>
+                              <span className={`min-w-0 truncate text-sm ${rooms.length ? "text-gray-700" : "text-gray-300"}`}>
+                                {rooms.length ? rooms.join(", ") : "no rooms"}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setPickedDays(null)}
+                          className="rounded-xl bg-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-700"
+                        >
+                          Back
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pickedRooms === 0}
+                          onClick={() => {
+                            textScheduleDays(cleaner, [...pickedDays]);
+                            setPickedDays(null);
+                            setMsgMenuId(null);
+                          }}
+                          className="flex-1 rounded-xl bg-sky-600 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+                        >
+                          {pickedRooms === 0
+                            ? "Tick days with rooms"
+                            : `Text ${pickedRooms} room${pickedRooms === 1 ? "" : "s"} ›`}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
                   <div className="flex flex-col gap-2">
                     {items.map((it) => (
@@ -1960,7 +2109,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                         disabled={it.disabled}
                         onClick={() => {
                           it.run();
-                          setMsgMenuId(null);
+                          if (!it.keepOpen) setMsgMenuId(null);
                         }}
                         className={`flex items-center justify-between gap-2 rounded-xl border px-3.5 py-3 text-left ${
                           it.disabled
