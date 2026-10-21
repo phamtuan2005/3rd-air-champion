@@ -1645,15 +1645,24 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
     // one — so Week's "✓ sent" and "changed — re-send" keep tracking it. A tap
     // on a cleaner in Week opens here with that week ticked, and sending it
     // unchanged must count the same as the one-tap weekly text it replaced.
-    const sunday = startOfWeek(new Date(picked[0] + "T00:00:00"), { weekStartsOn: WEEK_STARTS_ON });
-    const wholeWeek = Array.from({ length: 7 }, (_, i) => format(addDays(sunday, i), "yyyy-MM-dd")).filter(
-      (d) => d >= todayKey,
+    // Compared on the days this cleaner has rooms — the only days the picker
+    // lists — so a day with nothing on it, ticked or not, changes nothing.
+    const workDays = new Set(
+      assignments
+        .filter((a) => a.cleaner?.id === cleaner.id && a.room && a.date >= todayKey && !isStaleCleaning(a.room.id, a.date))
+        .map((a) => a.date),
     );
-    if (wholeWeek.length === picked.length && wholeWeek.every((d, i) => d === picked[i])) {
+    const pickedWork = picked.filter((d) => workDays.has(d));
+    if (pickedWork.length === 0) return;
+    const sunday = startOfWeek(new Date(pickedWork[0] + "T00:00:00"), { weekStartsOn: WEEK_STARTS_ON });
+    const weekWork = Array.from({ length: 7 }, (_, i) => format(addDays(sunday, i), "yyyy-MM-dd")).filter((d) =>
+      workDays.has(d),
+    );
+    if (weekWork.length === pickedWork.length && weekWork.every((d, i) => d === pickedWork[i])) {
       textSchedule(cleaner, sunday);
       return;
     }
-    const keep = new Set(picked);
+    const keep = new Set(pickedWork);
     const mine = assignments
       .filter((a) => a.cleaner?.id === cleaner.id && a.room && keep.has(a.date) && !isStaleCleaning(a.room.id, a.date))
       .sort((a, b) => a.date.localeCompare(b.date));
@@ -1666,10 +1675,10 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
       const more = extrasOf(cleaner.id, date).map((e) => (e.note ? `${e.name} (${e.note})` : e.name));
       return `* ${format(new Date(date + "T00:00:00"), "EEEE M/d")}: ${rooms.join(", ")}${more.length ? ` + ${more.join(", ")}` : ""}`;
     });
-    // The span ticked, first day to last — the period the host built.
-    const first = new Date(picked[0] + "T00:00:00");
-    const last = new Date(picked[picked.length - 1] + "T00:00:00");
-    const label = picked.length === 1 ? format(first, "MMM d") : `${format(first, "MMM d")} – ${format(last, "MMM d")}`;
+    // The span ticked, first working day to last — the period the host built.
+    const first = new Date(pickedWork[0] + "T00:00:00");
+    const last = new Date(pickedWork[pickedWork.length - 1] + "T00:00:00");
+    const label = pickedWork.length === 1 ? format(first, "MMM d") : `${format(first, "MMM d")} – ${format(last, "MMM d")}`;
     const isResend = !!sentSchedules[sentKey(cleaner.id, first)];
     const message = isResend
       ? `Hi ${cleaner.name}, here's your UPDATED cleaning schedule for ${label} — this replaces what I sent before:\n${lines.join("\n")}\n${legendFor(lines)}\n\n${cleanerSignoff(senderName)}`
@@ -1681,11 +1690,11 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
     const sig = mine
       .map((a) => `${a.date}:${a.room!.id}:${arrivalSuffix(a.room!.id, a.date)}`)
       .concat(
-        picked.flatMap((d) => extrasOf(cleaner.id, d).map((e) => `x:${d}:${e.name}${e.note ? `:${e.note}` : ""}`)),
+        pickedWork.flatMap((d) => extrasOf(cleaner.id, d).map((e) => `x:${d}:${e.name}${e.note ? `:${e.note}` : ""}`)),
       )
       .sort()
       .join("|");
-    recordScheduleSent({ host: hostId, cleaner: cleaner.id, weekMonday: picked[0], signature: sig }, token)
+    recordScheduleSent({ host: hostId, cleaner: cleaner.id, weekMonday: pickedWork[0], signature: sig }, token)
       .then(() =>
         setSentSchedules((p) => ({ ...p, [sentKey(cleaner.id, first)]: { signature: sig, sentAt: new Date().toISOString() } })),
       )
@@ -2070,11 +2079,16 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                   const span = lastTicked
                     ? Math.round((new Date(lastTicked + "T00:00:00").getTime() - startOfToday().getTime()) / 86400000) + 1
                     : 0;
-                  const days = Array.from({ length: Math.max(15, span) }, (_, i) => format(addDays(startOfToday(), i), "yyyy-MM-dd"));
                   const roomsOn = (d: string) =>
                     assignments
                       .filter((a) => a.cleaner?.id === cleaner.id && a.room && a.date === d && !isStaleCleaning(a.room.id, a.date))
-                      .map((a) => a.room!.name);
+                      .map((a) => a.room!);
+                  // Only the days this cleaner has rooms. Every day used to be
+                  // listed, "no rooms" on most, and a tick on one changed
+                  // nothing in the text (host, 2026-10-20: "No room, no show").
+                  const days = Array.from({ length: Math.max(15, span) }, (_, i) => format(addDays(startOfToday(), i), "yyyy-MM-dd")).filter(
+                    (d) => roomsOn(d).length > 0,
+                  );
                   const pickedRooms = days.filter((d) => pickedDays.has(d)).reduce((n, d) => n + roomsOn(d).length, 0);
                   const toggle = (d: string) =>
                     setPickedDays((p) => {
@@ -2085,7 +2099,12 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                     });
                   return (
                     <div className="flex flex-col gap-2">
-                      <div className="divide-y divide-gray-100 rounded-xl border border-gray-200">
+                      {days.length === 0 && (
+                        <p className="rounded-xl border border-gray-200 px-3 py-4 text-center text-sm text-gray-500">
+                          No rooms for {cleaner.name.split(" ")[0]} in the next two weeks.
+                        </p>
+                      )}
+                      <div className={`divide-y divide-gray-100 rounded-xl border border-gray-200 ${days.length ? "" : "hidden"}`}>
                         {days.map((d) => {
                           const on = pickedDays.has(d);
                           const rooms = roomsOn(d);
@@ -2106,8 +2125,18 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                                 ✓
                               </span>
                               <span className="w-24 shrink-0 text-sm font-semibold text-gray-900">{format(date, "EEE M/d")}</span>
-                              <span className={`min-w-0 truncate text-sm ${rooms.length ? "text-gray-700" : "text-gray-300"}`}>
-                                {rooms.length ? rooms.join(", ") : "no rooms"}
+                              {/* The rooms as Week draws them — each its own
+                                  coloured chip — so a day reads the same in both
+                                  places (host, 2026-10-20). */}
+                              <span className="flex min-w-0 flex-1 flex-wrap gap-1">
+                                {rooms.map((room, i) => (
+                                  <span
+                                    key={`${room.id}-${i}`}
+                                    className={`${getRoomColor(room.name, roomColorById.get(room.id))} rounded-md px-2 py-0.5 text-[13px] font-semibold text-black shadow-sm`}
+                                  >
+                                    {room.name}
+                                  </span>
+                                ))}
                               </span>
                             </button>
                           );
