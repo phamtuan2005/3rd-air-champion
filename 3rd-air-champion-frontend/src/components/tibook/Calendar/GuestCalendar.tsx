@@ -608,7 +608,11 @@ const MonthGrid = ({
       largeType && isWishlisted
         ? { fontSize: size, color: "#fbbf24", filter: "drop-shadow(0 0 5px rgba(251, 191, 36, 0.85))" }
         : { fontSize: size };
-    const holiday = isOutside ? undefined : usHolidayOn(dateKey);
+    // No holiday on a day already gone. The red tint and dot are there to stop
+    // a guest booking a holiday by accident, and nobody books the past (host,
+    // 2026-10-20: "I actually don't care the past"). Compared as yyyy-MM-dd
+    // strings, the guest's own today, like the rest of this grid.
+    const holiday = isOutside || dateKey < format(startOfToday(), "yyyy-MM-dd") ? undefined : usHolidayOn(dateKey);
     const bars = stayBars.get(dateKey);
     // Only an OCCUPIED night (a PM bar) is "your stay" for interaction — it opens
     // the detail and isn't bookable. The AM checkout cap is a visual only: that

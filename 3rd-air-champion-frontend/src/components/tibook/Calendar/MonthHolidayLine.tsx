@@ -1,4 +1,4 @@
-import { format, parseISO } from "date-fns";
+import { format, parseISO, startOfToday } from "date-fns";
 import { useTiBookTheme } from "../../../contexts/TiBookThemeContext";
 import { holidayLabel, usHolidaysInMonth } from "../../../util/usHolidays";
 
@@ -19,10 +19,18 @@ import { holidayLabel, usHolidaysInMonth } from "../../../util/usHolidays";
  */
 const MonthHolidayLine = ({ month, bottom = "0px", large = false }: { month?: Date; bottom?: string; large?: boolean }) => {
   const { theme } = useTiBookTheme();
-  const monthHolidays = month ? usHolidaysInMonth(month.getFullYear(), month.getMonth()) : [];
+  // Today onward only. A guest booking a stay has no use for a holiday that
+  // has passed — Columbus Day still named under October on the 20th was one
+  // more thing to read on the way to booking (host, 2026-10-20). The grid
+  // drops the past ones' tint and dot to match.
+  const todayKey = format(startOfToday(), "yyyy-MM-dd");
+  const monthHolidays = (month ? usHolidaysInMonth(month.getFullYear(), month.getMonth()) : []).filter(
+    ({ key }) => key >= todayKey,
+  );
   // No line at all for a month without a holiday. It used to print "No US
   // federal holidays in August", a whole row spent saying nothing; the
-  // calendar takes the room instead.
+  // calendar takes the room instead. A month whose holidays have all passed
+  // gets no line either.
   if (monthHolidays.length === 0) return null;
   return (
     // Sticky to the bottom of the SCREEN, not just of the calendar. Since

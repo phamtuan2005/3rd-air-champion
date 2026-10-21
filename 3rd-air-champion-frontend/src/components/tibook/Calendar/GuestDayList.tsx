@@ -295,7 +295,8 @@ const MonthSection = memo(({ month, days, top, drawn, data, size, handlers }: Mo
     const isToday = isSameDay(date, startOfToday());
     const isWeekend = date.getDay() === 0 || date.getDay() === 6;
     const gone = status === "past";
-    const holiday = usHolidayOn(key);
+    // None on a day already gone, as in the month grid (host, 2026-10-20).
+    const holiday = gone ? undefined : usHolidayOn(key);
 
     const h = handlers.current;
     const onClick =
