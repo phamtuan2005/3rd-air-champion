@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { format, parseISO } from "date-fns";
+import { parseISO } from "date-fns";
 import { useTiBookTheme } from "../../../contexts/TiBookThemeContext";
-import { holidayLabel, upcomingHolidaysInMonth } from "../../../util/usHolidays";
+import { useTiBookLang } from "../../../contexts/TiBookLanguageContext";
+import { holidayLabelForGuest, upcomingHolidaysInMonth } from "../../../util/usHolidays";
 
 /*
  * The US federal holidays in the month on screen, named in one line under the
@@ -39,6 +40,7 @@ const MonthHolidayLine = ({
   fallback?: ReactNode;
 }) => {
   const { theme } = useTiBookTheme();
+  const { fmtDate } = useTiBookLang();
   const monthHolidays = upcomingHolidaysInMonth(month);
   // A month without a holiday keeps the line's ROOM, empty. It used to print
   // "No US federal holidays in August", a row spent saying nothing; then it
@@ -80,7 +82,7 @@ const MonthHolidayLine = ({
           came out two sizes, so one bullet does both jobs now. */}
       <span className={`shrink-0 whitespace-pre font-semibold ${theme.alertText}`}>
         {monthHolidays
-          .map(({ key, holiday }) => `• ${format(parseISO(key), "EEE MMM d")} – ${holidayLabel(holiday)}`)
+          .map(({ key, holiday }) => `• ${fmtDate(parseISO(key), "EEE MMM d")} – ${holidayLabelForGuest(holiday)}`)
           .join("  ")}
       </span>
     </div>

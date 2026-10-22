@@ -1,4 +1,5 @@
 import { roomType } from "./types/roomType";
+import { t } from "../contexts/TiBookLanguageContext";
 
 // What a guest wants to know before choosing a room: how many people fit, what
 // the bathroom is, how private the space really is — and the rest of the
@@ -168,8 +169,12 @@ export const houseParking = "Free, safe street parking outside";
 //
 // Takes the host's first name so the sentence names the person whose face is
 // at the top of the same screen, rather than an abstract "your host".
+//
+// Through t() because only TiBook's strip shows it. The facts below are NOT
+// translated in this file: askTT matches on their English ("Shared", the
+// highlight words), so they are translated where they are drawn instead.
 export const hostOnSite = (hostFirstName?: string) =>
-  `Stay with ${hostFirstName || "your host"}, an engineer living here`;
+  t("Stay with {name}, an engineer living here", { name: hostFirstName || t("your host") });
 
 // The bathroom fact the AirBnB titles sell the house on, said at house level
 // on the host's instruction.

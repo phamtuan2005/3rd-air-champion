@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { useTiBookTheme, useCalendarView, type CalendarViewName } from "../../../contexts/TiBookThemeContext";
+import { useTiBookLang } from "../../../contexts/TiBookLanguageContext";
 
 // Month grid or day-by-day list. Sits beside Today in both layouts, and is
 // drawn off the same chrome tokens as Today so the two read as one set of
@@ -28,8 +29,9 @@ const VIEWS: { view: CalendarViewName; label: string; icon: ReactNode }[] = [
 const CalendarViewToggle = () => {
   const { theme } = useTiBookTheme();
   const { calendarView, setCalendarView } = useCalendarView();
+  const { t } = useTiBookLang();
   return (
-    <div role="group" aria-label="Show the calendar as" className={`flex shrink-0 overflow-hidden rounded border ${theme.chromeBorder}`}>
+    <div role="group" aria-label={t("Show the calendar as")} className={`flex shrink-0 overflow-hidden rounded border ${theme.chromeBorder}`}>
       {VIEWS.map(({ view, label, icon }) => {
         const on = calendarView === view;
         return (
@@ -37,8 +39,8 @@ const CalendarViewToggle = () => {
             key={view}
             type="button"
             aria-pressed={on}
-            aria-label={`Show the calendar as a ${view === "month" ? "month" : "list of days"}`}
-            title={label}
+            aria-label={t(view === "month" ? "Show the calendar as a month" : "Show the calendar as a list of days")}
+            title={t(label)}
             onClick={() => setCalendarView(view)}
             className={`flex items-center gap-1 px-2 py-1 text-xs transition-colors ${
               on ? `${theme.btn} font-semibold text-white` : `${theme.chromeMuted} ${theme.chromeHover}`
@@ -47,7 +49,7 @@ const CalendarViewToggle = () => {
             {icon}
             {/* Icons alone on a phone: in Hero this shares a row with the
                 month and "N nights open", and with words it cut that to "op…". */}
-            <span className="hidden sm:inline">{label}</span>
+            <span className="hidden sm:inline">{t(label)}</span>
           </button>
         );
       })}

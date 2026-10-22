@@ -1,5 +1,6 @@
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import { hostOnSite, houseBathrooms } from "../../util/roomFacts";
+import { useTiBookLang } from "../../contexts/TiBookLanguageContext";
 
 interface HouseFactsStripProps {
   // The full host name, as the avatar file in /public is named after it. The
@@ -30,6 +31,7 @@ interface HouseFactsStripProps {
 // still is.
 const HouseFactsStrip = ({ hostName }: HouseFactsStripProps) => {
   const { theme } = useTiBookTheme();
+  const { t } = useTiBookLang();
   const hostFirstName = (hostName ?? "").split(" ")[0];
 
   return (
@@ -73,7 +75,7 @@ const HouseFactsStrip = ({ hostName }: HouseFactsStripProps) => {
             <path d="M12 3s6 6.5 6 10a6 6 0 0 1-12 0c0-3.5 6-10 6-10z" />
           </svg>
           <span className={`text-xs font-semibold leading-tight ${theme.bandText}`}>
-            {houseBathrooms}
+            {t(houseBathrooms)}
           </span>
         </li>
       </ul>

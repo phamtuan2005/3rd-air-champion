@@ -3,8 +3,13 @@ import { roomType } from "./types/roomType";
 import { parseDateText } from "./dateText";
 import { getRoomFacts, houseBathrooms, houseKitchen, houseParking } from "./roomFacts";
 import { cancellationHeadline, formatCancellationPolicy } from "./cancellationPolicy";
-import { holidayLabel, usHolidayOn } from "./usHolidays";
+import { holidayLabelForGuest, usHolidayOn } from "./usHolidays";
 import { checkoutReading, chooseRoom, maxGuestsOf, monthAsked, readStay, stayLine, wantsToBook } from "./ttBooking";
+// What TT SAYS goes through t() and fmtDate — German when TiBook's language is
+// German, English otherwise (and always in the tests, which run without the
+// provider). What TT READS does not: the questions are still matched in
+// English, and the few German words below sit beside the English ones.
+import { currentLang, fmtDate, t } from "../contexts/TiBookLanguageContext";
 
 // TT, answering a GUEST.
 //
@@ -245,13 +250,51 @@ const MAX_NIGHTS = 31;
 const keyOf = (d: Date) => format(d, "yyyy-MM-dd");
 // The year only when it is not this one: dateText reads a day already gone
 // ("Oct 1" on the 2nd) as next year's, and the guest must see that it did.
+// "EEE MMM d, yyyy" has no German twin in fmtDate's table, so German's own
+// order is given here rather than letting the English order through in
+// German words ("Sa. Okt. 10, 2026").
 const niceDay = (key: string, today: Date) =>
-  format(parseISO(key), parseISO(key).getFullYear() === today.getFullYear() ? "EEE MMM d" : "EEE MMM d, yyyy");
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  fmtDate(
+    parseISO(key),
+    parseISO(key).getFullYear() === today.getFullYear() ? "EEE MMM d" : currentLang() === "de" ? "EEE d. MMM yyyy" : "EEE MMM d, yyyy",
+  );
+// The key is the English with its "s" — "{n} night" / "{n} nights" — so
+// German, which does not plural with an "s", gets a line of its own for each.
+const plural = (n: number, word: string) => t(n === 1 ? `{n} ${word}` : `{n} ${word}s`, { n });
 const names = (rooms: TTRoom[]) => rooms.map((r) => r.name).join(", ");
 
 const has = (q: string, ...words: string[]) =>
   words.some((w) => new RegExp(`\\b${w}`, "i").test(q));
+
+// A few German words for the topics, now that TiBook answers German guests
+// in German. Only ADDED beside the English, never instead: the topic order
+// below is unchanged, and dates are still read in English (dateText.ts). Like
+// the English, each matches from the start of a word; a short one that is
+// also the start of an English word ends in \b ("hund" is in "hundred",
+// "bett" in "better").
+const DE_ASKED = {
+  extend: ["verlänger"],
+  cancel: ["stornier", "absagen", "erstattung"],
+  myBookings: ["meine buchung", "meine reservierung"],
+  luggage: ["gepäck", "koffer"],
+  checkIn: ["anreise", "abreise", "ankunft", "einchecken", "auschecken", "schlüssel"],
+  // Not "bezahlen" alone: "wie viel muss ich bezahlen" asks the price, as
+  // "how much do I pay" does in English.
+  payment: ["wie (?:kann|soll) ich (?:be)?zahlen", "bezahlung", "zahlungs", "kreditkarte", "kaution", "gebühr", "rechnung", "überweisung"],
+  longStay: ["monatlich", "langzeit", "eine woche"],
+  price: ["preis", "kosten", "kostet", "wie viel\\b", "wieviel\\b", "günstig", "rabatt"],
+  kitchen: ["küche", "kochen", "kühlschrank", "mikrowelle", "kaffee", "essen\\b"],
+  bathroom: ["badezimmer", "dusche", "toilette", "warmwasser", "warmes wasser"],
+  houseRules: ["haustier", "hund\\b", "hunde\\b", "katze", "rauchen", "raucher", "lärm", "laut\\b", "regeln", "besuch", "kinder"],
+  location: ["wo\\b", "adresse", "lage\\b", "flughafen", "bahnhof", "entfernung", "wie weit", "in der nähe", "gegend", "abholen"],
+  photos: ["foto", "bilder", "bild\\b", "aussehen"],
+  host: ["gastgeber", "anrufen", "nachricht", "sprechen", "kontaktieren"],
+  booking: ["buchen", "buchung", "reservieren"],
+  rooms: ["zimmer", "bett\\b", "betten", "schlafen", "wie viele"],
+  greeting: ["hallo", "guten tag", "guten morgen", "guten abend", "moin", "servus", "grüß"],
+  thanks: ["danke", "vielen dank"],
+  wish: ["wunschliste"],
+};
 
 // Runs of consecutive nights, each one stay as the guest would describe it.
 const runsOf = (keys: string[]): string[][] => {
@@ -333,10 +376,12 @@ const roomsFitting = (rooms: TTRoom[], party: number | null) =>
 const rateLine = (room: TTRoom, ctx: AskTTContext): string | null => {
   const rate = ctx.myRates.get(room.id);
   if (rate == null) return null;
-  return rate === 0 ? `${room.name}: family — no charge, agreed with ${ctx.hostFirstName}.` : `${room.name}: your price is $${rate}/night.`;
+  return rate === 0
+    ? t("{room}: family — no charge, agreed with {host}.", { room: room.name, host: ctx.hostFirstName })
+    : t("{room}: your price is ${rate}/night.", { room: room.name, rate });
 };
 
-const chat = (ctx: AskTTContext, label?: string): TTAction => ({ kind: "chat", label: label ?? `Ask ${ctx.hostFirstName}` });
+const chat = (ctx: AskTTContext, label?: string): TTAction => ({ kind: "chat", label: label ?? t("Ask {host}", { host: ctx.hostFirstName }) });
 
 // How a reply was asked for. `booking` is set when the guest has said they
 // want to BOOK — in this question, or in the one before it ("I'd like to book"
@@ -359,11 +404,11 @@ const JUST_LOOKING: Asked = { booking: false, party: null };
 const pick = (ctx: AskTTContext, what: string, dates: string[], roomId: string | null, asked: Asked = JUST_LOOKING): TTAction => {
   if (roomId && (ctx.guest || asked.booking)) {
     const alt = asked.alt && asked.alt.length > 0 && asked.alt.length === dates.length - 1 ? asked.alt : undefined;
-    return { kind: "book", label: `Book ${what} →`, dates, roomId, party: asked.party, ...(alt ? { alt } : {}) };
+    return { kind: "book", label: t("Book {what} →", { what }), dates, roomId, party: asked.party, ...(alt ? { alt } : {}) };
   }
   return ctx.guest
-    ? { kind: "pick", label: `Request ${what} →`, dates, roomId, review: true }
-    : { kind: "pick", label: `Choose ${what}`, dates, roomId };
+    ? { kind: "pick", label: t("Request {what} →", { what }), dates, roomId, review: true }
+    : { kind: "pick", label: t("Choose {what}", { what }), dates, roomId };
 };
 
 // The guest's rooms first, in the order the greeting and the usual-stay popup
@@ -376,7 +421,7 @@ const usualFirst = (rooms: TTRoom[], ctx: AskTTContext) => {
   return [...rooms].sort((a, b) => rank(a.id) - rank(b.id));
 };
 const roomLabel = (r: TTRoom, ctx: AskTTContext) =>
-  r.id === ctx.guest?.usualRoomId ? `${r.name} (your usual)` : r.name;
+  r.id === ctx.guest?.usualRoomId ? t("{room} (your usual)", { room: r.name }) : r.name;
 
 // ── Availability ─────────────────────────────────────────────────────────────
 const answerDates = (
@@ -392,11 +437,23 @@ const answerDates = (
   const actions: TTAction[] = [];
   if (past.length > 0 && dates.length === 0) {
     return {
-      lines: [`${past.length === 1 ? nice(past[0]) + " has" : "Those nights have"} already passed. Which dates are you thinking of next?`],
-      actions: [{ kind: "ask", label: "This weekend", query: "this weekend" }],
+      lines: [
+        past.length === 1
+          ? t("{day} has already passed. Which dates are you thinking of next?", { day: nice(past[0]) })
+          : t("Those nights have already passed. Which dates are you thinking of next?"),
+      ],
+      // The label is in the guest's language; the query stays English because
+      // the parser reads English. The chip shows German, TT reads "this weekend".
+      actions: [{ kind: "ask", label: t("This weekend"), query: "this weekend" }],
     };
   }
-  if (past.length > 0) lines.push(`${plural(past.length, "night")} you mentioned ${past.length === 1 ? "has" : "have"} already passed, so I've left ${past.length === 1 ? "it" : "them"} out.`);
+  if (past.length > 0) {
+    lines.push(
+      past.length === 1
+        ? t("{nights} you mentioned has already passed, so I've left it out.", { nights: plural(past.length, "night") })
+        : t("{nights} you mentioned have already passed, so I've left them out.", { nights: plural(past.length, "night") }),
+    );
+  }
 
   const askedNights = dates.slice(0, MAX_NIGHTS);
   // Said FIRST, before which rooms are free: a returning guest asking for
@@ -406,21 +463,26 @@ const answerDates = (
   const holidays = askedNights.filter((k) => usHolidayOn(k));
   if (holidays.length > 0) {
     lines.push(
-      `Heads up — ${holidays.map((k) => `${nice(k)} is ${holidayLabel(usHolidayOn(k)!)}`).join(", ")}, a US holiday. Make sure you mean to stay ${holidays.length === 1 ? "that night" : "those nights"}.`,
+      t(
+        holidays.length === 1
+          ? "Heads up — {days}, a US holiday. Make sure you mean to stay that night."
+          : "Heads up — {days}, a US holiday. Make sure you mean to stay those nights.",
+        { days: holidays.map((k) => t("{day} is {holiday}", { day: nice(k), holiday: holidayLabelForGuest(usHolidayOn(k)!) })).join(", ") },
+      ),
     );
   }
-  if (dates.length > MAX_NIGHTS) lines.push(`That's ${dates.length} nights — I've looked at the first ${MAX_NIGHTS}. The calendar shows the rest.`);
+  if (dates.length > MAX_NIGHTS) lines.push(t("That's {n} nights — I've looked at the first {max}. The calendar shows the rest.", { n: dates.length, max: MAX_NIGHTS }));
 
   // The rooms this question is about: the one named, else every room that
   // fits the party.
   const scope = room ? [room] : roomsFitting(ctx.rooms, party);
   if (party != null && !room && scope.length === 0) {
     return {
-      lines: [`No single room here sleeps ${party}. ${ctx.hostFirstName} can tell you how to split the party across two rooms.`],
+      lines: [t("No single room here sleeps {n}. {host} can tell you how to split the party across two rooms.", { n: party, host: ctx.hostFirstName })],
       actions: [chat(ctx)],
     };
   }
-  if (party != null && !room) lines.push(`For ${plural(party, "guest")}: ${names(scope)}.`);
+  if (party != null && !room) lines.push(t("For {guests}: {rooms}.", { guests: plural(party, "guest"), rooms: names(scope) }));
   const scopeIds = new Set(scope.map((r) => r.id));
   const freeIn = (key: string) => ctx.freeRoomsOn(key).filter((r) => scopeIds.has(r.id));
 
@@ -436,41 +498,52 @@ const answerDates = (
     if (wholeStay.length > 0) {
       lines.push(
         room
-          ? `${span} (${nightsWord}): ${room.name} is free ✓`
-          : `${span} (${nightsWord}): free for the whole stay — ${wholeStay.map((r) => roomLabel(r, ctx)).join(", ")}.`,
+          ? t("{span} ({nights}): {room} is free ✓", { span, nights: nightsWord, room: room.name })
+          : t("{span} ({nights}): free for the whole stay — {rooms}.", { span, nights: nightsWord, rooms: wholeStay.map((r) => roomLabel(r, ctx)).join(", ") }),
       );
-      const forSpan = askedNights.length > run.length ? ` for ${span}` : "";
+      const forSpan = askedNights.length > run.length ? t(" for {span}", { span }) : "";
       wholeStay.slice(0, 3).forEach((r) => actions.push(pick(ctx, r.name + forSpan, run, r.id, asked)));
-      if (!room && wholeStay.length > 1) actions.push(pick(ctx, "any room" + forSpan, run, null, asked));
+      if (!room && wholeStay.length > 1) actions.push(pick(ctx, t("any room") + forSpan, run, null, asked));
     } else if (fullNights.length === 0) {
       // Every night has a room, just not the same one. Two stays, said so
       // (TIBOOK.md rule 2) — the guest is not told "nothing is free".
-      lines.push(`${span}: there's a room every night, but no one room for all ${nightsWord} — you'd move once. ${perNight.map((n) => `${nice(n.key)}: ${names(n.free)}`).join(" · ")}.`);
-      actions.push(pick(ctx, `these ${nightsWord}`, run, null));
+      lines.push(
+        t("{span}: there's a room every night, but no one room for all {nights} — you'd move once. {each}.", {
+          span,
+          nights: nightsWord,
+          each: perNight.map((n) => `${nice(n.key)}: ${names(n.free)}`).join(" · "),
+        }),
+      );
+      actions.push(pick(ctx, t("these {nights}", { nights: nightsWord }), run, null));
     } else if (fullNights.length === run.length) {
-      lines.push(room ? `${span}: ${room.name} is taken.` : `${span}: sold out, I'm sorry.`);
+      lines.push(room ? t("{span}: {room} is taken.", { span, room: room.name }) : t("{span}: sold out, I'm sorry.", { span }));
       if (room) {
         const others = ctx.rooms.filter((r) => r.id !== room.id && run.every((k) => ctx.freeRoomsOn(k).some((f) => f.id === r.id)));
         if (others.length > 0) {
-          lines.push(`Free instead for those nights: ${names(others)}.`);
+          lines.push(t("Free instead for those nights: {rooms}.", { rooms: names(others) }));
           usualFirst(others, ctx).slice(0, 2).forEach((r) => actions.push(pick(ctx, r.name, run, r.id, asked)));
         }
       }
     } else {
       const open = perNight.filter((n) => n.free.length > 0);
-      lines.push(`${span}: ${room ? `${room.name} is taken` : "sold out"} on ${fullNights.map(nice).join(", ")}. Free: ${open.map((n) => `${nice(n.key)} (${names(n.free)})`).join(" · ")}.`);
+      const vars = { span, days: fullNights.map(nice).join(", "), free: open.map((n) => `${nice(n.key)} (${names(n.free)})`).join(" · ") };
+      lines.push(
+        room
+          ? t("{span}: {room} is taken on {days}. Free: {free}.", { ...vars, room: room.name })
+          : t("{span}: sold out on {days}. Free: {free}.", vars),
+      );
       const openKeys = open.map((n) => n.key);
       // A Book button only for nights that are still one stay; free nights
       // with a sold-out one between them go to the calendar, which splits them.
       const oneRun = runsOf(openKeys).length === 1;
-      actions.push(pick(ctx, `the ${plural(open.length, "free night")}`, openKeys, room && oneRun ? room.id : null, asked));
+      actions.push(pick(ctx, t("the {nights}", { nights: plural(open.length, "free night") }), openKeys, room && oneRun ? room.id : null, asked));
     }
   }
   // A night nobody can have is still worth the host knowing about: the wish
   // list is how a guest says "tell me if this opens up". Added for them, not
   // described (rule 5).
   if (soldOut.length > 0) {
-    actions.push({ kind: "wish", label: `★ Wish list the ${plural(soldOut.length, "full night")}`, dates: soldOut });
+    actions.push({ kind: "wish", label: t("★ Wish list the {nights}", { nights: plural(soldOut.length, "full night") }), dates: soldOut });
   }
   return { lines, actions };
 };
@@ -495,8 +568,10 @@ const answerBooking = (
     const fit = roomsFitting(ctx.rooms, party).filter((r) => dates.length > 0 && dates.every((k) => ctx.freeRoomsOn(k).some((f) => f.id === r.id)));
     return {
       lines: [
-        `${room.name} sleeps up to ${maxGuestsOf(room)}, so it can't take ${party}.`,
-        fit.length > 0 ? `Free for ${plural(party, "guest")} on those nights: ${names(fit)}.` : `${ctx.hostFirstName} can help you split the party across two rooms.`,
+        t("{room} sleeps up to {max}, so it can't take {n}.", { room: room.name, max: maxGuestsOf(room), n: party }),
+        fit.length > 0
+          ? t("Free for {guests} on those nights: {rooms}.", { guests: plural(party, "guest"), rooms: names(fit) })
+          : t("{host} can help you split the party across two rooms.", { host: ctx.hostFirstName }),
       ],
       actions: fit.length > 0 ? fit.slice(0, 3).map((r) => pick(ctx, r.name, dates, r.id, asked)) : [chat(ctx)],
     };
@@ -506,17 +581,17 @@ const answerBooking = (
     const r = choice.room;
     const alt = asked.alt && asked.alt.length === dates.length - 1 ? asked.alt : undefined;
     return {
-      lines: [`${r.name} is free — ${stayLine(dates)}. Let's book it.`],
+      lines: [t("{room} is free — {stay}. Let's book it.", { room: r.name, stay: stayLine(dates) })],
       actions: [],
       book: { roomId: r.id, dates, party, ...(alt ? { alt } : {}) },
     };
   }
   if (choice.kind === "choose") {
     return {
-      lines: [`${stayLine(dates)}. Free for the whole stay: ${choice.rooms.map((r) => roomLabel(r, ctx)).join(", ")}. Which room would you like?`],
+      lines: [t("{stay}. Free for the whole stay: {rooms}. Which room would you like?", { stay: stayLine(dates), rooms: choice.rooms.map((r) => roomLabel(r, ctx)).join(", ") })],
       actions: [
         ...usualFirst(choice.rooms, ctx).slice(0, 5).map((r) => pick(ctx, r.name, dates, r.id, asked)),
-        { kind: "ask", label: "Compare the rooms", query: party ? `rooms for ${party} guests` : "rooms" },
+        { kind: "ask", label: t("Compare the rooms"), query: party ? `rooms for ${party} guests` : "rooms" },
       ],
     };
   }
@@ -525,23 +600,42 @@ const answerBooking = (
 
 // "Anything in November?" — the month at a glance, never thirty buttons.
 const answerMonth = (nights: string[], ctx: AskTTContext, room: TTRoom | null): TTReply => {
-  const month = format(parseISO(nights[0]), "MMMM");
+  const month = fmtDate(parseISO(nights[0]), "MMMM");
   const free = (k: string) => ctx.freeRoomsOn(k).filter((r) => !room || r.id === room.id).length > 0;
   const full = nights.filter((k) => !free(k));
-  const nice = (k: string) => format(parseISO(k), "MMM d");
-  const who = room ? room.name : "a room";
+  const nice = (k: string) => fmtDate(parseISO(k), "MMM d");
+  // German writes a run inside one month as "3.–5. Nov.", English "Nov 3–5".
+  const runLabel = (r: string[]) =>
+    r.length === 1
+      ? nice(r[0])
+      : currentLang() === "de"
+        ? `${fmtDate(parseISO(r[0]), "d.")}–${nice(r[r.length - 1])}`
+        : `${nice(r[0])}–${format(parseISO(r[r.length - 1]), "d")}`;
+  const who = room ? room.name : t("a room");
   return {
     lines: [
       full.length === 0
-        ? `${month}: ${who} is free every night ✓`
+        ? t("{month}: {who} is free every night ✓", { month, who })
         : full.length === nights.length
-          ? `${month}: ${room ? `${room.name} is taken` : "sold out"} every night, I'm sorry.`
-          : `${month}: ${who} is free on ${nights.length - full.length} of ${nights.length} nights. Taken: ${runsOf(full).map((r) => (r.length === 1 ? nice(r[0]) : `${nice(r[0])}–${format(parseISO(r[r.length - 1]), "d")}`)).join(", ")}.`,
-      `Tell me the nights — like “${format(parseISO(nights[0]), "MMM d")}-${format(addDays(parseISO(nights[0]), 2), "d")}” — and I'll book them.`,
+          ? room
+            ? t("{month}: {room} is taken every night, I'm sorry.", { month, room: room.name })
+            : t("{month}: sold out every night, I'm sorry.", { month })
+          : t("{month}: {who} is free on {free} of {n} nights. Taken: {taken}.", {
+              month,
+              who,
+              free: nights.length - full.length,
+              n: nights.length,
+              taken: runsOf(full).map(runLabel).join(", "),
+            }),
+      // The example stays in English date words on purpose: it is something
+      // to TYPE, and the date parser reads English.
+      t("Tell me the nights — like “{example}” — and I'll book them.", {
+        example: `${format(parseISO(nights[0]), "MMM d")}-${format(addDays(parseISO(nights[0]), 2), "d")}`,
+      }),
     ],
     // Only house-wide sold-out nights: the wish list says "tell me if a room
     // opens", and a night only the named room is taken on has rooms open.
-    actions: !room && full.length > 0 ? [{ kind: "wish", label: `★ Wish list the ${plural(full.length, "full night")}`, dates: full }] : [],
+    actions: !room && full.length > 0 ? [{ kind: "wish", label: t("★ Wish list the {nights}", { nights: plural(full.length, "full night") }), dates: full }] : [],
   };
 };
 
@@ -550,21 +644,24 @@ const answerRoom = (room: TTRoom, ctx: AskTTContext): TTReply => {
   const facts = getRoomFacts(room.airbnbUrl);
   const lines: string[] = [];
   if (facts) {
-    lines.push(`${room.name} sleeps up to ${facts.maxGuests} · ${facts.beds.map((b) => b.label).join(" + ")}.`);
-    lines.push(facts.bathroom.replace(/ /g, " ") + ".");
-    lines.push(facts.privacy + ".");
-    lines.push(facts.highlights.join(" · "));
+    // The listing's own words (roomFacts.ts) go through t() as well, so a
+    // German line for one, added anywhere in the dictionary, is used here
+    // too; one with none stays in the listing's English.
+    lines.push(t("{room} sleeps up to {max} · {beds}.", { room: room.name, max: facts.maxGuests, beds: facts.beds.map((b) => t(b.label)).join(" + ") }));
+    lines.push(t(facts.bathroom).replace(/ /g, " ") + ".");
+    lines.push(t(facts.privacy) + ".");
+    lines.push(facts.highlights.map((h) => t(h)).join(" · "));
   } else {
-    lines.push(`${room.name} is one of the ${ctx.rooms.length} rooms. ${ctx.hostFirstName} can tell you more about it.`);
+    lines.push(t("{room} is one of the {n} rooms. {host} can tell you more about it.", { room: room.name, n: ctx.rooms.length, host: ctx.hostFirstName }));
   }
   const rate = rateLine(room, ctx);
   if (rate) lines.push(rate);
   return {
     lines,
     actions: [
-      { kind: "photos", label: `See ${room.name}'s photos`, roomId: room.id },
-      { kind: "room", label: `Show ${room.name}'s free nights`, roomId: room.id },
-      { kind: "ask", label: `Is ${room.name} free this weekend?`, query: `${room.name} this weekend` },
+      { kind: "photos", label: t("See {room}'s photos", { room: room.name }), roomId: room.id },
+      { kind: "room", label: t("Show {room}'s free nights", { room: room.name }), roomId: room.id },
+      { kind: "ask", label: t("Is {room} free this weekend?", { room: room.name }), query: `${room.name} this weekend` },
       ...(ctx.reviews?.rooms[room.id] ? [reviewsOf(room)] : []),
       ...(ctx.reviews?.latest?.[room.id] ? [latestOf(room)] : []),
     ],
@@ -581,15 +678,18 @@ const answerRoom = (room: TTRoom, ctx: AskTTContext): TTReply => {
 // must be reading what the house stands behind.
 const REVIEW_WORDS =
   /\b(?:reviews?|reviewed|ratings?|rated|stars|feedback|testimonials?)\b|\bwhat (?:do|did|have) (?:the )?(?:other |previous |past |former |last |latest |recent |most recent )?(?:guests?|people) (?:say|said|think|thought|write|written|like|liked)\b/;
-const askedAboutReviews = (q: string) => REVIEW_WORDS.test(q.toLowerCase());
+// "Bewertung(en)" beside the English (see DE_ASKED).
+const askedAboutReviews = (q: string) => REVIEW_WORDS.test(q.toLowerCase()) || /\bbewertung/.test(q.toLowerCase());
 // "King's latest review", "the most recent reviews", "what did the last guest
 // think". Only ever read AFTER askedAboutReviews, so "last" here is never
 // "last weekend".
 const LATEST_WORDS = /\b(?:latest|newest|most recent|recent|last|lastest)\b/;
 const askedForLatest = (q: string) => LATEST_WORDS.test(q.toLowerCase());
 
-const reviewsOf = (room: TTRoom): TTAction => ({ kind: "ask", label: `What guests say about ${room.name}`, query: `${room.name} reviews` });
-const latestOf = (room: TTRoom): TTAction => ({ kind: "ask", label: `${room.name}'s latest review`, query: `${room.name} latest review` });
+// The label in the guest's language, the query in English: the parser reads
+// English, so the chip shows German and still asks "King reviews".
+const reviewsOf = (room: TTRoom): TTAction => ({ kind: "ask", label: t("What guests say about {room}", { room: room.name }), query: `${room.name} reviews` });
+const latestOf = (room: TTRoom): TTAction => ({ kind: "ask", label: t("{room}'s latest review", { room: room.name }), query: `${room.name} latest review` });
 
 // "Gail · September 2026 · ★★★★★" — who wrote it (first name, as on AirBnB;
 // host, 2026-10-09), and how recent "latest" is, said every time, so a guest
@@ -602,8 +702,12 @@ export const starRow = (n: number) => "★".repeat(n) + "☆".repeat(Math.max(0,
 // stays were found (2026-10-10). Shared with TiMag's TT box so the two agree.
 export const latestDateLabel = (l: Pick<TTLatestReview, "month" | "stayDate">) =>
   l.stayDate ? format(parseISO(l.stayDate), "MMM d, yyyy") : format(parseISO(`${l.month}-01`), "MMMM yyyy");
+// latestDateLabel is TiMag's too, and the host reads English, so the guest's
+// date is made here and that one is left alone.
+const latestDateForGuest = (l: Pick<TTLatestReview, "month" | "stayDate">) =>
+  l.stayDate ? fmtDate(parseISO(l.stayDate), "MMM d, yyyy") : fmtDate(parseISO(`${l.month}-01`), "MMMM yyyy");
 const latestWhen = (l: TTLatestReview) =>
-  [l.guest ?? "", latestDateLabel(l), l.stars ? starRow(l.stars) : ""].filter(Boolean).join(" · ");
+  [l.guest ?? "", latestDateForGuest(l), l.stars ? starRow(l.stars) : ""].filter(Boolean).join(" · ");
 
 // The newest review of a room, as the host published its summary. No room
 // named: each room's, one line apiece, since "latest" of the house would be
@@ -615,11 +719,11 @@ const answerLatestReview = (ctx: AskTTContext, room: TTRoom | null): TTReply => 
     const l = r?.latest?.[room.id];
     if (l) {
       return {
-        lines: [`${room.name}'s latest review — ${latestWhen(l)}:`, l.summary],
+        lines: [t("{room}'s latest review — {when}:", { room: room.name, when: latestWhen(l) }), l.summary],
         actions: [
           ...(r?.rooms[room.id] ? [reviewsOf(room)] : []),
-          { kind: "photos", label: `See ${room.name}'s photos`, roomId: room.id },
-          { kind: "room", label: `Show ${room.name}'s free nights`, roomId: room.id },
+          { kind: "photos", label: t("See {room}'s photos", { room: room.name }), roomId: room.id },
+          { kind: "room", label: t("Show {room}'s free nights", { room: room.name }), roomId: room.id },
         ],
       };
     }
@@ -628,8 +732,10 @@ const answerLatestReview = (ctx: AskTTContext, room: TTRoom | null): TTReply => 
     const said = r?.rooms[room.id];
     return {
       lines: [
-        `I don't have ${room.name}'s latest review yet.`,
-        ...(said ? [`Here's what guests say about ${room.name} overall:`, said] : [`${ctx.hostFirstName} can tell you what the last guests thought.`]),
+        t("I don't have {room}'s latest review yet.", { room: room.name }),
+        ...(said
+          ? [t("Here's what guests say about {room} overall:", { room: room.name }), said]
+          : [t("{host} can tell you what the last guests thought.", { host: ctx.hostFirstName })]),
       ],
       actions: [...withLatest.filter((x) => x.id !== room.id).slice(0, 3).map(latestOf), chat(ctx)],
       answered: false,
@@ -637,25 +743,27 @@ const answerLatestReview = (ctx: AskTTContext, room: TTRoom | null): TTReply => 
   }
   if (withLatest.length === 0) {
     return {
-      lines: [`I don't have the latest reviews yet — ${ctx.hostFirstName} can tell you what recent guests thought.`],
+      lines: [t("I don't have the latest reviews yet — {host} can tell you what recent guests thought.", { host: ctx.hostFirstName })],
       actions: [...reviewStarter(ctx), chat(ctx)],
       answered: false,
     };
   }
   return {
     lines: [
-      "The latest review of each room:",
+      t("The latest review of each room:"),
       ...withLatest.map((x) => {
         const l = r!.latest![x.id];
         return `${x.name} (${latestWhen(l)}): ${l.summary}`;
       }),
     ],
-    actions: [...reviewStarter(ctx), ...withLatest.slice(0, 3).map((x) => ({ kind: "photos" as const, label: `See ${x.name}'s photos`, roomId: x.id }))],
+    actions: [...reviewStarter(ctx), ...withLatest.slice(0, 3).map((x) => ({ kind: "photos" as const, label: t("See {room}'s photos", { room: x.name }), roomId: x.id }))],
   };
 };
 
 const ratingLine = (r: TTReviews | undefined): string | null =>
-  r?.rating && r.count ? `Rated ${r.rating} ★ across ${plural(r.count, "AirBnB review")}.` : null;
+  r?.rating && r.count
+    ? t("Rated {rating} ★ across {reviews}.", { rating: currentLang() === "de" ? String(r.rating).replace(".", ",") : r.rating, reviews: plural(r.count, "AirBnB review") })
+    : null;
 
 const answerReviews = (ctx: AskTTContext, room: TTRoom | null): TTReply => {
   const r = ctx.reviews;
@@ -664,7 +772,7 @@ const answerReviews = (ctx: AskTTContext, room: TTRoom | null): TTReply => {
     const said = r?.rooms[room.id];
     if (said) {
       return {
-        lines: [`What guests say about ${room.name}:`, said],
+        lines: [t("What guests say about {room}:", { room: room.name }), said],
         // The latest review is ALWAYS the next step from one room's reviews,
         // published or not (host, 2026-10-08) — unlike the other review
         // buttons, which only appear when there is something to show. A tap
@@ -672,9 +780,9 @@ const answerReviews = (ctx: AskTTContext, room: TTRoom | null): TTReply => {
         // guests want it.
         actions: [
           latestOf(room),
-          { kind: "photos", label: `See ${room.name}'s photos`, roomId: room.id },
-          { kind: "room", label: `Show ${room.name}'s free nights`, roomId: room.id },
-          ...(r?.house ? [{ kind: "ask" as const, label: "What guests say about the house", query: "reviews" }] : []),
+          { kind: "photos", label: t("See {room}'s photos", { room: room.name }), roomId: room.id },
+          { kind: "room", label: t("Show {room}'s free nights", { room: room.name }), roomId: room.id },
+          ...(r?.house ? [{ kind: "ask" as const, label: t("What guests say about the house"), query: "reviews" }] : []),
         ],
       };
     }
@@ -682,8 +790,10 @@ const answerReviews = (ctx: AskTTContext, room: TTRoom | null): TTReply => {
     // saying, but the question was not answered and the host should see it.
     return {
       lines: [
-        `I don't have a summary of ${room.name}'s reviews yet.`,
-        ...(r?.house ? ["Here's what guests say about the house:", r.house] : [`${ctx.hostFirstName} can tell you what guests think of it.`]),
+        t("I don't have a summary of {room}'s reviews yet.", { room: room.name }),
+        ...(r?.house
+          ? [t("Here's what guests say about the house:"), r.house]
+          : [t("{host} can tell you what guests think of it.", { host: ctx.hostFirstName })]),
       ],
       actions: [latestOf(room), ...roomsWithReviews.slice(0, 3).map(reviewsOf), chat(ctx)],
       answered: false,
@@ -694,14 +804,14 @@ const answerReviews = (ctx: AskTTContext, room: TTRoom | null): TTReply => {
     return {
       lines: [
         ...(rating ? [rating] : []),
-        `I don't have a summary of the reviews yet — ${ctx.hostFirstName} can tell you what guests say.`,
+        t("I don't have a summary of the reviews yet — {host} can tell you what guests say.", { host: ctx.hostFirstName }),
       ],
       actions: [...roomsWithReviews.slice(0, 3).map(reviewsOf), chat(ctx)],
       answered: false,
     };
   }
   return {
-    lines: [...(rating ? [rating] : []), "What guests say about TT House:", r.house],
+    lines: [...(rating ? [rating] : []), t("What guests say about TT House:"), r.house],
     // Each room's own summary one tap away, so a guest weighing two rooms
     // does not have to type the question twice.
     actions: roomsWithReviews.slice(0, 5).map(reviewsOf),
@@ -711,17 +821,19 @@ const answerReviews = (ctx: AskTTContext, room: TTRoom | null): TTReply => {
 const answerRooms = (ctx: AskTTContext, party: number | null): TTReply => {
   const fit = roomsFitting(ctx.rooms, party);
   if (fit.length === 0) {
-    return { lines: [`No single room here sleeps ${party}. ${ctx.hostFirstName} can help you split the party across two.`], actions: [chat(ctx)] };
+    return { lines: [t("No single room here sleeps {n}. {host} can help you split the party across two.", { n: String(party), host: ctx.hostFirstName })], actions: [chat(ctx)] };
   }
   return {
     lines: [
-      party != null ? `For ${plural(party, "guest")}:` : `There are ${ctx.rooms.length} rooms:`,
+      party != null ? t("For {guests}:", { guests: plural(party, "guest") }) : t("There are {n} rooms:", { n: ctx.rooms.length }),
       ...fit.map((r) => {
         const f = getRoomFacts(r.airbnbUrl);
-        return f ? `${r.name} — up to ${f.maxGuests}, ${f.bathroom.startsWith("Shared") ? "shared bathroom" : "private bathroom"}` : r.name;
+        return f
+          ? t(f.bathroom.startsWith("Shared") ? "{room} — up to {max}, shared bathroom" : "{room} — up to {max}, private bathroom", { room: r.name, max: f.maxGuests })
+          : r.name;
       }),
     ],
-    actions: fit.slice(0, 4).map((r) => ({ kind: "ask" as const, label: `About ${r.name}`, query: r.name })),
+    actions: fit.slice(0, 4).map((r) => ({ kind: "ask" as const, label: t("About {room}", { room: r.name }), query: r.name })),
   };
 };
 
@@ -735,6 +847,7 @@ const answerRooms = (ctx: AskTTContext, party: number | null): TTReply => {
 // understood that" for a towel).
 //
 // Order matters: "hair dryer" and "body wash" before the washer and dryer.
+// The German words at the end of some `asked` are additions, as DE_ASKED's are.
 interface Amenity {
   asked: RegExp;
   label: string;
@@ -744,18 +857,18 @@ interface Amenity {
   basic?: boolean;
 }
 const AMENITIES: Amenity[] = [
-  { asked: /\b(?:wi-?fi|internet)\b/i, label: "wifi", listed: /wifi/i },
-  { asked: /\b(?:air ?con\w*|a\/c|ac|cooling)\b/i, label: "air conditioning", listed: /air conditioning/i },
-  { asked: /\b(?:heat\w*|cold)\b/i, label: "heating", listed: /heating/i },
-  { asked: /\b(?:tv|television|netflix|streaming)\b/i, label: "a TV", listed: /\btv\b/i },
+  { asked: /\b(?:wi-?fi|internet|wlan)\b/i, label: "wifi", listed: /wifi/i },
+  { asked: /\b(?:air ?con\w*|a\/c|ac|cooling|klimaanlage|klima)\b/i, label: "air conditioning", listed: /air conditioning/i },
+  { asked: /\b(?:heat\w*|cold|heizung)\b/i, label: "heating", listed: /heating/i },
+  { asked: /\b(?:tv|television|netflix|streaming|fernseher)\b/i, label: "a TV", listed: /\btv\b/i },
   { asked: /\b(?:work from|working from|work remotely|desk|workspace|office|zoom)\b/i, label: "a dedicated workspace", listed: /workspace/i },
   { asked: /\bfans?\b/i, label: "a fan", listed: /\bfans?\b/i },
   { asked: /\b(?:locks?|lockable|locked)\b/i, label: "a lock on the door", listed: /lock on the door/i },
   { asked: /\b(?:balcony|backyard|yard|garden|patio|outdoor)\b/i, label: "outdoor space", listed: /backyard|balcony/i },
-  { asked: /\b(?:towels?|linens?|sheets|bedding)\b/i, label: "towels and bed linen", listed: /towels|linen/i, basic: true },
-  { asked: /\b(?:hair ?dryer|blow ?dryer)\b/i, label: "a hair dryer" },
+  { asked: /\b(?:towels?|linens?|sheets|bedding|handtücher|handtuch|bettwäsche)\b/i, label: "towels and bed linen", listed: /towels|linen/i, basic: true },
+  { asked: /\b(?:hair ?dryer|blow ?dryer|föhn|fön|haartrockner)\b/i, label: "a hair dryer" },
   { asked: /\b(?:shampoo|conditioner|soap|body wash|toiletries|toothbrush|toothpaste)\b/i, label: "toiletries" },
-  { asked: /\b(?:laundry|washer|washing machine|dryer|wash)\b/i, label: "a washer or dryer", listed: /washer|laundry/i },
+  { asked: /\b(?:laundry|washer|washing machine|dryer|wash|waschmaschine|trockner)\b/i, label: "a washer or dryer", listed: /washer|laundry/i },
   { asked: /\b(?:iron|ironing)\b/i, label: "an iron" },
   { asked: /\b(?:blankets?|pillows?|duvet)\b/i, label: "extra blankets and pillows" },
   { asked: /\b(?:closet|wardrobe|hangers?|drawers?)\b/i, label: "a closet" },
@@ -776,35 +889,35 @@ const answerTopic = (q: string, ctx: AskTTContext, party: number | null): TTAnsw
 
     // Staying longer is booking the extra nights — something TT can do now
     // (ttBooking.ts) — not a question about the stay already booked.
-    if (has(q, "extend", "stay longer", "extra night", "more nights", "another night")) {
+    if (has(q, "extend", "stay longer", "extra night", "more nights", "another night", ...DE_ASKED.extend)) {
       category = "booking";
       return {
-        lines: ["Tell me the extra nights — like “Oct 13-14” — and I'll check your room is free and book them."],
-        actions: [{ kind: "bookings", label: "See my stays" }],
+        lines: [t("Tell me the extra nights — like “Oct 13-14” — and I'll check your room is free and book them.")],
+        actions: [{ kind: "bookings", label: t("See my stays") }],
       };
     }
     // Cancelling comes before "my booking": "I need to cancel my booking" is
     // asking about the terms, and was being sent to the bookings list alone.
-    if (has(q, "cancel", "refund", "change my", "money back")) {
+    if (has(q, "cancel", "refund", "change my", "money back", ...DE_ASKED.cancel)) {
       category = "cancellation";
       const full = ctx.cancellationFullRefundDays;
       const half = ctx.cancellationHalfRefundDays;
-      const mine: TTAction[] = has(q, "my booking", "my stay", "my reservation") ? [{ kind: "bookings", label: "Open Your bookings" }] : [];
+      const mine: TTAction[] = has(q, "my booking", "my stay", "my reservation") ? [{ kind: "bookings", label: t("Open Your bookings") }] : [];
       return full != null && half != null
-        ? { lines: [cancellationHeadline(full) + ".", formatCancellationPolicy(full, half)], actions: [...mine, chat(ctx)] }
-        : { lines: [`TT House is flexible when plans change — tell ${host} what's happening and you'll work it out together.`], actions: [...mine, chat(ctx)] };
+        ? { lines: [cancellationHeadline(full, t) + ".", formatCancellationPolicy(full, half, t)], actions: [...mine, chat(ctx)] }
+        : { lines: [t("TT House is flexible when plans change — tell {host} what's happening and you'll work it out together.", { host })], actions: [...mine, chat(ctx)] };
     }
-    if (has(q, "my booking", "my stay", "my reservation", "booked", "confirm")) {
+    if (has(q, "my booking", "my stay", "my reservation", "booked", "confirm", ...DE_ASKED.myBookings)) {
       category = "myBookings";
-      return { lines: ["Your stays, holds and wish list are all under Your bookings — just your phone number opens them."], actions: [{ kind: "bookings", label: "Open Your bookings" }] };
+      return { lines: [t("Your stays, holds and wish list are all under Your bookings — just your phone number opens them.")], actions: [{ kind: "bookings", label: t("Open Your bookings") }] };
     }
     // Bags before and after a stay: nothing on the page says, so it goes to
     // the host — filed under check-in, where the host will look for it.
-    if (has(q, "luggage", "bags?\\b", "suitcase", "baggage")) {
+    if (has(q, "luggage", "bags?\\b", "suitcase", "baggage", ...DE_ASKED.luggage)) {
       category = "checkIn";
-      return { lines: [`${host} can tell you whether your bags can stay before check-in or after check-out.`], actions: [chat(ctx)], answered: false };
+      return { lines: [t("{host} can tell you whether your bags can stay before check-in or after check-out.", { host })], actions: [chat(ctx)], answered: false };
     }
-    if (has(q, "check-in", "check in", "checkin", "arriv", "check-out", "check out", "checkout", "late", "early", "get in\\b", "let myself in", "keys\\b")) {
+    if (has(q, "check-in", "check in", "checkin", "arriv", "check-out", "check out", "checkout", "late", "early", "get in\\b", "let myself in", "keys\\b", ...DE_ASKED.checkIn)) {
       category = "checkIn";
       // The house has no check-in or check-out TIME written down anywhere TT
       // can read. Self check-in is the true answer to "how do I get in"; it
@@ -813,62 +926,62 @@ const answerTopic = (q: string, ctx: AskTTContext, party: number | null): TTAnsw
       const askingTime = has(q, "what time", "when", "time", "hour", "o'clock");
       return {
         lines: [
-          "Every room has self check-in.",
-          "Your door code and the address come in Your bookings once your stay is confirmed.",
-          ...(askingTime ? [`${host} will confirm your check-in and check-out times with your booking.`] : []),
-          `Arriving after midnight? Book the night BEFORE — 1am Tuesday is the Monday night. If you're unsure, ${host} will sort it out.`,
+          t("Every room has self check-in."),
+          t("Your door code and the address come in Your bookings once your stay is confirmed."),
+          ...(askingTime ? [t("{host} will confirm your check-in and check-out times with your booking.", { host })] : []),
+          t("Arriving after midnight? Book the night BEFORE — 1am Tuesday is the Monday night. If you're unsure, {host} will sort it out.", { host }),
         ],
-        actions: [{ kind: "bookings", label: "Open Your bookings" }, chat(ctx)],
+        actions: [{ kind: "bookings", label: t("Open Your bookings") }, chat(ctx)],
         answered: !askingTime,
       };
     }
     if (has(q, "\\bev\\b", "charger", "charging", "electric car", "tesla")) {
       category = "parking";
-      return { lines: [`${houseParking}.`, `None of the listings mention a charger — ${host} will know.`], actions: [chat(ctx)], answered: false };
+      return { lines: [`${t(houseParking)}.`, t("None of the listings mention a charger — {host} will know.", { host })], actions: [chat(ctx)], answered: false };
     }
     if (has(q, "park", "car", "garage", "driv")) {
       category = "parking";
-      return { lines: [`${houseParking}.`], actions: [] };
+      return { lines: [`${t(houseParking)}.`], actions: [] };
     }
     // How to pay, deposits, fees, receipts: none of it is written anywhere TT
     // reads, and a wrong word about money is the expensive kind. Filed under
     // price for the host, who answers and can teach it.
-    if (has(q, "cash", "venmo", "zelle", "paypal", "credit card", "debit", "card\\b", "deposit", "cleaning fee", "fees?\\b", "receipt", "invoice", "how (?:do|can|should) i pay", "payment")) {
+    if (has(q, "cash", "venmo", "zelle", "paypal", "credit card", "debit", "card\\b", "deposit", "cleaning fee", "fees?\\b", "receipt", "invoice", "how (?:do|can|should) i pay", "payment", ...DE_ASKED.payment)) {
       category = "price";
       return {
-        lines: [`${host} sorts out payment with you directly — ask about it in a message and you'll have a straight answer.`],
-        actions: [chat(ctx, `Ask ${host} about payment`)],
+        lines: [t("{host} sorts out payment with you directly — ask about it in a message and you'll have a straight answer.", { host })],
+        actions: [chat(ctx, t("Ask {host} about payment", { host }))],
         answered: false,
       };
     }
     // A long stay is two questions: is a room free the whole time (TT can
     // check) and what does it cost (the host's, like every price).
-    if (has(q, "month", "monthly", "long term", "long-term", "longer stay", "weekly", "a week")) {
+    if (has(q, "month", "monthly", "long term", "long-term", "longer stay", "weekly", "a week", ...DE_ASKED.longStay)) {
       category = "price";
       return {
         lines: [
-          "Tell me the dates — like “Nov 1 for 30 nights” — and I'll check a room is free the whole time.",
-          `The rate for a longer stay is agreed with ${host}: send the dates and ${host} will come back with one.`,
+          t("Tell me the dates — like “Nov 1 for 30 nights” — and I'll check a room is free the whole time."),
+          t("The rate for a longer stay is agreed with {host}: send the dates and {host} will come back with one.", { host }),
         ],
-        actions: [chat(ctx, `Ask ${host} about a long stay`)],
+        actions: [chat(ctx, t("Ask {host} about a long stay", { host }))],
       };
     }
     // TiBook takes a request for any number of nights; the host decides each.
     if (has(q, "minimum", "min stay", "maximum", "max stay", "shortest", "longest", "(?:just|only) (?:one|1|a single) night")) {
       category = "booking";
       return {
-        lines: [`You can ask for any number of nights here, even one. ${host} confirms each request.`],
-        actions: [{ kind: "ask", label: "This weekend", query: "book this weekend" }],
+        lines: [t("You can ask for any number of nights here, even one. {host} confirms each request.", { host })],
+        actions: [{ kind: "ask", label: t("This weekend"), query: "book this weekend" }],
       };
     }
-    if (has(q, "price", "cost", "how much", "rate", "cheap", "discount", "pay", "dollar")) {
+    if (has(q, "price", "cost", "how much", "rate", "cheap", "discount", "pay", "dollar", ...DE_ASKED.price)) {
       category = "price";
       const rates = ctx.rooms.map((r) => rateLine(r, ctx)).filter(Boolean) as string[];
       return rates.length > 0
-        ? { lines: [`Your prices, agreed with ${host}:`, ...rates], actions: [chat(ctx, `Talk to ${host} about price`)] }
-        : { lines: [`The price is something you settle with ${host} directly — send your dates and ${host} will give you a rate.`], actions: [chat(ctx, `Ask ${host} for a price`)] };
+        ? { lines: [t("Your prices, agreed with {host}:", { host }), ...rates], actions: [chat(ctx, t("Talk to {host} about price", { host }))] }
+        : { lines: [t("The price is something you settle with {host} directly — send your dates and {host} will give you a rate.", { host })], actions: [chat(ctx, t("Ask {host} for a price", { host }))] };
     }
-    if (has(q, "kitchen", "cook", "fridge", "refrigerator", "microwave", "coffee", "food", "kettle")) {
+    if (has(q, "kitchen", "cook", "fridge", "refrigerator", "microwave", "coffee", "food", "kettle", ...DE_ASKED.kitchen)) {
       category = "kitchen";
       const withIt = (re: RegExp) => ctx.rooms.filter((r) => getRoomFacts(r.airbnbUrl)?.highlights.some((h) => re.test(h)));
       const fridge = withIt(/fridge/i);
@@ -876,23 +989,23 @@ const answerTopic = (q: string, ctx: AskTTContext, party: number | null): TTAnsw
       const coffee = withIt(/coffee/i);
       return {
         lines: [
-          `${houseKitchen}.`,
-          ...(fridge.length ? [`Mini fridge in: ${names(fridge)}.`] : []),
-          ...(micro.length ? [`Microwave in: ${names(micro)}.`] : []),
-          ...(coffee.length ? [`Coffee maker in: ${names(coffee)}.`] : []),
+          `${t(houseKitchen)}.`,
+          ...(fridge.length ? [t("Mini fridge in: {rooms}.", { rooms: names(fridge) })] : []),
+          ...(micro.length ? [t("Microwave in: {rooms}.", { rooms: names(micro) })] : []),
+          ...(coffee.length ? [t("Coffee maker in: {rooms}.", { rooms: names(coffee) })] : []),
         ],
         actions: [],
       };
     }
-    if (has(q, "bath", "toilet", "shower", "restroom", "bidet", "hot water")) {
+    if (has(q, "bath", "toilet", "shower", "restroom", "bidet", "hot water", ...DE_ASKED.bathroom)) {
       category = "bathroom";
       const shared = ctx.rooms.filter((r) => getRoomFacts(r.airbnbUrl)?.bathroom.startsWith("Shared"));
       const own = ctx.rooms.filter((r) => { const f = getRoomFacts(r.airbnbUrl); return f && !f.bathroom.startsWith("Shared"); });
       return {
         lines: [
-          `${houseBathrooms}.`,
-          ...(own.length ? [`Private bathroom: ${names(own)}.`] : []),
-          ...(shared.length ? [`Shared bathroom with a bathtub and hot water: ${names(shared)}.`] : []),
+          `${t(houseBathrooms)}.`,
+          ...(own.length ? [t("Private bathroom: {rooms}.", { rooms: names(own) })] : []),
+          ...(shared.length ? [t("Shared bathroom with a bathtub and hot water: {rooms}.", { rooms: names(shared) })] : []),
         ],
         actions: [],
       };
@@ -908,34 +1021,38 @@ const answerTopic = (q: string, ctx: AskTTContext, party: number | null): TTAnsw
       };
       const withIt = amenity.listed ? ctx.rooms.filter((r) => amenity.listed!.test(listed(r))) : [];
       // Not when there are no rooms to read: none of none is not "every".
-      if (withIt.length > 0 && withIt.length === ctx.rooms.length) return { lines: [`Every room has ${amenity.label} ✓`], actions: [] };
+      // German needs the thing in a different case after "has" and after
+      // "with", so its lines are built around the bare noun ("Fernseher")
+      // rather than slotting "a TV" into the middle of a sentence.
+      const thing = t(amenity.label);
+      if (withIt.length > 0 && withIt.length === ctx.rooms.length) return { lines: [t("Every room has {thing} ✓", { thing })], actions: [] };
       if (withIt.length > 0) {
         return {
           // A basic (towels) listed for one room is a listing that happened to
           // mention it, not the other rooms going without. Said that way, and
           // left for the host to settle.
           lines: amenity.basic
-            ? [`${names(withIt)}'s listing mentions ${amenity.label}. The others don't say — ${host} can confirm.`]
-            : [`Rooms with ${amenity.label}: ${names(withIt)}.`],
+            ? [t("{rooms}'s listing mentions {thing}. The others don't say — {host} can confirm.", { rooms: names(withIt), thing, host })]
+            : [t("Rooms with {thing}: {rooms}.", { thing, rooms: names(withIt) })],
           actions: amenity.basic ? [chat(ctx)] : [],
           answered: !amenity.basic,
         };
       }
       // Named, so the guest knows TT understood the question and the host's
       // log shows which thing guests are asking after.
-      return { lines: [`None of the room listings mention ${amenity.label} — ${host} will know for sure.`], actions: [chat(ctx)], answered: false };
+      return { lines: [t("None of the room listings mention {thing} — {host} will know for sure.", { thing, host })], actions: [chat(ctx)], answered: false };
     }
     if (
-      has(q, "pet", "dog", "cat", "smok", "party", "parties", "quiet", "loud", "nois", "rule", "visitor", "friend", "kid", "child", "baby", "babies", "infant", "toddler") ||
+      has(q, "pet", "dog", "cat", "smok", "party", "parties", "quiet", "loud", "nois", "rule", "visitor", "friend", "kid", "child", "baby", "babies", "infant", "toddler", ...DE_ASKED.houseRules) ||
       /\b(?:have|bring|invite)\b.*\b(?:a guest|guests|someone|somebody|people|partner|over)\b/i.test(q)
     ) {
       category = "houseRules";
       const rules = ctx.houseRules?.trim();
       return rules
-        ? { lines: ["The house rules:", rules], actions: [chat(ctx, `Ask ${host} about something else`)] }
-        : { lines: [`${host} will tell you straight — just ask.`], actions: [chat(ctx)], answered: false };
+        ? { lines: [t("The house rules:"), rules], actions: [chat(ctx, t("Ask {host} about something else", { host }))] }
+        : { lines: [t("{host} will tell you straight — just ask.", { host })], actions: [chat(ctx)], answered: false };
     }
-    if (has(q, "where", "address", "location", "near", "airport", "transit", "caltrain", "bart", "how far", "distance", "minutes", "sjc", "sfo", "stanford", "google", "apple\\b", "downtown", "safe\\b", "neighbo", "area\\b", "shuttle", "pick me up", "pick up", "uber\\b", "lyft", "bus\\b", "train\\b")) {
+    if (has(q, "where", "address", "location", "near", "airport", "transit", "caltrain", "bart", "how far", "distance", "minutes", "sjc", "sfo", "stanford", "google", "apple\\b", "downtown", "safe\\b", "neighbo", "area\\b", "shuttle", "pick me up", "pick up", "uber\\b", "lyft", "bus\\b", "train\\b", ...DE_ASKED.location)) {
       category = "location";
       // "Where is it" is answered: Silicon Valley, address once confirmed.
       // "How far to Stanford", "is the area safe", "a store nearby" are not —
@@ -943,62 +1060,64 @@ const answerTopic = (q: string, ctx: AskTTContext, party: number | null): TTAnsw
       const onlyWhere = !has(q, "how far", "distance", "minutes", "near", "safe", "neighbo", "area", "shuttle", "pick", "uber", "lyft", "bus", "train", "sjc", "sfo", "stanford", "google", "apple", "downtown");
       return {
         lines: [
-          "TT House is in Silicon Valley. The exact address comes in Your bookings once your stay is confirmed.",
+          t("TT House is in Silicon Valley. The exact address comes in Your bookings once your stay is confirmed."),
           onlyWhere
-            ? `${host} can tell you how to get here from the airport or the station.`
-            : `${host} knows the area best and will answer that — send a message.`,
+            ? t("{host} can tell you how to get here from the airport or the station.", { host })
+            : t("{host} knows the area best and will answer that — send a message.", { host }),
         ],
         actions: [chat(ctx)],
         answered: onlyWhere,
       };
     }
-    if (has(q, "photo", "picture", "pics?\\b", "image", "look like", "see the room", "see inside")) {
+    if (has(q, "photo", "picture", "pics?\\b", "image", "look like", "see the room", "see inside", ...DE_ASKED.photos)) {
       category = "rooms";
       return {
-        lines: ["Pick a room to see its photos:"],
-        actions: ctx.rooms.slice(0, 5).map((r) => ({ kind: "photos" as const, label: `${r.name} photos`, roomId: r.id })),
+        lines: [t("Pick a room to see its photos:")],
+        actions: ctx.rooms.slice(0, 5).map((r) => ({ kind: "photos" as const, label: t("{room} photos", { room: r.name }), roomId: r.id })),
       };
     }
-    if (has(q, "host", "human", "person", "talk", "call", "text", "contact", "message", "speak")) {
+    if (has(q, "host", "human", "person", "talk", "call", "text", "contact", "message", "speak", ...DE_ASKED.host)) {
       category = "contactHost";
-      return { lines: [`${host} lives here and reads every message personally.`], actions: [chat(ctx, `Chat ${host}`)] };
+      return { lines: [t("{host} lives here and reads every message personally.", { host })], actions: [chat(ctx, t("Chat {host}", { host }))] };
     }
-    if (has(q, "book", "reserve", "request", "want a room", "need a room")) {
+    if (has(q, "book", "reserve", "request", "want a room", "need a room", ...DE_ASKED.booking)) {
       category = "booking";
       const usual = ctx.rooms.find((r) => r.id === ctx.guest?.usualRoomId);
       if (ctx.guest) {
         return {
           lines: [
-            `Tell me your dates — like “Oct 10-12”, “this weekend” or “Nov 3 for 2 nights” — and I'll book them${usual ? ` in ${usual.name}, or any room that's free` : ""}. You check the request before it's sent.`,
+            usual
+              ? t("Tell me your dates — like “Oct 10-12”, “this weekend” or “Nov 3 for 2 nights” — and I'll book them in {room}, or any room that's free. You check the request before it's sent.", { room: usual.name })
+              : t("Tell me your dates — like “Oct 10-12”, “this weekend” or “Nov 3 for 2 nights” — and I'll book them. You check the request before it's sent."),
           ],
           actions: [
-            ...(ctx.guest.wishList.length > 0 ? [{ kind: "ask" as const, label: "My wish list", query: "my wish list" }] : []),
-            { kind: "ask", label: usual ? `${usual.name} this weekend` : "This weekend", query: usual ? `book ${usual.name} this weekend` : "book this weekend" },
+            ...(ctx.guest.wishList.length > 0 ? [{ kind: "ask" as const, label: t("My wish list"), query: "my wish list" }] : []),
+            { kind: "ask", label: usual ? t("{room} this weekend", { room: usual.name }) : t("This weekend"), query: usual ? `book ${usual.name} this weekend` : "book this weekend" },
           ],
         };
       }
       return {
         lines: [
-          "Happy to book it for you. Tell me your dates — like “Oct 10-12”, “this weekend” or “Nov 3 for 2 nights” — and how many of you there are.",
-          "You'll see the whole request before anything is sent.",
+          t("Happy to book it for you. Tell me your dates — like “Oct 10-12”, “this weekend” or “Nov 3 for 2 nights” — and how many of you there are."),
+          t("You'll see the whole request before anything is sent."),
         ],
-        actions: [{ kind: "ask", label: "This weekend", query: "book this weekend" }, { kind: "request", label: "Use the booking form" }],
+        actions: [{ kind: "ask", label: t("This weekend"), query: "book this weekend" }, { kind: "request", label: t("Use the booking form") }],
       };
     }
-    if (has(q, "room", "bed", "sleep", "fit", "capacity", "how many") || party != null) {
+    if (has(q, "room", "bed", "sleep", "fit", "capacity", "how many", ...DE_ASKED.rooms) || party != null) {
       category = "rooms";
       return answerRooms(ctx, party);
     }
     // Whole words: "hi" as a prefix greeted a guest asking whether a fee was hidden.
     // Guests here greet in Vietnamese and Spanish too; TT answers in English,
     // but it should know it was greeted.
-    if (has(q, "hi\\b", "hello", "hey\\b", "good morning", "good afternoon", "good evening", "hola\\b", "xin ch[aà]o", "ch[aà]o\\b", "bonjour", "yo\\b")) {
+    if (has(q, "hi\\b", "hello", "hey\\b", "good morning", "good afternoon", "good evening", "hola\\b", "xin ch[aà]o", "ch[aà]o\\b", "bonjour", "yo\\b", ...DE_ASKED.greeting)) {
       category = "greeting";
-      return { lines: ["Hello! Ask me about dates, rooms, parking, check-in — anything about staying here."], actions: [] };
+      return { lines: [t("Hello! Ask me about dates, rooms, parking, check-in — anything about staying here.")], actions: [] };
     }
-    if (has(q, "thank", "thx", "great", "perfect", "awesome")) {
+    if (has(q, "thank", "thx", "great", "perfect", "awesome", ...DE_ASKED.thanks)) {
       category = "thanks";
-      return { lines: ["You're welcome. “Your comfort. Our mission.” is TT House's promise to you."], actions: [] };
+      return { lines: [t("You're welcome. “Your comfort. Our mission.” is TT House's promise to you.")], actions: [] };
     }
     return null;
   })();
@@ -1068,29 +1187,29 @@ const privacyRefusal = (q: string, ctx: AskTTContext): TTAnswer | null => {
   // "Who is the host?" is the one "who" with a public answer: the host's
   // name and face are at the top of the page.
   if (/^\W*who(?:'s| is)(?: the| your| my)? (?:host|owner)\W*$/.test(s)) {
-    return as("contactHost", { lines: [`Your host is ${host}, who lives here.`], actions: [chat(ctx, `Chat ${host}`)] });
+    return as("contactHost", { lines: [t("Your host is {host}, who lives here.", { host })], actions: [chat(ctx, t("Chat {host}", { host }))] });
   }
   if (SYSTEM.some((re) => re.test(s))) {
     return as("privacy", {
       lines: [
-        "That's not something I can help with. I'm TT House's booking helper — I can tell you about the rooms, which nights are free, and staying here.",
+        t("That's not something I can help with. I'm TT House's booking helper — I can tell you about the rooms, which nights are free, and staying here."),
       ],
-      actions: [{ kind: "ask", label: "What's free this weekend?", query: "this weekend" }],
+      actions: [{ kind: "ask", label: t("What's free this weekend?"), query: "this weekend" }],
     });
   }
   if (SECRETS.test(s)) {
     return as("privacy", {
       lines: [
-        "I never give out door codes, passwords or PINs.",
-        "Once your stay is confirmed, your own check-in details are in Your bookings, opened with your phone number.",
+        t("I never give out door codes, passwords or PINs."),
+        t("Once your stay is confirmed, your own check-in details are in Your bookings, opened with your phone number."),
       ],
-      actions: [{ kind: "bookings", label: "Open Your bookings" }],
+      actions: [{ kind: "bookings", label: t("Open Your bookings") }],
     });
   }
   if (CONTACT.test(s)) {
     return as("privacy", {
-      lines: [`I don't share anyone's contact details. To reach ${host}, send a message here — it goes straight to ${host}.`],
-      actions: [chat(ctx, `Chat ${host}`)],
+      lines: [t("I don't share anyone's contact details. To reach {host}, send a message here — it goes straight to {host}.", { host })],
+      actions: [chat(ctx, t("Chat {host}", { host }))],
     });
   }
   // "What did previous guests say about King?" reads as a question about
@@ -1100,10 +1219,10 @@ const privacyRefusal = (q: string, ctx: AskTTContext): TTAnswer | null => {
   if ((ABOUT_OTHERS.some((re) => re.test(s)) && !aboutReviews) || hostPersonal(s, host)) {
     return as("privacy", {
       lines: [
-        "I keep everyone at TT House private — guests, the host and the team. I can't say who is staying, who booked, or anything about them.",
-        "I can tell you which rooms are free on your dates.",
+        t("I keep everyone at TT House private — guests, the host and the team. I can't say who is staying, who booked, or anything about them."),
+        t("I can tell you which rooms are free on your dates."),
       ],
-      actions: [{ kind: "ask", label: "What's free this weekend?", query: "this weekend" }],
+      actions: [{ kind: "ask", label: t("What's free this weekend?"), query: "this weekend" }],
     });
   }
   return null;
@@ -1141,11 +1260,11 @@ const answer = (query: string, ctx: AskTTContext, opts: AskOptions): TTAnswer =>
   // Their wish list: the nights they already told the house they wanted. TT
   // checks them all at once, which is the shortest way from "I wanted these"
   // to a request for them.
-  if (ctx.guest && has(q, "wish")) {
+  if (ctx.guest && has(q, "wish", ...DE_ASKED.wish)) {
     if (ctx.guest.wishList.length === 0) {
       return as("wishList", {
-        lines: ["Your wish list is empty. Tell me the dates you'd like — “Oct 10-12”, “Nov Mon-Tue” — and I'll check them."],
-        actions: [{ kind: "ask", label: "This weekend", query: "this weekend" }],
+        lines: [t("Your wish list is empty. Tell me the dates you'd like — “Oct 10-12”, “Nov Mon-Tue” — and I'll check them.")],
+        actions: [{ kind: "ask", label: t("This weekend"), query: "this weekend" }],
       });
     }
     return as("wishList", answerDates(ctx.guest.wishList, [], ctx, room, party));
@@ -1181,8 +1300,8 @@ const answer = (query: string, ctx: AskTTContext, opts: AskOptions): TTAnswer =>
   // Not understood. Said plainly, and the guest is handed to the host with
   // their question rather than told to rephrase it.
   return as("other", {
-    lines: [`I'm not sure I understood that. ${ctx.hostFirstName} can answer it — or try dates like “Oct 10-12”, a room name, or “parking”.`],
-    actions: [chat(ctx, `Ask ${ctx.hostFirstName}`)],
+    lines: [t("I'm not sure I understood that. {host} can answer it — or try dates like “Oct 10-12”, a room name, or “parking”.", { host: ctx.hostFirstName })],
+    actions: [chat(ctx, t("Ask {host}", { host: ctx.hostFirstName }))],
     answered: false,
   });
 };
@@ -1209,14 +1328,16 @@ export const ttStarters = (ctx: AskTTContext): TTAction[] => {
     // still gets their room named.
     const one = (g.usualRoomIds?.length ?? 0) <= 1 ? ctx.rooms.find((r) => r.id === g.usualRoomId) : undefined;
     return [
-      ...(g.wishList.length > 0 ? [{ kind: "ask" as const, label: `My wish list (${plural(g.wishList.length, "night")})`, query: "my wish list" }] : []),
+      // Each chip's label is in the guest's language and its query in English:
+      // the parser reads English, so a German chip still asks "this weekend".
+      ...(g.wishList.length > 0 ? [{ kind: "ask" as const, label: t("My wish list ({nights})", { nights: plural(g.wishList.length, "night") }), query: "my wish list" }] : []),
       one
-        ? { kind: "ask" as const, label: `${one.name} this weekend`, query: `${one.name} this weekend` }
-        : { kind: "ask" as const, label: "This weekend", query: "this weekend" },
+        ? { kind: "ask" as const, label: t("{room} this weekend", { room: one.name }), query: `${one.name} this weekend` }
+        : { kind: "ask" as const, label: t("This weekend"), query: "this weekend" },
       one
-        ? { kind: "ask" as const, label: `${one.name} next weekend`, query: `${one.name} next weekend` }
-        : { kind: "ask" as const, label: "Next weekend", query: "next weekend" },
-      { kind: "bookings", label: "My bookings" },
+        ? { kind: "ask" as const, label: t("{room} next weekend", { room: one.name }), query: `${one.name} next weekend` }
+        : { kind: "ask" as const, label: t("Next weekend"), query: "next weekend" },
+      { kind: "bookings", label: t("My bookings") },
       ...reviewStarter(ctx),
       ...latestStarter(ctx),
       ...hostDoors(ctx),
@@ -1228,18 +1349,20 @@ export const ttStarters = (ctx: AskTTContext): TTAction[] => {
 // Offered only when there is something to show: a button that answers "I
 // don't have that yet" is a button that wastes a guest's tap.
 const reviewStarter = (ctx: AskTTContext): TTAction[] =>
-  ctx.reviews?.house || ratingLine(ctx.reviews) ? [{ kind: "ask", label: "What guests say", query: "reviews" }] : [];
+  ctx.reviews?.house || ratingLine(ctx.reviews) ? [{ kind: "ask", label: t("What guests say"), query: "reviews" }] : [];
 const latestStarter = (ctx: AskTTContext): TTAction[] =>
-  Object.keys(ctx.reviews?.latest ?? {}).length > 0 ? [{ kind: "ask", label: "Latest reviews", query: "latest reviews" }] : [];
+  Object.keys(ctx.reviews?.latest ?? {}).length > 0 ? [{ kind: "ask", label: t("Latest reviews"), query: "latest reviews" }] : [];
 
 const newGuestStarters = (ctx: AskTTContext): TTAction[] => [
   // First: TT can book now, and saying so is the quickest way in.
-  { kind: "ask", label: "Book a stay", query: "I'd like to book a stay" },
-  { kind: "ask", label: "Anything free this weekend?", query: "this weekend" },
-  { kind: "ask", label: "Which rooms fit 2?", query: "2 guests" },
-  { kind: "ask", label: "Parking", query: "parking" },
-  { kind: "ask", label: "Check-in", query: "check in" },
-  { kind: "ask", label: "Cancellation", query: "cancel" },
+  // Labels in the guest's language, queries in English: the parser reads
+  // English, so "Parken" on the chip still asks "parking".
+  { kind: "ask", label: t("Book a stay"), query: "I'd like to book a stay" },
+  { kind: "ask", label: t("Anything free this weekend?"), query: "this weekend" },
+  { kind: "ask", label: t("Which rooms fit 2?"), query: "2 guests" },
+  { kind: "ask", label: t("Parking"), query: "parking" },
+  { kind: "ask", label: t("Check-in"), query: "check in" },
+  { kind: "ask", label: t("Cancellation"), query: "cancel" },
   ...reviewStarter(ctx),
   ...latestStarter(ctx),
   ...hostDoors(ctx),
@@ -1251,11 +1374,14 @@ const newGuestStarters = (ctx: AskTTContext): TTAction[] => [
 // and "Call Anh-Tuan"). Unread replies ride on the chat button, so a guest
 // who closed the chat still sees the host wrote back.
 const hostDoors = (ctx: AskTTContext): TTAction[] => [
-  chat(ctx, `Chat ${ctx.hostFirstName}${ctx.hostUnread ? ` · ${ctx.hostUnread} new` : ""}`),
+  chat(
+    ctx,
+    t("Chat {host}", { host: ctx.hostFirstName }) + (ctx.hostUnread ? t(" · {n} new", { n: ctx.hostUnread }) : ""),
+  ),
   ...(ctx.hostCanCall
     ? [
-        { kind: "text" as const, label: `Text ${ctx.hostFirstName}` },
-        { kind: "call" as const, label: `Call ${ctx.hostFirstName}` },
+        { kind: "text" as const, label: t("Text {host}", { host: ctx.hostFirstName }) },
+        { kind: "call" as const, label: t("Call {host}", { host: ctx.hostFirstName }) },
       ]
     : []),
 ];

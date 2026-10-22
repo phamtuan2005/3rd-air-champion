@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
+import { useTiBookLang } from "../../contexts/TiBookLanguageContext";
 
 export interface LoyaltyTier {
   label: string;
@@ -72,6 +73,7 @@ interface GuestLoyaltyBannerProps {
 
 const GuestLoyaltyBanner = ({ firstName, totalStays, totalNights, memberSince, loyaltyDiscountPerNight }: GuestLoyaltyBannerProps) => {
   const { theme } = useTiBookTheme();
+  const { t } = useTiBookLang();
   const loyaltyTier = getLoyaltyTier(totalStays);
   // Open the first time — the welcome is the point of this for a returning
   // guest, and starting it shut would greet them with nothing. Once a guest
@@ -110,12 +112,14 @@ const GuestLoyaltyBanner = ({ firstName, totalStays, totalNights, memberSince, l
         className="flex w-full items-start justify-between gap-2 text-left"
       >
         <p className={`text-sm font-bold ${theme.textPrimaryDark}`}>
-          Hi {firstName}! Welcome back
+          {t("Hi {name}! Welcome back", { name: firstName })}
         </p>
         <span className="flex shrink-0 items-center gap-1.5">
           {loyaltyTier && (
             <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${loyaltyTier.color}`}>
-              {loyaltyTier.label}
+              {/* Translated here rather than in LOYALTY_TIERS: TiMag shows the
+                  host the same labels, in English. */}
+              {t(loyaltyTier.label)}
             </span>
           )}
           <span
@@ -132,15 +136,15 @@ const GuestLoyaltyBanner = ({ firstName, totalStays, totalNights, memberSince, l
       {!collapsed && totalStays > 0 && memberSince && (
         <div className="flex items-center gap-2 mt-2 flex-wrap">
           <span className={`text-[11px] font-bold ${theme.textPrimary}`}>
-            {totalStays} {totalStays === 1 ? "stay" : "stays"}
+            {t(totalStays === 1 ? "{n} stay" : "{n} stays", { n: totalStays })}
           </span>
           <span className={`${theme.dim} text-[10px]`}>·</span>
           <span className={`text-[11px] font-bold ${theme.textPrimary}`}>
-            {totalNights} {totalNights === 1 ? "night" : "nights"}
+            {t(totalNights === 1 ? "{n} night" : "{n} nights", { n: totalNights })}
           </span>
           <span className={`${theme.dim} text-[10px]`}>·</span>
           <span className={`text-[11px] ${theme.surfaceMuted2}`}>
-            with us since {memberSince}
+            {t("with us since {date}", { date: memberSince })}
           </span>
         </div>
       )}
@@ -151,11 +155,10 @@ const GuestLoyaltyBanner = ({ firstName, totalStays, totalNights, memberSince, l
       {!!loyaltyDiscountPerNight && loyaltyDiscountPerNight > 0 && (
         <div className={`mt-2 rounded-xl border ${theme.tagBorder} ${theme.tagBg} px-2.5 py-1.5`}>
           <p className={`text-xs font-bold ${theme.textPrimary}`}>
-            Thank you &mdash; you have ${loyaltyDiscountPerNight} off every night
+            {t("Thank you — you have ${amount} off every night", { amount: loyaltyDiscountPerNight })}
           </p>
           <p className={`text-[11px] ${theme.surfaceMuted} mt-0.5 leading-relaxed`}>
-            It is already taken off the totals below. Our way of saying we are
-            glad you keep coming back.
+            {t("It is already taken off the totals below. Our way of saying we are glad you keep coming back.")}
           </p>
         </div>
       )}
@@ -163,8 +166,8 @@ const GuestLoyaltyBanner = ({ firstName, totalStays, totalNights, memberSince, l
       {!collapsed && (
       <p className={`text-xs ${theme.surfaceMuted} mt-1.5 leading-relaxed`}>
         {loyaltyTier
-          ? loyaltyTier.message(totalStays, totalNights, memberSince)
-          : "Welcome to TT House! We are so happy you are here, and we hope this stay is the first of many. Your comfort is truly our mission."}
+          ? t(loyaltyTier.message(totalStays, totalNights, memberSince))
+          : t("Welcome to TT House! We are so happy you are here, and we hope this stay is the first of many. Your comfort is truly our mission.")}
       </p>
       )}
     </div>

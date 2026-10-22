@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { hostType } from "../../util/types/hostType";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
+import { useTiBookLang } from "../../contexts/TiBookLanguageContext";
 
 interface HostProfileBannerProps {
   host: hostType;
@@ -15,6 +16,7 @@ interface HostProfileBannerProps {
 
 const HostAvatar = ({ name, profileUrl }: { name: string; profileUrl?: string }) => {
   const { theme } = useTiBookTheme();
+  const { t } = useTiBookLang();
   const [photoError, setPhotoError] = useState(false);
   const initials = name
     .split(" ")
@@ -41,7 +43,7 @@ const HostAvatar = ({ name, profileUrl }: { name: string; profileUrl?: string })
         <div className="absolute bottom-0 right-0 h-2.5 w-2.5 bg-green-500 rounded-full border-2 border-white" />
       </div>
       <span className={`text-[10px] font-semibold ${theme.surfaceText}`}>{name}</span>
-      <span className="text-[9px] font-semibold text-green-600 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full -mt-0.5">Verified</span>
+      <span className="text-[9px] font-semibold text-green-600 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full -mt-0.5">{t("Verified")}</span>
     </div>
   );
 
@@ -80,6 +82,7 @@ const HostProfileBanner = ({
     if (!touched.current) setExpanded(defaultExpanded);
   }, [defaultExpanded]);
   const { theme } = useTiBookTheme();
+  const { t } = useTiBookLang();
   const displayName = host.airbnbName || host.name;
 
   return (
@@ -144,7 +147,10 @@ const HostProfileBanner = ({
                   key={h}
                   className="shrink-0 whitespace-nowrap text-[10px] text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full font-medium"
                 >
-                  {h}
+                  {/* The host types these in TiMag, in English. The ones in
+                      the dictionary get German; one added later shows in
+                      English until it is added there too. */}
+                  {t(h)}
                 </span>
               ))}
             </div>
@@ -161,12 +167,12 @@ const HostProfileBanner = ({
             <div className="flex flex-col gap-0.5 flex-1 min-w-0">
               {host.airbnbSuperhost && (
                 <span className="w-fit text-[10px] font-semibold text-rose-600 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-full">
-                  {cohostNames.length > 0 ? "Superhosts" : "Superhost"}
+                  {t(cohostNames.length > 0 ? "Superhosts" : "Superhost")}
                 </span>
               )}
               <div className={`flex flex-col gap-0 pl-0.5 border-l-2 ${theme.brandBorder}`}>
                 <span className={`text-[10px] font-semibold italic leading-tight tracking-wide ${theme.brandText}`}>
-                  Your Comfort. Our Mission.
+                  {t("Your Comfort. Our Mission.")}
                 </span>
                 <span className={`text-[9px] leading-tight ${theme.surfaceMuted}`}>
                   Sự Thoải Mái Của Bạn. Sứ Mệnh Của Chúng Tôi.
@@ -206,10 +212,10 @@ const HostProfileBanner = ({
                         rel="noopener noreferrer"
                         className={`underline underline-offset-2 transition-colors ${theme.surfaceMuted}`}
                       >
-                        {host.airbnbReviewCount} reviews
+                        {t("{n} reviews", { n: host.airbnbReviewCount })}
                       </a>
                     ) : (
-                      <span className={theme.surfaceMuted}>{host.airbnbReviewCount} reviews</span>
+                      <span className={theme.surfaceMuted}>{t("{n} reviews", { n: host.airbnbReviewCount })}</span>
                     )
                   )}
                 </span>

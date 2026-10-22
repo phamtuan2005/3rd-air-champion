@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
+import { useTiBookLang } from "../../contexts/TiBookLanguageContext";
 
 interface HostContactButtonProps {
   hostName: string;
@@ -67,6 +68,7 @@ const HostContactButton = ({
   onOpenChat,
 }: HostContactButtonProps) => {
   const { theme } = useTiBookTheme();
+  const { t } = useTiBookLang();
   const [pos, setPos] = useState<Pos>(() => readStoredPos() ?? defaultPos());
   const [open, setOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -97,8 +99,8 @@ const HostContactButton = ({
       return;
     }
     setHint(true);
-    const t = setTimeout(() => setHint(false), 5000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setHint(false), 5000);
+    return () => clearTimeout(timer);
   }, []);
 
   const dismissHint = () => {
@@ -178,6 +180,8 @@ const HostContactButton = ({
     maxWidth: "calc(100vw - 24px)",
   };
 
+  // The opening words stay English whatever the guest reads TiBook in: the
+  // host reads this text.
   const smsHref = hostPhone
     ? "sms:" + hostPhone + "?&body=" + encodeURIComponent("Hi " + hostName + ", ")
     : undefined;
@@ -244,9 +248,9 @@ const HostContactButton = ({
           role="menu"
         >
           <div className={`border-b px-3 pb-1.5 pt-2.5 ${theme.surfaceBorder}`}>
-            <p className={`text-sm font-bold ${theme.surfaceText}`}>Ask {hostName}</p>
+            <p className={`text-sm font-bold ${theme.surfaceText}`}>{t("Ask {name}", { name: hostName })}</p>
             <p className={`text-[11px] leading-snug ${theme.surfaceMuted}`}>
-              Anything at all — he answers these himself.
+              {t("Anything at all — he answers these himself.")}
             </p>
           </div>
 
@@ -261,8 +265,8 @@ const HostContactButton = ({
                 />
               </svg>
             }
-            title="Chat here"
-            detail={`Stays in TiBook. ${hostName} replies on this screen.`}
+            title={t("Chat here")}
+            detail={t("Stays in TiBook. {name} replies on this screen.", { name: hostName })}
             onClick={() => {
               setOpen(false);
               onOpenChat();
@@ -280,8 +284,8 @@ const HostContactButton = ({
                   />
                 </svg>
               }
-              title="Text his phone"
-              detail="Opens your messages, ready to send."
+              title={t("Text his phone")}
+              detail={t("Opens your messages, ready to send.")}
               href={smsHref}
             />
           )}
@@ -297,15 +301,15 @@ const HostContactButton = ({
                   />
                 </svg>
               }
-              title="Call him"
-              detail="Rings his phone now."
+              title={t("Call him")}
+              detail={t("Rings his phone now.")}
               href={`tel:${hostPhone}`}
             />
           )}
 
           {!hostPhone && (
             <p className={`px-3 py-2 text-[11px] ${theme.surfaceMuted}`}>
-              Chat is the quickest way to reach him today.
+              {t("Chat is the quickest way to reach him today.")}
             </p>
           )}
         </div>
@@ -320,13 +324,13 @@ const HostContactButton = ({
           }}
           className={`tibook-type pointer-events-none z-[61] whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium shadow-lg ${theme.surface} ${theme.surfaceBorder} ${theme.surfaceText}`}
         >
-          Ask {hostName} — drag me anywhere
+          {t("Ask {name} — drag me anywhere", { name: hostName })}
         </div>
       )}
 
       <button
         type="button"
-        aria-label={`Contact ${hostName}. Drag to move this button.`}
+        aria-label={t("Contact {name}. Drag to move this button.", { name: hostName })}
         aria-haspopup="menu"
         aria-expanded={open}
         onPointerDown={onPointerDown}

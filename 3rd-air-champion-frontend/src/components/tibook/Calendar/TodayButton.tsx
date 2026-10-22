@@ -1,4 +1,5 @@
 import { useTiBookTheme } from "../../../contexts/TiBookThemeContext";
+import { useTiBookLang } from "../../../contexts/TiBookLanguageContext";
 
 interface TodayButtonProps {
   isCurrentMonth: boolean;
@@ -7,6 +8,7 @@ interface TodayButtonProps {
 
 const TodayButton = ({ isCurrentMonth, onScrollToToday }: TodayButtonProps) => {
   const { theme } = useTiBookTheme();
+  const { t } = useTiBookLang();
   return (
     <button
       onClick={() => onScrollToToday?.()}
@@ -21,7 +23,7 @@ const TodayButton = ({ isCurrentMonth, onScrollToToday }: TodayButtonProps) => {
           : `${theme.chromeAccent} ${theme.chromeBorder} ${theme.chromeHover} cursor-pointer`
       }`}
     >
-      Today
+      {t("Today")}
     </button>
   );
 };

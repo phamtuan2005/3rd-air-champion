@@ -6,6 +6,7 @@ import { discountedNightly } from "../../util/loyaltyDiscount";
 import { useRoomChip, useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import BedIcon from "./BedIcon";
 import ParkingIcon from "./ParkingIcon";
+import { useTiBookLang } from "../../contexts/TiBookLanguageContext";
 
 const BACKEND = import.meta.env.VITE_BACKEND_ENDPOINT || "";
 const resolveUrl = (url: string) => url.startsWith("/") ? `${BACKEND}${url}` : url;
@@ -69,7 +70,11 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
    */
   const { theme, layout } = useTiBookTheme();
   const hero = layout === "hero";
+  const { t } = useTiBookLang();
+  // Two of these: the text drafted to the host below stays English, because
+  // the host reads it, while the guest's own screen names him in their language.
   const hostFirstName = (hostName ?? "").split(" ")[0] || "the host";
+  const hostShown = (hostName ?? "").split(" ")[0] || t("the host");
 
   // Same one-tap text the rest of TiBook uses: an sms: link that opens the
   // guest's OWN messaging app with a draft they can read, change and send
@@ -375,7 +380,7 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/70 to-transparent" />
             <button
               onClick={onClose}
-              aria-label="Close"
+              aria-label={t("Close")}
               className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-xl leading-none text-white"
             >
               ×
@@ -401,12 +406,12 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
             e.stopPropagation();
             setEnlarged(true);
           }}
-          aria-label="Enlarge this picture"
+          aria-label={t("Enlarge this picture")}
           className={`absolute top-3 flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-1 text-xs font-semibold text-white ${
             hero ? "left-3" : "right-3"
           }`}
         >
-          ⤢ Enlarge
+          ⤢ {t("Enlarge")}
         </button>
 
         {photos.length > 1 && (
@@ -500,7 +505,7 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
               rel="noopener noreferrer"
               className="shrink-0 text-sm font-semibold text-[#FF5A5F] hover:underline"
             >
-              See more on AirBnB ↗
+              {t("See more on AirBnB")} ↗
             </a>
           )}
         </div>
@@ -517,12 +522,14 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
             that actually had to be read rather than glanced at. */}
         {facts && (
           <div className="mt-1.5 max-h-[34vh] overflow-y-auto">
-            <p className="text-base text-gray-300">Accommodates up to {facts.maxGuests}</p>
+            {/* The facts are translated here rather than in roomFacts.ts: askTT
+                reads the English to answer questions, so the source stays English. */}
+            <p className="text-base text-gray-300">{t("Accommodates up to {n}", { n: facts.maxGuests })}</p>
             <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
               {facts.beds.map((bed) => (
                 <li key={bed.label} className="flex items-center gap-1.5 text-base text-gray-200">
                   <BedIcon kind={bed.kind} />
-                  {bed.label}
+                  {t(bed.label)}
                 </li>
               ))}
             </ul>
@@ -544,14 +551,14 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
               <span className="flex h-[1lh] shrink-0 items-center">
                 <ParkingIcon />
               </span>
-              {houseParking}
+              {t(houseParking)}
             </p>
-            <p className="mt-1 text-base text-gray-300">{facts.bathroom}</p>
+            <p className="mt-1 text-base text-gray-300">{t(facts.bathroom)}</p>
             {/* Beside the bathroom, because it is the same kind of answer: what
                 in this house is yours alone and what is everybody's. Read from
                 one constant, so all five rooms say it identically. */}
-            <p className="text-base text-gray-300">{houseKitchen}</p>
-            <p className="text-base text-gray-300">{facts.privacy}</p>
+            <p className="text-base text-gray-300">{t(houseKitchen)}</p>
+            <p className="text-base text-gray-300">{t(facts.privacy)}</p>
             <ul className="mt-2 flex flex-wrap gap-1.5">
               {facts.highlights.map((highlight) => (
                 <li
@@ -565,7 +572,7 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
                   // than the sentence beside it read as a footnote.
                   className="rounded-full bg-white/20 px-2 py-0.5 text-base text-white"
                 >
-                  {highlight}
+                  {t(highlight)}
                 </li>
               ))}
             </ul>
@@ -590,23 +597,23 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
           <>
             <p className="mt-3 text-sm text-gray-300">
               {!hasRate ? (
-                <>The price here is something you can settle with {hostFirstName} directly.</>
+                <>{t("The price here is something you can settle with {name} directly.", { name: hostShown })}</>
               ) : myRate === 0 ? (
                 <>
-                  <span className="font-semibold text-white">Family — no charge</span> for this
-                  room, agreed with {hostFirstName}.
+                  <span className="font-semibold text-white">{t("Family — no charge")}</span>{" "}
+                  {t("for this room, agreed with {name}.", { name: hostShown })}
                 </>
               ) : (
                 <>
-                  Your price for this room is{" "}
+                  {t("Your price for this room is")}{" "}
                   {/* Same strike as the room card, so the two agree. Red on
                       this always-dark sheet, like the gray-300 around it. */}
                   {loyalRate != null && (
                     <span className="mr-1 text-red-400 line-through">${myRate}</span>
                   )}
-                  <span className="font-semibold text-white">${loyalRate ?? myRate}/night</span>
-                  {loyalRate != null ? " with your loyalty discount" : ""}, agreed with{" "}
-                  {hostFirstName}.
+                  <span className="font-semibold text-white">${loyalRate ?? myRate}{t("/night")}</span>
+                  {loyalRate != null ? t(" with your loyalty discount") : ""}
+                  {t(", agreed with {name}.", { name: hostShown })}
                 </>
               )}
             </p>
@@ -621,10 +628,10 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
                   onClick={onOpenChat}
                   className={`${contactBase} ${contactColoured}`}
                 >
-                  💬 Chat here in TiBook
+                  💬 {t("Chat here in TiBook")}
                 </button>
                 <p className="mt-1.5 text-center text-xs text-gray-400">
-                  Works from any country, on any phone — {hostFirstName} replies on this screen.
+                  {t("Works from any country, on any phone — {name} replies on this screen.", { name: hostShown })}
                 </p>
               </>
             )}
@@ -637,7 +644,7 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
                 href={priceSmsHref}
                 className={`${contactBase} ${onOpenChat ? contactOutline : contactColoured}`}
               >
-                💬 {hasRate ? `Text ${hostFirstName}` : `Ask ${hostFirstName} about the price`}
+                💬 {hasRate ? t("Text {name}", { name: hostShown }) : t("Ask {name} about the price", { name: hostShown })}
               </a>
             )}
           </>
@@ -686,7 +693,7 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
 
           <button
             onClick={() => setEnlarged(false)}
-            aria-label="Back to the room"
+            aria-label={t("Back to the room")}
             className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-xl leading-none text-white hover:bg-white/30"
           >
             ×
@@ -696,14 +703,14 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
             <>
               <button
                 onClick={prev}
-                aria-label="Previous picture"
+                aria-label={t("Previous picture")}
                 className="absolute left-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-xl text-white transition-colors hover:bg-white/30"
               >
                 ‹
               </button>
               <button
                 onClick={next}
-                aria-label="Next picture"
+                aria-label={t("Next picture")}
                 className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-xl text-white transition-colors hover:bg-white/30"
               >
                 ›
@@ -718,7 +725,7 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
               arrived by double-tapping has no reason to assume the same
               gesture is also the exit. */}
           <span className="absolute bottom-3 left-4 rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium text-white">
-            Tap twice to go back
+            {t("Tap twice to go back")}
           </span>
         </div>
     )}

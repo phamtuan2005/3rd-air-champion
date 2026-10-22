@@ -314,3 +314,38 @@ describe("questions TT used to say it did not understand", () => {
     expect(answer("may I bring my dog")).toMatchObject({ category: "houseRules" });
   });
 });
+
+describe("a German guest answering TT's booking questions", () => {
+  // TT asks German guests in German; before this, "ja" or "zu zweit" got the
+  // same question asked again with no hint why.
+  it("reads ja / nein", () => {
+    expect(readYesNo("Ja")).toBe("yes");
+    expect(readYesNo("ja, bitte")).toBe("yes");
+    expect(readYesNo("passt")).toBe("yes");
+    expect(readYesNo("Nein")).toBe("no");
+    expect(readYesNo("abbrechen")).toBe("no");
+    // An English word that starts like a German one is still not an answer.
+    expect(readYesNo("jam")).toBe(null);
+  });
+
+  it("reads a party size in German", () => {
+    expect(readParty("zu zweit")).toBe(2);
+    expect(readParty("wir sind drei")).toBe(3);
+    expect(readParty("nur ich")).toBe(1);
+    expect(readParty("fünf")).toBe(5);
+  });
+});
+describe("a German guest asking TT to book", () => {
+  it("hears German booking words, and not a question about an existing booking", () => {
+    expect(wantsToBook("Ich möchte King vom 5. bis 7. November buchen")).toBe(true);
+    expect(wantsToBook("King reservieren, bitte")).toBe(true);
+    expect(wantsToBook("Ich möchte meine Buchung stornieren")).toBe(false);
+    expect(wantsToBook("Wie kann ich buchen?")).toBe(false);
+  });
+
+  it('offers the two-night reading of "5. bis 7." as it does of "Nov 5-7"', () => {
+    const three = ["2026-11-05", "2026-11-06", "2026-11-07"];
+    expect(checkoutReading("vom 5. bis 7. November", three)).toEqual(["2026-11-05", "2026-11-06"]);
+    expect(checkoutReading("5.-7. November", three)).toEqual(["2026-11-05", "2026-11-06"]);
+  });
+});

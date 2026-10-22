@@ -525,3 +525,28 @@ describe("reaching the host from inside TT", () => {
     expect(labels({ hostUnread: 2 })).toContain("Chat Anh-Tuan · 2 new");
   });
 });
+
+describe("German questions", () => {
+  // TiBook answers German guests in German now, so TT knows a few German
+  // topic words beside the English (DE_ASKED). Added, never instead: the
+  // English questions above are read exactly as before.
+  const cat = (q: string) => askTT(q, ctx()).category;
+
+  it("files common German questions under the right topic", () => {
+    expect(cat("Gibt es WLAN?")).toBe("amenities");
+    expect(cat("Was kostet ein Zimmer?")).toBe("price");
+    expect(cat("Wann ist die Anreise?")).toBe("checkIn");
+    expect(cat("Hallo!")).toBe("greeting");
+    expect(cat("Ich möchte buchen")).toBe("booking");
+  });
+
+  it("reads 'wie viele' as a question about the rooms, not 'wie viel' the price", () => {
+    expect(cat("Wie viele Leute passen ins Zimmer?")).toBe("rooms");
+  });
+
+  it("does not take English words that only begin like German ones", () => {
+    // "hund" is the start of "hundred", "bett" of "better".
+    expect(cat("is a hundred dollars ok")).toBe("price");
+    expect(cat("which room is better for 2 guests")).toBe("rooms");
+  });
+});

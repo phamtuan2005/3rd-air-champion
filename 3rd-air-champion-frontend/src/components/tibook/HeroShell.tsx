@@ -12,6 +12,7 @@ import GuestCalendar, { MyStay } from "./Calendar/GuestCalendar";
 import TodayButton from "./Calendar/TodayButton";
 import CalendarViewToggle from "./Calendar/CalendarViewToggle";
 import { upcomingHolidaysInMonth } from "../../util/usHolidays";
+import { useTiBookLang } from "../../contexts/TiBookLanguageContext";
 
 const BACKEND = import.meta.env.VITE_BACKEND_ENDPOINT || "";
 const resolveUrl = (url: string) => (url.startsWith("/") ? `${BACKEND}${url}` : url);
@@ -119,11 +120,15 @@ let hostIntroduced = false;
 // these seven letters and not the whole of Hero.
 const HeroWeekdays = () => {
   const { theme } = useTiBookTheme();
+  const { lang } = useTiBookLang();
   const { calendarView } = useCalendarView();
   if (calendarView !== "month") return null;
+  // Picked by language rather than through t(): "T" alone is Tuesday AND
+  // Thursday, so a single-letter key cannot say which German letter it means.
+  const letters = lang === "de" ? ["S", "M", "D", "M", "D", "F", "S"] : ["S", "M", "T", "W", "T", "F", "S"];
   return (
     <div className={`grid shrink-0 grid-cols-7 pb-1 text-center text-[11px] font-medium ${theme.surfaceMuted}`}>
-      <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+      {letters.map((d, i) => <span key={i}>{d}</span>)}
     </div>
   );
 };
@@ -148,6 +153,7 @@ const HeroShell = ({
   actionLabel, hasSelection, usualCount, onOpenUsual, hostIntro, introduceHost,
 }: HeroShellProps) => {
   const { theme } = useTiBookTheme();
+  const { t, localeTag } = useTiBookLang();
   const [hostOpen, setHostOpen] = useState(false);
   useEffect(() => {
     if (!hostOpen) return;
@@ -519,7 +525,7 @@ const HeroShell = ({
   // The HOST is the person, not the listing. airbnbName is the title of the
   // place ("TT House in Silicon Valley"), so taking a first name off it gave a
   // card that said "TT picks the room".
-  const hostFirstName = (host.name || "").split(" ")[0] || "the host";
+  const hostFirstName = (host.name || "").split(" ")[0] || t("the host");
 
   // What the month is showing, said in words above it. The count comes from the
   // same monthMap the grid reads, so the sentence and the grid cannot disagree.
@@ -548,13 +554,13 @@ const HeroShell = ({
   // The month's line, said of the PICKED rooms. It was said of the card in
   // front, so with Cozy and Cute picked it read "Cozy is free 30 nights" over
   // a month counting both.
-  const nightsWord = `night${freeNights === 1 ? "" : "s"}`;
+  const one = freeNights === 1;
   const monthSummary =
     pickedRooms.length === 1
-      ? `${pickedRooms[0].name} is free ${freeNights} ${nightsWord}`
+      ? t(one ? "{room} is free {n} night" : "{room} is free {n} nights", { room: pickedRooms[0].name, n: freeNights })
       : pickedRooms.length > 1
-        ? `${pickedRooms.map((r) => r.name).join(" or ")} · ${freeNights} ${nightsWord} open`
-        : `${freeNights} ${nightsWord} open`;
+        ? t(one ? "{rooms} · {n} night open" : "{rooms} · {n} nights open", { rooms: pickedRooms.map((r) => r.name).join(t(" or ")), n: freeNights })
+        : t(one ? "{n} night open" : "{n} nights open", { n: freeNights });
   // Beside the month name while the holiday line under the calendar has
   // holidays to name; in the line's strip when it has none left.
   const summaryInHeader = upcomingHolidaysInMonth(currentMonth).length > 0;
@@ -608,7 +614,7 @@ const HeroShell = ({
           disabled={!hostIntro}
           onClick={() => setHostOpen((o) => !o)}
           aria-expanded={hostIntro ? hostOpen : undefined}
-          aria-label={hostIntro ? `About ${host.airbnbName || host.name} and its hosts` : undefined}
+          aria-label={hostIntro ? t("About {name} and its hosts", { name: host.airbnbName || host.name }) : undefined}
           className="flex min-w-0 flex-1 items-center gap-2 text-left disabled:cursor-default"
         >
         <img
@@ -633,10 +639,10 @@ const HeroShell = ({
               name the thing being swiped through now. */}
           <div className={`${SLIDES} text-[11px] leading-tight ${theme.chromeMuted}`}>
             {multi
-              ? `${picked.size} rooms picked · swipe to see each`
+              ? t("{n} rooms picked · swipe to see each", { n: picked.size })
               : activeRoom
-              ? `Room ${activeRooms.findIndex((r) => r.id === activeId) + 1} of ${activeRooms.length} · swipe for more`
-              : `Any room · swipe through all ${activeRooms.length}`}
+              ? t("Room {i} of {n} · swipe for more", { i: activeRooms.findIndex((r) => r.id === activeId) + 1, n: activeRooms.length })
+              : t("Any room · swipe through all {n}", { n: activeRooms.length })}
           </div>
         </div>
         </button>
@@ -669,7 +675,7 @@ const HeroShell = ({
           />
           <div
             role="dialog"
-            aria-label={`About ${host.airbnbName || host.name}`}
+            aria-label={t("About {name}", { name: host.airbnbName || host.name })}
             className={`fixed inset-x-0 z-40 max-h-[70dvh] overflow-y-auto overscroll-contain rounded-b-2xl shadow-2xl ${theme.surface}`}
             style={{ top: navH }}
           >
@@ -754,24 +760,24 @@ const HeroShell = ({
                         {/* A guest on a deliberate $0 rate is family. Saying
                             "$0" reads as a bug, so it says what it means. */}
                         {myRate(room) === 0 ? (
-                          <span className={`text-lg font-bold ${theme.textPrimary}`}>Family — no charge</span>
+                          <span className={`text-lg font-bold ${theme.textPrimary}`}>{t("Family — no charge")}</span>
                         ) : discountedNightly(myRate(room), loyaltyPerNight) != null ? (
                           // Her agreed rate struck through in red and what
                           // she pays beside it, as on the classic room cards.
                           <>
                             <span className={`text-base font-bold line-through ${theme.alertText}`}>${myRate(room)}</span>
                             <span className={`text-2xl font-extrabold tracking-tight ${theme.textPrimary}`}>${discountedNightly(myRate(room), loyaltyPerNight)}</span>
-                            <span className="text-xs text-white/80">/ night · your rate</span>
+                            <span className="text-xs text-white/80">{t("/ night · your rate")}</span>
                           </>
                         ) : myRate(room) != null ? (
                           <>
                             <span className={`text-2xl font-extrabold tracking-tight ${theme.textPrimary}`}>${myRate(room)}</span>
-                            <span className="text-xs text-white/80">/ night · your rate</span>
+                            <span className="text-xs text-white/80">{t("/ night · your rate")}</span>
                           </>
                         ) : (
                           /* Says what will happen rather than showing a number
                              that is not theirs. */
-                          <span className="text-xs leading-snug text-white/85">Your price is agreed with {hostFirstName}</span>
+                          <span className="text-xs leading-snug text-white/85">{t("Your price is agreed with {name}", { name: hostFirstName })}</span>
                         )}
                       </span>
                     </div>
@@ -781,7 +787,7 @@ const HeroShell = ({
                         onClick={(e) => { e.stopPropagation(); onOpenPhotos(room); }}
                         className="mb-0.5 shrink-0 whitespace-nowrap rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-semibold text-white"
                       >
-                        {count > 1 ? `${count} photos` : "Details"} ›
+                        {count > 1 ? t("{n} photos", { n: count }) : t("Details")} ›
                       </button>
                     )}
                     </div>
@@ -796,12 +802,15 @@ const HeroShell = ({
                       ))}
                     </div>
                     <div className="absolute inset-x-4 bottom-3 flex flex-col gap-1">
-                      <span className={`text-xl font-extrabold tracking-tight ${theme.surfaceText}`}>Any room is fine</span>
+                      <span className={`text-xl font-extrabold tracking-tight ${theme.surfaceText}`}>{t("Any room is fine")}</span>
                       {/* Both facts in one sentence: the two lines each named
                           the host and read as a form letter. */}
                       <span className={`text-xs leading-snug ${theme.surfaceMuted}`}>
-                        {hostFirstName} picks the room and agrees your price. Same
-                        house, same bathrooms.
+                        {/* Its own fallback: here the host is the one doing it,
+                            and German names him differently than "with the host". */}
+                        {t("{name} picks the room and agrees your price. Same house, same bathrooms.", {
+                          name: (host.name || "").split(" ")[0] || t("Your host"),
+                        })}
                       </span>
                     </div>
                   </>
@@ -826,7 +835,7 @@ const HeroShell = ({
             instead. */}
         <div
           role="group"
-          aria-label="Rooms to show in the month"
+          aria-label={t("Rooms to show in the month")}
           className="flex shrink-0 gap-1.5 overflow-x-auto px-3 pb-1 pt-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           <button
@@ -837,7 +846,7 @@ const HeroShell = ({
               picked.size === 0 ? `border-transparent text-white ${theme.btn}` : `${theme.surfaceBorder} ${theme.surfaceMuted}`
             }`}
           >
-            Any room
+            {t("Any room")}
           </button>
           {activeRooms.map((r) => {
             const on = picked.has(r.id);
@@ -893,7 +902,7 @@ const HeroShell = ({
               as large (2026-10-17). The name stays a step above it, as the
               heading the holidays sit under. */}
           <span className={`shrink-0 text-[18px] font-bold leading-tight ${theme.surfaceText}`}>
-            {currentMonth.toLocaleString("en-US", {
+            {currentMonth.toLocaleString(localeTag(), {
               month: "long",
               ...(currentMonth.getFullYear() !== new Date().getFullYear() ? { year: "numeric" as const } : {}),
             })}
@@ -924,7 +933,7 @@ const HeroShell = ({
             onClick={onReservedClick}
             className={`flex shrink-0 items-center justify-center gap-1.5 border-y px-4 py-1.5 text-xs font-semibold ${theme.warmBorder} ${theme.warmFill} ${theme.warmText2}`}
           >
-            ⏳ {reservedStays.length} booking{reservedStays.length === 1 ? "" : "s"} held for you — tap to review &amp; pay
+            ⏳ {t(reservedStays.length === 1 ? "{n} booking held for you — tap to review & pay" : "{n} bookings held for you — tap to review & pay", { n: reservedStays.length })}
           </button>
         )}
 
@@ -981,7 +990,7 @@ const HeroShell = ({
           <button
             type="button"
             onClick={onOpenUsual}
-            title="Stays TT lined up for you"
+            title={t("Stays TT lined up for you")}
             /* In a tinted rounded box: bare, "★ 35" read as a rating, not as
                something to tap (host, 2026-10-07). Tinted, never filled, so
                Request a Booking beside it stays the first thing the eye finds. */
@@ -991,7 +1000,7 @@ const HeroShell = ({
             className={`flex h-[3.25rem] w-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl border transition-colors ${theme.tagBg} ${theme.tagText} ${theme.selectedBorder} active:scale-95`}
           >
             <span className="flex h-5 items-center text-base font-extrabold leading-none">★ {usualCount}</span>
-            <span className="text-[11px] font-bold">{usualCount === 1 ? "stay" : "stays"}</span>
+            <span className="text-[11px] font-bold">{t(usualCount === 1 ? "stay" : "stays")}</span>
           </button>
         ) : (
           <span className="w-16 shrink-0" aria-hidden />
@@ -1006,7 +1015,7 @@ const HeroShell = ({
              the bar's middle line instead (host, 2026-10-07). */
           className={`flex h-[3.25rem] min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-bold text-white ${theme.btn} ${theme.btnHover} ${theme.btnMotion} ${theme.glow} shadow-lg`}
         >
-          <span className="min-w-0 truncate">{hasSelection ? actionLabel : "Request a Booking"}</span>
+          <span className="min-w-0 truncate">{hasSelection ? actionLabel : t("Request a Booking")}</span>
           <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.6} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14m-6-6 6 6-6 6" />
           </svg>
@@ -1016,7 +1025,7 @@ const HeroShell = ({
           <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
             <circle cx="12" cy="8" r="4" /><path strokeLinecap="round" d="M4 21c0-4 3.6-6 8-6s8 2 8 6" />
           </svg>
-          <span className="max-w-[4.5rem] truncate text-[11px] font-semibold">{guestName?.trim().split(" ")[0] || "You"}</span>
+          <span className="max-w-[4.5rem] truncate text-[11px] font-semibold">{guestName?.trim().split(" ")[0] || t("You")}</span>
         </button>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { format, parseISO } from "date-fns";
 import { useTiBookTheme, useRoomChip } from "../../contexts/TiBookThemeContext";
+import { useTiBookLang } from "../../contexts/TiBookLanguageContext";
 
 export interface ReservedHold {
   roomName: string;
@@ -37,6 +38,10 @@ const ReservedHoldsPopup = ({ holds, hostName, hostPhone, onClose }: ReservedHol
   const { theme } = useTiBookTheme();
   const roomChip = useRoomChip();
   const hostFirstName = (hostName ?? "").split(" ")[0] || "the host";
+  const { t, fmtDate } = useTiBookLang();
+  // Said to the guest in their language; hostFirstName itself stays English
+  // because it also opens the text the host receives.
+  const hostShown = (hostName ?? "").split(" ")[0] || t("the host");
 
   // What each hold costs, and what they come to together. A guest asked to send
   // money needs to know how much; without it the only way to find out was to ask,
@@ -61,7 +66,12 @@ const ReservedHoldsPopup = ({ holds, hostName, hostPhone, onClose }: ReservedHol
   // A deliberate $0 rate is family, not a bug — never quote them "$0", which
   // reads as a broken price. Same wording the room cards already use.
   const priceLabel = (n: number) => (n === 0 ? "No charge" : money(n));
+  // The same on screen, in the guest's language. priceLabel stays English for
+  // the text to the host.
+  const shownPrice = (n: number) => (n === 0 ? t("No charge") : money(n));
 
+  // Kept English, dates included, whatever language the guest reads TiBook
+  // in: this text lands on the host's phone.
   const textHost = () => {
     if (!hostPhone) return;
     const lines = holds.map((h) => {
@@ -106,16 +116,16 @@ const ReservedHoldsPopup = ({ holds, hostName, hostPhone, onClose }: ReservedHol
                   TiBook already uses for these, in Your Bookings. */}
               <p className={`text-sm font-bold ${theme.warmStrong}`}>
                 {holds.length === 1
-                  ? "A booking is held for you"
-                  : `${holds.length} bookings held for you`}
+                  ? t("A booking is held for you")
+                  : t("{n} bookings held for you", { n: holds.length })}
               </p>
-              <p className={`text-[11px] ${theme.warmText}`}>Pending payment</p>
+              <p className={`text-[11px] ${theme.warmText}`}>{t("Pending payment")}</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t("Close")}
             className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xl leading-none ${theme.warmDim} ${theme.warmHover}`}
           >
             &times;
@@ -124,10 +134,11 @@ const ReservedHoldsPopup = ({ holds, hostName, hostPhone, onClose }: ReservedHol
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-3 pt-3">
           <p className={`text-xs leading-relaxed ${theme.surfaceText3}`}>
-            We're holding {holds.length === 1 ? "this booking" : "these bookings"} just for you.
-            To keep{" "}
-            {holds.length === 1 ? "it" : "them"}, please send your payment soon — unpaid holds may be
-            released so other guests can book. 🙏
+            {/* Whole sentences per count rather than the pieces of one: German
+                bends more than the pronoun between one booking and several. */}
+            {holds.length === 1
+              ? t("We're holding this booking just for you. To keep it, please send your payment soon — unpaid holds may be released so other guests can book. 🙏")
+              : t("We're holding these bookings just for you. To keep them, please send your payment soon — unpaid holds may be released so other guests can book. 🙏")}
           </p>
 
           {/* The date THEY gave, when they gave one. Only the soonest is shown:
@@ -142,8 +153,8 @@ const ReservedHoldsPopup = ({ holds, hostName, hostPhone, onClose }: ReservedHol
               }`}
             >
               {promisedLate
-                ? `You'd planned to send payment by ${format(parseISO(promisedDate), "EEEE, MMM d")} — no problem if you need a little longer, just let ${hostFirstName} know.`
-                : `You said you'd send payment by ${format(parseISO(promisedDate), "EEEE, MMM d")} — thank you!`}
+                ? t("You'd planned to send payment by {date} — no problem if you need a little longer, just let {host} know.", { date: fmtDate(parseISO(promisedDate), "EEEE, MMM d"), host: hostShown })
+                : t("You said you'd send payment by {date} — thank you!", { date: fmtDate(parseISO(promisedDate), "EEEE, MMM d") })}
             </p>
           )}
 
@@ -161,21 +172,21 @@ const ReservedHoldsPopup = ({ holds, hostName, hostPhone, onClose }: ReservedHol
                 </span>
                 <div className="min-w-0 flex-1 text-right">
                   <p className={`text-xs font-semibold ${theme.surfaceText}`}>
-                    {format(h.checkIn, "EEE MMM d")} <span className={`${theme.dim}`}>→</span>{" "}
-                    {format(h.checkOut, "EEE MMM d")}
+                    {fmtDate(h.checkIn, "EEE MMM d")} <span className={`${theme.dim}`}>→</span>{" "}
+                    {fmtDate(h.checkOut, "EEE MMM d")}
                   </p>
                   <p className={`text-[11px] ${theme.surfaceMuted}`}>
-                    {h.nights} night{h.nights === 1 ? "" : "s"}
+                    {t(h.nights === 1 ? "{n} night" : "{n} nights", { n: h.nights })}
                     {h.nightly != null && h.nightly > 0 && ` × ${money(h.nightly)}`}
-                    {!!h.fees && ` + ${money(h.fees)} fees`}
+                    {!!h.fees && ` + ${t("{amount} fees", { amount: money(h.fees) })}`}
                   </p>
                   {!!h.discount && (
                     <p className={`text-[11px] font-semibold ${theme.textPrimary}`}>
-                      &hearts; {money(h.discount)} loyalty discount applied
+                      &hearts; {t("{amount} loyalty discount applied", { amount: money(h.discount) })}
                     </p>
                   )}
                   {costOf(h) != null && (
-                    <p className={`text-sm font-bold ${theme.surfaceText}`}>{priceLabel(costOf(h)!)}</p>
+                    <p className={`text-sm font-bold ${theme.surfaceText}`}>{shownPrice(costOf(h)!)}</p>
                   )}
                 </div>
               </div>
@@ -192,9 +203,9 @@ const ReservedHoldsPopup = ({ holds, hostName, hostPhone, onClose }: ReservedHol
           {total != null && (
             <div className={`flex items-center justify-between rounded-xl border ${theme.warmBorder} ${theme.warmFill} px-3 py-2`}>
               <span className={`text-sm font-semibold ${theme.warmStrong}`}>
-                {total === 0 ? "Total" : "Total to pay"}
+                {total === 0 ? t("Total") : t("Total to pay")}
               </span>
-              <span className={`text-base font-bold ${theme.warmStrong}`}>{priceLabel(total)}</span>
+              <span className={`text-base font-bold ${theme.warmStrong}`}>{shownPrice(total)}</span>
             </div>
           )}
 
@@ -205,7 +216,7 @@ const ReservedHoldsPopup = ({ holds, hostName, hostPhone, onClose }: ReservedHol
               onClick={textHost}
               className={`mt-3 w-full rounded-lg ${theme.btn} py-2.5 text-sm font-bold text-white`}
             >
-              💬 Message {hostFirstName} to pay
+              💬 {t("Message {host} to pay", { host: hostShown })}
             </button>
           )}
           <button
@@ -213,7 +224,7 @@ const ReservedHoldsPopup = ({ holds, hostName, hostPhone, onClose }: ReservedHol
             onClick={onClose}
             className={`mt-2 w-full rounded-lg border ${theme.line} py-2 text-sm font-semibold ${theme.surfaceMuted} ${theme.chromeHover}`}
           >
-            Got it
+            {t("Got it")}
           </button>
 
           {/* The way out of a room asked for by mistake.
@@ -224,8 +235,7 @@ const ReservedHoldsPopup = ({ holds, hostName, hostPhone, onClose }: ReservedHol
               it, which is one tap on a screen that shows all of that.
               Said as what WILL happen, not as what they cannot do. */}
           <p className={`mt-2.5 text-center text-[11px] leading-relaxed ${theme.surfaceMuted2}`}>
-            Asked for one of these by mistake? Just let {hostFirstName} know and it will be
-            released.
+            {t("Asked for one of these by mistake? Just let {host} know and it will be released.", { host: hostShown })}
           </p>
         </div>
       </div>

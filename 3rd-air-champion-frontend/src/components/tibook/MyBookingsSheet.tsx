@@ -11,6 +11,7 @@ import { revokeConsent } from "../../util/guestConsent";
 import { fetchHasStatsAccess } from "../../util/tibookVisitOperations";
 import RoomBadge from "../shared/RoomBadge";
 import GuestLoyaltyBanner from "./GuestLoyaltyBanner";
+import { useTiBookLang } from "../../contexts/TiBookLanguageContext";
 
 export interface GuestBooking {
   id: string;
@@ -73,6 +74,7 @@ const resolveInstructions = (
     .replace(/\{\{duration\}\}/g, vars.duration);
 
 const CheckInInstructionsPanel = ({ instructions, theme }: { instructions: string; theme: any }) => {
+  const { t } = useTiBookLang();
   const [open, setOpen] = useState(false);
   return (
     <div className={`rounded-xl border ${theme.tagBorder} overflow-hidden`}>
@@ -85,7 +87,7 @@ const CheckInInstructionsPanel = ({ instructions, theme }: { instructions: strin
           <svg className={`w-4 h-4 shrink-0 ${theme.textPrimary}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
-          <span className={`text-[11px] font-bold uppercase tracking-wide ${theme.textPrimary}`}>Check-in instructions</span>
+          <span className={`text-[11px] font-bold uppercase tracking-wide ${theme.textPrimary}`}>{t("Check-in instructions")}</span>
         </div>
         <svg className={`w-3.5 h-3.5 ${theme.surfaceMuted2} transition-transform ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -142,6 +144,7 @@ const statusLabel: Record<string, { label: string; color: string }> = {
 
 const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialPhone, initialName, focusKey, rooms, wishListDates, onToggleWishDate, cancellationFullRefundDays, cancellationHalfRefundDays, houseRules, onClose, onPhoneConfirmed, onClear, onOpenStats }: MyBookingsSheetProps) => {
   const { theme } = useTiBookTheme();
+  const { t, fmtDate } = useTiBookLang();
   const roomChip = useRoomChip();
   const activeRooms = rooms.filter((r) => r.active);
   const roomMap = new Map(rooms.map((r) => [r.id, r]));
@@ -245,7 +248,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
         "";
       onPhoneConfirmed(p, knownName, { auto });
     } catch {
-      setError("Could not load bookings. Please try again.");
+      setError(t("Could not load bookings. Please try again."));
     } finally {
       setLoading(false);
     }
@@ -267,12 +270,12 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
   const [focusPulse, setFocusPulse] = useState(false);
   useEffect(() => {
     if (!focusKey || !bookings) return;
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       focusRowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       setFocusPulse(true);
       setTimeout(() => setFocusPulse(false), 2200);
     }, 200);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [bookings, focusKey]);
 
   const _now = new Date();
@@ -293,13 +296,16 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
     const events = upcoming.map((b) => {
       const checkIn = parseISO(dateKey(b));
       const checkOut = addDays(checkIn, Number(b.duration) || 1);
-      const roomName = roomMap.get(b.room)?.name ?? "Room";
+      const roomName = roomMap.get(b.room)?.name ?? t("Room");
+      // The event text lands in the guest's OWN calendar, so it is in their
+      // language. The DTSTART/DTEND stamps stay date-fns `format`: a calendar
+      // app reads them, and they must not change with the language.
       return [
         "BEGIN:VEVENT",
         `DTSTART;TZID=${tz}:${fmt(checkIn, 14)}`,
         `DTEND;TZID=${tz}:${fmt(checkOut, 11)}`,
-        `SUMMARY:Stay at ${roomName}`,
-        `DESCRIPTION:${b.duration} night${b.duration !== 1 ? "s" : ""} at ${roomName}`,
+        `SUMMARY:${t("Stay at {room}", { room: roomName })}`,
+        `DESCRIPTION:${t(b.duration !== 1 ? "{n} nights at {room}" : "{n} night at {room}", { n: b.duration, room: roomName })}`,
         ...(airbnbAddress ? [`LOCATION:${airbnbAddress.split("\n").join(", ")}`] : []),
         "END:VEVENT",
       ].join("\r\n");
@@ -328,7 +334,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
   const totalStays = allNonAirbnbBookings.length;
   const totalNights = allNonAirbnbBookings.reduce((sum, b) => sum + (Number(b.duration) || 1), 0);
   const memberSince = allNonAirbnbBookings.length > 0
-    ? format(parseISO(allNonAirbnbBookings.reduce((min, b) => dateKey(b) < min ? dateKey(b) : min, dateKey(allNonAirbnbBookings[0]))), "MMMM yyyy")
+    ? fmtDate(parseISO(allNonAirbnbBookings.reduce((min, b) => dateKey(b) < min ? dateKey(b) : min, dateKey(allNonAirbnbBookings[0]))), "MMMM yyyy")
     : null;
 
 
@@ -361,22 +367,22 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
         {isStayingNow && (
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className={`text-xs font-bold ${theme.warmText} uppercase tracking-wide`}>Staying now</span>
+            <span className={`text-xs font-bold ${theme.warmText} uppercase tracking-wide`}>{t("Staying now")}</span>
           </div>
         )}
         {isToday && (
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-            <span className={`text-xs font-bold ${theme.warmText} uppercase tracking-wide`}>Check-in today</span>
+            <span className={`text-xs font-bold ${theme.warmText} uppercase tracking-wide`}>{t("Check-in today")}</span>
           </div>
         )}
         {/* The room and the status head the card on their own line. Everything
             below qualifies those two, so nothing has to compete with them for
             width — which is what forced the whole stack down to 11px before. */}
         <div className="flex items-start justify-between gap-3">
-          <RoomBadge room={room ?? { name: "Room" }} rooms={activeRooms} override={roomChip(room ?? { name: "Room", color: "bg-gray-400" })} />
+          <RoomBadge room={room ?? { name: t("Room") }} rooms={activeRooms} override={roomChip(room ?? { name: t("Room"), color: "bg-gray-400" })} />
           <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${st.color} shrink-0`}>
-            {st.label}
+            {t(st.label)}
           </span>
         </div>
 
@@ -385,15 +391,15 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
             fee breakdown underneath it. */}
         <div className="flex flex-col gap-1">
           <span className={`text-base font-semibold leading-snug ${theme.surfaceText}`}>
-            {format(checkIn, "MMMM d")} – {format(checkOut, "MMMM d, yyyy")}
+            {fmtDate(checkIn, "MMMM d")} – {fmtDate(checkOut, "MMMM d, yyyy")}
           </span>
           <div className="flex flex-wrap items-center gap-2">
             <span className={`text-sm ${theme.surfaceMuted}`}>
-              {b.duration} night{b.duration !== 1 ? "s" : ""}
+              {t(b.duration !== 1 ? "{n} nights" : "{n} night", { n: b.duration })}
             </span>
             {!isToday && !isStayingNow && (
               <span className="rounded-full border border-indigo-100 bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-500">
-                {daysLeft === 1 ? "Tomorrow!" : `in ${daysLeft} days`}
+                {daysLeft === 1 ? t("Tomorrow!") : t("in {n} days", { n: daysLeft })}
               </span>
             )}
           </div>
@@ -406,20 +412,22 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
             <span className={`text-2xl font-bold leading-none ${theme.textPrimary}`}>${total}</span>
             <span className={`text-xs ${theme.surfaceMuted2}`}>
-              ${nightRate}/night{extrasSum ? ` + $${extrasSum} fees` : ""}
+              {t("${rate}/night", { rate: String(nightRate) })}{extrasSum ? t(" + ${sum} fees", { sum: extrasSum }) : ""}
             </span>
           </div>
         )}
         {extras.length > 0 && (
+          // The fee's own label is the host's words, as he typed them in TiMag;
+          // only the stand-in for a blank one is TiBook's to translate.
           <span className={`text-xs ${theme.surfaceMuted2}`}>
-            {extras.map((f) => `${f.label || "Fee"} $${f.amount}`).join(" · ")}
+            {extras.map((f) => `${f.label || t("Fee")} $${f.amount}`).join(" · ")}
           </span>
         )}
         {savedSum > 0 && (
           <div className={`flex items-center gap-1.5 rounded-xl border ${theme.tagBorder} ${theme.tagBg} px-2.5 py-1.5`}>
             <span aria-hidden className={`text-xs ${theme.textPrimary}`}>&hearts;</span>
             <span className={`text-xs font-semibold ${theme.textPrimary}`}>
-              {savings.map((f) => f.label || "Discount").join(" · ")} &mdash; ${savedSum} off this stay
+              {savings.map((f) => f.label || t("Discount")).join(" · ")} &mdash; {t("${sum} off this stay", { sum: savedSum })}
             </span>
           </div>
         )}
@@ -435,7 +443,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
             <div className="flex flex-col min-w-0 flex-1">
-              <span className={`text-[10px] ${theme.surfaceMuted2} font-medium uppercase tracking-wide leading-none mb-0.5`}>Address · tap for directions</span>
+              <span className={`text-[10px] ${theme.surfaceMuted2} font-medium uppercase tracking-wide leading-none mb-0.5`}>{t("Address · tap for directions")}</span>
               <span className={`text-sm font-semibold ${theme.textPrimaryDark} leading-snug`}>{airbnbAddress}</span>
             </div>
             <svg className={`w-4 h-4 shrink-0 ${theme.surfaceMuted2}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -444,6 +452,9 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
           </a>
         )}
         {isNext && room?.checkInInstructions && (
+          // Kept English: the instructions are the host's own English text, and
+          // a German date dropped into his English sentence would read as a
+          // mistake. The guest reads them as he wrote them.
           <CheckInInstructionsPanel
             instructions={resolveInstructions(room.checkInInstructions, {
               guestName:    b.guestName.split(" ")[0],
@@ -463,7 +474,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
             </svg>
             <div className="flex flex-col">
-              <span className={`text-[10px] ${theme.surfaceMuted2} font-medium uppercase tracking-wide leading-none mb-0.5`}>Room code</span>
+              <span className={`text-[10px] ${theme.surfaceMuted2} font-medium uppercase tracking-wide leading-none mb-0.5`}>{t("Room code")}</span>
               <span className={`text-lg font-bold tracking-widest ${theme.textPrimaryDark} leading-none`}>{room.roomCode}</span>
             </div>
           </div>
@@ -496,7 +507,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
 
         {/* Header */}
         <div className={`flex items-center justify-between px-4 py-3 border-b ${theme.surfaceBorder}`}>
-          <span className={`text-sm font-bold ${theme.textPrimary}`}>Your Bookings</span>
+          <span className={`text-sm font-bold ${theme.textPrimary}`}>{t("Your Bookings")}</span>
           <button type="button" onClick={onClose} className={`${theme.surfaceMuted2} ${theme.mutedHover} text-xl leading-none`}>×</button>
         </div>
 
@@ -504,14 +515,14 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
         {bookings === null && loading ? (
           <div className={`flex items-center justify-center gap-2 px-4 pt-4 pb-3 text-sm ${theme.surfaceMuted2}`}>
             <span className={`inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 ${theme.spinner}`} />
-            Loading your bookings…
+            {t("Loading your bookings…")}
           </div>
         ) : bookings === null ? (
           <div>
             <div className="flex gap-2 px-4 pt-3 pb-2">
               <input
                 type="tel"
-                placeholder="Your phone number"
+                placeholder={t("Your phone number")}
                 value={phone}
                 onChange={(e) => { setPhone(dropUsCountryCode(e.target.value)); setGuestPricing(new Map()); }}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -523,7 +534,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
                 onClick={() => handleSearch()}
                 className={`px-4 py-2.5 rounded-xl text-white text-sm font-semibold ${theme.btn} disabled:opacity-50 whitespace-nowrap`}
               >
-                {loading ? "…" : "Search"}
+                {loading ? "…" : t("Search")}
               </button>
             </div>
             {error && <p className={`px-4 pb-2 text-xs ${theme.alertText2}`}>{error}</p>}
@@ -535,7 +546,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
               </svg>
               <span className="truncate">
-                Showing bookings for <span className={`font-semibold ${theme.surfaceMuted}`}>{maskPhone(phone)}</span>
+                {t("Showing bookings for")} <span className={`font-semibold ${theme.surfaceMuted}`}>{maskPhone(phone)}</span>
               </span>
             </span>
             <button
@@ -543,7 +554,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
               onClick={handleClear}
               className={`shrink-0 text-xs font-semibold ${theme.textPrimary} hover:underline`}
             >
-              Not you?
+              {t("Not you?")}
             </button>
           </div>
         )}
@@ -568,13 +579,13 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
 
           {bookings === null ? null : bookings.length === 0 ? (
             <p className={`text-sm ${theme.surfaceMuted2} text-center py-6`}>
-              We couldn't find any bookings for this number. Please double-check the number you used when booking.
+              {t("We couldn't find any bookings for this number. Please double-check the number you used when booking.")}
             </p>
           ) : (
             <>
               {upcoming.length === 0 ? (
                 <p className={`text-sm ${theme.surfaceMuted2} text-center py-6`}>
-                  No upcoming bookings. We look forward to having you again!
+                  {t("No upcoming bookings. We look forward to having you again!")}
                 </p>
               ) : (() => {
                 const stayingNow     = upcoming.filter((b) => dateKey(b) < today);
@@ -587,7 +598,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
                     {checkInToday.map((b) => <div key={dateKey(b) + b.room} className="pt-2">{renderRow(b, b === next)}</div>)}
                     {futureBookings.length > 0 && (
                       <>
-                        <p className={`text-[11px] font-semibold ${theme.surfaceMuted2} uppercase tracking-wide pt-3 pb-1`}>Upcoming</p>
+                        <p className={`text-[11px] font-semibold ${theme.surfaceMuted2} uppercase tracking-wide pt-3 pb-1`}>{t("Upcoming")}</p>
                         {futureBookings.map((b: GuestBooking) => renderRow(b, b === next))}
                       </>
                     )}
@@ -599,7 +610,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
                       <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
-                      Add my stays to calendar
+                      {t("Add my stays to calendar")}
                     </button>
                   </>
                 );
@@ -619,7 +630,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
                   <svg className={`w-3.5 h-3.5 shrink-0 ${theme.textPrimary}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                   </svg>
-                  <span className={`text-[11px] font-semibold ${theme.textPrimary}`}>House rules</span>
+                  <span className={`text-[11px] font-semibold ${theme.textPrimary}`}>{t("House rules")}</span>
                 </span>
                 <svg
                   className={`w-3.5 h-3.5 ${theme.surfaceMuted2} transition-transform ${rulesOpen ? "rotate-180" : ""}`}
@@ -655,7 +666,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
                 className="w-full flex items-center justify-between py-1 text-left"
               >
                 <span className={`text-[11px] font-semibold ${theme.surfaceMuted2} uppercase tracking-wide`}>
-                  Wish list dates
+                  {t("Wish list dates")}
                   <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${theme.tagBg} ${theme.textPrimary}`}>
                     {sortedWishDates.length}
                   </span>
@@ -675,7 +686,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
                       <div key={d} className={`flex flex-col gap-1 px-3 py-2 rounded-xl border ${theme.alertFill} ${theme.alertBorder}`}>
                         <div className="flex items-center justify-between">
                           <span className={`text-xs ${theme.alertText} font-medium`}>
-                            Remove {format(parseISO(d), "MMMM d")}?
+                            {t("Remove {date}?", { date: fmtDate(parseISO(d), "MMMM d") })}
                           </span>
                           <div className="flex items-center gap-2 ml-2">
                             <button
@@ -683,7 +694,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
                               disabled={removing}
                               onClick={async () => {
                                 if (!guestNameForToggle) {
-                                  setRemoveError("Please search your bookings first so we can verify your identity.");
+                                  setRemoveError(t("Please search your bookings first so we can verify your identity."));
                                   return;
                                 }
                                 setRemoveError("");
@@ -693,21 +704,21 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
                                   onToggleWishDate?.(d);
                                   setPendingRemove(null);
                                 } catch {
-                                  setRemoveError("Something went wrong. Please try again.");
+                                  setRemoveError(t("Something went wrong. Please try again."));
                                 } finally {
                                   setRemoving(false);
                                 }
                               }}
                               className={`text-xs font-semibold ${theme.alertText} ${theme.alertHover} disabled:opacity-50`}
                             >
-                              {removing ? "…" : "Yes, remove"}
+                              {removing ? "…" : t("Yes, remove")}
                             </button>
                             <button
                               type="button"
                               onClick={() => { setPendingRemove(null); setRemoveError(""); }}
                               className={`text-xs ${theme.surfaceMuted2} ${theme.mutedHover}`}
                             >
-                              Keep
+                              {t("Keep")}
                             </button>
                           </div>
                         </div>
@@ -716,7 +727,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
                     ) : (
                       <div key={d} className={`flex items-center justify-between px-3 py-2 rounded-xl border ${theme.tagBg} ${theme.tagBorder}`}>
                         <span className={`text-sm font-semibold ${theme.textPrimaryDark}`}>
-                          {format(parseISO(d), "EEE, MMMM d yyyy")}
+                          {fmtDate(parseISO(d), "EEE, MMMM d yyyy")}
                         </span>
                         {onToggleWishDate && (
                           <button
@@ -746,8 +757,8 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
               <span className="flex items-center gap-2 min-w-0">
                 <span aria-hidden>📈</span>
                 <span className="min-w-0">
-                  <span className={`block text-sm font-semibold ${theme.textPrimary}`}>TiBook visitor numbers</span>
-                  <span className={`block text-[11px] ${theme.surfaceMuted}`}>How many people are looking, and from where</span>
+                  <span className={`block text-sm font-semibold ${theme.textPrimary}`}>{t("TiBook visitor numbers")}</span>
+                  <span className={`block text-[11px] ${theme.surfaceMuted}`}>{t("How many people are looking, and from where")}</span>
                 </span>
               </span>
               <svg className={`w-3.5 h-3.5 shrink-0 ${theme.surfaceMuted2}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">

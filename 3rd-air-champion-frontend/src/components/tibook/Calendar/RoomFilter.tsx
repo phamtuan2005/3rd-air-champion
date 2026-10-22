@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { roomType } from "../../../util/types/roomType";
+import { useTiBookLang } from "../../../contexts/TiBookLanguageContext";
 
 interface RoomFilterProps {
   rooms: roomType[];
@@ -7,6 +8,7 @@ interface RoomFilterProps {
 }
 
 const RoomFilter = ({ rooms, onChange }: RoomFilterProps) => {
+  const { t } = useTiBookLang();
   const activeRooms = useMemo(() => rooms.filter((r) => r.active), [rooms]);
 
   return (
@@ -15,7 +17,7 @@ const RoomFilter = ({ rooms, onChange }: RoomFilterProps) => {
       defaultValue=""
       onChange={(e) => onChange(e.target.value || null)}
     >
-      <option value="">All rooms</option>
+      <option value="">{t("All rooms")}</option>
       {activeRooms.map((room) => (
         <option key={room.id} value={room.name}>
           {room.name}

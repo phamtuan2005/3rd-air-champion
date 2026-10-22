@@ -1,7 +1,8 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
-import { addDays, format, isSameDay, parseISO, startOfToday } from "date-fns";
+import { addDays, isSameDay, parseISO, startOfToday } from "date-fns";
 import { useTiBookTheme, useRoomChip } from "../../../contexts/TiBookThemeContext";
+import { t, useTiBookLang } from "../../../contexts/TiBookLanguageContext";
 import { nightKey, nightStatus } from "../../../util/nightStatus";
 import { getRoomColor } from "../../../util/getRoomColor";
 import { roomType } from "../../../util/types/roomType";
@@ -9,7 +10,7 @@ import { dayType } from "../../../util/types/dayType";
 import type { GuestCalendarProps } from "./GuestCalendar";
 import { MONTHS_FORWARD, appliedMonthTrigger, HOLD_HATCH, HOLD_HATCH_TILE } from "./calendarScroll";
 import { dayListMonths } from "../../../util/dayListMonths";
-import { holidayLabel, usHolidayOn } from "../../../util/usHolidays";
+import { holidayLabelForGuest, usHolidayOn } from "../../../util/usHolidays";
 import MonthHolidayLine from "./MonthHolidayLine";
 
 /*
@@ -138,7 +139,7 @@ interface NightData {
  * a bug, so it says what it means instead — same as the room cards.
  */
 const rateText = (rate: number | undefined): string | undefined =>
-  rate == null ? undefined : rate === 0 ? "no charge" : `$${rate}`;
+  rate == null ? undefined : rate === 0 ? t("no charge") : `$${rate}`;
 
 type Handlers = Pick<GuestCalendarProps, "onDateClick" | "onWishListClick" | "onMyStayClick" | "onMyStayDetails" | "onReservedClick">;
 
@@ -187,10 +188,11 @@ const FreeRooms = ({ count, rooms, myRates, text, picked }: {
 }) => {
   const { theme } = useTiBookTheme();
   const roomChip = useRoomChip();
+  useTiBookLang();
   return (
     <span className="flex flex-wrap items-center gap-1" style={{ fontSize: text }}>
       <span className={`mr-0.5 shrink-0 font-semibold ${picked ? "text-white" : theme.surfaceText2}`}>
-        {count} free
+        {t("{count} free", { count })}
       </span>
       {rooms.map((r) => {
         // The price sits UNDER the name, inside the chip. Beside it, a chip
@@ -216,6 +218,8 @@ const FreeRooms = ({ count, rooms, myRates, text, picked }: {
 const MonthSection = memo(({ month, days, top, drawn, data, size, handlers }: MonthSectionProps) => {
   const { theme } = useTiBookTheme();
   const roomChip = useRoomChip();
+  // A memo'd month still redraws on a language switch: context reaches past memo.
+  const { fmtDate, localeTag } = useTiBookLang();
   const { rowH: ROW_H, headH: HEAD_H } = size;
   const fs = (px: number): React.CSSProperties => ({ fontSize: px });
   const dateColW = dateColWidthFor(size);
@@ -331,7 +335,7 @@ const MonthSection = memo(({ month, days, top, drawn, data, size, handlers }: Mo
         // narrow phone: the same hidden-scrollbar strip the room filter uses.
         <span className="flex min-w-0 items-center gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <span className={`font-semibold ${inCart ? "text-white" : theme.surfaceText2}`} style={fs(size.text)}>
-              Free
+              {t("Free")}
               {/* One room in scope: room for the words the chips have to leave out. */}
               {(() => {
                 const rate = data.myRates?.get(freeRooms[0]?.id ?? "");
@@ -339,7 +343,7 @@ const MonthSection = memo(({ month, days, top, drawn, data, size, handlers }: Mo
                 return (
                   <span className="font-normal">
                     {" · "}
-                    {rate === 0 ? "family, no charge" : <><span className="font-bold">${rate}</span> a night, your price</>}
+                    {rate === 0 ? t("family, no charge") : <><span className="font-bold">${rate}</span> {t("a night, your price")}</>}
                   </span>
                 );
               })()}
@@ -360,7 +364,7 @@ const MonthSection = memo(({ month, days, top, drawn, data, size, handlers }: Mo
         <span className={`line-clamp-2 leading-tight ${theme.surfaceMuted}`} style={fs(size.text)}>
           {/* A non-breaking hyphen (U+2011): at the list's type the line wraps,
               and it broke "wish-" from "list". */}
-          {isWishlisted ? "Sold out · on your wish list" : canWishList ? "Sold out · tap to wish‑list" : "Sold out"}
+          {t(isWishlisted ? "Sold out · on your wish list" : canWishList ? "Sold out · tap to wish‑list" : "Sold out")}
         </span>
       );
     }
@@ -383,7 +387,7 @@ const MonthSection = memo(({ month, days, top, drawn, data, size, handlers }: Mo
             and the eye can run down it the way it runs down a grid column. */}
         <span className="relative z-10 flex shrink-0 flex-col items-center leading-none" style={{ width: dateColW }}>
           <span className={`font-medium uppercase ${inCart ? "text-white" : isToday ? theme.textPrimary : gone ? theme.dim : theme.surfaceMuted}`} style={fs(size.small)}>
-            {isToday ? "Today" : format(date, "EEE")}
+            {isToday ? t("Today") : fmtDate(date, "EEE")}
           </span>
           <span
             style={fs(size.date)}
@@ -409,7 +413,7 @@ const MonthSection = memo(({ month, days, top, drawn, data, size, handlers }: Mo
               className={`truncate font-semibold leading-tight ${inCart ? "text-white" : theme.alertText}`}
               style={fs(size.small)}
             >
-              {holidayLabel(holiday)}
+              {holidayLabelForGuest(holiday)}
             </span>
           )}
           {detail}
@@ -456,7 +460,7 @@ const MonthSection = memo(({ month, days, top, drawn, data, size, handlers }: Mo
     const last = run[run.length - 1];
     const checkIn = addDays(run[0], -first.index);
     const checkOut = addDays(checkIn, first.nights);
-    const nightsText = `${first.nights} night${first.nights === 1 ? "" : "s"}`;
+    const nightsText = t(first.nights === 1 ? "{n} night" : "{n} nights", { n: first.nights });
     /*
      * What the guest paid for the WHOLE stay — every night at the price it was
      * booked at, fees once — worked out by the backend from the booking
@@ -469,8 +473,8 @@ const MonthSection = memo(({ month, days, top, drawn, data, size, handlers }: Mo
      */
     const paidText =
       held || first.paid == null ? undefined :
-      first.paid === 0 ? "Family — no charge" :
-      `Paid $${first.paid.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+      first.paid === 0 ? t("Family — no charge") :
+      t("Paid ${amount}", { amount: first.paid.toLocaleString(localeTag(), { maximumFractionDigits: 2 }) });
     const h = handlers.current;
     const onClick = held ? () => h.onReservedClick?.() : () => h.onMyStayClick?.(first.id);
     const today = startOfToday();
@@ -478,7 +482,7 @@ const MonthSection = memo(({ month, days, top, drawn, data, size, handlers }: Mo
     const dateStack = (d: Date, first: boolean) => (
       <span className="flex flex-col items-center leading-none">
         <span className={`font-medium uppercase ${first && isSameDay(d, today) ? theme.textPrimary : theme.surfaceMuted}`} style={fs(size.small)}>
-          {first && isSameDay(d, today) ? "Today" : format(d, "EEE")}
+          {first && isSameDay(d, today) ? t("Today") : fmtDate(d, "EEE")}
         </span>
         <span className={`mt-0.5 font-bold ${theme.surfaceText}`} style={fs(size.date)}>{d.getDate()}</span>
       </span>
@@ -531,7 +535,7 @@ const MonthSection = memo(({ month, days, top, drawn, data, size, handlers }: Mo
               {first.roomName}
             </span>
             <span className={`truncate font-semibold ${held ? theme.warmText2 : theme.surfaceText}`} style={fs(size.small)}>
-              {held ? "⏳ Held for you" : first.index === 0 ? `Your stay · ${nightsText}` : "Your stay, continued"}
+              {held ? t("⏳ Held for you") : first.index === 0 ? t("Your stay · {nights}", { nights: nightsText }) : t("Your stay, continued")}
             </span>
           </span>
           {/* Left out of a confirmed one-night cell, whose date column already
@@ -539,7 +543,7 @@ const MonthSection = memo(({ month, days, top, drawn, data, size, handlers }: Mo
               with its link may need two. A hold keeps it — it has no price. */}
           {(held || run.length > 1) && (
             <span className={`truncate ${theme.surfaceMuted}`} style={fs(size.small)}>
-              {format(checkIn, "EEE d MMM")} – {format(checkOut, "EEE d MMM")}
+              {fmtDate(checkIn, "EEE d MMM")} – {fmtDate(checkOut, "EEE d MMM")}
               {held ? ` · ${nightsText}` : ""}
             </span>
           )}
@@ -555,7 +559,7 @@ const MonthSection = memo(({ month, days, top, drawn, data, size, handlers }: Mo
               {h.onMyStayDetails && (
                 <button
                   type="button"
-                  aria-label={`Booking details, ${first.roomName}, ${format(checkIn, "d MMM")}`}
+                  aria-label={t("Booking details, {room}, {date}", { room: first.roomName, date: fmtDate(checkIn, "d MMM") })}
                   // The cell's own tap opens the stay card; this goes past it,
                   // to the booking in Your bookings.
                   onClick={(e) => { e.stopPropagation(); h.onMyStayDetails?.(first.id); }}
@@ -563,12 +567,12 @@ const MonthSection = memo(({ month, days, top, drawn, data, size, handlers }: Mo
                   className={`shrink-0 whitespace-nowrap font-semibold underline underline-offset-2 ${theme.textPrimary}`}
                   style={fs(size.text)}
                 >
-                  Details ›
+                  {t("Details ›")}
                 </button>
               )}
             </span>
           )}
-          {held && <span className={`truncate font-semibold ${theme.warmText2}`} style={fs(size.small)}>Tap to pay</span>}
+          {held && <span className={`truncate font-semibold ${theme.warmText2}`} style={fs(size.small)}>{t("Tap to pay")}</span>}
         </span>
       </div>
     );
@@ -621,11 +625,11 @@ const MonthSection = memo(({ month, days, top, drawn, data, size, handlers }: Mo
       >
         {stayThrough && barPiece("night", stayThrough, false, top, "stay")}
         {holdThrough && barPiece("night", holdThrough, true, top, "hold")}
-        <span className="flex-1">{format(month, "MMMM yyyy")}</span>
+        <span className="flex-1">{fmtDate(month, "MMMM yyyy")}</span>
         {/* Says once a month what the "$65" on a chip is: this guest's own
             rate, per night — not a total, not a list price. */}
         {data.nameRooms && (data.myRates?.size ?? 0) > 0 && (
-          <span className={`font-normal ${theme.surfaceMuted}`} style={fs(size.small)}>Prices are yours, a night</span>
+          <span className={`font-normal ${theme.surfaceMuted}`} style={fs(size.small)}>{t("Prices are yours, a night")}</span>
         )}
       </h3>
       {drawn ? renderDays() : <div style={{ height: days.length * ROW_H }} />}

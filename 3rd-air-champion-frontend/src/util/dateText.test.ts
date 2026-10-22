@@ -261,3 +261,42 @@ describe("a span of weekdays", () => {
     expect(on("Aug 23-25").dates).toEqual(["2026-08-23", "2026-08-24", "2026-08-25"]);
   });
 });
+
+describe("a German guest's dates", () => {
+  // TiBook speaks German now; a guest answering in German writes the day first
+  // and the month in German. Before these, "1. Mai" fell into the note.
+  it('reads German month names, day first or after: "1. Mai", "Okt 3, 4"', () => {
+    expect(on("1. Mai").dates).toEqual(["2027-05-01"]);
+    expect(on("Okt 3, 4").dates).toEqual(["2026-10-03", "2026-10-04"]);
+    expect(on("24. Dezember").dates).toEqual(["2026-12-24"]);
+    expect(on("2. März").dates).toEqual(["2027-03-02"]);
+  });
+
+  it('reads "3.9." and "3.9.2026" as the 3rd of September, not March', () => {
+    expect(on("3.9.").dates).toEqual(["2026-09-03"]);
+    expect(on("3.9.2026").dates).toEqual(["2026-09-03"]);
+  });
+
+  it("never reads a bare decimal as a date", () => {
+    // No closing dot, no date: "1.5 baths" is a bathroom count.
+    expect(on("1.5 baths").dates).toEqual([]);
+  });
+});
+describe("a German guest's date spans", () => {
+  // German writes the span before the month. Only the last day was read, so
+  // "vom 10. bis 12. Dezember" was answered as a single night.
+  it('reads "10.-12. Dezember" and "vom 10. bis 12. Dezember" as every day in it', () => {
+    expect(on("10.-12. Dezember").dates).toEqual(["2026-12-10", "2026-12-11", "2026-12-12"]);
+    expect(on("vom 10. bis 12. Dezember").dates).toEqual(["2026-12-10", "2026-12-11", "2026-12-12"]);
+    expect(on("vom 5. bis zum 7. Nov").dates).toEqual(["2026-11-05", "2026-11-06", "2026-11-07"]);
+  });
+
+  it("leaves a span that closed the previous month's list with that month", () => {
+    // Only the span is asserted: the lone 22 has always also gone to September
+    // when no comma closes August's list, which is older than German spans.
+    const { dates } = on("Aug 20-22 Sept 2");
+    expect(dates).toEqual(expect.arrayContaining(["2026-08-20", "2026-08-21", "2026-08-22", "2026-09-02"]));
+    expect(dates).not.toContain("2026-09-20");
+    expect(dates).not.toContain("2026-09-21");
+  });
+});

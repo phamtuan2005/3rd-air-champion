@@ -5,6 +5,7 @@ import { getRoomPhotos } from "../../util/roomFacts";
 import { useTiBookTheme, useRoomChip } from "../../contexts/TiBookThemeContext";
 import RoomBadge from "../shared/RoomBadge";
 import { discountedNightly } from "../../util/loyaltyDiscount";
+import { useTiBookLang } from "../../contexts/TiBookLanguageContext";
 
 const BACKEND = import.meta.env.VITE_BACKEND_ENDPOINT || "";
 const resolveUrl = (url: string) => url.startsWith("/") ? `${BACKEND}${url}` : url;
@@ -57,6 +58,7 @@ const RoomCard = ({
   loyaltyPerNight?: number;
 }) => {
   const { theme } = useTiBookTheme();
+  const { t } = useTiBookLang();
   const loyalRate = discountedNightly(myRate, loyaltyPerNight);
   const roomChip = useRoomChip();
   // Same list the gallery pages through, so the count badge below cannot
@@ -118,7 +120,7 @@ const RoomCard = ({
         <div className="px-2 pt-1 text-[10px] leading-tight sm:text-[11px]">
           {myRate === 0 ? (
             <span className={`font-bold ${theme.textPrimary}`}>
-              Family — no charge
+              {t("Family — no charge")}
             </span>
           ) : loyalRate != null ? (
             // Her agreed rate struck through in red, what she pays beside it
@@ -127,7 +129,7 @@ const RoomCard = ({
             <>
               <span className={`mr-1 line-through ${theme.alertText}`}>${myRate}</span>
               <span className={`font-bold ${theme.surfaceText}`}>${loyalRate}</span>
-              <span className={theme.surfaceMuted}>/night</span>
+              <span className={theme.surfaceMuted}>{t("/night")}</span>
             </>
           ) : (
             <>
@@ -135,7 +137,7 @@ const RoomCard = ({
                 <span className={`mr-1 line-through ${theme.surfaceMuted}`}>${room.price}</span>
               )}
               <span className={`font-bold ${theme.surfaceText}`}>${myRate}</span>
-              <span className={theme.surfaceMuted}>/night</span>
+              <span className={theme.surfaceMuted}>{t("/night")}</span>
             </>
           )}
         </div>
@@ -152,8 +154,8 @@ const RoomCard = ({
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            title={`View ${room.name} on AirBnB`}
-            aria-label={`View ${room.name} on AirBnB`}
+            title={t("View {room} on AirBnB", { room: room.name })}
+            aria-label={t("View {room} on AirBnB", { room: room.name })}
             className="ml-auto flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-rose-200 text-[9px] font-bold leading-none text-[#FF5A5F] transition-colors hover:bg-rose-50"
           >
             ↗
@@ -166,9 +168,10 @@ const RoomCard = ({
 
 const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact = false, onToggleCompact, myRates, loyaltyPerNight, hostPhone, hostName, onOpenChat }: RoomCardsProps) => {
   const { theme } = useTiBookTheme();
+  const { t } = useTiBookLang();
   const roomChip = useRoomChip();
   const [galleryRoom, setGalleryRoom] = useState<roomType | null>(null);
-  const hostFirstName = (hostName ?? "").split(" ")[0] || "the host";
+  const hostFirstName = (hostName ?? "").split(" ")[0] || t("the host");
   // In the order TiBook gives (guestRoomOrder: a returning guest's rooms first,
   // then by price) — not re-sorted here, or their rooms would sink again.
   const activeRooms = rooms.filter((r) => r.active);
@@ -195,7 +198,7 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
               isAll ? `${theme.btn} ${theme.glow} text-white shadow-sm` : `border ${theme.surface} ${theme.surfaceMuted} ${theme.chromeBorder}`
             }`}
           >
-            All
+            {t("All")}
           </button>
           {activeRooms.map((room) => {
             const selected = !isAll && (selectedRoomIds?.has(room.id) ?? false);
@@ -220,10 +223,10 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
           <button
             type="button"
             onClick={onToggleCompact}
-            aria-label="Show room photos"
+            aria-label={t("Show room photos")}
             className={`flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold shadow-sm transition-colors ${theme.surface} ${theme.chromeBorder} ${theme.surfaceText} ${theme.chromeHover}`}
           >
-            Photos ▾
+            {t("Photos")} ▾
           </button>
         )}
       </div>
@@ -242,8 +245,8 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
               that wraps on the narrowest phones. */}
           <div className="min-w-0">
             <p className={`text-xs font-semibold uppercase tracking-wide ${theme.surfaceMuted}`}>
-              Our Rooms{" "}
-              <span className="font-medium normal-case">· tap on room name to select</span>
+              {t("Our Rooms")}{" "}
+              <span className="font-medium normal-case">· {t("tap on room name to select")}</span>
             </p>
             {/* Said once, in the same place the other card-wide hint lives,
                 rather than five times over. Which sentence depends on what the
@@ -256,20 +259,20 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
                 what WILL happen. */}
             <p className={`mt-0.5 text-xs ${theme.surfaceMuted}`}>
               {ratedCount === 0
-                ? `Every price is agreed between you and ${hostFirstName}. Open a room to ask.`
+                ? t("Every price is agreed between you and {name}. Open a room to ask.", { name: hostFirstName })
                 : ratedCount === activeRooms.length
-                  ? `These are your prices, agreed with ${hostFirstName}.`
-                  : `Your agreed prices are shown. Open a room without one to ask ${hostFirstName}.`}
+                  ? t("These are your prices, agreed with {name}.", { name: hostFirstName })
+                  : t("Your agreed prices are shown. Open a room without one to ask {name}.", { name: hostFirstName })}
             </p>
           </div>
           {onToggleCompact && (
             <button
               type="button"
               onClick={onToggleCompact}
-              aria-label="Hide room photos"
+              aria-label={t("Hide room photos")}
               className={`shrink-0 text-xs font-semibold ${theme.surfaceMuted}`}
             >
-              Hide ▴
+              {t("Hide")} ▴
             </button>
           )}
         </div>
@@ -283,7 +286,7 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
                 : `border ${theme.surface} ${theme.surfaceMuted} ${theme.chromeBorder}`
             }`}
           >
-            All Rooms
+            {t("All Rooms")}
           </button>
 
           {activeRooms.map((room) => (

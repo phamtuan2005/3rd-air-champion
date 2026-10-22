@@ -2,8 +2,12 @@ import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { MONTHS, parseDateText } from "./dateText";
 import { getRoomFacts } from "./roomFacts";
 import { cancellationHeadline } from "./cancellationPolicy";
-import { holidayLabel, usHolidayOn } from "./usHolidays";
+import { holidayLabelForGuest, usHolidayOn } from "./usHolidays";
 import type { AskTTContext, TTRoom } from "./askTT";
+// What TT says to the guest is in their language (t, fmtDate). What is SENT
+// to the host — bookingRequestOf below — stays English, because the host
+// reads it in English.
+import { fmtDate, t } from "../contexts/TiBookLanguageContext";
 
 // Booking a stay by talking to TT.
 //
@@ -27,10 +31,13 @@ import type { AskTTContext, TTRoom } from "./askTT";
 
 // Words that mean "book it", not "is it free". A guest asking about THEIR
 // booking, or about cancelling one, is not making a new one.
+// The second half of each is German: TT answers German guests in German, and
+// "Ich möchte King … buchen" was answered as a question about whether King is
+// free, never offered the booking the English sentence gets.
 const BOOK_WORDS =
-  /\b(?:book|reserve|request|hold)\b|\b(?:i'?d|i would|we'?d|we would) like\b|\b(?:i|we) (?:want|need|wanna)\b|\bcan (?:i|we) (?:get|have|stay|take)\b|\bsign me up\b/i;
+  /\b(?:book|reserve|request|hold)\b|\b(?:i'?d|i would|we'?d|we would) like\b|\b(?:i|we) (?:want|need|wanna)\b|\bcan (?:i|we) (?:get|have|stay|take)\b|\bsign me up\b|\b(?:buchen|reservieren|anfragen)\b|\b(?:ich|wir) (?:möchten?|will|wollen|brauchen?|hätten? gerne?)\b/i;
 const NOT_A_NEW_BOOKING =
-  /\bmy (?:booking|bookings|reservation|reservations|stay|stays|request)\b|\bcancel|\brefund|\bbooked\b|\bhow (?:do|can) (?:i|we) book\b/i;
+  /\bmy (?:booking|bookings|reservation|reservations|stay|stays|request)\b|\bcancel|\brefund|\bbooked\b|\bhow (?:do|can) (?:i|we) book\b|\bmeine[nr]? (?:buchung|buchungen|reservierung|reservierungen|anfrage|aufenthalt)\b|\bstorn|\brückerstatt|\bgebucht\b|\bwie (?:kann|buche|können) (?:ich|wir)\b/i;
 export const wantsToBook = (q: string): boolean => BOOK_WORDS.test(q) && !NOT_A_NEW_BOOKING.test(q);
 
 // Rooms are booked by the NIGHT. The calendar, the cart and every request
@@ -137,7 +144,9 @@ export const readStay = (q: string, today: Date): StayRead | null => {
  */
 export const checkoutReading = (q: string, dates: string[]): string[] | null => {
   if (dates.length < 2) return null;
-  if (!/\d(?:st|nd|rd|th)?\s*[-–—]\s*\d/.test(q)) return null;
+  // German writes the same span "10.–12." or "10. bis 12.", and is owed the
+  // same button: "vom 10. bis 12." is two nights to most German travellers.
+  if (!/\d(?:st|nd|rd|th|\.)?\s*(?:[-–—]|\bbis(?: zum)?\b)\s*\d/i.test(q)) return null;
   return dates.slice(0, -1);
 };
 
@@ -270,26 +279,44 @@ export const readParty = (text: string): number | null => {
   if (/^(?:just )?(?:me|myself|only me|1 person|alone)\b/.test(t)) return 1;
   if (/^(?:me and (?:my|a) \w+|the two of us|a couple|couple|us two)\b/.test(t)) return 2;
   const m = t.match(/^(?:we are |we're |there are |there'?ll be )?(\d{1,2}|one|two|three|four|five|six)\b/);
-  return m ? numberOf(m[1]) : null;
+  if (m) return numberOf(m[1]);
+  // German, now that TT asks German guests in German. Without it a guest
+  // answering "zu zweit" was asked the same question again, with no hint why.
+  if (/^(?:nur ich|ich allein|allein|ich)$/.test(t)) return 1;
+  if (/^(?:zu zweit|wir zwei|wir beide)\b/.test(t)) return 2;
+  const de = t.match(/^(?:wir sind |zu )?(\d{1,2}|eins|einer|zwei|drei|vier|fünf|sechs)\b/);
+  return de ? DE_NUM[de[1]] ?? Number(de[1]) : null;
 };
+const DE_NUM: Record<string, number> = { eins: 1, einer: 1, zwei: 2, drei: 3, vier: 4, fünf: 5, sechs: 6 };
 
-const YES = /^(?:y|yes|yeah|yep|yup|sure|ok|okay|send|send it|confirm|confirmed|go|go ahead|do it|book it|please|yes please|sounds good|perfect|correct|that'?s right|looks good)\b/i;
-const NO = /^(?:n|no|nope|cancel|stop|never ?mind|forget it|don'?t)\b/i;
+// German answers sit beside the English ones for the same reason as readParty's.
+const YES = /^(?:y|yes|yeah|yep|yup|sure|ok|okay|send|send it|confirm|confirmed|go|go ahead|do it|book it|please|yes please|sounds good|perfect|correct|that'?s right|looks good|ja|jawohl|jep|genau|klar|gerne?|passt|senden|abschicken|bestätigen|richtig|stimmt)\b/i;
+const NO = /^(?:n|no|nope|cancel|stop|never ?mind|forget it|don'?t|nein|nee|abbrechen|stopp|vergiss es|lieber nicht)\b/i;
 export const readYesNo = (text: string): "yes" | "no" | null =>
   YES.test(text.trim()) ? "yes" : NO.test(text.trim()) ? "no" : null;
 
 // ── What the guest reads ────────────────────────────────────────────────────
 
-const day = (k: string) => format(parseISO(k), "EEE MMM d");
+const day = (k: string) => fmtDate(parseISO(k), "EEE MMM d");
 const checkOutOf = (dates: string[]) => keyOf(addDays(parseISO(dates[dates.length - 1]), 1));
-const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
+// Keyed by the English with its "s", so German gets its own line for each.
+const plural = (n: number, w: string) => t(n === 1 ? `{n} ${w}` : `{n} ${w}s`, { n });
 
 /** "Check in Sat Oct 10 · check out Tue Oct 13 · 3 nights" — the stay in a guest's words. */
 export const stayLine = (dates: string[]) =>
-  `Check in ${day(dates[0])} · check out ${day(checkOutOf(dates))} · ${plural(dates.length, "night")}`;
+  t("Check in {in} · check out {out} · {nights}", { in: day(dates[0]), out: day(checkOutOf(dates)), nights: plural(dates.length, "night") });
+
+// The same line for the HOST, always English whatever the guest reads: it goes
+// into the request's note, and a note in German would reach a host who reads
+// English. Byte for byte what stayLine says in English.
+const stayLineForHost = (dates: string[]) => {
+  const enDay = (k: string) => format(parseISO(k), "EEE MMM d");
+  const n = dates.length;
+  return `Check in ${enDay(dates[0])} · check out ${enDay(checkOutOf(dates))} · ${n} night${n === 1 ? "" : "s"}`;
+};
 
 /** The phone as the guest can recognise it without the whole number on screen. */
-export const phoneHint = (phone: string) => `phone ending ${phoneDigits(phone).slice(-4)}`;
+export const phoneHint = (phone: string) => t("phone ending {digits}", { digits: phoneDigits(phone).slice(-4) });
 
 /**
  * The request, read back in full before it is sent.
@@ -304,17 +331,19 @@ export const summaryLines = (d: TTBookingDraft, room: TTRoom, ctx: AskTTContext)
   const host = ctx.hostFirstName;
   const holidays = holidaysIn(d.dates);
   return [
-    "Here's your request — check it, then I'll send it:",
+    t("Here's your request — check it, then I'll send it:"),
     `${room.name} · ${stayLine(d.dates)}`,
-    `${plural(d.party ?? 1, "guest")} · under ${d.name.trim()}, ${phoneHint(d.phone)}`,
-    ...(holidays.length > 0 ? [`Includes ${holidays.map((k) => `${day(k)} (${holidayLabel(usHolidayOn(k)!)})`).join(", ")}.`] : []),
+    t("{guests} · under {name}, {phone}", { guests: plural(d.party ?? 1, "guest"), name: d.name.trim(), phone: phoneHint(d.phone) }),
+    ...(holidays.length > 0
+      ? [t("Includes {days}.", { days: holidays.map((k) => `${day(k)} (${holidayLabelForGuest(usHolidayOn(k)!)})`).join(", ") })]
+      : []),
     rate == null
-      ? `${host} will text you the price for these nights.`
+      ? t("{host} will text you the price for these nights.", { host })
       : rate === 0
-        ? `Family — no charge, as agreed with ${host}.`
-        : `Your price: $${rate}/night, as agreed with ${host}.`,
-    ...(ctx.cancellationFullRefundDays != null ? [cancellationHeadline(ctx.cancellationFullRefundDays) + "."] : []),
-    `Nothing is booked until ${host} confirms — you'll hear back by text.`,
+        ? t("Family — no charge, as agreed with {host}.", { host })
+        : t("Your price: ${rate}/night, as agreed with {host}.", { rate, host }),
+    ...(ctx.cancellationFullRefundDays != null ? [cancellationHeadline(ctx.cancellationFullRefundDays, t) + "."] : []),
+    t("Nothing is booked until {host} confirms — you'll hear back by text.", { host }),
   ];
 };
 
@@ -344,7 +373,7 @@ export const bookingRequestOf = (d: TTBookingDraft, room: TTRoom, hostId: string
   // The form writes "Dates from calendar: …"; this says where the request
   // came from, and the stay in the guest's own check-in/check-out terms, so
   // the host reading Requests sees what the guest saw.
-  notes: `Requested through Ask TT: ${room.name}, ${stayLine(d.dates)}.`,
+  notes: `Requested through Ask TT: ${room.name}, ${stayLineForHost(d.dates)}.`,
 });
 
 /**
