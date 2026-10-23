@@ -23,6 +23,13 @@
 // date-fns differs between the two projects (frontend ^3.6.0, backend ^4.1.0).
 // The rule uses only addDays and startOfToday, which behave identically in both.
 //
+// TiBook's "is this night free" rule (util/nightStatus.ts) is copied the same
+// way. The backend tells wish-list guests when a night they wanted opens up
+// (jobs/wishListNotify.ts), and a guest the chat tells "Nov 3 is free" must
+// find Nov 3 free on the calendar — a second availability rule is how the two
+// would come to disagree (TIBOOK.md rule 1). It uses isBefore and startOfToday,
+// also identical in both.
+//
 // Usage:  node scripts/sync-cleaning-rule.js          write the copy
 //         node scripts/sync-cleaning-rule.js --check  fail if it is stale
 
@@ -31,15 +38,15 @@ const path = require("path");
 
 const SRC_ROOT = path.resolve(__dirname, "../../3rd-air-champion-frontend/src");
 const OUT_ROOT = path.resolve(__dirname, "../src/shared/generated");
-const ENTRY = "util/cleaningTasks.ts";
+const ENTRIES = ["util/cleaningTasks.ts", "util/nightStatus.ts"];
 
 const header = (relPath) =>
   [
     "// GENERATED FILE — DO NOT EDIT.",
     "//",
     `// Copied from 3rd-air-champion-frontend/src/${relPath} by`,
-    "// scripts/sync-cleaning-rule.js, so TiMag and TiWork decide which rooms",
-    "// need cleaning with one piece of code instead of two that can disagree.",
+    "// scripts/sync-cleaning-rule.js, so the apps and the backend answer this",
+    "// question with one piece of code instead of two that can disagree.",
     "//",
     "// Change the rule in the FRONTEND file and run `npm run build` (or",
     "// `node scripts/sync-cleaning-rule.js`). Editing this copy is undone by",
@@ -65,7 +72,8 @@ const collect = (relPath, seen = new Map()) => {
   return seen;
 };
 
-const files = collect(ENTRY);
+const files = new Map();
+for (const entry of ENTRIES) collect(entry, files);
 const check = process.argv.includes("--check");
 const stale = [];
 
@@ -94,7 +102,7 @@ for (const [relPath, source] of files) {
 if (check) {
   if (stale.length > 0) {
     console.error(
-      "The copied cleaning rule is out of date:\n" +
+      "The copied rules are out of date:\n" +
         stale.map((f) => `  - ${f}`).join("\n") +
         "\n\nRun: node scripts/sync-cleaning-rule.js",
     );

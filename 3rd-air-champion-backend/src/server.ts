@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 import cron from "node-cron";
 import mongoose from "mongoose";
 import { autoSyncAllHosts } from "./jobs/autoSync";
+import { notifyAllWishLists } from "./jobs/wishListNotify";
 import express, { Request, Response } from "express";
 import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from "@apollo/server/express4";
@@ -188,6 +189,15 @@ const startServer = async () => {
         console.error("[AutoSync] Startup sync error:", err.message)
       );
     }, 60_000);
+
+    // Tell wish-list guests when their night opens up (jobs/wishListNotify).
+    // At :15 and :45, between AirBnB syncs, so it reads a calendar the sync has
+    // finished writing rather than one it is halfway through.
+    cron.schedule("15,45 * * * *", () => {
+      notifyAllWishLists().catch((err) =>
+        console.error("[WishList] Unhandled error:", err.message)
+      );
+    });
 
     console.log(`Express server ready at http://localhost:${PORT}/`);
 

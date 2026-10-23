@@ -23,6 +23,7 @@ import MyBookingsSheet, { GuestBooking } from "../components/tibook/MyBookingsSh
 import StayDetailPopup from "../components/tibook/StayDetailPopup";
 import RoomPickerPopup from "../components/tibook/RoomPickerPopup";
 import ReservedHoldsPopup from "../components/tibook/ReservedHoldsPopup";
+import WishFreeCard from "../components/tibook/WishFreeCard";
 import { getGuestWishList, toggleWishListDate } from "../util/wishListOperations";
 import WishListDatePopup from "../components/tibook/WishListDatePopup";
 import { createBookingRequest, fetchBookingRequestsByHost, fetchCalendarBookingsByGuest } from "../util/bookingRequestOperations";
@@ -265,6 +266,12 @@ const TiBookInner = () => {
     setMyBookingsOpen(true);
   };
   const [reservedPopupOpen, setReservedPopupOpen] = useState(false);
+  // "A night you wished for is free" (WishFreeCard). Once per visit. The ref
+  // says it is up within the same commit, before the state has caught up, so
+  // the usual-stay proposal cannot open on top of it.
+  const [wishFreeOpen, setWishFreeOpen] = useState(false);
+  const wishFreeShown = useRef(false);
+  const wishFreeUp = useRef(false);
   const reservedAutoShownRef = useRef<string | null>(null);
   const [roomPickerDate, setRoomPickerDate] = useState<Date | null>(null);
   const [heroGalleryRoom, setHeroGalleryRoom] = useState<roomType | null>(null);
@@ -922,6 +929,7 @@ const TiBookInner = () => {
     askTTOpen ||
     statsOpen ||
     reservedPopupOpen ||
+    wishFreeOpen ||
     !!stayPopupId ||
     !!bookAnother ||
     !!heroGalleryRoom ||
@@ -1097,6 +1105,72 @@ const TiBookInner = () => {
     // availableRoomsForDate reads monthMap, reservedMap and rooms.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isKnownVisitor, guestBookings, rooms, monthMap, reservedMap]);
+  // Wished-for nights that are free right now, by the calendar's own rule
+  // across the whole house. A night the guest already has, holds or has asked
+  // for is no longer a wish — the backend's job skips the same nights. The job
+  // tells the guest in their chat; this is what the chat's "tap Book it" lands on.
+  const freeWishNights = useMemo(() => {
+    const todayKey = keyOfDate(new Date());
+    const theirs = new Set<string>();
+    guestBookings
+      .filter((b) => b.status === "confirmed" || b.status === "pending" || b.status === "reserved")
+      .forEach((b) => {
+        const checkIn = parseISO(String(b.date).slice(0, 10));
+        for (let i = 0; i < b.duration; i++) theirs.add(keyOfDate(addDays(checkIn, i)));
+      });
+    return [...persistedWishListDates]
+      .filter((k) => k >= todayKey && !theirs.has(k))
+      .sort()
+      .map((night) => ({ night, rooms: availableRoomsForDate(parseISO(night), true) }))
+      .filter((n) => n.rooms.length > 0);
+    // availableRoomsForDate reads monthMap, reservedMap and rooms.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [persistedWishListDates, guestBookings, rooms, monthMap, reservedMap]);
+
+  const closeWishFree = () => {
+    wishFreeUp.current = false;
+    setWishFreeOpen(false);
+  };
+
+  // Once per visit, over a quiet page, like the usual-stay proposal — and
+  // ahead of it: a freed night goes to whoever asks first, a usual stay waits.
+  useEffect(() => {
+    if (freeWishNights.length === 0 || wishFreeShown.current) return;
+    if (
+      isBookingModalOpen || myBookingsOpen || chatOpen || askTTOpen || statsOpen ||
+      reservedPopupOpen || usualOpen || stayPopupId || heroGalleryRoom || pendingConsentPhone
+    ) return;
+    wishFreeShown.current = true;
+    wishFreeUp.current = true;
+    setWishFreeOpen(true);
+  }, [freeWishNights, isBookingModalOpen, myBookingsOpen, chatOpen, askTTOpen, statsOpen, reservedPopupOpen, usualOpen, stayPopupId, heroGalleryRoom, pendingConsentPhone]);
+
+  // While it is open, read the live calendar, so a night someone else takes
+  // meanwhile drops off the card rather than failing at Send.
+  useEffect(() => {
+    if (!wishFreeOpen) return;
+    refreshCalendar(true);
+    const t = setInterval(() => refreshCalendar(true), 60_000);
+    return () => clearInterval(t);
+  }, [wishFreeOpen, refreshCalendar]);
+
+  // The nights into the request, then Review Request — the guest still reads it
+  // and sends it. One free room is named; with several, the request goes as
+  // "any room" and the host assigns one, as when a guest picks "Any".
+  const bookWishNights = () => {
+    closeWishFree();
+    if (freeWishNights.length === 0) return;
+    expandCal();
+    const firstNight = parseISO(freeWishNights[0].night);
+    setScrollToMonthTrigger({ month: new Date(firstNight.getFullYear(), firstNight.getMonth(), 1), seq: Date.now() });
+    setCartDates((prev) => {
+      const next = new Map(prev);
+      freeWishNights.forEach(({ night, rooms }) => next.set(night, rooms.length === 1 ? rooms[0].id : null));
+      return next;
+    });
+    openBookingModal(firstNight);
+  };
+
   // "★ N stays" — the header button's count, hidden while the popup is open.
   const usualCount = usualStay && !usualOpen ? chosenStays(usualStay.series.proposals, usualOff).length : undefined;
 
@@ -1113,9 +1187,11 @@ const TiBookInner = () => {
       isBookingModalOpen || myBookingsOpen || chatOpen || askTTOpen || statsOpen ||
       reservedPopupOpen || stayPopupId || heroGalleryRoom || pendingConsentPhone
     ) return;
+    // A free wished-for night goes first (see the effect above).
+    if (wishFreeUp.current || (freeWishNights.length > 0 && !wishFreeShown.current)) return;
     usualShown.current = true;
     setUsualOpen(true);
-  }, [usualStay, guestPhone, isBookingModalOpen, myBookingsOpen, chatOpen, askTTOpen, statsOpen, reservedPopupOpen, stayPopupId, heroGalleryRoom, pendingConsentPhone]);
+  }, [usualStay, guestPhone, isBookingModalOpen, myBookingsOpen, chatOpen, askTTOpen, statsOpen, reservedPopupOpen, stayPopupId, heroGalleryRoom, pendingConsentPhone, wishFreeOpen, freeWishNights]);
 
   // Many stays at once, each in its own room, into the request — the guest
   // reads them all in Review Request and sends them; each goes to the host as
@@ -1692,6 +1768,10 @@ const TiBookInner = () => {
           off={usualOff}
           onOffChange={setUsualOff}
         />
+      )}
+
+      {wishFreeOpen && freeWishNights.length > 0 && (
+        <WishFreeCard nights={freeWishNights} onBook={bookWishNights} onClose={closeWishFree} />
       )}
 
       {reservedPopupOpen && reservedStays.length > 0 && (

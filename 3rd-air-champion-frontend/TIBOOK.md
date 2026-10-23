@@ -98,6 +98,31 @@ come from `/api/tibook-stats-viewer/tt-questions`, which checks the code exactly
 as the visitor numbers do. The code box adds the dashes itself and stops at
 twelve characters (`formatStatsCode`).
 
+### When a wished-for night opens up
+
+The house tells the guest itself. Until 2026-10-23 this waited on the host
+spotting the night in TiMag and texting by hand, and a freed night could sit
+unannounced for hours.
+
+- **The backend** (`jobs/wishListNotify.ts`, at :15 and :45 every hour) checks
+  every wish list with TiBook's own rule, `nightStatus`. The rule is copied into
+  the backend by `scripts/sync-cleaning-rule.js`, so the chat and the calendar
+  cannot disagree. Held (reserved) requests and per-room blocks count as taken.
+  A night the guest already has or has already asked for is skipped.
+- A night must be free on **two runs in a row** before anyone is told, so a
+  glitchy AirBnB sync cannot set off messages to every guest. The guest gets one
+  message in their TiBook chat, naming the night and the free room(s), and the
+  wish turns **Notified**. They are never told the same news twice.
+- **No room is held.** Everyone who wished for the night is told, and the first
+  request wins (host's call).
+- **TiBook** opens `WishFreeCard` once per visit when a wished-for night is
+  free. **Book it** puts the nights into Review Request, and the guest sends it.
+- **TiMag**'s wish-list panel shows "TiBook told … in their chat". "Contact now"
+  becomes a quieter "Text them as well" once every open night has been
+  announced.
+
+The chat message is English, like everything else in the host's thread.
+
 ### Booking through TT
 
 A guest can book by asking: "book King Oct 27 to Oct 29 for 2". The rules are
