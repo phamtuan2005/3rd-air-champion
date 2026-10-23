@@ -1,8 +1,8 @@
 // GENERATED FILE — DO NOT EDIT.
 //
 // Copied from 3rd-air-champion-frontend/src/util/types/bookingType.ts by
-// scripts/sync-cleaning-rule.js, so TiMag and TiWork decide which rooms
-// need cleaning with one piece of code instead of two that can disagree.
+// scripts/sync-cleaning-rule.js, so the apps and the backend answer this
+// question with one piece of code instead of two that can disagree.
 //
 // Change the rule in the FRONTEND file and run `npm run build` (or
 // `node scripts/sync-cleaning-rule.js`). Editing this copy is undone by
