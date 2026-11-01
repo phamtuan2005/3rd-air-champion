@@ -1,6 +1,10 @@
 // Which continent a TiBook visitor is on, read from the time zone their device
 // is set to ("America/Los_Angeles", "Europe/Berlin").
 //
+// No longer the first answer: the country CloudFront reads from the connection
+// is (continentOfCountry). This is the fallback when that is missing. The
+// reasons below are why it was chosen first, and still hold for the IP itself.
+//
 // Deliberately NOT their IP address:
 //  · the backend never sees a guest's real IP — CloudFront sits in front of it,
 //    so every request arrives from an Amazon edge address;

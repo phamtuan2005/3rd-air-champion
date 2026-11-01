@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import Host from "../model/hostSchema";
 import TiBookVisit from "../model/tibookVisitSchema";
 import { continentOfTimeZone } from "../util/continentOfTimeZone";
+import { continentOfCountry, countryCode } from "../util/continentOfCountry";
 import { normalizePhone } from "../model/guestSchema";
 import { utcDay } from "../util/tibookVisitorStats";
 
@@ -41,9 +42,21 @@ router.post("/", async (req: Request, res: any) => {
 
     const zone = typeof timeZone === "string" ? timeZone.trim().slice(0, 64) : "";
 
-    // $set, not $setOnInsert: a phone that changes zone mid-day (a guest
-    // landing at SJO) is counted where it was last seen that day.
-    const set: Record<string, string> = { timeZone: zone, continent: continentOfTimeZone(zone) };
+    // Where the CONNECTION is, first; the device's time zone only when that is
+    // missing. See continentOfCountry for why the zone lost its place. The
+    // header exists only once CloudFront is set to send it to this origin --
+    // until then, and for any request that bypasses CloudFront, every visit
+    // falls back to the zone exactly as before.
+    const country = countryCode(req.get("CloudFront-Viewer-Country"));
+    const byCountry = continentOfCountry(country);
+
+    // $set, not $setOnInsert: a phone that moves mid-day (a guest landing at
+    // SJO) is counted where it was last seen that day.
+    const set: Record<string, string> = {
+      timeZone: zone,
+      country,
+      continent: byCountry !== "Unknown" ? byCountry : continentOfTimeZone(zone),
+    };
 
     // Who this visit belongs to, in three states that must not be confused:
     //   absent       -- the look says nothing about the guest; leave any link
