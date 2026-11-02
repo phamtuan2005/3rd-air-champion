@@ -599,7 +599,11 @@ const HeroShell = ({
           it MEASURES that bar rather than guessing — with a plain div here it
           found nothing, fell back to a hardcoded 72px, and left a strip of the
           room deck showing above the sheet. */}
-      <nav ref={navRef} className={`sticky top-0 z-30 flex shrink-0 items-center gap-2 px-3 py-2 ${theme.chrome}`}>
+      {/* Lifted over the host banner's z-40 ONLY while the banner is open. The
+          nav is its own stacking context, so the Look menu's z-50 only counts
+          inside it: at z-30 a guest who opened the hosts and then Look got a
+          menu drawn UNDER the banner. Everywhere else Hero keeps z-30. */}
+      <nav ref={navRef} className={`sticky top-0 ${hostOpen ? "z-[45]" : "z-30"} flex shrink-0 items-center gap-2 px-3 py-2 ${theme.chrome}`}>
         {/* TiBook's own icon, not TiMag's logo: this is the guest's app, and
             the one place in Hero where it can say so — the stacked layout says
             it in a nav bar Hero does not have. */}
