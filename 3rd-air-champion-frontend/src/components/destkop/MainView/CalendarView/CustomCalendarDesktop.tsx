@@ -355,6 +355,9 @@ const CustomCalendar = ({
 
   return (
     <CalendarGrid
+      // US federal holidays on the date row — they move occupancy and
+      // pricing (host, 2026-11-03).
+      showHolidays
       currentMonth={currentMonth}
       monthMap={useMonthMap}
       rooms={rooms}
