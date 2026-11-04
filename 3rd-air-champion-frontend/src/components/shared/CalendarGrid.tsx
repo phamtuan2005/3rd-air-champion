@@ -74,28 +74,13 @@ interface CalendarGridProps {
   // it on every scroll event cannot re-render the parent.
   anchorDate?: string | null;
   onAnchorDateChange?: (key: string) => void;
-  // US federal holidays on the date itself: the number in red with a short
-  // name after it. TiMag turns it on (host, 2026-11-03: "The calendar in TiMag
-  // is fully impacted by Federal Holiday"); TiBook's classic calendar, which
-  // shares this grid, has its own holiday marks and leaves it off.
+  // US federal holidays on the date itself: the number in red with a dot, the
+  // name in its title. TiMag turns it on (host, 2026-11-03: "The calendar in
+  // TiMag is fully impacted by Federal Holiday") and names them in a line
+  // under the grid; TiBook's classic calendar, which shares this grid, has
+  // its own holiday marks and leaves it off.
   showHolidays?: boolean;
 }
-
-// What fits after the date number in a phone-width cell. The full name is the
-// cell's title and aria-label.
-const HOLIDAY_SHORT: Record<string, string> = {
-  "New Year's Day": "New Year",
-  "Martin Luther King Jr. Day": "MLK Day",
-  "Presidents' Day": "Presidents'",
-  "Memorial Day": "Memorial",
-  Juneteenth: "Juneteenth",
-  "Independence Day": "July 4th",
-  "Labor Day": "Labor Day",
-  "Columbus Day": "Columbus",
-  "Veterans Day": "Veterans",
-  Thanksgiving: "Thanksgiving",
-  "Christmas Day": "Christmas",
-};
 
 // Default lane height. Overridable per device via the rowHeight prop — this
 // stays the fallback for callers that do not set it (TiBook).
@@ -1557,18 +1542,21 @@ const CalendarGrid = ({
                             ? `${date.toLocaleDateString()}, ${holidayLabel(holiday)}`
                             : date.toLocaleDateString()
                         }
-                        className={
-                          holiday
-                            ? "block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-0.5 font-bold text-rose-600"
-                            : undefined
-                        }
+                        className={holiday ? "font-bold text-rose-600" : undefined}
                         style={{ fontSize: `${dateRemFor(laneHeight)}rem` }}
                       >
                         {date.getDate()}
+                        {/* A dot, not the name. The name was tried here
+                            ("11 Vet…") and a phone cell is ~60px: it was cut
+                            to nothing and pushed the number off centre (host,
+                            2026-11-03: "how do I know what it means?"). The
+                            names are spelled out once under the calendar
+                            (MonthHolidayStrip), the way TiBook does it. */}
                         {holiday && (
-                          <span className="ml-1 text-[0.62em] font-semibold">
-                            {HOLIDAY_SHORT[holiday.name] ?? holiday.name}
-                          </span>
+                          <span
+                            aria-hidden
+                            className="ml-0.5 inline-block h-1.5 w-1.5 rounded-full bg-rose-500 align-top"
+                          />
                         )}
                       </abbr>
                       {content}

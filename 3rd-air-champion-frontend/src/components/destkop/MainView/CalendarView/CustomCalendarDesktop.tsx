@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { format, isSameDay, startOfToday } from "date-fns";
+import { format, isSameDay, parseISO, startOfToday } from "date-fns";
 import { dayType } from "../../../../util/types/dayType";
 import { bookingType } from "../../../../util/types/bookingType";
 import { roomType } from "../../../../util/types/roomType";
@@ -7,6 +7,7 @@ import CalendarGrid from "../../../shared/CalendarGrid";
 import CleanerAvatar from "../../../shared/CleanerAvatar";
 import { getRoomColor } from "../../../../util/getRoomColor";
 import { CleanerType } from "../../../../util/cleanerOperations";
+import { holidayLabel, usHolidaysInMonth } from "../../../../util/usHolidays";
 
 interface CustomCalendarProps {
   currentMonth: Date;
@@ -354,9 +355,10 @@ const CustomCalendar = ({
   };
 
   return (
+    <>
     <CalendarGrid
       // US federal holidays on the date row — they move occupancy and
-      // pricing (host, 2026-11-03).
+      // pricing (host, 2026-11-03). The names are in the line below.
       showHolidays
       currentMonth={currentMonth}
       monthMap={useMonthMap}
@@ -389,6 +391,45 @@ const CustomCalendar = ({
       rowHeight={rowHeight}
       onRowHeightChange={onRowHeightChange}
     />
+    <MonthHolidayStrip month={currentMonth} />
+    </>
+  );
+};
+
+/*
+ * The month's US federal holidays, named in full under the calendar. The
+ * dates carry only a red number and dot: a name squeezed into a phone cell
+ * read "Vet…" and meant nothing (host, 2026-11-03). TiBook's concept — the
+ * mark on the date, the words in one line under the grid.
+ *
+ * Always drawn, one line tall, even in a month with none: the grid takes the
+ * height that is left, and a line that came and went would resize every row
+ * as the host paged — TiBook had exactly that jump until it kept its line.
+ *
+ * Past ones stay, greyed: unlike a guest, the host looks back at a month to
+ * see why a week sold the way it did.
+ */
+const MonthHolidayStrip = ({ month }: { month: Date }) => {
+  const holidays = usHolidaysInMonth(month.getFullYear(), month.getMonth());
+  const todayKey = format(startOfToday(), "yyyy-MM-dd");
+  return (
+    <div className="flex h-7 shrink-0 items-center gap-3 overflow-x-auto whitespace-nowrap border-t border-gray-200 bg-white px-3 text-[13px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {holidays.length === 0 ? (
+        <span className="text-gray-400">
+          No federal holidays in {format(month, "MMMM")}
+        </span>
+      ) : (
+        holidays.map(({ key, holiday }) => (
+          <span
+            key={key}
+            className={`font-semibold ${key < todayKey ? "text-gray-400" : "text-rose-600"}`}
+          >
+            <span aria-hidden className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-current align-middle" />
+            {format(parseISO(key), "EEE MMM d")} – {holidayLabel(holiday)}
+          </span>
+        ))
+      )}
+    </div>
   );
 };
 
