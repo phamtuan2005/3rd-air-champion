@@ -14,6 +14,7 @@ import { bookingType } from "../../util/types/bookingType";
 import { roomType } from "../../util/types/roomType";
 import { useDoubleClick } from "../../util/useDoubleClick";
 import { getRoomColor } from "../../util/getRoomColor";
+import { holidayLabel, usHolidayOn } from "../../util/usHolidays";
 
 interface CalendarGridProps {
   currentMonth: Date;
@@ -73,7 +74,28 @@ interface CalendarGridProps {
   // it on every scroll event cannot re-render the parent.
   anchorDate?: string | null;
   onAnchorDateChange?: (key: string) => void;
+  // US federal holidays on the date itself: the number in red with a short
+  // name after it. TiMag turns it on (host, 2026-11-03: "The calendar in TiMag
+  // is fully impacted by Federal Holiday"); TiBook's classic calendar, which
+  // shares this grid, has its own holiday marks and leaves it off.
+  showHolidays?: boolean;
 }
+
+// What fits after the date number in a phone-width cell. The full name is the
+// cell's title and aria-label.
+const HOLIDAY_SHORT: Record<string, string> = {
+  "New Year's Day": "New Year",
+  "Martin Luther King Jr. Day": "MLK Day",
+  "Presidents' Day": "Presidents'",
+  "Memorial Day": "Memorial",
+  Juneteenth: "Juneteenth",
+  "Independence Day": "July 4th",
+  "Labor Day": "Labor Day",
+  "Columbus Day": "Columbus",
+  "Veterans Day": "Veterans",
+  Thanksgiving: "Thanksgiving",
+  "Christmas Day": "Christmas",
+};
 
 // Default lane height. Overridable per device via the rowHeight prop — this
 // stays the fallback for callers that do not set it (TiBook).
@@ -170,6 +192,7 @@ const CalendarGrid = ({
   revealDate = null,
   anchorDate = null,
   onAnchorDateChange,
+  showHolidays = false,
 }: CalendarGridProps) => {
   const [months, setMonths] = useState<Date[]>([]);
   const [visibleIndex, setVisibleIndex] = useState<number>(monthsBack);
@@ -1510,12 +1533,17 @@ const CalendarGrid = ({
                     drawnRightInRow++;
                   }
                   const content = getTileContent(date, drawnRightInRow);
+                  // On the date row, not as a tint over the cell: the cell is
+                  // full of booking bars, and red/rose there already means a
+                  // stay that is not earning (feedback: color means money).
+                  const holiday = showHolidays ? usHolidayOn(localDateKey(date)) : undefined;
                   return (
                     <button
                       key={cellIdx}
                       type="button"
                       className={classes.join(" ")}
                       onClick={() => handleTileClick(date)}
+                      title={holiday ? holidayLabel(holiday) : undefined}
                       style={
                         {
                           "--max-rows": (maxRooms + 1).toString(),
@@ -1524,10 +1552,24 @@ const CalendarGrid = ({
                       }
                     >
                       <abbr
-                        aria-label={date.toLocaleDateString()}
+                        aria-label={
+                          holiday
+                            ? `${date.toLocaleDateString()}, ${holidayLabel(holiday)}`
+                            : date.toLocaleDateString()
+                        }
+                        className={
+                          holiday
+                            ? "block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-0.5 font-bold text-rose-600"
+                            : undefined
+                        }
                         style={{ fontSize: `${dateRemFor(laneHeight)}rem` }}
                       >
                         {date.getDate()}
+                        {holiday && (
+                          <span className="ml-1 text-[0.62em] font-semibold">
+                            {HOLIDAY_SHORT[holiday.name] ?? holiday.name}
+                          </span>
+                        )}
                       </abbr>
                       {content}
                     </button>
