@@ -41,6 +41,11 @@ export interface GuestCalendarProps {
   // shows no price at all, never its list price (see HeroShell's myRate).
   myRates?: Map<string, number>;
   scrollToTodayTrigger?: number;
+  // The list only: whether tonight's row is on screen. Today followed the
+  // month name, and in the list a guest can scroll weeks past tonight without
+  // leaving "November" — the button stayed greyed out with tonight out of
+  // sight, and nothing else brought them back.
+  onTodayInViewChange?: (inView: boolean) => void;
   scrollToMonthTrigger?: { month: Date; seq: number };
   simplified?: boolean;
   onMonthChange?: (month: Date) => void;

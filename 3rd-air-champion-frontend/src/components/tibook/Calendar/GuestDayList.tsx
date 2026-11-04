@@ -650,6 +650,7 @@ const GuestDayList = ({
   reservedMap,
   myRates,
   scrollToTodayTrigger = 0,
+  onTodayInViewChange,
   scrollToMonthTrigger,
   onMonthChange,
   onDateClick,
@@ -778,6 +779,19 @@ const GuestDayList = ({
   // thing the guest sees is still tonight, as when the list began there.
   const landingTop = (idx: number) => (idx === 0 ? todayTop : sections[idx].top);
 
+  // Any part of tonight's row inside the box counts: month headings are not
+  // sticky, so nothing covers the top of it. Reported only on a change, as
+  // this runs on every scroll event.
+  const todayInViewRef = useRef<boolean | null>(null);
+  const reportToday = () => {
+    const el = scrollRef.current;
+    if (!el || !onTodayInViewChange) return;
+    const inView = todayTop < el.scrollTop + el.clientHeight && todayTop + size.rowH > el.scrollTop;
+    if (inView === todayInViewRef.current) return;
+    todayInViewRef.current = inView;
+    onTodayInViewChange(inView);
+  };
+
   const scrollToIndex = (idx: number) => {
     const el = scrollRef.current;
     if (!el) return;
@@ -785,6 +799,8 @@ const GuestDayList = ({
     shownIdxRef.current = idx;
     setShownIdx(idx);
     el.scrollTop = landingTop(idx);
+    // A jump to where the list already is fires no scroll event.
+    reportToday();
   };
 
   // Open where the guest was. Switching from the grid in March lands on March,
@@ -817,6 +833,7 @@ const GuestDayList = ({
   const handleScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
+    reportToday();
     const top = el.scrollTop + 1;
     let idx = 0;
     while (idx + 1 < sections.length && sections[idx + 1].top <= top) idx++;
