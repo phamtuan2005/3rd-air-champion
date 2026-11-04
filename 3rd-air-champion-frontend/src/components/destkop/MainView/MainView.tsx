@@ -1477,6 +1477,14 @@ const MainView = ({
               onRowHeightChange={setRowHeight}
               reservedMode={reservedMode}
             />
+            {/* Room for the contact sheet's grip, which is pinned over the bottom
+                of the screen even when minimized. Without it the holiday line
+                under the calendar sat behind the grip and could not be read
+                (host, 2026-11-03). Only when the sheet is shown, and only the
+                minimized height — pulled up, the sheet is meant to cover. */}
+            {isFooterVisible && (licenseNumber || phone || contactEmail || airbnbName || airbnbAddress) && (
+              <div aria-hidden className="shrink-0" style={{ height: CONTACT_HANDLE_H }} />
+            )}
             {/* Contact-info sheet — a draggable bottom sheet. Pull the grip up to
                 reveal the property/license details, tap or drag it down to minimize
                 to a slim handle, so it never covers the calendar unless wanted.
