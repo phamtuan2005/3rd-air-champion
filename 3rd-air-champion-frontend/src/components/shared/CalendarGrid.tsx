@@ -46,6 +46,8 @@ interface CalendarGridProps {
   // Reports whether today's tile is on the currently visible page (a month can span
   // several pages, so "current month" no longer implies "today is on screen").
   onTodayInViewChange?: (inView: boolean) => void;
+  // The days on the visible page, yyyy-MM-dd, comma-joined (see the effect).
+  onVisibleDaysChange?: (days: string) => void;
   // Host-tunable cap on weeks-per-page for narrow phones (default 4). Stored
   // per-device; only bites on narrow screens in full-calendar mode.
   rowsPerPage?: number;
@@ -170,6 +172,7 @@ const CalendarGrid = ({
   renderEmptyCell,
   gapsMode = false,
   onTodayInViewChange,
+  onVisibleDaysChange,
   rowsPerPage = 4,
   rowHeight: laneHeight = SUBROW_HEIGHT,
   onRowHeightChange,
@@ -528,6 +531,17 @@ const CalendarGrid = ({
     const cells = pageLayouts[visibleIndex]?.cells ?? [];
     onTodayInViewChange(cells.some((c) => c && isSameDay(c, startOfToday())));
   }, [visibleIndex, pageLayouts, onTodayInViewChange]);
+
+  // Tell the parent which days the visible page draws, as yyyy-MM-dd joined by
+  // commas — a string, so an unchanged page is the same value and cannot
+  // re-render the parent on every scroll. TiMag's holiday line names only the
+  // holidays on these days: listing the whole month put Thanksgiving under a
+  // page showing Nov 1-14 (host, 2026-11-03).
+  useEffect(() => {
+    if (!onVisibleDaysChange) return;
+    const cells = pageLayouts[visibleIndex]?.cells ?? [];
+    onVisibleDaysChange(cells.filter((c): c is Date => !!c).map(localDateKey).join(","));
+  }, [visibleIndex, pageLayouts, onVisibleDaysChange]);
 
   // iOS Safari: nudge the page you land on into repainting.
   //

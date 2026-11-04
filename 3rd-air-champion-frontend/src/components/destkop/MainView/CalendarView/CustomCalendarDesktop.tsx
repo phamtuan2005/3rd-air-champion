@@ -7,7 +7,7 @@ import CalendarGrid from "../../../shared/CalendarGrid";
 import CleanerAvatar from "../../../shared/CleanerAvatar";
 import { getRoomColor } from "../../../../util/getRoomColor";
 import { CleanerType } from "../../../../util/cleanerOperations";
-import { holidayLabel, usHolidaysInMonth } from "../../../../util/usHolidays";
+import { holidayLabel, usHolidayOn, usHolidaysInMonth } from "../../../../util/usHolidays";
 
 interface CustomCalendarProps {
   currentMonth: Date;
@@ -88,6 +88,8 @@ const CustomCalendar = ({
   // filter is on. Held as a string so an unchanged target cannot re-fire the
   // scroll on every monthMap refresh the way a new Date object would.
   const [revealDate, setRevealDate] = useState<string | null>(null);
+  // The days on the grid's visible page (MonthHolidayStrip).
+  const [visibleDays, setVisibleDays] = useState("");
 
   // A day asked for by name: reveal it, through the same door as a filtered
   // guest's stay.
@@ -387,37 +389,46 @@ const CustomCalendar = ({
       // hold is exactly the context that makes the hold worth chasing.
       dimBooking={reservedMode ? (b) => !b.reserved : undefined}
       onTodayInViewChange={onTodayInViewChange}
+      onVisibleDaysChange={setVisibleDays}
       rowsPerPage={rowsPerPage}
       rowHeight={rowHeight}
       onRowHeightChange={onRowHeightChange}
     />
-    <MonthHolidayStrip month={currentMonth} />
+    <MonthHolidayStrip month={currentMonth} visibleDays={visibleDays} />
     </>
   );
 };
 
 /*
- * The month's US federal holidays, named in full under the calendar. The
- * dates carry only a red number and dot: a name squeezed into a phone cell
- * read "Vet…" and meant nothing (host, 2026-11-03). TiBook's concept — the
- * mark on the date, the words in one line under the grid.
+ * The US federal holidays on the dates ON SCREEN, named in full under the
+ * calendar. The dates carry only a red number and dot: a name squeezed into a
+ * phone cell read "Vet…" and meant nothing (host, 2026-11-03). TiBook's
+ * concept — the mark on the date, the words in one line under the grid.
  *
- * Always drawn, one line tall, even in a month with none: the grid takes the
+ * The page on screen, not the month: listing November put Thanksgiving under
+ * a page showing Nov 1-14, a holiday with no date in sight to match it (host,
+ * 2026-11-03: it belongs on the page where Nov 26 is). `visibleDays` comes
+ * from the grid; until it has reported, the month's list stands in.
+ *
+ * Always drawn, one line tall, even with none to name: the grid takes the
  * height that is left, and a line that came and went would resize every row
  * as the host paged — TiBook had exactly that jump until it kept its line.
  *
  * Past ones stay, greyed: unlike a guest, the host looks back at a month to
  * see why a week sold the way it did.
  */
-const MonthHolidayStrip = ({ month }: { month: Date }) => {
-  const holidays = usHolidaysInMonth(month.getFullYear(), month.getMonth());
+const MonthHolidayStrip = ({ month, visibleDays }: { month: Date; visibleDays: string }) => {
+  const holidays = visibleDays
+    ? visibleDays
+        .split(",")
+        .map((key) => ({ key, holiday: usHolidayOn(key) }))
+        .filter((h): h is { key: string; holiday: NonNullable<typeof h.holiday> } => !!h.holiday)
+    : usHolidaysInMonth(month.getFullYear(), month.getMonth());
   const todayKey = format(startOfToday(), "yyyy-MM-dd");
   return (
     <div className="flex h-7 shrink-0 items-center gap-3 overflow-x-auto whitespace-nowrap border-t border-gray-200 bg-white px-3 text-[13px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {holidays.length === 0 ? (
-        <span className="text-gray-400">
-          No federal holidays in {format(month, "MMMM")}
-        </span>
+        <span className="text-gray-400">No federal holidays on these dates</span>
       ) : (
         holidays.map(({ key, holiday }) => (
           <span
