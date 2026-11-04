@@ -12,6 +12,7 @@ import CleanerAvatar from "../../../shared/CleanerAvatar";
 import { GUEST_AVATAR_PRESETS } from "../../../../util/guestAvatars";
 import { toStoredPhone, withUsCodeDropped } from "../../../../util/formatPhone";
 import { DANGER_BUTTON } from "../../../shared/dangerButton";
+import { welcomeMessage } from "../../../../util/welcomeMessage";
 
 const manageGuestSchema = z.object({
   name: z
@@ -60,8 +61,13 @@ interface ManageGuestModalProps {
       pricing?: { room: string; price: number }[];
     },
     onError: (msg: string) => void,
+    // Called with the saved guest, rates included; the form then shows the
+    // welcome screen instead of closing.
+    onDone?: (guest: guestType) => void,
   ) => void;
   onDelete: (guestId: string, onError: (msg: string) => void) => void;
+  // Who is sending — signs the welcome text.
+  senderName?: string;
   // Opens straight on a blank guest, name and phone already filled — the way in
   // from a booking request by somebody who is not in the guest list yet. The
   // host confirms what the guest typed rather than retyping it.
@@ -79,7 +85,12 @@ const ManageGuestModal = ({
   onDelete,
   prefill,
   onNewGuest,
+  senderName,
 }: ManageGuestModalProps) => {
+  // The guest just added, once saved with their rates. The form stays open on
+  // it so the host can text a welcome with those rates straight away (host,
+  // 2026-11-03) — closing on save left nowhere to offer it.
+  const [added, setAdded] = useState<guestType | null>(null);
   // Adding, not editing. The guest picker, the avatar, the rates and Delete all
   // belong to an existing record, so none of them are shown — /guest/create
   // takes name, phone, email and notes and nothing else, and a form that
@@ -197,8 +208,10 @@ const ManageGuestModal = ({
     // Already known to be new — the request card only offers this for a phone
     // that matches nobody, so there is no name to confirm against.
     if (addMode) {
-      onAdd({ ...cleaned, returning: true, pricing: pricingFromInputs() }, (msg) =>
-        setErrorMessage(msg),
+      onAdd(
+        { ...cleaned, returning: true, pricing: pricingFromInputs() },
+        (msg) => setErrorMessage(msg),
+        (guest) => setAdded(guest),
       );
       return;
     }
@@ -242,7 +255,7 @@ const ManageGuestModal = ({
       >
         <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
           <h2 className="text-base font-bold text-gray-900">
-            {addMode ? "New guest" : "Manage guest"}
+            {added ? "Guest added" : addMode ? "New guest" : "Manage guest"}
           </h2>
           <button
             type="button"
@@ -254,7 +267,54 @@ const ManageGuestModal = ({
           </button>
         </div>
 
-        {!addMode && selectableGuests.length === 0 ? (
+        {added ? (
+          (() => {
+            // The rates as saved on the guest, in the form's room order.
+            const rates = activeRooms
+              .map((room) => ({ room: room.name, price: added.pricing?.find((p) => p.room === room.id)?.price }))
+              .filter((r): r is { room: string; price: number } => typeof r.price === "number");
+            const text = welcomeMessage({
+              guestName: added.name,
+              rates,
+              bookUrl: `${window.location.origin}/book`,
+              sender: senderName,
+            });
+            return (
+              <div className="flex min-h-0 flex-col gap-3 overflow-y-auto p-4">
+                <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
+                  ✓ {added.name} added
+                </p>
+                {/* The text as it will go, so nothing about it is a surprise
+                    once the phone's Messages app opens. */}
+                <div>
+                  <p className={LABEL}>Welcome text</p>
+                  <p className="mt-1 whitespace-pre-line rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800">
+                    {text}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="rounded-lg bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700"
+                  >
+                    Done
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!added.phone}
+                    onClick={() => {
+                      window.location.href = `sms:${added.phone}?&body=${encodeURIComponent(text)}`;
+                    }}
+                    className="flex-1 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+                  >
+                    Text welcome message
+                  </button>
+                </div>
+              </div>
+            );
+          })()
+        ) : !addMode && selectableGuests.length === 0 ? (
           <p className="px-4 py-6 text-center text-sm text-gray-500">
             No returning guests found.
           </p>
