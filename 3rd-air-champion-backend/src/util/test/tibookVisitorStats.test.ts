@@ -4,10 +4,13 @@ import { tibookVisitorStats, addDays, VisitRow } from "../tibookVisitorStats";
 // the effort, so a number that is plausible and wrong is the failure to fear.
 
 const TODAY = "2026-09-14";
-const v = (visitorId: string, day: string, continent = "North America"): VisitRow => ({
+// A visit placed by its connection's country, as every visit is since
+// 2026-11-03. `country` "" is one recorded before that, by time zone only.
+const v = (visitorId: string, day: string, country = "US"): VisitRow => ({
   visitorId,
   day,
-  continent,
+  continent: "",
+  country,
 });
 const span = (rows: VisitRow[], key: string) =>
   tibookVisitorStats(rows, TODAY).spans.find((s) => s.key === key)!;
@@ -80,16 +83,31 @@ describe("who came back", () => {
 
 describe("where visitors are", () => {
   it("counts each visitor once, where they were last seen in the span", () => {
-    const rows = [v("a", "2026-09-10", "Asia"), v("a", TODAY, "Europe"), v("b", TODAY, "Europe"), v("c", TODAY, "Asia")];
+    const rows = [v("a", "2026-09-10", "KR"), v("a", TODAY, "FR"), v("b", TODAY, "DE"), v("c", TODAY, "VN")];
     expect(span(rows, "week").continents).toEqual([
       { continent: "Europe", visitors: 2 },
       { continent: "Asia", visitors: 1 },
     ]);
   });
 
-  it("lists Unknown last, however many there are", () => {
-    const rows = [v("a", TODAY, "Unknown"), v("b", TODAY, "Unknown"), v("c", TODAY, "Oceania")];
-    expect(span(rows, "today").continents.map((c) => c.continent)).toEqual(["Oceania", "Unknown"]);
+  // The host, 2026-11-03: the chart is where visitors ARE, not their phone's
+  // time zone. A visit with no country — before CloudFront sent it, or a
+  // browser reporting plain "UTC" — is a visitor but not on the map, so the
+  // map has no "Unknown" row at all.
+  it("maps only visits that carry a country, and still counts the rest as visitors", () => {
+    const rows = [
+      { visitorId: "old", day: TODAY, continent: "North America", country: "" },
+      { visitorId: "utc", day: TODAY, continent: "Unknown", country: "" },
+      v("kr", TODAY, "KR"),
+    ];
+    const today = span(rows, "today");
+    expect(today.visitors).toBe(3);
+    expect(today.continents).toEqual([{ continent: "Asia", visitors: 1 }]);
+  });
+
+  it("places a visitor by their latest LOCATED visit, not a later one without a country", () => {
+    const rows = [v("a", "2026-09-12", "KR"), { visitorId: "a", day: TODAY, continent: "North America", country: "" }];
+    expect(span(rows, "week").continents).toEqual([{ continent: "Asia", visitors: 1 }]);
   });
 });
 

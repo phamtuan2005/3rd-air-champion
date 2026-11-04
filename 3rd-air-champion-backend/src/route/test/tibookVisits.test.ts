@@ -34,10 +34,11 @@ describe("recording that someone opened TiBook", () => {
   it("records one row per device per day, however often it opens", async () => {
     const host = String((await createMockHost("visits@example.com"))._id);
     const body = { host, visitorId: "3f0c9a1e-6b1d-4c1e-9d42-1b2f3c4d5e6f", timeZone: "Europe/Paris" };
+    const post = () => request(guestApp).post("/tibook-visit").set("CloudFront-Viewer-Country", "FR").send(body);
 
-    const first = await request(guestApp).post("/tibook-visit").send(body);
-    await request(guestApp).post("/tibook-visit").send(body);
-    await request(guestApp).post("/tibook-visit").send(body);
+    const first = await post();
+    await post();
+    await post();
 
     expect(first.status).toBe(204);
     const rows = await TiBookVisit.find({ host });
@@ -71,9 +72,10 @@ describe("recording that someone opened TiBook", () => {
     expect(row.timeZone).toBe("America/Los_Angeles");
   });
 
-  // Until CloudFront is set to send the header -- and for any request that
-  // does not come through it -- counting carries on by time zone.
-  it("falls back to the time zone when there is no usable country", async () => {
+  // The time zone used to stand in here. Dropped (host, 2026-11-03): the chart
+  // is where visitors are, and a phone's zone is a setting, not a place — the
+  // host's own week in Korea counted as North America. No country, no place.
+  it("does not place a visit without a usable country, whatever the time zone says", async () => {
     const host = String((await createMockHost("no-country@example.com"))._id);
     await request(guestApp)
       .post("/tibook-visit")
@@ -85,8 +87,8 @@ describe("recording that someone opened TiBook", () => {
 
     const rows = await TiBookVisit.find({ host }).sort({ visitorId: 1 });
     expect(rows.map((r) => [r.visitorId, r.continent, r.country])).toEqual([
-      ["bad-header-0001", "Europe", ""],
-      ["no-header-0001", "Asia", ""],
+      ["bad-header-0001", "Unknown", ""],
+      ["no-header-0001", "Unknown", ""],
     ]);
   });
 
@@ -103,8 +105,8 @@ describe("recording that someone opened TiBook", () => {
 
 describe("who can read the numbers", () => {
   const seed = async (host: string) => {
-    await request(guestApp).post("/tibook-visit").send({ host, visitorId: "visitor-one-1", timeZone: "Asia/Tokyo" });
-    await request(guestApp).post("/tibook-visit").send({ host, visitorId: "visitor-two-2", timeZone: "America/Chicago" });
+    await request(guestApp).post("/tibook-visit").set("CloudFront-Viewer-Country", "JP").send({ host, visitorId: "visitor-one-1", timeZone: "Asia/Tokyo" });
+    await request(guestApp).post("/tibook-visit").set("CloudFront-Viewer-Country", "US").send({ host, visitorId: "visitor-two-2", timeZone: "America/Chicago" });
   };
 
   it("shows the host their own house's visitors", async () => {

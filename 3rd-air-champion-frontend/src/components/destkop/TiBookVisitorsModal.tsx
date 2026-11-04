@@ -218,8 +218,8 @@ const SpanView = ({ span, since, viewer = false }: { span: SpanStats; since: str
       <p className="border-t border-gray-100 pt-3 text-xs leading-relaxed text-gray-400">
         A visitor is one phone or computer, counted once a day however often it opens
         TiBook. "Came back" means it has opened TiBook on more than one day. The
-        continent comes from where the internet connection is (a VPN moves it), or
-        from the device's time zone when that is not known.
+        continent is where the internet connection is (a VPN moves it), never the
+        device's time zone.
         {viewer
           ? " No guest is named or numbered here."
           : " A visit is tied to a guest only if they let TiBook remember their number; everyone else stays anonymous. Everyone who opens TiBook is counted, including you."}
@@ -430,11 +430,25 @@ const Continents = ({
   total: number;
 }) => {
   const top = Math.max(1, ...continents.map((c) => c.visitors));
+  // Only visitors placed by their internet connection are here — since
+  // 2026-11-03, when the phone's time zone stopped standing in for a place
+  // (host: "This statistics is about location of visitor, not about the time
+  // zone"). Shares are of THEM, so the bars add up to 100%; the line under the
+  // heading says how many of all visitors that is, so a shorter list never
+  // reads as fewer visitors.
+  const located = continents.reduce((n, c) => n + c.visitors, 0);
   return (
     <section>
-      <h3 className="mb-2 text-sm font-semibold text-gray-800">Where visitors are</h3>
+      <h3 className="text-sm font-semibold text-gray-800">Where visitors are</h3>
+      <p className="mb-2 text-xs text-gray-400">
+        {located === total
+          ? "By internet connection, since Nov 3, 2026"
+          : `${located.toLocaleString("en-US")} of ${total.toLocaleString("en-US")} visitors, by internet connection since Nov 3, 2026`}
+      </p>
       {continents.length === 0 ? (
-        <p className="text-sm text-gray-500">No visitors in this span yet.</p>
+        <p className="text-sm text-gray-500">
+          {total > 0 ? "None of these visits came after Nov 3, 2026, when placing by connection began." : "No visitors in this span yet."}
+        </p>
       ) : (
         <ul className="flex flex-col gap-2">
           {continents.map((c) => (
@@ -442,7 +456,7 @@ const Continents = ({
               <div className="flex items-baseline justify-between text-sm">
                 <span className="text-gray-700">{c.continent}</span>
                 <span className="tabular-nums text-gray-500">
-                  {c.visitors.toLocaleString("en-US")} · {pct(c.visitors, total)}%
+                  {c.visitors.toLocaleString("en-US")} · {pct(c.visitors, located)}%
                 </span>
               </div>
               <div className="mt-1 h-2 rounded-full bg-gray-100">

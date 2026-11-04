@@ -2,7 +2,6 @@ import express, { Request } from "express";
 import mongoose from "mongoose";
 import Host from "../model/hostSchema";
 import TiBookVisit from "../model/tibookVisitSchema";
-import { continentOfTimeZone } from "../util/continentOfTimeZone";
 import { continentOfCountry, countryCode } from "../util/continentOfCountry";
 import { normalizePhone } from "../model/guestSchema";
 import { utcDay } from "../util/tibookVisitorStats";
@@ -42,20 +41,23 @@ router.post("/", async (req: Request, res: any) => {
 
     const zone = typeof timeZone === "string" ? timeZone.trim().slice(0, 64) : "";
 
-    // Where the CONNECTION is, first; the device's time zone only when that is
-    // missing. See continentOfCountry for why the zone lost its place. The
-    // header exists only once CloudFront is set to send it to this origin --
-    // until then, and for any request that bypasses CloudFront, every visit
-    // falls back to the zone exactly as before.
+    // Where the CONNECTION is, and nothing else. The device's time zone used to
+    // stand in when there was no country, and it was dropped (host,
+    // 2026-11-03): "This statistics is about location of visitor, not about the
+    // time zone". A phone kept on US time placed the host in North America for
+    // his whole week in Korea, and a browser hiding its zone reports plain
+    // "UTC", which is no place at all — the "Unknown" on the chart. A visit
+    // with no country (one that did not come through CloudFront) is stored as
+    // Unknown and the stats leave it off the map; it still counts as a visit.
+    // The zone is still recorded beside it, but decides nothing.
     const country = countryCode(req.get("CloudFront-Viewer-Country"));
-    const byCountry = continentOfCountry(country);
 
     // $set, not $setOnInsert: a phone that moves mid-day (a guest landing at
     // SJO) is counted where it was last seen that day.
     const set: Record<string, string> = {
       timeZone: zone,
       country,
-      continent: byCountry !== "Unknown" ? byCountry : continentOfTimeZone(zone),
+      continent: continentOfCountry(country),
     };
 
     // Who this visit belongs to, in three states that must not be confused:
