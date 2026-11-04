@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import CalendarNavigator from "./CalendarView/CalendarNavigatorDesktop";
 import CustomCalendar from "./CalendarView/CustomCalendarDesktop";
 import { dayType } from "../../../util/types/dayType";
@@ -227,7 +227,16 @@ const MainView = ({
   //   any number       → a height the host dragged it to
   const [contactH, setContactH] = useState<number | "auto">(CONTACT_HANDLE_H);
   const [contactDragging, setContactDragging] = useState(false);
-  const contactSheetRef = useRef<HTMLDivElement>(null);
+  const contactSheetRef = useRef<HTMLDivElement | null>(null);
+  // The sheet element itself, as state: it mounts only once the contact
+  // details load, and measuring has to start the moment it exists.
+  const [contactSheetEl, setContactSheetEl] = useState<HTMLDivElement | null>(null);
+  // Stable, so React calls it only when the sheet mounts or unmounts — an
+  // inline function is detached and re-attached on every render.
+  const contactSheetCallbackRef = useCallback((node: HTMLDivElement | null) => {
+    contactSheetRef.current = node;
+    setContactSheetEl(node);
+  }, []);
   const contactDragRef = useRef<{ y: number; h: number; moved: boolean } | null>(null);
   const isContactOpen = contactH !== CONTACT_HANDLE_H;
   const onContactDragStart = (e: React.PointerEvent) => {
@@ -263,17 +272,18 @@ const MainView = ({
   // hidden behind the open sheet (host, 2026-11-03: "the holiday banner should
   // raised up avoiding being overlapped").
   const [contactPx, setContactPx] = useState(CONTACT_HANDLE_H);
+  // Keyed on the ELEMENT. It was keyed on isFooterVisible and contactH, and on
+  // first load both settle before the contact details arrive and the sheet
+  // mounts — so nothing was measured, the sheet opened over the holiday line,
+  // and it stayed hidden until the host touched the sheet (2026-11-03).
   useEffect(() => {
-    const el = contactSheetRef.current;
+    const el = contactSheetEl;
     if (!el) return;
     const ro = new ResizeObserver(() => setContactPx(el.offsetHeight));
     ro.observe(el);
     setContactPx(el.offsetHeight);
     return () => ro.disconnect();
-    // contactH too: the sheet mounts only once the contact details have
-    // loaded, which can be after isFooterVisible turned on — opening or moving
-    // it re-attaches the observer to the sheet that is actually there.
-  }, [isFooterVisible, contactH]);
+  }, [contactSheetEl]);
 
   // ── Local UI state ────────────────────────────────────────────────────────
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
@@ -1509,7 +1519,7 @@ const MainView = ({
                 the hold bar (z-[60]) and modals (z-50). */}
             {isFooterVisible && (licenseNumber || phone || contactEmail || airbnbName || airbnbAddress) && (
               <div
-                ref={contactSheetRef}
+                ref={contactSheetCallbackRef}
                 className="modal-type fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-300 rounded-t-2xl shadow-[0_-6px_16px_-6px_rgba(0,0,0,0.25)] flex flex-col overflow-hidden"
                 style={{
                   height: contactH,
