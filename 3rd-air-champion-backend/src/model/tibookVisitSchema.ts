@@ -25,6 +25,10 @@ const tibookVisitSchema = new mongoose.Schema(
     // Kept alongside the continent so a mapping mistake can be corrected by
     // re-reading the zone, rather than being baked in forever.
     timeZone: { type: String, default: "" },
+    // The two-letter country CloudFront placed the connection in, which now
+    // decides the continent (see continentOfCountry). Kept for the same reason
+    // as the zone. "" for rows from before it was sent, or with no header.
+    country: { type: String, default: "" },
     // Normalised exactly as guest records are (normalizePhone), so TiMag can
     // look the name up by equality. "" when the visit is not tied to anyone.
     guestPhone: { type: String, default: "" },

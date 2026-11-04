@@ -68,8 +68,11 @@ Sprache**, and the choice is remembered per device.
 ### Visitor counting
 
 TiBook tells the backend once a day per device that someone is looking: a
-random id the device keeps, and the time zone it is set to (read as a
-continent). No name goes with it, and a **phone number only once the guest has
+random id the device keeps, and the time zone it is set to. The continent comes
+from the **country CloudFront reads from the connection** (the
+`CloudFront-Viewer-Country` header; the backend never sees the IP), falling back
+to the time zone when the header is missing. The header only arrives once the
+CloudFront origin request policy for `/api/*` includes it. No name goes with it, and a **phone number only once the guest has
 agreed to TiBook remembering it** (`guestConsent`) — that is what lets TiMag list
 which guests visited; "Not you?" unlinks the day's visit. **Every look counts, whoever is
 looking** — including the host and cohosts on a device signed in to TiMag. That

@@ -55,6 +55,41 @@ describe("recording that someone opened TiBook", () => {
     expect((await TiBookVisit.findOne({ host }))!.continent).toBe("Unknown");
   });
 
+  // The whole point of the header: a phone still set to California time, on a
+  // connection in Vietnam, is counted in Asia.
+  it("places the visit by the connection's country over the device's time zone", async () => {
+    const host = String((await createMockHost("country@example.com"))._id);
+    const res = await request(guestApp)
+      .post("/tibook-visit")
+      .set("CloudFront-Viewer-Country", "VN")
+      .send({ host, visitorId: "traveller-0001", timeZone: "America/Los_Angeles" });
+
+    expect(res.status).toBe(204);
+    const row = (await TiBookVisit.findOne({ host }))!;
+    expect(row.continent).toBe("Asia");
+    expect(row.country).toBe("VN");
+    expect(row.timeZone).toBe("America/Los_Angeles");
+  });
+
+  // Until CloudFront is set to send the header -- and for any request that
+  // does not come through it -- counting carries on by time zone.
+  it("falls back to the time zone when there is no usable country", async () => {
+    const host = String((await createMockHost("no-country@example.com"))._id);
+    await request(guestApp)
+      .post("/tibook-visit")
+      .send({ host, visitorId: "no-header-0001", timeZone: "Asia/Tokyo" });
+    await request(guestApp)
+      .post("/tibook-visit")
+      .set("CloudFront-Viewer-Country", "not a country")
+      .send({ host, visitorId: "bad-header-0001", timeZone: "Europe/Paris" });
+
+    const rows = await TiBookVisit.find({ host }).sort({ visitorId: 1 });
+    expect(rows.map((r) => [r.visitorId, r.continent, r.country])).toEqual([
+      ["bad-header-0001", "Europe", ""],
+      ["no-header-0001", "Asia", ""],
+    ]);
+  });
+
   it("refuses a made-up host or a visitor id that is not an id", async () => {
     const host = String((await createMockHost("refuse@example.com"))._id);
     const nobody = String(new mongoose.Types.ObjectId());
