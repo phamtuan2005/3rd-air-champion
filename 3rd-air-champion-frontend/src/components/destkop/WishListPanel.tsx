@@ -129,6 +129,11 @@ const EntryRow = ({ entry, availableDates, roomsByDate, fulfilledDates, hasAvail
 
   const availableSet = new Set(availableDates);
   const fulfilledSet = new Set(fulfilledDates);
+  // Open nights TiBook already told the guest about, in their chat. When it
+  // has told them about every one, texting is a backup, not a job left over.
+  const announcedSet = new Set(entry.announcedNights ?? []);
+  const toldDates = availableDates.filter((d) => announcedSet.has(d)).sort();
+  const allTold = availableDates.length > 0 && toldDates.length === availableDates.length;
   const outstandingDates = [...entry.dates].filter((d) => !fulfilledSet.has(d)).sort();
   const sortedFulfilled = [...fulfilledDates].sort();
   // Name the OPEN ROOM(S) for each available date so the guest knows exactly what
@@ -237,14 +242,26 @@ const EntryRow = ({ entry, availableDates, roomsByDate, fulfilledDates, hasAvail
           </div>
         </div>
 
-        {/* Contact button — only when dates are available */}
+        {toldDates.length > 0 && (
+          <p className="text-[11px] text-green-700">
+            TiBook told {entry.guestName.split(" ")[0]} in their chat: {toldDates.map(fmtDate).join(", ")}
+          </p>
+        )}
+
+        {/* Contact button — only when dates are available. Quieter once TiBook
+            has told the guest about every open night: a text is then a nudge
+            on top, not the only way they would hear. */}
         {hasAvailable && (
           <a
             href={`sms:${entry.guestPhone}?body=${smsBody}`}
             onClick={handleContactClick}
-            className="text-xs font-semibold text-green-700 bg-green-100 border border-green-300 rounded-lg px-3 py-1.5 text-center hover:bg-green-200 transition-colors"
+            className={
+              allTold
+                ? "text-xs font-medium text-green-700 border border-green-200 rounded-lg px-3 py-1.5 text-center hover:bg-green-100 transition-colors"
+                : "text-xs font-semibold text-green-700 bg-green-100 border border-green-300 rounded-lg px-3 py-1.5 text-center hover:bg-green-200 transition-colors"
+            }
           >
-            Contact now →
+            {allTold ? "Text them as well →" : "Contact now →"}
           </a>
         )}
 

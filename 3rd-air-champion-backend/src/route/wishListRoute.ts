@@ -116,6 +116,11 @@ router.get("/get/host", async (req: Request, res: any) => {
         guestName: e.guestName,
         dates: futureDates.map((d) => new Date(d).toISOString().split("T")[0]),
         status: (e as any).status ?? "waiting",
+        // Nights TiBook already told this guest about (jobs/wishListNotify),
+        // so the host does not text the same news a second time.
+        announcedNights: ((e as any).announcedNights ?? []).filter((k: string) =>
+          futureDates.some((d) => new Date(d).toISOString().split("T")[0] === k)
+        ),
         createdAt: e.createdAt,
         updatedAt: e.updatedAt,
       });

@@ -10,6 +10,9 @@ export interface WishListEntry {
   guestName: string;
   dates: string[];
   status: WishListStatus;
+  // Nights TiBook has already told the guest about in their chat (the
+  // backend's wish-list job). Absent from a backend that predates it.
+  announcedNights?: string[];
   createdAt: string;
   updatedAt: string;
 }

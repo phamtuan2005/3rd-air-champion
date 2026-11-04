@@ -80,6 +80,13 @@ export const sheets: Record<string, string> = {
   "Removing…": "Wird entfernt …",
   "Remove from wish list": "Von der Wunschliste entfernen",
 
+  // ── A wished-for night is free (WishFreeCard) ────────────────────────────
+  "A night you wished for is free": "Eine Wunschnacht ist frei",
+  "Nights you wished for are free": "Deine Wunschnächte sind frei",
+  "Rooms go to whoever asks first. Book it puts these nights into your request — you check it and send it.":
+    "Wer zuerst anfragt, bekommt das Zimmer. „Jetzt buchen“ trägt diese Nächte in deine Anfrage ein – du prüfst sie und schickst sie ab.",
+  "Book it": "Jetzt buchen",
+
   // ── Chat with the host (HostChatSheet) ───────────────────────────────────
   "Could not load your messages just now.": "Deine Nachrichten konnten gerade nicht geladen werden.",
   "A phone number lets him write back — please add yours.":
