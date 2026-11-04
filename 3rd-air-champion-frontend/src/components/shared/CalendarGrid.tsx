@@ -1443,7 +1443,11 @@ const CalendarGrid = ({
       // pages vertically, answered scrolling but not swiping, while the
       // unfiltered one answered both. pan-y closes that gap; overscroll-contain
       // stops the sideways drag chaining to the page behind it either.
-      className={`flex-1 min-h-0 ${horizontalPaging ? "flex overflow-x-scroll overflow-y-hidden snap-x overscroll-contain touch-pan-x" : "overflow-y-scroll snap-y overscroll-contain touch-pan-y"} snap-mandatory`}
+      // No scrollbar drawn. Sideways, the strip is four years of pages, so its
+      // thumb was a lone grey square under the calendar, roughly mid-screen
+      // because today sits mid-strip — "a square dot sitting here for no good
+      // reason" (host, 2026-11-03). Paging is by swipe; the bar told nothing.
+      className={`flex-1 min-h-0 ${horizontalPaging ? "flex overflow-x-scroll overflow-y-hidden snap-x overscroll-contain touch-pan-x" : "overflow-y-scroll snap-y overscroll-contain touch-pan-y"} snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
       onScroll={handleScroll}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
