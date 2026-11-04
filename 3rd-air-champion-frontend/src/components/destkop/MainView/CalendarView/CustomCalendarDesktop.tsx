@@ -410,7 +410,7 @@ const CustomCalendar = ({
  * 2026-11-03: it belongs on the page where Nov 26 is). `visibleDays` comes
  * from the grid; until it has reported, the month's list stands in.
  *
- * Always drawn, one line tall, even with none to name: the grid takes the
+ * Always the same height, even with none to name (then blank): the grid takes the
  * height that is left, and a line that came and went would resize every row
  * as the host paged — TiBook had exactly that jump until it kept its line.
  *
@@ -425,12 +425,15 @@ const MonthHolidayStrip = ({ month, visibleDays }: { month: Date; visibleDays: s
         .filter((h): h is { key: string; holiday: NonNullable<typeof h.holiday> } => !!h.holiday)
     : usHolidaysInMonth(month.getFullYear(), month.getMonth());
   const todayKey = format(startOfToday(), "yyyy-MM-dd");
+  // Nothing to name: the line's room stays, but empty — no words, no border,
+  // the page's own grey. "No federal holidays on these dates" was one more
+  // thing to read on most pages of the year (host, 2026-11-03: "remove the
+  // whole banner ... to avoid distracting"). Removing the room itself would
+  // bring back the rows resizing as the host pages.
+  if (holidays.length === 0) return <div aria-hidden className="h-7 shrink-0" />;
   return (
     <div className="flex h-7 shrink-0 items-center gap-3 overflow-x-auto whitespace-nowrap border-t border-gray-200 bg-white px-3 text-[13px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      {holidays.length === 0 ? (
-        <span className="text-gray-400">No federal holidays on these dates</span>
-      ) : (
-        holidays.map(({ key, holiday }) => (
+      {holidays.map(({ key, holiday }) => (
           <span
             key={key}
             className={`font-semibold ${key < todayKey ? "text-gray-400" : "text-rose-600"}`}
@@ -438,8 +441,7 @@ const MonthHolidayStrip = ({ month, visibleDays }: { month: Date; visibleDays: s
             <span aria-hidden className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-current align-middle" />
             {format(parseISO(key), "EEE MMM d")} – {holidayLabel(holiday)}
           </span>
-        ))
-      )}
+      ))}
     </div>
   );
 };

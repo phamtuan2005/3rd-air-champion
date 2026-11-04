@@ -257,6 +257,23 @@ const MainView = ({
   useEffect(() => {
     setContactH(isFooterVisible ? "auto" : CONTACT_HANDLE_H);
   }, [isFooterVisible]);
+  // The sheet's real height on screen, so the calendar column can end just
+  // above it. Measured, not taken from contactH: "auto" is sized by its
+  // content, and the height animates. The holiday line under the calendar was
+  // hidden behind the open sheet (host, 2026-11-03: "the holiday banner should
+  // raised up avoiding being overlapped").
+  const [contactPx, setContactPx] = useState(CONTACT_HANDLE_H);
+  useEffect(() => {
+    const el = contactSheetRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setContactPx(el.offsetHeight));
+    ro.observe(el);
+    setContactPx(el.offsetHeight);
+    return () => ro.disconnect();
+    // contactH too: the sheet mounts only once the contact details have
+    // loaded, which can be after isFooterVisible turned on — opening or moving
+    // it re-attaches the observer to the sheet that is actually there.
+  }, [isFooterVisible, contactH]);
 
   // ── Local UI state ────────────────────────────────────────────────────────
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
@@ -1477,13 +1494,13 @@ const MainView = ({
               onRowHeightChange={setRowHeight}
               reservedMode={reservedMode}
             />
-            {/* Room for the contact sheet's grip, which is pinned over the bottom
-                of the screen even when minimized. Without it the holiday line
-                under the calendar sat behind the grip and could not be read
-                (host, 2026-11-03). Only when the sheet is shown, and only the
-                minimized height — pulled up, the sheet is meant to cover. */}
+            {/* Room for the contact sheet, which is pinned over the bottom of the
+                screen. As tall as the sheet is right now — its grip when
+                minimized, all of it when pulled up — so the calendar and the
+                holiday line under it end just above the sheet rather than
+                behind it (host, 2026-11-03). Only while the sheet is shown. */}
             {isFooterVisible && (licenseNumber || phone || contactEmail || airbnbName || airbnbAddress) && (
-              <div aria-hidden className="shrink-0" style={{ height: CONTACT_HANDLE_H }} />
+              <div aria-hidden className="shrink-0" style={{ height: contactPx }} />
             )}
             {/* Contact-info sheet — a draggable bottom sheet. Pull the grip up to
                 reveal the property/license details, tap or drag it down to minimize
