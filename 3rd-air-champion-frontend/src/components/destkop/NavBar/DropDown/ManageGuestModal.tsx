@@ -288,7 +288,10 @@ const ManageGuestModal = ({
                     once the phone's Messages app opens. */}
                 <div>
                   <p className={LABEL}>Welcome text</p>
-                  <p className="mt-1 whitespace-pre-line rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800">
+                  {/* overflow-wrap anywhere: the TiBook link has no spaces, and
+                      without it the end ran off the box — "book got cut off"
+                      (host, 2026-11-03). The text sent was always whole. */}
+                  <p className="mt-1 whitespace-pre-line rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 [overflow-wrap:anywhere]">
                     {text}
                   </p>
                 </div>
