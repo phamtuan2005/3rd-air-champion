@@ -6,6 +6,7 @@ import { bookingType, feeType } from "../../../../util/types/bookingType";
 import { guestBillForMonth } from "../../../../util/guestBill";
 import { formatCancellationPolicy } from "../../../../util/cancellationPolicy";
 import { splitLoyalty } from "../../../../util/loyaltyDiscount";
+import { guestSignoff } from "../../../../util/cleanerMessage";
 
 // A single booking row the confirmation text bills for.
 export interface ConfirmationBooking {
@@ -38,6 +39,8 @@ interface UseMessagingParams {
   airbnbAddress: string;
   cancellationFullRefundDays?: number;
   cancellationHalfRefundDays?: number;
+  // Who is sending (the host, or a logged-in cohost) — signs guest texts.
+  senderName?: string;
 }
 
 export const useMessaging = ({
@@ -49,7 +52,13 @@ export const useMessaging = ({
   airbnbAddress,
   cancellationFullRefundDays,
   cancellationHalfRefundDays,
+  senderName,
 }: UseMessagingParams) => {
+  // The name at the end of every guest text built here. Added to the FINISHED
+  // message, not inside composeConfirmationText: the hold text adds its own
+  // payment line after the composed part, and a signature above that line
+  // would end the letter before it ended.
+  const signed = (text: string) => `${text}\n\n${guestSignoff(senderName)}`;
   const [icsModal, setIcsModal] = useState<IcsModalState | null>(null);
   const [calEventsHint, setCalEventsHint] = useState<string | null>(null);
 
@@ -227,7 +236,7 @@ export const useMessaging = ({
       totalPaidAmount += pricePerNight;
     });
 
-    return composeConfirmationText(guestName, monthHeader(months), lineItems, totalPaidAmount);
+    return signed(composeConfirmationText(guestName, monthHeader(months), lineItems, totalPaidAmount));
   };
 
   // Same template, but scoped to an explicit set of just-booked rows (Book Rooms modal).
@@ -246,7 +255,9 @@ export const useMessaging = ({
     );
     const months = Array.from(monthKeys, (k) => toZonedTime(k, timeZone));
     const lineItems: ConfirmationLineItem[] = sorted.map((b) => ({ ...b, paidNights: 0 }));
-    return composeConfirmationText(guestName, monthHeader(months, "Your additional bookings"), lineItems, totalPaidAmount);
+    return signed(
+      composeConfirmationText(guestName, monthHeader(months, "Your additional bookings"), lineItems, totalPaidAmount),
+    );
   };
 
   // The same statement, for the rooms being HELD rather than the ones paid for.
@@ -323,8 +334,7 @@ You mentioned you'd send payment by ${format(
 
 Just let me know when you'd like to send the payment.`;
     return {
-      text:
-        body + promiseLine,
+      text: signed(body + promiseLine),
       count: held.length,
     };
   };
