@@ -1,3 +1,5 @@
+import { continentOfCountry } from "./continentOfCountry";
+
 // How TiBook is doing, from the visits it has recorded.
 //
 // A visit row is one DEVICE on one UTC DAY (see tibookVisitSchema) — opening
@@ -13,6 +15,10 @@ export interface VisitRow {
   visitorId: string;
   day: string; // yyyy-MM-dd, UTC
   continent: string;
+  // Two letters from the connection (CloudFront-Viewer-Country); "" or absent
+  // for a visit recorded before that was turned on (2026-11-03) or one that
+  // did not come through CloudFront. Only a visit with one is on the map.
+  country?: string;
   guestPhone?: string; // "" or absent when the visit is not tied to a guest
 }
 
@@ -102,23 +108,33 @@ const summarise = (
   }
 
   let cameBack = 0;
-  const byContinent = new Map<string, number>();
   for (const [visitorId, r] of latest) {
     if (r.day > (firstDayOf.get(visitorId) ?? r.day)) cameBack += 1;
-    const c = r.continent || "Unknown";
-    byContinent.set(c, (byContinent.get(c) ?? 0) + 1);
   }
 
+  // WHERE: only from visits that carry the connection's country (host,
+  // 2026-11-03: "This statistics is about location of visitor, not about the
+  // time zone"). Visits placed by the phone's time zone before then put the
+  // host in North America for a week he spent in Korea, and two that reported
+  // plain "UTC" sat on the chart as "Unknown". They still count as visitors
+  // above; they are just not on the map, so there is no Unknown row. Each
+  // visitor once, where their LATEST located visit in the span was.
+  const located = new Map<string, VisitRow>();
+  for (const r of rows) {
+    if (r.day < from || r.day > to) continue;
+    if (continentOfCountry(r.country) === "Unknown") continue;
+    const seen = located.get(r.visitorId);
+    if (!seen || r.day > seen.day) located.set(r.visitorId, r);
+  }
+  const byContinent = new Map<string, number>();
+  for (const r of located.values()) {
+    const c = continentOfCountry(r.country);
+    byContinent.set(c, (byContinent.get(c) ?? 0) + 1);
+  }
   const continents = Array.from(byContinent, ([continent, visitors]) => ({
     continent,
     visitors,
-  })).sort((a, b) => {
-    // Unknown last whatever its size: it is the absence of an answer, and at
-    // the top of the list it would read as the biggest market.
-    if (a.continent === "Unknown") return 1;
-    if (b.continent === "Unknown") return -1;
-    return b.visitors - a.visitors || a.continent.localeCompare(b.continent);
-  });
+  })).sort((a, b) => b.visitors - a.visitors || a.continent.localeCompare(b.continent));
 
   // Every row in the window, not just each device's latest: a guest is a
   // phone number, and they may have opened TiBook on more than one device.

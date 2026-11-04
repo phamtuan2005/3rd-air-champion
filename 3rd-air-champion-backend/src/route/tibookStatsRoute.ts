@@ -26,7 +26,7 @@ router.get("/", async (req: Request, res: any) => {
     // aggregation would not see.
     const rows = await TiBookVisit.find(
       { host: hostId },
-      { visitorId: 1, day: 1, continent: 1, guestPhone: 1, _id: 0 }
+      { visitorId: 1, day: 1, continent: 1, country: 1, guestPhone: 1, _id: 0 }
     ).lean();
 
     const stats = tibookVisitorStats(rows as any, utcDay());
