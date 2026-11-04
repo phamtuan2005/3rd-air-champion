@@ -1014,6 +1014,9 @@ const MainView = ({
       pricing?: { room: string; price: number }[];
     },
     onError: (msg: string) => void,
+    // Given, the form stays open on the saved guest (with its rates) so the
+    // host can text them a welcome; absent, it closes as it always has.
+    onDone?: (guest: guestType) => void,
   ) => {
     const { pricing = [], ...fields } = guestObject;
     const existingId = createdGuestIdRef.current;
@@ -1047,6 +1050,10 @@ const MainView = ({
             : [...prev, result],
         );
         createdGuestIdRef.current = null;
+        if (onDone) {
+          onDone(result as guestType);
+          return;
+        }
         setIsManageGuestOpen(false);
         setGuestPrefill(null);
       })
@@ -2253,6 +2260,8 @@ const MainView = ({
           }}
           onSave={onUpdateGuestFromModal}
           onAdd={onAddGuestFromModal}
+          // Signs the welcome text a new guest can be sent.
+          senderName={senderName}
           onDelete={onDeleteGuestFromModal}
         />
       )}
