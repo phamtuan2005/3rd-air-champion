@@ -636,6 +636,7 @@ const MainView = ({
     airbnbAddress,
     cancellationFullRefundDays,
     cancellationHalfRefundDays,
+    senderName,
   });
 
   const [pricingEditOnOpen, setPricingEditOnOpen] = useState(false);

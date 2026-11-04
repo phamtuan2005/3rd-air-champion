@@ -13,6 +13,14 @@ const signerFirstName = (sender?: string) => (sender || "").trim().split(" ")[0]
 export const ttPromiseLine = (sender?: string) =>
   `"Your comfort. Our mission." 🏠 — ${signerFirstName(sender)}`;
 
+// The sign-off on texts to a GUEST: the booking confirmation, the hold message.
+// They ended on "Could you please confirm whether everything is in order?" and
+// no name at all (host, 2026-11-03). Signed by whoever is sending, like the
+// cleaner texts; the motto is named as the house's promise TO THE GUEST, never
+// left to read as a promise to whoever is reading (CLAUDE.md, Tone).
+export const guestSignoff = (sender?: string) =>
+  ["Best,", signerFirstName(sender), `TT House — "Your comfort. Our mission." is our promise to you.`].join("\n");
+
 // The standard sign-off (gratitude + the promise) appended to routine cleaner
 // messages (weekly schedule, pay summary, today's cleaning list).
 export const cleanerSignoff = (sender?: string) =>
