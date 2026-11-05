@@ -262,8 +262,17 @@ const MainView = ({
     // A tap (no real drag) toggles between minimized and auto-fit open.
     if (d && !d.moved) setContactH((h) => (h === CONTACT_HANDLE_H ? "auto" : CONTACT_HANDLE_H));
   };
-  // Show Contact Info → auto-open (fits content); hide → minimize.
+  // Show Contact Info → auto-open (fits content); hide → minimize. But not on
+  // load: the setting starts ON every visit, so this opened the sheet over the
+  // bottom of the calendar every time TiMag was opened (host, 2026-11-04: it
+  // "is always maximized and covers up the calendar"). It starts as its grip
+  // now, and opens when the host taps or pulls it, or turns it back on.
+  // Compared with the last value rather than skipping the first run: StrictMode
+  // runs effects twice on mount, and a run-once flag opened it on the second.
+  const contactSettingWas = useRef(isFooterVisible);
   useEffect(() => {
+    if (contactSettingWas.current === isFooterVisible) return;
+    contactSettingWas.current = isFooterVisible;
     setContactH(isFooterVisible ? "auto" : CONTACT_HANDLE_H);
   }, [isFooterVisible]);
   // The sheet's real height on screen, so the calendar column can end just
