@@ -112,6 +112,8 @@ const TiBookInner = () => {
   const [days, setDays] = useState<dayType[]>([]);
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [scrollToTodayTrigger, setScrollToTodayTrigger] = useState(0);
+  // Whether the list has tonight's row on screen (see TodayButton).
+  const [todayInList, setTodayInList] = useState(true);
   const [scrollToMonthTrigger, setScrollToMonthTrigger] = useState<{ month: Date; seq: number } | null>(null);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -1375,6 +1377,8 @@ const TiBookInner = () => {
           scrollToMonthTrigger={scrollToMonthTrigger ?? undefined}
           onOpenPhotos={setHeroGalleryRoom}
           onScrollToToday={() => setScrollToTodayTrigger((n) => n + 1)}
+          todayInList={todayInList}
+          onTodayInViewChange={setTodayInList}
           onMyBookings={() => { setBookingsFocusKey(null); setMyBookingsOpen((o) => !o); }}
           onAskTT={() => setAskTTOpen(true)}
           ttNudge={ttNudge}
@@ -1534,6 +1538,7 @@ const TiBookInner = () => {
             )}
             <CalendarNavigator
               currentMonth={currentMonth}
+              todayInList={todayInList}
               onScrollToToday={() => setScrollToTodayTrigger((n) => n + 1)}
               onBookingRequest={() => openBookingModal(null)}
             />
@@ -1568,6 +1573,7 @@ const TiBookInner = () => {
                 reservedMap={reservedMap}
                 myRates={myRates}
                 scrollToTodayTrigger={scrollToTodayTrigger}
+                onTodayInViewChange={setTodayInList}
                 scrollToMonthTrigger={scrollToMonthTrigger ?? undefined}
                 simplified={!isSelecting}
                 holidayBottom={`${selectionBarH}px`}

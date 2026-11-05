@@ -6,6 +6,7 @@ import { useTiBookLang } from "../../../contexts/TiBookLanguageContext";
 
 interface CalendarNavigatorProps {
   currentMonth: Date;
+  todayInList?: boolean;
   onScrollToToday?: () => void;
   onBookingRequest?: () => void;
 }
@@ -14,6 +15,7 @@ const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", 
 
 const CalendarNavigator = ({
   currentMonth,
+  todayInList,
   onScrollToToday,
   onBookingRequest,
 }: CalendarNavigatorProps) => {
@@ -29,7 +31,7 @@ const CalendarNavigator = ({
       <div className="flex items-center gap-2">
         <span className={`font-bold text-base sm:text-xl flex-1 ${theme.chromeText}`}>{formattedDate}</span>
         <CalendarViewToggle />
-        <TodayButton isCurrentMonth={isCurrentMonth} onScrollToToday={onScrollToToday} />
+        <TodayButton isCurrentMonth={isCurrentMonth} todayInList={todayInList} onScrollToToday={onScrollToToday} />
       </div>
 
       {/* Days of the week — 1 letter on mobile, 3 letters on sm+. Not over

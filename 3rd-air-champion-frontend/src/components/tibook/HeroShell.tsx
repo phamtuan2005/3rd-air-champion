@@ -87,6 +87,8 @@ interface HeroShellProps {
   scrollToMonthTrigger?: { month: Date; seq: number };
   onOpenPhotos: (room: roomType) => void;
   onScrollToToday: () => void;
+  todayInList?: boolean;
+  onTodayInViewChange?: (inView: boolean) => void;
   onMyBookings: () => void;
   onAskTT: () => void;
   ttNudge?: TTNudge | null;
@@ -149,7 +151,7 @@ const HeroShell = ({
   cartDates, wishListDates, newWishListDates, myBookingDates, myStays,
   reservedStays, reservedMap, currentMonth, onMonthChange, onDateClick,
   onWishListClick, onMyStayClick, onMyStayDetails, onReservedClick, scrollToTodayTrigger,
-  scrollToMonthTrigger, onOpenPhotos, onScrollToToday, onMyBookings, onAskTT, ttNudge, ttUnread, onRequest, guestName,
+  scrollToMonthTrigger, onOpenPhotos, onScrollToToday, todayInList, onTodayInViewChange, onMyBookings, onAskTT, ttNudge, ttUnread, onRequest, guestName,
   actionLabel, hasSelection, usualCount, onOpenUsual, hostIntro, introduceHost,
 }: HeroShellProps) => {
   const { theme } = useTiBookTheme();
@@ -922,7 +924,7 @@ const HeroShell = ({
               the same component, so it disables itself on the current month
               rather than pretending to be a button that does nothing. */}
           <CalendarViewToggle />
-          <TodayButton isCurrentMonth={isSameMonth(currentMonth, new Date())} onScrollToToday={onScrollToToday} />
+          <TodayButton isCurrentMonth={isSameMonth(currentMonth, new Date())} todayInList={todayInList} onScrollToToday={onScrollToToday} />
         </div>
 
         {/* The weekday header. GuestCalendar draws only the grid — in the
@@ -967,6 +969,7 @@ const HeroShell = ({
             reservedMap={reservedMap}
             myRates={myRates}
             scrollToTodayTrigger={scrollToTodayTrigger}
+            onTodayInViewChange={onTodayInViewChange}
             scrollToMonthTrigger={scrollToMonthTrigger}
             onMonthChange={onMonthChange}
             onDateClick={onDateClick}
