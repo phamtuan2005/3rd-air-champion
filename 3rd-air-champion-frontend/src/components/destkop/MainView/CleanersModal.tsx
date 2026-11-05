@@ -3395,46 +3395,21 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                         <div className="space-y-1.5 border-t border-gray-100 p-2">
                           {days.map((group) => (
                             <div key={group.key} className="rounded-xl border border-gray-200 bg-white px-3 py-2.5">
-                            <div className="flex items-center gap-2">
-                              <div className="min-w-0 flex-1">
-                                <p className="text-base font-semibold text-gray-800">
-                                  {/* Neither the date nor "· 3 rooms" may break
-                                      inside itself: "Fri, Oct" / "9" on a phone. */}
-                                  <span className="whitespace-nowrap">{format(new Date(group.date + "T00:00:00"), "EEE, MMM d")}</span>
-                                  <span className="whitespace-nowrap text-sm font-semibold text-gray-500">
-                                    {" "}· {group.assignments.length} room{group.assignments.length === 1 ? "" : "s"}
-                                  </span>
-                                </p>
-                              </div>
-                              {editingDayKey === group.key ? (
+                            {/* Two rows: the date with Edit, then the hours and
+                                the room count. All four sat on one line, and
+                                with the date and "· 4 rooms" held unbroken (so
+                                "Fri, Oct" / "9" could not split) there was
+                                nowhere to wrap: on a phone the text ran under
+                                the hours pill and Edit (host, 2026-11-04).
+                                Even the date alone does not fit beside both at
+                                360px, so the pill moved down rather than the
+                                room count alone. */}
+                            <div className="flex items-start gap-2">
+                              <p className="min-w-0 flex-1 whitespace-nowrap pt-1 text-base font-semibold leading-tight text-gray-800">
+                                {format(new Date(group.date + "T00:00:00"), "EEE, MMM d")}
+                              </p>
+                              {editingDayKey !== group.key && (
                                 <>
-                                  <HrMinInput
-                                    autoFocus
-                                    hm={hmDraft[group.key]}
-                                    onChange={(hm) =>
-                                      setHmDraft((p) => ({ ...p, [group.key]: hm }))
-                                    }
-                                  />
-                                  <button
-                                    type="button"
-                                    className={pillDark}
-                                    onClick={() => handleSaveDayHours(group)}
-                                  >
-                                    Save
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className={pillNeutral}
-                                    onClick={() => setEditingDayKey(null)}
-                                  >
-                                    Cancel
-                                  </button>
-                                </>
-                              ) : (
-                                <>
-                                  <span className="shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-800">
-                                    {formatHrMin(group.hours)}
-                                  </span>
                                   <button
                                     type="button"
                                     className={pillNeutral}
@@ -3451,6 +3426,45 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                                 </>
                               )}
                             </div>
+                            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                              {editingDayKey !== group.key && (
+                                <span className="shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-800">
+                                  {formatHrMin(group.hours)}
+                                </span>
+                              )}
+                              <span className="text-sm font-medium text-gray-500">
+                                {group.assignments.length} room{group.assignments.length === 1 ? "" : "s"}
+                              </span>
+                            </div>
+                            {/* On its own row, not beside the date: the input,
+                                Save and Cancel are wider than the pill and Edit
+                                they replace, and on a phone they squeezed the
+                                date down to nothing. */}
+                            {editingDayKey === group.key && (
+                              <div className="mt-2 flex flex-wrap items-center gap-2">
+                                <HrMinInput
+                                  autoFocus
+                                  hm={hmDraft[group.key]}
+                                  onChange={(hm) =>
+                                    setHmDraft((p) => ({ ...p, [group.key]: hm }))
+                                  }
+                                />
+                                <button
+                                  type="button"
+                                  className={pillDark}
+                                  onClick={() => handleSaveDayHours(group)}
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  type="button"
+                                  className={pillNeutral}
+                                  onClick={() => setEditingDayKey(null)}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            )}
                             {/* What the visit WAS, laid out the way TiWork shows
                                 it to the cleaner: one room per line in its own
                                 colour, with who came in after, then each extra
