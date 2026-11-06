@@ -181,8 +181,12 @@ const HostProfileBanner = ({
                   您的舒适，我们的使命。
                 </span>
               </div>
+              {/* flex-wrap: the count drops under the stars when the row runs
+                  out of width. Without it "120 Bewertungen" beside the hosts'
+                  photos ran past the edge of a 360px phone, and the whole page
+                  could then be dragged left and right in German. */}
               {host.airbnbRating != null && (
-                <span className={`flex items-center gap-1 text-xs mt-0.5 ${theme.surfaceMuted}`}>
+                <span className={`flex flex-wrap items-center gap-x-1 text-xs mt-0.5 ${theme.surfaceMuted}`}>
                   <span className="flex items-center gap-0.5">
                     {[1, 2, 3, 4, 5].map((star) => {
                       const fill = Math.min(1, Math.max(0, host.airbnbRating! - (star - 1)));
