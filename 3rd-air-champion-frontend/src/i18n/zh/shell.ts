@@ -1,0 +1,227 @@
+// Chinese for TiBook's shell screens — see index.ts.
+export const shell: Record<string, string> = {
+  Language: "语言",
+  // The full stop TT puts after a listing's own words (askTT.ts, ttBooking.ts).
+  ".": "。",
+
+  // House facts strip
+  "Stay with {name}, an engineer living here": "入住 {name} 的家，一位住在这里的工程师",
+  "your host": "您的房东",
+  "Smart toilet, warm seat, bidet, all bathrooms": "所有卫生间均配智能马桶，带座圈加热和净身功能",
+
+  // Remember-me question
+  "Save your number on this device?": "要在这台设备上保存您的号码吗？",
+  "So you don't have to type it again": "这样您就不用再次输入了",
+  "If you say yes, we'll keep": "如果您同意，我们会把",
+  "and your name in this browser's storage on your own phone or computer. Next time you open TiBook, your stays, your wish list and your rate are already here.":
+    "和您的姓名保存在您自己手机或电脑的浏览器存储中。下次打开 TiBook 时，您的住宿、心愿单和价格都会直接显示。",
+  "It stays on this device — it isn't a tracking cookie and no one else can read it.":
+    "这些信息只保留在这台设备上，不是跟踪 Cookie，其他人也无法读取。",
+  "Your booking request reaches the house either way — this is only about saving you the typing next visit.":
+    "无论您如何选择，预订申请都会送达我们。这里只是为了让您下次不必重新输入。",
+  "Change your mind whenever you like: \"Not you?\" in Your Bookings clears your number and this choice from this device, and we'll ask again next time.":
+    "您可以随时改变主意：在“您的预订”中点按“不是您？”，即可清除这台设备上的号码和此项选择，下次我们会再次询问。",
+  "Yes, remember me": "好的，记住我",
+  "No, just for this visit": "不用，仅限本次访问",
+
+  // Loyalty welcome
+  "Hi {name}! Welcome back": "{name}，您好！欢迎回来",
+  "Cherished Guest": "挚爱贵宾",
+  "Valued Guest": "尊贵客人",
+  "Loyal Guest": "忠实客人",
+  "Returning Guest": "老客人",
+  "{n} stay": "{n}次住宿",
+  "{n} stays": "{n}次住宿",
+  "{n} night": "{n}晚",
+  "{n} nights": "{n}晚",
+  "with us since {date}": "自 {date} 起与我们相伴",
+  "Thank you — you have ${amount} off every night": "感谢您！每晚为您减免 ${amount}",
+  "It is already taken off the totals below. Our way of saying we are glad you keep coming back.":
+    "下方总价已扣除这笔优惠。这是我们对您一次次回来的一点心意。",
+  "You are not just a guest, you are part of the TT House family. We hold every single one of those nights close to our hearts, and your trust in us means everything. Thank you for being so wonderfully you.":
+    "您不只是客人，更是 TT House 大家庭的一员。您在这里度过的每一晚，我们都铭记在心，您的信任对我们意义非凡。谢谢您，一直这么好。",
+  "You have truly made TT House your home away from home. We are so grateful you keep choosing us, and we will always do our best to deserve that trust.":
+    "TT House 已经真正成了您在外的另一个家。非常感谢您一次次选择我们，我们会始终尽力不负这份信任。",
+  "Every time you come back, it genuinely warms our hearts. You are a true friend of TT House, and we look forward to many more stays together.":
+    "每次您回来，我们都由衷地开心。您是 TT House 真正的朋友，期待今后更多的相聚。",
+  "It means so much to have you back! We hope every stay with us feels like a little retreat — comfortable, warm, and just right. See you again soon!":
+    "您能再次光临，我们非常高兴！希望每一次入住都像一次小小的休憩：舒适、温暖、恰到好处。期待很快再见！",
+  "Welcome to TT House! We are so happy you are here, and we hope this stay is the first of many. Your comfort is truly our mission.":
+    "欢迎来到 TT House！很高兴您的到来，希望这只是您多次入住的开始。您的舒适，就是我们的使命。",
+
+  // Host contact button
+  "Ask {name}": "询问 {name}",
+  "Anything at all — he answers these himself.": "什么都可以问，他会亲自回复。",
+  "Chat here": "在这里聊天",
+  "Stays in TiBook. {name} replies on this screen.": "无需离开 TiBook，{name} 会在此页面回复。",
+  "Text his phone": "给他发短信",
+  "Opens your messages, ready to send.": "打开您的短信应用，内容已备好。",
+  "Call him": "打电话给他",
+  "Rings his phone now.": "立即拨打他的手机。",
+  "Chat is the quickest way to reach him today.": "今天通过聊天联系他最快。",
+  "Ask {name} — drag me anywhere": "询问 {name}，可将我拖到任意位置",
+  "Contact {name}. Drag to move this button.": "联系 {name}。拖动可移动此按钮。",
+
+  // Host banner
+  "Verified": "已验证",
+  "Superhost": "超赞房东",
+  "Superhosts": "超赞房东",
+  "Your Comfort. Our Mission.": "您的舒适，我们的使命。",
+  "{n} reviews": "{n}条评价",
+  // Highlight pills the host types in TiMag, in English. Kept chip-short.
+  // "Kaiser" means nothing on its own in Chinese; it is Kaiser Permanente's
+  // hospital in Santa Clara, so say so.
+  "Near big techs": "靠近科技巨头",
+  "Modern design": "现代设计",
+  "Safe neighborhoods": "社区安全",
+  "Clean & Comfortable": "干净舒适",
+  "Near Kaiser": "靠近 Kaiser 医院",
+  "Near Levi's Stadium": "靠近李维斯体育场",
+  "Sunset view": "日落美景",
+
+  // Room cards
+  "Family — no charge": "家人，免费",
+  "/night": "/晚",
+  "View {room} on AirBnB": "在 AirBnB 上查看 {room}",
+  "the host": "房东",
+  "All": "全部",
+  "Show room photos": "显示房间照片",
+  "Photos": "照片",
+  "Our Rooms": "我们的房间",
+  "tap on room name to select": "点按房间名称进行选择",
+  "Every price is agreed between you and {name}. Open a room to ask.": "每个价格都由您与 {name} 商定。打开房间即可询问。",
+  "These are your prices, agreed with {name}.": "这些是您与 {name} 商定的价格。",
+  "Your agreed prices are shown. Open a room without one to ask {name}.": "此处显示您已商定的价格。打开尚无价格的房间，即可询问 {name}。",
+  "Hide room photos": "隐藏房间照片",
+  "Hide": "隐藏",
+  "All Rooms": "所有房间",
+
+  // Room gallery
+  "Close": "关闭",
+  "Enlarge this picture": "放大这张图片",
+  "Enlarge": "放大",
+  "See more on AirBnB": "在 AirBnB 上查看更多",
+  "Accommodates up to {n}": "最多可住{n}人",
+  "The price here is something you can settle with {name} directly.": "这里的价格可以直接与 {name} 商定。",
+  "for this room, agreed with {name}.": "（此房间，与 {name} 商定）。",
+  "Your price for this room is": "您这间房的价格是",
+  " with your loyalty discount": "（含您的老客优惠）",
+  ", agreed with {name}.": "，已与 {name} 商定。",
+  "Chat here in TiBook": "在 TiBook 内聊天",
+  "Works from any country, on any phone — {name} replies on this screen.": "任何国家、任何手机都能使用，{name} 会在此页面回复。",
+  "Text {name}": "给 {name} 发短信",
+  "Ask {name} about the price": "向 {name} 询问价格",
+  "Back to the room": "返回房间",
+  "Previous picture": "上一张图片",
+  "Next picture": "下一张图片",
+  "Tap twice to go back": "点按两次返回",
+
+  // Room facts (src/util/roomFacts.ts) — the English stays the source there,
+  // because askTT reads it; these are only how the gallery draws it.
+  "1 queen bed": "1张大床（Queen）",
+  "1 sofa bed": "1张沙发床",
+  "1 double bed": "1张双人床",
+  "Private attached bathroom, with a smart toilet — warm seat and built-in bidet":
+    "房内独立卫生间，配智能马桶：座圈加热，内置净身功能",
+  "Shared bathroom, with a bathtub, hot water and a smart toilet — warm seat and built-in bidet":
+    "共用卫生间，配浴缸、热水和智能马桶：座圈加热，内置净身功能",
+  "Your own room, with a lock on the door": "独立房间，房门可上锁",
+  "Your own room and private balcony, with a lock on the door": "独立房间和私人阳台，房门可上锁",
+  "Wifi": "无线网络",
+  "Air conditioning": "空调",
+  "Central air conditioning": "中央空调",
+  "Heating": "暖气",
+  "Dedicated workspace": "专用办公区",
+  "65-inch QLED AI smart TV": "65英寸 QLED AI 智能电视",
+  "43-inch smart TV": "43英寸智能电视",
+  "Mini fridge": "小冰箱",
+  "Microwave": "微波炉",
+  "Coffee maker": "咖啡机",
+  "Backyard": "后院",
+  "Portable fans": "便携风扇",
+  "Towels and bed linen": "毛巾和床品",
+  "Free street parking": "免费路边停车",
+  "Self check-in": "自助入住",
+  "Free, safe street parking outside": "门外可免费、安全地路边停车",
+  "Shared kitchen, open to every guest in the house": "共用厨房，向全屋客人开放",
+
+  // Nav bar and Look menu
+  "TT House Logo": "TT House 标志",
+  "Book with TT House": "在 TT House 预订",
+  "Your bookings": "您的预订",
+  "Cherished": "挚爱贵宾",
+  "Valued": "尊贵",
+  "Loyal": "忠实",
+  "Returning": "老客人",
+  "Home": "首页",
+  "Change how TiBook looks": "更改 TiBook 外观",
+  "Look": "外观",
+  "Welcome back.": "欢迎回来。",
+  "We put the rooms first this time. Tap here for Classic, or any look you like.":
+    "这次我们把房间放在了最前面。点按这里可切换到 Classic 或您喜欢的外观。",
+  "Make it yours.": "按您的喜好来。",
+  "Tap here for Classic, Neon or Hero, in the colour you like.": "点按这里选择 Classic、Neon 或 Hero，以及您喜欢的颜色。",
+  "Dismiss": "关闭",
+  "Show me": "看看",
+  "Light and calm": "明亮沉静",
+  "Dark and bright": "深色鲜明",
+  "Neon, rooms first": "Neon，房间优先",
+  "Colour": "颜色",
+  "{name} colour": "{name}色",
+  "green": "绿",
+  "amber": "琥珀",
+  "teal": "青",
+  "rose": "玫瑰",
+  "indigo": "靛蓝",
+
+  // Hero layout
+  "{room} is free {n} night": "{room} 有{n}晚空房",
+  "{room} is free {n} nights": "{room} 有{n}晚空房",
+  "{rooms} · {n} night open": "{rooms} · {n}晚有空房",
+  "{rooms} · {n} nights open": "{rooms} · {n}晚有空房",
+  "{n} night open": "{n}晚有空房",
+  "{n} nights open": "{n}晚有空房",
+  " or ": " 或 ",
+  "About {name} and its hosts": "关于 {name} 及其房东",
+  "About {name}": "关于 {name}",
+  "{n} rooms picked · swipe to see each": "已选{n}间房 · 滑动逐一查看",
+  "Room {i} of {n} · swipe for more": "第{i}间，共{n}间 · 滑动查看更多",
+  "Any room · swipe through all {n}": "任意房间 · 滑动查看全部{n}间",
+  "/ night · your rate": "/晚 · 您的价格",
+  "Your price is agreed with {name}": "您的价格与 {name} 商定",
+  "{n} photos": "{n}张照片",
+  "Details": "详情",
+  "Any room is fine": "哪间房都可以",
+  "{name} picks the room and agrees your price. Same house, same bathrooms.":
+    "由 {name} 为您选房并商定价格。同一栋房子，同样的卫生间。",
+  "Your host": "您的房东",
+  "Rooms to show in the month": "在月历中显示的房间",
+  "Any room": "任意房间",
+  "{n} booking held for you — tap to review & pay": "已为您保留{n}个预订，点按查看并付款",
+  "{n} bookings held for you — tap to review & pay": "已为您保留{n}个预订，点按查看并付款",
+  "Stays TT lined up for you": "TT 为您安排的住宿",
+  "stay": "次住宿",
+  "stays": "次住宿",
+  "Request a Booking": "申请预订",
+  "You": "您",
+
+  // TiBook page
+  "{n} date · ★ {w} wish list": "{n}天 · ★ 心愿单{w}天",
+  "{n} dates · ★ {w} wish list": "{n}天 · ★ 心愿单{w}天",
+  "{n} date selected": "已选{n}天",
+  "{n} dates selected": "已选{n}天",
+  "★ {n} wish list date": "★ 心愿单{n}天",
+  "★ {n} wish list dates": "★ 心愿单{n}天",
+  "Loading…": "加载中…",
+  "Loading...": "加载中…",
+  "Show the rooms": "显示房间",
+  "Open the calendar": "打开日历",
+  "No host selected": "未选择房东",
+  "Review Request": "查看申请",
+  "Book another room": "再订一间房",
+  "Open Your Bookings with your phone number first, then try again.":
+    "请先用您的电话号码打开“您的预订”，然后再试一次。",
+  "{date} removed from your wish list": "已将 {date} 从心愿单中移除",
+  "Undo": "撤销",
+  "Add this holiday night?": "要加上这个节假日的晚上吗？",
+};

@@ -61,6 +61,17 @@ const nightsPhraseDe = (order: number[], consecutive: boolean, once: boolean) =>
   return `${names.slice(0, -1).map((n) => `${n}-`).join(", ")} und ${names[names.length - 1]}nacht`;
 };
 
+// Chinese says a habit and a single past stay alike, as English does: "周二和
+// 周三晚", "周一至周四晚". Built whole because 晚 closes the list only once, at
+// the end, which word-for-word keys cannot do.
+const DAY_ZH = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+const nightsPhraseZh = (order: number[], consecutive: boolean) => {
+  const names = order.map((m) => DAY_ZH[(m + 1) % 7]);
+  if (names.length === 1) return `${names[0]}晚`;
+  if (consecutive && names.length >= 3) return `${names[0]}至${names[names.length - 1]}晚`;
+  return `${names.slice(0, -1).join("、")}和${names[names.length - 1]}晚`;
+};
+
 /**
  * The nights a guest stays, the way a person says them: "Tuesday and Wednesday
  * nights", "Monday through Thursday nights", "Monday and Thursday nights".
@@ -79,6 +90,7 @@ export const nightsPhrase = (habits: Habit[], once = false) => {
   const consecutive = order.every((m, i) => i === 0 || m === order[i - 1] + 1);
   // `once` changes only the German: English says a habit and a last stay alike.
   if (currentLang() === "de") return nightsPhraseDe(order, consecutive, once);
+  if (currentLang() === "zh") return nightsPhraseZh(order, consecutive);
   if (order.length === 1) return `${name(order[0])} nights`;
   if (consecutive && order.length >= 3) return `${name(order[0])} through ${name(order[order.length - 1])} nights`;
   const names = order.map(name);

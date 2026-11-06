@@ -8,6 +8,7 @@ import {
   chooseRoom,
   holidaysIn,
   maxGuestsOf,
+  looksLikeQuestion,
   nextStep,
   phoneHint,
   phoneLooksReal,
@@ -591,14 +592,14 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
     const room = roomOf(b.roomId)!;
     // "Cancel", "stop", "never mind" end the booking at any step. A QUESTION
     // about cancelling ("can I cancel later?") is still a question.
-    if (!q.includes("?") && readYesNo(q) === "no") {
+    if (!looksLikeQuestion(q) && readYesNo(q) === "no") {
       onStep({ do: "cancel" }, q);
       return true;
     }
     // Details given before TT asked for them — a name and number while it
     // was asking how many — are taken, not misread: guests answer in the
     // order they think of things (found trying it, 2026-10-07).
-    if (s === "party" && !q.includes("?")) {
+    if (s === "party" && !looksLikeQuestion(q)) {
       const c = readContact(q);
       if (phoneLooksReal(c.phone)) {
         advance({ ...b, phone: c.phone, name: c.name || b.name }, q, [t("Thanks.")]);
@@ -623,7 +624,7 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
       advance({ ...b, party: n }, q);
       return true;
     }
-    if ((s === "contact" || s === "name") && !q.includes("?")) {
+    if ((s === "contact" || s === "name") && !looksLikeQuestion(q)) {
       const c = readContact(q);
       if (s === "name") {
         if (!c.name) return false;
@@ -703,9 +704,9 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
   }, [turns.length]);
 
   const act = (a: TTAction) => {
-    // In English the bubble shows the query, as it always has; in German, the
-    // chip's own (German) label — the query underneath stays English.
-    if (a.kind === "ask") return ask(a.query, false, lang === "de" ? a.label : undefined);
+    // In English the bubble shows the query, as it always has; in another
+    // language, the chip's own label — the query underneath stays English.
+    if (a.kind === "ask") return ask(a.query, false, lang !== "en" ? a.label : undefined);
     if (a.kind === "book") return bookFrom(a);
     if (a.kind === "booking") return onStep(a.step, a.label);
     onAction(a);

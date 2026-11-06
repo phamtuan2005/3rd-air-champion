@@ -21,7 +21,7 @@ const CalendarNavigator = ({
 }: CalendarNavigatorProps) => {
   const { theme } = useTiBookTheme();
   const { calendarView } = useCalendarView();
-  const { t, fmtDate } = useTiBookLang();
+  const { t, fmtDate, lang } = useTiBookLang();
   const formattedDate = fmtDate(currentMonth, "MMMM yyyy");
   const isCurrentMonth = isSameMonth(currentMonth, new Date());
 
@@ -47,8 +47,10 @@ const CalendarNavigator = ({
               {/* The letter is the first of the day's name in the guest's
                   language (German: S M D M D F S, columns unchanged). The
                   short form is looked up whole: German shortens to two
-                  letters, "Mo", where cutting at three gave "Mon". */}
-              <span className="sm:hidden">{t(day)[0]}</span>
+                  letters, "Mo", where cutting at three gave "Mon". Chinese
+                  takes the LAST character: every day begins 星期, so the first
+                  would print 星 seven times. */}
+              <span className="sm:hidden">{lang === "zh" ? t(day).slice(-1) : t(day)[0]}</span>
               <span className="hidden sm:inline">{t(day.substring(0, 3))}</span>
             </abbr>
           ))}

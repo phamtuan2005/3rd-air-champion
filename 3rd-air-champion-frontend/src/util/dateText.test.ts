@@ -300,3 +300,84 @@ describe("a German guest's date spans", () => {
     expect(dates).not.toContain("2026-09-21");
   });
 });
+
+describe("a Chinese guest's dates", () => {
+  // TiBook speaks Chinese now, and its examples show this form. TODAY is Aug 2026.
+  it("reads a month and a day, with 日, 号 or neither", () => {
+    expect(on("5月1日").dates).toEqual(["2027-05-01"]);
+    expect(on("10月3号").dates).toEqual(["2026-10-03"]);
+    expect(on("10月3").dates).toEqual(["2026-10-03"]);
+    expect(on("十二月二十五日").dates).toEqual(["2026-12-25"]);
+  });
+
+  it("reads the example the date box shows", () => {
+    const { dates } = on("9月1日、3–5日、20–21日");
+    expect(dates).toEqual(["2026-09-01", "2026-09-03", "2026-09-04", "2026-09-05", "2026-09-20", "2026-09-21"]);
+  });
+
+  it("reads a span as every night, as a dash is in English", () => {
+    expect(on("10月10-12日").dates).toEqual(["2026-10-10", "2026-10-11", "2026-10-12"]);
+    expect(on("10月10日到12日").dates).toEqual(["2026-10-10", "2026-10-11", "2026-10-12"]);
+    expect(on("10月10日至10月12日").dates).toEqual(["2026-10-10", "2026-10-11", "2026-10-12"]);
+  });
+
+  it("carries a span across a month, and across New Year", () => {
+    expect(on("10月30日到11月2日").dates).toEqual(["2026-10-30", "2026-10-31", "2026-11-01", "2026-11-02"]);
+    expect(on("12月30日到1月2日").dates).toEqual(["2026-12-30", "2026-12-31", "2027-01-01", "2027-01-02"]);
+  });
+
+  it("takes the year when it is given, and the next one when the date has gone", () => {
+    expect(on("2027年8月25日").dates).toEqual(["2027-08-25"]);
+    expect(on("1月3日").dates).toEqual(["2027-01-03"]);
+    expect(on("2025年1月3日").past).toEqual(["2025-01-03"]);
+  });
+
+  it("keeps a stay that straddles today as one stay", () => {
+    const { dates, past } = on("8月18-22日");
+    expect(past).toEqual(["2026-08-18", "2026-08-19"]);
+    expect(dates).toEqual(["2026-08-20", "2026-08-21", "2026-08-22"]);
+  });
+
+  it("does not take a head count, a length or a month for a day", () => {
+    // "5月1日，2个人" read the 2 as the 2nd of May until the guard went in.
+    expect(on("9月1日,2个人").dates).toEqual(["2026-09-01"]);
+    expect(on("9月1日住3晚").dates).toEqual(["2026-09-01"]);
+    expect(on("3月两个人").dates).toEqual([]);
+    expect(on("3个月").dates).toEqual([]);
+    expect(on("12月").dates).toEqual([]);
+    expect(on("9月1日,10月2日").dates).toEqual(["2026-09-01", "2026-10-02"]);
+  });
+
+  it("reads tonight, tomorrow and the day after", () => {
+    expect(on("今晚").dates).toEqual(["2026-08-20"]);
+    expect(on("明天").dates).toEqual(["2026-08-21"]);
+    expect(on("后天").dates).toEqual(["2026-08-22"]);
+  });
+
+  it("hands back the rest as the guest's note, without the stray punctuation", () => {
+    expect(on("9月1日,我们有一只狗。").leftover).toBe("我们有一只狗");
+  });
+
+  it("leaves a date-free sentence alone", () => {
+    const { dates, leftover } = on("我们会带一只狗");
+    expect(dates).toEqual([]);
+    expect(leftover).toBe("我们会带一只狗");
+  });
+});
+
+describe("a Chinese guest's dates, as the keyboard types them", () => {
+  const C = "\uFF0C", S = "\uFF1B", T = "\uFF5E";
+
+  it("continues a list over a full-width comma, and a span over a full-width tilde", () => {
+    expect(on(`9月1日${C}3日`).dates).toEqual(["2026-09-01", "2026-09-03"]);
+    expect(on(`10月10${T}12日`).dates).toEqual(["2026-10-10", "2026-10-11", "2026-10-12"]);
+  });
+
+  it("does not take a head count after a full-width comma for a day", () => {
+    expect(on(`9月1日${C}2个人`).dates).toEqual(["2026-09-01"]);
+  });
+
+  it("strips full-width punctuation from the note", () => {
+    expect(on(`9月1日${C}我们有一只狗${S}`).leftover).toBe("我们有一只狗");
+  });
+});

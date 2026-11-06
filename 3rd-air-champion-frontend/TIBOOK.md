@@ -46,8 +46,8 @@ Two things about that file:
 
 ### German
 
-TiBook speaks English or German (`src/contexts/TiBookLanguageContext.tsx`). A
-phone set to German opens in German; the guest can switch under **Look →
+TiBook speaks English, German or Chinese (`src/contexts/TiBookLanguageContext.tsx`).
+A phone set to German opens in German; the guest can switch under **Look →
 Sprache**, and the choice is remembered per device.
 
 - Words go through `t("the English")`, and dates the guest reads through
@@ -64,6 +64,33 @@ Sprache**, and the choice is remembered per device.
   Questions TT does not recognise go to the host, as in English.
 - The host's highlight pills are typed in TiMag in English; a new one shows
   in English until its German is added to `src/i18n/de/shell.ts`.
+
+### Chinese
+
+TiBook also speaks Simplified Chinese, the same way: `src/i18n/zh/`, keyed by
+the exact English, chosen under **Look → 语言**. What differs from German:
+
+- **Who starts in it.** A phone with Simplified Chinese listed before English
+  (`langOfDevice`). An English phone with Chinese as a second language stays
+  English, and so does a Traditional one (Taiwan, Hong Kong, Macau) until the
+  guest chooses: the text is Simplified, and that is theirs to accept.
+- **"您", worded like Airbnb China** — 房东, 超赞房东, 心愿单, 入住/退房. Punctuation is
+  full-width (`zh.test.ts` fails on an ASCII mark).
+- **TT and the date box read Chinese, and its examples are Chinese.** 5月1日,
+  10月10-12日, 本周末, 下周五, 11月3日住2晚, 两个人. A dash or 到 is every night, like
+  "Oct 10-12", with the shorter reading on a button.
+- **Regexes.** `\b` never fires between Chinese characters, so `has()` drops it
+  for a Chinese word. Words go in `ZH_ASKED` and `ZH_AMENITY`. A sentence has no
+  spaces, so a word matches anywhere in it: keep each one specific.
+- **A Chinese yes must match the whole reply** (`ZH_YES`). A yes can send the
+  request, and 可以取消吗 ("can I cancel?") begins with 可以 ("yes, OK").
+- **The privacy guard has Chinese patterns too.** A new way for TT to read a
+  question needs a matching refusal, or a date inside "谁住在 King 10月10日" gets
+  it answered.
+
+As with German, only what the guest reads is translated. Requests, texts and
+notes to the host stay English, and a guest's own typed words go as they wrote
+them.
 
 ### Visitor counting
 
