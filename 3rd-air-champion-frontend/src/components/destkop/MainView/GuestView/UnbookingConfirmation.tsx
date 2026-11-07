@@ -1,11 +1,11 @@
-import { useState } from "react";
-import { toZonedTime } from "date-fns-tz";
+import { useRef, useState } from "react";
 import { formatDate } from "../../../../util/formatDate";
 import { bookingType } from "../../../../util/types/bookingType";
 import { dayType } from "../../../../util/types/dayType";
-import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
+import { differenceInCalendarDays, format, parseISO } from "date-fns";
 import { CHARGE_LABELS, createCharge } from "../../../../util/chargeOperations";
 import { DANGER_BUTTON } from "../../../shared/dangerButton";
+import { airbnbCodeOf, unbookIdsFor } from "../../../../util/unbookIds";
 
 interface UnbookingConfirmationProps {
   bookings: bookingType[]; // one or many stays to unbook in a single firm step
@@ -77,6 +77,11 @@ const UnbookingConfirmation = ({
   // AirBnB relays messages itself. Texting a cancellation only makes sense for a
   // direct guest whose number you actually hold.
   const isAirBnBGuest = guest?.name === "AirBnB";
+  // A stay from AirBnB's feed is not being cancelled here. AirBnB has already
+  // dropped it, or it would be AirBnB's to cancel, so the words say what happens.
+  const feedCode = isAirBnBGuest && !many ? airbnbCodeOf(bookings[0]) : null;
+  // A second tap must not run this twice: removing is not something to repeat.
+  const confirming = useRef(false);
   const textGuest = () => {
     if (!guest?.phone) return;
     const lines = bookings.map((b, i) => {
@@ -95,6 +100,8 @@ const UnbookingConfirmation = ({
   };
 
   const handleConfirm = async () => {
+    if (confirming.current) return;
+    confirming.current = true;
     // Save the fee BEFORE deleting anything. If it fails the stay is left
     // standing and the host can try again — unbooking first would destroy the
     // only record of what the fee was for, which is the whole problem this
@@ -103,6 +110,7 @@ const UnbookingConfirmation = ({
     if (feeAmount.trim() !== "" && amount > 0) {
       if (!hostId || !token) {
         setFeeError("Cannot save the fee — please reload and try again.");
+        confirming.current = false;
         return;
       }
       setSaving(true);
@@ -134,27 +142,13 @@ const UnbookingConfirmation = ({
       } catch {
         setSaving(false);
         setFeeError("The fee could not be saved. Nothing was unbooked — try again.");
+        confirming.current = false;
         return;
       }
       setSaving(false);
     }
 
-    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    // Each stay is stored as one booking record per night; collect every
-    // night's id across every selected stay, then delete them all in one batch.
-    const bookingIds: string[] = [];
-    bookings.forEach((booking) => {
-      const startDate = toZonedTime(booking.startDate, timeZone);
-      for (let i = 0; i < booking.duration; i++) {
-        const currentDay = monthMap.get(addDays(startDate, i).toISOString().split("T")[0]);
-        currentDay?.bookings.forEach((b) => {
-          if (b.guest.id === booking.guest.id && b.room.id === booking.room.id) {
-            bookingIds.push(b.id);
-          }
-        });
-      }
-    });
-    onUnbook(bookingIds);
+    onUnbook(unbookIdsFor(bookings, monthMap));
   };
 
   return (
@@ -162,7 +156,7 @@ const UnbookingConfirmation = ({
       <div className="bg-white rounded-xl p-4 max-w-lg w-full shadow-lg max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between mb-2">
           <h1 className="text-lg font-bold text-gray-800">
-            Unbook {bookings.length} {many ? "bookings" : "booking"}?
+            {feedCode ? "Remove this AirBnB stay?" : `Unbook ${bookings.length} ${many ? "bookings" : "booking"}?`}
           </h1>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl leading-none px-1">
             &times;
@@ -185,6 +179,9 @@ const UnbookingConfirmation = ({
                   <p className="text-xs text-gray-500">
                     {booking.room.name} · {formatDate(booking.startDate)} – {formatDate(booking.endDate)}
                   </p>
+                  {/* Two reservations on one night can both read "AirBnB", and
+                      this is the one thing that tells them apart. */}
+                  {feedCode && <p className="text-xs font-semibold text-gray-700">{feedCode}</p>}
                 </div>
                 {refund && (
                   <span
@@ -203,6 +200,14 @@ const UnbookingConfirmation = ({
             );
           })}
         </div>
+
+        {feedCode && (
+          <p className="mt-3 text-sm text-gray-600">
+            Use this when AirBnB no longer has the reservation, such as a failed ID check. Only this
+            reservation leaves TiMag, and nothing changes on AirBnB. If AirBnB still lists it, the
+            next sync brings it back.
+          </p>
+        )}
 
         {hasPolicy && (
           <div className="mt-3 flex items-center justify-between rounded-lg bg-gray-50 border border-gray-200 px-3 py-2">
@@ -291,7 +296,9 @@ const UnbookingConfirmation = ({
           >
             {saving
               ? "Saving fee…"
-              : `Unbook ${bookings.length} ${many ? "bookings" : "booking"}`}
+              : feedCode
+                ? "Remove from TiMag"
+                : `Unbook ${bookings.length} ${many ? "bookings" : "booking"}`}
           </button>
         </div>
       </div>

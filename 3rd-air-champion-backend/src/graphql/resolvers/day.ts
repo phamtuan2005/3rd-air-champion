@@ -23,7 +23,7 @@ import { toZonedTime } from "date-fns-tz";
 const SOFA_BED_FROM_GUESTS = 3;
 import { buildDateRange } from "../../util/dateRange";
 import { splitStay } from "../../util/holdSplit";
-import { reservationMatch, sameReservation } from "../../util/reservationCode";
+import { reservationCode, reservationMatch, sameReservation } from "../../util/reservationCode";
 import BookingRequest from "../../model/bookingRequestSchema";
 
 export const dayResolvers = {
@@ -1003,6 +1003,36 @@ export const dayResolvers = {
       const currentBooking = dayOfBooking?.bookings.find((booking) => booking.id === _id);
       const startDate = currentBooking?.startDate;
       const endDate = currentBooking?.endDate;
+
+      // One AirBnB stay, never every AirBnB stay in the room. They all share one
+      // guest record, so "this guest in this room" also took any other
+      // reservation on those nights: removing a booking that failed AirBnB's ID
+      // check would have deleted the real one that replaced it. A feed stay is
+      // found by its code, on whichever nights carry it; a hand-entered one has
+      // no code and is known by its span.
+      const owner = currentBooking && (await Guest.findById(currentBooking.guest));
+      if (owner?.name === "AirBnB") {
+        const description = currentBooking!.description ?? "";
+        const stay = {
+          room: currentBooking!.room,
+          ...(reservationCode(description) !== description
+            ? { description: reservationMatch(description) }
+            : {
+                guest: currentBooking!.guest,
+                startDate,
+                endDate,
+                description: description || { $in: ["", null] },
+              }),
+        };
+        await Day.updateMany(
+          { calendar, bookings: { $elemMatch: stay } },
+          { $pull: { bookings: stay } } as any,
+        );
+        return await Day.find({ calendar, date: { $gte: startDate, $lte: endDate } })
+          .populate("bookings.guest")
+          .populate("bookings.room")
+          .populate("blockedRooms");
+      }
 
       await Day.updateMany(
         {

@@ -2045,6 +2045,11 @@ const MainView = ({
           onAirbnbPriceUpdate={onAirbnbPriceUpdate}
           onFeesUpdate={onFeesUpdate}
           onPricingUpdate={onPricingUpdate}
+          onRequestRemove={(b) => {
+            setSelectedBooking(null);
+            setPricingEditOnOpen(false);
+            setUnbookBookings([b]);
+          }}
         />
       )}
       {unbookBookings && unbookBookings.length > 0 && (

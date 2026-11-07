@@ -367,3 +367,132 @@ describe("bookAirBnB reconciliation", () => {
     expect(await reservationNights()).toHaveLength(0);
   });
 });
+
+const UNBOOK_GUEST = `
+  mutation UnbookGuest($id: String!) {
+    unbookGuest(_id: $id) { date }
+  }
+`;
+
+// Nov 2026: two last-minute reservations for one room. The first failed AirBnB's
+// ID check and stayed on tonight, where the sync will not touch a running stay.
+describe("unbookGuest on an AirBnB stay", () => {
+  let app: any;
+  let calendarId: string;
+  let roomId: string;
+  let airbnbGuestId: string;
+
+  const FAILED = "Reservation URL: https://www.airbnb.com/hosting/reservations/details/HMFAILED1";
+  const REAL = "Reservation URL: https://www.airbnb.com/hosting/reservations/details/HMREAL222";
+  const nights = (...isoDays: string[]) => isoDays.map((d) => new Date(`${d}T00:00:00.000Z`));
+
+  beforeAll(async () => {
+    app = await createApp();
+  });
+
+  beforeEach(async () => {
+    const host = await createMockHost("airbnb-remove@example.com");
+    calendarId = (await new Calendar({ host: host._id }).save())._id.toString();
+    roomId = (await new Room({ host: host._id, name: "King", price: 150, roomCode: "KI1" }).save())._id.toString();
+    airbnbGuestId = (
+      await new Guest({ name: "AirBnB", email: "airbnb@example.com", phone: "4080000000", host: host._id }).save()
+    )._id.toString();
+  });
+
+  // A stay written onto every night it covers, the way the feed writes it.
+  const writeStay = async (dates: Date[], fields: Record<string, unknown>, guest = airbnbGuestId) => {
+    for (const date of dates) {
+      await Day.updateOne(
+        { calendar: calendarId, date },
+        {
+          $push: {
+            bookings: {
+              guest,
+              room: roomId,
+              duration: dates.length,
+              startDate: dates[0],
+              endDate: dates[dates.length - 1],
+              ...fields,
+            },
+          },
+        },
+        { upsert: true },
+      );
+    }
+  };
+
+  const unbook = async (description: string) => {
+    const day: any = await Day.findOne({ calendar: calendarId, "bookings.description": description });
+    const id = day.bookings.find((b: any) => (b.description ?? "") === description).id;
+    return request(app).post("/graphql").send({ query: UNBOOK_GUEST, variables: { id } });
+  };
+
+  const left = async () =>
+    (await Day.find({ calendar: calendarId }).sort({ date: 1 })).map((d: any) =>
+      d.bookings.map((b: any) => b.description ?? ""),
+    );
+
+  it("removes the failed reservation and leaves the real one on the same night", async () => {
+    const both = nights("2027-06-03", "2027-06-04");
+    await writeStay(both, { description: FAILED });
+    await writeStay(both, { description: REAL, airbnbPrice: 182.5 });
+
+    const res = await unbook(FAILED);
+
+    expect(res.body.errors).toBeUndefined();
+    expect(await left()).toEqual([[REAL], [REAL]]);
+    const kept: any = await Day.findOne({ calendar: calendarId, date: both[0] });
+    expect(kept.bookings[0].airbnbPrice).toBe(182.5);
+  });
+
+  it("takes every night of the reservation, whatever its phone line says", async () => {
+    await writeStay(nights("2027-06-03"), { description: `${FAILED}\nPhone Number (Last 4 Digits): 2275` });
+    await writeStay(nights("2027-06-04"), { description: `${FAILED}\nPhone Number (Last 4 Digits): 3444` });
+
+    await unbook(`${FAILED}\nPhone Number (Last 4 Digits): 2275`);
+
+    expect(await left()).toEqual([[], []]);
+  });
+
+  it("does not take a reservation whose code merely begins the same", async () => {
+    const night = nights("2027-06-03");
+    await writeStay(night, { description: FAILED });
+    await writeStay(night, { description: `${FAILED}9` });
+
+    await unbook(FAILED);
+
+    expect(await left()).toEqual([[`${FAILED}9`]]);
+  });
+
+  it("removing a hand-entered stay leaves a feed stay on the same night", async () => {
+    const night = nights("2027-06-03");
+    await writeStay(night, { description: REAL });
+    await writeStay(night, { description: "", alias: "Typed in" });
+
+    await unbook("");
+
+    expect(await left()).toEqual([[REAL]]);
+  });
+
+  it("removing a feed stay leaves a hand-entered stay on the same night", async () => {
+    const night = nights("2027-06-03");
+    await writeStay(night, { description: FAILED });
+    await writeStay(night, { description: "", alias: "Typed in" });
+
+    await unbook(FAILED);
+
+    expect(await left()).toEqual([[""]]);
+  });
+
+  it("still removes a direct guest's whole stay, as it always has", async () => {
+    const calendar = await Calendar.findById(calendarId);
+    const direct = (
+      await new Guest({ name: "Mai", email: "mai@example.com", phone: "4080000001", host: calendar!.host }).save()
+    )._id.toString();
+    await writeStay(nights("2027-06-03", "2027-06-04"), { description: "" }, direct);
+
+    await unbook("");
+
+    expect(await left()).toEqual([[], []]);
+  });
+});
