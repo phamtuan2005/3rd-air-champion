@@ -210,10 +210,13 @@ const LOOKS: { key: string; label: string; hint: string; dot: string; vibe: Vibe
   { key: "hero", label: "Hero", hint: "Neon, rooms first", dot: "bg-gradient-to-br from-rose-500 via-fuchsia-500 to-cyan-400", vibe: "vivid", layout: "hero" },
 ];
 
-const LANGS: { key: LangName; label: string }[] = [
-  { key: "en", label: "English" },
-  { key: "de", label: "Deutsch" },
-  { key: "zh", label: "中文" },
+// `word` is each language's own word for "language". The heading prints all of
+// them, so a guest finds their own whatever the page is in at the moment.
+const LANGS: { key: LangName; label: string; word: string; tag: string }[] = [
+  { key: "en", label: "English", word: "Language", tag: "en" },
+  { key: "de", label: "Deutsch", word: "Sprache", tag: "de" },
+  { key: "zh", label: "中文", word: "语言", tag: "zh-Hans" },
+  { key: "ko", label: "한국어", word: "언어", tag: "ko" },
 ];
 
 /*
@@ -254,8 +257,10 @@ const readHintSeen = () => {
 // look). The nudge waits until it is false, then runs its usual timer.
 export const AppearanceMenu = ({ holdHint = false }: { holdHint?: boolean }) => {
   const { theme, setTheme, vibe, layout, setLook, allThemes } = useTiBookTheme();
-  const { lang, setLang, t } = useTiBookLang();
+  const { lang, setLang, suggestLang, t } = useTiBookLang();
   const [open, setOpen] = useState(false);
+  // The language list inside the menu, folded until asked for.
+  const [langsOpen, setLangsOpen] = useState(false);
   const [hint, setHint] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -267,8 +272,12 @@ export const AppearanceMenu = ({ holdHint = false }: { holdHint?: boolean }) => 
   // helper that gets them booked; two callouts at once on a phone's nav bar
   // overlap and neither is read. This one follows a moment after TT's is
   // answered.
+  //
+  // And it waits for the language offer (LanguageOffer): a guest being asked
+  // whether they would rather read Korean should not be told about the menu in
+  // English at the same moment.
   useEffect(() => {
-    if (holdHint || readHintSeen()) return;
+    if (holdHint || suggestLang || readHintSeen()) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let stopWaiting: (() => void) | undefined;
     const show = () => {
@@ -280,7 +289,7 @@ export const AppearanceMenu = ({ holdHint = false }: { holdHint?: boolean }) => 
       clearTimeout(timer);
       stopWaiting?.();
     };
-  }, [holdHint]);
+  }, [holdHint, suggestLang]);
 
   const dismissHint = () => {
     setHint(false);
@@ -496,28 +505,66 @@ export const AppearanceMenu = ({ holdHint = false }: { holdHint?: boolean }) => 
               has no width left on a phone (see the comment on the guest pill),
               and a German or Chinese phone already opens TiBook in its language,
               so this is for the guest who wants another. Each name in its own language,
-              so a guest who cannot read the current one still finds theirs. */}
+              so a guest who cannot read the current one still finds theirs.
+
+              A list, one language a line. It was a row of pills, and at four
+              languages they no longer fit a phone's menu without squeezing;
+              a list takes a fifth without anyone redesigning it. The heading
+              is every language's word for "language" at once — "Language"
+              alone, translated, is only findable by somebody who can already
+              read the page.
+
+              Folded to one row until tapped (Anh-Tri, 2026-11-07): the
+              Look menu is about looks, and four language rows pushed the
+              themes off a short phone's screen. The folded row still shows
+              the heading in every language and the current one's name, so it
+              is found the same way; it folds again once a language is picked. */}
           <div className={`border-t ${theme.surfaceBorder}`} />
-          <p className={`px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide ${theme.surfaceMuted}`}>
-            {t("Language")}
-          </p>
-          <div className="flex gap-1.5 px-3 pb-3 pt-0.5">
+          <button
+            type="button"
+            aria-expanded={langsOpen}
+            onClick={() => setLangsOpen((o) => !o)}
+            className={`flex w-full items-center gap-2 px-3 py-2.5 text-left ${theme.chromeHover}`}
+          >
+            <span className={`min-w-0 flex-1 text-[11px] font-semibold tracking-wide ${theme.surfaceMuted}`}>
+              🌐{" "}
+              {LANGS.map((l, i) => (
+                <span key={l.key} lang={l.tag}>
+                  {i > 0 && " · "}
+                  {l.word}
+                </span>
+              ))}
+            </span>
+            <span lang={LANGS.find((l) => l.key === lang)?.tag} className={`shrink-0 text-sm font-semibold ${theme.surfaceText}`}>
+              {LANGS.find((l) => l.key === lang)?.label}
+            </span>
+            <svg aria-hidden className={`h-3.5 w-3.5 shrink-0 transition-transform ${theme.surfaceMuted} ${langsOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {langsOpen && (
+          <div className="flex flex-col px-1.5 pb-2">
             {LANGS.map((l) => (
               <button
                 key={l.key}
                 type="button"
                 role="menuitemradio"
                 aria-checked={lang === l.key}
-                lang={l.key}
-                onClick={() => setLang(l.key)}
-                className={`flex-1 rounded-full border px-2 py-1 text-xs font-semibold transition-colors ${
-                  lang === l.key ? `${theme.btn} border-transparent text-white` : `${theme.chromeBorder} ${theme.surfaceText} ${theme.chromeHover}`
+                lang={l.tag}
+                onClick={() => {
+                  setLang(l.key);
+                  setLangsOpen(false);
+                }}
+                className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${theme.surfaceText} ${theme.chromeHover} ${
+                  lang === l.key ? "font-semibold" : ""
                 }`}
               >
                 {l.label}
+                {lang === l.key && <span aria-hidden className={theme.textPrimary}>✓</span>}
               </button>
             ))}
           </div>
+          )}
         </div>
       )}
     </div>

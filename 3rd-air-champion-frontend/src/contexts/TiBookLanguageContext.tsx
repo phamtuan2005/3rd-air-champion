@@ -1,12 +1,13 @@
 import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from "react";
 import { format } from "date-fns";
-import { de as deLocale, zhCN as zhLocale } from "date-fns/locale";
+import { de as deLocale, ko as koLocale, zhCN as zhLocale } from "date-fns/locale";
 import { DE } from "../i18n/de";
 import { ZH } from "../i18n/zh";
+import { KO } from "../i18n/ko";
 
 /*
  * The language TiBook talks to the guest in: English, German for the German
- * guests the house has started to see, or Simplified Chinese.
+ * guests the house has started to see, Simplified Chinese, or Korean.
  *
  * Keyed by the ENGLISH sentence rather than by an id. The English is what
  * every comment in this codebase argues about, and a component that reads
@@ -18,7 +19,7 @@ import { ZH } from "../i18n/zh";
  * booking request, a message to the host, a wish list texted over, a question
  * logged for TiMag — stays English, because the host reads it in English.
  */
-export type LangName = "en" | "de" | "zh";
+export type LangName = "en" | "de" | "zh" | "ko";
 
 const LANG_KEY = "tiBookLang";
 
@@ -31,7 +32,7 @@ const readStored = (): LangName | null => {
   // Private Safari throws on access; that guest just gets the device's language.
   try {
     const v = localStorage.getItem(LANG_KEY);
-    return v === "de" || v === "zh" || v === "en" ? v : null;
+    return v === "de" || v === "zh" || v === "ko" || v === "en" ? v : null;
   } catch {
     return null;
   }
@@ -47,10 +48,14 @@ const readStored = (): LangName | null => {
  * Traditional settings (Taiwan, Hong Kong, Macau) start in English: TiBook's
  * Chinese is Simplified, and it is the guest's to choose under Look → Language
  * rather than ours to assume.
+ *
+ * Korean follows the Chinese rule for the same reason: a Korean-American guest
+ * on an English phone with Korean added did not ask TiBook to change either.
  */
 export const langOfDevice = (langs: readonly (string | undefined)[]): LangName => {
   if (langs.some((l) => /^de\b/i.test(l ?? ""))) return "de";
-  const first = langs.find((l) => /^(?:en|zh)\b/i.test(l ?? "")) ?? "";
+  const first = langs.find((l) => /^(?:en|zh|ko)\b/i.test(l ?? "")) ?? "";
+  if (/^ko\b/i.test(first)) return "ko";
   return /^zh\b/i.test(first) && !/^zh-(?:hant|tw|hk|mo)\b/i.test(first) ? "zh" : "en";
 };
 
@@ -59,16 +64,39 @@ export const langOfDevice = (langs: readonly (string | undefined)[]): LangName =
  * German phone opens TiBook in German without the guest having to find the
  * switch. A guest's own choice beats this, as it does for the look.
  */
+const deviceLangs = (): readonly string[] =>
+  typeof navigator === "undefined" ? [] : navigator.languages?.length ? navigator.languages : [navigator.language];
+
 const startingLang = (): LangName => {
   const stored = readStored();
   if (stored) return stored;
-  return langOfDevice(typeof navigator === "undefined" ? [] : navigator.languages?.length ? navigator.languages : [navigator.language]);
+  return langOfDevice(deviceLangs());
+};
+
+/*
+ * The language to OFFER a guest TiBook left in English.
+ *
+ * langOfDevice keeps an English phone with Chinese or Korean added in English
+ * on purpose — those guests did not ask for the page to change. But they are
+ * the guests most likely to want it, and the switch sits in a menu called
+ * "Look", which nobody reading a second language would open to find it. So
+ * TiBook asks them once, in their language, and the answer is theirs.
+ *
+ * Never once the guest has chosen (either answer is stored as a choice), and
+ * never for German, which a German phone already opens in. A Traditional
+ * Chinese phone is offered the Simplified text too: it reads it, and here,
+ * unlike at start-up, it is the guest deciding rather than TiBook assuming.
+ */
+export const languageToSuggest = (langs: readonly (string | undefined)[], stored: LangName | null): "zh" | "ko" | null => {
+  if (stored || langOfDevice(langs) !== "en") return null;
+  const other = langs.find((l) => /^(?:zh|ko)\b/i.test(l ?? ""));
+  return other ? (/^ko\b/i.test(other) ? "ko" : "zh") : null;
 };
 
 const fill = (s: string, vars?: Record<string, string | number>) =>
   vars ? s.replace(/\{(\w+)\}/g, (m, k: string) => (k in vars ? String(vars[k]) : m)) : s;
 
-const DICTIONARY: Partial<Record<LangName, Record<string, string>>> = { de: DE, zh: ZH };
+const DICTIONARY: Partial<Record<LangName, Record<string, string>>> = { de: DE, zh: ZH, ko: KO };
 
 /** The guest's sentence in their language. `{name}` slots are filled from vars. */
 export const t = (en: string, vars?: Record<string, string | number>) =>
@@ -138,6 +166,40 @@ const ZH_PATTERNS: Record<string, string> = {
   "ha": "H点",
 };
 
+/*
+ * Korean runs largest to smallest as well, but keeps its spaces and puts the
+ * day of the week in brackets after the date — "11월 3일 (화)", as Korean
+ * booking sites and phone calendars write it. Like Chinese, not optional:
+ * date-fns' ko names the month "11월", so "MMM d" left alone reads "11월 3" with
+ * no 일. The clock stays 12-hour with 오전/오후 in front, as Korean phones show it.
+ */
+const KO_PATTERNS: Record<string, string> = {
+  "d EEE": "d일 (EEE)",
+  "d MMM": "M월 d일",
+  "EEE d MMM": "M월 d일 (EEE)",
+  "EEE MMM d": "M월 d일 (EEE)",
+  "EEE MMM d, yyyy": "yyyy년 M월 d일 (EEE)",
+  "EEE, MMM d": "M월 d일 (EEE)",
+  "EEE, MMM d · h:mma": "M월 d일 (EEE) · a h:mm",
+  "EEE, MMM d yyyy": "yyyy년 M월 d일 (EEE)",
+  "EEE, MMMM d yyyy": "yyyy년 M월 d일 (EEE)",
+  "EEEE, MMM d": "M월 d일 EEEE",
+  "EEEE, MMMM d": "M월 d일 EEEE",
+  "EEEE, MMMM d, yyyy": "yyyy년 M월 d일 EEEE",
+  "M/d/yyyy": "yyyy. M. d.",
+  "MMM d EEE": "M월 d일 (EEE)",
+  "MMM d": "M월 d일",
+  "MMM d, yyyy": "yyyy년 M월 d일",
+  "MMMM": "M월",
+  "MMMM d": "M월 d일",
+  "MMMM d, yyyy": "yyyy년 M월 d일",
+  "MMMM yyyy": "yyyy년 M월",
+  "h:mm a": "a h:mm",
+  "h:mma": "a h:mm",
+  "h a": "a h시",
+  "ha": "a h시",
+};
+
 /**
  * A date as the guest reads it. Use this, not date-fns `format`, for anything
  * shown on screen — and keep `format` for keys and for text sent to the host.
@@ -147,20 +209,27 @@ export const fmtDate = (date: Date | number, pattern: string) =>
     ? format(date, DE_PATTERNS[pattern] ?? pattern, { locale: deLocale })
     : current === "zh"
       ? format(date, ZH_PATTERNS[pattern] ?? pattern, { locale: zhLocale })
-      : format(date, pattern);
+      : current === "ko"
+        ? format(date, KO_PATTERNS[pattern] ?? pattern, { locale: koLocale })
+        : format(date, pattern);
 
 /** For toLocaleString / Intl calls that build guest-facing text. */
-export const localeTag = () => (current === "de" ? "de-DE" : current === "zh" ? "zh-CN" : "en-US");
+export const localeTag = () =>
+  current === "de" ? "de-DE" : current === "zh" ? "zh-CN" : current === "ko" ? "ko-KR" : "en-US";
 
 export const currentLang = () => current;
 
-const TiBookLanguageContext = createContext<{ lang: LangName; setLang: (l: LangName) => void }>({
+const TiBookLanguageContext = createContext<{ lang: LangName; setLang: (l: LangName) => void; suggestLang: "zh" | "ko" | null }>({
   lang: "en",
   setLang: () => {},
+  suggestLang: null,
 });
 
 export const TiBookLanguageProvider = ({ children }: { children: ReactNode }) => {
   const [lang, setLangState] = useState<LangName>(() => (current = startingLang()));
+  // Worked out once, on arrival. Gone the moment the guest picks a language
+  // anywhere — from the offer itself or from the Look menu.
+  const [suggestLang, setSuggestLang] = useState(() => languageToSuggest(deviceLangs(), readStored()));
   // Set during render, not in an effect: the children render in this same pass
   // and must already read the new language, or the first frame after a switch
   // would be in the old one.
@@ -177,16 +246,18 @@ export const TiBookLanguageProvider = ({ children }: { children: ReactNode }) =>
 
   const value = useMemo(() => ({
     lang,
+    suggestLang,
     setLang: (next: LangName) => {
       current = next;
       setLangState(next);
+      setSuggestLang(null);
       try {
         localStorage.setItem(LANG_KEY, next);
       } catch {
         // Private browsing: kept for this visit, asked of the phone next time.
       }
     },
-  }), [lang]);
+  }), [lang, suggestLang]);
 
   return <TiBookLanguageContext.Provider value={value}>{children}</TiBookLanguageContext.Provider>;
 };
@@ -198,6 +269,6 @@ export const TiBookLanguageProvider = ({ children }: { children: ReactNode }) =>
  * something else re-renders it.
  */
 export const useTiBookLang = () => {
-  const { lang, setLang } = useContext(TiBookLanguageContext);
-  return { lang, setLang, t, fmtDate, localeTag };
+  const { lang, setLang, suggestLang } = useContext(TiBookLanguageContext);
+  return { lang, setLang, suggestLang, t, fmtDate, localeTag };
 };

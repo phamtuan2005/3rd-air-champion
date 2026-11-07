@@ -49,7 +49,8 @@ const CalendarNavigator = ({
                   short form is looked up whole: German shortens to two
                   letters, "Mo", where cutting at three gave "Mon". Chinese
                   takes the LAST character: every day begins 星期, so the first
-                  would print 星 seven times. */}
+                  would print 星 seven times. Korean needs neither: 일요일,
+                  월요일… each start with their own letter. */}
               <span className="sm:hidden">{lang === "zh" ? t(day).slice(-1) : t(day)[0]}</span>
               <span className="hidden sm:inline">{t(day.substring(0, 3))}</span>
             </abbr>
