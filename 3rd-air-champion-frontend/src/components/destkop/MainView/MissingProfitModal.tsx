@@ -19,6 +19,7 @@ export interface MissingProfitSaveData {
   alias: string;
   numberOfGuests: number;
   profit: number;
+  confirmationCode?: string;
 }
 
 interface MissingProfitModalProps {
@@ -42,6 +43,7 @@ const Row = ({
   const [alias, setAlias] = useState(booking.alias);
   const [guests, setGuests] = useState(booking.numberOfGuests || 1);
   const [profit, setProfit] = useState("");
+  const [code, setCode] = useState("");
   // What a pasted reservation page turned out to say, reported back rather than
   // three fields changing under the host's hands.
   const [pasteNote, setPasteNote] = useState<string | null>(null);
@@ -70,6 +72,11 @@ const Row = ({
       setProfit(String(r.payout));
       took.push(`$${r.payout.toFixed(2)}`);
     }
+    // Hand-entered stays only: a feed stay's code is already in its link.
+    if (r.confirmationCode && !booking.description) {
+      setCode(r.confirmationCode);
+      took.push(r.confirmationCode);
+    }
     setPasteNote(took.length ? `Read ${took.join(" · ")}` : null);
     return true;
   };
@@ -78,7 +85,7 @@ const Row = ({
   const handleSave = () => {
     const profitNum = parseFloat(profit);
     if (isNaN(profitNum) || profitNum <= 0) return;
-    onSave({ bookingId: booking.id, alias, numberOfGuests: Math.max(1, guests), profit: profitNum });
+    onSave({ bookingId: booking.id, alias, numberOfGuests: Math.max(1, guests), profit: profitNum, ...(code ? { confirmationCode: code } : {}) });
     setSaved(true);
   };
 

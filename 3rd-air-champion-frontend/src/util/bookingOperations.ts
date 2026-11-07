@@ -74,6 +74,7 @@ export const updateBookingGuest = async (
     sofaBed?: boolean;
     numberOfGuests?: number;
     alias?: string;
+    confirmationCode?: string;
   },
   token: string
 ) => {

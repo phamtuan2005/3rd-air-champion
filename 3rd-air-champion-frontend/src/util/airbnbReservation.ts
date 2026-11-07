@@ -253,3 +253,21 @@ export const parseReservationList = (
 
   return out;
 };
+
+// Upper case with nothing but letters and digits: what AirBnB's codes are, and
+// how the sync compares them, however it was copied or typed.
+export const tidyConfirmationCode = (text: string) =>
+  text.toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+// A stay the feed wrote. Hand-entered ones are empty there, code or not, and the
+// sync and the booking card both depend on that difference.
+export const isFeedStay = (booking: { description?: string }) =>
+  String(booking.description || "").startsWith("Reservation URL");
+
+// The reservation's page on AirBnB: from the feed's link, or built from the code
+// the host saved on a stay entered by hand.
+export const reservationUrlOf = (booking: { description?: string; confirmationCode?: string }): string | null =>
+  String(booking.description || "").match(/https:\/\/www\.airbnb\.com\/hosting\/reservations\/details\/\S+/)?.[0] ??
+  (booking.confirmationCode
+    ? `https://www.airbnb.com/hosting/reservations/details/${booking.confirmationCode}`
+    : null);

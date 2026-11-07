@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseReservation, parseReservationList } from "./airbnbReservation";
+import { parseReservation, parseReservationList, isFeedStay, reservationUrlOf, tidyConfirmationCode } from "./airbnbReservation";
 
 // The real shape of the AirBnB host page, names changed — a test fixture lives
 // in git and a guest's full name does not belong there.
@@ -264,5 +264,29 @@ describe("the Upcoming list", () => {
 
   it("handles a range that crosses a month", () => {
     expect(rows[3]).toMatchObject({ roomName: "King", startDate: "2026-09-30", nights: 2 });
+  });
+});
+
+describe("a stay's confirmation code", () => {
+  const FEED = "Reservation URL: https://www.airbnb.com/hosting/reservations/details/HMFEED111\nPhone Number (Last 4 Digits): 2275";
+
+  it("is tidied the way the sync compares it", () => {
+    expect(tidyConfirmationCode(" hm2ax-nh84j ")).toBe("HM2AXNH84J");
+  });
+
+  it("opens a hand-entered stay's reservation from the saved code", () => {
+    expect(reservationUrlOf({ description: "", confirmationCode: "HM2AXNH84J" })).toBe(
+      "https://www.airbnb.com/hosting/reservations/details/HM2AXNH84J",
+    );
+  });
+
+  it("prefers the feed's own link, and has nothing to open without either", () => {
+    expect(reservationUrlOf({ description: FEED })).toBe("https://www.airbnb.com/hosting/reservations/details/HMFEED111");
+    expect(reservationUrlOf({ description: "" })).toBeNull();
+  });
+
+  it("does not make a hand-entered stay a feed stay", () => {
+    expect(isFeedStay({ description: "", confirmationCode: "HM2AXNH84J" } as { description: string })).toBe(false);
+    expect(isFeedStay({ description: FEED })).toBe(true);
   });
 });

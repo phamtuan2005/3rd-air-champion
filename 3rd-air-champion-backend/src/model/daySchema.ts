@@ -39,6 +39,11 @@ const daySchema = new mongoose.Schema(
           },
         ],
         description: { type: String, default: "" },
+        // The AirBnB code of a stay entered by hand. It cannot go in `description`:
+        // a reservation link there marks a stay as the feed's, and the sync would
+        // delete it for being absent from the feed. Upper case. Per STAY, on every
+        // night. A feed stay has its code in `description` and leaves this "".
+        confirmationCode: { type: String, default: "" },
         duration: { type: Number, default: 1 },
         numberOfGuests: { type: Number, default: 0 },
         startDate: { type: Date },

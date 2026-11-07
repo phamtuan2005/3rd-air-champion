@@ -1,3 +1,4 @@
+import { reservationUrlOf } from "../../../../util/airbnbReservation";
 import { getRoomColor } from "../../../../util/getRoomColor";
 import CleanerAvatar from "../../../shared/CleanerAvatar";
 import { bookingType, feesTotal } from "../../../../util/types/bookingType";
@@ -167,10 +168,7 @@ const BookingCard = ({
   // there, because the sync owns feed bookings. A feed stay's removal, for one
   // the sync will not touch (Nov 2026), is in the details sheet behind a warning.
   const isFeedAirBnB = isAirBnB && !isManualAirBnB;
-  const airbnbUrl =
-    String(booking.description || "").match(
-      /https:\/\/www\.airbnb\.com\/hosting\/reservations\/details\/\S+/,
-    )?.[0] ?? null;
+  const airbnbUrl = reservationUrlOf(booking);
   const openOnAirbnb = () => {
     if (airbnbUrl) window.open(airbnbUrl, "_blank", "noopener,noreferrer");
     else alert("No valid URL found in the description.");
@@ -258,7 +256,7 @@ const BookingCard = ({
               {/* Booking source must be readable at first glance; direct guests
                   are already identified by their loyalty badges instead */}
               {isAirBnB &&
-                (isFeedAirBnB ? (
+                (airbnbUrl ? (
                   /* The tag IS the way to the reservation now. stopPropagation
                      so it opens Airbnb instead of the details sheet behind it. */
                   <button
@@ -273,7 +271,7 @@ const BookingCard = ({
                     Airbnb ↗
                   </button>
                 ) : (
-                  /* Hand-entered: nothing to open, so it stays a plain label. */
+                  /* Hand-entered with no code: nothing to open, so a plain label. */
                   <span className="shrink-0 rounded-full bg-[#FF5A5F] px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-white">
                     Airbnb
                   </span>

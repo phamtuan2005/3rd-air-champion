@@ -21,7 +21,7 @@ import { dayType } from "../../../util/types/dayType";
 import { format, addDays, parseISO } from "date-fns";
 import { ANY_ROOM_SENTINEL } from "./zodBookDays";
 import { AliasGuests, guestsFromAlias, tidyAlias } from "../../../util/airbnbAlias";
-import { parseReservation } from "../../../util/airbnbReservation";
+import { parseReservation, tidyConfirmationCode } from "../../../util/airbnbReservation";
 import { parseDateText } from "../../../util/dateText";
 import { groupConsecutiveDates } from "../../../util/cartGrouping";
 import { ConfirmationBooking } from "../MainView/hooks/useMessaging";
@@ -156,6 +156,7 @@ const BookingModal = ({
   const [pasteNote, setPasteNote] = useState<string | null>(null);
   const [airbnbAlias, setAirbnbAlias] = useState("");
   const [airbnbPayout, setAirbnbPayout] = useState("");
+  const [airbnbCode, setAirbnbCode] = useState("");
 
   const toggleReservedRow = (index: number) =>
     setReservedRows((prev) => {
@@ -374,6 +375,10 @@ const BookingModal = ({
       // Kept to the cent — the cents ARE the payout.
       setAirbnbPayout(String(r.payout));
       took.push(`$${r.payout.toFixed(2)}`);
+    }
+    if (r.confirmationCode) {
+      setAirbnbCode(r.confirmationCode);
+      took.push(r.confirmationCode);
     }
     if (r.startDate && r.nights) {
       const room = rooms.find(
@@ -597,7 +602,17 @@ const BookingModal = ({
         if (created) {
           const alias = airbnbAlias.trim();
           const payout = Number(airbnbPayout);
-          if (alias) await updateBookingGuest({ id: created.id, alias }, token as string);
+          const confirmationCode = tidyConfirmationCode(airbnbCode);
+          if (alias || confirmationCode) {
+            await updateBookingGuest(
+              {
+                id: created.id,
+                ...(alias ? { alias } : {}),
+                ...(confirmationCode ? { confirmationCode } : {}),
+              },
+              token as string,
+            );
+          }
           if (payout > 0)
             await updateBookingAirbnbPrice({ id: created.id, airbnbPrice: payout }, token as string);
         }
@@ -922,6 +937,29 @@ const BookingModal = ({
                 </div>
               </div>
             ) : null}
+
+            {/* Optional, because a last-minute stay is often entered from a
+                text before the page is at hand. Without it the card has no link
+                to the reservation, and the sync cannot tell it is the same stay
+                if AirBnB lists it later. */}
+            {airbnbMode && (
+              <div>
+                <label htmlFor="airbnbCode" className="block text-sm font-medium mb-1">
+                  Confirmation code
+                </label>
+                <input
+                  id="airbnbCode"
+                  type="text"
+                  autoCapitalize="characters"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  value={airbnbCode}
+                  onChange={(e) => setAirbnbCode(tidyConfirmationCode(e.target.value))}
+                  placeholder="HM…"
+                  className="border border-gray-300 rounded px-2 py-1 w-full"
+                />
+              </div>
+            )}
 
             {/* Guest + Number of Guests row */}
             <div className="flex gap-4 items-start">

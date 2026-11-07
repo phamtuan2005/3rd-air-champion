@@ -1202,6 +1202,7 @@ const MainView = ({
     notes?: string;
     earlyCheckin?: boolean;
     lateCheckout?: boolean;
+    confirmationCode?: string;
   }) => {
     updateBookingGuest(data, token as string)
       .then((result) => {
@@ -2323,10 +2324,10 @@ const MainView = ({
         <MissingProfitModal
           bookings={missingProfitBookings}
           onClose={() => setIsMissingProfitModalOpen(false)}
-          onSave={({ bookingId, alias, numberOfGuests, profit }) => {
+          onSave={({ bookingId, alias, numberOfGuests, profit, confirmationCode }) => {
             Promise.all([
               updateBookingAirbnbPrice({ id: bookingId, airbnbPrice: profit }, token as string),
-              updateBookingGuest({ id: bookingId, alias, numberOfGuests }, token as string),
+              updateBookingGuest({ id: bookingId, alias, numberOfGuests, ...(confirmationCode ? { confirmationCode } : {}) }, token as string),
             ])
               .then(() => setIsCalendarLoading(true))
               .catch((err) => console.error("Error saving missing profit booking:", err));

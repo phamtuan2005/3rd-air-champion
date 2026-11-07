@@ -496,3 +496,160 @@ describe("unbookGuest on an AirBnB stay", () => {
     expect(await left()).toEqual([[], []]);
   });
 });
+
+const UPDATE_BOOKING_GUEST = `
+  mutation UpdateBookingGuest($_id: String!, $alias: String, $confirmationCode: String) {
+    updateBookingGuest(_id: $_id, alias: $alias, confirmationCode: $confirmationCode) { date }
+  }
+`;
+
+// A last-minute stay is typed in by hand. If AirBnB later lists it in the feed,
+// it must become that stay, not a second booking on the same nights.
+describe("the confirmation code of a hand-entered AirBnB stay", () => {
+  let app: any;
+  let calendarId: string;
+  let roomId: string;
+  let airbnbGuestId: string;
+
+  const FEED = "Reservation URL: https://www.airbnb.com/hosting/reservations/details/HMLATE123\nPhone Number (Last 4 Digits): 2275";
+
+  beforeAll(async () => {
+    app = await createApp();
+  });
+
+  beforeEach(async () => {
+    const host = await createMockHost("airbnb-code@example.com");
+    calendarId = (await new Calendar({ host: host._id }).save())._id.toString();
+    roomId = (await new Room({ host: host._id, name: "King", price: 150, roomCode: "KI1" }).save())._id.toString();
+    airbnbGuestId = (
+      await new Guest({ name: "AirBnB", email: "airbnb@example.com", phone: "4080000000", host: host._id }).save()
+    )._id.toString();
+  });
+
+  const fromFeed = (description: string, duration: number) =>
+    request(app)
+      .post("/graphql")
+      .send({
+        query: BOOK_AIRBNB,
+        variables: { calendar: calendarId, date: "2027-06-03", guest: airbnbGuestId, room: roomId, description, duration },
+      });
+
+  // Written through the same path so its dates are real, then made hand-entered.
+  const handEntered = async (duration: number, code: string, tag = "TEMP") => {
+    await fromFeed(`Reservation URL: https://www.airbnb.com/hosting/reservations/details/${tag}`, duration);
+    await Day.updateMany(
+      { calendar: calendarId },
+      {
+        $set: {
+          "bookings.$[b].description": "",
+          "bookings.$[b].confirmationCode": code,
+          "bookings.$[b].alias": "Emily",
+          "bookings.$[b].airbnbPrice": 76.05,
+          "bookings.$[b].numberOfGuests": 2,
+        },
+      },
+      { arrayFilters: [{ "b.description": { $regex: tag } }] },
+    );
+  };
+
+  const rows = async () =>
+    (await Day.find({ calendar: calendarId }).sort({ date: 1 })).map((d: any) => d.bookings);
+
+  const setCode = async (confirmationCode: string, match: (b: any) => boolean = () => true) => {
+    const day: any = await Day.findOne({ calendar: calendarId });
+    const id = day.bookings.find(match).id;
+    return request(app).post("/graphql").send({ query: UPDATE_BOOKING_GUEST, variables: { _id: id, confirmationCode } });
+  };
+
+  it("becomes the feed's stay in place, keeping what the host typed", async () => {
+    await handEntered(2, "HMLATE123");
+
+    await fromFeed(FEED, 2);
+
+    const nights = await rows();
+    expect(nights).toHaveLength(2);
+    for (const bookings of nights) {
+      expect(bookings).toHaveLength(1);
+      expect(bookings[0].description).toBe(FEED);
+      expect(bookings[0].alias).toBe("Emily");
+      expect(bookings[0].airbnbPrice).toBe(76.05);
+      expect(bookings[0].numberOfGuests).toBe(2);
+    }
+  });
+
+  it("takes the feed's dates when the feed has one more night", async () => {
+    await handEntered(1, "HMLATE123");
+
+    await fromFeed(FEED, 2);
+
+    const nights = await rows();
+    expect(nights).toHaveLength(2);
+    for (const bookings of nights) {
+      expect(bookings).toHaveLength(1);
+      expect(bookings[0].airbnbPrice).toBe(76.05);
+      expect(bookings[0].duration).toBe(2);
+    }
+  });
+
+  it("a different code on the same night stays a separate stay", async () => {
+    await handEntered(1, "HMOTHER99");
+
+    await fromFeed(FEED, 1);
+
+    const [bookings] = await rows();
+    expect(bookings).toHaveLength(2);
+    expect(bookings.find((b: any) => b.description === "").alias).toBe("Emily");
+  });
+
+  it("a hand-entered stay with no code stays separate, as before", async () => {
+    await handEntered(1, "");
+
+    await fromFeed(FEED, 1);
+
+    expect((await rows())[0]).toHaveLength(2);
+  });
+
+  it("does not mistake a code that merely begins the same", async () => {
+    await handEntered(1, "HMLATE1234");
+
+    await fromFeed(FEED, 1);
+
+    expect((await rows())[0]).toHaveLength(2);
+  });
+
+  it("saves on every night, in upper case, when it is the only thing sent", async () => {
+    await handEntered(2, "");
+
+    const res = await setCode(" hmlate-123 ");
+
+    expect(res.body.errors).toBeUndefined();
+    for (const bookings of await rows()) expect(bookings[0].confirmationCode).toBe("HMLATE123");
+  });
+
+  it("can be cleared", async () => {
+    await handEntered(1, "HMLATE123");
+
+    await setCode("");
+
+    expect((await rows())[0][0].confirmationCode).toBe("");
+  });
+
+  it("is never stamped on another reservation on the same night", async () => {
+    await handEntered(1, "");
+    await fromFeed(FEED, 1);
+
+    await setCode("HMNEW7777", (b) => b.description === "");
+
+    const [bookings] = await rows();
+    expect(bookings.find((b: any) => b.description === "").confirmationCode).toBe("HMNEW7777");
+    expect(bookings.find((b: any) => b.description === FEED).confirmationCode).toBe("");
+  });
+
+  it("is ignored on a feed stay, whose code is already in its link", async () => {
+    await fromFeed(FEED, 1);
+
+    await setCode("HMWRONG11");
+
+    expect((await rows())[0][0].confirmationCode).toBe("");
+  });
+});

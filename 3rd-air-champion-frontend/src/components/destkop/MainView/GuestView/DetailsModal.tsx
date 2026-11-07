@@ -9,7 +9,7 @@ import { roomType } from "../../../../util/types/roomType";
 import { getRoomColor } from "../../../../util/getRoomColor";
 import { FaRegEdit } from "react-icons/fa";
 import { useForm, Controller, SubmitHandler } from "react-hook-form";
-import { parseReservation } from "../../../../util/airbnbReservation";
+import { parseReservation, isFeedStay, reservationUrlOf, tidyConfirmationCode } from "../../../../util/airbnbReservation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { addDays, format, parseISO } from "date-fns";
 
@@ -39,6 +39,7 @@ interface DetailsModalProps {
     earlyCheckin?: boolean;
     lateCheckout?: boolean;
     sofaBed?: boolean;
+    confirmationCode?: string;
   }) => void;
   onAirbnbPriceUpdate?: (bookingId: string, airbnbPrice: number) => void;
   onFeesUpdate?: (bookingId: string, fees: feeType[]) => void;
@@ -96,10 +97,10 @@ const DetailsModal = ({
   // The reservation's own page, out of the description the sync writes there.
   // A stay entered by hand has no such URL ([[project-manual-airbnb-booking]]),
   // and the tag is then a plain tag rather than a link going nowhere.
-  const airbnbUrl =
-    String(booking.description || "").match(
-      /https:\/\/www\.airbnb\.com\/hosting\/reservations\/details\/\S+/,
-    )?.[0] ?? null;
+  // A saved code gives it a link all the same.
+  const airbnbUrl = reservationUrlOf(booking);
+  const isHandEntered = isAirBnB && !isFeedStay(booking);
+  const [codeInput, setCodeInput] = useState(booking.confirmationCode ?? "");
 
   // Fees and discounts are edited as TWO lists and stored as one, because the
   // stored shape is per-stay adjustments on every night, counted once. What
@@ -185,7 +186,13 @@ const DetailsModal = ({
   }, [watchedGuests, watchedSofaBed, setValue]);
 
   const onSubmit: SubmitHandler<guestUpdateSchema> = (data) => {
-    const processedData = { ...data, id: booking.id };
+    const processedData = {
+      ...data,
+      id: booking.id,
+      ...(isHandEntered && codeInput !== (booking.confirmationCode ?? "")
+        ? { confirmationCode: codeInput }
+        : {}),
+    };
     setIsWriting(false);
     onClose();
     onUpdateGuests(processedData);
@@ -197,6 +204,7 @@ const DetailsModal = ({
 
   const handleCancel = () => {
     reset();
+    setCodeInput(booking.confirmationCode ?? "");
     setProfitInput(String(booking.airbnbPrice || 0));
     setIsWriting(false);
   };
@@ -391,6 +399,11 @@ const DetailsModal = ({
                     setProfitInput(String(r.payout));
                     setIsWriting(true);
                     took.push(`$${r.payout.toFixed(2)}`);
+                  }
+                  if (isHandEntered && r.confirmationCode) {
+                    setCodeInput(r.confirmationCode);
+                    setIsWriting(true);
+                    took.push(r.confirmationCode);
                   }
                   setPasteNote(took.length ? `Read ${took.join(" · ")} — press Save` : null);
                 }}
@@ -853,11 +866,36 @@ const DetailsModal = ({
             </div>
           )}
 
+          {/* Hand-entered stays only: a feed stay's code is in its link, and the
+              sync goes by that one. */}
+          {isHandEntered && (isWriting || booking.confirmationCode) && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">
+                Confirmation code
+              </p>
+              {isWriting ? (
+                <input
+                  id="confirmationCode"
+                  type="text"
+                  autoCapitalize="characters"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  value={codeInput}
+                  onChange={(e) => setCodeInput(tidyConfirmationCode(e.target.value))}
+                  placeholder="HM…"
+                  className="border rounded px-2 py-1 w-full text-sm"
+                />
+              ) : (
+                <span className="text-sm font-semibold text-gray-800">{booking.confirmationCode}</span>
+              )}
+            </div>
+          )}
+
           {/* Feed stays only, and last in the sheet because it is rare. The sync
               removes a reservation AirBnB drops, except one covering tonight:
               that could be a guest asleep in the room, so it stays until the host
               says otherwise. A hand-entered stay has Unbook on its card. */}
-          {isAirBnB && airbnbUrl && onRequestRemove && (
+          {isAirBnB && !isHandEntered && onRequestRemove && (
             <div className="border-t border-gray-100 pt-3">
               <p className="mb-2 text-xs text-gray-500">
                 AirBnB no longer has this reservation? Take it out of TiMag.
