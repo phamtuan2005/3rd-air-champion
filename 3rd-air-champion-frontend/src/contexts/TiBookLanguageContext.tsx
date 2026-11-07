@@ -1,23 +1,24 @@
 import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from "react";
 import { format } from "date-fns";
-import { de as deLocale } from "date-fns/locale";
+import { de as deLocale, zhCN as zhLocale } from "date-fns/locale";
 import { DE } from "../i18n/de";
+import { ZH } from "../i18n/zh";
 
 /*
- * The language TiBook talks to the guest in: English, or German for the
- * German guests the house has started to see.
+ * The language TiBook talks to the guest in: English, German for the German
+ * guests the house has started to see, or Simplified Chinese.
  *
  * Keyed by the ENGLISH sentence rather than by an id. The English is what
  * every comment in this codebase argues about, and a component that reads
  * t("Your bookings") still says what it says to anybody reading the code. A
- * sentence with no German yet falls back to its English, so a new line added
- * in a hurry shows up in English rather than as a key or a blank.
+ * sentence with no translation yet falls back to its English, so a new line
+ * added in a hurry shows up in English rather than as a key or a blank.
  *
  * Only what the GUEST reads goes through here. Anything TiBook sends on — a
  * booking request, a message to the host, a wish list texted over, a question
  * logged for TiMag — stays English, because the host reads it in English.
  */
-export type LangName = "en" | "de";
+export type LangName = "en" | "de" | "zh";
 
 const LANG_KEY = "tiBookLang";
 
@@ -30,10 +31,27 @@ const readStored = (): LangName | null => {
   // Private Safari throws on access; that guest just gets the device's language.
   try {
     const v = localStorage.getItem(LANG_KEY);
-    return v === "de" || v === "en" ? v : null;
+    return v === "de" || v === "zh" || v === "en" ? v : null;
   } catch {
     return null;
   }
+};
+
+/*
+ * The language a device's own settings ask for.
+ *
+ * Chinese must come BEFORE English in the list, unlike German: plenty of guests
+ * in Silicon Valley run an English phone with Chinese added as a second
+ * language, and they did not ask for TiBook to change on them.
+ *
+ * Traditional settings (Taiwan, Hong Kong, Macau) start in English: TiBook's
+ * Chinese is Simplified, and it is the guest's to choose under Look → Language
+ * rather than ours to assume.
+ */
+export const langOfDevice = (langs: readonly (string | undefined)[]): LangName => {
+  if (langs.some((l) => /^de\b/i.test(l ?? ""))) return "de";
+  const first = langs.find((l) => /^(?:en|zh)\b/i.test(l ?? "")) ?? "";
+  return /^zh\b/i.test(first) && !/^zh-(?:hant|tw|hk|mo)\b/i.test(first) ? "zh" : "en";
 };
 
 /*
@@ -44,16 +62,17 @@ const readStored = (): LangName | null => {
 const startingLang = (): LangName => {
   const stored = readStored();
   if (stored) return stored;
-  const langs = typeof navigator === "undefined" ? [] : navigator.languages?.length ? navigator.languages : [navigator.language];
-  return langs.some((l) => /^de\b/i.test(l ?? "")) ? "de" : "en";
+  return langOfDevice(typeof navigator === "undefined" ? [] : navigator.languages?.length ? navigator.languages : [navigator.language]);
 };
 
 const fill = (s: string, vars?: Record<string, string | number>) =>
   vars ? s.replace(/\{(\w+)\}/g, (m, k: string) => (k in vars ? String(vars[k]) : m)) : s;
 
+const DICTIONARY: Partial<Record<LangName, Record<string, string>>> = { de: DE, zh: ZH };
+
 /** The guest's sentence in their language. `{name}` slots are filled from vars. */
 export const t = (en: string, vars?: Record<string, string | number>) =>
-  fill(current === "de" ? DE[en] ?? en : en, vars);
+  fill(DICTIONARY[current]?.[en] ?? en, vars);
 
 /*
  * German writes the day before the month ("3. Nov.", not "Nov 3") and the
@@ -86,15 +105,52 @@ const DE_PATTERNS: Record<string, string> = {
   "ha": "H 'Uhr'",
 };
 
+/*
+ * Chinese runs largest to smallest ("2026年11月3日 周二") with the clock in 24
+ * hours. These are not optional like German's: date-fns' zh-CN names the month
+ * "11月" with no day beside it, so "MMM d" left alone reads "11月 3". As above,
+ * a pattern not listed — the "yyyy-MM-dd" keys above all — passes through.
+ */
+const ZH_PATTERNS: Record<string, string> = {
+  "d EEE": "d日 EEE",
+  "d MMM": "M月d日",
+  "EEE d MMM": "M月d日 EEE",
+  "EEE MMM d": "M月d日 EEE",
+  "EEE MMM d, yyyy": "yyyy年M月d日 EEE",
+  "EEE, MMM d": "M月d日 EEE",
+  "EEE, MMM d · h:mma": "M月d日 EEE · HH:mm",
+  "EEE, MMM d yyyy": "yyyy年M月d日 EEE",
+  "EEE, MMMM d yyyy": "yyyy年M月d日 EEE",
+  "EEEE, MMM d": "M月d日 EEEE",
+  "EEEE, MMMM d": "M月d日 EEEE",
+  "EEEE, MMMM d, yyyy": "yyyy年M月d日 EEEE",
+  "M/d/yyyy": "yyyy/M/d",
+  "MMM d EEE": "M月d日 EEE",
+  "MMM d": "M月d日",
+  "MMM d, yyyy": "yyyy年M月d日",
+  "MMMM": "M月",
+  "MMMM d": "M月d日",
+  "MMMM d, yyyy": "yyyy年M月d日",
+  "MMMM yyyy": "yyyy年M月",
+  "h:mm a": "HH:mm",
+  "h:mma": "HH:mm",
+  "h a": "H点",
+  "ha": "H点",
+};
+
 /**
  * A date as the guest reads it. Use this, not date-fns `format`, for anything
  * shown on screen — and keep `format` for keys and for text sent to the host.
  */
 export const fmtDate = (date: Date | number, pattern: string) =>
-  current === "de" ? format(date, DE_PATTERNS[pattern] ?? pattern, { locale: deLocale }) : format(date, pattern);
+  current === "de"
+    ? format(date, DE_PATTERNS[pattern] ?? pattern, { locale: deLocale })
+    : current === "zh"
+      ? format(date, ZH_PATTERNS[pattern] ?? pattern, { locale: zhLocale })
+      : format(date, pattern);
 
 /** For toLocaleString / Intl calls that build guest-facing text. */
-export const localeTag = () => (current === "de" ? "de-DE" : "en-US");
+export const localeTag = () => (current === "de" ? "de-DE" : current === "zh" ? "zh-CN" : "en-US");
 
 export const currentLang = () => current;
 
@@ -112,8 +168,10 @@ export const TiBookLanguageProvider = ({ children }: { children: ReactNode }) =>
 
   useEffect(() => {
     // Screen readers and the browser's own "translate this page?" offer read it.
+    // zh-Hans rather than zh: phones pick their Chinese glyphs from this, and a
+    // bare "zh" can draw Simplified text in a Traditional font.
     const prev = document.documentElement.lang;
-    document.documentElement.lang = lang;
+    document.documentElement.lang = lang === "zh" ? "zh-Hans" : lang;
     return () => { document.documentElement.lang = prev; };
   }, [lang]);
 

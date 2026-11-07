@@ -1,5 +1,5 @@
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
-import { MONTHS, parseDateText } from "./dateText";
+import { MONTHS, parseDateText, ZH_NUM, zhNumber } from "./dateText";
 import { getRoomFacts } from "./roomFacts";
 import { cancellationHeadline } from "./cancellationPolicy";
 import { holidayLabelForGuest, usHolidayOn } from "./usHolidays";
@@ -33,11 +33,13 @@ import { fmtDate, t } from "../contexts/TiBookLanguageContext";
 // booking, or about cancelling one, is not making a new one.
 // The second half of each is German: TT answers German guests in German, and
 // "Ich möchte King … buchen" was answered as a question about whether King is
-// free, never offered the booking the English sentence gets.
+// free, never offered the booking the English sentence gets. Chinese comes
+// last, with no \b: JavaScript's \b only knows Latin letters and digits, and
+// never fires between two Chinese characters.
 const BOOK_WORDS =
-  /\b(?:book|reserve|request|hold)\b|\b(?:i'?d|i would|we'?d|we would) like\b|\b(?:i|we) (?:want|need|wanna)\b|\bcan (?:i|we) (?:get|have|stay|take)\b|\bsign me up\b|\b(?:buchen|reservieren|anfragen)\b|\b(?:ich|wir) (?:möchten?|will|wollen|brauchen?|hätten? gerne?)\b/i;
+  /\b(?:book|reserve|request|hold)\b|\b(?:i'?d|i would|we'?d|we would) like\b|\b(?:i|we) (?:want|need|wanna)\b|\bcan (?:i|we) (?:get|have|stay|take)\b|\bsign me up\b|\b(?:buchen|reservieren|anfragen)\b|\b(?:ich|wir) (?:möchten?|will|wollen|brauchen?|hätten? gerne?)\b|预订|预定|订房|订一间|[想要]订|帮我订|[想要]住/i;
 const NOT_A_NEW_BOOKING =
-  /\bmy (?:booking|bookings|reservation|reservations|stay|stays|request)\b|\bcancel|\brefund|\bbooked\b|\bhow (?:do|can) (?:i|we) book\b|\bmeine[nr]? (?:buchung|buchungen|reservierung|reservierungen|anfrage|aufenthalt)\b|\bstorn|\brückerstatt|\bgebucht\b|\bwie (?:kann|buche|können) (?:ich|wir)\b/i;
+  /\bmy (?:booking|bookings|reservation|reservations|stay|stays|request)\b|\bcancel|\brefund|\bbooked\b|\bhow (?:do|can) (?:i|we) book\b|\bmeine[nr]? (?:buchung|buchungen|reservierung|reservierungen|anfrage|aufenthalt)\b|\bstorn|\brückerstatt|\bgebucht\b|\bwie (?:kann|buche|können) (?:ich|wir)\b|我的(?:预订|预定|订单|住宿|申请)|取消|退款|已(?:经)?(?:预订|预定|订)|订了|(?:怎么|怎样|如何)(?:预订|预定|订)/i;
 export const wantsToBook = (q: string): boolean => BOOK_WORDS.test(q) && !NOT_A_NEW_BOOKING.test(q);
 
 // Rooms are booked by the NIGHT. The calendar, the cart and every request
@@ -63,6 +65,13 @@ const CHECKOUT = /\b(?:check(?:ing)?[\s-]?out(?:\s+on)?|leav(?:e|ing)(?:\s+on)?|
 const THROUGH = /\b(?:through|thru)\b/gi;
 const N_NIGHTS = new RegExp(`\\b(\\d{1,2}|${Object.keys(WORD_NUM).join("|")})\\s*(?:nights?|nts?)\\b`, "i");
 const N_WEEKS = /\b(?:(\d{1,2}|one|two|three|four)\s*weeks?|a week)\b/i;
+// "住2晚", "两晚" — and "住3天", which a Chinese guest means as three nights. TT
+// states the check-out day either way, so a different meaning is caught there.
+const ZH_NIGHTS = new RegExp(`(\\d{1,2}|${ZH_NUM})\\s*个?\\s*[晚夜]|住\\s*(\\d{1,2}|${ZH_NUM})\\s*天`);
+// Not "一周二", which is the Tuesday of "住一周二" rather than a week.
+const ZH_WEEKS = /(\d{1,2}|[一两二三四])\s*个?\s*(?:周|週|星期|礼拜)(?![一二三四五六日天])/;
+// "5月1日入住，5月3日退房": the guest named the day they leave.
+const ZH_CHECKOUT = /退房|离店|離店/;
 
 // The first date a piece of text names, from the date parser — or, for the
 // right-hand side of "Oct 10 to 12", a bare day number in the left's month.
@@ -118,6 +127,22 @@ export const readStay = (q: string, today: Date): StayRead | null => {
     if (start && count >= 1 && count <= 90) return split(nightsFrom(start, count), todayKey);
   }
 
+  const zhNights = text.match(ZH_NIGHTS);
+  const zhWeeks = text.match(ZH_WEEKS);
+  if (zhNights || zhWeeks) {
+    const count = zhNights ? zhNumber(zhNights[1] ?? zhNights[2]) : 7 * zhNumber(zhWeeks![1]);
+    const start = firstDate(text.replace((zhNights ?? zhWeeks)![0], " "), today);
+    if (start && count >= 1 && count <= 90) return split(nightsFrom(start, count), todayKey);
+  }
+  if (ZH_CHECKOUT.test(text)) {
+    const p = parseDateText(text, today);
+    const all = [...p.past, ...p.dates].sort();
+    if (all.length >= 2) {
+      const count = differenceInCalendarDays(parseISO(all[all.length - 1]), parseISO(all[0]));
+      if (count >= 1 && count <= 90) return split(nightsFrom(all[0], count), todayKey);
+    }
+  }
+
   for (const [re, inclusive] of [[THROUGH, true], [CHECKOUT, false]] as const) {
     re.lastIndex = 0;
     for (let m = re.exec(text); m; m = re.exec(text)) {
@@ -146,7 +171,8 @@ export const checkoutReading = (q: string, dates: string[]): string[] | null => 
   if (dates.length < 2) return null;
   // German writes the same span "10.–12." or "10. bis 12.", and is owed the
   // same button: "vom 10. bis 12." is two nights to most German travellers.
-  if (!/\d(?:st|nd|rd|th|\.)?\s*(?:[-–—]|\bbis(?: zum)?\b)\s*\d/i.test(q)) return null;
+  // Chinese writes it "10-12日" or "10日到12日", and 到 usually means the same.
+  if (!/\d(?:st|nd|rd|th|\.|[日号號])?\s*(?:[-–—~～]|\bbis(?: zum)?\b|到|至)\s*\d/i.test(q)) return null;
   return dates.slice(0, -1);
 };
 
@@ -163,9 +189,14 @@ export const monthAsked = (q: string, today: Date): string[] | null => {
   const hit = q
     .toLowerCase()
     .match(new RegExp(`\\b(?:in|during|for|of|this|next)?\\s*(${Object.keys(MONTHS).join("|")})\\b(?:\\s+(\\d{4}))?(?!\\s*\\d)`));
-  if (!hit) return null;
-  const m = MONTHS[hit[1]];
-  const y = hit[2] ? Number(hit[2]) : m < today.getMonth() ? today.getFullYear() + 1 : today.getFullYear();
+  // "12月", "十二月份", "2027年1月". Not "3个月", which has 个 in the way, and not
+  // "12月3日", which names a day and belongs to the date reader.
+  const zh = hit ? null : q.match(new RegExp(`(?:(\\d{4})\\s*年\\s*)?(?<!\\d)(\\d{1,2}|${ZH_NUM})\\s*月份?(?!的?\\s*(?:\\d|${ZH_NUM}\\s*[日号號]))`));
+  if (!hit && !zh) return null;
+  const m = hit ? MONTHS[hit[1]] : zhNumber(zh![2]) - 1;
+  if (!(m >= 0 && m <= 11)) return null;
+  const year = hit ? hit[2] : zh![1];
+  const y = year ? Number(year) : m < today.getMonth() ? today.getFullYear() + 1 : today.getFullYear();
   const days = new Date(y, m + 1, 0).getDate();
   const todayKey = keyOf(today);
   const out: string[] = [];
@@ -266,6 +297,8 @@ export const readContact = (text: string): { name: string; phone: string } => {
   const phone = hit ? hit[0].trim() : "";
   const name = (hit ? text.replace(hit[0], " ") : text)
     .replace(/\b(?:my name is|my name's|name is|name|i am|i'm|im|this is|it's|its|my|phone number|phone|number|cell|mobile|tel|is|and|call me|text me|at|on)\b:?/gi, " ")
+    // Whole phrases only: a lone 是 or 和 can be part of somebody's name.
+    .replace(/我叫|我是|我的名字是|名字是|名字|姓名是|姓名|(?:我的)?(?:电话|手机)(?:号码|号)?是?|号码是?/g, " ")
     .replace(/[^\p{L}' -]/gu, " ")
     .replace(/\s+/g, " ")
     .trim()
@@ -285,15 +318,32 @@ export const readParty = (text: string): number | null => {
   if (/^(?:nur ich|ich allein|allein|ich)$/.test(t)) return 1;
   if (/^(?:zu zweit|wir zwei|wir beide)\b/.test(t)) return 2;
   const de = t.match(/^(?:wir sind |zu )?(\d{1,2}|eins|einer|zwei|drei|vier|fünf|sechs)\b/);
-  return de ? DE_NUM[de[1]] ?? Number(de[1]) : null;
+  if (de) return DE_NUM[de[1]] ?? Number(de[1]);
+  // Chinese, for the same reason. "我和朋友" is two; "我和两个朋友" is not, and goes
+  // back to the question rather than being guessed at.
+  if (/^就?我?(?:一个人?|自己)/.test(t) || t === "我") return 1;
+  if (/^(?:我们?俩|两口子|夫妻|情侣)/.test(t) || /^我[和跟](?!.*(?:\d|[两二三四五六七八九十]))/.test(t)) return 2;
+  const zh = t.match(new RegExp(`^(?:我们|一共|总共|共)*(?:是|有)?\\s*(${ZH_NUM})(?![月日号號年])`));
+  return zh ? zhNumber(zh[1]) : null;
 };
 const DE_NUM: Record<string, number> = { eins: 1, einer: 1, zwei: 2, drei: 3, vier: 4, fünf: 5, sechs: 6 };
 
 // German answers sit beside the English ones for the same reason as readParty's.
 const YES = /^(?:y|yes|yeah|yep|yup|sure|ok|okay|send|send it|confirm|confirmed|go|go ahead|do it|book it|please|yes please|sounds good|perfect|correct|that'?s right|looks good|ja|jawohl|jep|genau|klar|gerne?|passt|senden|abschicken|bestätigen|richtig|stimmt)\b/i;
 const NO = /^(?:n|no|nope|cancel|stop|never ?mind|forget it|don'?t|nein|nee|abbrechen|stopp|vergiss es|lieber nicht)\b/i;
-export const readYesNo = (text: string): "yes" | "no" | null =>
-  YES.test(text.trim()) ? "yes" : NO.test(text.trim()) ? "no" : null;
+// Chinese must match the WHOLE reply. A yes here can SEND the request, and a
+// question can begin with one: "可以取消吗" (can I cancel?) starts with 可以, and
+// a prefix match like the English would have sent the booking.
+const ZH_YES = /^(?:是|是的|好|好的|好啊|好吧|行|可以|对|对的|没错|确认|确定|发送|发吧|发送吧|嗯|嗯嗯|当然|当然可以|订吧|没问题)[。!！~～,，\s]*(?:谢谢)?[。!！~～\s]*$/;
+const ZH_NO = /^(?:不|不是|不要|不用|不行|不了|否|别|取消|取消预订|算了|停|先不|暂时不|不订)(?:了|吧)?[。!！~～,，\s]*(?:谢谢)?[。!！~～\s]*$/;
+export const readYesNo = (text: string): "yes" | "no" | null => {
+  const a = text.trim();
+  return YES.test(a) || ZH_YES.test(a) ? "yes" : NO.test(a) || ZH_NO.test(a) ? "no" : null;
+};
+
+// A reply that is really a question is not an answer to TT's question. Chinese
+// marks one with its own full-width ？, or with only 吗 and no mark at all.
+export const looksLikeQuestion = (text: string) => /[?？]|吗\s*$/.test(text);
 
 // ── What the guest reads ────────────────────────────────────────────────────
 
@@ -342,7 +392,7 @@ export const summaryLines = (d: TTBookingDraft, room: TTRoom, ctx: AskTTContext)
       : rate === 0
         ? t("Family — no charge, as agreed with {host}.", { host })
         : t("Your price: ${rate}/night, as agreed with {host}.", { rate, host }),
-    ...(ctx.cancellationFullRefundDays != null ? [cancellationHeadline(ctx.cancellationFullRefundDays, t) + "."] : []),
+    ...(ctx.cancellationFullRefundDays != null ? [cancellationHeadline(ctx.cancellationFullRefundDays, t) + t(".")] : []),
     t("Nothing is booked until {host} confirms — you'll hear back by text.", { host }),
   ];
 };

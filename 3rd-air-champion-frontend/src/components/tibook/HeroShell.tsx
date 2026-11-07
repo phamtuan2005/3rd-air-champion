@@ -127,7 +127,12 @@ const HeroWeekdays = () => {
   if (calendarView !== "month") return null;
   // Picked by language rather than through t(): "T" alone is Tuesday AND
   // Thursday, so a single-letter key cannot say which German letter it means.
-  const letters = lang === "de" ? ["S", "M", "D", "M", "D", "F", "S"] : ["S", "M", "T", "W", "T", "F", "S"];
+  const letters =
+    lang === "de"
+      ? ["S", "M", "D", "M", "D", "F", "S"]
+      : lang === "zh"
+        ? ["日", "一", "二", "三", "四", "五", "六"]
+        : ["S", "M", "T", "W", "T", "F", "S"];
   return (
     <div className={`grid shrink-0 grid-cols-7 pb-1 text-center text-[11px] font-medium ${theme.surfaceMuted}`}>
       {letters.map((d, i) => <span key={i}>{d}</span>)}

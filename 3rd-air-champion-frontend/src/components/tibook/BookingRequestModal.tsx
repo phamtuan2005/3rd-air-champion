@@ -153,7 +153,7 @@ const BookingRequestModal = ({
 }: BookingRequestModalProps) => {
   const { theme } = useTiBookTheme();
   const roomChip = useRoomChip();
-  const { fmtDate } = useTiBookLang();
+  const { fmtDate, lang } = useTiBookLang();
   const [step, setStep] = useState<1 | 2>(1);
   // Open by default: a refund term the guest is agreeing to should be readable
   // without a tap. The collapse is there to get it out of the way once read, not
@@ -1433,9 +1433,13 @@ const BookingRequestModal = ({
                           : t("Nothing to add from this yet.")}{" "}
                         {/* The example stays in English date form, German or
                             not: it is what to type, and parseDateText reads
-                            English month names only. */}
+                            English month names only. Chinese is the exception:
+                            parseDateText reads 2027年5月3日 as well. */}
                         {t("If you meant next year, add the year — \"{example}\" — and we'll pick it up.", {
-                          example: `${format(parseISO(typed.past[0]), "d MMM")} ${parseISO(typed.past[0]).getFullYear() + 1}`,
+                          example:
+                            lang === "zh"
+                              ? `${parseISO(typed.past[0]).getFullYear() + 1}年${format(parseISO(typed.past[0]), "M月d日")}`
+                              : `${format(parseISO(typed.past[0]), "d MMM")} ${parseISO(typed.past[0]).getFullYear() + 1}`,
                         })}
                       </p>
                     </div>

@@ -4,6 +4,7 @@ import {
   bookingRequestOf,
   checkoutReading,
   chooseRoom,
+  looksLikeQuestion,
   monthAsked,
   nextStep,
   readContact,
@@ -347,5 +348,120 @@ describe("a German guest asking TT to book", () => {
     const three = ["2026-11-05", "2026-11-06", "2026-11-07"];
     expect(checkoutReading("vom 5. bis 7. November", three)).toEqual(["2026-11-05", "2026-11-06"]);
     expect(checkoutReading("5.-7. November", three)).toEqual(["2026-11-05", "2026-11-06"]);
+  });
+});
+
+describe("a Chinese guest booking through TT", () => {
+  it("hears booking words, and not a question about an existing booking", () => {
+    expect(wantsToBook("我想预订 King 11月5日到7日")).toBe(true);
+    expect(wantsToBook("帮我订本周末")).toBe(true);
+    expect(wantsToBook("我的预订在哪里")).toBe(false);
+    expect(wantsToBook("我想取消预订")).toBe(false);
+    expect(wantsToBook("怎么预订")).toBe(false);
+  });
+
+  it("reads a stay given by its length", () => {
+    expect(readStay("11月3日住2晚", today)?.dates).toEqual(["2026-11-03", "2026-11-04"]);
+    expect(readStay("11月3日住两晚", today)?.dates).toEqual(["2026-11-03", "2026-11-04"]);
+    expect(readStay("11月1日住30晚", today)?.dates).toHaveLength(30);
+    expect(readStay("11月3日住3天", today)?.dates).toHaveLength(3);
+    expect(readStay("11月3日住一周", today)?.dates).toHaveLength(7);
+  });
+
+  it("does not count the night in 今晚 as a length", () => {
+    expect(readStay("今晚", today)).toBeNull();
+  });
+
+  it("reads 退房 as the day they leave, so not a night", () => {
+    expect(readStay("11月3日入住,11月5日退房", today)?.dates).toEqual(["2026-11-03", "2026-11-04"]);
+  });
+
+  it("offers the two-night reading of 10-12日 and 10日到12日", () => {
+    const three = ["2026-11-10", "2026-11-11", "2026-11-12"];
+    expect(checkoutReading("11月10-12日", three)).toEqual(["2026-11-10", "2026-11-11"]);
+    expect(checkoutReading("11月10日到12日", three)).toEqual(["2026-11-10", "2026-11-11"]);
+    expect(checkoutReading("11月10日、11日、12日", three)).toBeNull();
+  });
+
+  it("reads a month on its own, and not a month with a day or a number of months", () => {
+    expect(monthAsked("12月", today)?.[0]).toBe("2026-12-01");
+    expect(monthAsked("十二月份有空吗", today)?.[0]).toBe("2026-12-01");
+    expect(monthAsked("2027年1月", today)?.[0]).toBe("2027-01-01");
+    expect(monthAsked("12月3日", today)).toBeNull();
+    expect(monthAsked("住3个月", today)).toBeNull();
+  });
+
+  it("reads a party size", () => {
+    expect(readParty("2")).toBe(2);
+    expect(readParty("2个人")).toBe(2);
+    expect(readParty("两个人")).toBe(2);
+    expect(readParty("两位")).toBe(2);
+    expect(readParty("三个人")).toBe(3);
+    expect(readParty("我们四个人")).toBe(4);
+    expect(readParty("一共五人")).toBe(5);
+    expect(readParty("就我一个人")).toBe(1);
+    expect(readParty("我一个")).toBe(1);
+    expect(readParty("我和朋友")).toBe(2);
+    expect(readParty("我们俩")).toBe(2);
+    expect(readParty("不知道")).toBeNull();
+  });
+
+  it("goes back to the question rather than guess at a party it cannot count", () => {
+    expect(readParty("我和两个朋友")).toBeNull();
+  });
+
+  it("takes a name and a number out of one line", () => {
+    expect(readContact("张伟,408 555 0123")).toEqual({ name: "张伟", phone: "408 555 0123" });
+    expect(readContact("我叫张伟,电话是 408 555 0123")).toEqual({ name: "张伟", phone: "408 555 0123" });
+    expect(readContact("我是李娜").name).toBe("李娜");
+  });
+
+  it("reads a plain yes and a plain no", () => {
+    for (const a of ["好", "好的", "是的", "可以", "确认", "发送", "好的,谢谢"]) expect(readYesNo(a), a).toBe("yes");
+    for (const a of ["不", "不用", "不用了", "取消", "算了", "不要了,谢谢"]) expect(readYesNo(a), a).toBe("no");
+  });
+
+  it("never takes a question for a yes", () => {
+    // A yes at the read-back SENDS the request. 可以 (can) begins most questions.
+    for (const a of ["可以取消吗", "可以取消吗?", "可以带狗吗", "好不好", "是不是要付款", "确认了吗"]) {
+      expect(readYesNo(a), a).toBeNull();
+    }
+  });
+
+  it("recognises a question by its full-width mark, or by 吗 alone", () => {
+    expect(looksLikeQuestion("can I cancel later?")).toBe(true);
+    expect(looksLikeQuestion("可以吗?")).toBe(true);
+    expect(looksLikeQuestion("可以带狗吗")).toBe(true);
+    expect(looksLikeQuestion("张伟")).toBe(false);
+  });
+});
+
+describe("what a Chinese keyboard really types", () => {
+  // Full-width punctuation, written as escapes so no editor can flatten it. The
+  // first draft of these rules only knew the ASCII marks.
+  const Q = "\uFF1F", C = "\uFF0C", X = "\uFF01";
+
+  it("sees a full-width question mark", () => {
+    expect(looksLikeQuestion(`可以${Q}`)).toBe(true);
+    expect(looksLikeQuestion(`什么时候退款${Q}`)).toBe(true);
+  });
+
+  it("does not take a full-width question for a yes", () => {
+    expect(readYesNo(`可以${Q}`)).toBeNull();
+    expect(readYesNo(`可以取消吗${Q}`)).toBeNull();
+  });
+
+  it("reads full-width answers", () => {
+    expect(readYesNo(`好的${X}`)).toBe("yes");
+    expect(readYesNo(`好的${C}谢谢`)).toBe("yes");
+    expect(readYesNo(`不用了${C}谢谢`)).toBe("no");
+  });
+
+  it("takes a name and number apart at a full-width comma", () => {
+    expect(readContact(`张伟${C}408 555 0123`)).toEqual({ name: "张伟", phone: "408 555 0123" });
+  });
+
+  it("reads a check-out after a full-width comma", () => {
+    expect(readStay(`11月3日入住${C}11月5日退房`, today)?.dates).toEqual(["2026-11-03", "2026-11-04"]);
   });
 });

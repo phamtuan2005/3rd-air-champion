@@ -84,6 +84,27 @@ const weekdaysIn = (piece: string): number[] => {
   return out;
 };
 
+// Chinese numerals as far as a guest writes them in a date or a head count:
+// 五, 十二, 二十三, 三十一, and 两 for two. Digits pass straight through.
+export const ZH_NUM = "[一二两三四五六七八九十]{1,3}";
+const ZH_UNITS: Record<string, number> = { 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+export const zhNumber = (s: string): number => {
+  if (/^\d+$/.test(s)) return Number(s);
+  const ten = s.indexOf("十");
+  if (ten === -1) return ZH_UNITS[s] ?? NaN;
+  return (ten === 0 ? 1 : ZH_UNITS[s[0]] ?? NaN) * 10 + (ZH_UNITS[s[ten + 1]] ?? 0);
+};
+
+// One day of a Chinese date. A bare digit counts ("5月1、3、5"), as a bare number
+// does after "Aug" — but not one that is counting something else, or "5月1日，
+// 2个人" would book the 2nd for a party of two. A numeral needs its 日 or 号:
+// without it, "3月两个人" is March and two people, not the 2nd of March.
+const ZH_DAY = `(\\d{1,2}(?!\\d)(?!\\s*[个個位人名晚夜天周週间間月年点點时時])|${ZH_NUM}(?=\\s*[日号號]))\\s*[日号號]?`;
+const ZH_DATE = new RegExp(`(?<!\\d)(?:(\\d{4})\\s*年\\s*)?(\\d{1,2}|${ZH_NUM})\\s*月份?的?\\s*${ZH_DAY}`, "g");
+// What may follow a date: a span (到, 至, a dash) or a list (、 and 和), each with
+// its own month if it has one — "5月1日、3–5日", "10月30日到11月2日".
+const ZH_MORE = new RegExp(`^\\s*(-|~|～|到|至|,|，|、|和|及|与|&)\\s*(?:(\\d{1,2}|${ZH_NUM})\\s*月份?的?\\s*)?${ZH_DAY}`);
+
 export interface ParsedDates {
   // Unique yyyy-MM-dd, ascending. Bookable: today or later.
   dates: string[];
@@ -152,7 +173,10 @@ export const parseDateText = (text: string, today: Date = new Date()): ParsedDat
   const lower = raw.toLowerCase().replace(/[–—]/g, "-");
 
   // ── tonight / today / tomorrow ─────────────────────────────────────────────
-  for (const [word, offset] of [["tonight", 0], ["today", 0], ["tomorrow", 1]] as const) {
+  for (const [word, offset] of [
+    ["tonight", 0], ["today", 0], ["tomorrow", 1],
+    ["今晚", 0], ["今天", 0], ["明晚", 1], ["明天", 1], ["后天", 2], ["後天", 2],
+  ] as const) {
     const at = lower.indexOf(word);
     if (at === -1) continue;
     const when = new Date(today);
@@ -183,6 +207,48 @@ export const parseDateText = (text: string, today: Date = new Date()): ParsedDat
     const yr = hit[3] ? Number(hit[3].length === 2 ? "20" + hit[3] : hit[3]) : undefined;
     addDay(m, d, yr);
     used.push([hit.index, hit.index + hit[0].length]);
+  }
+
+  // ── 5月1日, 10月10-12日, 2027年1月3日, 10月30日到11月2日 — Chinese. ──────────
+  //
+  // A dash or 到 is every night from the first day to the last, as "Dec 10-12"
+  // is. TT says the check-out day and offers the shorter reading on a button
+  // (checkoutReading), so a guest who meant to leave on the 12th can say so.
+  //
+  // One year for the whole run, from its last day, for the reason given at the
+  // month-name run below. A run that crosses New Year ("12月30日到1月2日") starts
+  // in the year before the one it ends in.
+  for (let hit = ZH_DATE.exec(lower); hit; hit = ZH_DATE.exec(lower)) {
+    const firstMonth = zhNumber(hit[2]) - 1;
+    if (firstMonth < 0 || firstMonth > 11) continue;
+    const days: [number, number][] = [[firstMonth, zhNumber(hit[3])]];
+    let end = hit.index + hit[0].length;
+    for (let more = lower.slice(end).match(ZH_MORE); more; more = lower.slice(end).match(ZH_MORE)) {
+      const [pm, pd] = days[days.length - 1];
+      const m = more[2] ? zhNumber(more[2]) - 1 : pm;
+      const d = zhNumber(more[3]);
+      if (m < 0 || m > 11) break;
+      if (/^(?:-|~|～|到|至)$/.test(more[1])) {
+        if (m === pm) {
+          // A backwards span is a typo, as in the month-name run below.
+          for (let x = Math.min(pd, d); x <= Math.max(pd, d); x++) days.push([m, x]);
+        } else {
+          for (let x = pd + 1; x <= daysInMonth(y0, pm); x++) days.push([pm, x]);
+          for (let mm = (pm + 1) % 12; mm !== m; mm = (mm + 1) % 12) {
+            for (let x = 1; x <= daysInMonth(y0, mm); x++) days.push([mm, x]);
+          }
+          for (let x = 1; x <= d; x++) days.push([m, x]);
+        }
+      } else {
+        days.push([m, d]);
+      }
+      end += more[0].length;
+    }
+    const [lastMonth, lastDay] = days[days.length - 1];
+    const year = hit[1] ? Number(hit[1]) : yearFor(lastMonth, lastDay);
+    for (const [m, d] of days) addDay(m, d, m > lastMonth ? year - 1 : year);
+    used.push([hit.index, end]);
+    ZH_DATE.lastIndex = end;
   }
 
   // ── A month name, then every number that follows it ────────────────────────
@@ -324,7 +390,7 @@ export const parseDateText = (text: string, today: Date = new Date()): ParsedDat
     // normalised away.
     leftover: leftover
       .replace(/\s+/g, " ")
-      .replace(/^[\s,.;&\-–—]+|[\s,.;&\-–—]+$/g, "")
+      .replace(/^[\s,.;&\-–—，、。；]+|[\s,.;&\-–—，、。；]+$/g, "")
       .trim(),
   };
 };

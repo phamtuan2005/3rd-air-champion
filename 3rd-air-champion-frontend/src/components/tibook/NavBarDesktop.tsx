@@ -213,6 +213,7 @@ const LOOKS: { key: string; label: string; hint: string; dot: string; vibe: Vibe
 const LANGS: { key: LangName; label: string }[] = [
   { key: "en", label: "English" },
   { key: "de", label: "Deutsch" },
+  { key: "zh", label: "中文" },
 ];
 
 /*
@@ -493,8 +494,8 @@ export const AppearanceMenu = ({ holdHint = false }: { holdHint?: boolean }) => 
 
           {/* In the Look menu rather than a flag of its own in the bar: the bar
               has no width left on a phone (see the comment on the guest pill),
-              and a German phone already opens TiBook in German, so this is for
-              the guest who wants the other one. Each name in its own language,
+              and a German or Chinese phone already opens TiBook in its language,
+              so this is for the guest who wants another. Each name in its own language,
               so a guest who cannot read the current one still finds theirs. */}
           <div className={`border-t ${theme.surfaceBorder}`} />
           <p className={`px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide ${theme.surfaceMuted}`}>
