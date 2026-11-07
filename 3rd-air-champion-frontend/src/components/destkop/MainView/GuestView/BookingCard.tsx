@@ -164,7 +164,8 @@ const BookingCard = ({
   // palette has nothing left to show and is not offered for these.
   //
   // Hand-entered stays keep it: their palette carries Unbook, which exists only
-  // there, because the sync owns feed bookings and they must not be deletable.
+  // there, because the sync owns feed bookings. A feed stay's removal, for one
+  // the sync will not touch (Nov 2026), is in the details sheet behind a warning.
   const isFeedAirBnB = isAirBnB && !isManualAirBnB;
   const airbnbUrl =
     String(booking.description || "").match(

@@ -22,6 +22,7 @@ import {
 } from "./zodUpdateGuest";
 import Pricing from "./Pricing";
 import { getLoyaltyTier } from "../../../tibook/GuestLoyaltyBanner";
+import { DANGER_BUTTON } from "../../../shared/dangerButton";
 
 interface DetailsModalProps {
   booking: bookingType;
@@ -42,6 +43,7 @@ interface DetailsModalProps {
   onAirbnbPriceUpdate?: (bookingId: string, airbnbPrice: number) => void;
   onFeesUpdate?: (bookingId: string, fees: feeType[]) => void;
   onPricingUpdate: (data: { guest: string; room: string; price: number }[]) => void;
+  onRequestRemove?: (booking: bookingType) => void;
 }
 
 // Common extra charges offered as one-tap presets; "+ Custom" adds a blank line.
@@ -68,6 +70,7 @@ const DetailsModal = ({
   onAirbnbPriceUpdate,
   onFeesUpdate,
   onPricingUpdate,
+  onRequestRemove,
 }: DetailsModalProps) => {
   const isAirBnB = booking.guest.name === "AirBnB";
   // Stay summary — shown for every booking (dates + nights); direct guests also
@@ -847,6 +850,21 @@ const DetailsModal = ({
               ) : (
                 <span className="text-sm font-semibold text-gray-800">${booking.airbnbPrice || 0}</span>
               )}
+            </div>
+          )}
+
+          {/* Feed stays only, and last in the sheet because it is rare. The sync
+              removes a reservation AirBnB drops, except one covering tonight:
+              that could be a guest asleep in the room, so it stays until the host
+              says otherwise. A hand-entered stay has Unbook on its card. */}
+          {isAirBnB && airbnbUrl && onRequestRemove && (
+            <div className="border-t border-gray-100 pt-3">
+              <p className="mb-2 text-xs text-gray-500">
+                AirBnB no longer has this reservation? Take it out of TiMag.
+              </p>
+              <button type="button" onClick={() => onRequestRemove(booking)} className={DANGER_BUTTON}>
+                Remove from TiMag
+              </button>
             </div>
           )}
 
