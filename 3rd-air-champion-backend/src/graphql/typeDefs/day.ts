@@ -18,6 +18,7 @@ export const dayDefs = gql`
     alias: String
     price: Float
     bookedOn: String
+    confirmationCode: String
     airbnbPrice: Float
     fees: [Fee]
     guest: Guest
@@ -149,6 +150,7 @@ export const dayDefs = gql`
       lateCheckout: Boolean
       sofaBed: Boolean
       numberOfGuests: Int
+      confirmationCode: String
     ): [Day]
 
     updateBookingAirbnbPrice(

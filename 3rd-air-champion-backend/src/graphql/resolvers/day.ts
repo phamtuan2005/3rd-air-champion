@@ -545,11 +545,32 @@ export const dayResolvers = {
       // guest's phone digits, and when those changed the night stopped matching
       // and the stay was written onto it a second time (Dejah, King, Oct 2026).
       const sameStay = reservationMatch(description);
-      const existing = await Day.find({
-        calendar,
-        date: { $gte: spanStart, $lte: spanEnd },
-        bookings: { $elemMatch: { description: sameStay, room } },
-      });
+      const roomObjectId = new mongoose.Types.ObjectId(room);
+      const nightsOfThisStay = () =>
+        Day.find({
+          calendar,
+          date: { $gte: spanStart, $lte: spanEnd },
+          bookings: { $elemMatch: { description: sameStay, room } },
+        });
+      let existing = await nightsOfThisStay();
+
+      // A stay typed in by hand, now reaching the feed. Last-minute stays often
+      // are not in the feed at first, and when one arrived later it was written
+      // beside the hand-entered copy, so the room counted twice. The code the
+      // host saved says they are one stay: it becomes the feed's from here, in
+      // place, and keeps its payout, name and guest count.
+      const code = reservationCode(description);
+      if (existing.length === 0 && code !== description) {
+        const adopted = await Day.updateMany(
+          {
+            calendar,
+            bookings: { $elemMatch: { room, confirmationCode: code, description: { $in: ["", null] } } },
+          },
+          { $set: { "bookings.$[b].description": description } },
+          { arrayFilters: [{ "b.confirmationCode": code, "b.room": roomObjectId }] },
+        );
+        if (adopted.modifiedCount > 0) existing = await nightsOfThisStay();
+      }
       const existingDateSet = new Set(existing.map((d) => d.date.toISOString()));
 
       // Preserve a host-set alias if one already exists on any night of this reservation,
@@ -574,6 +595,7 @@ export const dayResolvers = {
         ? {
             price: template.price,
             bookedOn: template.bookedOn ?? "",
+            confirmationCode: template.confirmationCode ?? "",
             numberOfGuests: template.numberOfGuests ?? 1,
             alias: template.alias ?? "",
             notes: template.notes ?? "",
@@ -589,8 +611,6 @@ export const dayResolvers = {
             numberOfGuests: 1,
             alias: preservedAlias,
           };
-
-      const roomObjectId = new mongoose.Types.ObjectId(room);
 
       const bulkOperation = allDates
         // A night that has passed and was never booked is not written now:
@@ -663,7 +683,7 @@ export const dayResolvers = {
     },
     updateBookingGuest: async (
       _: unknown,
-      { _id, alias, notes, earlyCheckin, lateCheckout, sofaBed, numberOfGuests }: any
+      { _id, alias, notes, earlyCheckin, lateCheckout, sofaBed, numberOfGuests, confirmationCode }: any
     ) => {
       const updateBody: {
         "bookings.$[matchingBooking].alias"?: string;
@@ -735,19 +755,58 @@ export const dayResolvers = {
         );
       }
 
-      await Day.updateMany(
-        {
-          calendar,
-          date: { $gte: startDate, $lte: endDate },
-          "bookings.guest": currentBooking?.guest,
-          "bookings.room": currentBooking?.room,
-        },
-        { $set: updateBody },
-        {
-          arrayFilters: [{ "matchingBooking.guest": currentBooking?.guest, "matchingBooking.room": currentBooking?.room }],
-          runValidators: true,
-        }
-      );
+      // Hand-entered AirBnB stays only, and only this one. All AirBnB stays share
+      // a guest, so guest + room would stamp the code on another reservation on
+      // the same night, and the sync would then treat the two as one stay.
+      if (
+        confirmationCode !== undefined &&
+        currentGuest?.name === "AirBnB" &&
+        !currentBooking?.description
+      ) {
+        await Day.updateMany(
+          {
+            calendar,
+            date: { $gte: startDate, $lte: endDate },
+            "bookings.room": currentBooking?.room,
+          },
+          {
+            $set: {
+              "bookings.$[b].confirmationCode": String(confirmationCode)
+                .toUpperCase()
+                .replace(/[^A-Z0-9]/g, ""),
+            },
+          },
+          {
+            arrayFilters: [
+              {
+                "b.guest": currentBooking?.guest,
+                "b.room": currentBooking?.room,
+                "b.startDate": startDate,
+                "b.endDate": endDate,
+                "b.description": { $in: ["", null] },
+              },
+            ],
+          },
+        );
+      }
+
+      // Nothing else to write when only the code was sent, and an array filter
+      // that no update uses is an error in Mongo.
+      if (Object.keys(updateBody).length > 0) {
+        await Day.updateMany(
+          {
+            calendar,
+            date: { $gte: startDate, $lte: endDate },
+            "bookings.guest": currentBooking?.guest,
+            "bookings.room": currentBooking?.room,
+          },
+          { $set: updateBody },
+          {
+            arrayFilters: [{ "matchingBooking.guest": currentBooking?.guest, "matchingBooking.room": currentBooking?.room }],
+            runValidators: true,
+          }
+        );
+      }
 
       return await Day.find({ calendar, date: { $gte: startDate, $lte: endDate } })
         .populate("bookings.guest")

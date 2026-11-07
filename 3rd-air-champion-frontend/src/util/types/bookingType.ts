@@ -41,6 +41,8 @@ export interface bookingType {
   // cancelled stay stays in the day's record. The newer booking is the one the
   // house is actually serving.
   bookedOn?: string;
+  // A hand-entered AirBnB stay's code. A feed stay's is in `description`.
+  confirmationCode?: string;
 }
 
 // Sum of a booking's extra fees — counted ONCE per stay (fees are stored on
