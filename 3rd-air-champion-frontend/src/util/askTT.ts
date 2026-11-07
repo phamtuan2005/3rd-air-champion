@@ -434,7 +434,9 @@ export const partySizeAsked = (query: string): number | null => {
   if (f) return WORD_NUM[f[1]] ?? Number(f[1]);
   // "2人", "两个人", "三位", "4位客人" — never a number alone, which is a date here.
   const zh = q.match(new RegExp(`(\\d{1,2}|${ZH_NUM})\\s*(?:[个個位名]\\s*(?:大人|成人|客人|住客|人)|大人|成人|客人|住客|人|位)`));
-  return zh ? zhNumber(zh[1]) : null;
+  // "二三个人", two or three people, is no one number: TT asks rather than guess.
+  const n = zh ? zhNumber(zh[1]) : NaN;
+  return Number.isNaN(n) ? null : n;
 };
 
 // A room named in the question. Longest name first, so "ChillChill" is not

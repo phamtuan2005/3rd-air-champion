@@ -324,7 +324,9 @@ export const readParty = (text: string): number | null => {
   if (/^就?我?(?:一个人?|自己)/.test(t) || t === "我") return 1;
   if (/^(?:我们?俩|两口子|夫妻|情侣)/.test(t) || /^我[和跟](?!.*(?:\d|[两二三四五六七八九十]))/.test(t)) return 2;
   const zh = t.match(new RegExp(`^(?:我们|一共|总共|共)*(?:是|有)?\\s*(${ZH_NUM})(?![月日号號年])`));
-  return zh ? zhNumber(zh[1]) : null;
+  // "二三个", two or three, is no one number: TT asks again rather than guess.
+  const n = zh ? zhNumber(zh[1]) : NaN;
+  return Number.isNaN(n) ? null : n;
 };
 const DE_NUM: Record<string, number> = { eins: 1, einer: 1, zwei: 2, drei: 3, vier: 4, fünf: 5, sechs: 6 };
 

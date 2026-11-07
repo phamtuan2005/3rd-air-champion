@@ -381,3 +381,19 @@ describe("a Chinese guest's dates, as the keyboard types them", () => {
     expect(on(`9月1日${C}我们有一只狗${S}`).leftover).toBe("我们有一只狗");
   });
 });
+
+describe("a Chinese numeral that is no one number", () => {
+  // Each of these is a guest being approximate, and none of them is a date.
+  it("never invents a key", () => {
+    expect(on("二三月5日").dates).toEqual([]);
+    expect(on("5月一二日").dates).toEqual([]);
+  });
+
+  it("does not hang on a span that ends or starts in one", () => {
+    // The month loop only stops at the end month, which NaN never equals. This
+    // ran out of memory, and the date box reads as the guest types.
+    expect(on("9月1日到二三月2日").dates).toEqual(["2026-09-01"]);
+    // The 5月2日 is a real date the guest wrote, so it is still read.
+    expect(on("二三月1日到5月2日").dates).toEqual(["2027-05-02"]);
+  });
+});
