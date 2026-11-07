@@ -166,7 +166,9 @@ export const parseDateText = (text: string, today: Date = new Date()): ParsedDat
   const addDay = (m: number, d: number, year?: number) => {
     if (m < 0 || m > 11) return;
     const y = year ?? yearFor(m, d);
-    if (d < 1 || d > daysInMonth(y, m)) return;
+    // Written this way round for NaN, which zhNumber gives for "一二" and which
+    // passes `d < 1` and `d > n` alike. It came out as the key "2027-05-NaN".
+    if (!(d >= 1 && d <= daysInMonth(y, m))) return;
     found.add(keyOf(y, m, d));
   };
 
@@ -220,14 +222,17 @@ export const parseDateText = (text: string, today: Date = new Date()): ParsedDat
   // in the year before the one it ends in.
   for (let hit = ZH_DATE.exec(lower); hit; hit = ZH_DATE.exec(lower)) {
     const firstMonth = zhNumber(hit[2]) - 1;
-    if (firstMonth < 0 || firstMonth > 11) continue;
+    // NaN again ("二三月5日", February or March), and it must not get past here:
+    // the month loop below runs until it reaches the end month, which NaN never
+    // equals. "5月1日到二三月2日" froze the page, and this runs as a guest types.
+    if (!(firstMonth >= 0 && firstMonth <= 11)) continue;
     const days: [number, number][] = [[firstMonth, zhNumber(hit[3])]];
     let end = hit.index + hit[0].length;
     for (let more = lower.slice(end).match(ZH_MORE); more; more = lower.slice(end).match(ZH_MORE)) {
       const [pm, pd] = days[days.length - 1];
       const m = more[2] ? zhNumber(more[2]) - 1 : pm;
       const d = zhNumber(more[3]);
-      if (m < 0 || m > 11) break;
+      if (!(m >= 0 && m <= 11)) break;
       if (/^(?:-|~|～|到|至)$/.test(more[1])) {
         if (m === pm) {
           // A backwards span is a typo, as in the month-name run below.

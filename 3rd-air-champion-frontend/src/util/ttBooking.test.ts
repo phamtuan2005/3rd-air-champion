@@ -465,3 +465,10 @@ describe("what a Chinese keyboard really types", () => {
     expect(readStay(`11月3日入住${C}11月5日退房`, today)?.dates).toEqual(["2026-11-03", "2026-11-04"]);
   });
 });
+
+describe("a Chinese party answer that is no one number", () => {
+  it("is asked again rather than taken", () => {
+    expect(readParty("二三个")).toBeNull();
+    expect(readParty("三个")).toBe(3);
+  });
+});

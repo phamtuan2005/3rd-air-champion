@@ -705,3 +705,10 @@ describe("Chinese questions, as the keyboard types them", () => {
     expect(askTT(`预订本周末${C}2人`, ctx()).category).toBe("booking");
   });
 });
+
+describe("a Chinese head count that is no one number", () => {
+  it("is not read as a party size", () => {
+    expect(partySizeAsked("二三个人")).toBeNull();
+    expect(partySizeAsked("三个人")).toBe(3);
+  });
+});
