@@ -84,6 +84,29 @@ const nightsPhraseKo = (order: number[], consecutive: boolean) => {
   return `${names.join(", ")} 밤`;
 };
 
+// Spanish, like German, says a habit and a single past stay differently: "sueles
+// quedarte los martes y miércoles por la noche", but "la última vez te
+// quedaste las noches del martes y el miércoles". Sábado and domingo take an
+// -s for the habit; the other days are the same word in the plural.
+const DAY_ES = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+const nightsPhraseEs = (order: number[], consecutive: boolean, once: boolean) => {
+  const day = (m: number) => DAY_ES[(m + 1) % 7];
+  const first = day(order[0]);
+  const last = day(order[order.length - 1]);
+  const span = consecutive && order.length >= 3;
+  if (!once) {
+    const plural = (m: number) => day(m).replace(/o$/, "os");
+    const names = order.map(plural);
+    if (span) return `de ${first} a ${last} por la noche`;
+    if (names.length === 1) return `los ${names[0]} por la noche`;
+    return `los ${names.slice(0, -1).join(", ")} y ${names[names.length - 1]} por la noche`;
+  }
+  if (order.length === 1) return `la noche del ${first}`;
+  if (span) return `las noches de ${first} a ${last}`;
+  const names = order.map(day);
+  return `las noches del ${names.slice(0, -1).join(", el ")} y el ${names[names.length - 1]}`;
+};
+
 /**
  * The nights a guest stays, the way a person says them: "Tuesday and Wednesday
  * nights", "Monday through Thursday nights", "Monday and Thursday nights".
@@ -100,8 +123,10 @@ export const nightsPhrase = (habits: Habit[], once = false) => {
   const order = [...set].map((d) => (d + 6) % 7).sort((a, b) => a - b);
   const name = (m: number) => DAY[(m + 1) % 7];
   const consecutive = order.every((m, i) => i === 0 || m === order[i - 1] + 1);
-  // `once` changes only the German: English says a habit and a last stay alike.
+  // `once` changes only the German and Spanish: English says a habit and a
+  // last stay alike.
   if (currentLang() === "de") return nightsPhraseDe(order, consecutive, once);
+  if (currentLang() === "es") return nightsPhraseEs(order, consecutive, once);
   if (currentLang() === "zh") return nightsPhraseZh(order, consecutive);
   if (currentLang() === "ko") return nightsPhraseKo(order, consecutive);
   if (order.length === 1) return `${name(order[0])} nights`;

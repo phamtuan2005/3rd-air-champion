@@ -134,7 +134,10 @@ const HeroWeekdays = () => {
         ? ["日", "一", "二", "三", "四", "五", "六"]
         : lang === "ko"
           ? ["일", "월", "화", "수", "목", "금", "토"]
-          : ["S", "M", "T", "W", "T", "F", "S"];
+          // Spanish calendars write miércoles as X: martes already has the M.
+          : lang === "es"
+            ? ["D", "L", "M", "X", "J", "V", "S"]
+            : ["S", "M", "T", "W", "T", "F", "S"];
   return (
     <div className={`grid shrink-0 grid-cols-7 pb-1 text-center text-[11px] font-medium ${theme.surfaceMuted}`}>
       {letters.map((d, i) => <span key={i}>{d}</span>)}

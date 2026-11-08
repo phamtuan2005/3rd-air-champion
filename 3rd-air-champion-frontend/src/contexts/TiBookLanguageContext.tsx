@@ -1,13 +1,14 @@
 import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from "react";
 import { format } from "date-fns";
-import { de as deLocale, ko as koLocale, zhCN as zhLocale } from "date-fns/locale";
+import { de as deLocale, es as esLocale, ko as koLocale, zhCN as zhLocale } from "date-fns/locale";
 import { DE } from "../i18n/de";
 import { ZH } from "../i18n/zh";
 import { KO } from "../i18n/ko";
+import { ES } from "../i18n/es";
 
 /*
  * The language TiBook talks to the guest in: English, German for the German
- * guests the house has started to see, Simplified Chinese, or Korean.
+ * guests the house has started to see, Simplified Chinese, Korean, or Spanish.
  *
  * Keyed by the ENGLISH sentence rather than by an id. The English is what
  * every comment in this codebase argues about, and a component that reads
@@ -19,7 +20,7 @@ import { KO } from "../i18n/ko";
  * booking request, a message to the host, a wish list texted over, a question
  * logged for TiMag — stays English, because the host reads it in English.
  */
-export type LangName = "en" | "de" | "zh" | "ko";
+export type LangName = "en" | "de" | "zh" | "ko" | "es";
 
 const LANG_KEY = "tiBookLang";
 
@@ -32,7 +33,7 @@ const readStored = (): LangName | null => {
   // Private Safari throws on access; that guest just gets the device's language.
   try {
     const v = localStorage.getItem(LANG_KEY);
-    return v === "de" || v === "zh" || v === "ko" || v === "en" ? v : null;
+    return v === "de" || v === "zh" || v === "ko" || v === "es" || v === "en" ? v : null;
   } catch {
     return null;
   }
@@ -51,11 +52,17 @@ const readStored = (): LangName | null => {
  *
  * Korean follows the Chinese rule for the same reason: a Korean-American guest
  * on an English phone with Korean added did not ask TiBook to change either.
+ *
+ * Spanish too, with the most reason of all: a great many Californians run an
+ * English phone with Spanish added, read English every day, and would be
+ * surprised to find a booking page switched under them. A phone with Spanish
+ * first opens in Spanish; the rest are offered it (languageToSuggest).
  */
 export const langOfDevice = (langs: readonly (string | undefined)[]): LangName => {
   if (langs.some((l) => /^de\b/i.test(l ?? ""))) return "de";
-  const first = langs.find((l) => /^(?:en|zh|ko)\b/i.test(l ?? "")) ?? "";
+  const first = langs.find((l) => /^(?:en|zh|ko|es)\b/i.test(l ?? "")) ?? "";
   if (/^ko\b/i.test(first)) return "ko";
+  if (/^es\b/i.test(first)) return "es";
   return /^zh\b/i.test(first) && !/^zh-(?:hant|tw|hk|mo)\b/i.test(first) ? "zh" : "en";
 };
 
@@ -76,7 +83,7 @@ const startingLang = (): LangName => {
 /*
  * The language to OFFER a guest TiBook left in English.
  *
- * langOfDevice keeps an English phone with Chinese or Korean added in English
+ * langOfDevice keeps an English phone with Chinese, Korean or Spanish added in English
  * on purpose — those guests did not ask for the page to change. But they are
  * the guests most likely to want it, and the switch sits in a menu called
  * "Look", which nobody reading a second language would open to find it. So
@@ -87,16 +94,17 @@ const startingLang = (): LangName => {
  * Chinese phone is offered the Simplified text too: it reads it, and here,
  * unlike at start-up, it is the guest deciding rather than TiBook assuming.
  */
-export const languageToSuggest = (langs: readonly (string | undefined)[], stored: LangName | null): "zh" | "ko" | null => {
+export type OfferedLang = "zh" | "ko" | "es";
+export const languageToSuggest = (langs: readonly (string | undefined)[], stored: LangName | null): OfferedLang | null => {
   if (stored || langOfDevice(langs) !== "en") return null;
-  const other = langs.find((l) => /^(?:zh|ko)\b/i.test(l ?? ""));
-  return other ? (/^ko\b/i.test(other) ? "ko" : "zh") : null;
+  const other = langs.find((l) => /^(?:zh|ko|es)\b/i.test(l ?? ""));
+  return other ? (/^ko\b/i.test(other) ? "ko" : /^es\b/i.test(other) ? "es" : "zh") : null;
 };
 
 const fill = (s: string, vars?: Record<string, string | number>) =>
   vars ? s.replace(/\{(\w+)\}/g, (m, k: string) => (k in vars ? String(vars[k]) : m)) : s;
 
-const DICTIONARY: Partial<Record<LangName, Record<string, string>>> = { de: DE, zh: ZH, ko: KO };
+const DICTIONARY: Partial<Record<LangName, Record<string, string>>> = { de: DE, zh: ZH, ko: KO, es: ES };
 
 /** The guest's sentence in their language. `{name}` slots are filled from vars. */
 export const t = (en: string, vars?: Record<string, string | number>) =>
@@ -200,6 +208,34 @@ const KO_PATTERNS: Record<string, string> = {
   "ha": "a h시",
 };
 
+/*
+ * Spanish puts the day first, as German does, with "de" between the parts of a
+ * written-out date ("3 de noviembre de 2026"), and the names lowercase, as
+ * Spanish writes them. The clock stays 12-hour: Spanish-speaking guests in
+ * California and Mexico read "3:05 PM". "M/d" is left alone on purpose: the
+ * date box reads a slash month first, and a page that showed "3/11" for the
+ * 3rd of November would be read back as the 11th of March if typed.
+ */
+const ES_PATTERNS: Record<string, string> = {
+  "d EEE": "EEE d",
+  "EEE MMM d": "EEE d MMM",
+  "EEE MMM d, yyyy": "EEE d MMM yyyy",
+  "EEE, MMM d": "EEE, d MMM",
+  "EEE, MMM d · h:mma": "EEE, d MMM · h:mm a",
+  "EEE, MMM d yyyy": "EEE, d MMM yyyy",
+  "EEE, MMMM d yyyy": "EEE, d 'de' MMMM 'de' yyyy",
+  "EEEE, MMM d": "EEEE, d MMM",
+  "EEEE, MMMM d": "EEEE, d 'de' MMMM",
+  "EEEE, MMMM d, yyyy": "EEEE, d 'de' MMMM 'de' yyyy",
+  "MMM d EEE": "EEE d MMM",
+  "MMM d": "d MMM",
+  "MMM d, yyyy": "d MMM yyyy",
+  "MMMM d": "d 'de' MMMM",
+  "MMMM d, yyyy": "d 'de' MMMM 'de' yyyy",
+  "MMMM yyyy": "MMMM 'de' yyyy",
+  "h:mma": "h:mm a",
+};
+
 /**
  * A date as the guest reads it. Use this, not date-fns `format`, for anything
  * shown on screen — and keep `format` for keys and for text sent to the host.
@@ -211,15 +247,17 @@ export const fmtDate = (date: Date | number, pattern: string) =>
       ? format(date, ZH_PATTERNS[pattern] ?? pattern, { locale: zhLocale })
       : current === "ko"
         ? format(date, KO_PATTERNS[pattern] ?? pattern, { locale: koLocale })
-        : format(date, pattern);
+        : current === "es"
+          ? format(date, ES_PATTERNS[pattern] ?? pattern, { locale: esLocale })
+          : format(date, pattern);
 
 /** For toLocaleString / Intl calls that build guest-facing text. */
 export const localeTag = () =>
-  current === "de" ? "de-DE" : current === "zh" ? "zh-CN" : current === "ko" ? "ko-KR" : "en-US";
+  current === "de" ? "de-DE" : current === "zh" ? "zh-CN" : current === "ko" ? "ko-KR" : current === "es" ? "es-US" : "en-US";
 
 export const currentLang = () => current;
 
-const TiBookLanguageContext = createContext<{ lang: LangName; setLang: (l: LangName) => void; suggestLang: "zh" | "ko" | null }>({
+const TiBookLanguageContext = createContext<{ lang: LangName; setLang: (l: LangName) => void; suggestLang: OfferedLang | null }>({
   lang: "en",
   setLang: () => {},
   suggestLang: null,

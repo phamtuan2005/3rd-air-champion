@@ -50,8 +50,11 @@ const CalendarNavigator = ({
                   letters, "Mo", where cutting at three gave "Mon". Chinese
                   takes the LAST character: every day begins 星期, so the first
                   would print 星 seven times. Korean needs neither: 일요일,
-                  월요일… each start with their own letter. */}
-              <span className="sm:hidden">{lang === "zh" ? t(day).slice(-1) : t(day)[0]}</span>
+                  월요일… each start with their own letter. Spanish has two Ms
+                  (martes, miércoles) and writes the second as X, as Spanish
+                  calendars do — and its names are lowercase, so the letters
+                  are listed rather than cut. */}
+              <span className="sm:hidden">{lang === "zh" ? t(day).slice(-1) : lang === "es" ? "DLMXJVS"[index] : t(day)[0]}</span>
               <span className="hidden sm:inline">{t(day.substring(0, 3))}</span>
             </abbr>
           ))}
