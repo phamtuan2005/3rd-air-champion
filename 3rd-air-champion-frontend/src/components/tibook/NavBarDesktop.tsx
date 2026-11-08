@@ -212,12 +212,104 @@ const LOOKS: { key: string; label: string; hint: string; dot: string; vibe: Vibe
 
 // `word` is each language's own word for "language". The heading prints all of
 // them, so a guest finds their own whatever the page is in at the moment.
-const LANGS: { key: LangName; label: string; word: string; tag: string }[] = [
-  { key: "en", label: "English", word: "Language", tag: "en" },
-  { key: "de", label: "Deutsch", word: "Sprache", tag: "de" },
-  { key: "zh", label: "中文", word: "语言", tag: "zh-Hans" },
-  { key: "ko", label: "한국어", word: "언어", tag: "ko" },
+// `short` is what Hero's header button wears: a phone's bar has room for "EN",
+// not for "English", and each is still written in its own language.
+const LANGS: { key: LangName; label: string; short: string; word: string; tag: string }[] = [
+  { key: "en", label: "English", short: "EN", word: "Language", tag: "en" },
+  { key: "de", label: "Deutsch", short: "DE", word: "Sprache", tag: "de" },
+  { key: "zh", label: "中文", short: "中文", word: "语言", tag: "zh-Hans" },
+  { key: "ko", label: "한국어", short: "한국어", word: "언어", tag: "ko" },
 ];
+
+/** The four languages, one a line, the current one ticked. */
+const LanguageList = ({ onPicked }: { onPicked: () => void }) => {
+  const { theme } = useTiBookTheme();
+  const { lang, setLang } = useTiBookLang();
+  return (
+    <div className="flex flex-col px-1.5 pb-2">
+      {LANGS.map((l) => (
+        <button
+          key={l.key}
+          type="button"
+          role="menuitemradio"
+          aria-checked={lang === l.key}
+          lang={l.tag}
+          onClick={() => {
+            setLang(l.key);
+            onPicked();
+          }}
+          className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${theme.surfaceText} ${theme.chromeHover} ${
+            lang === l.key ? "font-semibold" : ""
+          }`}
+        >
+          {l.label}
+          {lang === l.key && <span aria-hidden className={theme.textPrimary}>✓</span>}
+        </button>
+      ))}
+    </div>
+  );
+};
+
+/*
+ * Hero's language button, in the header beside TT.
+ *
+ * The languages lived at the bottom of the Look menu, folded under a heading,
+ * and the host found it hard to get to (2026-11-07): two taps into a menu named
+ * for colours, which is the last place a guest who cannot read the page would
+ * look. A globe in the bar is where every booking site keeps it. Hero only —
+ * the classic bar has no width to spare and keeps the list in Look.
+ */
+export const LanguageMenu = () => {
+  const { theme } = useTiBookTheme();
+  const { lang } = useTiBookLang();
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const current = LANGS.find((l) => l.key === lang) ?? LANGS[0];
+
+  // Closes on a tap elsewhere and on Escape, as the Look menu does.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative shrink-0" ref={wrapRef}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        // Every language's word at once, as the Look menu's heading did: a
+        // screen reader in the wrong language still names the button.
+        aria-label={LANGS.map((l) => l.word).join(" · ")}
+        title={LANGS.map((l) => l.word).join(" · ")}
+        className={`flex items-center gap-1 rounded-full border px-2 py-1 text-xs font-semibold transition-colors ${theme.chromeBorder} ${theme.chromeHover} ${theme.chromeText}`}
+      >
+        <span aria-hidden>🌐</span>
+        <span lang={current.tag}>{current.short}</span>
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className={`absolute right-0 top-full z-50 mt-2 w-40 overflow-hidden rounded-2xl border pt-1.5 shadow-xl ${theme.surface} ${theme.chromeBorder}`}
+        >
+          <LanguageList onPicked={() => setOpen(false)} />
+        </div>
+      )}
+    </div>
+  );
+};
 
 /*
  * Shown once, to a guest who has never opened the menu.
@@ -255,9 +347,11 @@ const readHintSeen = () => {
 
 // holdHint: something else has the screen (Hero's host banner, on a first
 // look). The nudge waits until it is false, then runs its usual timer.
-export const AppearanceMenu = ({ holdHint = false }: { holdHint?: boolean }) => {
+// withLanguage: false where the bar carries its own LanguageMenu (Hero), so the
+// languages are offered in one place, not two.
+export const AppearanceMenu = ({ holdHint = false, withLanguage = true }: { holdHint?: boolean; withLanguage?: boolean }) => {
   const { theme, setTheme, vibe, layout, setLook, allThemes } = useTiBookTheme();
-  const { lang, setLang, suggestLang, t } = useTiBookLang();
+  const { lang, suggestLang, t } = useTiBookLang();
   const [open, setOpen] = useState(false);
   // The language list inside the menu, folded until asked for.
   const [langsOpen, setLangsOpen] = useState(false);
@@ -518,7 +612,12 @@ export const AppearanceMenu = ({ holdHint = false }: { holdHint?: boolean }) => 
               Look menu is about looks, and four language rows pushed the
               themes off a short phone's screen. The folded row still shows
               the heading in every language and the current one's name, so it
-              is found the same way; it folds again once a language is picked. */}
+              is found the same way; it folds again once a language is picked.
+
+              Hero no longer shows it here: its header has a globe of its own
+              (LanguageMenu), and this list is the classic layout's. */}
+          {withLanguage && (
+          <>
           <div className={`border-t ${theme.surfaceBorder}`} />
           <button
             type="button"
@@ -542,28 +641,8 @@ export const AppearanceMenu = ({ holdHint = false }: { holdHint?: boolean }) => 
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
             </svg>
           </button>
-          {langsOpen && (
-          <div className="flex flex-col px-1.5 pb-2">
-            {LANGS.map((l) => (
-              <button
-                key={l.key}
-                type="button"
-                role="menuitemradio"
-                aria-checked={lang === l.key}
-                lang={l.tag}
-                onClick={() => {
-                  setLang(l.key);
-                  setLangsOpen(false);
-                }}
-                className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${theme.surfaceText} ${theme.chromeHover} ${
-                  lang === l.key ? "font-semibold" : ""
-                }`}
-              >
-                {l.label}
-                {lang === l.key && <span aria-hidden className={theme.textPrimary}>✓</span>}
-              </button>
-            ))}
-          </div>
+          {langsOpen && <LanguageList onPicked={() => setLangsOpen(false)} />}
+          </>
           )}
         </div>
       )}
