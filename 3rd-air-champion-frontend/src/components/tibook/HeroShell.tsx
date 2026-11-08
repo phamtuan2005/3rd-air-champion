@@ -5,7 +5,7 @@ import { dayType } from "../../util/types/dayType";
 import { getRoomPhotos } from "../../util/roomFacts";
 import { discountedNightly } from "../../util/loyaltyDiscount";
 import { useTiBookTheme, useRoomChip, useCalendarView } from "../../contexts/TiBookThemeContext";
-import { AppearanceMenu, LanguageMenu } from "./NavBarDesktop";
+import { AppearanceMenu } from "./NavBarDesktop";
 import { AskTTButton } from "./AskTT";
 import type { TTNudge } from "./AskTT";
 import GuestCalendar, { MyStay } from "./Calendar/GuestCalendar";
@@ -673,8 +673,7 @@ const HeroShell = ({
           guestFirstName={guestName?.trim().split(" ")[0]}
           align="right"
         />
-        <LanguageMenu />
-        <AppearanceMenu holdHint={introducing} withLanguage={false} />
+        <AppearanceMenu holdHint={introducing} languageFirst />
       </nav>
 
       {/* Drops from under the nav, not over it, so the name that opened it
