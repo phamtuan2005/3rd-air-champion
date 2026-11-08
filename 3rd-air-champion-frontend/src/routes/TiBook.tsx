@@ -32,6 +32,7 @@ import { mergeOverlappingStays } from "../util/overlappingStays";
 import { fetchGuestByPhone } from "../util/guestOperations";
 import RememberMeDisclaimer from "../components/tibook/RememberMeDisclaimer";
 import HeroShell from "../components/tibook/HeroShell";
+import LanguageOffer from "../components/tibook/LanguageOffer";
 import RoomGalleryModal from "../components/tibook/RoomGalleryModal";
 import { getConsent, readRememberedGuest, rememberGuest, setConsent, revokeConsent } from "../util/guestConsent";
 import HostChatSheet from "../components/tibook/HostChatSheet";
@@ -72,7 +73,7 @@ const CAL_PEEK_PX = 72;
 
 const TiBookInner = () => {
   const { theme, vibe, layout, setLook } = useTiBookTheme();
-  const { t, fmtDate } = useTiBookLang();
+  const { t, fmtDate, suggestLang } = useTiBookLang();
   useEffect(() => { document.title = "TiBook"; }, []);
   useEffect(() => {
     const link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
@@ -1302,7 +1303,10 @@ const TiBookInner = () => {
   // Which TT callout this guest is owed: the booking helper for somebody new,
   // the quick way to book for somebody back. None while a sheet owns the
   // screen — a callout pointing at a button behind a modal points at nothing.
-  const ttNudge: TTNudge | null = modalOwnsScreen ? null : isKnownVisitor ? "returning" : "new";
+  // None while TiBook is offering the guest their own language either: TT's
+  // callout is in English until they answer, and comes afterwards in whichever
+  // language they picked.
+  const ttNudge: TTNudge | null = modalOwnsScreen || suggestLang ? null : isKnownVisitor ? "returning" : "new";
 
   // DYNAMIC viewport height. Plain 100vh (h-screen) is the height the page would
   // have with the browser chrome hidden, so on an iPhone the layout is taller
@@ -1831,6 +1835,12 @@ const TiBookInner = () => {
           }}
         />
       )}
+
+      {/* "Read TiBook in Korean?" for a guest whose phone lists a language
+          TiBook speaks but who opened in English. Not over a sheet: it waits,
+          and is still there when the sheet closes. Not beside the Undo bar,
+          which sits in the same place and has a few seconds to live. */}
+      {!modalOwnsScreen && !wishUndo && <LanguageOffer />}
 
       {/* The Undo bar after a night comes off the wish list. Above the bottom
           bar, so it never covers Request a Booking. */}

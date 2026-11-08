@@ -1433,13 +1433,16 @@ const BookingRequestModal = ({
                           : t("Nothing to add from this yet.")}{" "}
                         {/* The example stays in English date form, German or
                             not: it is what to type, and parseDateText reads
-                            English month names only. Chinese is the exception:
-                            parseDateText reads 2027年5月3日 as well. */}
+                            English month names only. Chinese and Korean are
+                            the exceptions: parseDateText reads 2027年5月3日
+                            and 2027년 5월 3일 as well. */}
                         {t("If you meant next year, add the year — \"{example}\" — and we'll pick it up.", {
                           example:
                             lang === "zh"
                               ? `${parseISO(typed.past[0]).getFullYear() + 1}年${format(parseISO(typed.past[0]), "M月d日")}`
-                              : `${format(parseISO(typed.past[0]), "d MMM")} ${parseISO(typed.past[0]).getFullYear() + 1}`,
+                              : lang === "ko"
+                              ? `${parseISO(typed.past[0]).getFullYear() + 1}년 ${format(parseISO(typed.past[0]), "M월 d일")}`
+                              :`${format(parseISO(typed.past[0]), "d MMM")} ${parseISO(typed.past[0]).getFullYear() + 1}`,
                         })}
                       </p>
                     </div>

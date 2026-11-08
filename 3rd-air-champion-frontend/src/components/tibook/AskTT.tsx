@@ -3,6 +3,7 @@ import { HiSparkles } from "react-icons/hi2";
 import { useRoomChip, useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import { askTT, AskTTContext, TTAction, TTBookingAction, TTBookingStart, ttStarters } from "../../util/askTT";
 import { logTTQuestion } from "../../util/ttQuestionLog";
+import { languageAsked } from "../../util/ttLanguage";
 import {
   bookingRequestOf,
   chooseRoom,
@@ -308,7 +309,7 @@ const withoutEdgeHolidays = (dates: string[]) => {
  */
 const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, roomColors, onAction, onClose }: AskTTSheetProps) => {
   const { theme } = useTiBookTheme();
-  const { t, lang } = useTiBookLang();
+  const { t, lang, setLang } = useTiBookLang();
   const roomChip = useRoomChip();
   const [draft, setDraft] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -674,6 +675,24 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
     if (!q) return;
     const said = shown ?? q;
     setDraft("");
+    // "한국어로 바꿔 주세요" — before the booking gets a look at it, or at the
+    // name step it would be taken as the guest's name. Not logged: it is a
+    // setting, not a question for the host. setLang changes the module's
+    // language at once, so a booking under way asks its next question again,
+    // in the language the guest just chose.
+    if (languageAsked(q)) {
+      const switched = askTT(q, ctx);
+      if (switched.switchLang) {
+        setLang(switched.switchLang);
+        if (booking) {
+          const p = promptFor(booking);
+          say(said, { lines: [...switched.lines, ...p.lines], actions: p.actions }, { draftId: booking.id, step: p.step });
+        } else {
+          say(said, { lines: switched.lines, actions: switched.actions });
+        }
+        return;
+      }
+    }
     if (typed && bookingTook(q)) return;
     const answer = askTT(q, ctx, { booking: bookingAsked });
     // Mid-booking, something TT cannot read is most likely an answer to its

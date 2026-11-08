@@ -104,6 +104,18 @@ const ZH_DATE = new RegExp(`(?<!\\d)(?:(\\d{4})\\s*年\\s*)?(\\d{1,2}|${ZH_NUM})
 // What may follow a date: a span (到, 至, a dash) or a list (、 and 和), each with
 // its own month if it has one — "5月1日、3–5日", "10月30日到11月2日".
 const ZH_MORE = new RegExp(`^\\s*(-|~|～|到|至|,|，|、|和|及|与|&)\\s*(?:(\\d{1,2}|${ZH_NUM})\\s*月份?的?\\s*)?${ZH_DAY}`);
+const ZH_SPAN = /^(?:-|~|～|到|至)$/;
+
+// Korean: "5월 1일", "10월 10-12일", "2027년 1월 3일", "10월 10일부터 12일까지".
+// Korean guests write dates in digits, so there is no numeral table. A bare
+// digit after the month counts, as it does after "Aug" — unless a counter
+// follows it: "12월 2명" is December and two people, "5월 2박" two nights.
+export const KO_DAY = `(\\d{1,2})(?!\\d)(?:\\s*일|(?!\\s*(?:명|분|사람|인|박|밤|주|개월|달|시|살|번|층|호|월|년)))`;
+const KO_DATE = new RegExp(`(?<!\\d)(?:(\\d{4})\\s*년\\s*)?(\\d{1,2})\\s*월\\s*${KO_DAY}`, "g");
+// A span is a dash, ~, 부터 or 에서 ("from"), with 까지 ("until") closing it; a
+// list is a comma or "and" in any of its spoken forms (과/와, 하고, 랑, 및).
+const KO_MORE = new RegExp(`^\\s*(-|~|～|부터|에서|,|、|와|과|하고|이랑|랑|및|&)\\s*(?:(\\d{1,2})\\s*월\\s*)?${KO_DAY}(?:\\s*까지)?`);
+const KO_SPAN = /^(?:-|~|～|부터|에서)$/;
 
 export interface ParsedDates {
   // Unique yyyy-MM-dd, ascending. Bookable: today or later.
@@ -178,9 +190,13 @@ export const parseDateText = (text: string, today: Date = new Date()): ParsedDat
   for (const [word, offset] of [
     ["tonight", 0], ["today", 0], ["tomorrow", 1],
     ["今晚", 0], ["今天", 0], ["明晚", 1], ["明天", 1], ["后天", 2], ["後天", 2],
+    // 내일모레 (the day after tomorrow) is listed before 내일 and 모레, which
+    // are both inside it; the check below then skips them.
+    ["내일모레", 2], ["오늘", 0], ["내일", 1], ["모레", 2],
   ] as const) {
     const at = lower.indexOf(word);
     if (at === -1) continue;
+    if (used.some(([from, to]) => at >= from && at < to)) continue;
     const when = new Date(today);
     when.setDate(when.getDate() + offset);
     found.add(keyOf(when.getFullYear(), when.getMonth(), when.getDate()));
@@ -212,49 +228,58 @@ export const parseDateText = (text: string, today: Date = new Date()): ParsedDat
   }
 
   // ── 5月1日, 10月10-12日, 2027年1月3日, 10月30日到11月2日 — Chinese. ──────────
+  // ── 5월 1일, 10월 10-12일, 10월 30일부터 11월 2일까지 — Korean. ─────────────
   //
-  // A dash or 到 is every night from the first day to the last, as "Dec 10-12"
-  // is. TT says the check-out day and offers the shorter reading on a button
-  // (checkoutReading), so a guest who meant to leave on the 12th can say so.
+  // A dash, 到 or 부터 is every night from the first day to the last, as "Dec
+  // 10-12" is. TT says the check-out day and offers the shorter reading on a
+  // button (checkoutReading), so a guest who meant to leave on the 12th can say so.
   //
   // One year for the whole run, from its last day, for the reason given at the
   // month-name run below. A run that crosses New Year ("12月30日到1月2日") starts
   // in the year before the one it ends in.
-  for (let hit = ZH_DATE.exec(lower); hit; hit = ZH_DATE.exec(lower)) {
-    const firstMonth = zhNumber(hit[2]) - 1;
-    // NaN again ("二三月5日", February or March), and it must not get past here:
-    // the month loop below runs until it reaches the end month, which NaN never
-    // equals. "5月1日到二三月2日" froze the page, and this runs as a guest types.
-    if (!(firstMonth >= 0 && firstMonth <= 11)) continue;
-    const days: [number, number][] = [[firstMonth, zhNumber(hit[3])]];
-    let end = hit.index + hit[0].length;
-    for (let more = lower.slice(end).match(ZH_MORE); more; more = lower.slice(end).match(ZH_MORE)) {
-      const [pm, pd] = days[days.length - 1];
-      const m = more[2] ? zhNumber(more[2]) - 1 : pm;
-      const d = zhNumber(more[3]);
-      if (!(m >= 0 && m <= 11)) break;
-      if (/^(?:-|~|～|到|至)$/.test(more[1])) {
-        if (m === pm) {
-          // A backwards span is a typo, as in the month-name run below.
-          for (let x = Math.min(pd, d); x <= Math.max(pd, d); x++) days.push([m, x]);
-        } else {
-          for (let x = pd + 1; x <= daysInMonth(y0, pm); x++) days.push([pm, x]);
-          for (let mm = (pm + 1) % 12; mm !== m; mm = (mm + 1) % 12) {
-            for (let x = 1; x <= daysInMonth(y0, mm); x++) days.push([mm, x]);
+  //
+  // One reader for both languages: they write a date the same way round, and
+  // the span and year rules are the part that has had bugs.
+  const readRuns = (DATE: RegExp, MORE: RegExp, num: (s: string) => number, SPAN: RegExp) => {
+    DATE.lastIndex = 0;
+    for (let hit = DATE.exec(lower); hit; hit = DATE.exec(lower)) {
+      const firstMonth = num(hit[2]) - 1;
+      // NaN again ("二三月5日", February or March), and it must not get past here:
+      // the month loop below runs until it reaches the end month, which NaN never
+      // equals. "5月1日到二三月2日" froze the page, and this runs as a guest types.
+      if (!(firstMonth >= 0 && firstMonth <= 11)) continue;
+      const days: [number, number][] = [[firstMonth, num(hit[3])]];
+      let end = hit.index + hit[0].length;
+      for (let more = lower.slice(end).match(MORE); more; more = lower.slice(end).match(MORE)) {
+        const [pm, pd] = days[days.length - 1];
+        const m = more[2] ? num(more[2]) - 1 : pm;
+        const d = num(more[3]);
+        if (!(m >= 0 && m <= 11)) break;
+        if (SPAN.test(more[1])) {
+          if (m === pm) {
+            // A backwards span is a typo, as in the month-name run below.
+            for (let x = Math.min(pd, d); x <= Math.max(pd, d); x++) days.push([m, x]);
+          } else {
+            for (let x = pd + 1; x <= daysInMonth(y0, pm); x++) days.push([pm, x]);
+            for (let mm = (pm + 1) % 12; mm !== m; mm = (mm + 1) % 12) {
+              for (let x = 1; x <= daysInMonth(y0, mm); x++) days.push([mm, x]);
+            }
+            for (let x = 1; x <= d; x++) days.push([m, x]);
           }
-          for (let x = 1; x <= d; x++) days.push([m, x]);
+        } else {
+          days.push([m, d]);
         }
-      } else {
-        days.push([m, d]);
+        end += more[0].length;
       }
-      end += more[0].length;
+      const [lastMonth, lastDay] = days[days.length - 1];
+      const year = hit[1] ? Number(hit[1]) : yearFor(lastMonth, lastDay);
+      for (const [m, d] of days) addDay(m, d, m > lastMonth ? year - 1 : year);
+      used.push([hit.index, end]);
+      DATE.lastIndex = end;
     }
-    const [lastMonth, lastDay] = days[days.length - 1];
-    const year = hit[1] ? Number(hit[1]) : yearFor(lastMonth, lastDay);
-    for (const [m, d] of days) addDay(m, d, m > lastMonth ? year - 1 : year);
-    used.push([hit.index, end]);
-    ZH_DATE.lastIndex = end;
-  }
+  };
+  readRuns(ZH_DATE, ZH_MORE, zhNumber, ZH_SPAN);
+  readRuns(KO_DATE, KO_MORE, Number, KO_SPAN);
 
   // ── A month name, then every number that follows it ────────────────────────
   //

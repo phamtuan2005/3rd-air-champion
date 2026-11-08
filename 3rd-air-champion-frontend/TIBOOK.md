@@ -46,9 +46,10 @@ Two things about that file:
 
 ### German
 
-TiBook speaks English, German or Chinese (`src/contexts/TiBookLanguageContext.tsx`).
-A phone set to German opens in German; the guest can switch under **Look →
-Sprache**, and the choice is remembered per device.
+TiBook speaks English, German, Chinese or Korean (`src/contexts/TiBookLanguageContext.tsx`).
+A phone set to German opens in German; the guest can switch under **Look**, and
+the choice is remembered per device. (How a guest finds the switch is under
+"Switching language", after Korean.)
 
 - Words go through `t("the English")`, and dates the guest reads through
   `fmtDate` (German puts the day first). The German is in `src/i18n/de/`, keyed
@@ -91,6 +92,51 @@ the exact English, chosen under **Look → 语言**. What differs from German:
 As with German, only what the guest reads is translated. Requests, texts and
 notes to the host stay English, and a guest's own typed words go as they wrote
 them.
+
+### Korean
+
+Korean follows Chinese: `src/i18n/ko/`, keyed by the exact English, started on a
+phone with Korean listed before English, offered (below) to one with it after.
+
+- **Polite 해요체, worded like Airbnb Korea** — 호스트, 슈퍼호스트, 위시리스트,
+  체크인/체크아웃, 내 예약. Never 당신. Korean uses ASCII punctuation, so there is no
+  "." entry.
+- **No particle straight after a slot.** 은/는, 이/가, 을/를 and 과/와 depend on how
+  the word before ends, and `{host}` or `{room}` hides that word. Anchor the slot
+  instead — "{host} 님이", "{room} 객실은" — or follow it with 의, 에, 도, 부터,
+  까지. `ko.test.ts` fails on a slot followed by one.
+- **TT and the date box read Korean.** 5월 1일, 10월 10-12일, 10일부터 12일까지,
+  11월 3일 2박 (and 2박 3일, which is two nights), 이번 주말, 다음 주 금요일, 2명.
+  Words go in `KO_ASKED` and `KO_AMENITY`; like Chinese they match anywhere in
+  the sentence, so a short one carries a lookahead (방 begins 방법 and 방문).
+- **A Korean yes must be the whole reply** (`KO_YES`), and 네 ("yes") is never
+  read as four people: 네, 세, 한 and 두 only count with a counter (명, 분).
+- **The privacy guard has Korean patterns too**, as Chinese does.
+
+### Switching language
+
+Three ways, because the guest who most needs the switch is the one least able to
+read the menu it sits in.
+
+- **The offer** (`LanguageOffer.tsx`). TiBook keeps an English phone with
+  Chinese or Korean added in English — on purpose, see `langOfDevice`. Those
+  guests get one card above the bottom bar, in THEIR language: "TiBook을 한국어로
+  보시겠어요?" with the switch and "Keep English". Either tap is stored as a
+  choice, so it never comes back. It waits behind any open sheet, and the TT
+  and Look callouts wait for it. Who is asked: `languageToSuggest`.
+- **The menu.** Under Look, a list with one language a line, each named in its
+  own language, under a heading that is every language's word for "language" at
+  once (🌐 Language · Sprache · 语言 · 언어), folded to one row that shows the
+  current language until tapped. It was a row of pills; four no
+  longer fitted a phone. A new language is one line in `LANGS`.
+- **Asking TT** (`src/util/ttLanguage.ts`). "한국어로 바꿔 주세요", "auf Deutsch
+  bitte", "说中文", "English please" — in any of the four languages, naming any
+  of the four. TT switches the page and says so in the new language; a booking
+  under way keeps going and asks its next question again in that language.
+  A language name counts only alone or with a word asking for the switch, so
+  "Korean food nearby?" is still a question about food. Not logged for the
+  host: it is a setting, not a question. A new language needs its names in
+  `NAMES` and a line in `SWITCHED`.
 
 ### Visitor counting
 

@@ -72,6 +72,18 @@ const nightsPhraseZh = (order: number[], consecutive: boolean) => {
   return `${names.slice(0, -1).join("、")}和${names[names.length - 1]}晚`;
 };
 
+// Korean likewise, with 밤 once at the end: "화요일과 수요일 밤", "월요일~목요일
+// 밤". Two days are joined with 과, which is right for every one of them —
+// each ends in 일, and 일 takes 과, never 와.
+const DAY_KO = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
+const nightsPhraseKo = (order: number[], consecutive: boolean) => {
+  const names = order.map((m) => DAY_KO[(m + 1) % 7]);
+  if (names.length === 1) return `${names[0]} 밤`;
+  if (consecutive && names.length >= 3) return `${names[0]}~${names[names.length - 1]} 밤`;
+  if (names.length === 2) return `${names[0]}과 ${names[1]} 밤`;
+  return `${names.join(", ")} 밤`;
+};
+
 /**
  * The nights a guest stays, the way a person says them: "Tuesday and Wednesday
  * nights", "Monday through Thursday nights", "Monday and Thursday nights".
@@ -91,6 +103,7 @@ export const nightsPhrase = (habits: Habit[], once = false) => {
   // `once` changes only the German: English says a habit and a last stay alike.
   if (currentLang() === "de") return nightsPhraseDe(order, consecutive, once);
   if (currentLang() === "zh") return nightsPhraseZh(order, consecutive);
+  if (currentLang() === "ko") return nightsPhraseKo(order, consecutive);
   if (order.length === 1) return `${name(order[0])} nights`;
   if (consecutive && order.length >= 3) return `${name(order[0])} through ${name(order[order.length - 1])} nights`;
   const names = order.map(name);

@@ -1,5 +1,5 @@
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
-import { MONTHS, parseDateText, ZH_NUM, zhNumber } from "./dateText";
+import { KO_DAY, MONTHS, parseDateText, ZH_NUM, zhNumber } from "./dateText";
 import { getRoomFacts } from "./roomFacts";
 import { cancellationHeadline } from "./cancellationPolicy";
 import { holidayLabelForGuest, usHolidayOn } from "./usHolidays";
@@ -35,11 +35,13 @@ import { fmtDate, t } from "../contexts/TiBookLanguageContext";
 // "Ich möchte King … buchen" was answered as a question about whether King is
 // free, never offered the booking the English sentence gets. Chinese comes
 // last, with no \b: JavaScript's \b only knows Latin letters and digits, and
-// never fires between two Chinese characters.
+// never fires between two Chinese characters. Korean likewise has no \b, and
+// "예약" alone is not enough: it is also the noun in "내 예약" (my booking) and
+// "예약 방법" (how to book), so only the verb forms count.
 const BOOK_WORDS =
-  /\b(?:book|reserve|request|hold)\b|\b(?:i'?d|i would|we'?d|we would) like\b|\b(?:i|we) (?:want|need|wanna)\b|\bcan (?:i|we) (?:get|have|stay|take)\b|\bsign me up\b|\b(?:buchen|reservieren|anfragen)\b|\b(?:ich|wir) (?:möchten?|will|wollen|brauchen?|hätten? gerne?)\b|预订|预定|订房|订一间|[想要]订|帮我订|[想要]住/i;
+  /\b(?:book|reserve|request|hold)\b|\b(?:i'?d|i would|we'?d|we would) like\b|\b(?:i|we) (?:want|need|wanna)\b|\bcan (?:i|we) (?:get|have|stay|take)\b|\bsign me up\b|\b(?:buchen|reservieren|anfragen)\b|\b(?:ich|wir) (?:möchten?|will|wollen|brauchen?|hätten? gerne?)\b|预订|预定|订房|订一间|[想要]订|帮我订|[想要]住|예약\s*(?:하고\s*싶|할게|할래|하려|해\s*주|해줘|하겠|신청|부탁|할\s*수)|(?:묵|머물|숙박하|지내)고\s*싶/i;
 const NOT_A_NEW_BOOKING =
-  /\bmy (?:booking|bookings|reservation|reservations|stay|stays|request)\b|\bcancel|\brefund|\bbooked\b|\bhow (?:do|can) (?:i|we) book\b|\bmeine[nr]? (?:buchung|buchungen|reservierung|reservierungen|anfrage|aufenthalt)\b|\bstorn|\brückerstatt|\bgebucht\b|\bwie (?:kann|buche|können) (?:ich|wir)\b|我的(?:预订|预定|订单|住宿|申请)|取消|退款|已(?:经)?(?:预订|预定|订)|订了|(?:怎么|怎样|如何)(?:预订|预定|订)/i;
+  /\bmy (?:booking|bookings|reservation|reservations|stay|stays|request)\b|\bcancel|\brefund|\bbooked\b|\bhow (?:do|can) (?:i|we) book\b|\bmeine[nr]? (?:buchung|buchungen|reservierung|reservierungen|anfrage|aufenthalt)\b|\bstorn|\brückerstatt|\bgebucht\b|\bwie (?:kann|buche|können) (?:ich|wir)\b|我的(?:预订|预定|订单|住宿|申请)|取消|退款|已(?:经)?(?:预订|预定|订)|订了|(?:怎么|怎样|如何)(?:预订|预定|订)|(?:내|제|저의)\s*예약|취소|환불|예약\s*(?:했|한\s|된|돼\s*있|방법|하는\s*(?:법|방법))|어떻게\s*예약/i;
 export const wantsToBook = (q: string): boolean => BOOK_WORDS.test(q) && !NOT_A_NEW_BOOKING.test(q);
 
 // Rooms are booked by the NIGHT. The calendar, the cart and every request
@@ -72,6 +74,14 @@ const ZH_NIGHTS = new RegExp(`(\\d{1,2}|${ZH_NUM})\\s*个?\\s*[晚夜]|住\\s*(\
 const ZH_WEEKS = /(\d{1,2}|[一两二三四])\s*个?\s*(?:周|週|星期|礼拜)(?![一二三四五六日天])/;
 // "5月1日入住，5月3日退房": the guest named the day they leave.
 const ZH_CHECKOUT = /退房|离店|離店/;
+// "11월 3일 2박", and "2박 3일", which is how Korean writes a two-night stay:
+// the 3일 counts DAYS, so it is lifted out with the 박 and never read as the 3rd.
+// 하룻밤 is one night.
+const KO_NIGHTS = /(\d{1,2})\s*박(?:\s*\d{1,2}\s*일)?|하룻밤/;
+// "2주", "1주일", "일주일". Not 주말 (weekend) or 주차 (parking).
+const KO_WEEKS = /(\d{1,2})\s*주(?:일|\s*동안)?(?![말차소년])|일주일|한\s*주(?![말차])/;
+// "5월 1일 체크인, 5월 3일 체크아웃".
+const KO_CHECKOUT = /체크\s*아웃|퇴실/;
 
 // The first date a piece of text names, from the date parser — or, for the
 // right-hand side of "Oct 10 to 12", a bare day number in the left's month.
@@ -134,7 +144,14 @@ export const readStay = (q: string, today: Date): StayRead | null => {
     const start = firstDate(text.replace((zhNights ?? zhWeeks)![0], " "), today);
     if (start && count >= 1 && count <= 90) return split(nightsFrom(start, count), todayKey);
   }
-  if (ZH_CHECKOUT.test(text)) {
+  const koNights = text.match(KO_NIGHTS);
+  const koWeeks = koNights ? null : text.match(KO_WEEKS);
+  if (koNights || koWeeks) {
+    const count = koNights ? (koNights[1] ? Number(koNights[1]) : 1) : 7 * (koWeeks![1] ? Number(koWeeks![1]) : 1);
+    const start = firstDate(text.replace((koNights ?? koWeeks)![0], " "), today);
+    if (start && count >= 1 && count <= 90) return split(nightsFrom(start, count), todayKey);
+  }
+  if (ZH_CHECKOUT.test(text) || KO_CHECKOUT.test(text)) {
     const p = parseDateText(text, today);
     const all = [...p.past, ...p.dates].sort();
     if (all.length >= 2) {
@@ -172,7 +189,8 @@ export const checkoutReading = (q: string, dates: string[]): string[] | null => 
   // German writes the same span "10.–12." or "10. bis 12.", and is owed the
   // same button: "vom 10. bis 12." is two nights to most German travellers.
   // Chinese writes it "10-12日" or "10日到12日", and 到 usually means the same.
-  if (!/\d(?:st|nd|rd|th|\.|[日号號])?\s*(?:[-–—~～]|\bbis(?: zum)?\b|到|至)\s*\d/i.test(q)) return null;
+  // Korean writes "10~12일" or "10일부터 12일까지".
+  if (!/\d(?:st|nd|rd|th|\.|[日号號일])?\s*(?:[-–—~～]|\bbis(?: zum)?\b|到|至|부터|에서)\s*\d/i.test(q)) return null;
   return dates.slice(0, -1);
 };
 
@@ -192,10 +210,13 @@ export const monthAsked = (q: string, today: Date): string[] | null => {
   // "12月", "十二月份", "2027年1月". Not "3个月", which has 个 in the way, and not
   // "12月3日", which names a day and belongs to the date reader.
   const zh = hit ? null : q.match(new RegExp(`(?:(\\d{4})\\s*年\\s*)?(?<!\\d)(\\d{1,2}|${ZH_NUM})\\s*月份?(?!的?\\s*(?:\\d|${ZH_NUM}\\s*[日号號]))`));
-  if (!hit && !zh) return null;
-  const m = hit ? MONTHS[hit[1]] : zhNumber(zh![2]) - 1;
+  // "12월", "2027년 1월". Not "3개월" (three months), and not "12월 3일", which
+  // the date reader has — but "12월 2명" is still December, for two people.
+  const ko = hit || zh ? null : q.match(new RegExp(`(?:(\\d{4})\\s*년\\s*)?(?<!\\d)(\\d{1,2})\\s*월(?!\\s*${KO_DAY})`));
+  if (!hit && !zh && !ko) return null;
+  const m = hit ? MONTHS[hit[1]] : zh ? zhNumber(zh[2]) - 1 : Number(ko![2]) - 1;
   if (!(m >= 0 && m <= 11)) return null;
-  const year = hit ? hit[2] : zh![1];
+  const year = hit ? hit[2] : (zh ?? ko)![1];
   const y = year ? Number(year) : m < today.getMonth() ? today.getFullYear() + 1 : today.getFullYear();
   const days = new Date(y, m + 1, 0).getDate();
   const todayKey = keyOf(today);
@@ -299,6 +320,10 @@ export const readContact = (text: string): { name: string; phone: string } => {
     .replace(/\b(?:my name is|my name's|name is|name|i am|i'm|im|this is|it's|its|my|phone number|phone|number|cell|mobile|tel|is|and|call me|text me|at|on)\b:?/gi, " ")
     // Whole phrases only: a lone 是 or 和 can be part of somebody's name.
     .replace(/我叫|我是|我的名字是|名字是|名字|姓名是|姓名|(?:我的)?(?:电话|手机)(?:号码|号)?是?|号码是?/g, " ")
+    // Korean, the same way: whole phrases, and the polite endings only where a
+    // word ends ("김민지예요" → 김민지), never from inside a name.
+    .replace(/(?:제|저의)?\s*(?:이름|성함)(?:은|이)?|저는|(?:제\s*)?(?:전화\s*번호|전화|휴대폰|핸드폰|연락처|번호)(?:는|은)?/g, " ")
+    .replace(/(?:입니다|이에요|예요|이고요|이고|이요|고요)(?=[\s,.!]|$)/g, " ")
     .replace(/[^\p{L}' -]/gu, " ")
     .replace(/\s+/g, " ")
     .trim()
@@ -326,8 +351,18 @@ export const readParty = (text: string): number | null => {
   const zh = t.match(new RegExp(`^(?:我们|一共|总共|共)*(?:是|有)?\\s*(${ZH_NUM})(?![月日号號年])`));
   // "二三个", two or three, is no one number: TT asks again rather than guess.
   const n = zh ? zhNumber(zh[1]) : NaN;
-  return Number.isNaN(n) ? null : n;
+  if (!Number.isNaN(n)) return n;
+  // Korean. 혼자 is one; 둘이서, 부부 and "저랑 친구" two — not "저랑 친구 두 명",
+  // which is three, and goes back to the question.
+  if (/^(?:저\s*|나\s*)?혼자/.test(t)) return 1;
+  if (/^(?:둘이|부부|커플|두\s*사람)/.test(t) || /^(?:저|나)(?:랑|하고|와)\s(?!.*(?:\d|두|세|네|다섯))/.test(t)) return 2;
+  // "2명", "두 명", "셋이요". 네, 세, 한 and 두 must carry a counter: 네 alone is
+  // "yes", and a guest saying yes to TT was not telling it there are four.
+  const ko = t.match(/^(?:저희는?|우리는?|총|모두|전부)?\s*(?:(\d{1,2})\s*(?:명|분|사람|인)?|(하나|한|둘|두|셋|세|넷|네|다섯|여섯)\s*(?:명|분|사람)|(하나|둘|셋|넷|다섯|여섯))(?:이에요|이요|요|입니다|이서)?[.!\s]*$/);
+  if (!ko) return null;
+  return ko[1] ? Number(ko[1]) : KO_NUM[ko[2] ?? ko[3]];
 };
+const KO_NUM: Record<string, number> = { 하나: 1, 한: 1, 둘: 2, 두: 2, 셋: 3, 세: 3, 넷: 4, 네: 4, 다섯: 5, 여섯: 6 };
 const DE_NUM: Record<string, number> = { eins: 1, einer: 1, zwei: 2, drei: 3, vier: 4, fünf: 5, sechs: 6 };
 
 // German answers sit beside the English ones for the same reason as readParty's.
@@ -338,14 +373,23 @@ const NO = /^(?:n|no|nope|cancel|stop|never ?mind|forget it|don'?t|nein|nee|abbr
 // a prefix match like the English would have sent the booking.
 const ZH_YES = /^(?:是|是的|好|好的|好啊|好吧|行|可以|对|对的|没错|确认|确定|发送|发吧|发送吧|嗯|嗯嗯|当然|当然可以|订吧|没问题)[。!！~～,，\s]*(?:谢谢)?[。!！~～\s]*$/;
 const ZH_NO = /^(?:不|不是|不要|不用|不行|不了|否|别|取消|取消预订|算了|停|先不|暂时不|不订)(?:了|吧)?[。!！~～,，\s]*(?:谢谢)?[。!！~～\s]*$/;
+// Korean, whole reply too, for the same reason: "네, 근데 취소할 수 있어요" (yes,
+// but can I cancel) must not send. 괜찮아요 is left out on purpose — it means
+// "that's fine" and "no thanks" alike, and TT would be guessing. Up to two of
+// the phrases may come together — "네, 보내 주세요" — but nothing else may.
+const KO_YES_WORD = "(?:네|넵|넹|네네|예|응|그래요|그래|좋아요|좋습니다|좋아|맞아요|맞습니다|맞아|확인|보내|보내요|보내\\s*주세요|보내줘|예약해\\s*주세요|예약할게요|오케이|당연하죠|알겠습니다|부탁해요|부탁합니다)";
+const KO_NO_WORD = "(?:아니요|아니오|아뇨|아니|아니에요|싫어요|취소|취소해\\s*주세요|취소할게요|그만|그만할게요|됐어요|안\\s*할게요|안\\s*할래요|다음에요|나중에요)";
+const KO_YES = new RegExp(`^${KO_YES_WORD}(?:[.!~,\\s]+${KO_YES_WORD})?[.!~,\\s]*(?:감사합니다|고마워요)?[.!~\\s]*$`);
+const KO_NO = new RegExp(`^${KO_NO_WORD}(?:[.!~,\\s]+${KO_NO_WORD})?[.!~,\\s]*(?:감사합니다|고마워요)?[.!~\\s]*$`);
 export const readYesNo = (text: string): "yes" | "no" | null => {
   const a = text.trim();
-  return YES.test(a) || ZH_YES.test(a) ? "yes" : NO.test(a) || ZH_NO.test(a) ? "no" : null;
+  return YES.test(a) || ZH_YES.test(a) || KO_YES.test(a) ? "yes" : NO.test(a) || ZH_NO.test(a) || KO_NO.test(a) ? "no" : null;
 };
 
 // A reply that is really a question is not an answer to TT's question. Chinese
 // marks one with its own full-width ？, or with only 吗 and no mark at all.
-export const looksLikeQuestion = (text: string) => /[?？]|吗\s*$/.test(text);
+// Korean often leaves the ? off too, and ends the sentence in 나요, 까(요) or 니까.
+export const looksLikeQuestion = (text: string) => /[?？]|吗\s*$|(?:나요|까요?|니까)\s*$/.test(text);
 
 // ── What the guest reads ────────────────────────────────────────────────────
 
