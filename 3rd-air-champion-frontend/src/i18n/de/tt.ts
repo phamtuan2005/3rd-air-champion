@@ -105,6 +105,10 @@ export const tt: Record<string, string> = {
   "{guests} · under {name}, {phone}": "{guests} · auf den Namen {name}, {phone}",
   "Includes {days}.": "Enthält {days}.",
   "{host} will text you the price for these nights.": "{host} schickt dir den Preis für diese Nächte per SMS.",
+  // Nightly price ranges for a guest with no agreed rate (util/priceRange).
+  "{room}: {range} a night.": "{room}: {range} pro Nacht.",
+  "Prices a night — {host} agrees your exact price with you:": "Preise pro Nacht – deinen genauen Preis vereinbart {host} mit dir:",
+  "{host} will text you your price for these nights, within {range} a night.": "{host} schickt dir deinen Preis für diese Nächte per SMS, im Rahmen von {range} pro Nacht.",
   "Family — no charge, as agreed with {host}.": "Familie – kostenlos, wie mit {host} abgesprochen.",
   "Your price: ${rate}/night, as agreed with {host}.": "Dein Preis: ${rate}/Nacht, wie mit {host} abgesprochen.",
   "Nothing is booked until {host} confirms — you'll hear back by text.": "Gebucht ist erst, wenn {host} bestätigt – du bekommst die Antwort per SMS.",

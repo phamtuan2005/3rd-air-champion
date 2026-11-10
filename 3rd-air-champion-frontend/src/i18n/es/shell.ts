@@ -96,6 +96,11 @@ export const shell: Record<string, string> = {
   "Our Rooms": "Nuestras habitaciones",
   "tap on room name to select": "toca el nombre de una habitación para elegirla",
   "Every price is agreed between you and {name}. Open a room to ask.": "Cada precio lo acuerdas directamente con {name}. Abre una habitación para preguntar.",
+  // Nightly price ranges for a guest with no agreed rate (util/priceRange).
+  "Prices are a nightly range; {name} agrees your exact price with you. Open a room to ask.": "Los precios son un rango por noche; {name} acuerda contigo el precio exacto. Abre una habitación para preguntar.",
+  "Your agreed prices are shown; the others are ranges. Open a room to ask {name}.": "Se muestran tus precios acordados; los demás son rangos. Abre una habitación para preguntarle a {name}.",
+  "/ night · agreed with {name}": "/ noche · se acuerda con {name}",
+  "This room is {range} a night; {name} agrees your exact price with you directly.": "Esta habitación cuesta {range} por noche; {name} acuerda contigo el precio exacto directamente.",
   "These are your prices, agreed with {name}.": "Estos son tus precios, acordados con {name}.",
   "Your agreed prices are shown. Open a room without one to ask {name}.": "Se muestran tus precios acordados. Abre una habitación sin precio para preguntarle a {name}.",
   "Hide room photos": "Ocultar fotos de las habitaciones",

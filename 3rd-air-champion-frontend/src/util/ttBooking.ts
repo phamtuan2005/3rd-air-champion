@@ -3,6 +3,7 @@ import { KO_DAY, MONTHS, parseDateText, ZH_NUM, zhNumber } from "./dateText";
 import { getRoomFacts } from "./roomFacts";
 import { cancellationHeadline } from "./cancellationPolicy";
 import { holidayLabelForGuest, usHolidayOn } from "./usHolidays";
+import { priceRangeText } from "./priceRange";
 import type { AskTTContext, TTRoom } from "./askTT";
 // What TT says to the guest is in their language (t, fmtDate). What is SENT
 // to the host — bookingRequestOf below — stays English, because the host
@@ -472,7 +473,9 @@ export const phoneHint = (phone: string) => t("phone ending {digits}", { digits:
  * Everything that goes to the host is here — room, check-in, check-out,
  * nights, party, name, phone — plus what the guest is agreeing to: their own
  * rate if the house has one for them (never a list price, as askTT.ts), and
- * the cancellation terms.
+ * the cancellation terms. Without one, the room's nightly range since 2026-11
+ * (util/priceRange) — the figure the card showed them — with the host still
+ * texting the exact price.
  */
 export const summaryLines = (d: TTBookingDraft, room: TTRoom, ctx: AskTTContext): string[] => {
   const rate = ctx.myRates.get(room.id);
@@ -486,7 +489,9 @@ export const summaryLines = (d: TTBookingDraft, room: TTRoom, ctx: AskTTContext)
       ? [t("Includes {days}.", { days: holidays.map((k) => `${day(k)} (${holidayLabelForGuest(usHolidayOn(k)!)})`).join(", ") })]
       : []),
     rate == null
-      ? t("{host} will text you the price for these nights.", { host })
+      ? room.priceRange
+        ? t("{host} will text you your price for these nights, within {range} a night.", { host, range: priceRangeText(room.priceRange) })
+        : t("{host} will text you the price for these nights.", { host })
       : rate === 0
         ? t("Family — no charge, as agreed with {host}.", { host })
         : t("Your price: ${rate}/night, as agreed with {host}.", { rate, host }),
