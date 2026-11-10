@@ -2,7 +2,8 @@ import { useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import { useTiBookLang } from "../../contexts/TiBookLanguageContext";
 
 /*
- * "要用中文浏览吗?" — asked once, of a guest whose phone lists Chinese or Korean
+ * "要用中文浏览吗?" — asked once, of a guest whose phone lists Chinese, Korean or
+ * Spanish
  * but who TiBook opened in English (see languageToSuggest).
  *
  * Written in the OFFERED language, not through t(): t() speaks the page's
@@ -18,6 +19,7 @@ const OFFER = {
   zh: { ask: "要用中文浏览 TiBook 吗？", yes: "切换到中文", tag: "zh-Hans" },
   // 을, not 를: TiBook ends on a consonant (북).
   ko: { ask: "TiBook을 한국어로 보시겠어요?", yes: "한국어로 보기", tag: "ko" },
+  es: { ask: "¿Quieres ver TiBook en español?", yes: "Ver en español", tag: "es" },
 } as const;
 
 const LanguageOffer = () => {

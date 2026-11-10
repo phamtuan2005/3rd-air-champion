@@ -39,6 +39,21 @@ export const MONTHS: Record<string, number> = {
   juli: 6,
   okt: 9, oktober: 9,
   dez: 11, dezember: 11,
+  // Spanish, on the same terms. "ago" (agosto) and "set" (setiembre) are left
+  // out on purpose: both are English words, and "3 days ago" would have booked
+  // the 3rd of August.
+  enero: 0, ene: 0,
+  febrero: 1,
+  marzo: 2,
+  abril: 3, abr: 3,
+  mayo: 4,
+  junio: 5,
+  julio: 6,
+  agosto: 7,
+  septiembre: 8, setiembre: 8,
+  octubre: 9,
+  noviembre: 10,
+  diciembre: 11, dic: 11,
 };
 
 // Sunday-first, matching Date.getDay(). Short forms and plurals both appear in
@@ -203,6 +218,23 @@ export const parseDateText = (text: string, today: Date = new Date()): ParsedDat
     used.push([at, at + word.length]);
   }
 
+  // ── Spanish: hoy, esta noche, mañana, pasado mañana. ───────────────────────
+  //
+  // Read apart from the list above because "mañana" is also "morning": "llego
+  // por la mañana" is "I arrive in the morning", not tomorrow. So a mañana
+  // after "la" or "las" is the morning and is left alone.
+  const esRelative = /(?<!\p{L})(pasado\s+mañana|esta\s+noche|hoy|mañana)(?!\p{L})/gu;
+  for (let hit = esRelative.exec(lower); hit; hit = esRelative.exec(lower)) {
+    const word = hit[1].replace(/\s+/g, " ");
+    if (word === "mañana" && /\blas?\s+$/.test(lower.slice(0, hit.index))) continue;
+    const at = hit.index;
+    if (used.some(([from, to]) => at >= from && at < to)) continue;
+    const when = new Date(today);
+    when.setDate(when.getDate() + (word === "pasado mañana" ? 2 : word === "mañana" ? 1 : 0));
+    found.add(keyOf(when.getFullYear(), when.getMonth(), when.getDate()));
+    used.push([at, at + hit[0].length]);
+  }
+
   // ── 8/23 and 8/23/2026 ─────────────────────────────────────────────────────
   const slash = /\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/g;
   for (let hit = slash.exec(lower); hit; hit = slash.exec(lower)) {
@@ -300,20 +332,32 @@ export const parseDateText = (text: string, today: Date = new Date()): ParsedDat
     // Whitespace only between the two. A COMMA means the number closed the
     // previous month's list: in "Aug 23, Sept 2", the 23 is August's and must
     // not be handed to September as well.
-    const before = lower.slice(Math.max(0, hit.index - 20), hit.index);
+    const before = lower.slice(Math.max(0, hit.index - 30), hit.index);
     // German puts the whole span before the month: "10.–12. Dezember", "vom
     // 10. bis 12. Dezember". Only the 12 was caught below, so a German guest
     // asking for three nights was answered about one. Read as the dash is in
     // "Dec 10-12" — every day from the first to the last.
-    const spanHit = before.match(/(?<![\d/.])(\d{1,2})\.?\s*(?:-|bis(?: zum)?)\s*(\d{1,2})\.?\s*$/);
+    // Spanish does the same with a "de" before the month: "10-12 de octubre",
+    // "del 10 al 12 de diciembre".
+    const spanHit = before.match(/(?:\bdel\s+)?(?<![\d/.])(\d{1,2})\.?\s*(?:-|bis(?: zum)?|al)\s*(\d{1,2})\.?\s*(?:de\s+)?$/);
+    // And lists the days before the month: "1, 3 y 5 de mayo". Only with the
+    // "de", so an English "Aug 23, 24 Sept" is not handed to September.
+    const listHit = spanHit ? null : before.match(/(?<![\d/.])((?:\d{1,2}\s*(?:,|\by\b|\be\b)\s*)+\d{1,2})\s+de\s+$/);
     // Not when the span is the end of the PREVIOUS month's run: in "Aug 20-25
     // Sept 2" the 20-25 is August's, and handing it to September as well
     // would add six nights nobody asked for.
     const prevEnd = monthHits[i - 1]?.end ?? -1;
     const span = spanHit && !(prevEnd >= 0 && /^[\s,.;&]*$/.test(lower.slice(prevEnd, hit.index - spanHit[0].length))) ? spanHit : null;
-    // The optional dot is German's ordinal: "1. Mai" is the first of May.
-    const trailing = before.match(/(\d{1,2})(?:st|nd|rd|th|\.)?\s*(?:of\s+)?$/);
-    if (span) {
+    const list = listHit && !(prevEnd >= 0 && /^[\s,.;&]*$/.test(lower.slice(prevEnd, hit.index - listHit[0].length))) ? listHit : null;
+    // The optional dot is German's ordinal: "1. Mai" is the first of May. "de"
+    // is Spanish's "of", and º or "ro" its ordinal: "1º de mayo", "1ro de mayo".
+    const trailing = before.match(/(\d{1,2})(?:st|nd|rd|th|\.|º|°|ro)?\s*(?:of\s+|de\s+)?$/);
+    if (list) {
+      const days = (list[1].match(/\d{1,2}/g) ?? []).map(Number);
+      const yr = yearFor(hit.month, Math.max(...days));
+      for (const d of days) addDay(hit.month, d, yr);
+      used.push([Math.max(0, hit.index - list[0].length), hit.index]);
+    } else if (span) {
       const a = Number(span[1]);
       const b = Number(span[2]);
       const yr = yearFor(hit.month, Math.max(a, b));
@@ -327,7 +371,12 @@ export const parseDateText = (text: string, today: Date = new Date()): ParsedDat
 
     // Everything from after the month name up to the next month name.
     const stop = monthHits[i + 1]?.index ?? lower.length;
-    const tail = lower.slice(hit.end, stop);
+    // Spanish: in "1 de mayo, 3 de junio" the 3 is June's — its "de" says so —
+    // and must not also be read as the 3rd of May. Same for a span or list
+    // before the next month ("1 de mayo, 10-12 de junio").
+    const tail = lower
+      .slice(hit.end, stop)
+      .replace(/(?:\d{1,2}(?:º|°|ro)?\s*(?:,|-|\bal\b|\by\b|\be\b)\s*)*\d{1,2}(?:º|°|ro)?\s+de\s+$/, "");
 
     // ── "Oct Monday & Tuesday" — a weekday named after a month means EVERY
     //    such weekday in it, not the first one.

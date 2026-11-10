@@ -1442,6 +1442,9 @@ const BookingRequestModal = ({
                               ? `${parseISO(typed.past[0]).getFullYear() + 1}年${format(parseISO(typed.past[0]), "M月d日")}`
                               : lang === "ko"
                               ? `${parseISO(typed.past[0]).getFullYear() + 1}년 ${format(parseISO(typed.past[0]), "M월 d일")}`
+                              // "1 de mayo de 2027", which parseDateText reads.
+                              : lang === "es"
+                              ? `${fmtDate(parseISO(typed.past[0]), "MMMM d")} de ${parseISO(typed.past[0]).getFullYear() + 1}`
                               :`${format(parseISO(typed.past[0]), "d MMM")} ${parseISO(typed.past[0]).getFullYear() + 1}`,
                         })}
                       </p>

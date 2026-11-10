@@ -46,10 +46,10 @@ Two things about that file:
 
 ### German
 
-TiBook speaks English, German, Chinese or Korean (`src/contexts/TiBookLanguageContext.tsx`).
+TiBook speaks English, German, Chinese, Korean or Spanish (`src/contexts/TiBookLanguageContext.tsx`).
 A phone set to German opens in German; the guest can switch under **Look**, and
 the choice is remembered per device. (How a guest finds the switch is under
-"Switching language", after Korean.)
+"Switching language", after Spanish.)
 
 - Words go through `t("the English")`, and dates the guest reads through
   `fmtDate` (German puts the day first). The German is in `src/i18n/de/`, keyed
@@ -113,25 +113,61 @@ phone with Korean listed before English, offered (below) to one with it after.
   read as four people: 네, 세, 한 and 두 only count with a counter (명, 분).
 - **The privacy guard has Korean patterns too**, as Chinese does.
 
+### Spanish
+
+Spanish follows Korean: `src/i18n/es/`, keyed by the exact English, started on a
+phone with Spanish listed before English, offered to one with it after. That
+last group is the biggest in California, which is why Spanish does not take
+German's rule (any German in the list opens in German).
+
+- **Latin American Spanish with "tú", worded like Airbnb** — anfitrión,
+  Superanfitrión, huésped, reserva, estadía, lista de deseos, llegada/salida.
+  Never "vosotros" or "vos" (`es.test.ts` fails on either), and no Spain-only
+  words (móvil, ordenador). A held stay is **apartada**: "reservada" reads as
+  confirmed.
+- **Gender.** Spanish genders adjectives, and TiBook rarely knows the guest's
+  gender or a room name's. Write around it: "Hola de nuevo", not
+  "Bienvenido/a"; "{room} está libre", not "ocupada".
+- **Every ¿…? and ¡…!** opens with its mark (`es.test.ts` checks).
+- **Dates.** Day first and lowercase, as Spanish writes them: "mar 3 nov",
+  "3 de noviembre de 2026". The clock stays 12-hour. "M/d" is **not** turned
+  round: the date box reads a slash month first, so a page showing "3/11" for
+  the 3rd of November would be read back as March 11. The phone weekday header
+  is D L M X J V S — miércoles is X because martes has the M.
+- **TT and the date box read Spanish.** 1 de mayo, 10-12 de octubre, del 10 al
+  12 de diciembre, 1, 3 y 5 de mayo, hoy / mañana / pasado mañana, este fin de
+  semana, el próximo viernes, los lunes de noviembre, 3 de noviembre 2 noches,
+  una semana, hasta el 6, somos dos. Words go in `ES_ASKED` and `ES_AMENITY`.
+  They match from the start of a word like the English, but `\b` does not see
+  an accented letter, so a pattern that must END on one (sí, reservé) uses
+  `(?!\p{L})` with the `u` flag.
+- **Left out on purpose.** "ago" and "set" are not months (English words); "por
+  la mañana" is the morning, not tomorrow; "tarde" is not a late arrival
+  ("buenas tardes"); "estación" is not parking (a train station).
+- **A Spanish yes must be the whole reply** (`ES_YES`): "si" is also "if", and
+  "si cancelo, ¿me devuelven?" must never send a request.
+- **The privacy guard has Spanish patterns too**, as Korean does. The cases
+  are in `src/util/spanishGuest.test.ts`.
+
 ### Switching language
 
 Three ways, because the guest who most needs the switch is the one least able to
 read the menu it sits in.
 
 - **The offer** (`LanguageOffer.tsx`). TiBook keeps an English phone with
-  Chinese or Korean added in English — on purpose, see `langOfDevice`. Those
+  Chinese, Korean or Spanish added in English — on purpose, see `langOfDevice`. Those
   guests get one card above the bottom bar, in THEIR language: "TiBook을 한국어로
   보시겠어요?" with the switch and "Keep English". Either tap is stored as a
   choice, so it never comes back. It waits behind any open sheet, and the TT
   and Look callouts wait for it. Who is asked: `languageToSuggest`.
 - **The menu.** Under Look, a list with one language a line, each named in its
   own language, under a heading that is every language's word for "language" at
-  once (🌐 Language · Sprache · 语言 · 언어), folded to one row that shows the
+  once (🌐 Language · Sprache · 语言 · 언어 · Idioma), folded to one row that shows the
   current language until tapped. It was a row of pills; four no
   longer fitted a phone. A new language is one line in `LANGS`.
 - **Asking TT** (`src/util/ttLanguage.ts`). "한국어로 바꿔 주세요", "auf Deutsch
-  bitte", "说中文", "English please" — in any of the four languages, naming any
-  of the four. TT switches the page and says so in the new language; a booking
+  bitte", "说中文", "en español, por favor", "English please" — in any of
+  TiBook's languages, naming any of them. TT switches the page and says so in the new language; a booking
   under way keeps going and asks its next question again in that language.
   A language name counts only alone or with a word asking for the switch, so
   "Korean food nearby?" is still a question about food. Not logged for the

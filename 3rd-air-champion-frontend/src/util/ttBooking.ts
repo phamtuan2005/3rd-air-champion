@@ -42,7 +42,16 @@ const BOOK_WORDS =
   /\b(?:book|reserve|request|hold)\b|\b(?:i'?d|i would|we'?d|we would) like\b|\b(?:i|we) (?:want|need|wanna)\b|\bcan (?:i|we) (?:get|have|stay|take)\b|\bsign me up\b|\b(?:buchen|reservieren|anfragen)\b|\b(?:ich|wir) (?:möchten?|will|wollen|brauchen?|hätten? gerne?)\b|预订|预定|订房|订一间|[想要]订|帮我订|[想要]住|예약\s*(?:하고\s*싶|할게|할래|하려|해\s*주|해줘|하겠|신청|부탁|할\s*수)|(?:묵|머물|숙박하|지내)고\s*싶/i;
 const NOT_A_NEW_BOOKING =
   /\bmy (?:booking|bookings|reservation|reservations|stay|stays|request)\b|\bcancel|\brefund|\bbooked\b|\bhow (?:do|can) (?:i|we) book\b|\bmeine[nr]? (?:buchung|buchungen|reservierung|reservierungen|anfrage|aufenthalt)\b|\bstorn|\brückerstatt|\bgebucht\b|\bwie (?:kann|buche|können) (?:ich|wir)\b|我的(?:预订|预定|订单|住宿|申请)|取消|退款|已(?:经)?(?:预订|预定|订)|订了|(?:怎么|怎样|如何)(?:预订|预定|订)|(?:내|제|저의)\s*예약|취소|환불|예약\s*(?:했|한\s|된|돼\s*있|방법|하는\s*(?:법|방법))|어떻게\s*예약/i;
-export const wantsToBook = (q: string): boolean => BOOK_WORDS.test(q) && !NOT_A_NEW_BOOKING.test(q);
+// Spanish has its own pair, with letter-aware edges: JavaScript's \b counts
+// "é" and "ñ" as non-letters, so "reservé" would end mid-word. And "reserva"
+// alone is the NOUN as often as the verb ("mi reserva"), so only "reservar",
+// the imperatives, and "quiero/quisiera … una habitación" count.
+const ES_BOOK =
+  /(?<!\p{L})(?:reservar|resérvame|resérvanos|apártame|(?:quiero|quisiera|queremos|quisiéramos|necesito|necesitamos|me gustaría|nos gustaría)\s+(?:reservar|una habitación|un cuarto|quedarme|quedarnos|hospedarme|hospedarnos)|(?:puedo|podemos|podría|podríamos)\s+(?:reservar|quedarme|quedarnos))(?!\p{L})/iu;
+const ES_NOT_A_NEW_BOOKING =
+  /(?<!\p{L})(?:mis? (?:reservas?|reservaciones?|solicitud(?:es)?|estancias?|estadías?)|cancel|reembols|devoluci[oó]n|reservé(?!\p{L})|ya (?:tengo|hice|reserv)|(?:c[oó]mo|d[oó]nde) (?:puedo |podemos |se )?reserv)/iu;
+export const wantsToBook = (q: string): boolean =>
+  (BOOK_WORDS.test(q) || ES_BOOK.test(q)) && !NOT_A_NEW_BOOKING.test(q) && !ES_NOT_A_NEW_BOOKING.test(q);
 
 // Rooms are booked by the NIGHT. The calendar, the cart and every request
 // are lists of nights; a guest talks in check-in and check-out days. These
@@ -82,6 +91,22 @@ const KO_NIGHTS = /(\d{1,2})\s*박(?:\s*\d{1,2}\s*일)?|하룻밤/;
 const KO_WEEKS = /(\d{1,2})\s*주(?:일|\s*동안)?(?![말차소년])|일주일|한\s*주(?![말차])/;
 // "5월 1일 체크인, 5월 3일 체크아웃".
 const KO_CHECKOUT = /체크\s*아웃|퇴실/;
+// Spanish: "3 de noviembre, 2 noches", "una noche", "una semana". Its own
+// numbers rather than more keys in WORD_NUM: "once" is eleven in Spanish and
+// a word in English. "esta noche" (tonight) has no number, so it is never a
+// count, and "fin de semana" (weekend) none either.
+const ES_NUM: Record<string, number> = {
+  un: 1, una: 1, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10,
+  once: 11, doce: 12, trece: 13, catorce: 14,
+};
+const esNumberOf = (s: string) => ES_NUM[s.toLowerCase()] ?? Number(s);
+const ES_NIGHTS = new RegExp(`\\b(\\d{1,2}|${Object.keys(ES_NUM).join("|")})\\s*noches?\\b`, "i");
+const ES_WEEKS = /\b(\d{1,2}|una|un|dos|tres|cuatro)\s*semanas?\b/i;
+// "hasta el 5", "del 3 al 5 de nov", "salida el 5", "me voy el 5": the day the
+// guest LEAVES, as "until" and "check out" are. "al" is Spanish's "to", and as
+// with "to" a side only counts once the text before it holds a date. A bare
+// "a" is left out: it is in nearly every Spanish sentence.
+const ES_CHECKOUT = /(?<!\p{L})(?:hasta(?:\s+el)?|al|salida(?:\s+el)?|salgo(?:\s+el)?|me\s+voy(?:\s+el)?|nos\s+vamos(?:\s+el)?)(?!\p{L})/giu;
 
 // The first date a piece of text names, from the date parser — or, for the
 // right-hand side of "Oct 10 to 12", a bare day number in the left's month.
@@ -90,7 +115,8 @@ const firstDate = (text: string, today: Date, after?: string): string | null => 
   const all = [...p.past, ...p.dates].sort();
   if (all.length > 0) return all[0];
   if (!after) return null;
-  const bare = text.match(/^\s*(?:the\s+)?(\d{1,2})(?:st|nd|rd|th)?\b/i);
+  // "hasta el 12" leaves "el 12" on the right, as "to the 12th" leaves "the 12th".
+  const bare = text.match(/^\s*(?:the\s+|el\s+)?(\d{1,2})(?:st|nd|rd|th)?\b/i);
   if (!bare) return null;
   const a = parseISO(after);
   const d = Number(bare[1]);
@@ -137,6 +163,14 @@ export const readStay = (q: string, today: Date): StayRead | null => {
     if (start && count >= 1 && count <= 90) return split(nightsFrom(start, count), todayKey);
   }
 
+  const esNights = text.match(ES_NIGHTS);
+  const esWeeks = esNights ? null : text.match(ES_WEEKS);
+  if (esNights || esWeeks) {
+    const count = esNights ? esNumberOf(esNights[1]) : 7 * esNumberOf(esWeeks![1]);
+    const start = firstDate(text.replace((esNights ?? esWeeks)![0], " "), today);
+    if (start && count >= 1 && count <= 90) return split(nightsFrom(start, count), todayKey);
+  }
+
   const zhNights = text.match(ZH_NIGHTS);
   const zhWeeks = text.match(ZH_WEEKS);
   if (zhNights || zhWeeks) {
@@ -160,7 +194,7 @@ export const readStay = (q: string, today: Date): StayRead | null => {
     }
   }
 
-  for (const [re, inclusive] of [[THROUGH, true], [CHECKOUT, false]] as const) {
+  for (const [re, inclusive] of [[THROUGH, true], [CHECKOUT, false], [ES_CHECKOUT, false]] as const) {
     re.lastIndex = 0;
     for (let m = re.exec(text); m; m = re.exec(text)) {
       const start = firstDate(text.slice(0, m.index), today);
@@ -189,8 +223,8 @@ export const checkoutReading = (q: string, dates: string[]): string[] | null => 
   // German writes the same span "10.–12." or "10. bis 12.", and is owed the
   // same button: "vom 10. bis 12." is two nights to most German travellers.
   // Chinese writes it "10-12日" or "10日到12日", and 到 usually means the same.
-  // Korean writes "10~12일" or "10일부터 12일까지".
-  if (!/\d(?:st|nd|rd|th|\.|[日号號일])?\s*(?:[-–—~～]|\bbis(?: zum)?\b|到|至|부터|에서)\s*\d/i.test(q)) return null;
+  // Korean writes "10~12일" or "10일부터 12일까지", Spanish "del 10 al 12".
+  if (!/\d(?:st|nd|rd|th|\.|[日号號일])?\s*(?:[-–—~～]|\bbis(?: zum)?\b|\bal\b|\bhasta(?: el)?\b|到|至|부터|에서)\s*\d/i.test(q)) return null;
   return dates.slice(0, -1);
 };
 
@@ -324,6 +358,9 @@ export const readContact = (text: string): { name: string; phone: string } => {
     // word ends ("김민지예요" → 김민지), never from inside a name.
     .replace(/(?:제|저의)?\s*(?:이름|성함)(?:은|이)?|저는|(?:제\s*)?(?:전화\s*번호|전화|휴대폰|핸드폰|연락처|번호)(?:는|은)?/g, " ")
     .replace(/(?:입니다|이에요|예요|이고요|이고|이요|고요)(?=[\s,.!]|$)/g, " ")
+    // Spanish: "me llamo Ana y mi celular es 408…". Whole words only, with
+    // letter-aware edges, so the "es" in "Estela" and the "y" in "Yolanda" stay.
+    .replace(/(?<!\p{L})(?:me llamo|mi nombre es|nombre|soy|mi|tel[eé]fono|n[uú]mero|celular|cel|es|y|ll[aá]mame|escr[ií]beme|al)(?!\p{L}):?/giu, " ")
     .replace(/[^\p{L}' -]/gu, " ")
     .replace(/\s+/g, " ")
     .trim()
@@ -359,8 +396,13 @@ export const readParty = (text: string): number | null => {
   // "2명", "두 명", "셋이요". 네, 세, 한 and 두 must carry a counter: 네 alone is
   // "yes", and a guest saying yes to TT was not telling it there are four.
   const ko = t.match(/^(?:저희는?|우리는?|총|모두|전부)?\s*(?:(\d{1,2})\s*(?:명|분|사람|인)?|(하나|한|둘|두|셋|세|넷|네|다섯|여섯)\s*(?:명|분|사람)|(하나|둘|셋|넷|다섯|여섯))(?:이에요|이요|요|입니다|이서)?[.!\s]*$/);
-  if (!ko) return null;
-  return ko[1] ? Number(ko[1]) : KO_NUM[ko[2] ?? ko[3]];
+  if (ko) return ko[1] ? Number(ko[1]) : KO_NUM[ko[2] ?? ko[3]];
+  // Spanish. "mi esposa y yo" is two; "mi esposa, mis dos hijos y yo" is not,
+  // and goes back to the question rather than being guessed at.
+  if (/^(?:s[oó]lo yo|yo solo|yo sola|yo|una persona|1 persona)[.!\s]*$/u.test(t)) return 1;
+  if (/^(?:nosotros dos|nosotras dos|los dos|las dos|una pareja|en pareja|pareja)[.!\s]*$/u.test(t) || /^(?:con )?mi \p{L}+ y yo[.!\s]*$/u.test(t) || /^yo y mi \p{L}+[.!\s]*$/u.test(t)) return 2;
+  const es = t.match(/^(?:somos |seremos |vamos a ser |en total |para )?(\d{1,2}|una|uno|dos|tres|cuatro|cinco|seis)(?:\s*(?:personas?|adultos?|hu[eé]spedes))?[.!\s]*$/u);
+  return es ? esNumberOf(es[1]) : null;
 };
 const KO_NUM: Record<string, number> = { 하나: 1, 한: 1, 둘: 2, 두: 2, 셋: 3, 세: 3, 넷: 4, 네: 4, 다섯: 5, 여섯: 6 };
 const DE_NUM: Record<string, number> = { eins: 1, einer: 1, zwei: 2, drei: 3, vier: 4, fünf: 5, sechs: 6 };
@@ -381,15 +423,25 @@ const KO_YES_WORD = "(?:네|넵|넹|네네|예|응|그래요|그래|좋아요|�
 const KO_NO_WORD = "(?:아니요|아니오|아뇨|아니|아니에요|싫어요|취소|취소해\\s*주세요|취소할게요|그만|그만할게요|됐어요|안\\s*할게요|안\\s*할래요|다음에요|나중에요)";
 const KO_YES = new RegExp(`^${KO_YES_WORD}(?:[.!~,\\s]+${KO_YES_WORD})?[.!~,\\s]*(?:감사합니다|고마워요)?[.!~\\s]*$`);
 const KO_NO = new RegExp(`^${KO_NO_WORD}(?:[.!~,\\s]+${KO_NO_WORD})?[.!~,\\s]*(?:감사합니다|고마워요)?[.!~\\s]*$`);
+// Spanish, whole reply as well: "si" is also "if", and "si cancelo, ¿me
+// devuelven el dinero?" begins with it. No \b either — JavaScript's ends "sí"
+// at the í. Up to two phrases together ("sí, envíala").
+const ES_YES_WORD = "(?:s[ií]|claro|claro que s[ií]|dale|ok|okey|vale|de acuerdo|perfecto|correcto|exacto|eso es|as[ií] es|confirmo|confirmar|confirmado|env[ií]a(?:la|lo)?|enviar|m[aá]nda(?:la|lo)|res[eé]rvala|adelante|por favor|est[aá] bien|bueno|listo|muy bien)";
+const ES_NO_WORD = "(?:no|nop|cancela|cancelar|canc[eé]lala|mejor no|todav[ií]a no|a[uú]n no|ahora no|olv[ií]dalo|d[eé]jalo)";
+const ES_YES = new RegExp(`^[¡\\s]*${ES_YES_WORD}(?:[.!,\\s]+${ES_YES_WORD})?[.!,\\s]*(?:gracias)?[.!\\s]*$`, "iu");
+const ES_NO = new RegExp(`^[¡\\s]*${ES_NO_WORD}(?:[.!,\\s]+${ES_NO_WORD})?[.!,\\s]*(?:gracias)?[.!\\s]*$`, "iu");
 export const readYesNo = (text: string): "yes" | "no" | null => {
   const a = text.trim();
-  return YES.test(a) || ZH_YES.test(a) || KO_YES.test(a) ? "yes" : NO.test(a) || ZH_NO.test(a) || KO_NO.test(a) ? "no" : null;
+  return YES.test(a) || ZH_YES.test(a) || KO_YES.test(a) || ES_YES.test(a)
+    ? "yes"
+    : NO.test(a) || ZH_NO.test(a) || KO_NO.test(a) || ES_NO.test(a) ? "no" : null;
 };
 
 // A reply that is really a question is not an answer to TT's question. Chinese
 // marks one with its own full-width ？, or with only 吗 and no mark at all.
 // Korean often leaves the ? off too, and ends the sentence in 나요, 까(요) or 니까.
-export const looksLikeQuestion = (text: string) => /[?？]|吗\s*$|(?:나요|까요?|니까)\s*$/.test(text);
+// Spanish opens one with ¿, and a phone keyboard often loses the closing ?.
+export const looksLikeQuestion = (text: string) => /[?？¿]|吗\s*$|(?:나요|까요?|니까)\s*$/.test(text);
 
 // ── What the guest reads ────────────────────────────────────────────────────
 

@@ -8,7 +8,7 @@ import type { LangName } from "../contexts/TiBookLanguageContext";
  * is exactly the one who will not find it there, and TT is where they already
  * type. So TT does it itself rather than explaining where the menu is.
  *
- * Each language is named the way all four languages name it: a German guest on
+ * Each language is named the way every language TiBook speaks names it: a German guest on
  * a Korean page types "Deutsch", a Korean guest on a Chinese page "한국어".
  *
  * Careful, not eager. A language name is also an adjective — "Korean food
@@ -17,20 +17,29 @@ import type { LangName } from "../contexts/TiBookLanguageContext";
  * "Korean please") or with a word that asks for the switch ("in Korean",
  * "auf Deutsch", "用中文", "한국어로 바꿔").
  */
+// Spanish names come with and without their accent: phone keyboards in English
+// drop it, and "ingles" is as clear as "inglés".
 const NAMES: Record<LangName, string> = {
-  en: "english|englisch|英语|英文|영어",
-  de: "german|deutsch|德语|德文|독일어",
-  zh: "chinese|mandarin|chinesisch|中文|汉语|普通话|중국어",
-  ko: "korean|koreanisch|韩语|韩文|韩国语|韓語|한국어|한국말|한글",
+  en: "english|englisch|ingl[eé]s|英语|英文|영어",
+  de: "german|deutsch|alem[aá]n|德语|德文|독일어",
+  zh: "chinese|mandarin|chinesisch|chino|mandar[ií]n|中文|汉语|普通话|중국어",
+  ko: "korean|koreanisch|coreano|韩语|韩文|韩国语|韓語|한국어|한국말|한글",
+  es: "spanish|spanisch|espa[nñ]ol|castellano|西班牙语|西班牙文|스페인어",
 };
 
 const asking = (name: string): RegExp[] => [
-  // The name alone, give or take a please in any of the four languages.
+  // The name alone, give or take a please in any of its languages.
   new RegExp(
-    `^\\W*(?:please\\s+|pls\\s+|bitte\\s+|请)?(?:${name})(?:\\s*(?:please|pls|bitte|version|language|mode))?` +
+    `^[^\\p{L}]*(?:please\\s+|pls\\s+|bitte\\s+|por\\s+favor\\s+|请)?(?:en\\s+)?(?:${name})(?:\\s*(?:please|pls|bitte|version|language|mode|por\\s+favor|porfa))?` +
       `(?:으로|로)?\\s*(?:해\\s*주세요|해줘|부탁해요|부탁합니다|주세요|吧)?[\\s.!?？！。~]*$`,
-    "i",
+    "iu",
   ),
+  // Spanish: "cámbialo a español", "ponlo en inglés", "¿hablas español?",
+  // "en español, por favor". Not "¿el anfitrión habla español?" — that asks
+  // about the host, as "does the host speak Korean" does.
+  new RegExp(`(?<!\\p{L})(?:c[aá]mbi\\p{L}*|p[oó]n\\p{L}*|p[aá]s\\p{L}*|mu[eé]str\\p{L}*|tr[aá]duc\\p{L}*)(?!\\p{L}).{0,30}(?<!\\p{L})(?:a|al|en)\\s+(?:${name})(?!\\p{L})`, "iu"),
+  new RegExp(`(?:^|[¿¡\\s])(?:hablas|puedes\\s+hablar|habla\\s+en)\\s+(?:${name})(?!\\p{L})`, "iu"),
+  new RegExp(`(?<!\\p{L})en\\s+(?:${name})\\s*(?:,?\\s*por\\s+favor|porfa)?[\\s.!?]*$`, "iu"),
   // English: "switch to Korean", "can you show it in Korean", "speak Korean".
   // Not "does the host speak Korean" — that asks about the host.
   new RegExp(`\\b(?:switch|change|set|put|turn|translate)\\b.{0,30}\\b(?:to|into|in)\\s+(?:${name})\\b`, "i"),
@@ -66,4 +75,6 @@ export const SWITCHED: Record<LangName, string> = {
   zh: "好的，TiBook 已切换为中文。关于入住的任何问题，都可以问我。",
   // 을, not 를: TiBook ends on a consonant (북).
   ko: "네, 이제 TiBook을 한국어로 보여 드릴게요. 숙박에 관해 무엇이든 물어보세요.",
+  // "tú", as the rest of TiBook's Spanish.
+  es: "¡Claro! TiBook ya está en español. Pregúntame lo que quieras sobre tu estadía.",
 };
