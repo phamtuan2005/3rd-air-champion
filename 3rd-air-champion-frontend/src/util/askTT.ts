@@ -4,6 +4,7 @@ import { parseDateText, ZH_NUM, zhNumber } from "./dateText";
 import { getRoomFacts, houseBathrooms, houseKitchen, houseParking } from "./roomFacts";
 import { cancellationHeadline, formatCancellationPolicy } from "./cancellationPolicy";
 import { holidayLabelForGuest, usHolidayOn } from "./usHolidays";
+import { PriceRange, priceRangeOf, priceRangeText } from "./priceRange";
 import { checkoutReading, chooseRoom, maxGuestsOf, monthAsked, readStay, stayLine, wantsToBook } from "./ttBooking";
 // What TT SAYS goes through t() and fmtDate — in TiBook's language, and English
 // in the tests, which run without the provider. What TT READS does not: the
@@ -60,11 +61,16 @@ import { languageAsked, SWITCHED } from "./ttLanguage";
 
 // The only parts of a room TT may see. Add a field here only if every guest
 // may read it.
-export type TTRoom = Pick<roomType, "id" | "name" | "airbnbUrl">;
+//
+// `priceRange` passes that test since 2026-11: every guest now sees each
+// room's nightly range on the cards (util/priceRange), so TT may say it too.
+// It is the range, worked out here at the boundary, never the room record's
+// price field itself.
+export type TTRoom = Pick<roomType, "id" | "name" | "airbnbUrl"> & { priceRange?: PriceRange | null };
 
 // Copies ONLY the safe fields. A type alone would still let the whole room
 // object — door code included — ride along at runtime.
-export const toTTRoom = (r: roomType): TTRoom => ({ id: r.id, name: r.name, airbnbUrl: r.airbnbUrl });
+export const toTTRoom = (r: roomType): TTRoom => ({ id: r.id, name: r.name, airbnbUrl: r.airbnbUrl, priceRange: priceRangeOf(r.price) });
 
 export type TTAction =
   // Put these nights in the guest's selection, in this room or (null) any room.
@@ -628,9 +634,14 @@ const roomsFitting = (rooms: TTRoom[], party: number | null) =>
 // the room's list price: TiBook leaves the price to a conversation with the
 // host, and TT saying a number the gallery does not would be two screens
 // disagreeing. A $0 rate is family, on purpose — said, never "corrected".
+//
+// Since 2026-11 a room with no rate for this guest is given as its range, the
+// same one its card shows (util/priceRange) — still never one bare number.
 const rateLine = (room: TTRoom, ctx: AskTTContext): string | null => {
   const rate = ctx.myRates.get(room.id);
-  if (rate == null) return null;
+  if (rate == null) {
+    return room.priceRange ? t("{room}: {range} a night.", { room: room.name, range: priceRangeText(room.priceRange) }) : null;
+  }
   return rate === 0
     ? t("{room}: family — no charge, agreed with {host}.", { room: room.name, host: ctx.hostFirstName })
     : t("{room}: your price is ${rate}/night.", { room: room.name, rate });
@@ -1249,8 +1260,19 @@ const answerTopic = (q: string, ctx: AskTTContext, party: number | null): TTAnsw
     if (has(q, "price", "cost", "how much", "rate", "cheap", "discount", "pay", "dollar", ...DE_ASKED.price, ...ZH_ASKED.price, ...KO_ASKED.price, ...ES_ASKED.price)) {
       category = "price";
       const rates = ctx.rooms.map((r) => rateLine(r, ctx)).filter(Boolean) as string[];
+      // "Your prices" only when every line IS theirs; a list with ranges in it
+      // says who settles the exact figure.
+      const allAgreed = ctx.rooms.every((r) => ctx.myRates.get(r.id) != null);
       return rates.length > 0
-        ? { lines: [t("Your prices, agreed with {host}:", { host }), ...rates], actions: [chat(ctx, t("Talk to {host} about price", { host }))] }
+        ? {
+            lines: [
+              allAgreed
+                ? t("Your prices, agreed with {host}:", { host })
+                : t("Prices a night — {host} agrees your exact price with you:", { host }),
+              ...rates,
+            ],
+            actions: [chat(ctx, allAgreed ? t("Talk to {host} about price", { host }) : t("Ask {host} for a price", { host }))],
+          }
         : { lines: [t("The price is something you settle with {host} directly — send your dates and {host} will give you a rate.", { host })], actions: [chat(ctx, t("Ask {host} for a price", { host }))] };
     }
     if (has(q, "kitchen", "cook", "fridge", "refrigerator", "microwave", "coffee", "food", "kettle", ...DE_ASKED.kitchen, ...ZH_ASKED.kitchen, ...KO_ASKED.kitchen, ...ES_ASKED.kitchen)) {
