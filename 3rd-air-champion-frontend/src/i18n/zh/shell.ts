@@ -91,10 +91,10 @@ export const shell: Record<string, string> = {
   "tap on room name to select": "点按房间名称进行选择",
   "Every price is agreed between you and {name}. Open a room to ask.": "每个价格都由您与 {name} 商定。打开房间即可询问。",
   // Nightly price ranges for a guest with no agreed rate (util/priceRange).
-  "Prices are nightly ranges, and negotiable. Open a room to talk price with {name}.": "价格为每晚的区间，可以商量。打开房间即可与 {name} 谈价格。",
+  "Prices are flexible nightly ranges. Open a room to find one that works for you and {name}.": "价格是灵活的每晚区间。打开房间，与 {name} 一起找到双方都满意的价格。",
   "Your agreed prices are shown; the others are ranges. Open a room to ask {name}.": "已显示您商定的价格，其余为价格区间。打开房间即可询问 {name}。",
-  "/ night · negotiable": "/ 晚 · 可议价",
-  "This room is {range} a night, and the price is negotiable. Tell {name} your dates and settle on a price together.": "此房间每晚 {range}，价格可以商量。告诉 {name} 您的日期，一起商定价格。",
+  "/ night · flexible": "/ 晚 · 价格灵活",
+  "This room is {range} a night. Tell {name} your dates and you'll find a price that works for you both.": "此房间每晚 {range}。告诉 {name} 您的日期，一起找到双方都满意的价格。",
   "These are your prices, agreed with {name}.": "这些是您与 {name} 商定的价格。",
   "Your agreed prices are shown. Open a room without one to ask {name}.": "此处显示您已商定的价格。打开尚无价格的房间，即可询问 {name}。",
   "Hide room photos": "隐藏房间照片",

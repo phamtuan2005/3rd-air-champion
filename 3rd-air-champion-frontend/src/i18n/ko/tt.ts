@@ -110,8 +110,8 @@ export const tt: Record<string, string> = {
   "{host} will text you the price for these nights.": "이 날짜의 요금은 {host} 님이 문자로 알려 드릴 거예요.",
   // Nightly price ranges for a guest with no agreed rate (util/priceRange).
   "{room}: {range} a night.": "{room} 객실: 1박 {range} 사이.",
-  "Prices a night — all negotiable with {host}:": "1박 요금 — 모두 {host} 님과 협의할 수 있어요:",
-  "The price is negotiable within {range} a night; {host} will text you to settle it.": "요금은 1박 {range} 사이에서 협의할 수 있어요. {host} 님이 문자로 연락드려 정할 거예요.",
+  "Prices a night are flexible — {host} will find one that works for you both:": "1박 요금은 유연해요 — {host} 님과 서로 맞는 요금을 찾을 수 있어요:",
+  "The price is flexible within {range} a night; {host} will text you one that works for you both.": "요금은 1박 {range} 사이에서 유연하게 정해요. {host} 님이 서로 맞는 요금을 문자로 알려 드릴 거예요.",
   "Family — no charge, as agreed with {host}.": "가족 — {host} 님과 합의한 대로 무료예요.",
   "Your price: ${rate}/night, as agreed with {host}.": "요금: 1박에 ${rate} ({host} 님과 합의한 금액).",
   "Nothing is booked until {host} confirms — you'll hear back by text.": "{host} 님이 확정하기 전까지는 예약이 완료된 게 아니에요 — 문자로 답장을 드릴 거예요.",

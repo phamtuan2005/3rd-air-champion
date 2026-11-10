@@ -490,7 +490,7 @@ export const summaryLines = (d: TTBookingDraft, room: TTRoom, ctx: AskTTContext)
       : []),
     rate == null
       ? room.priceRange
-        ? t("The price is negotiable within {range} a night; {host} will text you to settle it.", { host, range: priceRangeText(room.priceRange) })
+        ? t("The price is flexible within {range} a night; {host} will text you one that works for you both.",{ host, range: priceRangeText(room.priceRange) })
         : t("{host} will text you the price for these nights.", { host })
       : rate === 0
         ? t("Family — no charge, as agreed with {host}.", { host })

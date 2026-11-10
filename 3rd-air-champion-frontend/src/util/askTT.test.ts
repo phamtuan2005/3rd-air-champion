@@ -132,7 +132,7 @@ describe("askTT — the house", () => {
   it("gives a stranger each room's range, never one bare list price", () => {
     const a = askTT("how much is a room", ctx({}, { rooms: [king, chill, cozy].map(toTTRoom) }));
     expect(text(a)).toContain("King: $120–$130 a night.");
-    expect(text(a)).toContain("all negotiable with Anh-Tuan");
+    expect(text(a)).toContain("Prices a night are flexible — Anh-Tuan will find one");
     expect(text(a)).not.toMatch(/\$120(?!–)/);
     expect(a.actions[0]).toMatchObject({ kind: "chat" });
   });

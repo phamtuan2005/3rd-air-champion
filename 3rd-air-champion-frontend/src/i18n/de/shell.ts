@@ -89,10 +89,10 @@ export const shell: Record<string, string> = {
   "tap on room name to select": "zum Auswählen auf den Zimmernamen tippen",
   "Every price is agreed between you and {name}. Open a room to ask.": "Jeden Preis vereinbarst du direkt mit {name}. Öffne ein Zimmer, um nachzufragen.",
   // Nightly price ranges for a guest with no agreed rate (util/priceRange).
-  "Prices are nightly ranges, and negotiable. Open a room to talk price with {name}.": "Die Preise sind Spannen pro Nacht und verhandelbar. Öffne ein Zimmer, um mit {name} über den Preis zu sprechen.",
+  "Prices are flexible nightly ranges. Open a room to find one that works for you and {name}.": "Die Preise sind flexible Spannen pro Nacht. Öffne ein Zimmer, um mit {name} einen Preis zu finden, der für euch beide passt.",
   "Your agreed prices are shown; the others are ranges. Open a room to ask {name}.": "Deine vereinbarten Preise werden angezeigt, die anderen sind Spannen. Öffne ein Zimmer, um {name} zu fragen.",
-  "/ night · negotiable": "/ Nacht · verhandelbar",
-  "This room is {range} a night, and the price is negotiable. Tell {name} your dates and settle on a price together.": "Dieses Zimmer kostet {range} pro Nacht, und der Preis ist verhandelbar. Nenn {name} deine Reisedaten, und ihr einigt euch gemeinsam auf einen Preis.",
+  "/ night · flexible": "/ Nacht · flexibel",
+  "This room is {range} a night. Tell {name} your dates and you'll find a price that works for you both.": "Dieses Zimmer kostet {range} pro Nacht. Nenn {name} deine Reisedaten, und ihr findet einen Preis, der für euch beide passt.",
   "These are your prices, agreed with {name}.": "Das sind deine Preise, vereinbart mit {name}.",
   "Your agreed prices are shown. Open a room without one to ask {name}.": "Deine vereinbarten Preise werden angezeigt. Öffne ein Zimmer ohne Preis, um bei {name} nachzufragen.",
   "Hide room photos": "Zimmerfotos ausblenden",

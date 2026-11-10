@@ -604,7 +604,7 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
                 // The same range the card showed, then who settles the rest.
                 // One sentence with a slot, not pieces around a bold span:
                 // Korean and German put the verb elsewhere.
-                <>{t("This room is {range} a night, and the price is negotiable. Tell {name} your dates and settle on a price together.",{ range: priceRangeText(range), name: hostShown })}</>
+                <>{t("This room is {range} a night. Tell {name} your dates and you'll find a price that works for you both.", { range: priceRangeText(range), name: hostShown })}</>
               ) : !hasRate ? (
                 <>{t("The price here is something you can settle with {name} directly.", { name: hostShown })}</>
               ) : myRate === 0 ? (
