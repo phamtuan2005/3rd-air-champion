@@ -274,7 +274,7 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
                 where their price will land, not that there is nothing to see. */}
             <p className={`mt-0.5 text-xs ${theme.surfaceMuted}`}>
               {ratedCount === 0
-                ? t("Prices are a nightly range; {name} agrees your exact price with you. Open a room to ask.", { name: hostFirstName })
+                ? t("Prices are nightly ranges, and negotiable. Open a room to talk price with {name}.", { name: hostFirstName })
                 : ratedCount === activeRooms.length
                   ? t("These are your prices, agreed with {name}.", { name: hostFirstName })
                   : t("Your agreed prices are shown; the others are ranges. Open a room to ask {name}.", { name: hostFirstName })}

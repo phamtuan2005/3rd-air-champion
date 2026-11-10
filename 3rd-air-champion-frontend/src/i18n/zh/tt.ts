@@ -105,8 +105,8 @@ export const tt: Record<string, string> = {
   "{host} will text you the price for these nights.": "{host} 会通过短信告诉您这几晚的价格。",
   // Nightly price ranges for a guest with no agreed rate (util/priceRange).
   "{room}: {range} a night.": "{room}：每晚 {range}。",
-  "Prices a night — {host} agrees your exact price with you:": "每晚价格——具体价格由 {host} 与您商定：",
-  "{host} will text you your price for these nights, within {range} a night.": "{host} 会通过短信告诉您这几晚的具体价格，每晚在 {range} 之间。",
+  "Prices a night — all negotiable with {host}:": "每晚价格——均可与 {host} 商量：",
+  "The price is negotiable within {range} a night; {host} will text you to settle it.": "价格可在每晚 {range} 之间商量，{host} 会发短信与您商定。",
   "Family — no charge, as agreed with {host}.": "家人，免费，已与 {host} 商定。",
   "Your price: ${rate}/night, as agreed with {host}.": "您的价格：${rate}/晚，已与 {host} 商定。",
   "Nothing is booked until {host} confirms — you'll hear back by text.": "{host} 确认后才算预订成功，您会收到短信回复。",
