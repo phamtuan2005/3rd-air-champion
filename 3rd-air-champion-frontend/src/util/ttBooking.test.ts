@@ -247,9 +247,14 @@ describe("the read-back and the request", () => {
     expect(t).toMatch(/Nothing is booked until Anh-Tuan confirms/);
   });
 
-  // A stranger is never quoted a list price (askTT.ts); a $0 rate is family.
-  it("states the guest's own rate, family as family, and no price for a stranger", () => {
+  // A stranger is never quoted one bare list price (askTT.ts): they get the
+  // room's range, as its card shows, or no figure where the room has no rate.
+  // A $0 rate is family.
+  it("states the guest's own rate, family as family, and a range for a stranger", () => {
     expect(summaryLines(draft(), king, ctx()).join("\n")).toContain("Anh-Tuan will text you the price");
+    expect(summaryLines(draft(), { ...king, priceRange: { min: 55, max: 65 } }, ctx()).join("\n")).toContain(
+      "The price is flexible within $55–$65 a night; Anh-Tuan will text you one that works for you both.",
+    );
     expect(summaryLines(draft(), king, ctx({}, { myRates: new Map([["k", 85]]) })).join("\n")).toContain("$85/night");
     expect(summaryLines(draft(), king, ctx({}, { myRates: new Map([["k", 0]]) })).join("\n")).toContain("Family — no charge");
   });

@@ -5,6 +5,7 @@ import { getRoomPhotos } from "../../util/roomFacts";
 import { useTiBookTheme, useRoomChip } from "../../contexts/TiBookThemeContext";
 import RoomBadge from "../shared/RoomBadge";
 import { discountedNightly } from "../../util/loyaltyDiscount";
+import { priceRangeOf, priceRangeText } from "../../util/priceRange";
 import { useTiBookLang } from "../../contexts/TiBookLanguageContext";
 
 const BACKEND = import.meta.env.VITE_BACKEND_ENDPOINT || "";
@@ -60,6 +61,7 @@ const RoomCard = ({
   const { theme } = useTiBookTheme();
   const { t } = useTiBookLang();
   const loyalRate = discountedNightly(myRate, loyaltyPerNight);
+  const range = priceRangeOf(room.price);
   const roomChip = useRoomChip();
   // Same list the gallery pages through, so the count badge below cannot
   // promise more pictures than the gallery actually has.
@@ -140,6 +142,15 @@ const RoomCard = ({
               <span className={theme.surfaceMuted}>{t("/night")}</span>
             </>
           )}
+        </div>
+      )}
+      {/* No agreed rate: the room's range (util/priceRange), so a new guest
+          can tell a $55 room from a $95 one before asking. Plain, not bold
+          like an agreed rate, because it is not yet theirs. */}
+      {myRate == null && range && (
+        <div className="px-2 pt-1 text-[10px] leading-tight sm:text-[11px]">
+          <span className={`font-semibold ${theme.surfaceText}`}>{priceRangeText(range)}</span>
+          <span className={theme.surfaceMuted}>{t("/night")}</span>
         </div>
       )}
 
@@ -256,13 +267,17 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
                 of them are theirs. This read "Open a room to ask" for everybody
                 until Eddie — who has a rate on every room — was still being sent
                 off to ask for a price already on his screen. Both phrased as
-                what WILL happen. */}
+                what WILL happen.
+
+                Since 2026-11 a card with no agreed rate shows the room's
+                range (util/priceRange), so a stranger is told the ranges are
+                where their price will land, not that there is nothing to see. */}
             <p className={`mt-0.5 text-xs ${theme.surfaceMuted}`}>
               {ratedCount === 0
-                ? t("Every price is agreed between you and {name}. Open a room to ask.", { name: hostFirstName })
+                ? t("Prices are flexible nightly ranges. Open a room to find one that works for you and {name}.",{ name: hostFirstName })
                 : ratedCount === activeRooms.length
                   ? t("These are your prices, agreed with {name}.", { name: hostFirstName })
-                  : t("Your agreed prices are shown. Open a room without one to ask {name}.", { name: hostFirstName })}
+                  : t("Your agreed prices are shown; the others are ranges. Open a room to ask {name}.", { name: hostFirstName })}
             </p>
           </div>
           {onToggleCompact && (

@@ -12,6 +12,7 @@ import GuestCalendar, { MyStay } from "./Calendar/GuestCalendar";
 import TodayButton from "./Calendar/TodayButton";
 import CalendarViewToggle from "./Calendar/CalendarViewToggle";
 import { upcomingHolidaysInMonth } from "../../util/usHolidays";
+import { priceRangeOf, priceRangeText } from "../../util/priceRange";
 import { useTiBookLang } from "../../contexts/TiBookLanguageContext";
 
 const BACKEND = import.meta.env.VITE_BACKEND_ENDPOINT || "";
@@ -587,6 +588,13 @@ const HeroShell = ({
    * THIS guest already has is a price, and that one is worth showing: it is
    * the outcome of the conversation, and it is the one thing on this screen a
    * returning guest cannot get anywhere else.
+   *
+   * A guest with no rate still never sees one bare number. Since 2026-11 they
+   * see the room's RANGE (util/priceRange: its rate up to $10 more), labelled
+   * flexible — where the price will land, not a quote. ("Negotiable" was
+   * tried first; it read as haggling, which guests find awkward.) Before
+   * that they saw no figure at all and could not tell a $55 room from a $95
+   * one without messaging first.
    */
   const myRate = (r: roomType) => myRates?.get(r.id);
 
@@ -790,9 +798,14 @@ const HeroShell = ({
                             <span className={`text-2xl font-extrabold tracking-tight ${theme.textPrimary}`}>${myRate(room)}</span>
                             <span className="text-xs text-white/80">{t("/ night · your rate")}</span>
                           </>
+                        ) : priceRangeOf(room.price) ? (
+                          <>
+                            <span className={`text-xl font-extrabold tracking-tight ${theme.textPrimary}`}>{priceRangeText(priceRangeOf(room.price)!)}</span>
+                            <span className="text-xs text-white/80">{t("/ night · flexible")}</span>
+                          </>
                         ) : (
-                          /* Says what will happen rather than showing a number
-                             that is not theirs. */
+                          /* A room with no rate set: says what will happen
+                             rather than showing a number that is not theirs. */
                           <span className="text-xs leading-snug text-white/85">{t("Your price is agreed with {name}", { name: hostFirstName })}</span>
                         )}
                       </span>

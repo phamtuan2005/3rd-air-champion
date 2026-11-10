@@ -126,12 +126,28 @@ describe("askTT — availability", () => {
 });
 
 describe("askTT — the house", () => {
-  // TiBook leaves the price to the host; TT quoting the list price would
-  // disagree with the gallery.
-  it("never quotes a stranger the room's list price", () => {
-    const a = askTT("how much is a room", ctx());
-    expect(text(a)).not.toContain("$120");
+  // A stranger is never quoted one bare number: since 2026-11 they get each
+  // room's range, the same one its card shows (util/priceRange), and the host
+  // still settles the exact price. A lone "$120/night" would read as a quote.
+  it("gives a stranger each room's range, never one bare list price", () => {
+    const a = askTT("how much is a room", ctx({}, { rooms: [king, chill, cozy].map(toTTRoom) }));
+    expect(text(a)).toContain("King: $120–$130 a night.");
+    expect(text(a)).toContain("Prices a night are flexible — Anh-Tuan will find one");
+    expect(text(a)).not.toMatch(/\$120(?!–)/);
     expect(a.actions[0]).toMatchObject({ kind: "chat" });
+  });
+
+  // A room with no rate set has no range to give; TT falls back to the host.
+  it("sends a stranger to the host when no room has a rate set", () => {
+    const a = askTT("how much is a room", ctx());
+    expect(text(a)).toContain("settle with Anh-Tuan");
+  });
+
+  it("gives a range only for the rooms a returning guest has no rate for", () => {
+    const a = askTT("price", ctx({}, { rooms: [king, chill].map(toTTRoom), myRates: new Map([["k", 85]]) }));
+    expect(text(a)).toContain("King: your price is $85/night");
+    expect(text(a)).toContain("Chill: $120–$130 a night.");
+    expect(text(a)).not.toContain("Your prices, agreed");
   });
 
   it("tells a guest their own agreed rate, and a $0 rate as family", () => {
@@ -317,7 +333,9 @@ describe("askTT — privacy", () => {
 
   it("strips a room to what a guest may see", () => {
     const stripped = toTTRoom({ ...king, checkInInstructions: "Code 1224#, key under mat", photos: ["x"], color: "red" });
-    expect(stripped).toEqual({ id: "k", name: "King", airbnbUrl: king.airbnbUrl });
+    // The nightly range is public since 2026-11 (every card shows it); the
+    // raw price field, door code and instructions are still left behind.
+    expect(stripped).toEqual({ id: "k", name: "King", airbnbUrl: king.airbnbUrl, priceRange: { min: 120, max: 130 } });
     expect(JSON.stringify(stripped)).not.toContain("1224");
   });
 

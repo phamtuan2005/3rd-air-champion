@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { roomType } from "../../util/types/roomType";
 import { getRoomFacts, getRoomPhotos, houseKitchen, houseParking } from "../../util/roomFacts";
 import { discountedNightly } from "../../util/loyaltyDiscount";
+import { priceRangeOf, priceRangeText } from "../../util/priceRange";
 import { useRoomChip, useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import BedIcon from "./BedIcon";
 import ParkingIcon from "./ParkingIcon";
@@ -93,6 +94,9 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
   // Their draft carries the rate so the host can see which figure is being
   // talked about, and asks about dates instead of asking to be quoted again.
   const hasRate = myRate != null;
+  // The range a guest with no rate was shown (util/priceRange). It rides in
+  // their draft too, so the host sees which figures they are asking about.
+  const range = hasRate ? null : priceRangeOf(room.price);
   const priceSmsHref = hostPhone
     ? `sms:${hostPhone}?&body=${encodeURIComponent(
         `Hi ${hostFirstName}! I'm looking at the ${room.name} room on TiBook` +
@@ -100,7 +104,7 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
             ? myRate === 0
               ? `. Could we talk about my dates?`
               : ` (my price is $${myRate}/night). Could we talk about my dates?`
-            : `. Could we talk about the price for my dates?`),
+            : `${range ? ` (${priceRangeText(range)}/night)` : ""}. Could we talk about the price for my dates?`),
       )}`
     : undefined;
 
@@ -596,7 +600,12 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
         {(priceSmsHref || onOpenChat) && (
           <>
             <p className="mt-3 text-sm text-gray-300">
-              {!hasRate ? (
+              {!hasRate && range ? (
+                // The same range the card showed, then who settles the rest.
+                // One sentence with a slot, not pieces around a bold span:
+                // Korean and German put the verb elsewhere.
+                <>{t("This room is {range} a night. Tell {name} your dates and you'll find a price that works for you both.", { range: priceRangeText(range), name: hostShown })}</>
+              ) : !hasRate ? (
                 <>{t("The price here is something you can settle with {name} directly.", { name: hostShown })}</>
               ) : myRate === 0 ? (
                 <>
