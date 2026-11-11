@@ -125,8 +125,8 @@ export const tt: Record<string, string> = {
   "{host} will text you the price for these nights.": "{host} te enviará el precio de estas noches por mensaje de texto.",
   // Nightly price ranges for a guest with no agreed rate (util/priceRange).
   "{room}: {range} a night.": "{room}: {range} por noche.",
-  "Prices a night — {host} agrees your exact price with you:": "Precios por noche — {host} acuerda contigo el precio exacto:",
-  "{host} will text you your price for these nights, within {range} a night.": "{host} te enviará por mensaje tu precio para estas noches, dentro de {range} por noche.",
+  "Prices a night are flexible — {host} will find one that works for you both:": "Los precios por noche son flexibles — {host} encontrará contigo uno que les funcione a los dos:",
+  "The price is flexible within {range} a night; {host} will text you one that works for you both.": "El precio es flexible dentro de {range} por noche; {host} te enviará por mensaje uno que les funcione a los dos.",
   // Family stay at $0 on purpose (CLAUDE.md) — said as agreed, never as a deal.
   "Family — no charge, as agreed with {host}.": "Familia — sin costo, como acordaste con {host}.",
   "Your price: ${rate}/night, as agreed with {host}.": "Tu precio: ${rate}/noche, como acordaste con {host}.",

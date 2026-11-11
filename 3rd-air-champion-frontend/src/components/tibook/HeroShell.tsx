@@ -591,7 +591,8 @@ const HeroShell = ({
    *
    * A guest with no rate still never sees one bare number. Since 2026-11 they
    * see the room's RANGE (util/priceRange: its rate up to $10 more), labelled
-   * as agreed with the host — where the price will land, not a quote. Before
+   * flexible — where the price will land, not a quote. ("Negotiable" was
+   * tried first; it read as haggling, which guests find awkward.) Before
    * that they saw no figure at all and could not tell a $55 room from a $95
    * one without messaging first.
    */
@@ -800,7 +801,7 @@ const HeroShell = ({
                         ) : priceRangeOf(room.price) ? (
                           <>
                             <span className={`text-xl font-extrabold tracking-tight ${theme.textPrimary}`}>{priceRangeText(priceRangeOf(room.price)!)}</span>
-                            <span className="text-xs text-white/80">{t("/ night · agreed with {name}", { name: hostFirstName })}</span>
+                            <span className="text-xs text-white/80">{t("/ night · flexible")}</span>
                           </>
                         ) : (
                           /* A room with no rate set: says what will happen

@@ -89,10 +89,10 @@ export const shell: Record<string, string> = {
   "tap on room name to select": "zum Auswählen auf den Zimmernamen tippen",
   "Every price is agreed between you and {name}. Open a room to ask.": "Jeden Preis vereinbarst du direkt mit {name}. Öffne ein Zimmer, um nachzufragen.",
   // Nightly price ranges for a guest with no agreed rate (util/priceRange).
-  "Prices are a nightly range; {name} agrees your exact price with you. Open a room to ask.": "Die Preise sind eine Spanne pro Nacht; deinen genauen Preis vereinbart {name} mit dir. Öffne ein Zimmer, um nachzufragen.",
+  "Prices are flexible nightly ranges. Open a room to find one that works for you and {name}.": "Die Preise sind flexible Spannen pro Nacht. Öffne ein Zimmer, um mit {name} einen Preis zu finden, der für euch beide passt.",
   "Your agreed prices are shown; the others are ranges. Open a room to ask {name}.": "Deine vereinbarten Preise werden angezeigt, die anderen sind Spannen. Öffne ein Zimmer, um {name} zu fragen.",
-  "/ night · agreed with {name}": "/ Nacht · mit {name} vereinbart",
-  "This room is {range} a night; {name} agrees your exact price with you directly.": "Dieses Zimmer kostet {range} pro Nacht; deinen genauen Preis vereinbart {name} direkt mit dir.",
+  "/ night · flexible": "/ Nacht · flexibel",
+  "This room is {range} a night. Tell {name} your dates and you'll find a price that works for you both.": "Dieses Zimmer kostet {range} pro Nacht. Nenn {name} deine Reisedaten, und ihr findet einen Preis, der für euch beide passt.",
   "These are your prices, agreed with {name}.": "Das sind deine Preise, vereinbart mit {name}.",
   "Your agreed prices are shown. Open a room without one to ask {name}.": "Deine vereinbarten Preise werden angezeigt. Öffne ein Zimmer ohne Preis, um bei {name} nachzufragen.",
   "Hide room photos": "Zimmerfotos ausblenden",

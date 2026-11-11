@@ -1268,7 +1268,7 @@ const answerTopic = (q: string, ctx: AskTTContext, party: number | null): TTAnsw
             lines: [
               allAgreed
                 ? t("Your prices, agreed with {host}:", { host })
-                : t("Prices a night — {host} agrees your exact price with you:", { host }),
+                : t("Prices a night are flexible — {host} will find one that works for you both:", { host }),
               ...rates,
             ],
             actions: [chat(ctx, allAgreed ? t("Talk to {host} about price", { host }) : t("Ask {host} for a price", { host }))],

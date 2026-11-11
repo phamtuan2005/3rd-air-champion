@@ -89,10 +89,10 @@ export const shell: Record<string, string> = {
   "tap on room name to select": "객실 이름을 탭해서 선택하세요",
   "Every price is agreed between you and {name}. Open a room to ask.": "모든 요금은 {name} 님과 직접 정해요. 객실을 열어 문의하세요.",
   // Nightly price ranges for a guest with no agreed rate (util/priceRange).
-  "Prices are a nightly range; {name} agrees your exact price with you. Open a room to ask.": "요금은 1박 기준 범위로 표시돼요. 정확한 요금은 {name} 님과 정해요. 객실을 열어 문의하세요.",
+  "Prices are flexible nightly ranges. Open a room to find one that works for you and {name}.": "요금은 1박 기준의 유연한 범위예요. 객실을 열어 {name} 님과 서로 맞는 요금을 찾아보세요.",
   "Your agreed prices are shown; the others are ranges. Open a room to ask {name}.": "합의된 요금이 표시되고, 나머지는 요금 범위예요. 객실을 열어 {name} 님께 문의하세요.",
-  "/ night · agreed with {name}": "/ 박 · {name} 님과 합의",
-  "This room is {range} a night; {name} agrees your exact price with you directly.": "이 객실 요금은 1박 {range} 사이예요. 정확한 요금은 {name} 님과 직접 정해요.",
+  "/ night · flexible": "/ 박 · 유연한 요금",
+  "This room is {range} a night. Tell {name} your dates and you'll find a price that works for you both.": "이 객실 요금은 1박 {range} 사이예요. {name} 님께 날짜를 알려 주시면 서로 맞는 요금을 함께 찾을 수 있어요.",
   "These are your prices, agreed with {name}.": "{name} 님과 합의한 고객님의 요금이에요.",
   "Your agreed prices are shown. Open a room without one to ask {name}.": "합의한 요금이 표시돼요. 요금이 없는 객실을 열면 {name} 님께 문의할 수 있어요.",
   "Hide room photos": "객실 사진 숨기기",
