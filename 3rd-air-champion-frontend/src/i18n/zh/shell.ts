@@ -130,10 +130,10 @@ export const shell: Record<string, string> = {
     "房内独立卫生间，配智能马桶：座圈加热，内置净身功能",
   "Shared bathroom, with a bathtub, hot water and a smart toilet — warm seat and built-in bidet":
     "共用卫生间，配浴缸、热水和智能马桶：座圈加热，内置净身功能",
-  "Your own room, with a lock on the door": "独立房间，房门可上锁",
-  "Your own room and private balcony, with a lock on the door": "独立房间和私人阳台，房门可上锁",
+  "Your own room, with a lock on the door": "独立房间，房间独立密码锁",
+  "Your own room and private balcony, with a lock on the door": "独立房间和私人阳台，房间独立密码锁",
   "Wifi": "无线网络",
-  "Air conditioning": "空调",
+  "Air conditioning": "独立空调",
   "Central air conditioning": "中央空调",
   "Heating": "暖气",
   "Dedicated workspace": "专用办公区",
@@ -196,7 +196,7 @@ export const shell: Record<string, string> = {
   "Your price is agreed with {name}": "您的价格与 {name} 商定",
   "{n} photos": "{n}张照片",
   "Details": "详情",
-  "Any room is fine": "哪间房都可以",
+  "Any room is fine": "查看可选房间",
   "{name} picks the room and agrees your price. Same house, same bathrooms.":
     "由 {name} 为您选房并商定价格。同一栋房子，同样的卫生间。",
   "Your host": "您的房东",
