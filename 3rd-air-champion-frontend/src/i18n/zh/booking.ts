@@ -55,9 +55,9 @@ export const booking: Record<string, string> = {
   "Write your dates": "写下您的日期",
   // Chinese dates on purpose: parseDateText reads this exact form.
   "e.g. May 1, 3–5, 20–21 — or anything else you'd like us to know":
-    "例如：5月1日、3–5日、20–21日，或者任何想告诉我们的事",
+    "例如：5月1日、3–5日、20–21日，或有何特殊要求",
   "e.g. May 1, 3–5, 20–21\nor anything else you'd like us to know":
-    "例如：5月1日、3–5日、20–21日\n或者任何想告诉我们的事",
+    "例如：5月1日、3–5日、20–21日\n或有何特殊要求",
   "Please pick dates on the calendar or write your dates below.":
     "请在日历上选择日期，或在下方写下您的日期。",
   "1 date read from what you wrote": "从您写的内容中读取到1个日期",
