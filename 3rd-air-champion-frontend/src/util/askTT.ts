@@ -277,8 +277,14 @@ const names = (rooms: TTRoom[]) => rooms.map((r) => r.name).join(", ");
 // A Chinese word has no \b to start from: JavaScript's \b only knows Latin
 // letters and digits, so "\b停车" never matches anything, anywhere. Korean is
 // the same: \b sees no word edge beside Hangul either.
+// And a word that begins with an accented letter \u2014 Vietnamese "\u0111\u1eb7t", "\u1edf",
+// "\u1ed3n" \u2014 never starts at \b, which JavaScript only puts beside ASCII letters,
+// so it starts after anything that is not a letter instead.
+const LETTER = "a-z\\u00c0-\\u024f\\u1e00-\\u1eff";
 const has = (q: string, ...words: string[]) =>
-  words.some((w) => new RegExp(/^[\u4e00-\u9fff\uac00-\ud7a3]/.test(w) ? w : `\\b${w}`, "i").test(q));
+  words.some((w) =>
+    new RegExp(/^[\u4e00-\u9fff\uac00-\ud7a3]/.test(w) ? w : /^[^\x00-\x7f]/.test(w) ? `(?<![${LETTER}])${w}` : `\\b${w}`, "i").test(q),
+  );
 
 // A few German words for the topics, now that TiBook answers German guests
 // in German. Only ADDED beside the English, never instead: the topic order
@@ -494,6 +500,74 @@ const ES_AMENITY: Record<string, RegExp> = {
   "step-free access": /\b(?:escaleras?|elevador|ascensor|silla de ruedas)/i,
 };
 
+// The same topics in Vietnamese. Vietnamese writes a space between every
+// syllable, so most topics are two-syllable phrases: "phòng" alone is any
+// room, "phòng tắm" the bathroom. A short word that begins longer ones ends in
+// VE, the letter-aware \b: "chó" (dog) must not match "chóng" (quick), nor
+// "giá" (price) "giác". Left out on purpose: "sân" alone (sân bay is
+// the airport), "hình" alone ("hình như" is "it seems"), "tủ" alone (tủ lạnh
+// is the fridge), and "vợ chồng" as anything but a party: "can a couple
+// stay" is a question about rooms, not the host's marriage.
+const VE = `(?![${LETTER}])`;
+const VI_ASKED: Record<keyof typeof ZH_ASKED, string[]> = {
+  extend: ["ở thêm", "thêm (?:một |1 )?đêm", "gia hạn", "kéo dài"],
+  cancel: ["hủy", "huỷ", "hoàn tiền", "đổi ngày", "dời ngày"],
+  myBookings: ["đặt phòng của (?:tôi|em|mình)", "đã đặt", "yêu cầu của (?:tôi|em|mình)", "kỳ lưu trú của (?:tôi|em|mình)"],
+  luggage: ["hành lý", "hành lí", "vali", "va li", "gửi đồ"],
+  checkIn: ["nhận phòng", "trả phòng", "đến sớm", "đến muộn", "đến trễ", "về muộn", "chìa khóa", "chìa khoá", "vào nhà", "vào phòng", `sớm${VE}`, `muộn${VE}`, `trễ${VE}`],
+  askingTime: ["mấy giờ", "lúc nào", "khi nào", "bao giờ", `giờ${VE}`],
+  charger: ["sạc", "xe điện"],
+  parking: ["đỗ xe", "đậu xe", "bãi xe", "chỗ để xe", "gửi xe", "ô tô", "xe hơi", "gara"],
+  payment: ["thanh toán", "trả tiền", "tiền mặt", "chuyển khoản", `thẻ${VE}`, "đặt cọc", "tiền cọc", "phí dọn", "hóa đơn", "hoá đơn", "biên lai"],
+  longStay: ["theo tháng", "hàng tháng", "một tháng", "1 tháng", "dài hạn", "lâu dài", "theo tuần", "hàng tuần", "một tuần", "1 tuần"],
+  minimum: ["tối thiểu", "tối đa", "ít nhất", "chỉ (?:một|1) đêm"],
+  price: [`giá${VE}`, "bao nhiêu tiền", "chi phí", `rẻ${VE}`, "giảm giá", "mất bao nhiêu"],
+  kitchen: ["bếp", "nấu", "tủ lạnh", "lò vi sóng", "cà phê", "ăn uống", "đồ ăn", "ấm đun"],
+  bathroom: ["phòng tắm", "nhà tắm", "nhà vệ sinh", "vòi sen", "nước nóng", `tắm${VE}`, `wc${VE}`],
+  houseRules: ["thú cưng", `chó${VE}`, `mèo${VE}`, "hút thuốc", `tiệc${VE}`, `ồn${VE}`, "yên tĩnh", "nội quy", "quy định", "bạn bè", "trẻ em", "trẻ con", "em bé", "con nhỏ", "dẫn bạn", "khách đến chơi"],
+  location: ["ở đâu", "địa chỉ", "vị trí", `gần${VE}`, "sân bay", `tàu${VE}`, "xe buýt", "xe bus", "bao xa", "khoảng cách", "khu vực", "khu này", "đón", "an toàn"],
+  // What TT has no map for: the area, as opposed to where the house is.
+  area: [`gần${VE}`, "sân bay", `tàu${VE}`, "xe buýt", "xe bus", "bao xa", "khoảng cách", "khu vực", "khu này", "đón", "an toàn"],
+  photos: ["hình ảnh", "hình phòng", `ảnh${VE}`, "trông (?:như )?thế nào", "xem phòng"],
+  host: ["chủ nhà", "nói chuyện", `gọi${VE}`, "liên hệ", "nhắn tin", "người thật"],
+  booking: ["đặt phòng", "đặt chỗ", "giữ chỗ", "thuê phòng", `đặt${VE}`],
+  rooms: [`phòng${VE}`, "giường", `ngủ${VE}`, "bao nhiêu người", "mấy người", "sức chứa", "ở được"],
+  greeting: ["xin chào", "chào", `alo${VE}`],
+  thanks: ["cảm ơn", "cám ơn", "tuyệt", "tốt quá", "hay quá"],
+  wish: ["danh sách yêu thích", "yêu thích"],
+  usualRoom: ["phòng cũ", "như lần trước", "lần trước", "phòng quen", "phòng của (?:tôi|em|mình)", "phòng mọi khi", "như mọi khi"],
+  available: ["còn trống", `trống${VE}`, "còn phòng", "hết phòng", "có phòng"],
+};
+
+// The amenities in Vietnamese, by the same label AMENITIES finds them under.
+// "máy lạnh" is the South's word for air conditioning and "điều hòa" the
+// North's; both are here, as "bàn ủi" and "bàn là" (an iron) are.
+const vi = (words: string) => new RegExp(`(?<![${LETTER}])(?:${words})`, "i");
+const VI_AMENITY: Record<string, RegExp> = {
+  "wifi": vi(`mạng${VE}|internet|wi-?fi`),
+  "air conditioning": vi("máy lạnh|điều hòa|điều hoà"),
+  "heating": vi("sưởi"),
+  "a TV": vi("tivi|ti vi|truyền hình"),
+  "a dedicated workspace": vi("bàn làm việc|chỗ làm việc|góc làm việc"),
+  "a fan": vi("quạt"),
+  "a lock on the door": vi("khóa cửa|khoá cửa|ổ khóa|ổ khoá|khóa phòng|khoá phòng"),
+  "outdoor space": vi(`sân${VE}(?! bay)|vườn|ban công|ngoài trời`),
+  "towels and bed linen": vi("khăn|ga giường|drap|chăn ga"),
+  "a hair dryer": vi("máy sấy tóc|sấy tóc"),
+  "toiletries": vi("dầu gội|xà phòng|xà bông|sữa tắm|bàn chải|kem đánh răng|đồ vệ sinh cá nhân"),
+  "a washer or dryer": vi("máy giặt|giặt đồ|giặt quần áo|máy sấy quần áo|sấy đồ"),
+  "an iron": vi("bàn ủi|bàn là"),
+  "extra blankets and pillows": vi(`chăn${VE}|mền${VE}|gối${VE}`),
+  "a closet": vi("tủ quần áo|tủ đồ|móc áo|móc treo"),
+  "blackout curtains": vi("rèm|màn cửa"),
+  "a window": vi("cửa sổ"),
+  "a crib": vi(`cũi${VE}|nôi${VE}|ghế ăn trẻ em`),
+  "a gym": vi("phòng gym|phòng tập|gym"),
+  "a pool or hot tub": vi("hồ bơi|bể bơi|bồn tắm nước nóng|xông hơi"),
+  "breakfast": vi("bữa sáng|ăn sáng"),
+  "step-free access": vi("cầu thang|thang máy|xe lăn"),
+};
+
 // Runs of consecutive nights, each one stay as the guest would describe it.
 const runsOf = (keys: string[]): string[][] => {
   const runs: string[][] = [];
@@ -509,14 +583,39 @@ const runsOf = (keys: string[]): string[][] => {
 // weekday on its own ("Friday"). dateText reads a weekday only after a month,
 // where it means every such day; on its own a guest means the coming one.
 export const datesAsked = (query: string, today: Date): { dates: string[]; past: string[] } => {
-  const parsed = parseDateText(query, today);
+  const parsed = parseDateText(query, today, { lang: currentLang() });
   if (parsed.dates.length > 0 || parsed.past.length > 0) return parsed;
+
+  // Vietnamese numbers its weekdays — thứ Hai (Monday) is "day two" — and
+  // guests write them as words, digits or "T2". "tuần sau"/"tuần tới" after
+  // one is the Friday of next week, a Vietnamese week starting on Monday, as
+  // 下周五 is. "cuối tuần" (weekend) is handled with the others below.
+  // Not "lần thứ hai" or "phòng thứ hai" — the second time, the second room.
+  const viQ = query.normalize("NFC").toLowerCase();
+  const viDay = viQ.match(
+    /(?<![\p{L}\p{M}])(?<!(?:lần|người|phòng|tầng|cái)\s+)(?:th[uứ]\s*(hai|ba|t[uư]|năm|nam|sáu|sau|bảy|bay|[2-7])|t([2-7])|(ch[uủ]\s*nh[aậ]t|cn))(?![\p{L}\p{M}\d])(\s+(?:tuần\s+(?:sau|tới)|tới))?/u,
+  );
+  if (viDay) {
+    const NUM: Record<string, number> = { hai: 1, ba: 2, tư: 3, tu: 3, năm: 4, nam: 4, sáu: 5, sau: 5, bảy: 6, bay: 6 };
+    const w = viDay[1] ?? viDay[2];
+    const want = viDay[3] ? 0 : /^\d$/.test(w) ? Number(w) - 1 : NUM[w];
+    const inMonth = monthAsked(viQ, today);
+    if (inMonth) return { dates: inMonth.filter((k) => parseISO(k).getDay() === want), past: [] };
+    const todayNum = today.getDay();
+    const toNextMonday = (1 - todayNum + 7) % 7 || 7;
+    const ahead = /tuần/.test(viDay[4] ?? "") ? toNextMonday + (want + 6) % 7 : (want - todayNum + 7) % 7;
+    return { dates: [keyOf(addDays(today, ahead))], past: [] };
+  }
 
   // 周末 and 下周末 become the English words, so one rule decides what a weekend
   // is. 本周末 and 这个周末 are this weekend, which is what "weekend" alone means.
   // Korean the same way: 다음 주말 is next weekend, 이번 주말 and 주말 this one.
   const q = query
+    .normalize("NFC")
     .toLowerCase()
+    // Vietnamese: "cuối tuần sau/tới" is next weekend, "cuối tuần (này)" this.
+    .replace(/cuối\s+tuần\s+(?:sau|tới)/g, " next weekend ")
+    .replace(/cuối\s+tuần/g, " weekend ")
     .replace(/下个?(?:周末|週末)/g, " next weekend ")
     .replace(/周末|週末/g, " weekend ")
     .replace(/다음\s*주\s*주말|다음\s*주말/g, " next weekend ")
@@ -616,7 +715,12 @@ export const partySizeAsked = (query: string): number | null => {
   const es =
     q.match(/(?<!\p{L})(\d{1,2}|una|uno|dos|tres|cuatro|cinco|seis)\s*(?:personas?|hu[eé]spedes|adultos?)(?!\p{L})/u) ??
     q.match(/(?<!\p{L})(?:somos|seremos|para)\s+(dos|tres|cuatro|cinco|seis|[1-6])(?!\p{L})(?!\s*(?:noches?|semanas?|d[ií]as|meses|:))/u);
-  return es ? ES_N[es[1]] ?? Number(es[1]) : null;
+  if (es) return ES_N[es[1]] ?? Number(es[1]);
+  // Vietnamese: "2 người", "hai người lớn", "3 khách". "người" needs its
+  // number right before it: "người lớn" alone is "adults", no count.
+  const VI_N: Record<string, number> = { một: 1, hai: 2, ba: 3, bốn: 4, năm: 5, sáu: 6 };
+  const viCount = q.normalize("NFC").match(/(?<![\p{L}\p{M}\d])(\d{1,2}|một|hai|ba|bốn|năm|sáu)\s*(?:người|khách)(?![\p{L}\p{M}])/u);
+  return viCount ? VI_N[viCount[1]] ?? Number(viCount[1]) : null;
 };
 
 // A room named in the question. Longest name first, so "ChillChill" is not
@@ -882,7 +986,8 @@ const answerMonth = (nights: string[], ctx: AskTTContext, room: TTRoom | null): 
           : currentLang() === "ko"
             ? `${nice(r[0])}–${format(parseISO(r[r.length - 1]), "d")}일`
             // Spanish puts the run before the month, as German does: "3–5 nov".
-            : currentLang() === "es"
+            // Vietnamese too: "3–5 thg 11".
+            : currentLang() === "es" || currentLang() === "vi"
               ? `${format(parseISO(r[0]), "d")}–${nice(r[r.length - 1])}`
               : `${nice(r[0])}–${format(parseISO(r[r.length - 1]), "d")}`;
   const who = room ? room.name : t("a room");
@@ -913,6 +1018,9 @@ const answerMonth = (nights: string[], ctx: AskTTContext, room: TTRoom | null): 
             // "10-12 de octubre", which dateText reads as Spanish.
             : currentLang() === "es"
             ? `${format(parseISO(nights[0]), "d")}-${format(addDays(parseISO(nights[0]), 2), "d")} de ${fmtDate(parseISO(nights[0]), "MMMM")}`
+            // "10-12 tháng 10", which dateText reads as Vietnamese.
+            : currentLang() === "vi"
+            ? `${format(parseISO(nights[0]), "d")}-${format(addDays(parseISO(nights[0]), 2), "d")} tháng ${format(parseISO(nights[0]), "M")}`
             :`${format(parseISO(nights[0]), "MMM d")}-${format(addDays(parseISO(nights[0]), 2), "d")}`,
       }),
     ],
@@ -1172,7 +1280,7 @@ const answerTopic = (q: string, ctx: AskTTContext, party: number | null): TTAnsw
 
     // Staying longer is booking the extra nights — something TT can do now
     // (ttBooking.ts) — not a question about the stay already booked.
-    if (has(q, "extend", "stay longer", "extra night", "more nights", "another night", ...DE_ASKED.extend, ...ZH_ASKED.extend, ...KO_ASKED.extend, ...ES_ASKED.extend)) {
+    if (has(q, "extend", "stay longer", "extra night", "more nights", "another night", ...DE_ASKED.extend, ...ZH_ASKED.extend, ...KO_ASKED.extend, ...ES_ASKED.extend, ...VI_ASKED.extend)) {
       category = "booking";
       return {
         lines: [t("Tell me the extra nights — like “Oct 13-14” — and I'll check your room is free and book them.")],
@@ -1181,7 +1289,7 @@ const answerTopic = (q: string, ctx: AskTTContext, party: number | null): TTAnsw
     }
     // Cancelling comes before "my booking": "I need to cancel my booking" is
     // asking about the terms, and was being sent to the bookings list alone.
-    if (has(q, "cancel", "refund", "change my", "money back", ...DE_ASKED.cancel, ...ZH_ASKED.cancel, ...KO_ASKED.cancel, ...ES_ASKED.cancel)) {
+    if (has(q, "cancel", "refund", "change my", "money back", ...DE_ASKED.cancel, ...ZH_ASKED.cancel, ...KO_ASKED.cancel, ...ES_ASKED.cancel, ...VI_ASKED.cancel)) {
       category = "cancellation";
       const full = ctx.cancellationFullRefundDays;
       const half = ctx.cancellationHalfRefundDays;
@@ -1190,23 +1298,23 @@ const answerTopic = (q: string, ctx: AskTTContext, party: number | null): TTAnsw
         ? { lines: [cancellationHeadline(full, t) + t("."), formatCancellationPolicy(full, half, t)], actions: [...mine, chat(ctx)] }
         : { lines: [t("TT House is flexible when plans change — tell {host} what's happening and you'll work it out together.", { host })], actions: [...mine, chat(ctx)] };
     }
-    if (has(q, "my booking", "my stay", "my reservation", "booked", "confirm", ...DE_ASKED.myBookings, ...ZH_ASKED.myBookings, ...KO_ASKED.myBookings, ...ES_ASKED.myBookings)) {
+    if (has(q, "my booking", "my stay", "my reservation", "booked", "confirm", ...DE_ASKED.myBookings, ...ZH_ASKED.myBookings, ...KO_ASKED.myBookings, ...ES_ASKED.myBookings, ...VI_ASKED.myBookings)) {
       category = "myBookings";
       return { lines: [t("Your stays, holds and wish list are all under Your bookings — just your phone number opens them.")], actions: [{ kind: "bookings", label: t("Open Your bookings") }] };
     }
     // Bags before and after a stay: nothing on the page says, so it goes to
     // the host — filed under check-in, where the host will look for it.
-    if (has(q, "luggage", "bags?\\b", "suitcase", "baggage", ...DE_ASKED.luggage, ...ZH_ASKED.luggage, ...KO_ASKED.luggage, ...ES_ASKED.luggage)) {
+    if (has(q, "luggage", "bags?\\b", "suitcase", "baggage", ...DE_ASKED.luggage, ...ZH_ASKED.luggage, ...KO_ASKED.luggage, ...ES_ASKED.luggage, ...VI_ASKED.luggage)) {
       category = "checkIn";
       return { lines: [t("{host} can tell you whether your bags can stay before check-in or after check-out.", { host })], actions: [chat(ctx)], answered: false };
     }
-    if (has(q, "check-in", "check in", "checkin", "arriv", "check-out", "check out", "checkout", "late", "early", "get in\\b", "let myself in", "keys\\b", ...DE_ASKED.checkIn, ...ZH_ASKED.checkIn, ...KO_ASKED.checkIn, ...ES_ASKED.checkIn)) {
+    if (has(q, "check-in", "check in", "checkin", "arriv", "check-out", "check out", "checkout", "late", "early", "get in\\b", "let myself in", "keys\\b", ...DE_ASKED.checkIn, ...ZH_ASKED.checkIn, ...KO_ASKED.checkIn, ...ES_ASKED.checkIn, ...VI_ASKED.checkIn)) {
       category = "checkIn";
       // The house has no check-in or check-out TIME written down anywhere TT
       // can read. Self check-in is the true answer to "how do I get in"; it
       // is not an answer to "what time", and saying it as one left guests
       // asking twice. The time goes to the host, and the log shows it.
-      const askingTime = has(q, "what time", "when", "time", "hour", "o'clock", ...ZH_ASKED.askingTime, ...KO_ASKED.askingTime, ...ES_ASKED.askingTime);
+      const askingTime = has(q, "what time", "when", "time", "hour", "o'clock", ...ZH_ASKED.askingTime, ...KO_ASKED.askingTime, ...ES_ASKED.askingTime, ...VI_ASKED.askingTime);
       return {
         lines: [
           t("Every room has self check-in."),
@@ -1218,18 +1326,18 @@ const answerTopic = (q: string, ctx: AskTTContext, party: number | null): TTAnsw
         answered: !askingTime,
       };
     }
-    if (has(q, "\\bev\\b", "charger", "charging", "electric car", "tesla", ...ZH_ASKED.charger, ...KO_ASKED.charger, ...ES_ASKED.charger)) {
+    if (has(q, "\\bev\\b", "charger", "charging", "electric car", "tesla", ...ZH_ASKED.charger, ...KO_ASKED.charger, ...ES_ASKED.charger, ...VI_ASKED.charger)) {
       category = "parking";
       return { lines: [t(houseParking) + t("."), t("None of the listings mention a charger — {host} will know.", { host })], actions: [chat(ctx)], answered: false };
     }
-    if (has(q, "park", "car", "garage", "driv", ...ZH_ASKED.parking, ...KO_ASKED.parking, ...ES_ASKED.parking)) {
+    if (has(q, "park", "car", "garage", "driv", ...ZH_ASKED.parking, ...KO_ASKED.parking, ...ES_ASKED.parking, ...VI_ASKED.parking)) {
       category = "parking";
       return { lines: [t(houseParking) + t(".")], actions: [] };
     }
     // How to pay, deposits, fees, receipts: none of it is written anywhere TT
     // reads, and a wrong word about money is the expensive kind. Filed under
     // price for the host, who answers and can teach it.
-    if (has(q, "cash", "venmo", "zelle", "paypal", "credit card", "debit", "card\\b", "deposit", "cleaning fee", "fees?\\b", "receipt", "invoice", "how (?:do|can|should) i pay", "payment", ...DE_ASKED.payment, ...ZH_ASKED.payment, ...KO_ASKED.payment, ...ES_ASKED.payment)) {
+    if (has(q, "cash", "venmo", "zelle", "paypal", "credit card", "debit", "card\\b", "deposit", "cleaning fee", "fees?\\b", "receipt", "invoice", "how (?:do|can|should) i pay", "payment", ...DE_ASKED.payment, ...ZH_ASKED.payment, ...KO_ASKED.payment, ...ES_ASKED.payment, ...VI_ASKED.payment)) {
       category = "price";
       return {
         lines: [t("{host} sorts out payment with you directly — ask about it in a message and you'll have a straight answer.", { host })],
@@ -1239,7 +1347,7 @@ const answerTopic = (q: string, ctx: AskTTContext, party: number | null): TTAnsw
     }
     // A long stay is two questions: is a room free the whole time (TT can
     // check) and what does it cost (the host's, like every price).
-    if (has(q, "month", "monthly", "long term", "long-term", "longer stay", "weekly", "a week", ...DE_ASKED.longStay, ...ZH_ASKED.longStay, ...KO_ASKED.longStay, ...ES_ASKED.longStay)) {
+    if (has(q, "month", "monthly", "long term", "long-term", "longer stay", "weekly", "a week", ...DE_ASKED.longStay, ...ZH_ASKED.longStay, ...KO_ASKED.longStay, ...ES_ASKED.longStay, ...VI_ASKED.longStay)) {
       category = "price";
       return {
         lines: [
@@ -1250,14 +1358,14 @@ const answerTopic = (q: string, ctx: AskTTContext, party: number | null): TTAnsw
       };
     }
     // TiBook takes a request for any number of nights; the host decides each.
-    if (has(q, "minimum", "min stay", "maximum", "max stay", "shortest", "longest", "(?:just|only) (?:one|1|a single) night", ...ZH_ASKED.minimum, ...KO_ASKED.minimum, ...ES_ASKED.minimum)) {
+    if (has(q, "minimum", "min stay", "maximum", "max stay", "shortest", "longest", "(?:just|only) (?:one|1|a single) night", ...ZH_ASKED.minimum, ...KO_ASKED.minimum, ...ES_ASKED.minimum, ...VI_ASKED.minimum)) {
       category = "booking";
       return {
         lines: [t("You can ask for any number of nights here, even one. {host} confirms each request.", { host })],
         actions: [{ kind: "ask", label: t("This weekend"), query: "book this weekend" }],
       };
     }
-    if (has(q, "price", "cost", "how much", "rate", "cheap", "discount", "pay", "dollar", ...DE_ASKED.price, ...ZH_ASKED.price, ...KO_ASKED.price, ...ES_ASKED.price)) {
+    if (has(q, "price", "cost", "how much", "rate", "cheap", "discount", "pay", "dollar", ...DE_ASKED.price, ...ZH_ASKED.price, ...KO_ASKED.price, ...ES_ASKED.price, ...VI_ASKED.price)) {
       category = "price";
       const rates = ctx.rooms.map((r) => rateLine(r, ctx)).filter(Boolean) as string[];
       // "Your prices" only when every line IS theirs; a list with ranges in it
@@ -1275,7 +1383,7 @@ const answerTopic = (q: string, ctx: AskTTContext, party: number | null): TTAnsw
           }
         : { lines: [t("The price is something you settle with {host} directly — send your dates and {host} will give you a rate.", { host })], actions: [chat(ctx, t("Ask {host} for a price", { host }))] };
     }
-    if (has(q, "kitchen", "cook", "fridge", "refrigerator", "microwave", "coffee", "food", "kettle", ...DE_ASKED.kitchen, ...ZH_ASKED.kitchen, ...KO_ASKED.kitchen, ...ES_ASKED.kitchen)) {
+    if (has(q, "kitchen", "cook", "fridge", "refrigerator", "microwave", "coffee", "food", "kettle", ...DE_ASKED.kitchen, ...ZH_ASKED.kitchen, ...KO_ASKED.kitchen, ...ES_ASKED.kitchen, ...VI_ASKED.kitchen)) {
       category = "kitchen";
       const withIt = (re: RegExp) => ctx.rooms.filter((r) => getRoomFacts(r.airbnbUrl)?.highlights.some((h) => re.test(h)));
       const fridge = withIt(/fridge/i);
@@ -1291,7 +1399,7 @@ const answerTopic = (q: string, ctx: AskTTContext, party: number | null): TTAnsw
         actions: [],
       };
     }
-    if (has(q, "bath", "toilet", "shower", "restroom", "bidet", "hot water", ...DE_ASKED.bathroom, ...ZH_ASKED.bathroom, ...KO_ASKED.bathroom, ...ES_ASKED.bathroom)) {
+    if (has(q, "bath", "toilet", "shower", "restroom", "bidet", "hot water", ...DE_ASKED.bathroom, ...ZH_ASKED.bathroom, ...KO_ASKED.bathroom, ...ES_ASKED.bathroom, ...VI_ASKED.bathroom)) {
       category = "bathroom";
       const shared = ctx.rooms.filter((r) => getRoomFacts(r.airbnbUrl)?.bathroom.startsWith("Shared"));
       const own = ctx.rooms.filter((r) => { const f = getRoomFacts(r.airbnbUrl); return f && !f.bathroom.startsWith("Shared"); });
@@ -1304,7 +1412,7 @@ const answerTopic = (q: string, ctx: AskTTContext, party: number | null): TTAnsw
         actions: [],
       };
     }
-    const amenity = AMENITIES.find((a) => a.asked.test(q) || ZH_AMENITY[a.label]?.test(q) || KO_AMENITY[a.label]?.test(q) || ES_AMENITY[a.label]?.test(q));
+    const amenity = AMENITIES.find((a) => a.asked.test(q) || ZH_AMENITY[a.label]?.test(q) || KO_AMENITY[a.label]?.test(q) || ES_AMENITY[a.label]?.test(q) || VI_AMENITY[a.label]?.test(q));
     if (amenity) {
       category = "amenities";
       // What each room's listing says, all of it: the highlights, and the
@@ -1337,7 +1445,7 @@ const answerTopic = (q: string, ctx: AskTTContext, party: number | null): TTAnsw
       return { lines: [t("None of the room listings mention {thing} — {host} will know for sure.", { thing, host })], actions: [chat(ctx)], answered: false };
     }
     if (
-      has(q, "pet", "dog", "cat", "smok", "party", "parties", "quiet", "loud", "nois", "rule", "visitor", "friend", "kid", "child", "baby", "babies", "infant", "toddler", ...DE_ASKED.houseRules, ...ZH_ASKED.houseRules, ...KO_ASKED.houseRules, ...ES_ASKED.houseRules) ||
+      has(q, "pet", "dog", "cat", "smok", "party", "parties", "quiet", "loud", "nois", "rule", "visitor", "friend", "kid", "child", "baby", "babies", "infant", "toddler", ...DE_ASKED.houseRules, ...ZH_ASKED.houseRules, ...KO_ASKED.houseRules, ...ES_ASKED.houseRules, ...VI_ASKED.houseRules) ||
       /\b(?:have|bring|invite)\b.*\b(?:a guest|guests|someone|somebody|people|partner|over)\b/i.test(q)
     ) {
       category = "houseRules";
@@ -1346,12 +1454,12 @@ const answerTopic = (q: string, ctx: AskTTContext, party: number | null): TTAnsw
         ? { lines: [t("The house rules:"), rules], actions: [chat(ctx, t("Ask {host} about something else", { host }))] }
         : { lines: [t("{host} will tell you straight — just ask.", { host })], actions: [chat(ctx)], answered: false };
     }
-    if (has(q, "where", "address", "location", "near", "airport", "transit", "caltrain", "bart", "how far", "distance", "minutes", "sjc", "sfo", "stanford", "google", "apple\\b", "downtown", "safe\\b", "neighbo", "area\\b", "shuttle", "pick me up", "pick up", "uber\\b", "lyft", "bus\\b", "train\\b", ...DE_ASKED.location, ...ZH_ASKED.location, ...KO_ASKED.location, ...ES_ASKED.location)) {
+    if (has(q, "where", "address", "location", "near", "airport", "transit", "caltrain", "bart", "how far", "distance", "minutes", "sjc", "sfo", "stanford", "google", "apple\\b", "downtown", "safe\\b", "neighbo", "area\\b", "shuttle", "pick me up", "pick up", "uber\\b", "lyft", "bus\\b", "train\\b", ...DE_ASKED.location, ...ZH_ASKED.location, ...KO_ASKED.location, ...ES_ASKED.location, ...VI_ASKED.location)) {
       category = "location";
       // "Where is it" is answered: Silicon Valley, address once confirmed.
       // "How far to Stanford", "is the area safe", "a store nearby" are not —
       // TT has no map — and are left in the host's to-teach pile.
-      const onlyWhere = !has(q, "how far", "distance", "minutes", "near", "safe", "neighbo", "area", "shuttle", "pick", "uber", "lyft", "bus", "train", "sjc", "sfo", "stanford", "google", "apple", "downtown", ...ZH_ASKED.area, ...KO_ASKED.area, ...ES_ASKED.area);
+      const onlyWhere = !has(q, "how far", "distance", "minutes", "near", "safe", "neighbo", "area", "shuttle", "pick", "uber", "lyft", "bus", "train", "sjc", "sfo", "stanford", "google", "apple", "downtown", ...ZH_ASKED.area, ...KO_ASKED.area, ...ES_ASKED.area, ...VI_ASKED.area);
       return {
         lines: [
           t("TT House is in Silicon Valley. The exact address comes in Your bookings once your stay is confirmed."),
@@ -1363,18 +1471,18 @@ const answerTopic = (q: string, ctx: AskTTContext, party: number | null): TTAnsw
         answered: onlyWhere,
       };
     }
-    if (has(q, "photo", "picture", "pics?\\b", "image", "look like", "see the room", "see inside", ...DE_ASKED.photos, ...ZH_ASKED.photos, ...KO_ASKED.photos, ...ES_ASKED.photos)) {
+    if (has(q, "photo", "picture", "pics?\\b", "image", "look like", "see the room", "see inside", ...DE_ASKED.photos, ...ZH_ASKED.photos, ...KO_ASKED.photos, ...ES_ASKED.photos, ...VI_ASKED.photos)) {
       category = "rooms";
       return {
         lines: [t("Pick a room to see its photos:")],
         actions: ctx.rooms.slice(0, 5).map((r) => ({ kind: "photos" as const, label: t("{room} photos", { room: r.name }), roomId: r.id })),
       };
     }
-    if (has(q, "host", "human", "person", "talk", "call", "text", "contact", "message", "speak", ...DE_ASKED.host, ...ZH_ASKED.host, ...KO_ASKED.host, ...ES_ASKED.host)) {
+    if (has(q, "host", "human", "person", "talk", "call", "text", "contact", "message", "speak", ...DE_ASKED.host, ...ZH_ASKED.host, ...KO_ASKED.host, ...ES_ASKED.host, ...VI_ASKED.host)) {
       category = "contactHost";
       return { lines: [t("{host} lives here and reads every message personally.", { host })], actions: [chat(ctx, t("Chat {host}", { host }))] };
     }
-    if (has(q, "book", "reserve", "request", "want a room", "need a room", ...DE_ASKED.booking, ...ZH_ASKED.booking, ...KO_ASKED.booking, ...ES_ASKED.booking)) {
+    if (has(q, "book", "reserve", "request", "want a room", "need a room", ...DE_ASKED.booking, ...ZH_ASKED.booking, ...KO_ASKED.booking, ...ES_ASKED.booking, ...VI_ASKED.booking)) {
       category = "booking";
       const usual = ctx.rooms.find((r) => r.id === ctx.guest?.usualRoomId);
       if (ctx.guest) {
@@ -1398,18 +1506,18 @@ const answerTopic = (q: string, ctx: AskTTContext, party: number | null): TTAnsw
         actions: [{ kind: "ask", label: t("This weekend"), query: "book this weekend" }, { kind: "request", label: t("Use the booking form") }],
       };
     }
-    if (has(q, "room", "bed", "sleep", "fit", "capacity", "how many", ...DE_ASKED.rooms, ...ZH_ASKED.rooms, ...KO_ASKED.rooms, ...ES_ASKED.rooms) || party != null) {
+    if (has(q, "room", "bed", "sleep", "fit", "capacity", "how many", ...DE_ASKED.rooms, ...ZH_ASKED.rooms, ...KO_ASKED.rooms, ...ES_ASKED.rooms, ...VI_ASKED.rooms) || party != null) {
       category = "rooms";
       return answerRooms(ctx, party);
     }
     // Whole words: "hi" as a prefix greeted a guest asking whether a fee was hidden.
     // Guests here greet in Vietnamese and Spanish too; TT answers in English,
     // but it should know it was greeted.
-    if (has(q, "hi\\b", "hello", "hey\\b", "good morning", "good afternoon", "good evening", "hola\\b", "xin ch[aà]o", "ch[aà]o\\b", "bonjour", "yo\\b", ...DE_ASKED.greeting, ...ZH_ASKED.greeting, ...KO_ASKED.greeting, ...ES_ASKED.greeting)) {
+    if (has(q, "hi\\b", "hello", "hey\\b", "good morning", "good afternoon", "good evening", "hola\\b", "xin ch[aà]o", "ch[aà]o\\b", "bonjour", "yo\\b", ...DE_ASKED.greeting, ...ZH_ASKED.greeting, ...KO_ASKED.greeting, ...ES_ASKED.greeting, ...VI_ASKED.greeting)) {
       category = "greeting";
       return { lines: [t("Hello! Ask me about dates, rooms, parking, check-in — anything about staying here.")], actions: [] };
     }
-    if (has(q, "thank", "thx", "great", "perfect", "awesome", ...DE_ASKED.thanks, ...ZH_ASKED.thanks, ...KO_ASKED.thanks, ...ES_ASKED.thanks)) {
+    if (has(q, "thank", "thx", "great", "perfect", "awesome", ...DE_ASKED.thanks, ...ZH_ASKED.thanks, ...KO_ASKED.thanks, ...ES_ASKED.thanks, ...VI_ASKED.thanks)) {
       category = "thanks";
       return { lines: [t("You're welcome. “Your comfort. Our mission.” is TT House's promise to you.")], actions: [] };
     }
@@ -1464,6 +1572,11 @@ const ABOUT_OTHERS = [
   // edges, since \b stops at the é of "quién". Not "equipo", which is also
   // equipment, and not "su reserva": a guest writing "usted" says "su" to TT.
   /(?<!\p{L})(?:qui[eé]n(?:es)?|de qui[eé]n|otr[oa]s? (?:hu[eé]sped(?:es)?|personas?|inquilin[oa]s?|reservas?|reservaciones?)|alguien (?:m[aá]s|est[aá]|se queda|reserv\p{L}*)|(?:el|la|los|las) (?:hu[eé]sped(?:es)?|persona|personas|se[ñn]or|se[ñn]ora|familia|pareja) (?:de|en|que)|reservad[oa] por|nombres? de|(?:su|sus) (?:nombre|tel[eé]fono|n[uú]mero|correo|direcci[oó]n)|cu[aá]ntas personas (?:hay|est[aá]n|se quedan)|apellidos?|nombre completo|vecin[oa]s?|compa[ñn]er[oa]s? de cuarto|inquilin[oa]s?|limpiador[ae]?s?|personal de limpieza|el personal|emplead[oa]s?|trabajador[ae]?s?|becari[oa]s?|pasantes?|coanfitri\p{L}*)(?!\p{L})/u,
+  // And Vietnamese: "ai ở phòng King ngày 10 tháng 10?". "ai" (who) only with
+  // a verb after it — "ai" alone is also the English "AI", and "có ai…" can
+  // be a guest asking whether anyone can help. Not "khách" alone, and not
+  // "vợ chồng": "2 khách", "vợ chồng tôi" are the guest's own party.
+  /(?<![\p{L}\p{M}])(?:ai\s+(?:đang|đã|sẽ|ở|thuê|đặt|book|ngủ|nằm|đến|trả phòng|nhận phòng)|của\s+ai|người\s+khác|khách\s+(?:khác|trước|sau|kế|bên cạnh|ở phòng)|(?:người|khách)\s+(?:đang\s+)?(?:ở|thuê)\s+(?:phòng|trước|sau|bên)|tên\s+(?:của\s+)?(?:khách|người|họ)|họ\s+tên|danh\s+sách\s+khách|hàng\s+xóm|bạn\s+cùng\s+phòng|người\s+thuê|người\s+dọn|nhân\s+viên|lao\s+công|thực\s+tập\s+sinh|đồng\s+chủ\s+nhà|có\s+ai\s+(?:ở|đặt|thuê))(?![\p{L}\p{M}])/u,
 ];
 // The host's personal life. The page says who the host is and that they live
 // here; nothing beyond that.
@@ -1471,12 +1584,21 @@ const hostPersonal = (s: string, hostFirst: string) =>
   (/房东|屋主/.test(s) && /年龄|多大|几岁|生日|结婚|老婆|妻子|太太|丈夫|老公|女朋友|男朋友|工资|收入|宗教|政治|在哪[儿里]?(?:工作|上班|上学)|公司|学校|国籍|哪里人|哪国人/.test(s)) ||
   (/호스트|집주인/.test(s) && /나이|몇\s*살|생일|결혼|아내|부인|남편|여자\s*친구|남자\s*친구|애인|월급|연봉|수입|종교|정치|직장|회사|학교|국적|어디\s*출신|어느\s*나라/.test(s)) ||
   (/anfitri|due[ñn]o/.test(s) && /(?<!\p{L})(?:edad|cu[aá]ntos a[ñn]os|cumplea[ñn]os|casad[oa]|esposa|esposo|marido|novi[oa]|salario|sueldo|ingresos|religi[oó]n|pol[ií]tica|d[oó]nde trabaja|empresa|escuela|nacionalidad|de d[oó]nde es)(?!\p{L})/u.test(s)) ||
+  // Vietnamese. Not "vợ chồng", "bạn gái" or "con" alone: "chủ nhà có cho vợ
+  // chồng ở không" asks whether a couple may stay.
+  (/chủ\s+nhà/.test(s) && /(?<![\p{L}\p{M}])(?:bao nhiêu tuổi|mấy tuổi|tuổi|sinh nhật|có (?:vợ|chồng|người yêu|bạn gái|bạn trai|gia đình)|kết hôn|lập gia đình|lương|thu nhập|tôn giáo|đạo gì|chính trị|làm (?:ở |việc ở )?(?:đâu|công ty)|học (?:ở đâu|trường)|quốc tịch|người nước nào|quê)(?![\p{L}\p{M}])/u.test(s)) ||
   new RegExp(`\\b(?:host|owner|${hostFirst.toLowerCase().replace(/[^a-z-]/g, "")})\\b`).test(s) &&
   // Not "kids", "family" or "partner": "does the host allow kids" is a guest
   // asking about their OWN party.
   /\b(?:age|old is|birthday|born|married|wife|husband|girlfriend|boyfriend|salary|income|religion|politics|employer|job|work(?:s)? (?:at|for)|company|school|studies|nationality|from where|where (?:is|does) (?:the )?\w+ (?:from|work|live))\b/.test(s);
 // Contact details, anyone's — the host's included. The Message button reaches
 // the host without a number ever being shown.
+// Vietnamese apart, with letter-aware edges. Zalo is how Vietnamese people
+// text, as WeChat is for Chinese.
+const VI_CONTACT = /(?<![\p{L}\p{M}])(?:số\s+điện\s+thoại|số\s+đt|sđt|zalo|địa\s+chỉ\s+nhà|địa\s+chỉ\s+email|mạng\s+xã\s+hội)(?![\p{L}\p{M}])/u;
+// Codes and passwords in Vietnamese. "mã giảm giá" (a discount code) is not a
+// secret; "mã" with a door, lock or PIN is.
+const VI_SECRETS = /(?<![\p{L}\p{M}])(?:mật\s+khẩu|mật\s+mã|mã\s+(?:cửa|khóa|khoá|mở\s+cửa|vào|pin|số\s+cửa)|hộp\s+(?:chìa\s+)?khóa|hộp\s+(?:chìa\s+)?khoá|két\s+sắt)(?![\p{L}\p{M}])/u;
 // 微信 alone is contact; 微信支付 is a question about paying, which goes to the host.
 const CONTACT = /\b(?:phone|cell|mobile|whatsapp|telephone|e-?mail|emails|contact (?:info|information|details)|home address|social media|instagram|facebook|linkedin)\b|(?<![a-z])(?:tel[eé]fono|celular|correo electr[oó]nico|correo|datos de contacto|direcci[oó]n de (?:su |tu )?casa|redes sociales)(?![a-zñ])|电话|手机|微信(?!支付)|邮箱|电子邮件|联系方式|家庭住址|社交媒体|전화\s*번호|휴대폰|핸드폰|카톡|카카오톡|이메일|메일\s*주소|연락처|집\s*주소|인스타|sns/;
 // Codes and passwords. Zip, promo and coupon codes are not secrets.
@@ -1491,6 +1613,8 @@ const SYSTEM = [
   // Korean puts the verb last, so "ignore the rules" is 규칙을 무시해: both orders.
   /백엔드|서버|데이터베이스|관리자|토큰|소스\s*코드|환경\s*변수|비밀\s*키|취약점|해킹|해커|프롬프트|너의?\s*(?:지시|규칙|코드)|(?:규칙|지시|지침|제한).{0,12}(?:무시|잊어|우회)|(?:무시|잊어|우회).{0,12}(?:규칙|지시|지침|제한)|역할\s*극|탈옥|개발자\s*모드/,
   /(?<!\p{L})(?:servidor(?:es)?|base de datos|c[oó]digo fuente|variables? de entorno|credenciales|administrador|tus (?:reglas|instrucciones|c[oó]digo)|c[oó]mo te (?:hicieron|programaron|crearon)|(?:ignora|olvida|omite|salta|evita)\p{L}* .{0,20}(?:reglas|instrucciones|restricciones|indicaciones)|finge|act[uú]a como|haz de cuenta|modo desarrollador)(?!\p{L})/u,
+  // Vietnamese: "bỏ qua các quy tắc", "giả vờ là…". Verb first, as in English.
+  /(?<![\p{L}\p{M}])(?:máy\s+chủ|cơ\s+sở\s+dữ\s+liệu|mã\s+nguồn|biến\s+môi\s+trường|quản\s+trị\s+viên|(?:bỏ\s+qua|quên|phớt\s+lờ|vượt\s+qua).{0,20}(?:quy\s+tắc|hướng\s+dẫn|chỉ\s+dẫn|giới\s+hạn)|giả\s+vờ|đóng\s+vai|chế\s+độ\s+nhà\s+phát\s+triển)(?![\p{L}\p{M}])/u,
 ];
 
 const privacyRefusal = (q: string, ctx: AskTTContext): TTAnswer | null => {
@@ -1498,7 +1622,7 @@ const privacyRefusal = (q: string, ctx: AskTTContext): TTAnswer | null => {
   const host = ctx.hostFirstName;
   // "Who is the host?" is the one "who" with a public answer: the host's
   // name and face are at the top of the page.
-  if (/^\W*who(?:'s| is)(?: the| your| my)? (?:host|owner)\W*$/.test(s) || /^(?:(?:你们的|这里的|这儿的)?房东是谁|谁是(?:你们的|这里的|这儿的)?房东)[?？!！。\s]*$/.test(s) || /^(?:호스트(?:가|는|분이?|님이?)?\s*누구(?:예요|에요|인가요|세요|야)?|누가\s*호스트(?:예요|에요|인가요|야)?)[?!.\s]*$/.test(s) || /^[¿¡\s]*qui[eé]n es (?:el |la |tu |su )?(?:anfitri[oó]na?|due[ñn][oa])[?!.\s]*$/.test(s)) {
+  if (/^\W*who(?:'s| is)(?: the| your| my)? (?:host|owner)\W*$/.test(s) || /^(?:(?:你们的|这里的|这儿的)?房东是谁|谁是(?:你们的|这里的|这儿的)?房东)[?？!！。\s]*$/.test(s) || /^(?:호스트(?:가|는|분이?|님이?)?\s*누구(?:예요|에요|인가요|세요|야)?|누가\s*호스트(?:예요|에요|인가요|야)?)[?!.\s]*$/.test(s) || /^[¿¡\s]*qui[eé]n es (?:el |la |tu |su )?(?:anfitri[oó]na?|due[ñn][oa])[?!.\s]*$/.test(s) || /^\s*(?:ai\s+là\s+chủ\s+nhà|chủ\s+nhà\s+là\s+ai)(?:\s*(?:vậy|thế|ạ|nhỉ))?[?!.\s]*$/u.test(s)) {
     return as("contactHost", { lines: [t("Your host is {host}, who lives here.", { host })], actions: [chat(ctx, t("Chat {host}", { host }))] });
   }
   if (SYSTEM.some((re) => re.test(s))) {
@@ -1509,7 +1633,7 @@ const privacyRefusal = (q: string, ctx: AskTTContext): TTAnswer | null => {
       actions: [{ kind: "ask", label: t("What's free this weekend?"), query: "this weekend" }],
     });
   }
-  if (SECRETS.test(s)) {
+  if (SECRETS.test(s) || VI_SECRETS.test(s)) {
     return as("privacy", {
       lines: [
         t("I never give out door codes, passwords or PINs."),
@@ -1518,7 +1642,7 @@ const privacyRefusal = (q: string, ctx: AskTTContext): TTAnswer | null => {
       actions: [{ kind: "bookings", label: t("Open Your bookings") }],
     });
   }
-  if (CONTACT.test(s)) {
+  if (CONTACT.test(s) || VI_CONTACT.test(s)) {
     return as("privacy", {
       lines: [t("I don't share anyone's contact details. To reach {host}, send a message here — it goes straight to {host}.", { host })],
       actions: [chat(ctx, t("Chat {host}", { host }))],
@@ -1527,7 +1651,7 @@ const privacyRefusal = (q: string, ctx: AskTTContext): TTAnswer | null => {
   // "What did previous guests say about King?" reads as a question about
   // other guests, and is really one about the room. Let it through to the
   // reviews — unless it asks WHO, or for names, which are still refused.
-  const aboutReviews = askedAboutReviews(s) && !/\bwho|\bnames?\b|谁|名字|姓名|누구|누가|이름|성함|qui[eé]n|nombres?/.test(s);
+  const aboutReviews = askedAboutReviews(s) && !/\bwho|\bnames?\b|谁|名字|姓名|누구|누가|이름|성함|qui[eé]n|nombres?/.test(s) && !/(?<![\p{L}\p{M}])(?:ai|tên)(?![\p{L}\p{M}])/u.test(s);
   if ((ABOUT_OTHERS.some((re) => re.test(s)) && !aboutReviews) || hostPersonal(s, host)) {
     return as("privacy", {
       lines: [
@@ -1567,12 +1691,12 @@ const answer = (query: string, ctx: AskTTContext, opts: AskOptions): TTAnswer =>
   const usual = ctx.rooms.find((r) => r.id === ctx.guest?.usualRoomId) ?? null;
   // "my usual room", "same room as last time", "King again" — a returning
   // guest saying which room without naming it.
-  const room = roomAsked(q, ctx.rooms) ?? (usual && has(q, "usual", "same room", "my room", "again", "as last time", ...ZH_ASKED.usualRoom, ...KO_ASKED.usualRoom, ...ES_ASKED.usualRoom) ? usual : null);
+  const room = roomAsked(q, ctx.rooms) ?? (usual && has(q, "usual", "same room", "my room", "again", "as last time", ...ZH_ASKED.usualRoom, ...KO_ASKED.usualRoom, ...ES_ASKED.usualRoom, ...VI_ASKED.usualRoom) ? usual : null);
   const party = partySizeAsked(q);
   // Their wish list: the nights they already told the house they wanted. TT
   // checks them all at once, which is the shortest way from "I wanted these"
   // to a request for them.
-  if (ctx.guest && has(q, "wish", ...DE_ASKED.wish, ...ZH_ASKED.wish, ...KO_ASKED.wish, ...ES_ASKED.wish)) {
+  if (ctx.guest && has(q, "wish", ...DE_ASKED.wish, ...ZH_ASKED.wish, ...KO_ASKED.wish, ...ES_ASKED.wish, ...VI_ASKED.wish)) {
     if (ctx.guest.wishList.length === 0) {
       return as("wishList", {
         lines: [t("Your wish list is empty. Tell me the dates you'd like — “Oct 10-12”, “Nov Mon-Tue” — and I'll check them.")],
@@ -1605,13 +1729,13 @@ const answer = (query: string, ctx: AskTTContext, opts: AskOptions): TTAnswer =>
   // Korean has spaces, but its words carry more: "12\uc6d4 \uac15\uc544\uc9c0 \ub3fc\uc694?" is three and
   // about the dog. Two words \u2014 "12\uc6d4 \uc5b4\ub54c\uc694?" \u2014 is still a question about a stay.
   const shortAsk = /[\u4e00-\u9fff]/.test(q) ? q.length <= 5 : /[\uac00-\ud7a3]/.test(q) ? q.split(/\s+/).length <= 2 : q.split(/\s+/).length <= 3;
-  if (month && (has(q, "free", "availab", "open", "vacan", "book", "stay", "room", "anything", ...ZH_ASKED.available, ...KO_ASKED.available, ...ES_ASKED.available) || shortAsk)) {
+  if (month && (has(q, "free", "availab", "open", "vacan", "book", "stay", "room", "anything", ...ZH_ASKED.available, ...KO_ASKED.available, ...ES_ASKED.available, ...VI_ASKED.available) || shortAsk)) {
     return as("availability", answerMonth(month, ctx, room));
   }
   // Before the room and the price: "King reviews" is not a tour of King, and
   // "rated" begins with "rate", which the price question would take.
   if (askedAboutReviews(q)) return as("reviews", askedForLatest(q) ? answerLatestReview(ctx, room) : answerReviews(ctx, room));
-  if (room && !has(q, "park", "cancel", "refund", "price", "cost", "how much", "rate", ...ZH_ASKED.parking, ...KO_ASKED.parking, ...ES_ASKED.parking, ...ZH_ASKED.cancel, ...KO_ASKED.cancel, ...ES_ASKED.cancel, ...ZH_ASKED.price, ...KO_ASKED.price, ...ES_ASKED.price)) return as("rooms", answerRoom(room, ctx));
+  if (room && !has(q, "park", "cancel", "refund", "price", "cost", "how much", "rate", ...ZH_ASKED.parking, ...KO_ASKED.parking, ...ES_ASKED.parking, ...VI_ASKED.parking, ...ZH_ASKED.cancel, ...KO_ASKED.cancel, ...ES_ASKED.cancel, ...VI_ASKED.cancel, ...ZH_ASKED.price, ...KO_ASKED.price, ...ES_ASKED.price, ...VI_ASKED.price)) return as("rooms", answerRoom(room, ctx));
   const topic = answerTopic(q, ctx, party);
   if (topic) return topic;
   // Not understood. Said plainly, and the guest is handed to the host with
@@ -1626,7 +1750,9 @@ const answer = (query: string, ctx: AskTTContext, opts: AskOptions): TTAnswer =>
 // The only way in. The guard first, then the answer, then the scrub — no
 // caller can reach `answer` without both.
 export const askTT = (query: string, ctx: AskTTContext, opts: AskOptions = {}): TTAnswer => {
-  const q = query.trim();
+  // NFC: a Windows Vietnamese keyboard can type "ặ" as a + two combining marks,
+  // and none of the Vietnamese words in this file would match it.
+  const q = query.normalize("NFC").trim();
   if (!q) return { lines: [], actions: [], category: "other", answered: false };
   const a = privacyRefusal(q, ctx) ?? languageSwitch(q) ?? answer(q, ctx, opts);
   return { ...a, lines: a.lines.map(scrub), actions: a.actions.map(scrubAction) };

@@ -12,6 +12,7 @@ interface CalendarNavigatorProps {
 }
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const VI_WEEKDAYS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 
 const CalendarNavigator = ({
   currentMonth,
@@ -53,8 +54,12 @@ const CalendarNavigator = ({
                   월요일… each start with their own letter. Spanish has two Ms
                   (martes, miércoles) and writes the second as X, as Spanish
                   calendars do — and its names are lowercase, so the letters
-                  are listed rather than cut. */}
-              <span className="sm:hidden">{lang === "zh" ? t(day).slice(-1) : lang === "es" ? "DLMXJVS"[index] : t(day)[0]}</span>
+                  are listed rather than cut. Vietnamese numbers its days
+                  (thứ Hai is "day two"), so every name but Chủ nhật begins
+                  "T": its calendars print CN, T2 … T7, which still fit. */}
+              <span className="sm:hidden">
+                {lang === "zh" ? t(day).slice(-1) : lang === "es" ? "DLMXJVS"[index] : lang === "vi" ? VI_WEEKDAYS[index] : t(day)[0]}
+              </span>
               <span className="hidden sm:inline">{t(day.substring(0, 3))}</span>
             </abbr>
           ))}
