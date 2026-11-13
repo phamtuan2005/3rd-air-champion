@@ -132,6 +132,41 @@ const KO_DATE = new RegExp(`(?<!\\d)(?:(\\d{4})\\s*년\\s*)?(\\d{1,2})\\s*월\\s
 const KO_MORE = new RegExp(`^\\s*(-|~|～|부터|에서|,|、|와|과|하고|이랑|랑|및|&)\\s*(?:(\\d{1,2})\\s*월\\s*)?${KO_DAY}(?:\\s*까지)?`);
 const KO_SPAN = /^(?:-|~|～|부터|에서)$/;
 
+// Vietnamese names a month by its number — "tháng 5" is May, "tháng mười hai"
+// December — and puts the day before it, as Spanish does: "1 tháng 5",
+// "10-12 tháng 10", "1, 3 và 5 tháng 5". Rather than a second reader, each
+// "tháng N" is rewritten in place as "de <month>" and the Spanish rules below
+// read the rest. The rewrite is padded to the same length, because `used` and
+// the leftover are worked out by position in the guest's own text.
+//
+// "thg" is how TiBook itself shortens it ("3 thg 11"), so a guest copying a
+// date off the page is read too. Not when a count follows: in "ở 1 tháng, 2
+// người" (a month, two people) there is a comma; in "1 tháng 2 người" there is
+// not, and it must not become the 1st of February.
+const VI_MONTH_WORDS: Record<string, number> = {
+  "mười một": 10, "mười hai": 11, mười: 9,
+  một: 0, giêng: 0, hai: 1, ba: 2, tư: 3, bốn: 3, năm: 4, sáu: 5, bảy: 6, tám: 7, chín: 8, chạp: 11,
+};
+const VI_MONTH = new RegExp(
+  `(?<!\\p{L})(?:th[aá]ng|thg)\\s*(\\d{1,2}(?!\\d)|${Object.keys(VI_MONTH_WORDS).join("|")})(?!\\p{L})` +
+    `(?!\\s*(?:người|ngươi|khách|đêm|tối|tuần|ngày|phòng|giường|lần))`,
+  "gu",
+);
+const SHORT_MONTH = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+const vietnameseMonths = (lower: string): { text: string; spans: [number, number][] } => {
+  const spans: [number, number][] = [];
+  const text = lower.replace(VI_MONTH, (whole, n: string, at: number) => {
+    const m = /^\d/.test(n) ? Number(n) - 1 : VI_MONTH_WORDS[n];
+    if (!(m >= 0 && m <= 11)) return whole;
+    spans.push([at, at + whole.length]);
+    // "de" only when it fits: "thg 5" is too short for "de may", and loses
+    // only the "1, 3 và 5" list reading, which needs it.
+    const word = whole.length >= 6 ? `de ${SHORT_MONTH[m]}` : SHORT_MONTH[m];
+    return whole.length >= 6 ? word.padEnd(whole.length) : word.padStart(whole.length);
+  });
+  return { text, spans };
+};
+
 export interface ParsedDates {
   // Unique yyyy-MM-dd, ascending. Bookable: today or later.
   dates: string[];
@@ -173,8 +208,17 @@ const daysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
  * answer. A whole run is dated as one unit, so a stay that straddles today
  * stays one stay.
  */
-export const parseDateText = (text: string, today: Date = new Date()): ParsedDates => {
-  const raw = (text ?? "").trim();
+export const parseDateText = (
+  text: string,
+  today: Date = new Date(),
+  // The page's language, when TiBook knows it. Only Vietnamese changes the
+  // reading (a slash is day first, and "mai" alone is tomorrow); TiMag never
+  // passes it, so the host's "8/23" stays August.
+  opts: { lang?: string } = {},
+): ParsedDates => {
+  // NFC: a Windows Vietnamese keyboard can type "ế" as e + two combining marks,
+  // and no pattern below would see it.
+  const raw = (text ?? "").normalize("NFC").trim();
   if (!raw) return { dates: [], past: [], leftover: "" };
 
   const found = new Set<string>();
@@ -199,7 +243,9 @@ export const parseDateText = (text: string, today: Date = new Date()): ParsedDat
     found.add(keyOf(y, m, d));
   };
 
-  const lower = raw.toLowerCase().replace(/[–—]/g, "-");
+  const vi = vietnameseMonths(raw.toLowerCase().replace(/[–—]/g, "-"));
+  const lower = vi.text;
+  used.push(...vi.spans);
 
   // ── tonight / today / tomorrow ─────────────────────────────────────────────
   for (const [word, offset] of [
@@ -235,11 +281,34 @@ export const parseDateText = (text: string, today: Date = new Date()): ParsedDat
     used.push([at, at + hit[0].length]);
   }
 
+  // ── Vietnamese: hôm nay, tối nay, ngày mai, ngày mốt. ──────────────────────
+  //
+  // "mai" alone is how Vietnamese texts say tomorrow ("mai còn phòng không?"),
+  // but it is also German for May — "im Mai" must stay a month. So alone it
+  // counts only on the Vietnamese page or beside a Vietnamese letter; with
+  // ngày/tối/đêm/sáng in front it always does.
+  const viPage = opts.lang === "vi" || /[ăâđêôơưẠ-ỹ]/.test(lower);
+  const viRelative = /(?<!\p{L})((?:hôm|bữa|tối|đêm)\s+nay|(?:ngày|tối|đêm|sáng)\s+(?:mai|mốt|kia)|mai)(?!\p{L})/gu;
+  for (let hit = viRelative.exec(lower); hit; hit = viRelative.exec(lower)) {
+    const word = hit[1];
+    if (word === "mai" && (!viPage || /\d\.?\s*$/.test(lower.slice(0, hit.index)))) continue;
+    const at = hit.index;
+    if (used.some(([from, to]) => at >= from && at < to)) continue;
+    const when = new Date(today);
+    when.setDate(when.getDate() + (/nay$/.test(word) ? 0 : /mai$/.test(word) ? 1 : 2));
+    found.add(keyOf(when.getFullYear(), when.getMonth(), when.getDate()));
+    used.push([at, at + hit[0].length]);
+  }
+
   // ── 8/23 and 8/23/2026 ─────────────────────────────────────────────────────
+  //
+  // Month first — except on the Vietnamese page, where "10/12" is the 10th of
+  // December to everyone typing it, and TiBook shows slashes day first too.
+  const dayFirst = opts.lang === "vi";
   const slash = /\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/g;
   for (let hit = slash.exec(lower); hit; hit = slash.exec(lower)) {
-    const m = Number(hit[1]) - 1;
-    const d = Number(hit[2]);
+    const m = Number(hit[dayFirst ? 2 : 1]) - 1;
+    const d = Number(hit[dayFirst ? 1 : 2]);
     const yr = hit[3] ? Number(hit[3].length === 2 ? "20" + hit[3] : hit[3]) : undefined;
     addDay(m, d, yr);
     used.push([hit.index, hit.index + hit[0].length]);
@@ -321,6 +390,12 @@ export const parseDateText = (text: string, today: Date = new Date()): ParsedDat
   const monthWord = new RegExp(`\\b(${Object.keys(MONTHS).join("|")})\\b\\.?`, "g");
   const monthHits: { index: number; end: number; month: number }[] = [];
   for (let hit = monthWord.exec(lower); hit; hit = monthWord.exec(lower)) {
+    // A word already read as a day is not a month as well: "ngày mai 2 đêm"
+    // is tomorrow for two nights, not the 2nd of May (German "mai").
+    const at = hit.index;
+    // (A "tháng N" rewritten above is in `used` too, and is the month.)
+    const inside = ([from, to]: [number, number]) => at >= from && at < to;
+    if (used.some(inside) && !vi.spans.some(inside)) continue;
     monthHits.push({ index: hit.index, end: hit.index + hit[0].length, month: MONTHS[hit[1]] });
   }
 
@@ -332,28 +407,46 @@ export const parseDateText = (text: string, today: Date = new Date()): ParsedDat
     // Whitespace only between the two. A COMMA means the number closed the
     // previous month's list: in "Aug 23, Sept 2", the 23 is August's and must
     // not be handed to September as well.
-    const before = lower.slice(Math.max(0, hit.index - 30), hit.index);
+    const before = lower.slice(Math.max(0, hit.index - 40), hit.index);
+    // Spanish lists the days before the month: "1, 3 y 5 de mayo", and
+    // Vietnamese ("tháng" rewritten as "de", above) the same with ranges in
+    // it: "1, 3-5 và 20-21 tháng 5". Only with the "de", so an English "Aug
+    // 23, 24 Sept" is not handed to September. Tried before the span below,
+    // which would otherwise take the "20-21" at its end and drop the rest.
+    const listHit = before.match(
+      /(?<![\d/.])(?:(?:ngày|mùng|mồng)\s+)?((?:\d{1,2}(?:\s*-\s*\d{1,2})?\s*(?:,|\by\b|\be\b|và(?=\s))\s*)+\d{1,2}(?:\s*-\s*\d{1,2})?)\s+de\s+$/u,
+    );
     // German puts the whole span before the month: "10.–12. Dezember", "vom
     // 10. bis 12. Dezember". Only the 12 was caught below, so a German guest
     // asking for three nights was answered about one. Read as the dash is in
     // "Dec 10-12" — every day from the first to the last.
     // Spanish does the same with a "de" before the month: "10-12 de octubre",
-    // "del 10 al 12 de diciembre".
-    const spanHit = before.match(/(?:\bdel\s+)?(?<![\d/.])(\d{1,2})\.?\s*(?:-|bis(?: zum)?|al)\s*(\d{1,2})\.?\s*(?:de\s+)?$/);
-    // And lists the days before the month: "1, 3 y 5 de mayo". Only with the
-    // "de", so an English "Aug 23, 24 Sept" is not handed to September.
-    const listHit = spanHit ? null : before.match(/(?<![\d/.])((?:\d{1,2}\s*(?:,|\by\b|\be\b)\s*)+\d{1,2})\s+de\s+$/);
+    // "del 10 al 12 de diciembre". Vietnamese: "từ 10 đến 12 tháng 12".
+    const spanHit = listHit
+      ? null
+      : before.match(
+          /(?:\bdel\s+|(?<!\p{L})từ\s+(?:ngày\s+)?)?(?<![\d/.])(\d{1,2})\.?\s*(?:-|bis(?: zum)?|al|(?:đến|tới)(?:\s+ngày)?)\s*(\d{1,2})\.?\s*(?:de\s+)?$/u,
+        );
     // Not when the span is the end of the PREVIOUS month's run: in "Aug 20-25
     // Sept 2" the 20-25 is August's, and handing it to September as well
     // would add six nights nobody asked for.
+    // Except when it ends in "de": "1 de mayo, del 10 al 12 de junio" and
+    // "1 tháng 5, từ 10 đến 12 tháng 6" say whose days they are, and lost the
+    // 10th and 11th of June to this rule.
     const prevEnd = monthHits[i - 1]?.end ?? -1;
-    const span = spanHit && !(prevEnd >= 0 && /^[\s,.;&]*$/.test(lower.slice(prevEnd, hit.index - spanHit[0].length))) ? spanHit : null;
-    const list = listHit && !(prevEnd >= 0 && /^[\s,.;&]*$/.test(lower.slice(prevEnd, hit.index - listHit[0].length))) ? listHit : null;
+    const ownMonth = (m: RegExpMatchArray) => /\bde\s+$/.test(m[0]);
+    const span = spanHit && (ownMonth(spanHit) || !(prevEnd >= 0 && /^[\s,.;&]*$/.test(lower.slice(prevEnd, hit.index - spanHit[0].length)))) ? spanHit : null;
+    const list = listHit && (ownMonth(listHit) || !(prevEnd >= 0 && /^[\s,.;&]*$/.test(lower.slice(prevEnd, hit.index - listHit[0].length)))) ? listHit : null;
     // The optional dot is German's ordinal: "1. Mai" is the first of May. "de"
     // is Spanish's "of", and º or "ro" its ordinal: "1º de mayo", "1ro de mayo".
-    const trailing = before.match(/(\d{1,2})(?:st|nd|rd|th|\.|º|°|ro)?\s*(?:of\s+|de\s+)?$/);
+    // Vietnamese may say "ngày" (or "mùng", for the 1st to the 10th) before
+    // the day: "ngày 1 tháng 5", "mùng 5 tháng 5".
+    const trailing = before.match(/(?:(?:ngày|mùng|mồng)\s+)?(\d{1,2})(?:st|nd|rd|th|\.|º|°|ro)?\s*(?:of\s+|de\s+)?$/);
     if (list) {
-      const days = (list[1].match(/\d{1,2}/g) ?? []).map(Number);
+      const days = (list[1].match(/\d{1,2}(?:\s*-\s*\d{1,2})?/g) ?? []).flatMap((piece) => {
+        const [a, b = a] = piece.split("-").map(Number);
+        return Array.from({ length: Math.abs(b - a) + 1 }, (_, k) => Math.min(a, b) + k);
+      });
       const yr = yearFor(hit.month, Math.max(...days));
       for (const d of days) addDay(hit.month, d, yr);
       used.push([Math.max(0, hit.index - list[0].length), hit.index]);
@@ -373,10 +466,14 @@ export const parseDateText = (text: string, today: Date = new Date()): ParsedDat
     const stop = monthHits[i + 1]?.index ?? lower.length;
     // Spanish: in "1 de mayo, 3 de junio" the 3 is June's — its "de" says so —
     // and must not also be read as the 3rd of May. Same for a span or list
-    // before the next month ("1 de mayo, 10-12 de junio").
+    // before the next month ("1 de mayo, 10-12 de junio"), and Vietnamese
+    // alike ("1 tháng 5, từ 10 đến 12 tháng 6").
     const tail = lower
       .slice(hit.end, stop)
-      .replace(/(?:\d{1,2}(?:º|°|ro)?\s*(?:,|-|\bal\b|\by\b|\be\b)\s*)*\d{1,2}(?:º|°|ro)?\s+de\s+$/, "");
+      .replace(
+        /(?:(?:từ|ngày|mùng|mồng)\s+)*(?:\d{1,2}(?:º|°|ro)?\s*(?:,|-|\bal\b|\by\b|\be\b|và|(?:đến|tới)(?:\s+ngày)?)\s*)*\d{1,2}(?:º|°|ro)?\s+de\s+$/,
+        "",
+      );
 
     // ── "Oct Monday & Tuesday" — a weekday named after a month means EVERY
     //    such weekday in it, not the first one.

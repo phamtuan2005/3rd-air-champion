@@ -1,0 +1,326 @@
+// Vietnamese for what TT says — see index.ts.
+//
+// TT talks like a friendly person at the door: the guest is always "bạn" (never
+// "quý khách" or "anh/chị" — TiBook does not know a guest's age or gender), and
+// TT calls itself "mình", as Airbnb Vietnam's chat does. Date EXAMPLES a guest is
+// asked to type are written the Vietnamese way, day before month: "10-12 tháng
+// 10", "cuối tuần này", "3 tháng 11, 2 đêm" — guests copy them, so they must be
+// forms TT's date reader understands (dateText.ts, askTT.ts).
+export const tt: Record<string, string> = {
+  // ── Counting (the key is the English with its "s") ──
+  // Vietnamese has no plural, so the singular and plural values are the same.
+  "{n} night": "{n} đêm",
+  "{n} nights": "{n} đêm",
+  "{n} guest": "{n} khách",
+  "{n} guests": "{n} khách",
+  "{n} free night": "{n} đêm còn trống",
+  "{n} free nights": "{n} đêm còn trống",
+  // "Đã kín" is the house being sold out; on a wish-list button it reads as
+  // "a night the house is full", which is what the guest is saving.
+  "{n} full night": "{n} đêm đã kín",
+  "{n} full nights": "{n} đêm đã kín",
+  "{n} AirBnB review": "{n} đánh giá trên AirBnB",
+  "{n} AirBnB reviews": "{n} đánh giá trên AirBnB",
+
+  // ── Buttons TT puts under an answer ──
+  "Ask {host}": "Hỏi {host}",
+  "Chat {host}": "Nhắn tin cho {host}",
+  " · {n} new": " · {n} tin mới",
+  "Text {host}": "Gửi SMS cho {host}",
+  // {what} is a room name, "bất kỳ phòng nào", "2 đêm này" or "2 đêm còn
+  // trống" — "Đặt" takes every one with no article.
+  "Book {what} →": "Đặt {what} →",
+  "Request {what} →": "Gửi yêu cầu {what} →",
+  "Choose {what}": "Chọn {what}",
+  // In brackets, as Spanish and Korean do: reads after a room name without a
+  // preposition that would need to know whether the span is one day or several.
+  " for {span}": " ({span})",
+  "any room": "bất kỳ phòng nào",
+  "these {nights}": "{nights} này",
+  "the {nights}": "{nights}",
+  "★ Wish list the {nights}": "★ Lưu {nights} vào danh sách yêu thích",
+  "This weekend": "Cuối tuần này",
+  "Next weekend": "Cuối tuần sau",
+  "{room} this weekend": "{room} cuối tuần này",
+  "{room} next weekend": "{room} cuối tuần sau",
+  "Compare the rooms": "So sánh các phòng",
+  "See {room}'s photos": "Xem ảnh phòng {room}",
+  "Show {room}'s free nights": "Xem các đêm còn trống của {room}",
+  "Is {room} free this weekend?": "Cuối tuần này {room} còn trống không?",
+  "What guests say about {room}": "Khách nói gì về {room}",
+  "{room}'s latest review": "Đánh giá mới nhất của {room}",
+  "What guests say about the house": "Khách nói gì về ngôi nhà",
+  "About {room}": "Về {room}",
+  "{room} photos": "Ảnh phòng {room}",
+  // Guest-voice buttons use "tôi": "mình" is how TT speaks of itself.
+  "See my stays": "Xem các kỳ lưu trú của tôi",
+  "Open Your bookings": "Mở “Đặt phòng của bạn”",
+  "My bookings": "Đặt phòng của tôi",
+  "My wish list": "Danh sách yêu thích của tôi",
+  "My wish list ({nights})": "Danh sách yêu thích của tôi ({nights})",
+  "Ask {host} about payment": "Hỏi {host} về thanh toán",
+  "Ask {host} about a long stay": "Hỏi {host} về kỳ lưu trú dài",
+  "Talk to {host} about price": "Trao đổi giá với {host}",
+  "Ask {host} for a price": "Hỏi giá {host}",
+  "Ask {host} about something else": "Hỏi {host} điều khác",
+  "Use the booking form": "Dùng mẫu đặt phòng",
+  "What's free this weekend?": "Cuối tuần này còn phòng nào trống?",
+  "What guests say": "Khách nói gì",
+  "Latest reviews": "Đánh giá mới nhất",
+  "Book a stay": "Đặt kỳ lưu trú",
+  "Anything free this weekend?": "Cuối tuần này còn trống không?",
+  "Which rooms fit 2?": "Phòng nào ở được 2 người?",
+  "Parking": "Chỗ đậu xe",
+  "Check-in": "Nhận phòng",
+  "Cancellation": "Hủy phòng",
+
+  // ── Which nights are free ──
+  "{room} (your usual)": "{room} (phòng quen của bạn)",
+  "{day} has already passed. Which dates are you thinking of next?": "{day} đã qua rồi. Bạn đang tính những ngày nào tiếp theo?",
+  "Those nights have already passed. Which dates are you thinking of next?": "Những đêm đó đã qua rồi. Bạn đang tính những ngày nào tiếp theo?",
+  // {nights} is put after "trong những ngày bạn nhắc" so the sentence reads
+  // the same for "đêm thứ Ba" and "đêm thứ Ba và thứ Tư".
+  "{nights} you mentioned has already passed, so I've left it out.": "Trong những ngày bạn nhắc, {nights} đã qua rồi nên mình bỏ ra.",
+  "{nights} you mentioned have already passed, so I've left them out.": "Trong những ngày bạn nhắc, {nights} đã qua rồi nên mình bỏ ra.",
+  "{day} is {holiday}": "{day} là {holiday}",
+  "Heads up — {days}, a US holiday. Make sure you mean to stay that night.": "Lưu ý — {days}, ngày lễ ở Mỹ. Bạn kiểm tra lại xem có đúng là muốn ở đêm đó không nhé.",
+  "Heads up — {days}, a US holiday. Make sure you mean to stay those nights.": "Lưu ý — {days}, ngày lễ ở Mỹ. Bạn kiểm tra lại xem có đúng là muốn ở những đêm đó không nhé.",
+  "That's {n} nights — I've looked at the first {max}. The calendar shows the rest.": "Tổng cộng {n} đêm — mình đã xem {max} đêm đầu. Phần còn lại bạn xem trên lịch nhé.",
+  "No single room here sleeps {n}. {host} can tell you how to split the party across two rooms.": "Không có phòng nào ở được {n} người. {host} có thể chỉ bạn cách chia nhóm ra hai phòng.",
+  "For {guests}: {rooms}.": "Cho {guests}: {rooms}.",
+  "{span} ({nights}): {room} is free ✓": "{span} ({nights}): {room} còn trống ✓",
+  "{span} ({nights}): free for the whole stay — {rooms}.": "{span} ({nights}): còn trống cả kỳ lưu trú — {rooms}.",
+  "{span}: there's a room every night, but no one room for all {nights} — you'd move once. {each}.": "{span}: đêm nào cũng còn phòng, nhưng không có phòng nào trống đủ {nights} — bạn sẽ đổi phòng một lần. {each}.",
+  "{span}: {room} is taken.": "{span}: {room} đã kín.",
+  "{span}: sold out, I'm sorry.": "{span}: tiếc quá, đã kín hết phòng.",
+  "Free instead for those nights: {rooms}.": "Những đêm đó vẫn còn trống: {rooms}.",
+  "{span}: {room} is taken on {days}. Free: {free}.": "{span}: {room} đã kín vào {days}. Còn trống: {free}.",
+  "{span}: sold out on {days}. Free: {free}.": "{span}: đã kín hết vào {days}. Còn trống: {free}.",
+  "a room": "một phòng",
+  "{month}: {who} is free every night ✓": "{month}: {who} còn trống mọi đêm ✓",
+  "{month}: {room} is taken every night, I'm sorry.": "{month}: tiếc quá, {room} đã kín mọi đêm.",
+  "{month}: sold out every night, I'm sorry.": "{month}: tiếc quá, đêm nào cũng đã kín.",
+  "{month}: {who} is free on {free} of {n} nights. Taken: {taken}.": "{month}: {who} còn trống {free} trên {n} đêm. Đã kín: {taken}.",
+  // {example} is built in askTT.ts, which has no Vietnamese branch yet: until
+  // it has, a Vietnamese guest is shown the English "Oct 10-12" here.
+  "Tell me the nights — like “{example}” — and I'll book them.": "Cho mình biết những đêm bạn muốn — ví dụ “{example}” — mình sẽ đặt cho bạn.",
+
+  // ── Booking ──
+  "{room} sleeps up to {max}, so it can't take {n}.": "{room} ở được tối đa {max} người, nên chưa đủ chỗ cho {n} người.",
+  "Free for {guests} on those nights: {rooms}.": "Những đêm đó còn trống cho {guests}: {rooms}.",
+  "{host} can help you split the party across two rooms.": "{host} có thể giúp bạn chia nhóm ra hai phòng.",
+  "{room} is free — {stay}. Let's book it.": "{room} còn trống — {stay}. Mình đặt luôn nhé.",
+  "{stay}. Free for the whole stay: {rooms}. Which room would you like?": "{stay}. Còn trống cả kỳ lưu trú: {rooms}. Bạn muốn phòng nào?",
+  "Check in {in} · check out {out} · {nights}": "Nhận phòng {in} · trả phòng {out} · {nights}",
+  "phone ending {digits}": "số điện thoại có đuôi {digits}",
+  "Here's your request — check it, then I'll send it:": "Đây là yêu cầu của bạn — bạn xem lại, rồi mình sẽ gửi:",
+  "{guests} · under {name}, {phone}": "{guests} · đứng tên {name}, {phone}",
+  "Includes {days}.": "Bao gồm {days}.",
+  "{host} will text you the price for these nights.": "{host} sẽ nhắn tin báo giá những đêm này cho bạn.",
+  // Nightly price ranges for a guest with no agreed rate (util/priceRange).
+  "{room}: {range} a night.": "{room}: {range} một đêm.",
+  "Prices a night are flexible — {host} will find one that works for you both:": "Giá mỗi đêm linh hoạt — {host} sẽ cùng bạn tìm mức giá hợp cho cả hai:",
+  "The price is flexible within {range} a night; {host} will text you one that works for you both.": "Giá linh hoạt trong khoảng {range} một đêm; {host} sẽ nhắn bạn mức giá hợp cho cả hai.",
+  // Family stay at $0 on purpose (CLAUDE.md) — said as agreed, never as a deal.
+  "Family — no charge, as agreed with {host}.": "Gia đình — không tính phí, như đã thỏa thuận với {host}.",
+  "Your price: ${rate}/night, as agreed with {host}.": "Giá của bạn: ${rate}/đêm, như đã thỏa thuận với {host}.",
+  // Says what will happen (the host confirms, then the booking stands) rather
+  // than "nothing is booked".
+  "Nothing is booked until {host} confirms — you'll hear back by text.": "Đặt phòng sẽ hoàn tất khi {host} xác nhận — anh ấy sẽ nhắn tin trả lời bạn.",
+  "Start over": "Làm lại từ đầu",
+  "How many guests? {room} sleeps up to {max}.": "Bạn đi mấy người? {room} ở được tối đa {max} người.",
+  "Just me": "Chỉ một người",
+  "What number should {host} text about it, {name}?": "{name} ơi, {host} nên nhắn tin cho bạn qua số nào?",
+  "Who should {host} text about it? Type your name and phone number — like “Mai, 408 555 0123”.": "{host} nên nhắn tin cho ai? Bạn nhập tên và số điện thoại — ví dụ “Mai, 408 555 0123”.",
+  "And the name to put the request under?": "Yêu cầu này đứng tên ai vậy bạn?",
+  "Heads up — your stay includes {days}, a US holiday. Do you mean to stay that night?": "Lưu ý — kỳ lưu trú của bạn có {days}, ngày lễ ở Mỹ. Bạn có muốn ở đêm đó không?",
+  "Heads up — your stay includes {days}, a US holiday. Do you mean to stay those nights?": "Lưu ý — kỳ lưu trú của bạn có {days}, ngày lễ ở Mỹ. Bạn có muốn ở những đêm đó không?",
+  "Yes, keep it": "Có, giữ đêm đó",
+  "Yes, keep them": "Có, giữ những đêm đó",
+  "Leave it out": "Bỏ đêm đó",
+  "Leave them out": "Bỏ những đêm đó",
+  "Send (test — nothing is sent)": "Gửi (thử — sẽ không gửi đi)",
+  "Send to {host}": "Gửi cho {host}",
+  "I check out {day} instead": "Đổi sang trả phòng {day}",
+  "Not me — change name or number": "Không phải tôi — đổi tên hoặc số điện thoại",
+  "Open in the booking form": "Mở trong mẫu đặt phòng",
+  "{room} has just been taken for some of those nights. Here's what's free now:": "{room} vừa có người đặt vài đêm trong số đó. Đây là những gì còn trống:",
+  "That room has just been taken for some of those nights. Here's what's free now:": "Phòng đó vừa có người đặt vài đêm trong số đó. Đây là những gì còn trống:",
+  "{room} — {stay}.": "{room} — {stay}.",
+  "{room} was taken for some of those nights while we talked — nothing was sent. Want to look at other rooms?": "Trong lúc chúng ta trò chuyện, {room} đã có người đặt vài đêm trong số đó — chưa có gì được gửi đi. Bạn có muốn xem phòng khác không?",
+  "What's free then?": "Những ngày đó còn phòng nào trống?",
+  "🧪 Test mode — nothing was sent to {host}. This is the request {host} would have received:": "🧪 Chế độ thử — chưa gửi gì cho {host}. Đây là yêu cầu {host} sẽ nhận được:",
+  "Room: {room}": "Phòng: {room}",
+  "Guests: {n}": "Số khách: {n}",
+  "Name: {name} · {phone}": "Tên: {name} · {phone}",
+  // The note goes to the host in English (TIBOOK.md) — the label says so.
+  "Note: {note}": "Ghi chú (bằng tiếng Anh, gửi chủ nhà): {note}",
+  "Try another booking": "Thử đặt phòng khác",
+  "Sent ✓ {host} has your request for {room} — {stay}.": "Đã gửi ✓ {host} đã nhận yêu cầu đặt {room} của bạn — {stay}.",
+  "Nothing is booked until {host} confirms — you'll hear back by text. It's under Your bookings in the meantime.": "Đặt phòng sẽ hoàn tất khi {host} xác nhận — anh ấy sẽ nhắn tin trả lời bạn. Trong lúc chờ, bạn xem yêu cầu trong “Đặt phòng của bạn”.",
+  "That didn't go through — the connection may have dropped. Nothing was sent.": "Chưa gửi được — có thể mạng bị ngắt. Chưa có gì được gửi đi.",
+  "Try again": "Thử lại",
+  "Done — {stay}.": "Xong — {stay}.",
+  "Got it — {stay}.": "Đã rõ — {stay}.",
+  "No problem — nothing was sent. Tell me other dates whenever you like.": "Không sao — chưa có gì được gửi đi. Khi nào muốn, bạn cứ cho mình biết ngày khác nhé.",
+  "Thanks.": "Cảm ơn bạn.",
+  "{room} sleeps up to {max}. For {n}, {host} can help split the party across two rooms.": "{room} ở được tối đa {max} người. Với {n} người, {host} có thể giúp chia nhóm ra hai phòng.",
+  "Thanks, {name}.": "Cảm ơn {name}.",
+  "That number looks too short — type it with the area code, like 408 555 0123.": "Số này có vẻ hơi ngắn — bạn nhập kèm mã vùng nhé, ví dụ 408 555 0123.",
+  "Sorry, I didn't catch that.": "Xin lỗi, mình chưa hiểu ý bạn.",
+
+  // ── Rooms ──
+  "{room}: family — no charge, agreed with {host}.": "{room}: gia đình — không tính phí, đã thỏa thuận với {host}.",
+  "{room}: your price is ${rate}/night.": "{room}: giá của bạn là ${rate}/đêm.",
+  "{room} sleeps up to {max} · {beds}.": "{room} ở được tối đa {max} người · {beds}.",
+  "{room} is one of the {n} rooms. {host} can tell you more about it.": "{room} là một trong {n} phòng. {host} có thể kể bạn nghe thêm.",
+  "For {guests}:": "Cho {guests}:",
+  "There are {n} rooms:": "Nhà có {n} phòng:",
+  "{room} — up to {max}, shared bathroom": "{room} — tối đa {max} người, phòng tắm chung",
+  "{room} — up to {max}, private bathroom": "{room} — tối đa {max} người, phòng tắm riêng",
+  "No single room here sleeps {n}. {host} can help you split the party across two.": "Không có phòng nào ở được {n} người. {host} có thể giúp bạn chia nhóm ra hai phòng.",
+  "Pick a room to see its photos:": "Chọn một phòng để xem ảnh:",
+
+  // ── What guests say ──
+  "{room}'s latest review — {when}:": "Đánh giá mới nhất của {room} — {when}:",
+  "I don't have {room}'s latest review yet.": "Mình chưa có đánh giá mới nhất của {room}.",
+  "Here's what guests say about {room} overall:": "Nhìn chung, khách nói thế này về {room}:",
+  "{host} can tell you what the last guests thought.": "{host} có thể kể bạn nghe khách gần đây nhất thấy thế nào.",
+  "I don't have the latest reviews yet — {host} can tell you what recent guests thought.": "Mình chưa có các đánh giá mới nhất — {host} có thể kể bạn nghe khách gần đây thấy thế nào.",
+  "The latest review of each room:": "Đánh giá mới nhất của từng phòng:",
+  "Rated {rating} ★ across {reviews}.": "Được chấm {rating} ★ qua {reviews}.",
+  "What guests say about {room}:": "Khách nói gì về {room}:",
+  "I don't have a summary of {room}'s reviews yet.": "Mình chưa có bản tóm tắt đánh giá của {room}.",
+  "Here's what guests say about the house:": "Đây là điều khách nói về ngôi nhà:",
+  "{host} can tell you what guests think of it.": "{host} có thể kể bạn nghe khách nghĩ gì về nơi này.",
+  "I don't have a summary of the reviews yet — {host} can tell you what guests say.": "Mình chưa có bản tóm tắt đánh giá — {host} có thể kể bạn nghe khách nói gì.",
+  "What guests say about TT House:": "Khách nói gì về TT House:",
+  "{n} out of 5 stars": "{n} trên 5 sao",
+
+  // ── Questions guests usually text the host ──
+  "Tell me the extra nights — like “Oct 13-14” — and I'll check your room is free and book them.": "Cho mình biết những đêm bạn muốn ở thêm — ví dụ “13-14 tháng 10” — mình sẽ kiểm tra phòng của bạn còn trống và đặt luôn.",
+  "TT House is flexible when plans change — tell {host} what's happening and you'll work it out together.": "TT House linh hoạt khi kế hoạch thay đổi — bạn cứ báo {host} tình hình, hai bên sẽ cùng sắp xếp.",
+  // "Holds" are reserved, unpaid stays (CLAUDE.md): "chỗ đang giữ" says the
+  // room is held for the guest, never that it is confirmed.
+  "Your stays, holds and wish list are all under Your bookings — just your phone number opens them.": "Kỳ lưu trú, chỗ đang giữ và danh sách yêu thích của bạn đều nằm trong “Đặt phòng của bạn” — chỉ cần số điện thoại là mở được.",
+  "{host} can tell you whether your bags can stay before check-in or after check-out.": "{host} sẽ cho bạn biết có thể gửi hành lý trước giờ nhận phòng hoặc sau giờ trả phòng không.",
+  // "Tự nhận phòng" is Airbnb Vietnam's term for self check-in.
+  "Every room has self check-in.": "Phòng nào cũng có thể tự nhận phòng.",
+  "Your door code and the address come in Your bookings once your stay is confirmed.": "Mã cửa và địa chỉ sẽ hiện trong “Đặt phòng của bạn” ngay khi kỳ lưu trú được xác nhận.",
+  "{host} will confirm your check-in and check-out times with your booking.": "{host} sẽ xác nhận giờ nhận phòng và trả phòng cùng với đặt phòng của bạn.",
+  // The small-hours rule has already cost the house a room (CLAUDE.md): the
+  // capitals stay, as in English.
+  "Arriving after midnight? Book the night BEFORE — 1am Tuesday is the Monday night. If you're unsure, {host} will sort it out.": "Đến sau nửa đêm? Hãy đặt đêm HÔM TRƯỚC — 1 giờ sáng thứ Ba là đêm thứ Hai. Nếu chưa chắc, {host} sẽ sắp xếp giúp bạn.",
+  // An EV charger: askTT.ts answers this to "ev", "tesla", "charging".
+  "None of the listings mention a charger — {host} will know.": "Chưa phòng nào ghi có trạm sạc xe điện — {host} sẽ biết rõ.",
+  "{host} sorts out payment with you directly — ask about it in a message and you'll have a straight answer.": "{host} sẽ trao đổi việc thanh toán trực tiếp với bạn — bạn cứ nhắn tin hỏi, anh ấy sẽ trả lời rõ ràng.",
+  "Tell me the dates — like “Nov 1 for 30 nights” — and I'll check a room is free the whole time.": "Cho mình biết ngày — ví dụ “1 tháng 11, 30 đêm” — mình sẽ kiểm tra có phòng trống suốt thời gian đó không.",
+  "The rate for a longer stay is agreed with {host}: send the dates and {host} will come back with one.": "Giá cho kỳ lưu trú dài sẽ thỏa thuận với {host}: bạn gửi ngày, {host} sẽ báo giá lại.",
+  "You can ask for any number of nights here, even one. {host} confirms each request.": "Ở đây bạn đặt bao nhiêu đêm cũng được, kể cả một đêm. {host} sẽ xác nhận từng yêu cầu.",
+  "Your prices, agreed with {host}:": "Giá của bạn, đã thỏa thuận với {host}:",
+  "The price is something you settle with {host} directly — send your dates and {host} will give you a rate.": "Giá sẽ do bạn thỏa thuận trực tiếp với {host} — bạn gửi ngày, {host} sẽ báo giá cho bạn.",
+  "Mini fridge in: {rooms}.": "Tủ lạnh mini có ở: {rooms}.",
+  "Microwave in: {rooms}.": "Lò vi sóng có ở: {rooms}.",
+  "Coffee maker in: {rooms}.": "Máy pha cà phê có ở: {rooms}.",
+  "Private bathroom: {rooms}.": "Phòng tắm riêng: {rooms}.",
+  "Shared bathroom with a bathtub and hot water: {rooms}.": "Phòng tắm chung có bồn tắm và nước nóng: {rooms}.",
+  "The house rules:": "Nội quy nhà:",
+  "{host} will tell you straight — just ask.": "{host} sẽ trả lời bạn rõ ràng — cứ hỏi nhé.",
+  "TT House is in Silicon Valley. The exact address comes in Your bookings once your stay is confirmed.": "TT House ở Silicon Valley. Địa chỉ chính xác sẽ hiện trong “Đặt phòng của bạn” ngay khi kỳ lưu trú được xác nhận.",
+  "{host} can tell you how to get here from the airport or the station.": "{host} có thể chỉ bạn đường đến đây từ sân bay hoặc nhà ga.",
+  "{host} knows the area best and will answer that — send a message.": "{host} rành khu này nhất và sẽ trả lời bạn — bạn nhắn tin nhé.",
+  "{host} lives here and reads every message personally.": "{host} sống ở đây và tự đọc từng tin nhắn.",
+  "Tell me your dates — like “Oct 10-12”, “this weekend” or “Nov 3 for 2 nights” — and I'll book them in {room}, or any room that's free. You check the request before it's sent.": "Cho mình biết ngày của bạn — ví dụ “10-12 tháng 10”, “cuối tuần này” hay “3 tháng 11, 2 đêm” — mình sẽ đặt phòng {room}, hoặc bất kỳ phòng nào còn trống. Bạn sẽ xem lại yêu cầu trước khi gửi.",
+  "Tell me your dates — like “Oct 10-12”, “this weekend” or “Nov 3 for 2 nights” — and I'll book them. You check the request before it's sent.": "Cho mình biết ngày của bạn — ví dụ “10-12 tháng 10”, “cuối tuần này” hay “3 tháng 11, 2 đêm” — mình sẽ đặt cho bạn. Bạn sẽ xem lại yêu cầu trước khi gửi.",
+  "Happy to book it for you. Tell me your dates — like “Oct 10-12”, “this weekend” or “Nov 3 for 2 nights” — and how many of you there are.": "Mình rất sẵn lòng đặt giúp bạn. Cho mình biết ngày — ví dụ “10-12 tháng 10”, “cuối tuần này” hay “3 tháng 11, 2 đêm” — và bạn đi mấy người.",
+  "You'll see the whole request before anything is sent.": "Bạn sẽ xem toàn bộ yêu cầu trước khi gửi đi.",
+  "Hello! Ask me about dates, rooms, parking, check-in — anything about staying here.": "Xin chào! Hỏi mình về ngày, phòng, chỗ đậu xe, nhận phòng — bất cứ điều gì về việc ở đây.",
+  // The motto stays in English, as the house wrote it, and is named as the
+  // house's promise to the guest (CLAUDE.md, Tone).
+  "You're welcome. “Your comfort. Our mission.” is TT House's promise to you.": "Không có gì. “Your comfort. Our mission.” là lời hứa của TT House dành cho bạn.",
+  // "Nov Mon-Tue" is every Monday and Tuesday of November. The example names
+  // one weekday, as the Spanish and Korean do, so the reader is never asked
+  // to pick up a second weekday it might drop.
+  "Your wish list is empty. Tell me the dates you'd like — “Oct 10-12”, “Nov Mon-Tue” — and I'll check them.": "Danh sách yêu thích của bạn đang trống. Cho mình biết ngày bạn muốn — “10-12 tháng 10”, “các thứ Hai trong tháng 11” — mình sẽ kiểm tra.",
+  "I'm not sure I understood that. {host} can answer it — or try dates like “Oct 10-12”, a room name, or “parking”.": "Mình chưa chắc đã hiểu đúng ý bạn. {host} có thể trả lời — hoặc bạn thử nhập ngày như “10-12 tháng 10”, tên một phòng, hay “chỗ đậu xe”.",
+
+  // ── Privacy ──
+  "Your host is {host}, who lives here.": "Chủ nhà của bạn là {host}, người sống ở đây.",
+  "That's not something I can help with. I'm TT House's booking helper — I can tell you about the rooms, which nights are free, and staying here.": "Việc này mình không giúp được. Mình là trợ lý đặt phòng của TT House — mình có thể kể bạn nghe về các phòng, đêm nào còn trống và chuyện ở đây.",
+  "I never give out door codes, passwords or PINs.": "Mình không bao giờ cung cấp mã cửa, mật khẩu hay mã PIN.",
+  "Once your stay is confirmed, your own check-in details are in Your bookings, opened with your phone number.": "Khi kỳ lưu trú được xác nhận, thông tin nhận phòng của bạn sẽ nằm trong “Đặt phòng của bạn”, mở bằng số điện thoại của bạn.",
+  "I don't share anyone's contact details. To reach {host}, send a message here — it goes straight to {host}.": "Mình không chia sẻ thông tin liên lạc của ai cả. Để liên hệ {host}, bạn nhắn tin ở đây — tin sẽ đến thẳng {host}.",
+  "I keep everyone at TT House private — guests, the host and the team. I can't say who is staying, who booked, or anything about them.": "Mình giữ kín thông tin của mọi người ở TT House — khách, chủ nhà và nhân viên. Mình không thể cho biết ai đang ở, ai đã đặt, hay bất cứ điều gì về họ.",
+  "I can tell you which rooms are free on your dates.": "Mình có thể cho bạn biết phòng nào còn trống vào ngày bạn muốn.",
+
+  // ── What every room's listing says (roomFacts.ts / the amenities TT knows) ──
+  // Lowercase and with no article: each goes inside a sentence — "có {thing}",
+  // "ghi có {thing}" — where Vietnamese needs none.
+  "wifi": "wifi",
+  "air conditioning": "máy lạnh",
+  "heating": "máy sưởi",
+  "a TV": "TV",
+  "a dedicated workspace": "góc làm việc riêng",
+  "a fan": "quạt",
+  "a lock on the door": "khóa cửa phòng",
+  "outdoor space": "không gian ngoài trời",
+  "towels and bed linen": "khăn tắm và ga giường",
+  "a hair dryer": "máy sấy tóc",
+  "toiletries": "đồ dùng vệ sinh cá nhân",
+  "a washer or dryer": "máy giặt hoặc máy sấy",
+  "an iron": "bàn ủi",
+  "extra blankets and pillows": "chăn gối dự phòng",
+  "a closet": "tủ quần áo",
+  "blackout curtains": "rèm cản sáng",
+  "a window": "cửa sổ",
+  "a crib": "cũi em bé",
+  "a gym": "phòng tập gym",
+  "a pool or hot tub": "hồ bơi hoặc bồn nước nóng",
+  "breakfast": "bữa sáng",
+  "step-free access": "lối vào không có bậc thềm",
+  "Every room has {thing} ✓": "Phòng nào cũng có {thing} ✓",
+  "{rooms}'s listing mentions {thing}. The others don't say — {host} can confirm.": "Thông tin phòng {rooms} có ghi {thing}. Các phòng khác không ghi — {host} có thể xác nhận giúp bạn.",
+  "Rooms with {thing}: {rooms}.": "Phòng có {thing}: {rooms}.",
+  "None of the room listings mention {thing} — {host} will know for sure.": "Chưa phòng nào ghi có {thing} — {host} sẽ biết chắc.",
+
+  // ── The sheet itself ──
+  // "Ask TT" is a NAME, like TiBook — kept English on purpose (Anh-Tri,
+  // 2026-10-21), so it is deliberately not in this dictionary.
+  "Ask TT, your booking helper": "Ask TT, trợ lý đặt phòng của bạn",
+  "New here? Meet TT, your AI helper.": "Lần đầu đến đây? Làm quen với TT, trợ lý AI của bạn.",
+  "Ask about the rooms, parking or your dates, and TT will walk you through booking.": "Hỏi về phòng, chỗ đậu xe hay ngày bạn muốn, TT sẽ hướng dẫn bạn đặt phòng từng bước.",
+  "Welcome back, {name}.": "Chào mừng {name} quay lại.",
+  "Welcome back.": "Chào mừng bạn quay lại.",
+  "Tell TT your dates and it sets up the request — in your usual room when it's free.": "Cho TT biết ngày của bạn, TT sẽ soạn sẵn yêu cầu — ở phòng quen của bạn nếu còn trống.",
+  "Dismiss": "Đóng",
+  "Book with TT": "Đặt phòng với TT",
+  "TT House's assistant · answers from this page": "Trợ lý của TT House · trả lời dựa trên trang này",
+  "Bookings made here are shown, not sent to the host": "Đặt phòng ở đây chỉ để xem, không gửi cho chủ nhà",
+  "Test mode": "Chế độ thử",
+  "Close": "Đóng",
+  // These greetings are built from pieces (AskTT.tsx): this line, then " ở ",
+  // the rooms joined by ", " and " hoặc ", then one of the endings below, then
+  // " — bạn sẽ xem lại…". Each piece is worded to read on as one sentence:
+  // "…mình sẽ đặt ở King, phòng bạn ở lần trước — bạn sẽ xem lại…".
+  "Welcome back, {name}! TT is your assistant. Tell me your dates and I'll book them": "Chào mừng {name} quay lại! Mình là TT, trợ lý của bạn. Cho mình biết ngày, mình sẽ đặt",
+  "Welcome back! TT is your assistant. Tell me your dates and I'll book them": "Chào mừng bạn quay lại! Mình là TT, trợ lý của bạn. Cho mình biết ngày, mình sẽ đặt",
+  " in ": " ở ",
+  " or ": " hoặc ",
+  ", the room you stayed in last time": ", phòng bạn ở lần trước",
+  " — the rooms you stay in, in that order": " — những phòng bạn hay ở, theo thứ tự đó",
+  ", your usual room": ", phòng quen của bạn",
+  " — you check the request before it's sent.": " — bạn sẽ xem lại yêu cầu trước khi gửi.",
+  "Hello {name}, TT is your assistant. I will do my best to assist you. What can I do for you today?": "Chào {name}, mình là TT, trợ lý của bạn. Mình sẽ cố gắng hết sức để giúp bạn. Hôm nay mình có thể giúp gì cho bạn?",
+  "Hello, TT is your assistant. I will do my best to assist you. What can I do for you today?": "Xin chào, mình là TT, trợ lý của bạn. Mình sẽ cố gắng hết sức để giúp bạn. Hôm nay mình có thể giúp gì cho bạn?",
+  "New to TT House? Ask me anything — the rooms, parking, check-in. When you're ready, say “book Oct 10-12” or “book this weekend for 2” and I'll book it for you. You see the whole request before anything is sent.": "Lần đầu đến TT House? Hỏi mình bất cứ điều gì — phòng, chỗ đậu xe, nhận phòng. Khi sẵn sàng, bạn nhập “đặt 10-12 tháng 10” hoặc “đặt cuối tuần này cho 2 người” là mình đặt giúp bạn. Bạn sẽ xem toàn bộ yêu cầu trước khi gửi đi.",
+  // The motto stays in English, as the house wrote it, and is named as the
+  // house's promise to the guest (CLAUDE.md, Tone).
+  "“Your comfort. Our mission.” — TT House's promise to you": "“Your comfort. Our mission.” — lời hứa của TT House dành cho bạn",
+  "Your questions are kept, without any phone number or email in them, so TT House can teach TT what guests ask.": "Câu hỏi của bạn được lưu lại, đã bỏ mọi số điện thoại và email, để TT House dạy TT biết khách thường hỏi gì.",
+  "Your name and phone number": "Tên và số điện thoại của bạn",
+  "Your name": "Tên của bạn",
+  "Ask, or say “book Oct 10-12”…": "Hỏi, hoặc nhập “đặt 10-12 tháng 10”…",
+  "Ask": "Hỏi",
+  "You have {n} night on your wish list — I can check them all at once.": "Bạn có {n} đêm trong danh sách yêu thích — mình có thể kiểm tra ngay.",
+  "You have {n} nights on your wish list — I can check them all at once.": "Bạn có {n} đêm trong danh sách yêu thích — mình có thể kiểm tra tất cả cùng lúc.",
+};
