@@ -46,7 +46,7 @@ Two things about that file:
 
 ### German
 
-TiBook speaks English, German, Chinese, Korean or Spanish (`src/contexts/TiBookLanguageContext.tsx`).
+TiBook speaks English, German, Chinese, Korean, Spanish or Vietnamese (`src/contexts/TiBookLanguageContext.tsx`).
 A phone set to German opens in German; the guest can switch under **Look**, and
 the choice is remembered per device. (How a guest finds the switch is under
 "Switching language", after Spanish.)
@@ -149,24 +149,62 @@ German's rule (any German in the list opens in German).
 - **The privacy guard has Spanish patterns too**, as Korean does. The cases
   are in `src/util/spanishGuest.test.ts`.
 
+### Vietnamese
+
+Vietnamese follows Spanish: `src/i18n/vi/`, keyed by the exact English, started
+on a phone with Vietnamese listed before English, offered to one with it after.
+
+- **"bạn", worded like Airbnb Vietnam** — chủ nhà, Chủ nhà siêu cấp, khách, đặt
+  phòng, kỳ lưu trú, danh sách yêu thích, nhận phòng/trả phòng. Never "quý
+  khách" or "anh/chị" (`vi.test.ts` fails on either). TT calls itself "mình";
+  the host is "anh ấy". A held stay is **đang giữ chỗ**, never "đã đặt".
+- **Dates.** Day first: "3 thg 11", "Thứ Ba, 3 tháng 11", a 24-hour clock, and
+  CN T2 … T7 over the phone calendar. Unlike Spanish, **a slash is day first**
+  — shown ("3/11") and read — because a Vietnamese guest reads "10/12" as the
+  10th of December whatever the page does. Only TiBook passes
+  `parseDateText(…, { lang: "vi" })`; TiMag's date box still reads 8/23 as August.
+- **TT and the date box read Vietnamese.** 1 tháng 5, ngày 1 tháng 5, mùng 5
+  tháng 5, 10-12 tháng 10, từ 10 đến 12 tháng 12, 1, 3-5 và 20-21 tháng 5, hôm
+  nay / tối nay / ngày mai / ngày mốt, cuối tuần này, thứ Sáu tuần sau, T2, các
+  thứ Hai trong tháng 11, 3 tháng 11 2 đêm, một tuần, trả phòng ngày 14, 2
+  người, hai vợ chồng. "tháng N" is rewritten in place as Spanish's "de
+  <month>", padded to the same length, so one set of rules reads both.
+  Words go in `VI_ASKED` and `VI_AMENITY`.
+- **Accents.** Every Vietnamese pattern uses letter-aware edges: `\b` does not
+  see "đ" or "ở", so `has()` starts a word that begins with one after any
+  non-letter. Input is NFC-normalised first: a Windows keyboard can type "ặ"
+  as three code points. Unaccented spellings (tieng viet, khong, dong y) are
+  read too.
+- **Left out on purpose.** "mai" alone is tomorrow only when the text is
+  Vietnamese — "im Mai" is German May. "1 tháng 2 người" is a month and two
+  people, not the 1st of February. "lần thứ hai" is the second time, not
+  Monday; "sân" alone is not outdoor space (sân bay is the airport).
+- **A Vietnamese yes must be the whole reply** (`VI_YES`): "có" also begins
+  "có hủy được không?" (can I cancel?). And the English YES/NO now end where a
+  letter ends rather than at `\b`, which had read "ý tôi là…" (I mean…) as
+  "y", yes, and "nói…"/"nếu…" as "n", no.
+- **The privacy guard has Vietnamese patterns too**, as Spanish does. "ai"
+  (who) counts only with a verb after it, since "AI" is English too. The cases
+  are in `src/util/vietnameseGuest.test.ts`.
+
 ### Switching language
 
 Three ways, because the guest who most needs the switch is the one least able to
 read the menu it sits in.
 
 - **The offer** (`LanguageOffer.tsx`). TiBook keeps an English phone with
-  Chinese, Korean or Spanish added in English — on purpose, see `langOfDevice`. Those
+  Chinese, Korean, Spanish or Vietnamese added in English — on purpose, see `langOfDevice`. Those
   guests get one card above the bottom bar, in THEIR language: "TiBook을 한국어로
   보시겠어요?" with the switch and "Keep English". Either tap is stored as a
   choice, so it never comes back. It waits behind any open sheet, and the TT
   and Look callouts wait for it. Who is asked: `languageToSuggest`.
 - **The menu.** Under Look, a list with one language a line, each named in its
   own language, under a heading that is every language's word for "language" at
-  once (🌐 Language · Sprache · 语言 · 언어 · Idioma), folded to one row that shows the
+  once (🌐 Language · Sprache · 语言 · 언어 · Idioma · Ngôn ngữ), folded to one row that shows the
   current language until tapped. It was a row of pills; four no
   longer fitted a phone. A new language is one line in `LANGS`.
 - **Asking TT** (`src/util/ttLanguage.ts`). "한국어로 바꿔 주세요", "auf Deutsch
-  bitte", "说中文", "en español, por favor", "English please" — in any of
+  bitte", "说中文", "en español, por favor", "chuyển sang tiếng Việt", "English please" — in any of
   TiBook's languages, naming any of them. TT switches the page and says so in the new language; a booking
   under way keeps going and asks its next question again in that language.
   A language name counts only alone or with a word asking for the switch, so

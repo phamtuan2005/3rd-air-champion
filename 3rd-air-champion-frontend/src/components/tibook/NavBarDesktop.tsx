@@ -220,6 +220,7 @@ const LANGS: { key: LangName; label: string; short: string; word: string; tag: s
   { key: "zh", label: "中文", short: "中文", word: "语言", tag: "zh-Hans" },
   { key: "ko", label: "한국어", short: "한국어", word: "언어", tag: "ko" },
   { key: "es", label: "Español", short: "ES", word: "Idioma", tag: "es" },
+  { key: "vi", label: "Tiếng Việt", short: "VI", word: "Ngôn ngữ", tag: "vi" },
 ];
 
 /** The languages, one a line, the current one ticked. */
@@ -251,7 +252,7 @@ const LanguageList = ({ onPicked }: { onPicked: () => void }) => {
   );
 };
 
-/** "🌐 Language · Sprache · 语言 · 언어 · Idioma" — every language's word at once. */
+/** "🌐 Language · Sprache · 语言 · 언어 · Idioma · Ngôn ngữ" — every language's word at once. */
 const LanguageHeading = () => {
   const { theme } = useTiBookTheme();
   return (

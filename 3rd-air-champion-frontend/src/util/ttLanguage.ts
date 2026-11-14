@@ -19,12 +19,15 @@ import type { LangName } from "../contexts/TiBookLanguageContext";
  */
 // Spanish names come with and without their accent: phone keyboards in English
 // drop it, and "ingles" is as clear as "inglés".
+// Vietnamese names come with "tiếng" (language) and without accents too: "Việt"
+// alone is also the country, the food and a common name.
 const NAMES: Record<LangName, string> = {
-  en: "english|englisch|ingl[eé]s|英语|英文|영어",
-  de: "german|deutsch|alem[aá]n|德语|德文|독일어",
-  zh: "chinese|mandarin|chinesisch|chino|mandar[ií]n|中文|汉语|普通话|중국어",
-  ko: "korean|koreanisch|coreano|韩语|韩文|韩国语|韓語|한국어|한국말|한글",
-  es: "spanish|spanisch|espa[nñ]ol|castellano|西班牙语|西班牙文|스페인어",
+  en: "english|englisch|ingl[eé]s|tiếng anh|tieng anh|英语|英文|영어",
+  de: "german|deutsch|alem[aá]n|tiếng đức|tieng duc|德语|德文|독일어",
+  zh: "chinese|mandarin|chinesisch|chino|mandar[ií]n|tiếng trung|tiếng hoa|tieng trung|tieng hoa|中文|汉语|普通话|중국어",
+  ko: "korean|koreanisch|coreano|tiếng hàn|tieng han|韩语|韩文|韩国语|韓語|한국어|한국말|한글",
+  es: "spanish|spanisch|espa[nñ]ol|castellano|tiếng tây ban nha|tieng tay ban nha|西班牙语|西班牙文|스페인어",
+  vi: "vietnamese|vietnamesisch|vietnamita|tiếng việt|tieng viet|việt ngữ|越南语|越南文|베트남어",
 };
 
 const asking = (name: string): RegExp[] => [
@@ -40,6 +43,13 @@ const asking = (name: string): RegExp[] => [
   new RegExp(`(?<!\\p{L})(?:c[aá]mbi\\p{L}*|p[oó]n\\p{L}*|p[aá]s\\p{L}*|mu[eé]str\\p{L}*|tr[aá]duc\\p{L}*)(?!\\p{L}).{0,30}(?<!\\p{L})(?:a|al|en)\\s+(?:${name})(?!\\p{L})`, "iu"),
   new RegExp(`(?:^|[¿¡\\s])(?:hablas|puedes\\s+hablar|habla\\s+en)\\s+(?:${name})(?!\\p{L})`, "iu"),
   new RegExp(`(?<!\\p{L})en\\s+(?:${name})\\s*(?:,?\\s*por\\s+favor|porfa)?[\\s.!?]*$`, "iu"),
+  // Vietnamese: "tiếng Việt đi", "chuyển sang tiếng Việt", "bằng tiếng Việt
+  // nhé", "bạn nói tiếng Việt được không". Not "chủ nhà có nói tiếng Việt
+  // không" — that asks about the host — so "nói" counts only at the start.
+  new RegExp(`^[^\\p{L}]*(?:${name})\\s*(?:đi|nhé|nha|nhá|được không|ạ|đi ạ|giùm|giúp|với)?[\\s.!?]*$`, "iu"),
+  new RegExp(`(?<![\\p{L}\\p{M}])(?:chuyển|đổi|dịch|hiển thị|hiện)\\s*(?:trang\\s*)?(?:sang|qua|thành|bằng|ra)?\\s*(?:${name})(?![\\p{L}\\p{M}])`, "iu"),
+  new RegExp(`(?<![\\p{L}\\p{M}])(?:bằng|sang)\\s+(?:${name})\\s*(?:đi|nhé|nha|được không|ạ|giùm|giúp)?[\\s.!?]*$`, "iu"),
+  new RegExp(`^[^\\p{L}]*(?:bạn\\s+|tt\\s+)?(?:có\\s+)?(?:nói|biết)\\s+(?:được\\s+)?(?:${name})(?![\\p{L}\\p{M}])`, "iu"),
   // English: "switch to Korean", "can you show it in Korean", "speak Korean".
   // Not "does the host speak Korean" — that asks about the host.
   new RegExp(`\\b(?:switch|change|set|put|turn|translate)\\b.{0,30}\\b(?:to|into|in)\\s+(?:${name})\\b`, "i"),
@@ -77,4 +87,6 @@ export const SWITCHED: Record<LangName, string> = {
   ko: "네, 이제 TiBook을 한국어로 보여 드릴게요. 숙박에 관해 무엇이든 물어보세요.",
   // "tú", as the rest of TiBook's Spanish.
   es: "¡Claro! TiBook ya está en español. Pregúntame lo que quieras sobre tu estadía.",
+  // "bạn" and "mình", as the rest of TiBook's Vietnamese.
+  vi: "Được rồi! TiBook đã chuyển sang tiếng Việt. Bạn cứ hỏi mình bất cứ điều gì về kỳ lưu trú nhé.",
 };

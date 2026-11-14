@@ -8,7 +8,7 @@ import type { AskTTContext, TTRoom } from "./askTT";
 // What TT says to the guest is in their language (t, fmtDate). What is SENT
 // to the host — bookingRequestOf below — stays English, because the host
 // reads it in English.
-import { fmtDate, t } from "../contexts/TiBookLanguageContext";
+import { currentLang, fmtDate, t } from "../contexts/TiBookLanguageContext";
 
 // Booking a stay by talking to TT.
 //
@@ -51,8 +51,19 @@ const ES_BOOK =
   /(?<!\p{L})(?:reservar|resérvame|resérvanos|apártame|(?:quiero|quisiera|queremos|quisiéramos|necesito|necesitamos|me gustaría|nos gustaría)\s+(?:reservar|una habitación|un cuarto|quedarme|quedarnos|hospedarme|hospedarnos)|(?:puedo|podemos|podría|podríamos)\s+(?:reservar|quedarme|quedarnos))(?!\p{L})/iu;
 const ES_NOT_A_NEW_BOOKING =
   /(?<!\p{L})(?:mis? (?:reservas?|reservaciones?|solicitud(?:es)?|estancias?|estadías?)|cancel|reembols|devoluci[oó]n|reservé(?!\p{L})|ya (?:tengo|hice|reserv)|(?:c[oó]mo|d[oó]nde) (?:puedo |podemos |se )?reserv)/iu;
+// Vietnamese: "đặt phòng" is the verb ("tôi muốn đặt phòng") and the noun
+// ("đặt phòng của tôi", my booking) alike, so the noun's forms are ruled out
+// below, as are "đã đặt" (already booked) and "đặt thế nào" (how do I book).
+// Vietnamese guests say "book" too: "book phòng King".
+const VI_BOOK =
+  /(?<![\p{L}\p{M}])(?:đặt\s+phòng|đặt\s+cho\s+(?:tôi|em|mình|chúng tôi)|(?:muốn|cần|định)\s+(?:đặt|thuê|ở|giữ)|(?:cho|giúp)\s+(?:tôi|em|mình)\s+(?:đặt|giữ)|giữ\s+chỗ\s+cho|thuê\s+phòng)(?![\p{L}\p{M}])/iu;
+const VI_NOT_A_NEW_BOOKING =
+  /(?<![\p{L}\p{M}])(?:(?:đặt\s+phòng|yêu\s+cầu|kỳ\s+lưu\s+trú)\s+(?:của|cũ\s+của)\s+(?:tôi|em|mình)|đã\s+(?:đặt|book)|hủy|huỷ|hoàn\s+tiền|(?:làm\s+sao|làm\s+thế\s+nào|cách)\s+(?:để\s+)?đặt|đặt(?:\s+phòng)?\s+(?:như\s+)?thế\s+nào)/iu;
 export const wantsToBook = (q: string): boolean =>
-  (BOOK_WORDS.test(q) || ES_BOOK.test(q)) && !NOT_A_NEW_BOOKING.test(q) && !ES_NOT_A_NEW_BOOKING.test(q);
+  (BOOK_WORDS.test(q) || ES_BOOK.test(q) || VI_BOOK.test(q.normalize("NFC"))) &&
+  !NOT_A_NEW_BOOKING.test(q) &&
+  !ES_NOT_A_NEW_BOOKING.test(q) &&
+  !VI_NOT_A_NEW_BOOKING.test(q.normalize("NFC"));
 
 // Rooms are booked by the NIGHT. The calendar, the cart and every request
 // are lists of nights; a guest talks in check-in and check-out days. These
@@ -109,15 +120,30 @@ const ES_WEEKS = /\b(\d{1,2}|una|un|dos|tres|cuatro)\s*semanas?\b/i;
 // "a" is left out: it is in nearly every Spanish sentence.
 const ES_CHECKOUT = /(?<!\p{L})(?:hasta(?:\s+el)?|al|salida(?:\s+el)?|salgo(?:\s+el)?|me\s+voy(?:\s+el)?|nos\s+vamos(?:\s+el)?)(?!\p{L})/giu;
 
+// Vietnamese: "3 tháng 11, 2 đêm", "một tuần". Not "tối" (evening) as a
+// count, though people say "2 tối": "8 tối" is also 8pm. "tuần sau" and
+// "tuần tới" are next week, not a week-long stay.
+const VI_NUM: Record<string, number> = {
+  một: 1, hai: 2, ba: 3, bốn: 4, tư: 4, năm: 5, sáu: 6, bảy: 7, tám: 8, chín: 9, mười: 10,
+};
+const viNumberOf = (s: string) => VI_NUM[s.toLowerCase()] ?? Number(s);
+const VI_NIGHTS = /(?<![\p{L}\p{M}\d])(\d{1,2}|một|hai|ba|bốn|năm|sáu|bảy|tám|chín|mười)\s*đêm(?![\p{L}\p{M}])/iu;
+const VI_WEEKS = /(?<![\p{L}\p{M}\d])(\d{1,2}|một|hai|ba|bốn)\s*tuần(?![\p{L}\p{M}])(?!\s*(?:sau|tới|này|trước|nữa))/iu;
+// "từ 10 tháng 12 đến 12 tháng 12", "trả phòng ngày 5": the day the guest
+// LEAVES. "đến" is also "arrive" — "tôi đến ngày 5" — which is why, as with
+// "to", it only counts once the text before it already holds a date.
+const VI_CHECKOUT = /(?<![\p{L}\p{M}])(?:đến|tới|trả\s+phòng|check\s*-?\s*out)(?:\s+ngày)?(?![\p{L}\p{M}])/giu;
+
 // The first date a piece of text names, from the date parser — or, for the
 // right-hand side of "Oct 10 to 12", a bare day number in the left's month.
 const firstDate = (text: string, today: Date, after?: string): string | null => {
-  const p = parseDateText(text, today);
+  const p = parseDateText(text, today, { lang: currentLang() });
   const all = [...p.past, ...p.dates].sort();
   if (all.length > 0) return all[0];
   if (!after) return null;
-  // "hasta el 12" leaves "el 12" on the right, as "to the 12th" leaves "the 12th".
-  const bare = text.match(/^\s*(?:the\s+|el\s+)?(\d{1,2})(?:st|nd|rd|th)?\b/i);
+  // "hasta el 12" leaves "el 12" on the right, as "to the 12th" leaves "the
+  // 12th", and "đến ngày 12" "ngày 12".
+  const bare = text.match(/^\s*(?:the\s+|el\s+|ngày\s+)?(\d{1,2})(?:st|nd|rd|th)?\b/i);
   if (!bare) return null;
   const a = parseISO(after);
   const d = Number(bare[1]);
@@ -152,7 +178,15 @@ const split = (nights: string[], todayKey: string): StayRead => ({
  */
 export const readStay = (q: string, today: Date): StayRead | null => {
   const todayKey = keyOf(today);
-  const text = q.replace(/[–—]/g, "-");
+  const text = q.normalize("NFC").replace(/[–—]/g, "-");
+
+  const viNights = text.match(VI_NIGHTS);
+  const viWeeks = viNights ? null : text.match(VI_WEEKS);
+  if (viNights || viWeeks) {
+    const count = viNights ? viNumberOf(viNights[1]) : 7 * viNumberOf(viWeeks![1]);
+    const start = firstDate(text.replace((viNights ?? viWeeks)![0], " "), today);
+    if (start && count >= 1 && count <= 90) return split(nightsFrom(start, count), todayKey);
+  }
 
   // "Nov 3 for 2 nights" / "Nov 3 for a week": the count is lifted out
   // first, so its number is not read as a second day of the month.
@@ -187,7 +221,7 @@ export const readStay = (q: string, today: Date): StayRead | null => {
     if (start && count >= 1 && count <= 90) return split(nightsFrom(start, count), todayKey);
   }
   if (ZH_CHECKOUT.test(text) || KO_CHECKOUT.test(text)) {
-    const p = parseDateText(text, today);
+    const p = parseDateText(text, today, { lang: currentLang() });
     const all = [...p.past, ...p.dates].sort();
     if (all.length >= 2) {
       const count = differenceInCalendarDays(parseISO(all[all.length - 1]), parseISO(all[0]));
@@ -195,7 +229,7 @@ export const readStay = (q: string, today: Date): StayRead | null => {
     }
   }
 
-  for (const [re, inclusive] of [[THROUGH, true], [CHECKOUT, false], [ES_CHECKOUT, false]] as const) {
+  for (const [re, inclusive] of [[THROUGH, true], [CHECKOUT, false], [ES_CHECKOUT, false], [VI_CHECKOUT, false]] as const) {
     re.lastIndex = 0;
     for (let m = re.exec(text); m; m = re.exec(text)) {
       const start = firstDate(text.slice(0, m.index), today);
@@ -224,8 +258,9 @@ export const checkoutReading = (q: string, dates: string[]): string[] | null => 
   // German writes the same span "10.–12." or "10. bis 12.", and is owed the
   // same button: "vom 10. bis 12." is two nights to most German travellers.
   // Chinese writes it "10-12日" or "10日到12日", and 到 usually means the same.
-  // Korean writes "10~12일" or "10일부터 12일까지", Spanish "del 10 al 12".
-  if (!/\d(?:st|nd|rd|th|\.|[日号號일])?\s*(?:[-–—~～]|\bbis(?: zum)?\b|\bal\b|\bhasta(?: el)?\b|到|至|부터|에서)\s*\d/i.test(q)) return null;
+  // Korean writes "10~12일" or "10일부터 12일까지", Spanish "del 10 al 12",
+  // Vietnamese "từ 10 đến 12".
+  if (!/\d(?:st|nd|rd|th|\.|[日号號일])?\s*(?:[-–—~～]|\bbis(?: zum)?\b|\bal\b|\bhasta(?: el)?\b|(?:đến|tới)(?: ngày)?|到|至|부터|에서)\s*\d/i.test(q.normalize("NFC"))) return null;
   return dates.slice(0, -1);
 };
 
@@ -248,10 +283,17 @@ export const monthAsked = (q: string, today: Date): string[] | null => {
   // "12월", "2027년 1월". Not "3개월" (three months), and not "12월 3일", which
   // the date reader has — but "12월 2명" is still December, for two people.
   const ko = hit || zh ? null : q.match(new RegExp(`(?:(\\d{4})\\s*년\\s*)?(?<!\\d)(\\d{1,2})\\s*월(?!\\s*${KO_DAY})`));
-  if (!hit && !zh && !ko) return null;
-  const m = hit ? MONTHS[hit[1]] : zh ? zhNumber(zh[2]) - 1 : Number(ko![2]) - 1;
+  // "tháng 12", "tháng 1 năm 2027". Not "3 tháng 12", which names a day and
+  // belongs to the date reader, and not "2 tháng" (two months), whose number
+  // comes first.
+  const vi =
+    hit || zh || ko
+      ? null
+      : q.normalize("NFC").toLowerCase().match(/(?<![\p{L}\p{M}]|\d\s*)(?:tháng|thang|thg)\s*(\d{1,2})(?!\d)(?!\s*\d{1,2}(?!\d))(?:\s*(?:năm|,)?\s*(\d{4}))?/u);
+  if (!hit && !zh && !ko && !vi) return null;
+  const m = hit ? MONTHS[hit[1]] : zh ? zhNumber(zh[2]) - 1 : ko ? Number(ko[2]) - 1 : Number(vi![1]) - 1;
   if (!(m >= 0 && m <= 11)) return null;
-  const year = hit ? hit[2] : (zh ?? ko)![1];
+  const year = hit ? hit[2] : vi ? vi[2] : (zh ?? ko)![1];
   const y = year ? Number(year) : m < today.getMonth() ? today.getFullYear() + 1 : today.getFullYear();
   const days = new Date(y, m + 1, 0).getDate();
   const todayKey = keyOf(today);
@@ -347,7 +389,9 @@ export const nextStep = (d: TTBookingDraft): TTBookingStep => {
  * Whatever is not the number and not a filler word is the name. Kept as typed:
  * the host reads it, and "mai tran" is how Mai writes her name.
  */
-export const readContact = (text: string): { name: string; phone: string } => {
+export const readContact = (typed: string): { name: string; phone: string } => {
+  // NFC, or a decomposed "Tuấn" from a Windows keyboard would not match "tên" etc.
+  const text = typed.normalize("NFC");
   // From a "+" or "(" if there is one, so "(408) 555-0123" comes back whole.
   const hit = text.match(/[+(]?\d(?:[\s().-]*\d){6,}/);
   const phone = hit ? hit[0].trim() : "";
@@ -361,7 +405,16 @@ export const readContact = (text: string): { name: string; phone: string } => {
     .replace(/(?:입니다|이에요|예요|이고요|이고|이요|고요)(?=[\s,.!]|$)/g, " ")
     // Spanish: "me llamo Ana y mi celular es 408…". Whole words only, with
     // letter-aware edges, so the "es" in "Estela" and the "y" in "Yolanda" stay.
-    .replace(/(?<!\p{L})(?:me llamo|mi nombre es|nombre|soy|mi|tel[eé]fono|n[uú]mero|celular|cel|es|y|ll[aá]mame|escr[ií]beme|al)(?!\p{L}):?/giu, " ")
+    // Not in Vietnamese text: "Mi" is a Vietnamese name ("Trà Mi"), and was
+    // being cut off as Spanish "my".
+    .replace(/(?<!\p{L})(?:me llamo|mi nombre es|nombre|soy|mi|tel[eé]fono|n[uú]mero|celular|cel|es|y|ll[aá]mame|escr[ií]beme|al)(?!\p{L}):?/giu, (m) =>
+      /[ăâđêôơưẠ-ỹ]/i.test(text.normalize("NFC")) ? m : " ")
+    // Vietnamese: "tên tôi là Lan, số điện thoại 408…". Longest phrases first,
+    // whole words only; "tôi"/"em"/"mình" only inside a phrase, never alone.
+    .replace(
+      /(?<![\p{L}\p{M}])(?:tên\s+(?:tôi|em|mình)\s+là|(?:tôi|em|mình)\s+tên\s+là|(?:tôi|em|mình)\s+tên|(?:tôi|em|mình)\s+là|tên\s+là|tên|số\s+điện\s+thoại|số\s+đt|sđt|sdt|điện\s+thoại|số|của\s+(?:tôi|em|mình)|là|và|(?:gọi|nhắn)(?:\s+tin)?\s+cho\s+(?:tôi|em|mình)|ạ)(?![\p{L}\p{M}]):?/giu,
+      " ",
+    )
     .replace(/[^\p{L}' -]/gu, " ")
     .replace(/\s+/g, " ")
     .trim()
@@ -403,14 +456,31 @@ export const readParty = (text: string): number | null => {
   if (/^(?:s[oó]lo yo|yo solo|yo sola|yo|una persona|1 persona)[.!\s]*$/u.test(t)) return 1;
   if (/^(?:nosotros dos|nosotras dos|los dos|las dos|una pareja|en pareja|pareja)[.!\s]*$/u.test(t) || /^(?:con )?mi \p{L}+ y yo[.!\s]*$/u.test(t) || /^yo y mi \p{L}+[.!\s]*$/u.test(t)) return 2;
   const es = t.match(/^(?:somos |seremos |vamos a ser |en total |para )?(\d{1,2}|una|uno|dos|tres|cuatro|cinco|seis)(?:\s*(?:personas?|adultos?|hu[eé]spedes))?[.!\s]*$/u);
-  return es ? esNumberOf(es[1]) : null;
+  if (es) return esNumberOf(es[1]);
+  // Vietnamese. "một mình" (on my own) is one; "hai vợ chồng" (husband and
+  // wife) and "tôi và vợ" two — not "tôi, vợ và hai con", which goes back to
+  // the question. A closing "ạ", "nhé" or "thôi" changes nothing.
+  const v = t.normalize("NFC");
+  const END = "(?:\\s*(?:ạ|nhé|nha|thôi|thôi ạ))?[.!\\s]*$";
+  if (new RegExp(`^(?:chỉ\\s+)?(?:một mình|1 mình|mình tôi|tôi|em|mình|1 người|một người)${END}`, "u").test(v)) return 1;
+  if (
+    new RegExp(`^(?:hai vợ chồng|vợ chồng(?: tôi| em| mình)?|cặp đôi|một cặp|hai đứa|2 đứa)${END}`, "u").test(v) ||
+    new RegExp(`^(?:tôi|em|mình)\\s+(?:và|với)\\s+(?:vợ|chồng|bạn|bạn trai|bạn gái|người yêu|mẹ|bố|ba|má|con|anh|chị|em)(?:\\s+(?:tôi|em|mình))?${END}`, "u").test(v)
+  ) return 2;
+  const vi = v.match(
+    new RegExp(`^(?:chúng tôi|chúng em|bọn tôi|tụi tôi|tụi mình|nhà tôi|tổng cộng|tất cả)?\\s*(?:có\\s+|là\\s+|đi\\s+)?(\\d{1,2}|một|hai|ba|bốn|năm|sáu)\\s*(?:người(?:\\s+lớn)?|khách)?${END}`, "u"),
+  );
+  return vi ? viNumberOf(vi[1]) : null;
 };
 const KO_NUM: Record<string, number> = { 하나: 1, 한: 1, 둘: 2, 두: 2, 셋: 3, 세: 3, 넷: 4, 네: 4, 다섯: 5, 여섯: 6 };
 const DE_NUM: Record<string, number> = { eins: 1, einer: 1, zwei: 2, drei: 3, vier: 4, fünf: 5, sechs: 6 };
 
 // German answers sit beside the English ones for the same reason as readParty's.
-const YES = /^(?:y|yes|yeah|yep|yup|sure|ok|okay|send|send it|confirm|confirmed|go|go ahead|do it|book it|please|yes please|sounds good|perfect|correct|that'?s right|looks good|ja|jawohl|jep|genau|klar|gerne?|passt|senden|abschicken|bestätigen|richtig|stimmt)\b/i;
-const NO = /^(?:n|no|nope|cancel|stop|never ?mind|forget it|don'?t|nein|nee|abbrechen|stopp|vergiss es|lieber nicht)\b/i;
+// Each ends where a LETTER ends, not at \b: JavaScript's \b fires before an
+// accented letter, so Vietnamese "ý tôi là…" ("I mean…") read as "y" — yes,
+// send it — and "nói chuyện…" or "nếu…" as "n", no.
+const YES = /^(?:y|yes|yeah|yep|yup|sure|ok|okay|send|send it|confirm|confirmed|go|go ahead|do it|book it|please|yes please|sounds good|perfect|correct|that'?s right|looks good|ja|jawohl|jep|genau|klar|gerne?|passt|senden|abschicken|bestätigen|richtig|stimmt)(?![\p{L}\p{M}\d_])/iu;
+const NO = /^(?:n|no|nope|cancel|stop|never ?mind|forget it|don'?t|nein|nee|abbrechen|stopp|vergiss es|lieber nicht)(?![\p{L}\p{M}\d_])/iu;
 // Chinese must match the WHOLE reply. A yes here can SEND the request, and a
 // question can begin with one: "可以取消吗" (can I cancel?) starts with 可以, and
 // a prefix match like the English would have sent the booking.
@@ -431,18 +501,37 @@ const ES_YES_WORD = "(?:s[ií]|claro|claro que s[ií]|dale|ok|okey|vale|de acuer
 const ES_NO_WORD = "(?:no|nop|cancela|cancelar|canc[eé]lala|mejor no|todav[ií]a no|a[uú]n no|ahora no|olv[ií]dalo|d[eé]jalo)";
 const ES_YES = new RegExp(`^[¡\\s]*${ES_YES_WORD}(?:[.!,\\s]+${ES_YES_WORD})?[.!,\\s]*(?:gracias)?[.!\\s]*$`, "iu");
 const ES_NO = new RegExp(`^[¡\\s]*${ES_NO_WORD}(?:[.!,\\s]+${ES_NO_WORD})?[.!,\\s]*(?:gracias)?[.!\\s]*$`, "iu");
+// Vietnamese, whole reply too: "có" is yes, and also how a question begins —
+// "có hủy được không?" (can I cancel?). Polite "dạ"/"vâng" may lead, and "ạ",
+// "nhé", "nha" close a reply without changing it. Unaccented spellings are
+// there because plenty of guests type without a Vietnamese keyboard.
+const VI_YES_WORD =
+  "(?:có|co|vâng|vang|dạ|da|ừ|ừm|uh|ok|oke|okê|okay|được|duoc|được rồi|đồng ý|dong y|đúng|đúng rồi|dung roi|chính xác|chắc chắn|tất nhiên|gửi|gửi đi|gửi luôn|gui di|đặt đi|đặt luôn|xác nhận|tốt|tuyệt|tuyệt vời)";
+const VI_NO_WORD =
+  "(?:không|khong|ko|k|hông|thôi|thoi|không cần|không cần đâu|chưa|chưa đâu|hủy|huỷ|huy|hủy đi|đừng|đừng gửi|không gửi|để sau|lúc khác|không được)";
+const VI_TAIL = "(?:\\s*(?:ạ|nhé|nha|nhá|luôn))?";
+const VI_YES = new RegExp(`^(?:dạ\\s+|vâng\\s+)?${VI_YES_WORD}${VI_TAIL}(?:[.!,\\s]+${VI_YES_WORD}${VI_TAIL})?[.!,\\s]*(?:cảm ơn|cám ơn|cảm ơn bạn)?[.!\\s]*$`, "iu");
+const VI_NO = new RegExp(`^(?:dạ\\s+|vâng\\s+)?${VI_NO_WORD}${VI_TAIL}(?:[.!,\\s]+${VI_NO_WORD}${VI_TAIL})?[.!,\\s]*(?:cảm ơn|cám ơn|cảm ơn bạn)?[.!\\s]*$`, "iu");
 export const readYesNo = (text: string): "yes" | "no" | null => {
-  const a = text.trim();
-  return YES.test(a) || ZH_YES.test(a) || KO_YES.test(a) || ES_YES.test(a)
+  const a = text.normalize("NFC").trim();
+  return YES.test(a) || ZH_YES.test(a) || KO_YES.test(a) || ES_YES.test(a) || VI_YES.test(a)
     ? "yes"
-    : NO.test(a) || ZH_NO.test(a) || KO_NO.test(a) || ES_NO.test(a) ? "no" : null;
+    : NO.test(a) || ZH_NO.test(a) || KO_NO.test(a) || ES_NO.test(a) || VI_NO.test(a) ? "no" : null;
 };
 
 // A reply that is really a question is not an answer to TT's question. Chinese
 // marks one with its own full-width ？, or with only 吗 and no mark at all.
 // Korean often leaves the ? off too, and ends the sentence in 나요, 까(요) or 니까.
 // Spanish opens one with ¿, and a phone keyboard often loses the closing ?.
-export const looksLikeQuestion = (text: string) => /[?？¿]|吗\s*$|(?:나요|까요?|니까)\s*$/.test(text);
+// Vietnamese ends one on a particle — "…được không", "…chưa", "…nhỉ" — and
+// rarely types the ?. But "không" and "chưa" alone are also no and not-yet,
+// so a whole yes or no is never taken for a question.
+const VI_QUESTION = /(?<![\p{L}\p{M}])(?:không|khong|ko|chưa|nhỉ|hả|chứ|sao|vậy|thế|nào|gì|đâu|mấy|bao nhiêu)\s*(?:ạ|vậy|thế|nhỉ|hả)?[.!\s]*$/iu;
+export const looksLikeQuestion = (text: string) => {
+  if (/[?？¿]|吗\s*$|(?:나요|까요?|니까)\s*$/.test(text)) return true;
+  const a = text.normalize("NFC").trim();
+  return VI_QUESTION.test(a) && !VI_YES.test(a) && !VI_NO.test(a);
+};
 
 // ── What the guest reads ────────────────────────────────────────────────────
 

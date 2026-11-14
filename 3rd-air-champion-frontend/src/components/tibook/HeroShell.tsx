@@ -138,7 +138,10 @@ const HeroWeekdays = () => {
           // Spanish calendars write miércoles as X: martes already has the M.
           : lang === "es"
             ? ["D", "L", "M", "X", "J", "V", "S"]
-            : ["S", "M", "T", "W", "T", "F", "S"];
+            // Vietnamese numbers its days, so all but Chủ nhật begin "T".
+            : lang === "vi"
+              ? ["CN", "T2", "T3", "T4", "T5", "T6", "T7"]
+              : ["S", "M", "T", "W", "T", "F", "S"];
   return (
     <div className={`grid shrink-0 grid-cols-7 pb-1 text-center text-[11px] font-medium ${theme.surfaceMuted}`}>
       {letters.map((d, i) => <span key={i}>{d}</span>)}

@@ -107,6 +107,18 @@ const nightsPhraseEs = (order: number[], consecutive: boolean, once: boolean) =>
   return `las noches del ${names.slice(0, -1).join(", el ")} y el ${names[names.length - 1]}`;
 };
 
+// Vietnamese says a habit and a single past stay alike, as English does, with
+// "đêm" (night) BEFORE the days rather than after: "đêm thứ Ba và thứ Tư",
+// "các đêm từ thứ Hai đến thứ Năm". "các" makes it plural; one night has none.
+const DAY_VI = ["Chủ nhật", "thứ Hai", "thứ Ba", "thứ Tư", "thứ Năm", "thứ Sáu", "thứ Bảy"];
+const nightsPhraseVi = (order: number[], consecutive: boolean) => {
+  const names = order.map((m) => DAY_VI[(m + 1) % 7]);
+  if (names.length === 1) return `đêm ${names[0]}`;
+  if (consecutive && names.length >= 3) return `các đêm từ ${names[0]} đến ${names[names.length - 1]}`;
+  if (names.length === 2) return `đêm ${names[0]} và ${names[1]}`;
+  return `các đêm ${names.slice(0, -1).join(", ")} và ${names[names.length - 1]}`;
+};
+
 /**
  * The nights a guest stays, the way a person says them: "Tuesday and Wednesday
  * nights", "Monday through Thursday nights", "Monday and Thursday nights".
@@ -129,6 +141,7 @@ export const nightsPhrase = (habits: Habit[], once = false) => {
   if (currentLang() === "es") return nightsPhraseEs(order, consecutive, once);
   if (currentLang() === "zh") return nightsPhraseZh(order, consecutive);
   if (currentLang() === "ko") return nightsPhraseKo(order, consecutive);
+  if (currentLang() === "vi") return nightsPhraseVi(order, consecutive);
   if (order.length === 1) return `${name(order[0])} nights`;
   if (consecutive && order.length >= 3) return `${name(order[0])} through ${name(order[order.length - 1])} nights`;
   const names = order.map(name);

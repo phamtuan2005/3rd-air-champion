@@ -447,7 +447,9 @@ const BookingRequestModal = ({
   // dates and never looked at one — the text rode along as a note on a single
   // request built from the form's default day, and the host re-entered the real
   // dates by hand. Reading it costs nothing and happens as they type.
-  const typed = useMemo(() => parseDateText(notes), [notes]);
+  // On the Vietnamese page a slash is day first: "10/12" is the 10th of
+  // December to the guest typing it.
+  const typed = useMemo(() => parseDateText(notes, new Date(), { lang }), [notes, lang]);
   // Already theirs — not free, but the opposite of a problem.
   const typedMine = useMemo(
     () => typed.dates.filter((d) => myBookedDates?.has(d)),
@@ -1445,6 +1447,9 @@ const BookingRequestModal = ({
                               // "1 de mayo de 2027", which parseDateText reads.
                               : lang === "es"
                               ? `${fmtDate(parseISO(typed.past[0]), "MMMM d")} de ${parseISO(typed.past[0]).getFullYear() + 1}`
+                              // "1 tháng 5 năm 2027", which parseDateText reads.
+                              : lang === "vi"
+                              ? `${format(parseISO(typed.past[0]), "d")} tháng ${format(parseISO(typed.past[0]), "M")} năm ${parseISO(typed.past[0]).getFullYear() + 1}`
                               :`${format(parseISO(typed.past[0]), "d MMM")} ${parseISO(typed.past[0]).getFullYear() + 1}`,
                         })}
                       </p>
