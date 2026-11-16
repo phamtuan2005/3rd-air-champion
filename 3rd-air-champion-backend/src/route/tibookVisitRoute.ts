@@ -26,7 +26,7 @@ const router = express.Router();
 const VISITOR_ID = /^[A-Za-z0-9-]{8,64}$/;
 
 router.post("/", async (req: Request, res: any) => {
-  const { host, visitorId, timeZone, guestPhone } = req.body ?? {};
+  const { host, visitorId, timeZone, guestPhone, hit } = req.body ?? {};
 
   if (!mongoose.isValidObjectId(host) || typeof visitorId !== "string" || !VISITOR_ID.test(visitorId)) {
     return res.status(400).json({ error: "host and visitorId are required" });
@@ -80,7 +80,17 @@ router.post("/", async (req: Request, res: any) => {
       }
     }
 
-    await TiBookVisit.updateOne({ host, visitorId, day: utcDay() }, { $set: set }, { upsert: true });
+    // A hit, unless the caller says this one is not: TiBook also calls here to
+    // link or unlink a guest and to keep a long-open page's latest look fresh,
+    // and neither is somebody opening TiBook. Anything that does not say so
+    // counts, so a phone still running an older TiBook is not lost.
+    const now = new Date();
+    const update: Record<string, unknown> = { $set: set };
+    if (hit !== false) {
+      update.$inc = { [`hitHours.${now.toISOString().slice(11, 13)}`]: 1 };
+    }
+
+    await TiBookVisit.updateOne({ host, visitorId, day: utcDay(now) }, update, { upsert: true });
     return res.status(204).end();
   } catch (error: any) {
     // Two tabs opening at the same moment both try to insert the day's row;

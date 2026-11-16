@@ -57,6 +57,9 @@ export const localDay = (moment: Date, timeZone: string): string =>
 export interface StoredVisit extends VisitRow {
   createdAt?: Date | string;
   updatedAt?: Date | string;
+  // Hits by UTC hour of the row's day (see tibookVisitSchema). Absent on rows
+  // from before hits were counted.
+  hitHours?: Record<string, number> | Map<string, number>;
 }
 
 const asDate = (value: Date | string | undefined): Date | null => {
@@ -65,12 +68,32 @@ const asDate = (value: Date | string | undefined): Date | null => {
   return Number.isNaN(d.getTime()) ? null : d;
 };
 
+// A row's hits, each on the local day its hour fell on.
+const hitsByLocalDay = (
+  utcDayOfRow: string,
+  hitHours: StoredVisit["hitHours"],
+  timeZone: string,
+): Map<string, number> => {
+  const byDay = new Map<string, number>();
+  if (!hitHours) return byDay;
+  const entries = hitHours instanceof Map ? [...hitHours] : Object.entries(hitHours);
+  for (const [hour, count] of entries) {
+    const n = Number(count);
+    const moment = new Date(`${utcDayOfRow}T${hour}:00:00Z`);
+    if (!(n > 0) || Number.isNaN(moment.getTime())) continue;
+    const day = localDay(moment, timeZone);
+    byDay.set(day, (byDay.get(day) ?? 0) + n);
+  }
+  return byDay;
+};
+
 // Each stored row as the local day(s) it covers. The result may hold the same
 // device twice on one local day (late one UTC day, early the next); the stats
-// count devices and distinct days, so a repeat changes nothing.
+// count devices and distinct days, so a repeat changes nothing -- and hits are
+// summed, so each piece carries only its own.
 export const visitsByLocalDay = (rows: StoredVisit[], timeZone: string): VisitRow[] => {
   const out: VisitRow[] = [];
-  for (const { createdAt, updatedAt, ...row } of rows) {
+  for (const { createdAt, updatedAt, hitHours, ...row } of rows) {
     const first = asDate(createdAt);
     // A row with no timestamps cannot be placed; leave it on the day it was
     // stored under rather than drop a real visitor.
@@ -79,10 +102,16 @@ export const visitsByLocalDay = (rows: StoredVisit[], timeZone: string): VisitRo
       continue;
     }
     const firstDay = localDay(first, timeZone);
-    out.push({ ...row, day: firstDay });
     const last = asDate(updatedAt);
     const lastDay = last ? localDay(last, timeZone) : firstDay;
-    if (lastDay !== firstDay) out.push({ ...row, day: lastDay });
+
+    const hits = hitsByLocalDay(row.day, hitHours, timeZone);
+    // A row from before hits were counted, or one made by a call that was not
+    // a hit: the device was still there, which is one.
+    if (hits.size === 0) hits.set(firstDay, 1);
+
+    const days = new Set([firstDay, lastDay, ...hits.keys()]);
+    for (const day of days) out.push({ ...row, day, hits: hits.get(day) ?? 0 });
   }
   return out;
 };

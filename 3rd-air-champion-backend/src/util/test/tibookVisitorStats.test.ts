@@ -77,7 +77,7 @@ describe("who came back", () => {
     const all = span(rows, "all");
     expect(all.cameBack).toBe(1);
     // Two visits in July from someone new that month is still a return.
-    expect(all.series.find((p) => p.start === "2026-07")).toEqual({ start: "2026-07", visitors: 1, cameBack: 1 });
+    expect(all.series.find((p) => p.start === "2026-07")).toEqual({ start: "2026-07", visitors: 1, hits: 2, cameBack: 1 });
   });
 });
 
@@ -116,7 +116,7 @@ describe("the chart buckets", () => {
     const week = span([v("a", TODAY)], "week");
     expect(week.seriesUnit).toBe("day");
     expect(week.series).toHaveLength(7);
-    expect(week.series[0]).toEqual({ start: "2026-09-08", visitors: 0, cameBack: 0 });
+    expect(week.series[0]).toEqual({ start: "2026-09-08", visitors: 0, hits: 0, cameBack: 0 });
   });
 
   it("draws months for a year, the first clipped to the span", () => {
@@ -124,7 +124,7 @@ describe("the chart buckets", () => {
     const year = span([v("a", "2025-09-03"), v("b", "2025-09-20"), v("c", TODAY)], "year");
     expect(year.seriesUnit).toBe("month");
     expect(year.series).toHaveLength(13); // Sep 2025 … Sep 2026
-    expect(year.series[0]).toEqual({ start: "2025-09", visitors: 1, cameBack: 0 });
+    expect(year.series[0]).toEqual({ start: "2025-09", visitors: 1, hits: 1, cameBack: 0 });
     expect(year.visitors).toBe(2);
   });
 
