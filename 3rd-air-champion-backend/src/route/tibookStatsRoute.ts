@@ -2,7 +2,8 @@ import express, { Request } from "express";
 import TiBookVisit from "../model/tibookVisitSchema";
 import Guest from "../model/guestSchema";
 import { requireManager } from "../middleware/requireManager";
-import { tibookVisitorStats, utcDay } from "../util/tibookVisitorStats";
+import { tibookVisitorStats } from "../util/tibookVisitorStats";
+import { localDay, readerTimeZone, visitsByLocalDay } from "../util/visitLocalDays";
 
 // The host reading how TiBook is doing. Mounted AFTER the JWT gate, and then
 // behind requireManager too, because TiBook's own guest session holds a valid
@@ -26,10 +27,17 @@ router.get("/", async (req: Request, res: any) => {
     // aggregation would not see.
     const rows = await TiBookVisit.find(
       { host: hostId },
-      { visitorId: 1, day: 1, continent: 1, country: 1, guestPhone: 1, _id: 0 }
+      { visitorId: 1, day: 1, continent: 1, country: 1, guestPhone: 1, createdAt: 1, updatedAt: 1, _id: 0 }
     ).lean();
 
-    const stats = tibookVisitorStats(rows as any, utcDay());
+    // Days as the READER lives them, not UTC days -- in California a UTC
+    // "Today" turned over at 4 pm (see visitLocalDays). The zone is the one
+    // TiMag's browser reports; without it, the house's.
+    const timeZone = readerTimeZone(req.query.tz);
+    const stats = tibookVisitorStats(
+      visitsByLocalDay(rows as any, timeZone),
+      localDay(new Date(), timeZone),
+    );
 
     // Put names to the numbers from the house's OWN guest records. Scoped by
     // host from the token, like everything on this route: an unscoped lookup

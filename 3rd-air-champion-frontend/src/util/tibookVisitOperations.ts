@@ -71,10 +71,17 @@ const safeStorage = (): Storage | null => {
   }
 };
 
-// The last UTC day this page load reported. The server keeps one row per device
-// per day anyway; this only saves the request when TiBook is brought back to
-// the front for the tenth time on the same afternoon.
-let lastCountedDay: string | null = null;
+// The last quarter-hour this page load reported. The server keeps one row per
+// device per day anyway; this only saves the request when TiBook is brought
+// back to the front for the tenth time in a few minutes.
+//
+// It was once a day. But the host reads the numbers in his OWN days, which the
+// server works out from a row's first and latest look (visitLocalDays on the
+// backend), so the latest look has to keep arriving: a phone that reported at
+// 3 pm and came back at 9 pm would otherwise be missing from the evening. A
+// quarter-hour because every time zone's midnight falls on one.
+const REPORT_EVERY_MS = 15 * 60 * 1000;
+let lastCountedSlot: number | null = null;
 
 const readTimeZone = (): string => {
   try {
@@ -104,10 +111,10 @@ export const consentedPhone = (consent: ConsentState, phone: string): string =>
 // count must never show them an error.
 export const recordTiBookVisit = (hostId: string | undefined) => {
   if (!hostId) return;
-  const today = new Date().toISOString().slice(0, 10);
-  if (lastCountedDay === today) return;
+  const slot = Math.floor(Date.now() / REPORT_EVERY_MS);
+  if (lastCountedSlot === slot) return;
   if (skippedHere()) return;
-  lastCountedDay = today;
+  lastCountedSlot = slot;
 
   // A returning guest who already said yes is named from their first look of
   // the day. Everyone else sends NO guestPhone at all -- not "" -- because ""
@@ -123,7 +130,7 @@ export const recordTiBookVisit = (hostId: string | undefined) => {
       ...(phone ? { guestPhone: phone } : {}),
     })
     .catch(() => {
-      lastCountedDay = null; // try again next time the page comes forward
+      lastCountedSlot = null; // try again next time the page comes forward
     });
 };
 
@@ -191,9 +198,12 @@ export interface TiBookVisitorStats {
   spans: SpanStats[];
 }
 
+// The reader's zone goes with the request so the server counts in the reader's
+// days: counted in UTC, "Today" turned over at 4 pm in California.
 export const fetchTiBookVisitorStats = async (): Promise<TiBookVisitorStats> => {
   const response = await axios.get(`${BACKEND_ENDPOINT}/tibook-stats`, {
     headers: { Authorization: `Bearer ${getToken()}` },
+    params: { tz: readTimeZone() },
   });
   // CloudFront answers some failures with index.html and a 200 (see
   // authenticateJWT). Without this the modal would try to draw a web page.
@@ -275,7 +285,7 @@ export const fetchHasStatsAccess = async (host: string, phone: string): Promise<
 // saved code is kept — the same split TiWork makes for its access codes.
 export const fetchTiBookStatsAsViewer = async (code: string): Promise<ViewerStats> => {
   try {
-    const response = await axios.post(`${BACKEND_ENDPOINT}/tibook-stats-viewer`, { code });
+    const response = await axios.post(`${BACKEND_ENDPOINT}/tibook-stats-viewer`, { code, tz: readTimeZone() });
     if (!Array.isArray(response.data?.spans)) throw new Error("unreachable");
     return response.data;
   } catch (err: any) {

@@ -40,9 +40,10 @@ const BEFORE: Record<SpanKey, string | null> = {
   all: null,
 };
 
-// The dates arrive as UTC day strings. parseISO reads a bare date as that
-// calendar day at local midnight, so the label is the same day the server
-// counted — never shifted by the host's own zone.
+// The dates arrive as day strings the server already counted in THIS device's
+// time zone (the request carries it). parseISO reads a bare date as that
+// calendar day at local midnight, so the label is the same day — never shifted
+// a second time.
 const dayLabel = (day: string) => format(parseISO(day), "MMM d");
 const monthLabel = (month: string, withYear: boolean) =>
   format(parseISO(`${month}-01`), withYear ? "MMM yyyy" : "MMM");
@@ -204,7 +205,7 @@ const SpanView = ({ span, since, viewer = false }: { span: SpanStats; since: str
             not back yet
           </Tile>
         </div>
-        <p className="mt-2 text-xs text-gray-400">{range} · days counted in UTC</p>
+        <p className="mt-2 text-xs text-gray-400">{range} · days in your local time</p>
       </div>
 
       {span.seriesUnit && span.series.length > 0 && (

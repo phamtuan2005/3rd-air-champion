@@ -86,8 +86,8 @@ const TiBookInner = () => {
   //
   // Again whenever the page comes back to the front, because a guest keeps
   // TiBook open on their phone for days and never reloads it (see the PWA
-  // notes in vite.config). Once a day per device; recordTiBookVisit skips the
-  // rest.
+  // notes in vite.config). The server keeps one row a day per device;
+  // recordTiBookVisit skips looks a few minutes apart.
   useEffect(() => {
     const hostId = import.meta.env.VITE_TI_BOOK_HOST_ID;
     recordTiBookVisit(hostId);

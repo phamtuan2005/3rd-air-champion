@@ -5,7 +5,8 @@ import TiBookVisit from "../model/tibookVisitSchema";
 import Guest from "../model/guestSchema";
 import TiBookStatsGrant from "../model/tibookStatsGrantSchema";
 import { hashStatsCode } from "./tibookStatsAccessRoute";
-import { tibookVisitorStats, utcDay } from "../util/tibookVisitorStats";
+import { tibookVisitorStats } from "../util/tibookVisitorStats";
+import { localDay, readerTimeZone, visitsByLocalDay } from "../util/visitLocalDays";
 import TTQuestion from "../model/ttQuestionSchema";
 import { questionStats } from "../util/ttQuestions";
 import { phoneKey } from "../util/usPhone";
@@ -123,9 +124,14 @@ router.post("/", async (req: Request, res: any) => {
     // cannot reach the response by a later edit to the mapping below.
     const rows = await TiBookVisit.find(
       { host: grant.host },
-      { visitorId: 1, day: 1, continent: 1, country: 1, _id: 0 }
+      { visitorId: 1, day: 1, continent: 1, country: 1, createdAt: 1, updatedAt: 1, _id: 0 }
     ).lean();
-    const stats = tibookVisitorStats(rows as any, utcDay());
+    // The reader's own days, as on the host's screen (see visitLocalDays).
+    const timeZone = readerTimeZone(req.body?.tz);
+    const stats = tibookVisitorStats(
+      visitsByLocalDay(rows as any, timeZone),
+      localDay(new Date(), timeZone),
+    );
 
     res.status(200).json({
       // The viewer's own first name, so TiBook can greet them — nobody else's.

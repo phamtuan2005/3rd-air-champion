@@ -195,7 +195,11 @@ describe("naming the guests who visited", () => {
       .post("/tibook-visit")
       .send({ host, visitorId: "names-device-01", timeZone: "", guestPhone: "4085551234" });
 
-    const res = await request(signedInAs({ hostId: host, role: "Host" })).get("/tibook-stats");
+    // The reader asks in UTC here so the day below can be written without a
+    // time zone library. Days are the READER's since 2026-11-14 -- this test
+    // failed every evening in California when the route was first changed,
+    // which is the bug itself: UTC had already moved on to tomorrow.
+    const res = await request(signedInAs({ hostId: host, role: "Host" })).get("/tibook-stats?tz=UTC");
     const all = res.body.spans.find((s: any) => s.key === "all");
     expect(all.guests).toEqual([
       { phone: "(408) 555-1234", days: 1, lastDay: new Date().toISOString().slice(0, 10), name: "Mai" },
