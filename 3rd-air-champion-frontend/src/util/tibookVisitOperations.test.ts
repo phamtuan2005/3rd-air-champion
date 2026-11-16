@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { consentedPhone, formatStatsCode, shouldCountVisit, visitorIdFrom } from "./tibookVisitOperations";
+import { consentedPhone, formatStatsCode, isNewHit, shouldCountVisit, visitorIdFrom } from "./tibookVisitOperations";
 
 // Who TiBook counts as a visitor: everyone who opens it, once a day per device.
 //
@@ -60,6 +60,27 @@ describe("whose look is counted", () => {
   it("does not count the dev server unless asked to", () => {
     expect(shouldCountVisit({ dev: true, countInDev: false })).toBe(false);
     expect(shouldCountVisit({ dev: true, countInDev: true })).toBe(true);
+  });
+});
+
+// The host, 2026-11-15: "#hits is as important as #visitors". A hit is somebody
+// opening TiBook -- not every time the page happens to come to the front.
+describe("what counts as a hit", () => {
+  const MIN = 60 * 1000;
+  const noon = Date.UTC(2026, 10, 20, 20, 0);
+
+  it("counts the first look of a page load", () => {
+    expect(isNewHit(null, noon)).toBe(true);
+  });
+
+  it("does not count flicking away and straight back", () => {
+    expect(isNewHit(noon, noon + 2 * MIN)).toBe(false);
+    expect(isNewHit(noon, noon + 14 * MIN)).toBe(false);
+  });
+
+  it("counts coming back to an open page after a quarter-hour away", () => {
+    expect(isNewHit(noon, noon + 15 * MIN)).toBe(true);
+    expect(isNewHit(noon, noon + 6 * 60 * MIN)).toBe(true);
   });
 });
 

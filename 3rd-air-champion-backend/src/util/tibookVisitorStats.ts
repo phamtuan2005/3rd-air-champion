@@ -20,7 +20,15 @@ export interface VisitRow {
   // did not come through CloudFront. Only a visit with one is on the map.
   country?: string;
   guestPhone?: string; // "" or absent when the visit is not tied to a guest
+  // How many times the device opened TiBook that day. Absent on a row from
+  // before hits were counted (HITS_SINCE), which reads as one: it was there.
+  hits?: number;
 }
+
+// The first day hits were recorded. Before it a row only says "this device
+// came", so each counts as one hit -- and nothing is compared across the line,
+// or the first weeks would show growth that is only the counting starting.
+export const HITS_SINCE = "2026-11-15";
 
 // A guest who let TiBook remember them, and how they used it in a span.
 export interface GuestVisits {
@@ -39,6 +47,7 @@ export interface ContinentCount {
 export interface SeriesPoint {
   start: string; // yyyy-MM-dd for a day bucket, yyyy-MM for a month bucket
   visitors: number;
+  hits: number;
   cameBack: number;
 }
 
@@ -48,11 +57,16 @@ export interface SpanStats {
   from: string | null; // null when nothing has been recorded yet
   to: string;
   visitors: number;
+  // Every time TiBook was opened -- the host, 2026-11-15: "#hits is as
+  // important as #visitors". Visitors says how many people; hits says how
+  // much they use it.
+  hits: number;
   cameBack: number;
   // The same length of time immediately before, for "up or down". Null for
   // All time, which has nothing before it, and for any span whose earlier
   // stretch reaches back before counting began.
   previousVisitors: number | null;
+  previousHits: number | null; // also null while that stretch predates HITS_SINCE
   continents: ContinentCount[];
   guests: GuestVisits[];
   seriesUnit: "day" | "month" | null;
@@ -154,7 +168,15 @@ const summarise = (
       b.lastDay.localeCompare(a.lastDay) || b.days - a.days || a.phone.localeCompare(b.phone),
   );
 
-  return { visitors: latest.size, cameBack, continents, guests };
+  // Hits are a plain sum over every row in the window, unlike visitors: the
+  // same device on three days is one visitor and at least three hits.
+  let hits = 0;
+  for (const r of rows) {
+    if (r.day < from || r.day > to) continue;
+    hits += r.hits ?? 1;
+  }
+
+  return { visitors: latest.size, hits, cameBack, continents, guests };
 };
 
 export const tibookVisitorStats = (
@@ -173,22 +195,24 @@ export const tibookVisitorStats = (
     const from = days === null ? since : addDays(today, -(days - 1));
     if (!from) {
       return {
-        key, label, from: null, to: today, visitors: 0, cameBack: 0,
-        previousVisitors: null,
+        key, label, from: null, to: today, visitors: 0, hits: 0, cameBack: 0,
+        previousVisitors: null, previousHits: null,
         continents: [], guests: [], seriesUnit: null, series: [],
       };
     }
 
-    const { visitors, cameBack, continents, guests } = summarise(rows, firstDayOf, from, today);
+    const { visitors, hits, cameBack, continents, guests } = summarise(rows, firstDayOf, from, today);
 
     // Only when that earlier stretch was counted in full. Before counting began
     // it reads as zero, and "▲ 1,520 vs the 12 months before" on the first
     // year of numbers is growth that never happened.
     const previousFrom = days === null ? null : addDays(from, -days);
-    const previousVisitors =
+    const previous =
       previousFrom === null || !since || previousFrom < since
         ? null
-        : summarise(rows, firstDayOf, previousFrom, addDays(from, -1)).visitors;
+        : summarise(rows, firstDayOf, previousFrom, addDays(from, -1));
+    const previousVisitors = previous ? previous.visitors : null;
+    const previousHits = previous && previousFrom! >= HITS_SINCE ? previous.hits : null;
 
     // One bar per day up to a month; past that a day is too thin to see, so
     // months. Today has no chart — a single bar says nothing the tile does not.
@@ -198,7 +222,7 @@ export const tibookVisitorStats = (
       seriesUnit = "day";
       for (let d = from; d <= today; d = addDays(d, 1)) {
         const s = summarise(rows, firstDayOf, d, d);
-        series.push({ start: d, visitors: s.visitors, cameBack: s.cameBack });
+        series.push({ start: d, visitors: s.visitors, hits: s.hits, cameBack: s.cameBack });
       }
     } else if (key === "year" || key === "all") {
       seriesUnit = "month";
@@ -208,12 +232,12 @@ export const tibookVisitorStats = (
         const start = `${m}-01` < from ? from : `${m}-01`;
         const end = addDays(`${addMonths(m, 1)}-01`, -1);
         const s = summarise(rows, firstDayOf, start, end < today ? end : today);
-        series.push({ start: m, visitors: s.visitors, cameBack: s.cameBack });
+        series.push({ start: m, visitors: s.visitors, hits: s.hits, cameBack: s.cameBack });
       }
     }
 
     return {
-      key, label, from, to: today, visitors, cameBack, previousVisitors,
+      key, label, from, to: today, visitors, hits, cameBack, previousVisitors, previousHits,
       continents, guests, seriesUnit, series,
     };
   });

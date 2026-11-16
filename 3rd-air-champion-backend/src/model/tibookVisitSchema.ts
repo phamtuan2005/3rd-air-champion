@@ -32,6 +32,12 @@ const tibookVisitSchema = new mongoose.Schema(
     // Normalised exactly as guest records are (normalizePhone), so TiMag can
     // look the name up by equality. "" when the visit is not tied to anyone.
     guestPhone: { type: String, default: "" },
+    // How many times the device opened TiBook, by UTC hour of this row's day:
+    // { "07": 2, "23": 1 }. By hour, not one total, because the host reads the
+    // numbers in his own days and a UTC day straddles two of them -- a single
+    // total could not say which evening the hits belong to. Absent on rows
+    // from before hits were counted (2026-11-15).
+    hitHours: { type: Map, of: Number },
   },
   { timestamps: true }
 );

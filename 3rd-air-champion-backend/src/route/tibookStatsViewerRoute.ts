@@ -124,7 +124,7 @@ router.post("/", async (req: Request, res: any) => {
     // cannot reach the response by a later edit to the mapping below.
     const rows = await TiBookVisit.find(
       { host: grant.host },
-      { visitorId: 1, day: 1, continent: 1, country: 1, createdAt: 1, updatedAt: 1, _id: 0 }
+      { visitorId: 1, day: 1, continent: 1, country: 1, hitHours: 1, createdAt: 1, updatedAt: 1, _id: 0 }
     ).lean();
     // The reader's own days, as on the host's screen (see visitLocalDays).
     const timeZone = readerTimeZone(req.body?.tz);

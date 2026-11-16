@@ -47,6 +47,28 @@ describe("recording that someone opened TiBook", () => {
     expect(rows[0].day).toBe(new Date().toISOString().slice(0, 10));
   });
 
+  // The host, 2026-11-15: "#hits is as important as #visitors". The row above
+  // is still one visitor; what it did not keep was that they opened it three
+  // times.
+  it("counts every open as a hit, and the host reads the total", async () => {
+    const host = String((await createMockHost("hits@example.com"))._id);
+    const body = { host, visitorId: "hits-device-0001", timeZone: "" };
+    const post = (extra: Record<string, unknown> = {}) =>
+      request(guestApp).post("/tibook-visit").send({ ...body, ...extra });
+
+    await post();
+    await post();
+    await post();
+    // Linking a guest and keeping a long-open page fresh both call the same
+    // route, and neither is somebody opening TiBook.
+    await post({ hit: false });
+
+    const res = await request(signedInAs({ hostId: host, role: "Host" })).get("/tibook-stats?tz=UTC");
+    const all = res.body.spans.find((s: any) => s.key === "all");
+    expect(all.visitors).toBe(1);
+    expect(all.hits).toBe(3);
+  });
+
   it("needs no login — the visitor is a guest", async () => {
     const host = String((await createMockHost("public@example.com"))._id);
     const res = await request(guestApp)

@@ -27,7 +27,7 @@ router.get("/", async (req: Request, res: any) => {
     // aggregation would not see.
     const rows = await TiBookVisit.find(
       { host: hostId },
-      { visitorId: 1, day: 1, continent: 1, country: 1, guestPhone: 1, createdAt: 1, updatedAt: 1, _id: 0 }
+      { visitorId: 1, day: 1, continent: 1, country: 1, guestPhone: 1, hitHours: 1, createdAt: 1, updatedAt: 1, _id: 0 }
     ).lean();
 
     // Days as the READER lives them, not UTC days -- in California a UTC

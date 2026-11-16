@@ -83,6 +83,15 @@ const safeStorage = (): Storage | null => {
 const REPORT_EVERY_MS = 15 * 60 * 1000;
 let lastCountedSlot: number | null = null;
 
+// A HIT is somebody opening TiBook (host, 2026-11-15: "#hits is as important as
+// #visitors"). Every page load is one, since this starts empty each load. A
+// page that was left open and brought back is one only after the same
+// quarter-hour away: flicking to a text message and back is the same look, and
+// counting it would make the number measure thumbs rather than interest.
+export const isNewHit = (lastHitAt: number | null, now: number): boolean =>
+  lastHitAt === null || now - lastHitAt >= REPORT_EVERY_MS;
+let lastHitAt: number | null = null;
+
 const readTimeZone = (): string => {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone ?? "";
@@ -111,10 +120,14 @@ export const consentedPhone = (consent: ConsentState, phone: string): string =>
 // count must never show them an error.
 export const recordTiBookVisit = (hostId: string | undefined) => {
   if (!hostId) return;
-  const slot = Math.floor(Date.now() / REPORT_EVERY_MS);
-  if (lastCountedSlot === slot) return;
+  const now = Date.now();
+  const slot = Math.floor(now / REPORT_EVERY_MS);
+  const hit = isNewHit(lastHitAt, now);
+  if (!hit && lastCountedSlot === slot) return;
   if (skippedHere()) return;
   lastCountedSlot = slot;
+  const hitBefore = lastHitAt;
+  if (hit) lastHitAt = now;
 
   // A returning guest who already said yes is named from their first look of
   // the day. Everyone else sends NO guestPhone at all -- not "" -- because ""
@@ -128,9 +141,12 @@ export const recordTiBookVisit = (hostId: string | undefined) => {
       visitorId: visitorIdFrom(safeStorage()),
       timeZone: readTimeZone(),
       ...(phone ? { guestPhone: phone } : {}),
+      // Still the same look: only keeping the row's latest moment fresh.
+      ...(hit ? {} : { hit: false }),
     })
     .catch(() => {
       lastCountedSlot = null; // try again next time the page comes forward
+      lastHitAt = hitBefore; // and it was not counted, so it is still owed
     });
 };
 
@@ -147,6 +163,7 @@ export const linkTiBookVisitToGuest = (hostId: string | undefined, phone: string
       visitorId: visitorIdFrom(safeStorage()),
       timeZone: readTimeZone(),
       guestPhone,
+      hit: false, // naming the look already counted, not a new one
     })
     .catch(() => {});
 };
@@ -161,6 +178,7 @@ export const unlinkTiBookVisitGuest = (hostId: string | undefined) => {
       visitorId: visitorIdFrom(safeStorage()),
       timeZone: readTimeZone(),
       guestPhone: "",
+      hit: false,
     })
     .catch(() => {});
 };
@@ -172,6 +190,7 @@ export type SpanKey = "today" | "week" | "month" | "year" | "all";
 export interface SeriesPoint {
   start: string; // yyyy-MM-dd, or yyyy-MM for a month
   visitors: number;
+  hits: number;
   cameBack: number;
 }
 
@@ -181,9 +200,13 @@ export interface SpanStats {
   from: string | null;
   to: string;
   visitors: number;
+  // Times TiBook was opened. A day from before hits were counted (2026-11-15)
+  // reads as one per visitor.
+  hits: number;
   cameBack: number;
   // Null when there is nothing fair to compare with — see tibookVisitorStats.
   previousVisitors: number | null;
+  previousHits: number | null;
   continents: { continent: string; visitors: number }[];
   // Guests who let TiBook remember them. `name` comes from the house's own guest
   // records; null for a number nobody has booked under yet.

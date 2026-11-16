@@ -192,10 +192,23 @@ const SpanView = ({ span, since, viewer = false }: { span: SpanStats; since: str
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <div className="grid grid-cols-3 gap-2">
+        {/* Hits sits beside Visitors, the same size: the host, 2026-11-15,
+            "#hits is as important as #visitors". Two across on a phone so
+            neither number is squeezed. `?? visitors` is an older server that
+            does not send hits yet -- every visitor is at least one. */}
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <Tile label="Visitors" value={span.visitors}>
             {before && span.previousVisitors !== null && (
               <Delta now={span.visitors} was={span.previousVisitors} before={before} />
+            )}
+          </Tile>
+          <Tile label="Hits" value={span.hits ?? span.visitors}>
+            {before && span.previousHits != null ? (
+              <Delta now={span.hits} was={span.previousHits} before={before} />
+            ) : span.visitors > 0 ? (
+              `${((span.hits ?? span.visitors) / span.visitors).toFixed(1)} per visitor`
+            ) : (
+              "—"
             )}
           </Tile>
           <Tile label="Came back" value={span.cameBack} swatch={CAME_BACK}>
@@ -218,7 +231,9 @@ const SpanView = ({ span, since, viewer = false }: { span: SpanStats; since: str
 
       <p className="border-t border-gray-100 pt-3 text-xs leading-relaxed text-gray-400">
         A visitor is one phone or computer, counted once a day however often it opens
-        TiBook. "Came back" means it has opened TiBook on more than one day. The
+        TiBook. A hit is each time it opens TiBook, or returns to it after 15 minutes
+        away; hits are counted from Nov 15, 2026, and a day before that shows one per
+        visitor. "Came back" means it has opened TiBook on more than one day. The
         continent is where the internet connection is (a VPN moves it), never the
         device's time zone.
         {viewer
@@ -312,6 +327,7 @@ const Columns = ({ series, unit }: { series: SeriesPoint[]; unit: "day" | "month
               <tr>
                 <th className="px-3 py-1.5 font-medium">{unit === "day" ? "Day" : "Month"}</th>
                 <th className="px-3 py-1.5 text-right font-medium">Visitors</th>
+                <th className="px-3 py-1.5 text-right font-medium">Hits</th>
                 <th className="px-3 py-1.5 text-right font-medium">Came back</th>
               </tr>
             </thead>
@@ -320,6 +336,7 @@ const Columns = ({ series, unit }: { series: SeriesPoint[]; unit: "day" | "month
                 <tr key={p.start} className="border-t border-gray-100 text-gray-700">
                   <td className="px-3 py-1">{label(p)}</td>
                   <td className="px-3 py-1 text-right">{p.visitors}</td>
+                  <td className="px-3 py-1 text-right">{p.hits ?? p.visitors}</td>
                   <td className="px-3 py-1 text-right">{p.cameBack}</td>
                 </tr>
               ))}
@@ -339,7 +356,8 @@ const Columns = ({ series, unit }: { series: SeriesPoint[]; unit: "day" | "month
               }}
             >
               <span className="font-semibold">{label(shown)}</span> · {shown.visitors} visitor
-              {shown.visitors === 1 ? "" : "s"} · {shown.cameBack} came back
+              {shown.visitors === 1 ? "" : "s"} · {shown.hits ?? shown.visitors} hit
+              {(shown.hits ?? shown.visitors) === 1 ? "" : "s"} · {shown.cameBack} came back
             </div>
           )}
 
