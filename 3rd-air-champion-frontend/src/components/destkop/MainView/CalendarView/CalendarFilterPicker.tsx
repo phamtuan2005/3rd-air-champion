@@ -9,7 +9,8 @@ import { dayType } from "../../../../util/types/dayType";
 import RoomBadge from "../../../shared/RoomBadge";
 import { airbnbGuestList } from "../../../../util/airbnbGuestList";
 import { houseGuestList, isPhoneQuery, matchesTyped, topMatches } from "../../../../util/houseGuestList";
-import { addReviewTyped, matchesReservation, reviewSearchTyped, reviewsTyped, screensMatching, weekTyped, whenTyped, whoAndWhen, worthAsking, When } from "../../../../util/ttIntents";
+import { addReviewTyped, matchesReservation, reviewSearchTyped, reviewsTyped, screensMatching, tibookTyped, weekTyped, whenTyped, whoAndWhen, worthAsking, When } from "../../../../util/ttIntents";
+import { tibookHostViewHref } from "../../../../util/tibookHostView";
 import { jwtDecode } from "jwt-decode";
 import {
   cleanerLeadLine,
@@ -308,9 +309,16 @@ const CalendarFilterPicker = ({
     (w) => !split && (matchesTyped(q, w.name, w.phone) || matchesTyped(q, w.role)),
     RESULT_LIMIT,
   );
+  // A guest's TiBook — "view booking in tibook of Susan", "Susan tibook". Only
+  // house guests with a phone on file: TiBook knows a guest by nothing else,
+  // and AirBnB gives the house four digits of one.
+  const tibookAsked = q ? tibookTyped(q) : null;
+  const tibookGuests = tibookAsked
+    ? topMatches(houseRows, (r) => !!r.phone && matchesTyped(tibookAsked.who, r.name, r.phone), RESULT_LIMIT)
+    : { shown: [], total: 0 };
   const byPhone = isPhoneQuery(who);
   const foundAnything =
-    !!when || !!week || !!reviewAsked || !!addReview || screens.length > 0 || roomHits.length > 0 || house.total > 0 || airbnb.total > 0 || team.total > 0;
+    !!when || !!week || !!reviewAsked || !!addReview || tibookGuests.total > 0 || screens.length > 0 || roomHits.length > 0 || house.total > 0 || airbnb.total > 0 || team.total > 0;
   // A guest called May, or June: her exact name beats the month on Enter.
   const exactGuest = when?.month ? house.shown.find((r) => r.name.toLowerCase() === q.toLowerCase()) : undefined;
   // A sentence, or a word that found nothing, is offered to TT as a question.
@@ -351,6 +359,12 @@ const CalendarFilterPicker = ({
     if (week) onWeek(week.offset, weekCleaner?.id);
     close();
   };
+  // A new tab, so the calendar the host was on is still there to come back to.
+  // TiBook reads the guest from the link and drops it from the address.
+  const pickTiBook = (r: { phone: string; name: string }) => {
+    window.open(tibookHostViewHref(r.phone, r.name), "_blank", "noopener");
+    close();
+  };
   const pickScreen = (key: string) => {
     onScreen(key);
     close();
@@ -362,7 +376,8 @@ const CalendarFilterPicker = ({
   // Enter takes the first thing found, in the order it is shown: for a host at
   // a keyboard, "ki" and Enter is the whole gesture.
   const pickFirst = () => {
-    if (exactGuest) pickGuest(exactGuest.id);
+    if (tibookGuests.shown[0]) pickTiBook(tibookGuests.shown[0]);
+    else if (exactGuest) pickGuest(exactGuest.id);
     else if (when) pickWhen(when);
     else if (week) pickWeek();
     else if (screens[0]) pickScreen(screens[0].key);
@@ -576,8 +591,8 @@ const CalendarFilterPicker = ({
                       list of rules to read. */}
                   <p className="px-4 pb-2 pt-3 text-sm leading-relaxed text-gray-400">
                     Try a room or a name, a phone number, an AirBnB code, a date such as
-                    “Oct 19”, a name and a month such as “Susan Dec”, a screen such as
-                    “stats” — or ask me a question.
+                    “Oct 19”, a name and a month such as “Susan Dec”, a guest's TiBook such
+                    as “Susan TiBook”, a screen such as “stats” — or ask me a question.
                   </p>
                 </>
               )}
@@ -598,6 +613,32 @@ const CalendarFilterPicker = ({
                     </span>
                     <span className="ml-auto shrink-0 text-sm font-semibold text-gray-500">Calendar ›</span>
                   </button>
+                </>
+              )}
+
+              {/* A guest's TiBook, opened as they see it. First: the host named
+                  TiBook, so a plain filter to the same guest is the lesser
+                  reading. */}
+              {tibookGuests.shown.length > 0 && (
+                <>
+                  {sectionHeading("Open in TiBook")}
+                  {tibookGuests.shown.map((r) => (
+                    <button key={r.id} type="button" className={rowClass} onClick={() => pickTiBook(r)}>
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium text-gray-800">{r.name}</span>
+                        <span className="block truncate text-sm text-gray-500">
+                          Their bookings, as they see them
+                          {r.next === todayKey
+                            ? " · Here now"
+                            : r.next
+                              ? ` · Next stay ${day(r.next, "MMM d")}`
+                              : ""}
+                        </span>
+                      </span>
+                      <span className="ml-auto shrink-0 text-sm font-semibold text-gray-500">TiBook ↗</span>
+                    </button>
+                  ))}
+                  {more(tibookGuests.shown.length, tibookGuests.total)}
                 </>
               )}
 

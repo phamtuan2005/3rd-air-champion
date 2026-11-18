@@ -47,6 +47,8 @@ import { fetchGuestThread } from "../util/guestMessageOperations";
 import { linkTiBookVisitToGuest, recordTiBookVisit, saveStatsCode, unlinkTiBookVisitGuest } from "../util/tibookVisitOperations";
 import { fetchPublishedReviews, PublishedReviews } from "../util/ttQuestionLog";
 import { markTiBookVisited } from "../util/tibookReturning";
+import { readHostView } from "../util/tibookHostView";
+import { getRefreshToken, getToken } from "../util/authSession";
 import { fillRate, habitsOf, lastStayOffer, seriesFor, Proposal } from "../util/bookingHabit";
 import UsualStayCard, { chosenStays, isSnoozed, snooze, UsualStaysButton } from "../components/tibook/UsualStayCard";
 
@@ -195,8 +197,22 @@ const TiBookInner = () => {
   // Read through the consent gate, never straight from localStorage: a number
   // saved before we started asking, or one belonging to a guest who has since
   // said no, must not come back to greet them. See util/guestConsent.
-  const [guestPhone, setGuestPhone] = useState(() => readRememberedGuest().phone);
-  const [guestName, setGuestName] = useState(() => readRememberedGuest().name);
+  //
+  // Unless the host opened TiBook as one guest from TiMag's TT box
+  // (util/tibookHostView). Then it is that guest, for this tab only: never
+  // remembered, never asked about, and gone on a reload. Read once — the hash
+  // is taken off the address straight after.
+  const [hostView] = useState(() => readHostView(window.location.hash, !!(getToken() || getRefreshToken())));
+  const [guestPhone, setGuestPhone] = useState(() => hostView?.phone ?? readRememberedGuest().phone);
+  const [guestName, setGuestName] = useState(() => (hostView ? hostView.name : readRememberedGuest().name));
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.hash.replace(/^#/, "")).has("as")) return;
+    // A guest's phone does not stay in the address bar, the history, or a
+    // screenshot of this tab — whether or not this browser could use it.
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
+  }, []);
+  // Leaving goes back to this browser's own TiBook, with whoever it remembers.
+  const leaveHostView = () => window.location.assign(window.location.pathname);
   // The number waiting on an answer to the disclaimer. Held in memory only —
   // nothing is written until they say yes.
   const [pendingConsentPhone, setPendingConsentPhone] = useState<string | null>(null);
@@ -258,7 +274,8 @@ const TiBookInner = () => {
   // Still theirs to shut with "Photos ▾".
   const [roomsExpanded, setRoomsExpanded] = useState(true);
   const [reservedMap, setReservedMap] = useState<Map<string, Set<string>>>(new Map());
-  const [myBookingsOpen, setMyBookingsOpen] = useState(false);
+  // The host came to see this guest's stays, so they open on them.
+  const [myBookingsOpen, setMyBookingsOpen] = useState(() => !!hostView);
   const [bookingsFocusKey, setBookingsFocusKey] = useState<string | null>(null);
   const [stayPopupId, setStayPopupId] = useState<string | null>(null);
   // A stay id is `${checkIn}|${roomId}`; Your bookings focuses on the same
@@ -820,6 +837,12 @@ const TiBookInner = () => {
     { afterSuccess = false, auto = false }: { afterSuccess?: boolean; auto?: boolean } = {},
   ) => {
     if (!phone.trim()) return;
+    // The host looking as a guest is not that guest identifying themselves.
+    // Saving the number would greet the guest on the HOST's browser from then
+    // on; linking the visit would list the guest in TiBook visitors for a look
+    // they never took; and the consent question is the guest's to answer. Nor
+    // is the Hero look forced on the host's browser for them.
+    if (hostView) return;
     // A guest who has just told us their number is not a stranger any more, so
     // the house puts them in Hero. Enforced rather than offered: it overrides a
     // look they had chosen before, and it is saved like any other choice so it
@@ -1339,6 +1362,27 @@ const TiBookInner = () => {
         vibe === "vivid" ? "tibook-vibe-vivid tibook-vibe-vivid-backdrop" : ""
       }`}
     >
+      {/* The host's own bar, so it is in TiMag's colours rather than the
+          theme's: nothing a guest is ever shown looks like it, so the host
+          cannot mistake it for part of what the guest sees. English, like
+          everything TiBook says to the host. Anything sent from this tab —
+          a request, a wish, a message — still goes in the guest's name, and
+          the bar says so. */}
+      {hostView && (
+        <div className="flex items-center gap-3 bg-gray-900 px-4 py-2 text-sm text-white">
+          <span className="min-w-0 flex-1">
+            <span className="font-semibold">Host view</span>
+            {" · "}TiBook as {guestName || "this guest"} sees it. Anything you send here goes in their name.
+          </span>
+          <button
+            type="button"
+            onClick={leaveHostView}
+            className="shrink-0 rounded-lg border border-white/30 px-2.5 py-1 text-xs font-semibold hover:bg-white/10"
+          >
+            Leave
+          </button>
+        </div>
+      )}
       {layout === "hero" ? (
         !currentHost ? (
           /* Hero waits on its own. Falling through to the stacked branch while
@@ -1659,7 +1703,10 @@ const TiBookInner = () => {
           onToggleWishDate={(date) => setWishListDates((prev) => { const next = new Set(prev); if (next.has(date)) next.delete(date); else next.add(date); return next; })}
           onClose={() => { setMyBookingsOpen(false); setBookingsFocusKey(null); }}
           onPhoneConfirmed={handlePhoneConfirmed}
-          onClear={() => { setGuestPhone(""); setGuestName(""); setGuestBookings([]); setWishListDates(new Set()); setPersistedWishListDates(new Set()); setCartDates(new Map()); setSelectedRoomIds(null); revokeConsent(); unlinkTiBookVisitGuest(import.meta.env.VITE_TI_BOOK_HOST_ID); saveStatsCode(""); }}
+          // "Not you?" in host view ends the host view. The rest of this would
+          // revoke THIS browser's consent and unlink its visit — the host's,
+          // which the guest being looked at never gave.
+          onClear={() => { if (hostView) { leaveHostView(); return; } setGuestPhone(""); setGuestName(""); setGuestBookings([]); setWishListDates(new Set()); setPersistedWishListDates(new Set()); setCartDates(new Map()); setSelectedRoomIds(null); revokeConsent(); unlinkTiBookVisitGuest(import.meta.env.VITE_TI_BOOK_HOST_ID); saveStatsCode(""); }}
           onOpenStats={() => { setMyBookingsOpen(false); setBookingsFocusKey(null); setStatsOpen(true); }}
           cancellationFullRefundDays={currentHost.cancellationFullRefundDays}
           cancellationHalfRefundDays={currentHost.cancellationHalfRefundDays}

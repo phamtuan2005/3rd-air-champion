@@ -360,3 +360,67 @@ export const addReviewTyped = (query: string, roomNames: string[]): { room: stri
     .find((n) => new RegExp(`\\b${n.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(q));
   return { room: room ?? null };
 };
+
+// ── A guest's TiBook ────────────────────────────────────────────────────────
+
+// The TiBook screens TT already opens by name. "tibook visitors" and "tibook
+// requests" mean those, not a guest called Visitors.
+const TIBOOK_SCREEN_WORDS = /\b(visit\w*|traffic|requests?|questions?|stats)\b/i;
+// What is left of "view booking in TiBook of Susan" once TiBook is gone: the
+// asking, and the words around the name. Whole words, so "Seema" keeps its "see".
+//
+// The host asked for the name to be found however the sentence runs (2026-11-18:
+// "Booking of Shuhui in TiBook", "Shuhui Booking in TiBook"). Word order was
+// never the problem — every word but the name is dropped wherever it stands. A
+// word missing from this list was: "pull up Shuhui's reservation" searched for
+// a guest called "pull up Shuhui reservation" and found nobody. So the list
+// holds the ways of asking (can you, pull up, find), the other words for a
+// stay (reservation), and which stays (upcoming, latest).
+const TIBOOK_FILLER = new RegExp(
+  "\\b(" +
+    [
+      // asking
+      "view", "views", "viewing", "open", "opens", "show", "shows", "showing", "see", "sees", "seeing",
+      "look", "looks", "looking", "check", "checking", "go", "goto", "to", "into", "up", "pull", "bring",
+      "find", "get", "display", "load", "can", "could", "would", "you", "u", "i", "want", "let",
+      "lets", "let's", "what", "how", "does", "do", "is", "are", "please", "pls", "plz", "me", "us",
+      // whose, and where
+      "their", "his", "her", "page", "app", "site", "account", "guest", "guests", "as", "of", "by", "with",
+      "under", "about", "inside", "via",
+      // the stay
+      "reservation", "reservations", "reserved", "trip", "trips", "night", "nights",
+      "upcoming", "current", "latest", "recent", "past", "previous", "all", "any", "detail", "details",
+    ].join("|") +
+    ")\\b",
+  "gi",
+);
+
+/**
+ * Whether the host asked to see a guest's TiBook — "view booking in tibook of
+ * Susan", "Susan tibook", "open TiBook as Susan" — and who.
+ *
+ * Opens TiBook as that guest sees it, their bookings first (host, 2026-11-18:
+ * "when a host asks AskTT to view booking in tibook of X guest, then it will
+ * open the TiBook of the guest"). A guest asking "why can't I see my stay?" is
+ * answered faster by looking at what they see than by reading the calendar and
+ * guessing what TiBook made of it.
+ *
+ * Needs the word TiBook: "Susan booking" is still the calendar filtered to
+ * Susan. `who` is left for the caller to match against the guests; null when
+ * no name is left.
+ */
+export const tibookTyped = (query: string): { who: string } | null => {
+  const q = query.trim();
+  // "TiBook", "Ti Book", "Ti-Book", and "TiBooks" as it is often typed.
+  const hit = q.match(/\bti\s?-?books?\b/i);
+  if (!hit) return null;
+  if (TIBOOK_SCREEN_WORDS.test(q)) return null;
+  const who = q
+    .replace(hit[0], " ")
+    .replace(/['’]s\b/g, "")
+    .replace(TIBOOK_FILLER, " ")
+    .replace(FILLER, " ")
+    .replace(/[\s,.;:!?-]+/g, " ")
+    .trim();
+  return who.length >= 2 ? { who } : null;
+};
