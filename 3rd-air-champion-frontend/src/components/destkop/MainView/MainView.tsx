@@ -1745,6 +1745,10 @@ const MainView = ({
             showAddPane={showAddPane}
             prefills={bookingPrefills ?? undefined}
             startAirbnb={bookAsAirbnb}
+            // The month turns and the day comes on screen, but the day is not
+            // OPENED: the booking form is in front, and a day sheet opening
+            // under it would be the first thing seen when it closes.
+            onStayRead={onMonthJump}
             onBooking={onBookingComplete}
             setIsModalOpen={setIsModalOpen}
             setShowAddPane={setShowAddPane}
