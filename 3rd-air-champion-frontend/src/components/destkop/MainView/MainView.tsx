@@ -815,6 +815,30 @@ const MainView = ({
   useEffect(() => {
     if (!isModalOpen) setBookAsAirbnb(false);
   }, [isModalOpen]);
+
+  // The start night of a reservation pasted into the booking form, to bring on
+  // screen once the form is done.
+  //
+  // Jumping at the moment of the paste was not enough. Saving the booking
+  // flips isCalendarLoading, which unmounts and remounts the grid, and the jump
+  // did not survive it: Kain's Dec 30 stay was saved and the calendar came back
+  // on Dec 1 (host, 2026-11-18). So the day is remembered here and asked for
+  // AGAIN when the form has closed and the calendar has finished reloading —
+  // the same jump TT's "Dec 30" makes, on a grid that is mounted and staying.
+  const [stayToShow, setStayToShow] = useState<string | null>(null);
+  const onStayRead = (dateKey: string) => {
+    setStayToShow(dateKey);
+    onMonthJump(dateKey);
+  };
+  useEffect(() => {
+    if (!stayToShow || isModalOpen || isCalendarLoading) return;
+    onMonthJump(stayToShow);
+    // And as the day a remount restores to, in case one more reload follows
+    // the close: the grid comes back on the page holding this day.
+    setCalendarAnchorDate(stayToShow);
+    setStayToShow(null);
+  }, [stayToShow, isModalOpen, isCalendarLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const onScreen = (key: string) => {
     if (key.startsWith("reviews:")) {
       setReviewsAt(key.slice("reviews:".length));
@@ -1748,7 +1772,7 @@ const MainView = ({
             // The month turns and the day comes on screen, but the day is not
             // OPENED: the booking form is in front, and a day sheet opening
             // under it would be the first thing seen when it closes.
-            onStayRead={onMonthJump}
+            onStayRead={onStayRead}
             onBooking={onBookingComplete}
             setIsModalOpen={setIsModalOpen}
             setShowAddPane={setShowAddPane}
