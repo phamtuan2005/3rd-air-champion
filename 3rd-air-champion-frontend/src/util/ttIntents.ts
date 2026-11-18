@@ -26,6 +26,10 @@ export interface TTScreen {
 
 export const TT_SCREENS: TTScreen[] = [
   { key: "book", label: "Book a stay", hint: "Add a booking", words: ["booking", "new booking", "reserve", "add stay"] },
+  // The booking form with AirBnB already ticked and its paste box waiting
+  // (host, 2026-11-18: "when I type Add AirBnB booking, please bring that modal
+  // up"). For the stay AirBnB's feed has not delivered -- Kain, Dec 30.
+  { key: "book:airbnb", label: "Add an AirBnB booking", hint: "Paste the reservation page from AirBnB", words: ["add airbnb booking", "add airbnb", "airbnb booking", "new airbnb booking", "paste airbnb", "book airbnb"] },
   // Second only to booking, and above Messages and the reviews: "Guest" listed
   // four screens ABOUT guests and not the guest list itself (host, 2026-10-18).
   // Order here is the order shown.

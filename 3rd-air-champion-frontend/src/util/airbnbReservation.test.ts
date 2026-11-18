@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseReservation, parseReservationList, isFeedStay, reservationUrlOf, tidyConfirmationCode } from "./airbnbReservation";
+import { parseReservation, parseReservationList, roomOfListing, isFeedStay, reservationUrlOf, tidyConfirmationCode } from "./airbnbReservation";
 
 // The real shape of the AirBnB host page, names changed — a test fixture lives
 // in git and a guest's full name does not belong there.
@@ -288,5 +288,43 @@ describe("a stay's confirmation code", () => {
   it("does not make a hand-entered stay a feed stay", () => {
     expect(isFeedStay({ description: "", confirmationCode: "HM2AXNH84J" } as { description: string })).toBe(false);
     expect(isFeedStay({ description: FEED })).toBe(true);
+  });
+});
+
+// Chill was retitled on AirBnB and stopped saying which room it is. Kain's
+// reservation (Dec 30 2026) pasted in with no room, and the Upcoming check
+// dropped every Chill row.
+describe("a listing whose name does not say its room", () => {
+  const KAIN = PAGE.replace("Show more\nNadia\nSep 2 – 3 · 1 night", "Show more\nKain\nDec 30 – 31 · 1 night")
+    .replace(/Queen room • Smart toilet • Stay with an Engineer(?![\s\S]*Queen room •)/, "Quiet queen • Backyard view • Stay with a PhD")
+    .replace("Wed, Sep 2", "Wed, Dec 30")
+    .replace("Wednesday, August 26, 2026", "Tuesday, November 17, 2026");
+  const r = parseReservation(KAIN)!;
+
+  it("reads Chill from its new name", () => {
+    expect(r.alias).toBe("Kain");
+    expect(r.listingTitle).toBe("Quiet queen");
+    expect(r.roomName).toBe("Chill");
+    expect(r.startDate).toBe("2026-12-30");
+  });
+
+  // "Quiet queen" contains "queen", and Queen is a different room.
+  it("never reads it as the Queen room", () => {
+    expect(roomOfListing("Quiet queen")).toBe("Chill");
+    expect(roomOfListing("Queen room")).toBe("Queen");
+  });
+
+  it("gives no room for a listing it does not know, and keeps its name to say so", () => {
+    const other = parseReservation(KAIN.replace("Quiet queen •", "Garden suite •"))!;
+    expect(other.roomName).toBeUndefined();
+    expect(other.listingTitle).toBe("Garden suite");
+  });
+
+  it("keeps a renamed listing's rows in the Upcoming check", () => {
+    const rows = parseReservationList(
+      "Dec 30 – 31\nKain\nQuiet queen • Backyard view • Stay with a PhD\n",
+      new Date(2026, 10, 18),
+    );
+    expect(rows).toEqual([{ alias: "Kain", guests: 1, roomName: "Chill", startDate: "2026-12-30", nights: 1 }]);
   });
 });

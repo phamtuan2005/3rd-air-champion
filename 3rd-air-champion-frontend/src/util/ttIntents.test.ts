@@ -292,3 +292,22 @@ describe("a word search inside a review question", () => {
     expect(reviewSearchTyped("towel", rooms)).toBeNull();
   });
 });
+
+// The host, 2026-11-18: "when I type Add AirBnB booking, please bring that
+// modal up" -- the booking form with AirBnB ticked and its paste box waiting.
+describe("add AirBnB booking", () => {
+  it("is the first screen found, however it is typed", () => {
+    for (const typed of ["Add AirBnB booking", "add airbnb", "airbnb booking", "new airbnb booking"]) {
+      expect(screensMatching(typed)[0]?.key).toBe("book:airbnb");
+    }
+  });
+
+  it("leaves a plain 'booking' to the ordinary form", () => {
+    expect(screensMatching("booking")[0]?.key).toBe("book");
+  });
+
+  it("is not read as a date, a week or a review", () => {
+    expect(whenTyped("Add AirBnB booking")).toBeNull();
+    expect(reviewsTyped("Add AirBnB booking")).toBeNull();
+  });
+});
