@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addReviewTyped, airbnbReservationDetails, dateTyped, matchesReservation, reviewSearchTyped, reviewsTyped, screensMatching, weekTyped, whenTyped, whoAndWhen, worthAsking } from "./ttIntents";
+import { addReviewTyped, airbnbReservationDetails, dateTyped, matchesReservation, reviewSearchTyped, reviewsTyped, screensMatching, tibookTyped, weekTyped, whenTyped, whoAndWhen, worthAsking } from "./ttIntents";
 
 // What TT understands beyond names. A box that guesses wrong sends the host
 // somewhere they did not ask to go, so each rule is pinned.
@@ -309,5 +309,72 @@ describe("add AirBnB booking", () => {
   it("is not read as a date, a week or a review", () => {
     expect(whenTyped("Add AirBnB booking")).toBeNull();
     expect(reviewsTyped("Add AirBnB booking")).toBeNull();
+  });
+});
+
+describe("a guest's TiBook", () => {
+  it("reads the host's own words, and the short ways of saying them", () => {
+    expect(tibookTyped("view booking in tibook of Susan")).toEqual({ who: "Susan" });
+    expect(tibookTyped("Susan tibook")).toEqual({ who: "Susan" });
+    expect(tibookTyped("open TiBook as Susan Lee")).toEqual({ who: "Susan Lee" });
+    expect(tibookTyped("show me Susan's bookings in Ti Book")).toEqual({ who: "Susan" });
+    expect(tibookTyped("what does Eddie see in tibook?")).toEqual({ who: "Eddie" });
+  });
+
+  it("finds a guest by phone as well as by name", () => {
+    expect(tibookTyped("tibook 408 555 1234")).toEqual({ who: "408 555 1234" });
+  });
+
+  it("needs the word TiBook: a name and 'booking' is still the calendar", () => {
+    expect(tibookTyped("Susan booking")).toBeNull();
+    expect(tibookTyped("view booking of Susan")).toBeNull();
+  });
+
+  it("leaves TiBook's own screens to their names", () => {
+    expect(tibookTyped("tibook visitors")).toBeNull();
+    expect(tibookTyped("tibook requests")).toBeNull();
+    expect(tibookTyped("tibook stats")).toBeNull();
+  });
+
+  it("is nothing when no name is left", () => {
+    expect(tibookTyped("tibook")).toBeNull();
+    expect(tibookTyped("open tibook")).toBeNull();
+  });
+
+  it("keeps a name that only starts like a filler word", () => {
+    expect(tibookTyped("Seema tibook")).toEqual({ who: "Seema" });
+    expect(tibookTyped("Asha tibook")).toEqual({ who: "Asha" });
+  });
+});
+
+describe("a guest's TiBook, however the sentence runs", () => {
+  // The host's own two (2026-11-18), and the ways of saying them that once
+  // left words in the name: "pull up Shuhui's reservation" looked for a guest
+  // called "pull up Shuhui reservation".
+  it.each([
+    "Booking of Shuhui in TiBook",
+    "Shuhui Booking in TiBook",
+    "Bookings of Shuhui in TiBook",
+    "TiBook booking for Shuhui",
+    "Shuhui's tibook bookings",
+    "Shuhui reservation in TiBook",
+    "Shuhui's reservations on TiBook",
+    "Booking of Shuhui in TiBooks",
+    "can you show Shuhui's booking in TiBook?",
+    "pull up Shuhui's booking in TiBook",
+    "find Shuhui in TiBook",
+    "Shuhui's upcoming bookings in TiBook",
+    "let's see Shuhui's trip in TiBook",
+    "could you open Shuhui's reservation details in Ti-Book",
+  ])("%s", (q) => {
+    expect(tibookTyped(q)).toEqual({ who: "Shuhui" });
+  });
+
+  it("keeps a surname", () => {
+    expect(tibookTyped("Booking of Shuhui Chen in TiBook")).toEqual({ who: "Shuhui Chen" });
+  });
+
+  it("keeps a guest called Will", () => {
+    expect(tibookTyped("TiBook for Will")).toEqual({ who: "Will" });
   });
 });
