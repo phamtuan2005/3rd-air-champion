@@ -25,6 +25,9 @@ export interface ParsedReservation {
   guests?: number;
   // "Queen room" → "Queen", matched to a real room by the caller.
   roomName?: string;
+  // The listing's own name as the page gives it ("Quiet queen"), so the form
+  // can say which listing it could not place when roomName is missing.
+  listingTitle?: string;
   startDate?: string; // yyyy-MM-dd
   nights?: number;
   // The host payout, cents included. NEVER rounded — the cents are the real
@@ -82,6 +85,30 @@ const BOOKING_DATE = /Booking date\s*\n?\s*[A-Za-z]+,\s*([A-Za-z]+) \d{1,2},\s*(
 // "Queen room • Smart toilet • …". The bullet is what proves it is the room
 // line and not a sentence that happens to contain the word.
 const ROOM = /^\s*([A-Za-z]+) room\s*[•·]/m;
+// Any listing line: its name is whatever comes before the first bullet.
+const LISTING_LINE = /^\s*([^\n•·]+?)\s*[•·]/;
+
+// Listings whose name does not say which room it is.
+//
+// Most are titled "<Room> room • …" and read themselves. Chill was retitled
+// "Quiet queen • Backyard view • Stay with a PhD", and from then on a pasted
+// Chill reservation came through with no room (Kain, Dec 30 2026) — and the
+// Upcoming check dropped every Chill row. It cannot be guessed from the words:
+// "Quiet queen" contains "queen", and Queen is a DIFFERENT room.
+//
+// When a listing is renamed on AirBnB to something without "<Room> room", add
+// its new name here, in lower case.
+const LISTING_ROOMS: Record<string, string> = {
+  "quiet queen": "Chill",
+};
+
+// Which room a listing's name means, or undefined when it does not say.
+export const roomOfListing = (title: string): string | undefined => {
+  const name = (title ?? "").trim();
+  const plain = name.match(/^([A-Za-z]+) room$/i);
+  if (plain) return plain[1];
+  return LISTING_ROOMS[name.toLowerCase()];
+};
 
 export const parseReservation = (text: string): ParsedReservation | null => {
   const raw = (text ?? "").replace(/\r\n/g, "\n");
@@ -120,8 +147,23 @@ export const parseReservation = (text: string): ParsedReservation | null => {
 
   if (confirmation) out.confirmationCode = confirmation[1];
 
-  const room = detail.match(ROOM);
-  if (room) out.roomName = room[1];
+  // The listing is the first bulleted line under the heading. Looked for AFTER
+  // the heading, because the heading's own "Dec 30 – 31 · 1 night" has a dot
+  // in it too.
+  const afterHeading = heading ? detail.slice(heading[0].length) : "";
+  const listing = afterHeading
+    .split("\n")
+    .map((line) => line.match(LISTING_LINE))
+    .find((m) => m);
+  if (listing) {
+    out.listingTitle = listing[1].trim();
+    const named = roomOfListing(out.listingTitle);
+    if (named) out.roomName = named;
+  }
+  if (!out.roomName) {
+    const room = detail.match(ROOM);
+    if (room) out.roomName = room[1];
+  }
 
   const checkIn = detail.match(CHECK_IN);
   const booked = detail.match(BOOKING_DATE);
@@ -189,7 +231,13 @@ export interface ListedReservation {
 const ROW_DATES = new RegExp(
   String.raw`^\s*([A-Z][a-z]{2,4})\.?\s+(\d{1,2})${YEAR}\s*[–—-]\s*(?:([A-Z][a-z]{2,4})\.?\s+)?(\d{1,2})${YEAR}\s*$`,
 );
-const ROW_ROOM = /^\s*([A-Za-z]+) room\s*[•·]/;
+// A row's third line is its listing. It must name a room we know — that is
+// what proves these three lines are a reservation and not some other part of
+// the page that happens to start with a date.
+const rowRoom = (line: string): string | undefined => {
+  const m = line.match(LISTING_LINE);
+  return m ? roomOfListing(m[1]) : undefined;
+};
 
 export const parseReservationList = (
   text: string,
@@ -211,7 +259,7 @@ export const parseReservationList = (
       if (lines[j].trim()) rest.push(lines[j]);
     }
     if (rest.length < 2) continue;
-    const room = rest[1].match(ROW_ROOM);
+    const room = rowRoom(rest[1]);
     if (!room) continue;
 
     const startMonth = monthOf(dates[1]);
@@ -245,7 +293,7 @@ export const parseReservationList = (
     out.push({
       alias: tidyAlias(name),
       guests: read ? read.count : 1,
-      roomName: room[1],
+      roomName: room,
       startDate: `${startYear}-${pad(startMonth + 1)}-${pad(startDay)}`,
       nights,
     });

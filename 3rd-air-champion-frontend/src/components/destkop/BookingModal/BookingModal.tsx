@@ -50,6 +50,9 @@ interface BookingModalProps {
   showAddPane: "guest" | "room" | null;
   prefill?: BookingPrefill | null;
   prefills?: BookingPrefill[];
+  // Open with "AirBnB booking" already ticked and its paste box waiting —
+  // what "add AirBnB booking" in the TT box means.
+  startAirbnb?: boolean;
   onBooking: (bookedDays: dayType[]) => void;
   setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setShowAddPane: React.Dispatch<React.SetStateAction<"guest" | "room" | null>>;
@@ -108,6 +111,7 @@ const BookingModal = ({
   showAddPane,
   prefill,
   prefills,
+  startAirbnb,
   onBooking,
   setIsModalOpen,
   setShowAddPane,
@@ -146,7 +150,7 @@ const BookingModal = ({
   // airbnbPrice. No new guest record, and it is automatically consistent with the
   // rest of the app.
   const airbnbGuest = useMemo(() => guests.find((g) => g.name === "AirBnB") ?? null, [guests]);
-  const [airbnbMode, setAirbnbMode] = useState(false);
+  const [airbnbMode, setAirbnbMode] = useState(!!startAirbnb && !!airbnbGuest);
   // What the pasted AirBnB line turned out to say, kept so the note can still
   // explain it after the name has been tidied down and the evidence is gone
   // from the box.
@@ -154,6 +158,9 @@ const BookingModal = ({
   // What the pasted reservation page turned out to say, so the form can report
   // back what it took rather than silently rewriting four fields.
   const [pasteNote, setPasteNote] = useState<string | null>(null);
+  // What the paste box could NOT do, said in the same place: a paste that was
+  // not a reservation at all, or a listing whose name names no room.
+  const [pasteProblem, setPasteProblem] = useState<string | null>(null);
   const [airbnbAlias, setAirbnbAlias] = useState("");
   const [airbnbPayout, setAirbnbPayout] = useState("");
   const [airbnbCode, setAirbnbCode] = useState("");
@@ -355,6 +362,13 @@ const BookingModal = ({
     setReservedRows((prev) => new Set(prev).add(watchedBookings?.length ?? 0));
   };
 
+  // Opened already in AirBnB mode ("add AirBnB booking" in the TT box): the
+  // guest field is fixed to the AirBnB guest, exactly as ticking the box does.
+  // Once, on open — the tick is the host's to change after that.
+  useEffect(() => {
+    if (startAirbnb && airbnbGuest) setValue("guest", airbnbGuest.id, { shouldValidate: true });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // A whole reservation page, pasted into the name box.
   //
   // The detail page cannot be fetched — host login, no CORS, DataDome — so the
@@ -366,7 +380,8 @@ const BookingModal = ({
 
     setAirbnbAlias(r.alias);
     setAliasRead(null);
-    const took: string[] = [];
+    setPasteProblem(null);
+    const took: string[] = [r.alias];
     if (r.guests) {
       setValue("numberOfGuests", Math.min(r.guests, 4));
       took.push(`${r.guests} guest${r.guests === 1 ? "" : "s"}`);
@@ -396,9 +411,35 @@ const BookingModal = ({
         `${format(new Date(r.startDate + "T00:00:00"), "MMM d")} · ${r.nights} night${r.nights === 1 ? "" : "s"}`,
       );
       if (room) took.push(room.name);
+      // Said, not left as a quiet "Any room": the stay would otherwise be
+      // booked into whichever room is free, which is not the one AirBnB sold.
+      else {
+        setPasteProblem(
+          r.listingTitle
+            ? `The room was not read from "${r.listingTitle}" — choose it below.`
+            : "The room was not read — choose it below.",
+        );
+      }
+    } else {
+      setPasteProblem("The dates were not read — set them below.");
     }
     setPasteNote(took.length ? `Read ${took.join(" · ")}` : null);
     return true;
+  };
+
+  // The paste box under the AirBnB tick. A box of its own because the page
+  // could already be pasted into the name field and nothing on screen said so
+  // (host, 2026-11-18: "bring the AirBnB booking modal up... copy and paste the
+  // booking details in the text box"). It is a chute, not a field: what it
+  // reads goes to the form below and the box empties.
+  const pasteAirbnbPage = (text: string): boolean => {
+    if (!text.trim()) return false;
+    if (takeReservation(text)) return true;
+    setPasteNote(null);
+    setPasteProblem(
+      "That did not read as a reservation. Open the reservation on AirBnB, select all, copy, and paste it here.",
+    );
+    return false;
   };
 
   // The pasted line, read and then tidied — on BLUR, never while typing.
@@ -875,12 +916,54 @@ const BookingModal = ({
                     if (!on) {
                       setAirbnbAlias("");
                       setAirbnbPayout("");
+                      setPasteNote(null);
+                      setPasteProblem(null);
                     }
                   }}
                 />
                 <span className="font-semibold text-rose-700">AirBnB booking</span>
                 <span className="text-xs text-rose-500">last-minute, not in the feed</span>
               </label>
+            )}
+
+            {/* The page, pasted whole. ABOVE the fields it fills, because
+                reading it after they are typed is reading it too late. */}
+            {airbnbMode && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50/60 px-3 py-2">
+                <label htmlFor="airbnb-page" className="text-sm font-semibold text-rose-900">
+                  Paste from AirBnB
+                </label>
+                <textarea
+                  id="airbnb-page"
+                  rows={2}
+                  autoFocus
+                  placeholder="Open the reservation, select all, copy, paste here"
+                  // Some phone keyboards paste without a paste event; the
+                  // change is read the same way.
+                  onChange={(e) => {
+                    const text = e.target.value;
+                    // A few typed letters are not a page; do not answer each
+                    // keystroke with "that did not read".
+                    if (text.length < 30 && !text.includes("\n")) return;
+                    if (pasteAirbnbPage(text)) e.target.value = "";
+                  }}
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    pasteAirbnbPage(e.clipboardData.getData("text"));
+                    (e.target as HTMLTextAreaElement).value = "";
+                  }}
+                  className="mt-1 w-full resize-none rounded-md border border-rose-200 px-2.5 py-1.5 text-sm focus:border-rose-400 focus:outline-none"
+                />
+                <p className="mt-1 text-xs text-rose-800/80">
+                  Fills the name, guests, payout, confirmation code, dates and room.
+                </p>
+                {pasteNote && (
+                  <p className="mt-1 text-sm font-semibold text-emerald-700">{pasteNote}</p>
+                )}
+                {pasteProblem && (
+                  <p className="mt-1 text-sm font-semibold text-amber-700">{pasteProblem}</p>
+                )}
+              </div>
             )}
 
             {airbnbMode ? (
@@ -899,6 +982,7 @@ const BookingModal = ({
                       // makes them stale, so they go until the next paste or blur.
                       setAliasRead(null);
                       setPasteNote(null);
+                      setPasteProblem(null);
                     }}
                     // A whole page pasted in is intercepted BEFORE it reaches the
                     // box: it would otherwise land as a wall of text in a field
@@ -1005,11 +1089,7 @@ const BookingModal = ({
                 {/* Says WHY the number moved. Without the reason on screen it
                     is just a field that changed on its own — and the line it
                     was read from has been tidied away by then. */}
-                {pasteNote && (
-                  <span className="mt-1 block text-[11px] font-medium leading-tight text-emerald-700">
-                    {pasteNote}
-                  </span>
-                )}
+                {/* A pasted page reports under the paste box, where it went in. */}
                 {!pasteNote && aliasRead && (
                   <span className="mt-1 block text-[11px] font-medium leading-tight text-amber-700">
                     {aliasRead.exact

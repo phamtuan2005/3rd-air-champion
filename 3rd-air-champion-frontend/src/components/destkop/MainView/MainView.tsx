@@ -808,6 +808,13 @@ const MainView = ({
   // and Publish, "reviews:room:<id>" a room (host, 2026-10-10: "tap there and
   // bring me to edit it" — the review, or the overview).
   const [reviewsAt, setReviewsAt] = useState<string | null>(null);
+  // The booking form opened as an AirBnB booking ("add AirBnB booking" in the
+  // TT box). Cleared when the form closes, so the next ordinary "Book" does
+  // not open with AirBnB ticked.
+  const [bookAsAirbnb, setBookAsAirbnb] = useState(false);
+  useEffect(() => {
+    if (!isModalOpen) setBookAsAirbnb(false);
+  }, [isModalOpen]);
   const onScreen = (key: string) => {
     if (key.startsWith("reviews:")) {
       setReviewsAt(key.slice("reviews:".length));
@@ -816,6 +823,10 @@ const MainView = ({
     }
     const open: Record<string, () => void> = {
       book: () => setIsModalOpen(true),
+      "book:airbnb": () => {
+        setBookAsAirbnb(true);
+        setIsModalOpen(true);
+      },
       guests: () => setIsManageGuestOpen(true),
       // A blank prefill is the add form — the one a booking request opens.
       "guests:add": () => openGuestPrefill({ name: "", phone: "" }),
@@ -1733,6 +1744,7 @@ const MainView = ({
             selectedRoom={selectedRoom}
             showAddPane={showAddPane}
             prefills={bookingPrefills ?? undefined}
+            startAirbnb={bookAsAirbnb}
             onBooking={onBookingComplete}
             setIsModalOpen={setIsModalOpen}
             setShowAddPane={setShowAddPane}
