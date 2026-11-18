@@ -59,6 +59,7 @@ import { useCalendarStats } from "./hooks/useCalendarStats";
 import { useMessaging } from "./hooks/useMessaging";
 import MobilePanel from "./MobilePanel";
 import MissingProfitModal from "./MissingProfitModal";
+import { missingPayoutStays } from "../../../util/missingPayout";
 import IcsModal from "./IcsModal";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { DANGER_BUTTON } from "../../shared/dangerButton";
@@ -1403,40 +1404,27 @@ const MainView = ({
     action();
   };
 
-  const missingProfitBookings = useMemo(() => {
-    const seen = new Set<string>();
-    const result: { id: string; alias: string; roomName: string; roomColor?: string; startDate: string; duration: number; description: string; numberOfGuests: number }[] = [];
-    for (const day of monthMap.values()) {
-      for (const booking of day.bookings) {
-        if (booking.guest?.name === "AirBnB" && !booking.airbnbPrice && !booking.airbnbBlocked && booking.startDate) {
-          // Compare the date STRING, never new Date(startDate).getMonth().
-          //
-          // startDate arrives as UTC midnight ("2026-09-01T00:00:00.000Z"),
-          // which west of Greenwich is the previous evening in local time. A
-          // Sept 1 check-in therefore reported getMonth() === August, so the
-          // modal ambushed the host on the wrong month naming a booking they
-          // could not find there. The yyyy-MM-dd prefix is what the rest of
-          // the app already treats as the date (see bookingNightAmount), so
-          // slicing it keeps this in step with the calendar and the money.
-          if (booking.startDate.slice(0, 7) === format(currentMonth, "yyyy-MM")) {
-            const key = `${booking.startDate}_${booking.room?.id}`;
-            if (!seen.has(key)) {
-              seen.add(key);
-              result.push({ id: booking.id, alias: booking.alias, roomName: booking.room?.name ?? "", roomColor: booking.room?.color, startDate: booking.startDate, duration: booking.duration, description: booking.description ?? "", numberOfGuests: booking.numberOfGuests ?? 1 });
-            }
-          }
-        }
-      }
-    }
-    return result.sort((a, b) => a.startDate.localeCompare(b.startDate));
-  }, [monthMap, currentMonth]);
+  // Every upcoming AirBnB stay with no payout, whichever month is on screen,
+  // plus the viewed month's own gaps — see missingPayoutStays for why the
+  // month on screen stopped being the gate.
+  const missingProfitBookings = useMemo(
+    () =>
+      missingPayoutStays(monthMap, format(currentMonth, "yyyy-MM"), format(startOfToday(), "yyyy-MM-dd")),
+    [monthMap, currentMonth],
+  );
 
   const [isMissingProfitModalOpen, setIsMissingProfitModalOpen] = useState(false);
 
+  // Opens when the LIST changes, not on every page turn. It used to reopen on
+  // each month change, which was right while the list belonged to one month.
+  // Now upcoming stays are in it everywhere, so that rule would put the same
+  // pop-up back in front of the host on every swipe after he had closed it. A
+  // new booking arriving, or paging to a month with gaps of its own, changes
+  // the list and opens it; so does opening TiMag.
+  const missingProfitKey = missingProfitBookings.map((b) => b.id).join(",");
   useEffect(() => {
-    if (missingProfitBookings.length > 0) setIsMissingProfitModalOpen(true);
-    else setIsMissingProfitModalOpen(false);
-  }, [currentMonth, missingProfitBookings.length]);
+    setIsMissingProfitModalOpen(missingProfitKey !== "");
+  }, [missingProfitKey]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
