@@ -53,6 +53,9 @@ interface BookingModalProps {
   // Open with "AirBnB booking" already ticked and its paste box waiting —
   // what "add AirBnB booking" in the TT box means.
   startAirbnb?: boolean;
+  // The start night a pasted reservation named (yyyy-MM-dd), so the calendar
+  // behind the form can turn to it.
+  onStayRead?: (dateKey: string) => void;
   onBooking: (bookedDays: dayType[]) => void;
   setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setShowAddPane: React.Dispatch<React.SetStateAction<"guest" | "room" | null>>;
@@ -112,6 +115,7 @@ const BookingModal = ({
   prefill,
   prefills,
   startAirbnb,
+  onStayRead,
   onBooking,
   setIsModalOpen,
   setShowAddPane,
@@ -407,6 +411,10 @@ const BookingModal = ({
         },
       ]);
       setReservedRows(new Set([0]));
+      // Turn the calendar to the stay. It stayed on whatever month it was
+      // showing, so a Dec 30 booking pasted in November landed out of sight
+      // (host, 2026-11-18: "bring the main calendar to that day").
+      onStayRead?.(r.startDate);
       took.push(
         `${format(new Date(r.startDate + "T00:00:00"), "MMM d")} · ${r.nights} night${r.nights === 1 ? "" : "s"}`,
       );
