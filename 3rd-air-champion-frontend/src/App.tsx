@@ -295,7 +295,6 @@ function App() {
                   isMiscOpen={isMiscOpen}
                   setIsMiscOpen={setIsMiscOpen}
                   setIsChargesOpen={setIsChargesOpen}
-                  setIsAirbnbCheckOpen={setIsAirbnbCheckOpen}
                   isRatesOpen={isRatesOpen}
                   setIsRatesOpen={setIsRatesOpen}
                   isStaffingOpen={isStaffingOpen}
