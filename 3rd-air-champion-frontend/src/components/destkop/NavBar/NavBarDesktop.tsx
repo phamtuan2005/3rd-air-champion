@@ -46,7 +46,6 @@ interface NavBarDesktopProps {
   isMiscOpen: boolean;
   setIsMiscOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setIsChargesOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  setIsAirbnbCheckOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isRatesOpen: boolean;
   setIsRatesOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isStaffingOpen: boolean;
@@ -94,7 +93,6 @@ const NavBarDesktop = ({
   isMiscOpen,
   setIsMiscOpen,
   setIsChargesOpen,
-  setIsAirbnbCheckOpen,
   isRatesOpen,
   setIsRatesOpen,
   isStaffingOpen,
@@ -258,16 +256,9 @@ const NavBarDesktop = ({
             setIsBlockAirBnBModalOpen(true);
           },
         },
-        {
-          label: "Check AirBnB",
-          desc: "Paste your Upcoming list — see what disagrees with TiMag.",
-          emoji: "🔎",
-          hover: "hover:border-rose-300 hover:text-rose-600",
-          run: () => {
-            closeAllPanels();
-            setIsAirbnbCheckOpen(true);
-          },
-        },
+        // Check AirBnB used to sit here. It came off the Calendar menu on
+        // 2026-11-21 at the host's request; the panel still opens from Ask TT
+        // ("airbnb check", "payouts") for when it is wanted.
         {
           label: "Block Rooms",
           desc: "Reserve specific rooms for a date range so they can't be booked.",
@@ -324,6 +315,23 @@ const NavBarDesktop = ({
           run: () => setIsCleanersOpen(true),
         },
         {
+          // Straight under Clean: the two panels that are about the people doing
+          // the work sit together, so the host finds the team where the
+          // cleaners already are.
+          label: "Staffing",
+          desc: "The people helping run the business, their pay and performance.",
+          emoji: "👤",
+          hover: "hover:border-indigo-300 hover:text-indigo-600",
+          // Hours submitted from TiWork that nobody has ruled on yet. A person
+          // is waiting on each one to hear that their claim counts, so it is
+          // worth a number on the outside of the panel.
+          badges: [{ n: staffPendingCount, cls: INDIGO }],
+          run: () => {
+            closeAllPanels();
+            setIsStaffingOpen(true);
+          },
+        },
+        {
           label: "Ask TT",
           desc: "A conversation with your books — occupancy, money, guests, cleanings.",
           emoji: "💬",
@@ -344,20 +352,6 @@ const NavBarDesktop = ({
           run: () => {
             closeAllPanels();
             setIsUrgentActionOpen(true);
-          },
-        },
-        {
-          label: "Staffing",
-          desc: "The people helping run the business, their pay and performance.",
-          emoji: "👤",
-          hover: "hover:border-indigo-300 hover:text-indigo-600",
-          // Hours submitted from TiWork that nobody has ruled on yet. A person
-          // is waiting on each one to hear that their claim counts, so it is
-          // worth a number on the outside of the panel.
-          badges: [{ n: staffPendingCount, cls: INDIGO }],
-          run: () => {
-            closeAllPanels();
-            setIsStaffingOpen(true);
           },
         },
       ],
