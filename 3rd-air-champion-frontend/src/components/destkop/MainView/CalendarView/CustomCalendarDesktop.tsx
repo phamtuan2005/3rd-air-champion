@@ -5,6 +5,7 @@ import { bookingType } from "../../../../util/types/bookingType";
 import { roomType } from "../../../../util/types/roomType";
 import CalendarGrid from "../../../shared/CalendarGrid";
 import CleanerAvatar from "../../../shared/CleanerAvatar";
+import EarlyCheckinTag from "../../../shared/EarlyCheckinTag";
 import { getRoomColor } from "../../../../util/getRoomColor";
 import { CleanerType } from "../../../../util/cleanerOperations";
 import { holidayLabel, usHolidayOn, usHolidaysInMonth } from "../../../../util/usHolidays";
@@ -285,17 +286,25 @@ const CustomCalendar = ({
   // Avatar inside the bar, so a cleaner is recognisable before the name is read
   // — the bars are narrow and a first name truncates on short stays.
   const resolveBarIcon = (booking: bookingType) => {
-    if (!cleanMode) return null;
+    // The ⏰ chip sits at the start of the stay's bar, which is the arrival
+    // day, where the early check-in actually happens. Shown in Clean mode too,
+    // because whoever cleans that room is the one it affects most. TiBook's
+    // calendar never passes resolveBarIcon, so guests don't see it.
+    const early = <EarlyCheckinTag on={booking.earlyCheckin} compact />;
+    if (!cleanMode) return early;
     const c = cleanerFor(booking);
-    if (!c) return null;
+    if (!c) return early;
     return (
-      <CleanerAvatar
-        name={c.name}
-        photo={c.photo}
-        character={c.character}
-        sizeClass="h-4 w-4"
-        textClass="text-[8px]"
-      />
+      <>
+        {early}
+        <CleanerAvatar
+          name={c.name}
+          photo={c.photo}
+          character={c.character}
+          sizeClass="h-4 w-4"
+          textClass="text-[8px]"
+        />
+      </>
     );
   };
 

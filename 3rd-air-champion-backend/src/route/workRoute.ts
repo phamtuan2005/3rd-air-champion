@@ -374,6 +374,10 @@ router.post("/schedule", async (req: Request, res: any) => {
           // The sofa bed belongs to the stay that asked for it. On a night we
           // are not preparing for that stay, it is not this clean's work.
           sofaBed: estimating ? false : !!need?.sofaBed,
+          // Same rule as the sofa bed: it belongs to the stay that asked. Only
+          // set when that guest arrives on the day of this clean (see
+          // ArrivalNeed), so TiWork can tell the cleaner to do this room first.
+          earlyCheckin: estimating ? false : !!need?.earlyCheckin,
         });
       if (a.hours != null) {
         g.recordedHours += a.hours;

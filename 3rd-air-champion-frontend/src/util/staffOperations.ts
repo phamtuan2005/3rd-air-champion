@@ -165,7 +165,13 @@ export interface HostWorkEntry {
   // The rooms a cleaner's day covered, each with the headcount arriving into it
   // — the same rooms and figures TiWork shows the cleaner. Empty for office
   // staff, whose hours are not against rooms.
-  rooms?: { name: string; color: string; guests?: number | null; sofaBed?: boolean }[];
+  rooms?: {
+    name: string;
+    color: string;
+    guests?: number | null;
+    sofaBed?: boolean;
+    earlyCheckin?: boolean;
+  }[];
   // Extra jobs on the cleaner's visit (windows, "Clean floor"), which the hours
   // also paid for. Absent from a backend that predates them.
   extras?: { name: string; note: string }[];

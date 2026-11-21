@@ -37,6 +37,11 @@ export interface WorkShift {
     // words it as a likelihood; it must never be printed as a fact.
     guestsEstimated?: boolean;
     sofaBed?: boolean;
+    // The arriving guest asked to get in early AND arrives on the day of this
+    // clean, so this room has to be done first. The server leaves it false
+    // for an early guest arriving on a later day; it changes nothing that
+    // morning.
+    earlyCheckin?: boolean;
   }[];
   // Extra jobs on this visit beyond its rooms (windows, baseboards…), by name:
   // the visit is longer than its rooms, and paid by the hours as always.

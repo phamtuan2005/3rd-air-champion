@@ -26,7 +26,7 @@ export const loadArrivals = async (
   const days: any[] = await Day.find({
     calendar: host.calendar,
     date: { $gte: from, $lte: to },
-  }).select("date bookings.room bookings.startDate bookings.numberOfGuests bookings.sofaBed");
+  }).select("date bookings.room bookings.startDate bookings.numberOfGuests bookings.sofaBed bookings.earlyCheckin");
 
   // Arrivals only: a booking is written onto every night of its stay, and the
   // guests this cleaning is for are the ones whose stay STARTS — not the ones
@@ -42,6 +42,7 @@ export const loadArrivals = async (
         roomId: String(b.room),
         guests: b.numberOfGuests || 1,
         sofaBed: !!b.sofaBed,
+        earlyCheckin: !!b.earlyCheckin,
       });
     }
   }

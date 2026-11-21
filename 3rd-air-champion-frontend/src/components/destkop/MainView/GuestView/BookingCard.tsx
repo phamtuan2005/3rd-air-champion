@@ -1,6 +1,7 @@
 import { reservationUrlOf } from "../../../../util/airbnbReservation";
 import { getRoomColor } from "../../../../util/getRoomColor";
 import CleanerAvatar from "../../../shared/CleanerAvatar";
+import EarlyCheckinTag from "../../../shared/EarlyCheckinTag";
 import { bookingType, feesTotal } from "../../../../util/types/bookingType";
 import { useContext, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -281,6 +282,11 @@ const BookingCard = ({
                   Reserved
                 </span>
               )}
+              {/* Next to the name, at the same size as the Airbnb and Reserved
+                  tags. The card used to say nothing about it, so the only place
+                  to find out was the details sheet, which the host only opens
+                  when they already have a reason to. */}
+              <EarlyCheckinTag on={booking.earlyCheckin} />
             </p>
             <p className="mt-1 text-sm text-gray-500">
               {booking.room.name} · {dateRange}

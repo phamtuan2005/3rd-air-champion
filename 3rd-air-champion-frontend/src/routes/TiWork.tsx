@@ -12,6 +12,7 @@ import CleanerAvatar from "../components/shared/CleanerAvatar";
 import RoomBadge from "../components/shared/RoomBadge";
 import GuestFigures from "../components/shared/GuestFigures";
 import SofaBedTag from "../components/shared/SofaBedTag";
+import EarlyCheckinTag from "../components/shared/EarlyCheckinTag";
 import MonthlyBars from "../components/shared/MonthlyBars";
 import { verdictLabel } from "../util/feedbackVerdict";
 import FeedbackReply from "../components/shared/FeedbackReply";
@@ -901,9 +902,27 @@ const TiWork = () => {
                           who reads "Queen" as yellow on the calendar should not
                           meet a grey one here. */}
                       <div className="flex flex-col gap-1">
-                        {sh.rooms.map((r, i) => (
+                        {/* An early check-in room goes to the top of the day
+                            and gets an orange outline, so the room that has
+                            to be done first is the first thing you see. A
+                            stable sort, so the other rooms keep the order the
+                            host gave them. */}
+                        {[...sh.rooms]
+                          .sort((a, b) => Number(!!b.earlyCheckin) - Number(!!a.earlyCheckin))
+                          .map((r, i) => (
                           <Fragment key={`${r.name}-${i}`}>
-                          <div className="flex items-center gap-2">
+                          {/* The tag sits on its own line INSIDE the outline.
+                              Beside the room and headcount it was wider than
+                              what was left of a phone's width, and as a pill
+                              that will not shrink it ran out past the box. */}
+                          <div
+                            className={`flex min-w-0 flex-col gap-1.5 ${
+                              r.earlyCheckin
+                                ? "rounded-xl border-2 border-orange-500 bg-orange-50 px-2 py-1.5"
+                                : ""
+                            }`}
+                          >
+                          <div className="flex flex-wrap items-center gap-2">
                             <RoomBadge room={{ name: r.name, color: r.color }} rooms={sh.rooms} />
                             {/* How many people arrive after this clean — asked
                                 for by a cleaner, who sets out beds and towels for
@@ -915,6 +934,12 @@ const TiWork = () => {
                                 which is not the same as nobody coming. */}
                             <GuestFigures n={r.guests ?? 0} />
                             <SofaBedTag on={r.sofaBed} />
+                          </div>
+                          {r.earlyCheckin && (
+                            <div>
+                              <EarlyCheckinTag on wrap label="Early check-in · clean first" />
+                            </div>
+                          )}
                           </div>
                           {/* What the guest who stayed after THIS clean of THIS
                               room said — under the room, not under the day. Hung
