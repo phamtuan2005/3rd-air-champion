@@ -82,6 +82,8 @@ export interface AirbnbPastStay {
   alias: string;
   // AirBnB's payout for the whole stay; 0 when none is on record.
   payout: number;
+  // The reservation's page on AirBnB; "" when there is no code.
+  url: string;
   // "phone": first name and the phone's last four digits both agree.
   // "name": a hand-entered AirBnB stay with no phone on record.
   matchedBy: "phone" | "name";

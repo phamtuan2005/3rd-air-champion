@@ -72,13 +72,26 @@ const AirbnbHistoryLine = ({ name, phone, token, rooms }: Props) => {
               {short(s.start)} – {short(s.end)}, {s.start.slice(0, 4)}
             </span>
             <span className="text-gray-400">{s.nights}n</span>
-            {/* What they paid through AirBnB, whole stay and per night: what a
-                direct rate for them is weighed against (host, 2026-11-22). */}
+            {/* The payout is what reached the HOST, after AirBnB's cut — "$48"
+                alone read as what the guest paid, who paid well more (host,
+                2026-11-22). Labelled as his, with the reservation's page one tap
+                away for the guest's side: a direct rate fair to both sits
+                between the two. */}
             {s.payout > 0 && (
-              <span className="ml-auto font-semibold text-gray-800">
-                ${Math.round(s.payout)}
-                <span className="font-normal text-gray-500"> · ${Math.round(s.payout / Math.max(1, s.nights))}/night</span>
+              <span className="text-gray-500">
+                ${Math.round(s.payout / Math.max(1, s.nights))}/night to you
               </span>
+            )}
+            {s.url && (
+              <a
+                href={s.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="ml-auto shrink-0 font-semibold text-[#c8383d] underline"
+              >
+                AirBnB ↗
+              </a>
             )}
           </div>
         );
