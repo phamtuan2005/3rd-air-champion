@@ -1,3 +1,4 @@
+import { firstName } from "../../util/firstName";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import "../../styles/calendarStyle.css";
 import {
@@ -1137,7 +1138,7 @@ const CalendarGrid = ({
           const defaultLabel = pmBooking
             ? pmBooking.guest?.name === "AirBnB" && pmBooking.alias
               ? `${pmBooking.alias} (A)`
-              : pmBooking.guest?.name ?? ""
+              : firstName(pmBooking.guest?.name)
             : "";
           const pmName = pmBooking
             ? (resolveBarLabel ? resolveBarLabel(pmBooking) : defaultLabel)
