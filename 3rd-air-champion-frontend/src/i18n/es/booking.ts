@@ -218,4 +218,8 @@ export const booking: Record<string, string> = {
   "This stay is complete — thank you for staying with us. 🏠": "Esta estadía terminó. Gracias por quedarte con nosotros. 🏠",
   "Book another room for these dates": "Reservar otra habitación para estas fechas",
   "Text {host} about this stay": "Escríbele a {host} sobre esta estadía",
+  // A guest coming back from AirBnB (AirbnbWelcome).
+  "Welcome back, {name}!": "¡Qué alegría verte de nuevo, {name}!",
+  "You stayed with us on AirBnB, in {rooms}. Thank you for coming back to book with us directly.": "Te hospedaste con nosotros por AirBnB, en {rooms}. Gracias por volver y reservar directamente con nosotros.",
+  "You stayed with us {n} times on AirBnB, in {rooms}. Thank you for coming back to book with us directly.": "Te hospedaste con nosotros {n} veces por AirBnB, en {rooms}. Gracias por volver y reservar directamente con nosotros.",
 };

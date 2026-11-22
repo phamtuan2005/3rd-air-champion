@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, SubmitHandler } from "react-hook-form";
+import AirbnbWelcome from "./AirbnbWelcome";
 import { withUsCodeDropped } from "../../util/formatPhone";
 import { roomType } from "../../util/types/roomType";
 import { dayType } from "../../util/types/dayType";
@@ -349,6 +350,7 @@ const BookingRequestModal = ({
     handleSubmit,
     watch,
     setValue,
+    getValues,
     formState: { errors },
   } = useForm<FormData>({
     defaultValues: {
@@ -688,6 +690,11 @@ const BookingRequestModal = ({
               </svg>
             </div>
             <p className={`text-center font-semibold ${theme.surfaceText} text-lg`}>{t("Request sent!")}</p>
+            {/* A first TiBook request from a guest who stayed through AirBnB:
+                the moment to say we remember them. */}
+            {!foundGuestName && (
+              <AirbnbWelcome hostId={hostId} name={getValues("guestName") ?? ""} phone={getValues("guestPhone") ?? ""} />
+            )}
             <p className={`text-center text-sm ${theme.surfaceMuted} leading-relaxed`}>
               {cartDates.size > 0
                 ? t("We'll be in touch shortly to confirm your stay. Can't wait to host you!")

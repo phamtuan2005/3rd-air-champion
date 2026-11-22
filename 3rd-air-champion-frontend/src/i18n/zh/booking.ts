@@ -201,4 +201,8 @@ export const booking: Record<string, string> = {
   "This stay is complete — thank you for staying with us. 🏠": "这次住宿已结束，感谢您的入住。🏠",
   "Book another room for these dates": "为这些日期再订一间房",
   "Text {host} about this stay": "就这次住宿给 {host} 发短信",
+  // A guest coming back from AirBnB (AirbnbWelcome).
+  "Welcome back, {name}!": "欢迎回来，{name}！",
+  "You stayed with us on AirBnB, in {rooms}. Thank you for coming back to book with us directly.": "您曾通过 AirBnB 入住我们的 {rooms}。感谢您这次直接向我们预订。",
+  "You stayed with us {n} times on AirBnB, in {rooms}. Thank you for coming back to book with us directly.": "您曾通过 AirBnB 入住我们 {n} 次，住过 {rooms}。感谢您这次直接向我们预订。",
 };
