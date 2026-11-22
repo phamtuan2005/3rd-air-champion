@@ -14,6 +14,7 @@ import CalendarViewToggle from "./Calendar/CalendarViewToggle";
 import { upcomingHolidaysInMonth } from "../../util/usHolidays";
 import { priceRangeOf, priceRangeText } from "../../util/priceRange";
 import { useTiBookLang } from "../../contexts/TiBookLanguageContext";
+import RoomStars, { RoomRating } from "./RoomStars";
 
 const BACKEND = import.meta.env.VITE_BACKEND_ENDPOINT || "";
 const resolveUrl = (url: string) => (url.startsWith("/") ? `${BACKEND}${url}` : url);
@@ -71,7 +72,7 @@ interface HeroShellProps {
   // Dollars off every night for a guest with a loyalty discount.
   loyaltyPerNight?: number;
   // Each room's average stars and number of reviews, by room id.
-  roomRatings?: Record<string, { average: number; count: number }>;
+  roomRatings?: Record<string, RoomRating>;
   cartDates: Map<string, string | null>;
   wishListDates: Set<string>;
   newWishListDates: Set<string>;
@@ -119,31 +120,6 @@ const HOST_INTRO_MS = 3_000;
 // Once per page load, not per mount: switching look and back remounts Hero,
 // and a guest who has met the hosts should not be introduced twice.
 let hostIntroduced = false;
-
-// A room's reviews as five stars and a count — "★★★★★ 112 reviews" — on its
-// card (host, 2026-11-21). Stars, NOT the number: the host asked for "*****"
-// rather than "4.96 stars". The stars fill to the average, so a 4.5 room shows
-// four and a half and the row stays honest without a figure beside it. A room
-// with no starred reviews shows nothing — no stars is not zero stars.
-const RoomStars = ({ rating }: { rating?: { average: number; count: number } }) => {
-  const { t } = useTiBookLang();
-  if (!rating || !(rating.count > 0)) return null;
-  const pct = Math.max(0, Math.min(100, (rating.average / 5) * 100));
-  return (
-    <span className="flex items-center gap-1.5" aria-label={`${rating.average} / 5`}>
-      {/* Grey stars underneath, gold ones on top clipped to the average. */}
-      <span className="relative inline-block text-sm leading-none tracking-tight" aria-hidden>
-        <span className="text-white/35">★★★★★</span>
-        <span className="absolute inset-y-0 left-0 overflow-hidden whitespace-nowrap text-amber-400" style={{ width: `${pct}%` }}>
-          ★★★★★
-        </span>
-      </span>
-      <span className="text-xs font-semibold text-white/85">
-        {rating.count === 1 ? t("1 review") : t("{n} reviews", { n: rating.count })}
-      </span>
-    </span>
-  );
-};
 
 // The weekday letters over the grid, and not over the list, where every row
 // names its own day. Its own component so that flipping Month/List redraws
