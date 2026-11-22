@@ -720,9 +720,22 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
     say(said, { lines: answer.lines, actions: answer.actions });
   };
 
-  // The newest answer in view, as a chat thread would.
+  // The newest answer in view, from its START: the guest's question at the
+  // top of the window and the answer reading down from it. It used to scroll
+  // to the very bottom, as a chat thread does — but the thread ends with the
+  // house's promise and the privacy note, and a long answer (a room's
+  // reviews, opened from "41 reviews") was scrolled past its own first lines,
+  // so the guest landed on the buttons under it and had to scroll back up for
+  // what they came to read (host, 2026-11-21). A short answer still ends up
+  // at the bottom: there is nothing below it to scroll to.
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    const box = scrollRef.current;
+    if (!box) return;
+    const turnsShown = box.querySelectorAll("[data-tt-turn]");
+    const last = turnsShown[turnsShown.length - 1] as HTMLElement | undefined;
+    if (!last) return;
+    const top = box.scrollTop + last.getBoundingClientRect().top - box.getBoundingClientRect().top - 12;
+    box.scrollTo({ top, behavior: "smooth" });
   }, [turns.length]);
 
   // Once, on open. The ref, because StrictMode runs a mount effect twice and
@@ -888,7 +901,7 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
           </div>
 
           {turns.map((t) => (
-            <div key={t.id} className="space-y-3">
+            <div key={t.id} data-tt-turn className="space-y-3">
               <div className="flex justify-end">
                 <div className={`max-w-[80%] rounded-2xl rounded-br-sm px-3 py-2 text-sm text-white ${theme.btn}`}>
                   <p className="whitespace-pre-wrap break-words">{t.question}</p>
