@@ -1524,6 +1524,7 @@ const TiBookInner = () => {
               onToggleRoom={handleToggleRoom}
               onSelectAll={() => setSelectedRoomIds(null)}
               myRates={myRates}
+              roomRatings={publishedReviews.roomRatings}
               loyaltyPerNight={myLoyaltyPerNight}
               hostPhone={currentHost?.phone}
               hostName={currentHost?.name}
@@ -1579,6 +1580,7 @@ const TiBookInner = () => {
                 selectedRoomIds={selectedRoomIds}
                 onToggleRoom={handleToggleRoom}
                 onSelectAll={() => setSelectedRoomIds(null)}
+                roomRatings={publishedReviews.roomRatings}
                 hostPhone={currentHost?.phone}
                 hostName={currentHost?.name}
                 onOpenChat={() => setChatOpen(true)}
@@ -1932,6 +1934,7 @@ const TiBookInner = () => {
           hostPhone={currentHost?.phone}
           hostName={currentHost?.name}
           myRate={myRates.get(heroGalleryRoom.id)}
+          rating={publishedReviews.roomRatings?.[heroGalleryRoom.id]}
           loyaltyPerNight={myLoyaltyPerNight}
           // The gallery stays open UNDERNEATH the chat sheet, which covers it
           // whole. Closing the photos to ask a question about them would send

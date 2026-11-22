@@ -1,3 +1,4 @@
+import { RoomRating } from "./RoomStars";
 import { useState } from "react";
 import { roomType } from "../../util/types/roomType";
 import RoomGalleryModal from "./RoomGalleryModal";
@@ -26,6 +27,8 @@ interface RoomCardsProps {
   // stranger, and for a returning guest with no special price — both of whom
   // simply see the room's own rate.
   myRates?: Map<string, number>;
+  // Each room's stars and number of reviews, by room id, for its photo window.
+  roomRatings?: Record<string, RoomRating>;
   // Dollars off every night for a guest with a loyalty discount; 0 or absent
   // for everyone else.
   loyaltyPerNight?: number;
@@ -177,7 +180,7 @@ const RoomCard = ({
   );
 };
 
-const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact = false, onToggleCompact, myRates, loyaltyPerNight, hostPhone, hostName, onOpenChat }: RoomCardsProps) => {
+const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact = false, onToggleCompact, myRates, roomRatings, loyaltyPerNight, hostPhone, hostName, onOpenChat }: RoomCardsProps) => {
   const { theme } = useTiBookTheme();
   const { t } = useTiBookLang();
   const roomChip = useRoomChip();
@@ -325,6 +328,7 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
           hostPhone={hostPhone}
           hostName={hostName}
           myRate={myRates?.get(galleryRoom.id)}
+          rating={roomRatings?.[galleryRoom.id]}
           loyaltyPerNight={loyaltyPerNight}
           onOpenChat={onOpenChat}
           onClose={() => setGalleryRoom(null)}

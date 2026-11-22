@@ -8,6 +8,7 @@ import { useRoomChip, useTiBookTheme } from "../../contexts/TiBookThemeContext";
 import BedIcon from "./BedIcon";
 import ParkingIcon from "./ParkingIcon";
 import { useTiBookLang } from "../../contexts/TiBookLanguageContext";
+import RoomStars, { RoomRating } from "./RoomStars";
 
 const BACKEND = import.meta.env.VITE_BACKEND_ENDPOINT || "";
 const resolveUrl = (url: string) => url.startsWith("/") ? `${BACKEND}${url}` : url;
@@ -39,10 +40,12 @@ interface RoomGalleryModalProps {
   // Absent where the screen around it has no chat to open, and the gallery
   // then simply does not offer it.
   onOpenChat?: () => void;
+  // The room's stars and number of reviews, as its Hero card shows them.
+  rating?: RoomRating;
   onClose: () => void;
 }
 
-const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate, loyaltyPerNight, onOpenChat, onClose }: RoomGalleryModalProps) => {
+const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate, loyaltyPerNight, onOpenChat, rating, onClose }: RoomGalleryModalProps) => {
   const loyalRate = discountedNightly(myRate, loyaltyPerNight);
   const photos = getRoomPhotos(room).map(resolveUrl);
   const [index, setIndex] = useState(initialIndex);
@@ -492,11 +495,19 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
             badges use — so King reads red here exactly as it does everywhere
             else, and a guest deep in a gallery still knows which room this is. */}
         <div className="flex items-center justify-between gap-2">
-          <span
-            className={`${roomChipClass} inline-block rounded px-2 py-0.5 text-sm font-semibold text-white`}
-          >
-            {room.name}
-          </span>
+          {/* The same stars and count as the room's card (host, 2026-11-21),
+              so a guest who opened the photos still sees what others thought
+              of the room they are looking at. Kept WITH the name, left, so
+              they read as the room's — between the name and the AirBnB link
+              they floated in the middle of the row. */}
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            <span
+              className={`${roomChipClass} inline-block rounded px-2 py-0.5 text-sm font-semibold text-white`}
+            >
+              {room.name}
+            </span>
+            <RoomStars rating={rating} />
+          </div>
           {/* The listing holds more than TiBook shows: the reviews, the full
               28-item amenity list, the map. Offered here, beside the room's
               name, rather than leaving the guest to find the small ↗ back on
