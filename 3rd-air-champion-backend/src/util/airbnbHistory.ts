@@ -25,6 +25,8 @@ export interface AirbnbStayRow {
   roomId: string;
   alias: string;
   description: string;
+  confirmationCode: string;
+  payout: number;
 }
 
 export interface AirbnbPastStay {
@@ -33,6 +35,16 @@ export interface AirbnbPastStay {
   nights: number;
   roomId: string;
   alias: string;
+  // What AirBnB paid out for the WHOLE stay (airbnbPrice); 0 when none is on
+  // record. For the host, to see what a guest coming over from AirBnB has been
+  // paying before quoting them a direct rate. Host-only: TiBook's public
+  // welcome never sends it.
+  payout: number;
+  // The reservation's page on AirBnB, "" when there is no code to build it
+  // from. The payout is what reached the host, not what the guest paid; the
+  // page has the guest's side, and the host goes there to weigh a direct rate
+  // that is fair to both (host, 2026-11-22). Host-only, like the payout.
+  url: string;
   // "phone": the first name and the phone's last four both agree.
   // "name": a hand-entered stay with no phone on record; the name agrees.
   matchedBy: "phone" | "name";
@@ -70,6 +82,12 @@ export const aliasNamesGuest = (alias: string, guestName: string): boolean => {
   return true;
 };
 
+// From the feed's link, or built from the code saved on a stay entered by hand
+// (the same rule as the frontend's reservationUrlOf).
+export const reservationUrl = (description: string, confirmationCode: string): string =>
+  description.match(/https:\/\/www\.airbnb\.com\/hosting\/reservations\/details\/\S+/)?.[0] ??
+  (confirmationCode ? `https://www.airbnb.com/hosting/reservations/details/${confirmationCode}` : "");
+
 export const matchAirbnbStays = (
   rows: AirbnbStayRow[],
   guestName: string,
@@ -89,6 +107,8 @@ export const matchAirbnbStays = (
       nights,
       roomId: r.roomId,
       alias: r.alias,
+      payout: r.payout,
+      url: reservationUrl(r.description, r.confirmationCode),
       matchedBy: stay4 ? "phone" : "name",
     });
   }
@@ -115,7 +135,7 @@ export const lookupAirbnbHistory = async (
     calendar: host.calendar,
     bookings: { $elemMatch: { guest: airbnb._id, alias: startsWith } },
   })
-    .select("date bookings.room bookings.guest bookings.alias bookings.description bookings.startDate bookings.endDate bookings.airbnbBlocked")
+    .select("date bookings.room bookings.guest bookings.alias bookings.description bookings.startDate bookings.endDate bookings.airbnbBlocked bookings.airbnbPrice bookings.confirmationCode")
     .lean();
   const rows: AirbnbStayRow[] = [];
   const seen = new Set<string>();
@@ -136,6 +156,8 @@ export const lookupAirbnbHistory = async (
         roomId: String(b.room ?? ""),
         alias: String(b.alias ?? ""),
         description: String(b.description ?? ""),
+        confirmationCode: String(b.confirmationCode ?? ""),
+        payout: Number(b.airbnbPrice) || 0,
       });
     }
   }

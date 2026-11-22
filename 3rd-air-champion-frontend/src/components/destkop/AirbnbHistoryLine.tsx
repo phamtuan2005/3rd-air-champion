@@ -12,7 +12,8 @@ import RoomBadge from "../shared/RoomBadge";
 // found, so the host knows who is asking before he answers.
 
 // One lookup per requester per session: the card re-renders often.
-const cache = new Map<string, Promise<AirbnbPastStay[]>>();
+// null: the lookup failed — the card then says nothing rather than "none".
+const cache = new Map<string, Promise<AirbnbPastStay[] | null>>();
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 // yyyy-MM-dd as text: no Date, so no timezone can move the day.
@@ -26,7 +27,8 @@ interface Props {
 }
 
 const AirbnbHistoryLine = ({ name, phone, token, rooms }: Props) => {
-  const [stays, setStays] = useState<AirbnbPastStay[]>([]);
+  // undefined while looking, null if the lookup failed.
+  const [stays, setStays] = useState<AirbnbPastStay[] | null | undefined>(undefined);
 
   useEffect(() => {
     if (!name.trim() || !phone.trim() || !token) return;
@@ -35,7 +37,7 @@ const AirbnbHistoryLine = ({ name, phone, token, rooms }: Props) => {
     if (!p) {
       p = fetchAirbnbHistory(name, phone, token).catch(() => {
         cache.delete(key);
-        return [];
+        return null;
       });
       cache.set(key, p);
     }
@@ -46,12 +48,17 @@ const AirbnbHistoryLine = ({ name, phone, token, rooms }: Props) => {
     };
   }, [name, phone, token]);
 
-  if (!stays.length) return null;
+  if (!stays) return null;
+  // Said out loud, so a card with no AirBnB line is never left to mean either
+  // "nobody found" or "never looked" (host, 2026-11-22).
+  if (!stays.length) return <p className="text-xs font-medium text-gray-500">No AirBnB stays found</p>;
   const sure = stays.some((s) => s.matchedBy === "phone");
   const shown = stays.slice(0, 3);
   return (
-    <div className="flex flex-col gap-1 rounded-md bg-[#FF5A5F]/10 px-2 py-1.5">
-      <p className="text-xs font-semibold text-[#c8383d]">
+    // Prominent: who is asking decides how the host answers (host, 2026-11-22:
+    // "this info is very important"). AirBnB's colour, so it reads as AirBnB.
+    <div className="flex flex-col gap-1.5 rounded-lg border border-[#FF5A5F]/40 bg-[#FF5A5F]/10 px-3 py-2">
+      <p className="text-sm font-bold text-[#c8383d]">
         {sure
           ? `Stayed before on AirBnB as “${stays[0].alias}” — ${stays.length} stay${stays.length > 1 ? "s" : ""}`
           : `Maybe stayed on AirBnB: “${stays[0].alias}”, same name, no phone on record`}
@@ -59,12 +66,33 @@ const AirbnbHistoryLine = ({ name, phone, token, rooms }: Props) => {
       {shown.map((s) => {
         const room = rooms.find((r) => r.id === s.roomId);
         return (
-          <div key={`${s.start}|${s.roomId}`} className="flex items-center gap-2 text-xs text-gray-600">
+          <div key={`${s.start}|${s.roomId}`} className="flex items-center gap-2 text-sm text-gray-700">
             {room && <RoomBadge room={room} rooms={rooms} />}
             <span>
               {short(s.start)} – {short(s.end)}, {s.start.slice(0, 4)}
             </span>
             <span className="text-gray-400">{s.nights}n</span>
+            {/* The payout is what reached the HOST, after AirBnB's cut — "$48"
+                alone read as what the guest paid, who paid well more (host,
+                2026-11-22). Labelled as his, with the reservation's page one tap
+                away for the guest's side: a direct rate fair to both sits
+                between the two. */}
+            {s.payout > 0 && (
+              <span className="text-gray-500">
+                ${Math.round(s.payout / Math.max(1, s.nights))}/night to you
+              </span>
+            )}
+            {s.url && (
+              <a
+                href={s.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="ml-auto shrink-0 font-semibold text-[#c8383d] underline"
+              >
+                AirBnB ↗
+              </a>
+            )}
           </div>
         );
       })}

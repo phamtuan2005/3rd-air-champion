@@ -1,4 +1,6 @@
 ﻿import { useEffect, useRef, useState } from "react";
+import AirbnbHistoryLine from "../../AirbnbHistoryLine";
+import { getToken } from "../../../../util/authSession";
 import { useAirbnbPastStays, withAirbnbStays } from "../../../../util/airbnbPastStays";
 import { bookingType, feeType, feesTotal } from "../../../../util/types/bookingType";
 import {
@@ -420,6 +422,13 @@ const DetailsModal = ({
                 <p className="mt-1 text-[11px] font-semibold text-emerald-700">{pasteNote}</p>
               )}
             </div>
+          )}
+
+          {/* Their stays through AirBnB before they booked direct, with what
+              each paid — the host's reference for this guest's rate. Only when
+              there are some: most guests never came through AirBnB. */}
+          {airbnbPast.length > 0 && (
+            <AirbnbHistoryLine name={booking.guest.name} phone={booking.guest.phone} token={getToken() ?? ""} rooms={rooms} />
           )}
 
           {/* Additional fees (parking, cleaning, cancellation, …) — right under
