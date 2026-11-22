@@ -345,8 +345,19 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
     // Money promised and not arrived. Its own tab because it is chased at a
     // different moment from a reminder or a clean — and because a hold nobody
     // looks at is a room quietly not earning.
-    { key: "payments", label: "Payments", count: overdueHolds.length },
+    //
+    // Only there while something IS late. Guests pay on time these days and the
+    // host asked for the tab to go (2026-11-21): it sat there saying "No
+    // payments overdue". Hidden rather than removed, so the one late payment
+    // that does happen still turns up with its own tab and count.
+    ...(overdueHolds.length > 0
+      ? [{ key: "payments" as const, label: "Payments", count: overdueHolds.length }]
+      : []),
   ];
+  // The tab being read can vanish under it — the last late stay gets marked
+  // paid while Payments is open. Fall back to Reminders rather than a blank
+  // panel with nothing selected.
+  const shownTab: TabKey = tabs.some((t) => t.key === activeTab) ? activeTab : "reminders";
 
   const emptyState = (message: string) => (
     <div className="flex flex-1 items-center justify-center py-10 text-base text-gray-400">
@@ -361,20 +372,22 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
         <p className="text-sm text-gray-400">{format(startOfToday(), "EEEE, MMMM d, yyyy")}</p>
       </div>
 
-      <div className="mb-3 grid shrink-0 grid-cols-3 gap-1 rounded-xl bg-gray-100 p-1">
+      <div
+        className={`mb-3 grid shrink-0 ${tabs.length === 3 ? "grid-cols-3" : "grid-cols-2"} gap-1 rounded-xl bg-gray-100 p-1`}
+      >
         {tabs.map(({ key, label, count }) => (
           <button
             key={key}
             onClick={() => setActiveTab(key)}
             className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm font-semibold transition-colors ${
-              activeTab === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+              shownTab === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
             }`}
           >
             {label}
             {count > 0 && (
               <span
                 className={`min-w-[1.25rem] rounded-full px-1 py-0.5 text-center text-[12px] font-bold leading-none ${
-                  activeTab === key ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-600"
+                  shownTab === key ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-600"
                 }`}
               >
                 {count}
@@ -384,7 +397,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
         ))}
       </div>
 
-      {activeTab === "reminders" &&
+      {shownTab === "reminders" &&
         (reminderBookings.length > 0 ? (
           <>
             <p className="mb-1.5 text-center text-sm text-gray-400">
@@ -484,7 +497,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
           emptyState("No check-ins tomorrow")
         ))}
 
-      {activeTab === "payments" &&
+      {shownTab === "payments" &&
         (overdueHolds.length > 0 ? (
           <div className="flex flex-col gap-2">
             {overdueHolds.map(({ booking, daysLate }) => (
@@ -534,7 +547,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
           emptyState("No payments overdue")
         ))}
 
-      {activeTab === "cleaning" &&
+      {shownTab === "cleaning" &&
         (cleaningItems.length > 0 || extras.length > 0 ? (
           <>
             {cleaningCounts.min !== cleaningCounts.max && (
