@@ -4,6 +4,7 @@ import Host from "../model/hostSchema";
 import TTQuestion from "../model/ttQuestionSchema";
 import TTReviews from "../model/ttReviewsSchema";
 import { latestFromEntries } from "../util/reviewEntries";
+import { roomRatingsFor } from "../util/reviewSummary";
 import { asCategory, scrubQuestion, storedQuestion } from "../util/ttQuestions";
 
 // TiBook's TT talking to the server — PUBLIC, because the guest has no login.
@@ -81,10 +82,12 @@ router.get("/reviews/:host", async (req: Request, res: any) => {
   try {
     // `published` only. The draft is the host's work in progress and may
     // still say something the host is about to take out.
-    const [doc, newest]: [any, Awaited<ReturnType<typeof latestFromEntries>>] = await Promise.all([
-      TTReviews.findOne({ host }, { published: 1 }).lean(),
-      latestFromEntries(host),
-    ]);
+    const [doc, newest, ratings]: [any, Awaited<ReturnType<typeof latestFromEntries>>, Awaited<ReturnType<typeof roomRatingsFor>>] =
+      await Promise.all([
+        TTReviews.findOne({ host }, { published: 1 }).lean(),
+        latestFromEntries(host),
+        roomRatingsFor(host),
+      ]);
     const p = doc?.published;
     // Each room's LATEST review is read straight from the reviews on record —
     // the guest's own words, with the month and stars — the moment it is
@@ -120,6 +123,11 @@ router.get("/reviews/:host", async (req: Request, res: any) => {
         summary: published.find((r: any) => String(r.room) === roomId)?.summary ?? "",
         ...latestOf(roomId),
       })),
+      // Each room's stars for its banner, by room id. Its own field rather
+      // than on the rows above: those rows are the rooms with something to
+      // SAY, and a room can have stars with no published summary and no
+      // dated review.
+      ratings,
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });

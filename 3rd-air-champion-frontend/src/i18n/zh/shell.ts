@@ -195,6 +195,7 @@ export const shell: Record<string, string> = {
   "/ night · your rate": "/晚 · 您的价格",
   "Your price is agreed with {name}": "您的价格与 {name} 商定",
   "{n} photos": "{n}张照片",
+  "1 review": "1条评价",
   "Details": "详情",
   "Any room is fine": "查看可选房间",
   "{name} picks the room and agrees your price. Same house, same bathrooms.":

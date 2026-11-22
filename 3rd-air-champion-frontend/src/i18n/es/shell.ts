@@ -209,6 +209,7 @@ export const shell: Record<string, string> = {
   "/ night · your rate": "/ noche · tu tarifa",
   "Your price is agreed with {name}": "Tu precio lo acuerdas con {name}",
   "{n} photos": "{n} fotos",
+  "1 review": "1 reseña",
   "Details": "Detalles",
   "Any room is fine": "Cualquier habitación está bien",
   "{name} picks the room and agrees your price. Same house, same bathrooms.":

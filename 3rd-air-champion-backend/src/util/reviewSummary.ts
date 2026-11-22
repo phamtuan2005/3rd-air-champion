@@ -30,3 +30,30 @@ export const reviewSummaryFor = async (hostId: unknown): Promise<{ count: number
   if (!row || !row.count) return null;
   return { count: row.count, average: row.rated ? Math.round((row.sum / row.rated) * 100) / 100 : null };
 };
+
+// Each room's average stars and how many reviews it has, by room id — for the
+// stars on TiBook's room banner (host, 2026-11-21: "put the reviews rate of
+// each room on the room banner"). Counted from the record by the same rule as
+// the house figure above, so a room's stars and the house's cannot disagree
+// about what was counted. A room whose reviews carry no stars is left out: no
+// stars is not zero stars.
+export const roomRatingsFor = async (hostId: unknown): Promise<Record<string, { average: number; count: number }>> => {
+  if (!hostId || !mongoose.isValidObjectId(String(hostId))) return {};
+  const rows: any[] = await TTReviewEntry.aggregate([
+    { $match: { host: new mongoose.Types.ObjectId(String(hostId)) } },
+    {
+      $group: {
+        _id: "$room",
+        count: { $sum: 1 },
+        rated: { $sum: { $cond: [{ $ifNull: ["$stars", false] }, 1, 0] } },
+        sum: { $sum: { $ifNull: ["$stars", 0] } },
+      },
+    },
+  ]);
+  const out: Record<string, { average: number; count: number }> = {};
+  for (const r of rows) {
+    if (!r._id || !r.rated) continue;
+    out[String(r._id)] = { average: Math.round((r.sum / r.rated) * 100) / 100, count: r.count };
+  }
+  return out;
+};

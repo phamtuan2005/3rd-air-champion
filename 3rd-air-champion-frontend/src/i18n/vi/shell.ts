@@ -213,6 +213,7 @@ export const shell: Record<string, string> = {
   "/ night · your rate": "/ đêm · giá của bạn",
   "Your price is agreed with {name}": "Giá của bạn do bạn và {name} thống nhất",
   "{n} photos": "{n} ảnh",
+  "1 review": "1 đánh giá",
   "Details": "Chi tiết",
   "Any room is fine": "Phòng nào cũng được",
   "{name} picks the room and agrees your price. Same house, same bathrooms.":

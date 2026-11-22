@@ -193,6 +193,7 @@ export const shell: Record<string, string> = {
   "/ night · your rate": "/박 · 고객님 요금",
   "Your price is agreed with {name}": "요금은 {name} 님과 합의해요",
   "{n} photos": "사진 {n}장",
+  "1 review": "후기 1개",
   "Details": "상세 정보",
   "Any room is fine": "아무 객실이나 괜찮아요",
   "{name} picks the room and agrees your price. Same house, same bathrooms.":
