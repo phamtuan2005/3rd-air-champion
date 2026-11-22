@@ -1407,6 +1407,7 @@ const TiBookInner = () => {
           onToggleRoom={handleToggleRoom}
           myRates={myRates}
           loyaltyPerNight={myLoyaltyPerNight}
+          roomRatings={publishedReviews.roomRatings}
           cartDates={cartDates}
           wishListDates={wishListDates}
           newWishListDates={newWishListDates}

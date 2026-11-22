@@ -143,7 +143,8 @@ describe("review summaries", () => {
     expect(drafted.body.draft).toMatchObject({ status: "ready", house: "Guests love it.", reviewsRead: 12 });
 
     // A draft is the host's work in progress — no guest sees it yet.
-    expect((await request(guestApp).get(`/tt/reviews/${host}`)).body).toEqual({ house: "", rooms: [] });
+    // The review on record has no stars, so King has no rating to show either.
+    expect((await request(guestApp).get(`/tt/reviews/${host}`)).body).toEqual({ house: "", rooms: [], ratings: {} });
 
     // The host edits before publishing, and the EDIT is what goes out.
     const pub = await request(hostApp)
@@ -154,6 +155,28 @@ describe("review summaries", () => {
     expect((await request(guestApp).get(`/tt/reviews/${host}`)).body).toEqual({
       house: "Guests love the quiet.",
       rooms: [{ roomId: king, summary: "A big, comfortable bed." }],
+      ratings: {},
+    });
+  });
+
+  // The stars on TiBook's room banner (host, 2026-11-21). Every review of the
+  // room counts, dated or not — the average is over those that HAVE stars.
+  it("gives guests each room's average stars and review count", async () => {
+    const host = String((await createMockHost("room-ratings@example.com"))._id);
+    const king = String((await roomFor(host, "King"))._id);
+    const cute = String((await roomFor(host, "Cute"))._id);
+    const chill = String((await roomFor(host, "Chill"))._id);
+    await onRecord(host, king, "Lovely", { stars: 5, reviewMonth: "2026-09" });
+    await onRecord(host, king, "Fine", { stars: 4 });
+    await onRecord(host, king, "No stars given");
+    await onRecord(host, cute, "Perfect", { stars: 5 });
+    // Chill's only review has no stars: no rating rather than a zero.
+    await onRecord(host, chill, "Quiet");
+
+    const { ratings } = (await request(guestApp).get(`/tt/reviews/${host}`)).body;
+    expect(ratings).toEqual({
+      [king]: { average: 4.5, count: 3 },
+      [cute]: { average: 5, count: 1 },
     });
   });
 

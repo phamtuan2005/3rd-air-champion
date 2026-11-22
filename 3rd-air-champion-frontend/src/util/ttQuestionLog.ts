@@ -52,7 +52,7 @@ export const logTTQuestion = (hostId: string | undefined, question: string, answ
 
 // The review summaries the host published. Empty until they do — TT then says
 // it has no summary yet rather than inventing one.
-export type PublishedReviews = Pick<TTReviews, "house" | "rooms" | "latest">;
+export type PublishedReviews = Pick<TTReviews, "house" | "rooms" | "latest" | "roomRatings">;
 
 export const fetchPublishedReviews = async (hostId: string): Promise<PublishedReviews> => {
   const response = await axios.get(`${BACKEND_ENDPOINT}/tt/reviews/${hostId}`);
@@ -75,6 +75,11 @@ export const fetchPublishedReviews = async (hostId: string): Promise<PublishedRe
             ? { stayDate: r.latestStayDate }
             : {}),
         }]),
+    ),
+    roomRatings: Object.fromEntries(
+      Object.entries(data.ratings ?? {}).filter(
+        ([, v]: [string, any]) => typeof v?.average === "number" && typeof v?.count === "number" && v.count > 0,
+      ) as [string, { average: number; count: number }][],
     ),
   };
 };

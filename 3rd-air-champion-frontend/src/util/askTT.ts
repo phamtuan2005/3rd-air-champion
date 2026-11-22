@@ -211,6 +211,9 @@ export interface TTReviews {
   // The AirBnB figures the host already shows in the banner.
   rating?: number;
   count?: number;
+  // Each room's average stars and number of reviews, by room id, counted from
+  // the reviews on record — the stars on Hero's room cards.
+  roomRatings?: Record<string, { average: number; count: number }>;
 }
 
 export interface TTLatestReview {
