@@ -221,6 +221,13 @@ const TiBookInner = () => {
   // sheet still finds out he wrote back.
   const [chatOpen, setChatOpen] = useState(false);
   const [askTTOpen, setAskTTOpen] = useState(false);
+  // What TT is asked as it opens — set by a tap on a room's "41 reviews", so
+  // the guest lands on that room's reviews rather than an empty chat.
+  const [askTTFirst, setAskTTFirst] = useState<{ query: string; label: string } | null>(null);
+  const openRoomReviews = (room: roomType) => {
+    setAskTTFirst({ query: `${room.name} reviews`, label: t("What guests say about {room}", { room: room.name }) });
+    setAskTTOpen(true);
+  };
   // What guests say, as the host published it in TiMag. Loaded beside the
   // page rather than when TT opens, so the first "What guests say" is
   // instant; a failure leaves TT saying it has no summary yet.
@@ -1408,6 +1415,7 @@ const TiBookInner = () => {
           myRates={myRates}
           loyaltyPerNight={myLoyaltyPerNight}
           roomRatings={publishedReviews.roomRatings}
+          onRoomReviews={openRoomReviews}
           cartDates={cartDates}
           wishListDates={wishListDates}
           newWishListDates={newWishListDates}
@@ -1525,6 +1533,7 @@ const TiBookInner = () => {
               onSelectAll={() => setSelectedRoomIds(null)}
               myRates={myRates}
               roomRatings={publishedReviews.roomRatings}
+              onRoomReviews={openRoomReviews}
               loyaltyPerNight={myLoyaltyPerNight}
               hostPhone={currentHost?.phone}
               hostName={currentHost?.name}
@@ -1581,6 +1590,7 @@ const TiBookInner = () => {
                 onToggleRoom={handleToggleRoom}
                 onSelectAll={() => setSelectedRoomIds(null)}
                 roomRatings={publishedReviews.roomRatings}
+                onRoomReviews={openRoomReviews}
                 hostPhone={currentHost?.phone}
                 hostName={currentHost?.name}
                 onOpenChat={() => setChatOpen(true)}
@@ -1935,6 +1945,7 @@ const TiBookInner = () => {
           hostName={currentHost?.name}
           myRate={myRates.get(heroGalleryRoom.id)}
           rating={publishedReviews.roomRatings?.[heroGalleryRoom.id]}
+          onOpenReviews={() => openRoomReviews(heroGalleryRoom)}
           loyaltyPerNight={myLoyaltyPerNight}
           // The gallery stays open UNDERNEATH the chat sheet, which covers it
           // whole. Closing the photos to ask a question about them would send
@@ -1991,7 +2002,8 @@ const TiBookInner = () => {
           onBook={sendTTBooking}
           roomColors={Object.fromEntries(rooms.map((r) => [r.id, r.color]))}
           onAction={onTTAction}
-          onClose={() => setAskTTOpen(false)}
+          initialAsk={askTTFirst ?? undefined}
+          onClose={() => { setAskTTOpen(false); setAskTTFirst(null); }}
         />
       )}
 

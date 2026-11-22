@@ -176,6 +176,7 @@ export const tt: Record<string, string> = {
   "I don't have the latest reviews yet — {host} can tell you what recent guests thought.": "아직 최신 후기가 없어요 — 최근 게스트들의 생각은 {host} 님이 알려 드릴 수 있어요.",
   "The latest review of each room:": "객실별 최신 후기:",
   "Rated {rating} ★ across {reviews}.": "{reviews} 기준 평균 {rating} ★.",
+  "{room} is rated {stars} across {reviews}.": "{room}: {reviews}에서 {stars}.",
   "What guests say about {room}:": "{room} 객실 게스트 후기:",
   "I don't have a summary of {room}'s reviews yet.": "아직 {room} 객실 후기 요약이 없어요.",
   "Here's what guests say about the house:": "이 집에 대한 게스트 후기예요:",

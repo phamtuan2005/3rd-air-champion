@@ -189,6 +189,7 @@ export const tt: Record<string, string> = {
   "I don't have the latest reviews yet — {host} can tell you what recent guests thought.": "Mình chưa có các đánh giá mới nhất — {host} có thể kể bạn nghe khách gần đây thấy thế nào.",
   "The latest review of each room:": "Đánh giá mới nhất của từng phòng:",
   "Rated {rating} ★ across {reviews}.": "Được chấm {rating} ★ qua {reviews}.",
+  "{room} is rated {stars} across {reviews}.": "{room} được {stars} qua {reviews}.",
   "What guests say about {room}:": "Khách nói gì về {room}:",
   "I don't have a summary of {room}'s reviews yet.": "Mình chưa có bản tóm tắt đánh giá của {room}.",
   "Here's what guests say about the house:": "Đây là điều khách nói về ngôi nhà:",

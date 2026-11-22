@@ -171,6 +171,7 @@ export const tt: Record<string, string> = {
   "I don't have the latest reviews yet — {host} can tell you what recent guests thought.": "我还没有最新评价，{host} 可以告诉您最近的客人怎么看。",
   "The latest review of each room:": "每间房的最新评价：",
   "Rated {rating} ★ across {reviews}.": "{reviews}，平均 {rating} ★。",
+  "{room} is rated {stars} across {reviews}.": "{room}：{reviews}，{stars}。",
   "What guests say about {room}:": "客人对 {room} 的评价：",
   "I don't have a summary of {room}'s reviews yet.": "我还没有 {room} 的评价摘要。",
   "Here's what guests say about the house:": "客人对房子的评价：",

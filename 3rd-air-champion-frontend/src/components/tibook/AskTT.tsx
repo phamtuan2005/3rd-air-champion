@@ -273,6 +273,9 @@ interface AskTTSheetProps {
   roomColors?: Record<string, string | undefined>;
   onAction: (action: Exclude<TTAction, { kind: "ask" | "book" | "booking" }>) => void;
   onClose: () => void;
+  // Asked the moment the sheet opens, as if the guest had tapped it — the
+  // "41 reviews" under a room's name opens TT on that room's reviews.
+  initialAsk?: { query: string; label: string };
 }
 
 // Shown to the guest, so in their language (fmtDate); asTyped below is not.
@@ -307,7 +310,7 @@ const withoutEdgeHolidays = (dates: string[]) => {
  * the host — scrubbed, with whether TT could answer it — so the house can see
  * what TT should learn next; the footer tells the guest so.
  */
-const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, roomColors, onAction, onClose }: AskTTSheetProps) => {
+const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, roomColors, onAction, onClose, initialAsk }: AskTTSheetProps) => {
   const { theme } = useTiBookTheme();
   const { t, lang, setLang } = useTiBookLang();
   const roomChip = useRoomChip();
@@ -721,6 +724,16 @@ const AskTTSheet = ({ ctx, hostId, guestName, guestPhone, onBook, testMode, room
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [turns.length]);
+
+  // Once, on open. The ref, because StrictMode runs a mount effect twice and
+  // the guest would see the question asked twice.
+  const initialAsked = useRef(false);
+  useEffect(() => {
+    if (!initialAsk || initialAsked.current) return;
+    initialAsked.current = true;
+    act({ kind: "ask", ...initialAsk });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const act = (a: TTAction) => {
     // In English the bubble shows the query, as it always has; in another

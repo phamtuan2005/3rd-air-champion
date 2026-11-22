@@ -406,6 +406,17 @@ describe("what guests say", () => {
     expect(text(a)).not.toContain("Guests praise");
   });
 
+  // A tap on "41 reviews" under a room's name asks this, so the answer opens
+  // with the same stars and count the guest tapped (host, 2026-11-21).
+  it("opens one room's reviews with its stars and number of reviews", () => {
+    const rated = { ...reviews, roomRatings: { k: { average: 4.95, count: 41 } } };
+    const a = askTT("King reviews", ctx({}, { reviews: rated }));
+    expect(a.lines[0]).toBe("King is rated ★★★★★ across 41 AirBnB reviews.");
+    expect(text(a)).toContain("The bed is huge and comfortable.");
+    // No figures on record: no line, rather than "0 reviews".
+    expect(askTT("King reviews", ctx({}, { reviews })).lines[0]).not.toContain("rated");
+  });
+
   it("lets 'what did previous guests say' through — it is about the room, not the guests", () => {
     expect(askTT("what did previous guests say about King?", ctx({}, { reviews })).category).toBe("reviews");
     // Asking WHO wrote it is still about people, and still refused.

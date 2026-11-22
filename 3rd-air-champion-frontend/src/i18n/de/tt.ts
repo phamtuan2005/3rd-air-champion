@@ -173,6 +173,7 @@ export const tt: Record<string, string> = {
   "I don't have the latest reviews yet — {host} can tell you what recent guests thought.": "Die neuesten Bewertungen habe ich noch nicht – {host} kann dir erzählen, wie es den letzten Gästen gefallen hat.",
   "The latest review of each room:": "Die neueste Bewertung jedes Zimmers:",
   "Rated {rating} ★ across {reviews}.": "Durchschnittlich {rating} ★ bei {reviews}.",
+  "{room} is rated {stars} across {reviews}.": "{room} ist mit {stars} bei {reviews} bewertet.",
   "What guests say about {room}:": "Das sagen Gäste über {room}:",
   "I don't have a summary of {room}'s reviews yet.": "Eine Zusammenfassung der Bewertungen von {room} habe ich noch nicht.",
   "Here's what guests say about the house:": "Das sagen Gäste über das Haus:",

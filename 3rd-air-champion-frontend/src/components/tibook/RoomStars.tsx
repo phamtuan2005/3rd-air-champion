@@ -13,7 +13,9 @@ export interface RoomRating {
   count: number;
 }
 
-const RoomStars = ({ rating }: { rating?: RoomRating }) => {
+// `onOpen` makes the count a link to what the reviews say: a guest who sees
+// "41 reviews" wants to read them (host, 2026-11-21). Absent, it is plain text.
+const RoomStars = ({ rating, onOpen }: { rating?: RoomRating; onOpen?: () => void }) => {
   const { t } = useTiBookLang();
   if (!rating || !(rating.count > 0)) return null;
   const pct = Math.max(0, Math.min(100, (rating.average / 5) * 100));
@@ -26,9 +28,21 @@ const RoomStars = ({ rating }: { rating?: RoomRating }) => {
           ★★★★★
         </span>
       </span>
-      <span className="text-xs font-semibold text-white/85">
-        {rating.count === 1 ? t("1 review") : t("{n} reviews", { n: rating.count })}
-      </span>
+      {onOpen ? (
+        <button
+          type="button"
+          // The card and the photo window both act on a tap; this one is
+          // the reviews', not theirs.
+          onClick={(e) => { e.stopPropagation(); onOpen(); }}
+          className="text-xs font-semibold text-white/90 underline decoration-white/50 underline-offset-2"
+        >
+          {rating.count === 1 ? t("1 review") : t("{n} reviews", { n: rating.count })}
+        </button>
+      ) : (
+        <span className="text-xs font-semibold text-white/85">
+          {rating.count === 1 ? t("1 review") : t("{n} reviews", { n: rating.count })}
+        </span>
+      )}
     </span>
   );
 };
