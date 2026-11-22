@@ -72,6 +72,14 @@ const AirbnbHistoryLine = ({ name, phone, token, rooms }: Props) => {
               {short(s.start)} – {short(s.end)}, {s.start.slice(0, 4)}
             </span>
             <span className="text-gray-400">{s.nights}n</span>
+            {/* What they paid through AirBnB, whole stay and per night: what a
+                direct rate for them is weighed against (host, 2026-11-22). */}
+            {s.payout > 0 && (
+              <span className="ml-auto font-semibold text-gray-800">
+                ${Math.round(s.payout)}
+                <span className="font-normal text-gray-500"> · ${Math.round(s.payout / Math.max(1, s.nights))}/night</span>
+              </span>
+            )}
           </div>
         );
       })}

@@ -28,13 +28,13 @@ describe("matching an AirBnB alias to a TiBook guest", () => {
 
   it("drops a same-name stay with a different phone, and keeps a hand-entered one as a name match", () => {
     const rows = [
-      { start: "2026-03-03", end: "2026-03-08", roomId: "k", alias: "Irina", description: feed("HM1", "4321") },
-      { start: "2026-05-01", end: "2026-05-03", roomId: "q", alias: "Irina", description: feed("HM2", "9999") },
-      { start: "2026-07-10", end: "2026-07-12", roomId: "c", alias: "Irina", description: "" },
+      { start: "2026-03-03", end: "2026-03-08", roomId: "k", alias: "Irina", description: feed("HM1", "4321"), payout: 260 },
+      { start: "2026-05-01", end: "2026-05-03", roomId: "q", alias: "Irina", description: feed("HM2", "9999"), payout: 100 },
+      { start: "2026-07-10", end: "2026-07-12", roomId: "c", alias: "Irina", description: "", payout: 0 },
     ];
     expect(matchAirbnbStays(rows, "Irina Vaysertreyger", "(408) 555-4321")).toEqual([
-      { start: "2026-07-10", end: "2026-07-12", nights: 2, roomId: "c", alias: "Irina", matchedBy: "name" },
-      { start: "2026-03-03", end: "2026-03-08", nights: 5, roomId: "k", alias: "Irina", matchedBy: "phone" },
+      { start: "2026-07-10", end: "2026-07-12", nights: 2, roomId: "c", alias: "Irina", payout: 0, matchedBy: "name" },
+      { start: "2026-03-03", end: "2026-03-08", nights: 5, roomId: "k", alias: "Irina", payout: 260, matchedBy: "phone" },
     ]);
   });
 });
@@ -68,6 +68,7 @@ describe("GET /guest/airbnb-history", () => {
             guest: airbnb._id,
             alias: "Irina",
             description: feed("HMIRINA", "4321"),
+            airbnbPrice: 171.6,
             startDate: new Date("2026-03-03T00:00:00Z"),
             endDate: new Date("2026-03-05T00:00:00Z"),
           },
@@ -80,7 +81,7 @@ describe("GET /guest/airbnb-history", () => {
       .query({ name: "Irina Vaysertreyger", phone: "408-555-4321" });
     expect(res.status).toBe(200);
     expect(res.body).toEqual([
-      { start: "2026-03-03", end: "2026-03-06", nights: 3, roomId: String(king._id), alias: "Irina", matchedBy: "phone" },
+      { start: "2026-03-03", end: "2026-03-06", nights: 3, roomId: String(king._id), alias: "Irina", payout: 171.6, matchedBy: "phone" },
     ]);
 
     const stranger = await request(appFor(String(host._id)))

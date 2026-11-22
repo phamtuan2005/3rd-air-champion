@@ -25,6 +25,7 @@ export interface AirbnbStayRow {
   roomId: string;
   alias: string;
   description: string;
+  payout: number;
 }
 
 export interface AirbnbPastStay {
@@ -33,6 +34,11 @@ export interface AirbnbPastStay {
   nights: number;
   roomId: string;
   alias: string;
+  // What AirBnB paid out for the WHOLE stay (airbnbPrice); 0 when none is on
+  // record. For the host, to see what a guest coming over from AirBnB has been
+  // paying before quoting them a direct rate. Host-only: TiBook's public
+  // welcome never sends it.
+  payout: number;
   // "phone": the first name and the phone's last four both agree.
   // "name": a hand-entered stay with no phone on record; the name agrees.
   matchedBy: "phone" | "name";
@@ -89,6 +95,7 @@ export const matchAirbnbStays = (
       nights,
       roomId: r.roomId,
       alias: r.alias,
+      payout: r.payout,
       matchedBy: stay4 ? "phone" : "name",
     });
   }
@@ -115,7 +122,7 @@ export const lookupAirbnbHistory = async (
     calendar: host.calendar,
     bookings: { $elemMatch: { guest: airbnb._id, alias: startsWith } },
   })
-    .select("date bookings.room bookings.guest bookings.alias bookings.description bookings.startDate bookings.endDate bookings.airbnbBlocked")
+    .select("date bookings.room bookings.guest bookings.alias bookings.description bookings.startDate bookings.endDate bookings.airbnbBlocked bookings.airbnbPrice")
     .lean();
   const rows: AirbnbStayRow[] = [];
   const seen = new Set<string>();
@@ -136,6 +143,7 @@ export const lookupAirbnbHistory = async (
         roomId: String(b.room ?? ""),
         alias: String(b.alias ?? ""),
         description: String(b.description ?? ""),
+        payout: Number(b.airbnbPrice) || 0,
       });
     }
   }
