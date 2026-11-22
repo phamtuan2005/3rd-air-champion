@@ -73,6 +73,8 @@ interface HeroShellProps {
   loyaltyPerNight?: number;
   // Each room's average stars and number of reviews, by room id.
   roomRatings?: Record<string, RoomRating>;
+  // Opens TT on what guests say about this room.
+  onRoomReviews?: (room: roomType) => void;
   cartDates: Map<string, string | null>;
   wishListDates: Set<string>;
   newWishListDates: Set<string>;
@@ -164,7 +166,7 @@ const HeroWeekdays = () => {
 const SLIDES = "overflow-x-auto overscroll-x-contain whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 const HeroShell = ({
-  host, rooms, monthMap, selectedRoomIds, onSelectRoom, onToggleRoom, myRates, loyaltyPerNight, roomRatings,
+  host, rooms, monthMap, selectedRoomIds, onSelectRoom, onToggleRoom, myRates, loyaltyPerNight, roomRatings, onRoomReviews,
   cartDates, wishListDates, newWishListDates, myBookingDates, myStays,
   reservedStays, reservedMap, currentMonth, onMonthChange, onDateClick,
   onWishListClick, onMyStayClick, onMyStayDetails, onReservedClick, scrollToTodayTrigger,
@@ -786,7 +788,7 @@ const HeroShell = ({
                       >
                         {picked.has(room.id) ? `✓ ${room.name}` : room.name}
                       </button>
-                      <RoomStars rating={roomRatings?.[room.id]} />
+                      <RoomStars rating={roomRatings?.[room.id]} onOpen={onRoomReviews ? () => onRoomReviews(room) : undefined} />
                       <span className="flex min-w-0 items-baseline gap-1.5">
                         {/* A guest on a deliberate $0 rate is family. Saying
                             "$0" reads as a bug, so it says what it means. */}

@@ -42,10 +42,12 @@ interface RoomGalleryModalProps {
   onOpenChat?: () => void;
   // The room's stars and number of reviews, as its Hero card shows them.
   rating?: RoomRating;
+  // Opens TT on what guests say about this room, over the photos.
+  onOpenReviews?: () => void;
   onClose: () => void;
 }
 
-const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate, loyaltyPerNight, onOpenChat, rating, onClose }: RoomGalleryModalProps) => {
+const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate, loyaltyPerNight, onOpenChat, rating, onOpenReviews, onClose }: RoomGalleryModalProps) => {
   const loyalRate = discountedNightly(myRate, loyaltyPerNight);
   const photos = getRoomPhotos(room).map(resolveUrl);
   const [index, setIndex] = useState(initialIndex);
@@ -506,7 +508,7 @@ const RoomGalleryModal = ({ room, initialIndex = 0, hostPhone, hostName, myRate,
             >
               {room.name}
             </span>
-            <RoomStars rating={rating} />
+            <RoomStars rating={rating} onOpen={onOpenReviews} />
           </div>
           {/* The listing holds more than TiBook shows: the reviews, the full
               28-item amenity list, the map. Offered here, beside the room's

@@ -1159,14 +1159,25 @@ const ratingLine = (r: TTReviews | undefined): string | null =>
     ? t("Rated {rating} ★ across {reviews}.", { rating: currentLang() === "de" ? String(r.rating).replace(".", ",") : r.rating, reviews: plural(r.count, "AirBnB review") })
     : null;
 
+// One room's stars and number of reviews, as its card shows them. A guest
+// who taps "41 reviews" on the card lands here, so the answer opens with the
+// same figure they tapped (host, 2026-11-21).
+const roomRatingLine = (r: TTReviews | undefined, room: TTRoom): string | null => {
+  const x = r?.roomRatings?.[room.id];
+  return x && x.count > 0
+    ? t("{room} is rated {stars} across {reviews}.", { room: room.name, stars: starRow(Math.round(x.average)), reviews: plural(x.count, "AirBnB review") })
+    : null;
+};
+
 const answerReviews = (ctx: AskTTContext, room: TTRoom | null): TTReply => {
   const r = ctx.reviews;
   const roomsWithReviews = ctx.rooms.filter((x) => r?.rooms[x.id]);
   if (room) {
     const said = r?.rooms[room.id];
+    const stars = roomRatingLine(r, room);
     if (said) {
       return {
-        lines: [t("What guests say about {room}:", { room: room.name }), said],
+        lines: [...(stars ? [stars] : []), t("What guests say about {room}:", { room: room.name }), said],
         // The latest review is ALWAYS the next step from one room's reviews,
         // published or not (host, 2026-10-08) — unlike the other review
         // buttons, which only appear when there is something to show. A tap

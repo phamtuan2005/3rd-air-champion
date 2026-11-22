@@ -29,6 +29,7 @@ interface RoomCardsProps {
   myRates?: Map<string, number>;
   // Each room's stars and number of reviews, by room id, for its photo window.
   roomRatings?: Record<string, RoomRating>;
+  onRoomReviews?: (room: roomType) => void;
   // Dollars off every night for a guest with a loyalty discount; 0 or absent
   // for everyone else.
   loyaltyPerNight?: number;
@@ -180,7 +181,7 @@ const RoomCard = ({
   );
 };
 
-const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact = false, onToggleCompact, myRates, roomRatings, loyaltyPerNight, hostPhone, hostName, onOpenChat }: RoomCardsProps) => {
+const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact = false, onToggleCompact, myRates, roomRatings, onRoomReviews, loyaltyPerNight, hostPhone, hostName, onOpenChat }: RoomCardsProps) => {
   const { theme } = useTiBookTheme();
   const { t } = useTiBookLang();
   const roomChip = useRoomChip();
@@ -329,6 +330,7 @@ const RoomCards = ({ rooms, selectedRoomIds, onToggleRoom, onSelectAll, compact 
           hostName={hostName}
           myRate={myRates?.get(galleryRoom.id)}
           rating={roomRatings?.[galleryRoom.id]}
+          onOpenReviews={onRoomReviews ? () => onRoomReviews(galleryRoom) : undefined}
           loyaltyPerNight={loyaltyPerNight}
           onOpenChat={onOpenChat}
           onClose={() => setGalleryRoom(null)}
