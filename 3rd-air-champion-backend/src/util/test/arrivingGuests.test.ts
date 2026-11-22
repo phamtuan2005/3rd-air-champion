@@ -1,4 +1,4 @@
-import { arrivingGuestCounts, dayKey, shiftKey } from "../arrivingGuests";
+import { arrivingGuestCounts, arrivingNeeds, dayKey, shiftKey } from "../arrivingGuests";
 
 const R1 = "room-cozy";
 const R2 = "room-queen";
@@ -92,6 +92,33 @@ describe("arrivingGuestCounts", () => {
     );
     expect(counts.get(`2026-08-20|${R1}`)).toBe(2);
     expect(counts.get(`2026-08-20|${R2}`)).toBe(4);
+  });
+});
+
+describe("arrivingNeeds — early check-in", () => {
+  // TiWork turns this into "clean this room first". It is only true of the
+  // morning the early guest actually arrives; any other day the room is ready
+  // in time anyway, and a tag that is usually wrong teaches cleaners to skip it.
+  it("flags a same-day early arrival", () => {
+    const needs = arrivingNeeds(
+      [{ date: "2026-08-20", roomId: R1, guests: 2, earlyCheckin: true }],
+      [{ date: "2026-08-20", roomId: R1 }],
+    );
+    expect(needs.get(`2026-08-20|${R1}`)?.earlyCheckin).toBe(true);
+  });
+
+  it("does not flag a clean days before the early guest arrives", () => {
+    const needs = arrivingNeeds(
+      [{ date: "2026-08-23", roomId: R1, guests: 2, earlyCheckin: true }],
+      [
+        { date: "2026-08-20", roomId: R1 },
+        { date: "2026-08-23", roomId: R1 },
+      ],
+    );
+    expect(needs.get(`2026-08-20|${R1}`)?.earlyCheckin).toBe(false);
+    // ...and reading the earlier clean must not wipe the flag off the arrival
+    // day's own clean.
+    expect(needs.get(`2026-08-23|${R1}`)?.earlyCheckin).toBe(true);
   });
 });
 

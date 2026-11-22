@@ -731,8 +731,11 @@ const DetailsModal = ({
                   )}
                 />
               ) : (
-                <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${booking.earlyCheckin ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                  {booking.earlyCheckin ? "Yes" : "No"}
+                /* Solid orange "Yes" to match the Early check-in tag on the
+                   card and the cleaning lists. A pale green "Yes" looked the
+                   same as the late checkout and sofa bed answers next to it. */
+                <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${booking.earlyCheckin ? "bg-orange-500 font-bold text-white" : "bg-gray-100 text-gray-500"}`}>
+                  {booking.earlyCheckin ? "⏰ Yes" : "No"}
                 </span>
               )}
             </div>

@@ -5,6 +5,7 @@ import { addDays, format } from "date-fns";
 import { getRoomColor } from "../../../../util/getRoomColor";
 import { fetchAssignments, CleaningAssignmentType, CleanerType } from "../../../../util/cleanerOperations";
 import CleanerAvatar from "../../../shared/CleanerAvatar";
+import EarlyCheckinTag from "../../../shared/EarlyCheckinTag";
 import { cleanerSignoff } from "../../../../util/cleanerMessage";
 import {
   cleaningEntryTaskId,
@@ -336,8 +337,13 @@ const RoomsToClean = ({ selectedDate, monthMap, hostId, token, senderName }: Roo
                       : `Arrives ${format(new Date(nextCheckInDate + "T00:00:00"), "EEE, MMM d")}`}
                 </p>
               )}
+              {/* A tag, not a line of orange text: as text it read as one more
+                  detail about the arrival and got skimmed past, even though it
+                  is the thing that puts this room first in the order. */}
               {nextCheckIn?.earlyCheckin && (
-                <p className="text-xs font-semibold text-orange-500">Early Check-in Requested</p>
+                <p>
+                  <EarlyCheckinTag on />
+                </p>
               )}
               {/* Read off the ARRIVING stay, like the headcount above it: the
                   sofa bed is a bed for the people coming in, not for the ones

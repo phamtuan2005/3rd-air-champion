@@ -224,7 +224,7 @@ router.get("/hours", async (req: Request, res: any) => {
     // cleaner's rooms are not the other's.
     const roomsByDay = new Map<
       string,
-      { name: string; color: string; guests: number | null; sofaBed: boolean }[]
+      { name: string; color: string; guests: number | null; sofaBed: boolean; earlyCheckin: boolean }[]
     >();
     for (const a of assignments as any[]) {
       if (!a.room?._id) continue;
@@ -237,6 +237,7 @@ router.get("/hours", async (req: Request, res: any) => {
         // null, not 0 — "nothing booked yet" is not "nobody is coming".
         guests: need?.guests ?? null,
         sofaBed: !!need?.sofaBed,
+        earlyCheckin: !!need?.earlyCheckin,
       });
       roomsByDay.set(key, list);
     }

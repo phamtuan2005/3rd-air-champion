@@ -35,11 +35,19 @@ export interface Arrival {
   // because it answers the same question — what does this room need doing to
   // it — and because a bed nobody mentioned is a bed nobody makes.
   sofaBed?: boolean;
+  // The guest asked to get in before the usual check-in time.
+  earlyCheckin?: boolean;
 }
 
 export interface ArrivalNeed {
   guests: number;
   sofaBed: boolean;
+  // True only when the early arrival is on the SAME day as the clean. That is
+  // the only case where it changes the cleaner's morning: that room has to be
+  // done first. A guest arriving early three days later changes nothing about
+  // today, and a tag that is wrong most of the time is one cleaners stop
+  // reading.
+  earlyCheckin: boolean;
 }
 
 // For each cleaning (date + room), the headcount of the next stay to begin in
@@ -56,7 +64,12 @@ export const arrivingNeeds = (
     // A stay only ever starts once in a room on a day; the guard keeps the
     // EARLIEST reading if duplicates ever appear, rather than a silent overwrite.
     const k = `${a.date}|${a.roomId}`;
-    if (!byDayRoom.has(k)) byDayRoom.set(k, { guests: a.guests || 1, sofaBed: !!a.sofaBed });
+    if (!byDayRoom.has(k))
+      byDayRoom.set(k, {
+        guests: a.guests || 1,
+        sofaBed: !!a.sofaBed,
+        earlyCheckin: !!a.earlyCheckin,
+      });
   }
 
   const out = new Map<string, ArrivalNeed>();
@@ -66,7 +79,7 @@ export const arrivingNeeds = (
       // morning being cleaned, which is exactly when this matters most.
       const hit = byDayRoom.get(`${shiftKey(date, i)}|${roomId}`);
       if (hit != null) {
-        out.set(`${date}|${roomId}`, hit);
+        out.set(`${date}|${roomId}`, { ...hit, earlyCheckin: i === 0 && hit.earlyCheckin });
         break;
       }
     }

@@ -4,6 +4,7 @@ import { format, parseISO, startOfToday } from "date-fns";
 import CleanerAvatar from "../../shared/CleanerAvatar";
 import GuestFigures from "../../shared/GuestFigures";
 import SofaBedTag from "../../shared/SofaBedTag";
+import EarlyCheckinTag from "../../shared/EarlyCheckinTag";
 import RoomBadge from "../../shared/RoomBadge";
 import { MdCleaningServices } from "react-icons/md";
 import { GUEST_AVATAR_PRESETS } from "../../../util/guestAvatars";
@@ -1197,6 +1198,7 @@ const StaffingModal = ({ hostId, token, onClose, senderName, focusId }: Staffing
                             <RoomBadge room={{ name: r.name, color: r.color }} rooms={w.rooms!} />
                             <GuestFigures n={r.guests ?? 0} />
                             <SofaBedTag on={r.sofaBed} />
+                            <EarlyCheckinTag on={r.earlyCheckin} />
                           </div>
                         ))}
                       </div>

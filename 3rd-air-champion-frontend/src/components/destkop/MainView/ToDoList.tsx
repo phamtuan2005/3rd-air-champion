@@ -7,6 +7,7 @@ import { loadTemplate, resolveTemplate } from "../../../util/reminderTemplate";
 import { CLEANING_LOOKBACK_DAYS, cleaningTaskId, getCleaningCounts, getCleaningItems, countPendingReminders, CleaningItem } from "../../../util/cleaningTasks";
 import { fetchAssignments, fetchCleaningExtras, CleaningAssignmentType, CleaningExtraType, CleanerType } from "../../../util/cleanerOperations";
 import CleanerAvatar from "../../shared/CleanerAvatar";
+import EarlyCheckinTag from "../../shared/EarlyCheckinTag";
 import { cleanerSignoff } from "../../../util/cleanerMessage";
 import { fetchSentReminders, markReminderSent, unmarkReminderSent } from "../../../util/reminderOperations";
 
@@ -255,6 +256,9 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
   // what THEY need: which room and for how many guests. The next guest's check-in
   // date is the owner's private info and is deliberately NOT included; the list is
   // still in priority order (urgent first), just without revealing why.
+  // One exception (2026-11-21): an early check-in IS named, because TiWork now
+  // shows it to the cleaner as "clean first" and the text must not say less
+  // than the app. It still gives no date or time.
   const textCleanerSummary = (cleaner: CleanerType) => {
     if (!cleaner.phone) return;
     const first = cleaner.name.split(" ")[0];
@@ -288,7 +292,11 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
         // The sofa bed is the one request that adds work to the clean, said in
         // words — the To Do card says it, so the cleaner's text must too.
         const sofa = it.nextCheckIn?.sofaBed ? " · make up the sofa bed 🛋" : "";
-        return `${i + 1}. ${room} — for ${n} guest${n === 1 ? "" : "s"}${sofa}`;
+        // Said in words for the same reason, and first on the line: the To Do
+        // card shows it as a tag and TiWork tells the cleaner to clean this
+        // room first, so the text has to say it too.
+        const early = it.nextCheckIn?.earlyCheckin ? " · ⏰ EARLY CHECK-IN, clean first" : "";
+        return `${i + 1}. ${room} — for ${n} guest${n === 1 ? "" : "s"}${early}${sofa}`;
       });
       body =
         `Hi ${first}! Cleaning for today (${dayLabel}) — ${mine.length} room${mine.length === 1 ? "" : "s"}, in suggested order:\n` +
@@ -639,9 +647,12 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                         Empty since {format(addDays(new Date(item.checkoutKey + "T00:00:00"), 1), "MM/dd")} — not cleaned yet
                       </p>
                     )}
+                    {/* A tag, not a line of orange text: as text it read as one
+                        more detail about the arrival and got skimmed past, even
+                        though it is the thing that puts this room first. */}
                     {nextCheckIn?.earlyCheckin && (
-                      <p className="text-sm font-semibold text-orange-500">
-                        Early Check-in Requested
+                      <p>
+                        <EarlyCheckinTag on />
                       </p>
                     )}
                     {/* Off the ARRIVING stay, like the headcount above — the
