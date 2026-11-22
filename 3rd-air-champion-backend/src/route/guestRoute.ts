@@ -1,5 +1,6 @@
 import express, { Response, Request } from "express";
 import { sendGraphQLRequest } from "./util/sendToGraphQL";
+import { lookupAirbnbHistory } from "../util/airbnbHistory";
 
 const router = express.Router();
 
@@ -351,6 +352,23 @@ router.post("/get/by-phone", async (req: Request, res: any) => {
     .catch((error: any) => {
       res.status(500).json({ error: error.message });
     });
+});
+
+// A TiBook requester's earlier stays through AirBnB, matched on first name and
+// the phone's last four digits (util/airbnbHistory). Shown on the request in
+// TiMag, so a guest coming back from AirBnB is not greeted as a stranger.
+router.get("/airbnb-history", async (req: Request, res: any) => {
+  if (!("user" in req))
+    return res.status(401).json({ error: "Invalid or expired token" });
+  const { hostId } = req.user as any;
+  const name = String(req.query.name ?? "").trim();
+  const phone = String(req.query.phone ?? "").trim();
+  if (!name || !phone) return res.status(200).json([]);
+  try {
+    res.status(200).json(await lookupAirbnbHistory(String(hostId), name, phone));
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 export default router;
