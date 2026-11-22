@@ -1,3 +1,4 @@
+import { resetReviewTranslator, setReviewTranslator, translateReviewsSoon } from "../../util/reviewTranslate";
 import express from "express";
 import request from "supertest";
 import mongoose from "mongoose";
@@ -157,6 +158,53 @@ describe("review summaries", () => {
       rooms: [{ roomId: king, summary: "A big, comfortable bed." }],
       ratings: {},
     });
+  });
+
+  // A Chinese guest read the reviews in English inside a Chinese TT (host,
+  // 2026-11-21). The texts are translated when the HOST changes them and
+  // only READ when a guest asks — never translated on a guest's request.
+  it("gives guests the reviews in their language once translated, English until then", async () => {
+    const host = String((await createMockHost("reviews-zh@example.com"))._id);
+    const king = String((await roomFor(host, "King"))._id);
+    const calls: { language: string; texts: string[]; rooms: string[] }[] = [];
+    setReviewTranslator(async (texts, language, rooms) => {
+      calls.push({ language, texts, rooms });
+      return texts.map((t) => `[${language}] ${t}`);
+    });
+    try {
+      const hostApp = signedInAs({ hostId: host, role: "Host" });
+      await onRecord(host, king, "Loved the quiet.", { reviewMonth: "2026-11", stars: 5, guestName: "Mei" });
+      await request(hostApp).put("/tt-host/reviews").send({ house: "Guests love the quiet.", rooms: [{ roomId: king, summary: "A big, comfortable bed." }] });
+      await translateReviewsSoon(host);
+
+      const zh = (await request(guestApp).get(`/tt/reviews/${host}?lang=zh`)).body;
+      expect(zh.house).toBe("[Simplified Chinese] Guests love the quiet.");
+      expect(zh.rooms[0]).toMatchObject({
+        summary: "[Simplified Chinese] A big, comfortable bed.",
+        latest: "[Simplified Chinese] Loved the quiet.",
+        latestGuest: "Mei",
+        latestStars: 5,
+      });
+      // The model is told the room names, so it keeps them as written.
+      expect(calls[0].rooms).toEqual(["King"]);
+
+      // English, and a language TiBook does not have, get the English.
+      expect((await request(guestApp).get(`/tt/reviews/${host}`)).body.house).toBe("Guests love the quiet.");
+      expect((await request(guestApp).get(`/tt/reviews/${host}?lang=fr`)).body.house).toBe("Guests love the quiet.");
+
+      // Asked again, nothing is sent: every text has its translation.
+      const before = calls.length;
+      await translateReviewsSoon(host);
+      expect(calls.length).toBe(before);
+
+      // An edited summary is a new text: translated, the rest left alone.
+      await request(hostApp).put("/tt-host/reviews").send({ house: "Guests love the quiet.", rooms: [{ roomId: king, summary: "A huge bed." }] });
+      await translateReviewsSoon(host);
+      expect(calls.slice(before).every((c) => c.texts.length === 1 && c.texts[0] === "A huge bed.")).toBe(true);
+      expect((await request(guestApp).get(`/tt/reviews/${host}?lang=de`)).body.rooms[0].summary).toBe("[German] A huge bed.");
+    } finally {
+      resetReviewTranslator();
+    }
   });
 
   // The stars on TiBook's room banner (host, 2026-11-21). Every review of the

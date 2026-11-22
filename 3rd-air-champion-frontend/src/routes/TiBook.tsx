@@ -75,7 +75,7 @@ const CAL_PEEK_PX = 72;
 
 const TiBookInner = () => {
   const { theme, vibe, layout, setLook } = useTiBookTheme();
-  const { t, fmtDate, suggestLang } = useTiBookLang();
+  const { t, fmtDate, suggestLang, lang } = useTiBookLang();
   useEffect(() => { document.title = "TiBook"; }, []);
   useEffect(() => {
     const link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
@@ -235,8 +235,11 @@ const TiBookInner = () => {
   useEffect(() => {
     const hostId = import.meta.env.VITE_TI_BOOK_HOST_ID;
     if (!hostId) return;
-    fetchPublishedReviews(hostId).then(setPublishedReviews).catch(() => {});
-  }, []);
+    // Again when the guest changes language, so the reviews TT shows are in
+    // the language TT is speaking — a Chinese TT quoting English reviews
+    // read as half-translated (host, 2026-11-21).
+    fetchPublishedReviews(hostId, lang).then(setPublishedReviews).catch(() => {});
+  }, [lang]);
   // /book?stats — a guest the host gave access to, reading the visitor numbers.
   // That link opens it, and so does the row at the bottom of Your Bookings for
   // that guest; see StatsViewerGate.
