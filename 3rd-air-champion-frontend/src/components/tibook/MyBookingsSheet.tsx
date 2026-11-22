@@ -11,6 +11,7 @@ import { revokeConsent } from "../../util/guestConsent";
 import { fetchHasStatsAccess } from "../../util/tibookVisitOperations";
 import RoomBadge from "../shared/RoomBadge";
 import GuestLoyaltyBanner from "./GuestLoyaltyBanner";
+import AirbnbWelcome from "./AirbnbWelcome";
 import { useTiBookLang } from "../../contexts/TiBookLanguageContext";
 
 export interface GuestBooking {
@@ -577,6 +578,11 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
         {/* Results — grid row "1fr" fills remaining height */}
         <div className="overflow-y-auto px-4 pb-4">
 
+          {/* No TiBook stay yet, but perhaps stays through AirBnB: greeted
+              as the returning guest they are. */}
+          {bookings !== null && bookings.length === 0 && resolvedName && phone && (
+            <AirbnbWelcome hostId={hostId} name={resolvedName} phone={phone.trim()} className="mt-3" />
+          )}
           {bookings === null ? null : bookings.length === 0 ? (
             <p className={`text-sm ${theme.surfaceMuted2} text-center py-6`}>
               {t("We couldn't find any bookings for this number. Please double-check the number you used when booking.")}

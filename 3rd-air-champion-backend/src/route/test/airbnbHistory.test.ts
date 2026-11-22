@@ -1,6 +1,7 @@
 import express from "express";
 import request from "supertest";
 import guestRoute from "../guestRoute";
+import bookingRequestRoute from "../bookingRequestRoute";
 import Host from "../../model/hostSchema";
 import Calendar from "../../model/calendarSchema";
 import Room from "../../model/roomSchema";
@@ -86,5 +87,19 @@ describe("GET /guest/airbnb-history", () => {
       .get("/guest/airbnb-history")
       .query({ name: "Irina Vaysertreyger", phone: "408-555-0000" });
     expect(stranger.body).toEqual([]);
+
+    // TiBook's welcome: public, so it says how many stays and which rooms —
+    // never the dates.
+    const tibook = express();
+    tibook.use(express.json());
+    tibook.use("/booking-request", bookingRequestRoute);
+    const welcome = await request(tibook)
+      .post("/booking-request/airbnb-welcome")
+      .send({ host: String(host._id), name: "Irina Vaysertreyger", phone: "408-555-4321" });
+    expect(welcome.body).toEqual({ stays: 1, rooms: ["King"] });
+    const nobody = await request(tibook)
+      .post("/booking-request/airbnb-welcome")
+      .send({ host: String(host._id), name: "Irina Vaysertreyger", phone: "408-555-0000" });
+    expect(nobody.body).toEqual({ stays: 0, rooms: [] });
   });
 });

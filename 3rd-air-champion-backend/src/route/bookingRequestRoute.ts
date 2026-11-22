@@ -1,4 +1,7 @@
 import express, { Request, Response } from "express";
+import mongoose from "mongoose";
+import Room from "../model/roomSchema";
+import { lookupAirbnbHistory } from "../util/airbnbHistory";
 import { sendGraphQLRequest } from "./util/sendToGraphQL";
 
 const router = express.Router();
@@ -161,6 +164,35 @@ router.post("/guest-by-phone", async (req: Request, res: any) => {
     .catch((error: any) => {
       res.status(500).json({ error: error.message });
     });
+});
+
+// TiBook: a guest who stayed here through AirBnB, welcomed back as one
+// (host, 2026-11-22). Guests who found the house on AirBnB now come back and
+// book on TiBook, and TiBook greeted them as strangers.
+//
+// Public like /guest-by-phone above, which already answers to a phone number
+// alone. Only a sure match counts — the first name AND the phone's last four
+// digits (util/airbnbHistory); a name with no phone on record is for the host
+// to judge in TiMag, not for TiBook to tell a guest. And it says only how many
+// stays and in which rooms: never the dates, which say when somebody was
+// away from home.
+router.post("/airbnb-welcome", async (req: Request, res: any) => {
+  const host = String(req.body?.host ?? "");
+  const name = String(req.body?.name ?? "").trim();
+  const phone = String(req.body?.phone ?? "").trim();
+  if (!mongoose.isValidObjectId(host) || !name || !phone) return res.status(200).json({ stays: 0, rooms: [] });
+  try {
+    const stays = (await lookupAirbnbHistory(host, name, phone)).filter((s) => s.matchedBy === "phone");
+    const ids = [...new Set(stays.map((s) => s.roomId))];
+    const named = await Room.find({ _id: { $in: ids.filter((id) => mongoose.isValidObjectId(id)) } }, { name: 1 }).lean();
+    const nameOf = new Map(named.map((r: any) => [String(r._id), String(r.name ?? "")]));
+    res.status(200).json({
+      stays: stays.length,
+      rooms: ids.map((id) => nameOf.get(id) ?? "").filter(Boolean),
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 router.post("/get/guest/calendar", async (req: Request, res: any) => {
