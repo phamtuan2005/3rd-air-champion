@@ -5,6 +5,7 @@ import TTQuestion from "../model/ttQuestionSchema";
 import TTReviews from "../model/ttReviewsSchema";
 import { latestFromEntries } from "../util/reviewEntries";
 import { roomRatingsFor } from "../util/reviewSummary";
+import { guestLatestText, translationsFor } from "../util/reviewTranslate";
 import { asCategory, scrubQuestion, storedQuestion } from "../util/ttQuestions";
 
 // TiBook's TT talking to the server — PUBLIC, because the guest has no login.
@@ -78,6 +79,9 @@ router.post("/question", async (req: Request, res: any) => {
 
 router.get("/reviews/:host", async (req: Request, res: any) => {
   const { host } = req.params;
+  // The guest's TiBook language. The texts come back in it where a
+  // translation is on record (util/reviewTranslate), else in English.
+  const lang = typeof req.query.lang === "string" ? req.query.lang : "";
   if (!mongoose.isValidObjectId(host)) return res.status(400).json({ error: "Unknown host" });
   try {
     // `published` only. The draft is the host's work in progress and may
@@ -98,13 +102,20 @@ router.get("/reviews/:host", async (req: Request, res: any) => {
     // FIRST name, as AirBnB shows it — it used to carry no name at all, and
     // the host wanted the guest's name seen with their words (2026-10-09).
     // Capped, so a long review stays a chat message.
-    const LATEST_CHARS = 600;
+    // Capped (guestLatestText), so a long review stays a chat message.
+    const published = (p?.rooms ?? []).filter((r: any) => r?.room && r.summary);
+    const shown = [
+      p?.house ?? "",
+      ...published.map((r: any) => r.summary),
+      ...[...newest.values()].map((l) => guestLatestText(l.text)),
+    ];
+    const inLang = await translationsFor(shown, lang);
+    const said = (t: string) => inLang.get(t) ?? t;
     const latestOf = (roomId: string) => {
       const l = newest.get(roomId);
       if (!l || !l.text.trim()) return {};
-      const t = l.text.trim();
       return {
-        latest: t.length > LATEST_CHARS ? `${t.slice(0, LATEST_CHARS).replace(/\s+\S*$/, "")}…` : t,
+        latest: said(guestLatestText(l.text)),
         latestMonth: l.month,
         ...(l.stars ? { latestStars: l.stars } : {}),
         ...(l.firstName ? { latestGuest: l.firstName } : {}),
@@ -113,14 +124,13 @@ router.get("/reviews/:host", async (req: Request, res: any) => {
         ...(l.stayDate ? { latestStayDate: l.stayDate } : {}),
       };
     };
-    const published = (p?.rooms ?? []).filter((r: any) => r?.room && r.summary);
     const ids = [...new Set([...published.map((r: any) => String(r.room)), ...newest.keys()])];
     return res.status(200).json({
-      house: p?.house ?? "",
+      house: said(p?.house ?? ""),
       rooms: ids.map((roomId) => ({
         roomId,
         // The overall summary is still the host's published one.
-        summary: published.find((r: any) => String(r.room) === roomId)?.summary ?? "",
+        summary: said(published.find((r: any) => String(r.room) === roomId)?.summary ?? ""),
         ...latestOf(roomId),
       })),
       // Each room's stars for its banner, by room id. Its own field rather

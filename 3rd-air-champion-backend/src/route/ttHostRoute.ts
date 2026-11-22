@@ -1,6 +1,7 @@
 import express, { Request } from "express";
 import mongoose from "mongoose";
 import Room from "../model/roomSchema";
+import { translateReviewsSoon } from "../util/reviewTranslate";
 import TTQuestion from "../model/ttQuestionSchema";
 import TTReviews from "../model/ttReviewsSchema";
 import TTReviewSource from "../model/ttReviewSourceSchema";
@@ -217,6 +218,9 @@ router.post("/reviews/entry", async (req: Request, res: any) => {
       // The individual reviews are the record; nothing reads a page now.
       { appendToFile: false },
     );
+    // What guests see changed: put it into TiBook's other languages, in
+    // the background (util/reviewTranslate).
+    translateReviewsSoon(hostId);
     res.status(200).json(added ? { added: true } : { added: false, duplicate: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -378,6 +382,9 @@ router.post("/reviews/split/:roomId/add", async (req: Request, res: any) => {
     // own, so the page is cleared — the reviewers' words are kept once. The
     // host's own copy (King.txt and the like) is untouched.
     await TTReviewSource.deleteOne({ host: hostId, room: roomId });
+    // What guests see changed: put it into TiBook's other languages, in
+    // the background (util/reviewTranslate).
+    translateReviewsSoon(hostId);
     res.status(200).json({ added, skipped });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -658,6 +665,9 @@ router.delete("/reviews/entry/:id", async (req: Request, res: any) => {
         else await TTReviewSource.deleteOne({ host: hostId, room: entry.room });
       }
     }
+    // What guests see changed: put it into TiBook's other languages, in
+    // the background (util/reviewTranslate).
+    translateReviewsSoon(hostId);
     res.status(200).json({ ok: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -802,6 +812,9 @@ router.put("/reviews", async (req: Request, res: any) => {
       { $set: { published: { house, rooms, at: new Date() }, draft: { status: "none", house: "", rooms: [], error: "", reviewsRead: 0 } } },
       { upsert: true },
     );
+    // What guests see changed: put it into TiBook's other languages, in
+    // the background (util/reviewTranslate).
+    translateReviewsSoon(hostId);
     res.status(200).json(view(await TTReviews.findOne({ host: hostId }).lean()));
   } catch (error: any) {
     res.status(500).json({ error: error.message });

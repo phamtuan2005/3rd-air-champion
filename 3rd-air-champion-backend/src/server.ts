@@ -1,3 +1,4 @@
+import { translateAllHostsReviews } from "./util/reviewTranslate";
 import dotenv from "dotenv";
 import cron from "node-cron";
 import mongoose from "mongoose";
@@ -198,6 +199,12 @@ const startServer = async () => {
         console.error("[WishList] Unhandled error:", err.message)
       );
     });
+
+    // Review texts already on record, into TiBook's other languages — only
+    // the ones with no translation yet, so a restart costs nothing once done.
+    translateAllHostsReviews().catch((err) =>
+      console.error("[ReviewTranslate] Unhandled error:", err.message)
+    );
 
     console.log(`Express server ready at http://localhost:${PORT}/`);
 

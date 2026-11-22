@@ -54,8 +54,12 @@ export const logTTQuestion = (hostId: string | undefined, question: string, answ
 // it has no summary yet rather than inventing one.
 export type PublishedReviews = Pick<TTReviews, "house" | "rooms" | "latest" | "roomRatings">;
 
-export const fetchPublishedReviews = async (hostId: string): Promise<PublishedReviews> => {
-  const response = await axios.get(`${BACKEND_ENDPOINT}/tt/reviews/${hostId}`);
+// `lang` is the guest's TiBook language: the texts come back in it where the
+// server has a translation, else in English (backend util/reviewTranslate).
+export const fetchPublishedReviews = async (hostId: string, lang?: string): Promise<PublishedReviews> => {
+  const response = await axios.get(`${BACKEND_ENDPOINT}/tt/reviews/${hostId}`, {
+    params: lang && lang !== "en" ? { lang } : undefined,
+  });
   const data = response.data;
   // CloudFront can answer a failure with index.html and a 200 (see
   // authenticateJWT): a web page is not a summary.
