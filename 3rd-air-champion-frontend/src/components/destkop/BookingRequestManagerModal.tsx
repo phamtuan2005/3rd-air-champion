@@ -12,6 +12,7 @@ import {
 } from "../../util/bookingRequestOperations";
 import { getRoomColor } from "../../util/getRoomColor";
 import RoomBadge from "../shared/RoomBadge";
+import AirbnbHistoryLine from "./AirbnbHistoryLine";
 import { format, toZonedTime } from "date-fns-tz";
 import { format as formatLocal, addDays } from "date-fns";
 import { DANGER_BUTTON, SWIPE_DELETE } from "../shared/dangerButton";
@@ -1021,6 +1022,11 @@ const BookingRequestManagerModal = ({
             )}
             <span className="text-[10px] text-gray-400 ml-auto">{formatPhone(first.guestPhone)}</span>
           </div>
+
+          {/* Not in the guest list: perhaps a guest coming back from AirBnB. */}
+          {!matched && (
+            <AirbnbHistoryLine name={first.guestName} phone={first.guestPhone} token={token} rooms={rooms} />
+          )}
 
           <div className="flex flex-col gap-1">
             {group.map((req) => {

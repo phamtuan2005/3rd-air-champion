@@ -74,3 +74,26 @@ export const updateBookingRequestStatus = async (
   );
   return response.data;
 };
+export interface AirbnbPastStay {
+  start: string; // first night, yyyy-MM-dd
+  end: string; // checkout morning, yyyy-MM-dd
+  nights: number;
+  roomId: string;
+  alias: string;
+  // "phone": first name and the phone's last four digits both agree.
+  // "name": a hand-entered AirBnB stay with no phone on record.
+  matchedBy: "phone" | "name";
+}
+
+// A TiBook requester's earlier stays through AirBnB (backend util/airbnbHistory).
+export const fetchAirbnbHistory = async (
+  name: string,
+  phone: string,
+  token: string,
+): Promise<AirbnbPastStay[]> => {
+  const response = await axios.get(`${BACKEND_ENDPOINT}/guest/airbnb-history`, {
+    params: { name, phone },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return Array.isArray(response.data) ? response.data : [];
+};
