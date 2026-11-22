@@ -16,7 +16,14 @@ const BACKEND_ENDPOINT = import.meta.env.VITE_BACKEND_ENDPOINT || "";
 // Shown where a guest has no TiBook stay yet — a guest who has one is already
 // greeted by name and by their stays.
 
-const cache = new Map<string, Promise<{ stays: number; rooms: string[] }>>();
+export interface AirbnbWelcomeFound {
+  stays: number;
+  nights: number;
+  since: string; // yyyy-MM of the first stay
+  rooms: string[];
+}
+
+const cache = new Map<string, Promise<AirbnbWelcomeFound>>();
 
 export const fetchAirbnbWelcome = (host: string, name: string, phone: string) => {
   const key = `${host}|${name.trim().toLowerCase()}|${phone.replace(/\D/g, "")}`;
@@ -24,10 +31,15 @@ export const fetchAirbnbWelcome = (host: string, name: string, phone: string) =>
   if (!p) {
     p = axios
       .post(`${BACKEND_ENDPOINT}/booking-request/airbnb-welcome`, { host, name, phone })
-      .then((r) => ({ stays: Number(r.data?.stays) || 0, rooms: Array.isArray(r.data?.rooms) ? r.data.rooms : [] }))
+      .then((r) => ({
+        stays: Number(r.data?.stays) || 0,
+        nights: Number(r.data?.nights) || 0,
+        since: typeof r.data?.since === "string" ? r.data.since : "",
+        rooms: Array.isArray(r.data?.rooms) ? r.data.rooms : [],
+      }))
       .catch(() => {
         cache.delete(key);
-        return { stays: 0, rooms: [] };
+        return { stays: 0, nights: 0, since: "", rooms: [] };
       });
     cache.set(key, p);
   }
@@ -44,7 +56,7 @@ interface Props {
 const AirbnbWelcome = ({ hostId, name, phone, className = "" }: Props) => {
   const { theme } = useTiBookTheme();
   const { t } = useTiBookLang();
-  const [found, setFound] = useState<{ stays: number; rooms: string[] } | null>(null);
+  const [found, setFound] = useState<AirbnbWelcomeFound | null>(null);
 
   useEffect(() => {
     if (!hostId || !name.trim() || !phone.trim()) return;

@@ -1,4 +1,5 @@
 ﻿import { useEffect, useRef, useState } from "react";
+import { useAirbnbPastStays, withAirbnbStays } from "../../../../util/airbnbPastStays";
 import { bookingType, feeType, feesTotal } from "../../../../util/types/bookingType";
 import {
   LOYALTY_FEE_LABEL,
@@ -73,6 +74,10 @@ const DetailsModal = ({
   onPricingUpdate,
   onRequestRemove,
 }: DetailsModalProps) => {
+
+  // Stays through AirBnB before this guest booked with the house count too
+  // (util/airbnbPastStays).
+  const airbnbPast = useAirbnbPastStays(booking.guest?.name, booking.guest?.phone);
   const isAirBnB = booking.guest.name === "AirBnB";
   // Stay summary — shown for every booking (dates + nights); direct guests also
   // get the running total (nights × negotiated rate + fees).
@@ -268,13 +273,15 @@ const DetailsModal = ({
                 );
               }
               const entry = guestBookingCount.find((g) => g.GuestId === booking.guest.id);
-              const count = entry?.DistinctStartDateCount ?? 0;
-              const since = entry?.FirstStayDate ? format(parseISO(entry.FirstStayDate), "MMM yyyy") : null;
+              const all = withAirbnbStays(entry?.DistinctStartDateCount ?? 0, entry?.FirstStayDate, airbnbPast);
+              const count = all.count;
+              const since = all.first ? format(parseISO(all.first), "MMM yyyy") : null;
               const loyaltyTier = getLoyaltyTier(count);
               return (
                 <div className="flex flex-wrap items-center gap-1">
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-600 border border-amber-200">
                     ↩ {count} {count === 1 ? "stay" : "stays"}{since ? ` since ${since}` : ""}
+                    {all.airbnb > 0 ? ` · ${all.airbnb} on AirBnB` : ""}
                   </span>
                   {loyaltyTier && (
                     <span className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border ${loyaltyTier.color}`}>
