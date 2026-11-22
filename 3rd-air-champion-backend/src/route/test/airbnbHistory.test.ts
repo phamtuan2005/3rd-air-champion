@@ -88,18 +88,18 @@ describe("GET /guest/airbnb-history", () => {
       .query({ name: "Irina Vaysertreyger", phone: "408-555-0000" });
     expect(stranger.body).toEqual([]);
 
-    // TiBook's welcome: public, so it says how many stays and which rooms —
-    // never the dates.
+    // TiBook's welcome: public, so it says how many stays, nights, which rooms
+    // and the month of the first — never a stay's dates.
     const tibook = express();
     tibook.use(express.json());
     tibook.use("/booking-request", bookingRequestRoute);
     const welcome = await request(tibook)
       .post("/booking-request/airbnb-welcome")
       .send({ host: String(host._id), name: "Irina Vaysertreyger", phone: "408-555-4321" });
-    expect(welcome.body).toEqual({ stays: 1, rooms: ["King"] });
+    expect(welcome.body).toEqual({ stays: 1, nights: 3, since: "2026-03", rooms: ["King"] });
     const nobody = await request(tibook)
       .post("/booking-request/airbnb-welcome")
       .send({ host: String(host._id), name: "Irina Vaysertreyger", phone: "408-555-0000" });
-    expect(nobody.body).toEqual({ stays: 0, rooms: [] });
+    expect(nobody.body).toEqual({ stays: 0, nights: 0, since: "", rooms: [] });
   });
 });

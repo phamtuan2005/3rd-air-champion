@@ -1,4 +1,5 @@
 import { reservationUrlOf } from "../../../../util/airbnbReservation";
+import { useAirbnbPastStays, withAirbnbStays } from "../../../../util/airbnbPastStays";
 import { getRoomColor } from "../../../../util/getRoomColor";
 import CleanerAvatar from "../../../shared/CleanerAvatar";
 import EarlyCheckinTag from "../../../shared/EarlyCheckinTag";
@@ -71,6 +72,10 @@ const BookingCard = ({
   onPricingEdit,
   onExpectedPayDateChange,
 }: BookingCardProps) => {
+
+  // Stays through AirBnB before this guest booked with the house count too
+  // (util/airbnbPastStays).
+  const airbnbPast = useAirbnbPastStays(booking.guest?.name, booking.guest?.phone);
   const { setIsFooterVisible } = useContext(FooterContext)!;
   // All per-booking actions live in a small draggable palette focused on this
   // guest. It must not block the calendar: after toggling the filter the host
@@ -424,16 +429,16 @@ const BookingCard = ({
           ) : (
             (() => {
               const entry = guestBookingCount.find((g) => g.GuestId === booking.guest.id);
-              const count = entry?.DistinctStartDateCount ?? 0;
-              const since = entry?.FirstStayDate
-                ? formatLocal(parseLocalDate(entry.FirstStayDate), "MMM yyyy")
-                : null;
+              const all = withAirbnbStays(entry?.DistinctStartDateCount ?? 0, entry?.FirstStayDate, airbnbPast);
+              const count = all.count;
+              const since = all.first ? formatLocal(parseLocalDate(all.first), "MMM yyyy") : null;
               const loyaltyTier = getLoyaltyTier(count);
               return (
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-sm font-semibold text-amber-600">
                     ↩ {count} {count === 1 ? "stay" : "stays"}
                     {since ? ` since ${since}` : ""}
+                    {all.airbnb > 0 ? ` · ${all.airbnb} on AirBnB` : ""}
                   </span>
                   {loyaltyTier && (
                     <span

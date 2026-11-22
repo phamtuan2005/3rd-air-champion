@@ -174,13 +174,16 @@ router.post("/guest-by-phone", async (req: Request, res: any) => {
 // alone. Only a sure match counts — the first name AND the phone's last four
 // digits (util/airbnbHistory); a name with no phone on record is for the host
 // to judge in TiMag, not for TiBook to tell a guest. And it says only how many
-// stays and in which rooms: never the dates, which say when somebody was
-// away from home.
+// stays, how many nights, which rooms and the MONTH of the first — what the
+// welcome card counts (a returning guest's "1 stay · with us since December"
+// left out her AirBnB stays, host 2026-11-22). Never a stay's dates, which
+// say when somebody was away from home.
 router.post("/airbnb-welcome", async (req: Request, res: any) => {
   const host = String(req.body?.host ?? "");
   const name = String(req.body?.name ?? "").trim();
   const phone = String(req.body?.phone ?? "").trim();
-  if (!mongoose.isValidObjectId(host) || !name || !phone) return res.status(200).json({ stays: 0, rooms: [] });
+  if (!mongoose.isValidObjectId(host) || !name || !phone)
+    return res.status(200).json({ stays: 0, nights: 0, since: "", rooms: [] });
   try {
     const stays = (await lookupAirbnbHistory(host, name, phone)).filter((s) => s.matchedBy === "phone");
     const ids = [...new Set(stays.map((s) => s.roomId))];
@@ -188,6 +191,9 @@ router.post("/airbnb-welcome", async (req: Request, res: any) => {
     const nameOf = new Map(named.map((r: any) => [String(r._id), String(r.name ?? "")]));
     res.status(200).json({
       stays: stays.length,
+      nights: stays.reduce((n, s) => n + s.nights, 0),
+      // yyyy-MM of the first stay; stays come newest first.
+      since: stays.length ? stays[stays.length - 1].start.slice(0, 7) : "",
       rooms: ids.map((id) => nameOf.get(id) ?? "").filter(Boolean),
     });
   } catch (error: any) {

@@ -11,7 +11,7 @@ import { revokeConsent } from "../../util/guestConsent";
 import { fetchHasStatsAccess } from "../../util/tibookVisitOperations";
 import RoomBadge from "../shared/RoomBadge";
 import GuestLoyaltyBanner from "./GuestLoyaltyBanner";
-import AirbnbWelcome from "./AirbnbWelcome";
+import AirbnbWelcome, { AirbnbWelcomeFound, fetchAirbnbWelcome } from "./AirbnbWelcome";
 import { useTiBookLang } from "../../contexts/TiBookLanguageContext";
 
 export interface GuestBooking {
@@ -332,11 +332,28 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
     : null;
 
   const allNonAirbnbBookings = (bookings ?? []);
-  const totalStays = allNonAirbnbBookings.length;
-  const totalNights = allNonAirbnbBookings.reduce((sum, b) => sum + (Number(b.duration) || 1), 0);
-  const memberSince = allNonAirbnbBookings.length > 0
-    ? fmtDate(parseISO(allNonAirbnbBookings.reduce((min, b) => dateKey(b) < min ? dateKey(b) : min, dateKey(allNonAirbnbBookings[0]))), "MMMM yyyy")
-    : null;
+  // Her stays through AirBnB count toward the welcome as well. Irina had
+  // stayed through AirBnB before her first TiBook booking, and this card
+  // greeted her with "1 stay · with us since December 2026" (host, 2026-11-22)
+  // — the house's welcome forgetting the stays that made her a returning guest.
+  const [airbnb, setAirbnb] = useState<AirbnbWelcomeFound | null>(null);
+  const welcomeName = (bookings && bookings.length > 0 ? bookings[0].guestName : resolvedName) ?? "";
+  useEffect(() => {
+    if (!hostId || !welcomeName.trim() || !phone.trim()) return;
+    let live = true;
+    fetchAirbnbWelcome(hostId, welcomeName, phone.trim()).then((f) => live && setAirbnb(f));
+    return () => {
+      live = false;
+    };
+  }, [hostId, welcomeName, phone]);
+  const airbnbStays = airbnb?.stays ?? 0;
+  const totalStays = allNonAirbnbBookings.length + airbnbStays;
+  const totalNights = allNonAirbnbBookings.reduce((sum, b) => sum + (Number(b.duration) || 1), 0) + (airbnb?.nights ?? 0);
+  const firstKey = [
+    ...allNonAirbnbBookings.map((b) => dateKey(b)),
+    ...(airbnbStays && airbnb?.since ? [`${airbnb.since}-01`] : []),
+  ].sort()[0];
+  const memberSince = firstKey ? fmtDate(parseISO(firstKey), "MMMM yyyy") : null;
 
 
   const renderRow = (b: GuestBooking, isNext = false) => {
@@ -569,6 +586,7 @@ const MyBookingsSheet = ({ hostId, calendarId, doorCode, airbnbAddress, initialP
               totalStays={totalStays}
               totalNights={totalNights}
               memberSince={memberSince}
+              airbnbStays={airbnbStays}
             />
           </div>
         ) : (

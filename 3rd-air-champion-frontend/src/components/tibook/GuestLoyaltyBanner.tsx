@@ -69,9 +69,12 @@ interface GuestLoyaltyBannerProps {
   // invoice is one she never knows she was given, and being told is most of
   // the point of giving it.
   loyaltyDiscountPerNight?: number;
+  // How many of totalStays were through AirBnB, said beside the count so a
+  // guest who booked here once on TiBook sees why it reads 3.
+  airbnbStays?: number;
 }
 
-const GuestLoyaltyBanner = ({ firstName, totalStays, totalNights, memberSince, loyaltyDiscountPerNight }: GuestLoyaltyBannerProps) => {
+const GuestLoyaltyBanner = ({ firstName, totalStays, totalNights, memberSince, loyaltyDiscountPerNight, airbnbStays = 0 }: GuestLoyaltyBannerProps) => {
   const { theme } = useTiBookTheme();
   const { t } = useTiBookLang();
   const loyaltyTier = getLoyaltyTier(totalStays);
@@ -142,6 +145,12 @@ const GuestLoyaltyBanner = ({ firstName, totalStays, totalNights, memberSince, l
           <span className={`text-[11px] font-bold ${theme.textPrimary}`}>
             {t(totalNights === 1 ? "{n} night" : "{n} nights", { n: totalNights })}
           </span>
+          {airbnbStays > 0 && (
+            <>
+              <span className={`${theme.dim} text-[10px]`}>·</span>
+              <span className={`text-[11px] ${theme.surfaceMuted2}`}>{t("{n} via AirBnB", { n: airbnbStays })}</span>
+            </>
+          )}
           <span className={`${theme.dim} text-[10px]`}>·</span>
           <span className={`text-[11px] ${theme.surfaceMuted2}`}>
             {t("with us since {date}", { date: memberSince })}

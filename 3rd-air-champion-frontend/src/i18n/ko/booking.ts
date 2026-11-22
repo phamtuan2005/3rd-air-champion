@@ -205,4 +205,5 @@ export const booking: Record<string, string> = {
   "Welcome back, {name}!": "다시 오신 것을 환영합니다, {name}님!",
   "You stayed with us on AirBnB, in {rooms}. Thank you for coming back to book with us directly.": "AirBnB를 통해 저희 {rooms}에 머무르셨지요. 이번에는 저희에게 직접 예약해 주셔서 감사합니다.",
   "You stayed with us {n} times on AirBnB, in {rooms}. Thank you for coming back to book with us directly.": "AirBnB를 통해 저희 집에 {n}번 머무르셨지요({rooms}). 이번에는 저희에게 직접 예약해 주셔서 감사합니다.",
+  "{n} via AirBnB": "AirBnB {n}회",
 };

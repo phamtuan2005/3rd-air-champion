@@ -219,4 +219,5 @@ export const booking: Record<string, string> = {
   "Welcome back, {name}!": "Chào mừng bạn trở lại, {name}!",
   "You stayed with us on AirBnB, in {rooms}. Thank you for coming back to book with us directly.": "Bạn đã từng ở phòng {rooms} của chúng tôi qua AirBnB. Cảm ơn bạn đã quay lại đặt phòng trực tiếp với chúng tôi.",
   "You stayed with us {n} times on AirBnB, in {rooms}. Thank you for coming back to book with us directly.": "Bạn đã ở với chúng tôi {n} lần qua AirBnB, tại {rooms}. Cảm ơn bạn đã quay lại đặt phòng trực tiếp với chúng tôi.",
+  "{n} via AirBnB": "{n} lần qua AirBnB",
 };
