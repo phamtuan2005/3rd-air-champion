@@ -1,3 +1,4 @@
+import { firstName } from "../../../../util/firstName";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { FaUser } from "react-icons/fa";
@@ -404,7 +405,7 @@ const CalendarFilterPicker = ({
   // guest is the largest thing in this control.
   // An AirBnB guest reads the same way as a house guest, with "(A)" after the
   // name — the mark the header has always used for an AirBnB filter.
-  const filteredName = selectedGuest ? selectedGuest.alias || selectedGuest.name : airbnbValue;
+  const filteredName = selectedGuest ? firstName(selectedGuest.alias || selectedGuest.name) : airbnbValue;
   // TT's mark: a sparkle on the gradient the Clean window's brand bar uses, so
   // the assistant looks like part of this house and not a stock icon.
   const ttBadge = (box: string, icon: number) => (

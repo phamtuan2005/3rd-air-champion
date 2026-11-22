@@ -1,3 +1,4 @@
+import { firstName } from "../../../util/firstName";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { dayType } from "../../../util/types/dayType";
 import { bookingType, feesTotal } from "../../../util/types/bookingType";
@@ -432,7 +433,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                        text aligned — a column of avatars with gaps in it reads
                        as though the gaps mean something. */}
                   <CleanerAvatar
-                    name={booking.guest.alias || booking.alias || booking.guest.name}
+                    name={firstName(booking.guest.alias || booking.alias || booking.guest.name)}
                     character={booking.guest.character}
                     sizeClass="h-9 w-9"
                   />
@@ -442,7 +443,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                         isCompleted ? "text-gray-400 line-through" : "text-gray-900"
                       }`}
                     >
-                      {booking.guest.alias || booking.alias || booking.guest.name}
+                      {firstName(booking.guest.alias || booking.alias || booking.guest.name)}
                     </p>
                     <span
                       className={`${getRoomColor(booking.room.name, booking.room.color)} mt-0.5 inline-block rounded-md px-2 py-0.5 text-sm font-bold text-black`}
@@ -508,7 +509,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="truncate text-base font-bold text-gray-900">
-                      {booking.guest.alias || booking.alias || booking.guest.name}
+                      {firstName(booking.guest.alias || booking.alias || booking.guest.name)}
                     </p>
                     <div className="mt-1 flex flex-wrap items-center gap-1.5">
                       <span
@@ -631,7 +632,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                       {nextCheckIn ? (
                         <span className="text-sm text-gray-600">
                           <span className="font-semibold text-gray-800">
-                            {nextCheckIn.guest.alias || nextCheckIn.alias || nextCheckIn.guest.name}
+                            {firstName(nextCheckIn.guest.alias || nextCheckIn.alias || nextCheckIn.guest.name)}
                           </span>{" "}
                           · {nextCheckIn.numberOfGuests}{" "}
                           {nextCheckIn.numberOfGuests === 1 ? "guest" : "guests"}
@@ -680,8 +681,8 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                     {booking.lateCheckout && (
                       <p className="text-sm font-semibold text-blue-500">
                         {booking.guest.name === "AirBnB"
-                          ? booking.guest.alias || booking.alias || booking.guest.name
-                          : booking.guest.name}{" "}
+                          ? firstName(booking.guest.alias || booking.alias || booking.guest.name)
+                          : firstName(booking.guest.name)}{" "}
                         requested late checkout
                       </p>
                     )}

@@ -1,3 +1,4 @@
+import { firstName } from "../../../../util/firstName";
 import { useEffect, useMemo, useState } from "react";
 import { format, isSameDay, parseISO, startOfToday } from "date-fns";
 import { dayType } from "../../../../util/types/dayType";
@@ -361,8 +362,8 @@ const CustomCalendar = ({
     // not the label fits, which frees the name to start where the eye lands.
     if (currentGuest)
       return booking.reserved ? `${booking.room?.name ?? ""} (R)` : (booking.room?.name ?? "");
-    if (booking.reserved) return `${booking.guest.name} (R)`;
-    return booking.guest?.name ?? "";
+    if (booking.reserved) return `${firstName(booking.guest.name)} (R)`;
+    return firstName(booking.guest?.name);
   };
 
   return (

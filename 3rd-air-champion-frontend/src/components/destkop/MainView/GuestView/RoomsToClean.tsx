@@ -1,3 +1,4 @@
+import { firstName } from "../../../../util/firstName";
 import { useEffect, useMemo, useState } from "react";
 import { dayType } from "../../../../util/types/dayType";
 import { bookingType } from "../../../../util/types/bookingType";
@@ -302,7 +303,7 @@ const RoomsToClean = ({ selectedDate, monthMap, hostId, token, senderName }: Roo
                 ) : nextCheckIn ? (
                   <span className="text-xs text-gray-600">
                     <span className="font-semibold text-gray-800">
-                      {nextCheckIn.guest.alias || nextCheckIn.alias || nextCheckIn.guest.name}
+                      {firstName(nextCheckIn.guest.alias || nextCheckIn.alias || nextCheckIn.guest.name)}
                     </span>{" "}
                     · {nextCheckIn.numberOfGuests}{" "}
                     {nextCheckIn.numberOfGuests === 1 ? "guest" : "guests"}
@@ -360,8 +361,8 @@ const RoomsToClean = ({ selectedDate, monthMap, hostId, token, senderName }: Roo
               {!probable && booking.lateCheckout && (
                 <p className="text-xs font-semibold text-blue-500">
                   {booking.guest.name === "AirBnB"
-                    ? booking.guest.alias || booking.alias || booking.guest.name
-                    : booking.guest.name}{" "}
+                    ? firstName(booking.guest.alias || booking.alias || booking.guest.name)
+                    : firstName(booking.guest.name)}{" "}
                   requested late checkout
                 </p>
               )}
