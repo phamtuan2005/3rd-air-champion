@@ -48,6 +48,9 @@ const ENTRIES = [
   "util/roomFactsData.ts",
   "util/priceRange.ts",
   "util/cancellationPolicy.ts",
+  // And TT's scrub, so the house rules and review summaries the connector
+  // hands out are cleaned exactly as TT cleans them.
+  "util/guestScrub.ts",
 ];
 
 const header = (relPath) =>

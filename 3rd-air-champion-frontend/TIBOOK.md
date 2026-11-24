@@ -340,12 +340,17 @@ What the connector promises, each one pinned by `assistantConnector.test.ts`:
 - **It says what TiBook shows a stranger, and no more.** Free or taken, never
   who. No door code, no check-in instructions, no street address. It never
   looks a guest up by phone, so every guest gets the public price range and
-  family `$0` rates are never mentioned.
+  family `$0` rates are never mentioned. The house rules and review summaries
+  go through TT's scrub (`src/util/guestScrub.ts`, copied to the backend), so a
+  gate code or phone number the host typed there is hidden.
 - **It agrees with the calendar.** Availability is `util/houseNights.ts`, the
   same loading and `nightStatus` rule as the wish-list job, so held requests
   and per-room blocks count as taken. It checks again at send time.
-- **It is capped.** 3 sends per phone a day, 30 per address an hour, and 600
-  tool calls per address an hour.
+- **It is capped, but not by address.** An assistant calls from its company's
+  servers, so every guest using the same assistant shares an address. The
+  caps are 3 sent requests per phone a day and 40 for the whole house a day,
+  counted only when a request is actually sent. The only per-address cap is a
+  high ceiling on calls, there to stop a runaway loop.
 - **The host can tell.** A request sent this way has `source: "assistant"`,
   and its notes start "Sent by the guest's AI assistant through the TiBook
   connector."

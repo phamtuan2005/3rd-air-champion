@@ -157,6 +157,22 @@ describe("what an assistant can read", () => {
     expect(text).not.toMatch(/Secret Lane|9999#|DRAFT/);
   });
 
+  it("hides a code or number the host typed into the house rules or a review summary, as TT does", async () => {
+    const s = await setup();
+    await Host.updateOne(
+      { _id: s.host._id },
+      { houseRules: "Quiet after 10pm. Back gate 0205# after 10pm. Questions? Call 408-555-0199 or anh@example.com" },
+    );
+    await TTReviews.create({
+      host: s.host._id,
+      published: { house: "Host answered fast at 408 555 0111.", rooms: [] },
+    } as any);
+    const { data, text } = await call("house_info");
+    expect(data.house_rules).toContain("Quiet after 10pm.");
+    expect(data.house_rules).toContain("(hidden)");
+    expect(text).not.toMatch(/0205#|555-0199|555 0111|anh@example\.com/);
+  });
+
   it("says a night is taken without saying who has it, and counts holds and per-room blocks as taken", async () => {
     const s = await setup();
     const stranger = await Guest.create({ host: s.host._id, name: "Private Person", phone: "4085550000" });
@@ -299,8 +315,54 @@ describe("sending a request", () => {
       const prep = await call("prepare_booking_request", stay({ check_in: night(20 + i * 2), check_out: night(21 + i * 2) }));
       const sent = await call("send_booking_request", { confirmation_id: prep.data.confirmation_id });
       expect(sent.isError).toBe(i >= 3);
+      if (i >= 3) expect(sent.text).toContain("book on TiBook");
     }
     expect(await BookingRequest.countDocuments({ host: s.host._id })).toBe(3);
+  });
+
+  it("does not count a send the room had gone for against the guest's allowance", async () => {
+    const s = await setup();
+    // Two refusals: the room went between prepare and send.
+    for (let i = 0; i < 2; i++) {
+      const prep = await call("prepare_booking_request", stay({ check_in: night(40 + i * 2), check_out: night(41 + i * 2) }));
+      await BookingRequest.create({
+        host: s.host._id,
+        guestName: "Quicker",
+        guestPhone: "4085552222",
+        date: at(night(40 + i * 2)),
+        room: s.king._id,
+        duration: 1,
+        numberOfGuests: 1,
+        status: "reserved",
+      });
+      expect((await call("send_booking_request", { confirmation_id: prep.data.confirmation_id })).isError).toBe(true);
+    }
+    // Still three real sends left.
+    for (let i = 0; i < 3; i++) {
+      const prep = await call("prepare_booking_request", stay({ check_in: night(50 + i * 2), check_out: night(51 + i * 2) }));
+      expect((await call("send_booking_request", { confirmation_id: prep.data.confirmation_id })).isError).toBe(false);
+    }
+  });
+
+  it("is not capped per address: guests of one assistant share its servers' address", async () => {
+    const s = await setup();
+    // Five different guests through the same assistant (one address here).
+    for (let i = 0; i < 5; i++) {
+      const prep = await call("prepare_booking_request", stay({ guest_phone: `408 555 01${10 + i}`, check_in: night(60 + i * 2), check_out: night(61 + i * 2) }));
+      expect((await call("send_booking_request", { confirmation_id: prep.data.confirmation_id })).isError).toBe(false);
+    }
+    expect(await BookingRequest.countDocuments({ host: s.host._id, source: "assistant" })).toBe(5);
+  });
+
+  it("sends once when an assistant sends the same confirmation twice at once", async () => {
+    const s = await setup();
+    const prep = await call("prepare_booking_request", stay());
+    const both = await Promise.all([
+      call("send_booking_request", { confirmation_id: prep.data.confirmation_id }),
+      call("send_booking_request", { confirmation_id: prep.data.confirmation_id }),
+    ]);
+    expect(both.filter((r) => !r.isError)).toHaveLength(1);
+    expect(await BookingRequest.countDocuments({ host: s.host._id })).toBe(1);
   });
 });
 

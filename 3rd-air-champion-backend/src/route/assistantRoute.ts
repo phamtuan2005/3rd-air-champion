@@ -13,6 +13,7 @@ import { cancellationHeadline, formatCancellationPolicy } from "../shared/genera
 import { addNights, houseToday, loadHouseNights } from "../util/houseNights";
 import { MAX_NIGHTS, findRoomByName, phoneLooksReal, readBack, readStay } from "../util/assistantStay";
 import { createBookingRequest } from "../util/createBookingRequest";
+import { scrub } from "../shared/generated/util/guestScrub";
 import { phoneKey } from "../util/usPhone";
 
 // The TiBook connector: TiBook for AI assistants (Meta's Muse, ChatGPT, Claude
@@ -68,32 +69,56 @@ const HOUSE_NAME = "TT House";
 // ── Limits ───────────────────────────────────────────────────────────────────
 //
 // Anyone can call this, so anyone can script it. A sent request lands in the
-// host's Requests screen, so sends are capped hardest — per phone, and per
-// address. The per-address caps are generous for the reason ttGuestRoute
-// gives: behind CloudFront, req.ip is the edge, which many guests share.
+// host's Requests screen, so sends are what is capped.
+//
+// NOT per address. An assistant's calls come from its company's servers, not
+// from the guest's phone — every Claude user reaches us from the same few
+// addresses, and behind CloudFront req.ip may be the edge anyway (ttGuestRoute
+// says the same). A per-address cap of 30 sends an hour, as first written,
+// was in effect a cap for ALL of one assistant's guests together; the review
+// before launch (2026-11-24) caught that one script could use it up for
+// everyone. So:
+//   - per phone: 3 sent requests a day, counted only when one is actually
+//     sent, so a "that room just went" refusal costs the guest nothing;
+//   - house-wide: 40 sent requests a day. A five-room house does not get 40
+//     real requests a day, so this only bites on a flood, and the host's
+//     Requests screen is what it protects. When it bites, the assistant is
+//     told to book on TiBook, which this cap does not touch.
+//   - per address: a high ceiling on CALLS, against a runaway loop only.
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
 
 const limiter = (windowMs: number, max: number) => {
   const seen = new Map<string, { count: number; since: number }>();
+  const live = (key: string, now: number) => {
+    if (seen.size > 5000) for (const [k, v] of seen) if (now - v.since > windowMs) seen.delete(k);
+    const r = seen.get(key);
+    return r && now - r.since <= windowMs ? r : null;
+  };
   return {
-    over(key: string) {
+    /** Whether `key` has used its allowance, without using any. */
+    full(key: string) {
+      return (live(key, Date.now())?.count ?? 0) >= max;
+    },
+    /** Uses one. */
+    take(key: string) {
       const now = Date.now();
-      if (seen.size > 5000) for (const [k, v] of seen) if (now - v.since > windowMs) seen.delete(k);
-      const r = seen.get(key);
-      if (!r || now - r.since > windowMs) {
-        seen.set(key, { count: 1, since: now });
-        return false;
-      }
-      r.count += 1;
-      return r.count > max;
+      const r = live(key, now);
+      if (r) r.count += 1;
+      else seen.set(key, { count: 1, since: now });
+    },
+    /** Uses one, and says whether that went over. */
+    over(key: string) {
+      this.take(key);
+      return (live(key, Date.now())?.count ?? 0) > max;
     },
     clear: () => seen.clear(),
   };
 };
 
-const callsPerAddress = limiter(HOUR, 600);
-const sendsPerAddress = limiter(HOUR, 30);
+const callsPerAddress = limiter(HOUR, 6000);
+const HOUSE = "house";
+const sendsHouseWide = limiter(DAY, 40);
 const sendsPerPhone = limiter(DAY, 3);
 
 // ── Confirmations ────────────────────────────────────────────────────────────
@@ -112,10 +137,11 @@ interface Pending {
 }
 const CONFIRM_MS = 30 * 60 * 1000;
 const pending = new Map<string, Pending>();
+const MAX_PENDING = 5000;
 
 export const resetAssistantState = () => {
   callsPerAddress.clear();
-  sendsPerAddress.clear();
+  sendsHouseWide.clear();
   sendsPerPhone.clear();
   pending.clear();
 };
@@ -175,7 +201,9 @@ const refuse = (message: string) => ({ ...text(message), isError: true });
 const NOT_SET_UP = "This connector is not set up yet: the house has not been configured on the server. Book on TiBook instead.";
 const TOO_MANY = "Too many requests from here just now. Try again in a few minutes.";
 
-const dayKey = z.string().describe("A calendar day, yyyy-MM-dd, e.g. 2026-12-01.");
+// Loose on length on purpose: "next friday" must reach readStay, whose
+// refusal tells the assistant the format; the schema's own error does not.
+const dayKey = z.string().max(40).describe("A calendar day, yyyy-MM-dd, e.g. 2026-12-01.");
 
 const INSTRUCTIONS = [
   `${HOUSE_NAME} is a five-room short-stay house in Silicon Valley, California. The host lives in the house.`,
@@ -314,7 +342,10 @@ const buildServer = (ip: string) => {
         host: `${firstName(host.name)}, an engineer who lives in the house`,
         location: "Silicon Valley, California. The street address is sent once the host confirms the stay.",
         check_in: `Every room has self check-in. ${firstName(host.name)} confirms check-in and check-out times with the booking.`,
-        house_rules: String(host.houseRules ?? "").trim() || `${firstName(host.name)} will go over the house rules with the guest.`,
+        // Through TT's scrub: TiMag puts the house rules in the message a
+        // confirmed guest gets, beside the door code, so a host may write a
+        // gate code or a number here that a stranger must not read.
+        house_rules: scrub(String(host.houseRules ?? "").trim()) || `${firstName(host.name)} will go over the house rules with the guest.`,
         cancellation:
           full != null && half != null
             ? formatCancellationPolicy(full, half)
@@ -323,10 +354,10 @@ const buildServer = (ip: string) => {
         airbnb_rating:
           host.airbnbRating != null ? { stars: host.airbnbRating, reviews: host.airbnbReviewCount ?? null } : null,
         what_guests_say: {
-          house: p?.house || null,
+          house: p?.house ? scrub(p.house) : null,
           rooms: (p?.rooms ?? [])
             .filter((r: any) => r?.summary && nameOf.has(String(r.room)))
-            .map((r: any) => ({ room: nameOf.get(String(r.room)), summary: r.summary })),
+            .map((r: any) => ({ room: nameOf.get(String(r.room)), summary: scrub(r.summary) })),
         },
       });
     }),
@@ -339,7 +370,7 @@ const buildServer = (ip: string) => {
       description:
         "Checks a stay and returns it read back in words, with a confirmation_id. Nothing is sent. Show the guest the read_back exactly as given; call send_booking_request only after they confirm it.",
       inputSchema: {
-        room: z.string().describe("The room's name, as list_rooms gives it."),
+        room: z.string().max(60).describe("The room's name, as list_rooms gives it."),
         check_in: dayKey.describe("The first night, yyyy-MM-dd. A guest arriving after midnight starts the night before."),
         check_out: dayKey.describe("The morning the guest leaves, yyyy-MM-dd."),
         guests: z.number().int().min(1).max(10).describe("How many people are staying."),
@@ -374,7 +405,10 @@ const buildServer = (ip: string) => {
           return refuse(`${room.name} is taken on ${taken.join(", ")}. Call check_availability for rooms free on these nights.`);
 
         const id = randomUUID();
-        if (pending.size > 1000) for (const [k, v] of pending) if (v.expires < Date.now()) pending.delete(k);
+        // Expired confirmations go first; past that, a ceiling, so a flood of
+        // prepares from many addresses cannot grow this without end.
+        if (pending.size > 200) for (const [k, v] of pending) if (v.expires < Date.now()) pending.delete(k);
+        if (pending.size >= MAX_PENDING) return refuse(TOO_MANY);
         pending.set(id, {
           room: { id: room.id, name: room.name },
           nights: stay.nights,
@@ -412,17 +446,23 @@ const buildServer = (ip: string) => {
       description:
         "Sends a prepared request to the host. Call it ONLY after the guest has seen the read_back and said yes. The host confirms by text; nothing is booked until then.",
       inputSchema: {
-        confirmation_id: z.string().describe("The confirmation_id prepare_booking_request returned."),
+        confirmation_id: z.string().max(64).describe("The confirmation_id prepare_booking_request returned."),
       },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
     guarded(async (args: { confirmation_id: string }, host) => {
+      // Claimed before anything is awaited, so two sends of one confirmation
+      // at once (assistants retry) cannot both get through to the write. Put
+      // back if this send fails for a reason the guest can wait out.
       const p = pending.get(args.confirmation_id);
-      if (!p || p.expires < Date.now()) {
-        pending.delete(args.confirmation_id);
+      pending.delete(args.confirmation_id);
+      if (!p || p.expires < Date.now())
         return refuse("That confirmation has expired or is unknown. Call prepare_booking_request again and show the guest the new read_back.");
+      const phone = phoneKey(p.guestPhone);
+      if (sendsPerPhone.full(phone) || sendsHouseWide.full(HOUSE)) {
+        pending.set(args.confirmation_id, p);
+        return refuse("The house has had too many requests through assistants for now. The guest can still book on TiBook, or try again tomorrow.");
       }
-      if (sendsPerAddress.over(ip) || sendsPerPhone.over(phoneKey(p.guestPhone))) return refuse(TOO_MANY);
 
       // Again, now: a room free when the guest read the request may have gone
       // while they were deciding.
@@ -431,26 +471,33 @@ const buildServer = (ip: string) => {
       const nights = await loadHouseNights(hostId, host.calendar, p.nights[0], p.checkOut, today);
       const taken = p.nights.filter((n) => n < today || !nights.freeRoomsOn(n).some((r) => r.id === p.room.id));
       if (taken.length > 0) {
-        pending.delete(args.confirmation_id);
         return refuse(`${p.room.name} was taken on ${taken.join(", ")} while the guest was deciding. Call check_availability again.`);
       }
 
-      const request = await createBookingRequest(
-        {
-          host: hostId,
-          guestName: p.guestName,
-          guestPhone: p.guestPhone,
-          date: p.nights[0],
-          room: p.room.id,
-          duration: p.nights.length,
-          numberOfGuests: p.guests,
-          // Said in the notes as well as in `source`, so the host sees it on the
-          // request card today without TiMag having to learn a new field.
-          notes: ["Sent by the guest's AI assistant through the TiBook connector.", p.notes].filter(Boolean).join("\n"),
-        },
-        "assistant",
-      );
-      pending.delete(args.confirmation_id);
+      let request;
+      try {
+        request = await createBookingRequest(
+          {
+            host: hostId,
+            guestName: p.guestName,
+            guestPhone: p.guestPhone,
+            date: p.nights[0],
+            room: p.room.id,
+            duration: p.nights.length,
+            numberOfGuests: p.guests,
+            // Said in the notes as well as in `source`, so the host sees it on
+            // the request card today without TiMag having to learn a new field.
+            notes: ["Sent by the guest's AI assistant through the TiBook connector.", p.notes].filter(Boolean).join("\n"),
+          },
+          "assistant",
+        );
+      } catch (err) {
+        pending.set(args.confirmation_id, p);
+        throw err;
+      }
+      // Counted only now, when a request has really reached the host.
+      sendsPerPhone.take(phone);
+      sendsHouseWide.take(HOUSE);
       console.log(`[Assistant] request ${request._id} sent: ${p.room.name}, ${p.nights.length} night(s) from ${p.nights[0]}`);
       return text({
         sent: true,
