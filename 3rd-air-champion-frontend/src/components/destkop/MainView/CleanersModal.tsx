@@ -1457,7 +1457,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
           const chip = (
             <>
               + {e.name}
-              {e.note && <span className="font-normal"> · {e.note}</span>}
+              {e.note && <span className="whitespace-pre-line break-words font-normal"> · {e.note}</span>}
             </>
           );
           const chipClass =
@@ -3499,7 +3499,7 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                                     <HiPlusCircle aria-hidden className="h-4 w-4 shrink-0" />
                                     {e.name}
                                   </span>
-                                  <span className="text-sm font-semibold text-fuchsia-700">{e.note || "extra job"}</span>
+                                  <span className="min-w-0 whitespace-pre-line break-words text-sm font-semibold text-fuchsia-700">{e.note || "extra job"}</span>
                                 </div>
                               ))}
                             </div>
@@ -4479,13 +4479,17 @@ const CleanersModal = ({ hostId, token, monthMap, rooms, initialTab, focusCleane
                     )}
                     {visitLine}
                     {onVisit ? (
-                      <input
+                      // A box that grows, not one line: the host writes real
+                      // instructions here, and a 120-character line cut them
+                      // off (2026-11-24). Saved when the host leaves the box,
+                      // as before; Enter is a new line now, not "done".
+                      <textarea
                         autoFocus={renameDraft === null}
                         value={noteDraft[job.id] ?? onVisit.note ?? ""}
                         onChange={(e) => setNoteDraft((d) => ({ ...d, [job.id]: e.target.value }))}
                         onBlur={() => saveNote(extraTarget.cleaner, extraTarget.date, job)}
-                        onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-                        maxLength={120}
+                        maxLength={500}
+                        rows={4}
                         placeholder="Where or what, for this visit — e.g. Cute & King"
                         className="w-full rounded-md border border-fuchsia-200 bg-white px-2 py-1.5 text-[16px] focus:border-fuchsia-400 focus:outline-none sm:text-sm"
                       />

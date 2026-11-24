@@ -978,7 +978,9 @@ const TiWork = () => {
                               <HiPlusCircle aria-hidden className="h-4 w-4 shrink-0" />
                               {job.name}
                             </span>
-                            <span className="text-sm font-semibold text-fuchsia-700">{job.note || "extra job"}</span>
+                            {/* Wraps, and keeps the host's line breaks: notes
+                                run to several lines now (up to 500 characters). */}
+                            <span className="min-w-0 whitespace-pre-line break-words text-sm font-semibold text-fuchsia-700">{job.note || "extra job"}</span>
                           </div>
                         ))}
                       </div>

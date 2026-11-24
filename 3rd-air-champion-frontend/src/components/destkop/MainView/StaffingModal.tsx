@@ -1219,7 +1219,7 @@ const StaffingModal = ({ hostId, token, onClose, senderName, focusId }: Staffing
                             className="rounded-md border border-dashed border-fuchsia-300 bg-fuchsia-50 px-2 py-0.5 text-[13px] font-semibold text-fuchsia-700"
                           >
                             + {x.name}
-                            {x.note && <span className="font-normal"> · {x.note}</span>}
+                            {x.note && <span className="whitespace-pre-line break-words font-normal"> · {x.note}</span>}
                           </span>
                         ))}
                       </div>
