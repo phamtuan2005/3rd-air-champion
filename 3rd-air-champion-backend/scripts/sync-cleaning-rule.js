@@ -38,7 +38,17 @@ const path = require("path");
 
 const SRC_ROOT = path.resolve(__dirname, "../../3rd-air-champion-frontend/src");
 const OUT_ROOT = path.resolve(__dirname, "../src/shared/generated");
-const ENTRIES = ["util/cleaningTasks.ts", "util/nightStatus.ts"];
+const ENTRIES = [
+  "util/cleaningTasks.ts",
+  "util/nightStatus.ts",
+  // The TiBook connector for AI assistants (route/assistantRoute.ts) says what
+  // TiBook says: the same room facts, the same price range for a guest with
+  // no agreed rate, the same cancellation wording. Copied rather than
+  // retyped, for the reason this script exists.
+  "util/roomFactsData.ts",
+  "util/priceRange.ts",
+  "util/cancellationPolicy.ts",
+];
 
 const header = (relPath) =>
   [

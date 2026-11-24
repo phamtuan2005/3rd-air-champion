@@ -316,6 +316,50 @@ its month and stars, which come from the review itself and not from the model,
 so a guest can see how recent "latest" is. A room with no published latest
 gets its overall summary, and the question is logged as not answered.
 
+### TiBook for AI assistants
+
+Guests have started asking AI assistants (Meta's Muse, ChatGPT, Claude) to
+book for them. TiBook is built for a person tapping a calendar, so assistants
+read it slowly and get it wrong. Anh-Tuan approved two changes on 2026-11-24:
+
+- **Readable pages.** While TiBook is open, `<head>` describes the house and
+  each room in schema.org terms (`src/util/tibookStructuredData.ts`). It gives
+  who each room fits, its beds and amenities, the nightly price range and the
+  rating, and nothing a room card would not show a stranger.
+- **The connector.** `POST /api/assistant/mcp` on the backend
+  (`route/assistantRoute.ts`) is an MCP server with five tools: `list_rooms`,
+  `check_availability`, `house_info`, `prepare_booking_request` and
+  `send_booking_request`. A guest adds it to their assistant by that address.
+
+What the connector promises, each one pinned by `assistantConnector.test.ts`:
+
+- **It sends a request, never a booking.** The send needs a confirmation id
+  that only `prepare` hands out, together with a read-back for the guest. The
+  read-back names every night, and it says that a 1am arrival belongs to the
+  night before.
+- **It says what TiBook shows a stranger, and no more.** Free or taken, never
+  who. No door code, no check-in instructions, no street address. It never
+  looks a guest up by phone, so every guest gets the public price range and
+  family `$0` rates are never mentioned.
+- **It agrees with the calendar.** Availability is `util/houseNights.ts`, the
+  same loading and `nightStatus` rule as the wish-list job, so held requests
+  and per-room blocks count as taken. It checks again at send time.
+- **It is capped.** 3 sends per phone a day, 30 per address an hour, and 600
+  tool calls per address an hour.
+- **The host can tell.** A request sent this way has `source: "assistant"`,
+  and its notes start "Sent by the guest's AI assistant through the TiBook
+  connector."
+
+The room facts, price range and cancellation wording are copied into the
+backend by `scripts/sync-cleaning-rule.js`, as `nightStatus` is. That is why
+the facts moved from `roomFacts.ts` into `roomFactsData.ts`, which imports no
+React. **Change the facts in the frontend file and run the script**, or the
+drift test fails.
+
+The backend needs `TIBOOK_HOST_ID` (the same id as `VITE_TI_BOOK_HOST_ID`) in
+its `.env`. Without it, every tool tells the assistant the connector is not set
+up yet.
+
 ## Tests
 
 ```bash

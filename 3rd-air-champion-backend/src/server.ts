@@ -35,6 +35,7 @@ import tibookStatsAccessRoute from "./route/tibookStatsAccessRoute";
 import tibookStatsViewerRoute from "./route/tibookStatsViewerRoute";
 import ttGuestRoute from "./route/ttGuestRoute";
 import ttHostRoute from "./route/ttHostRoute";
+import assistantRoute from "./route/assistantRoute";
 import { authenticateToken } from "./middleware/authenticateJWT";
 import cors from "cors";
 
@@ -139,6 +140,11 @@ const startServer = async () => {
     // TiWork: staff have no TiMag login, so these sit outside the JWT gate and
     // prove identity per request with phone + access code.
     apiRouter.use("/work", workRoute);
+    // TiBook for AI assistants: the MCP connector a guest's assistant (Muse,
+    // ChatGPT, Claude) books through. Public for the same reason as
+    // /booking-request — the guest has no login. It only ever sends a REQUEST;
+    // see route/assistantRoute for what it can and cannot say.
+    apiRouter.use("/assistant", assistantRoute);
 
     // Authenticate all paths from now on
     apiRouter.use(authenticateToken as any);

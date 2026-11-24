@@ -12,6 +12,9 @@ export const bookingRequestDefs = gql`
     numberOfGuests: Int!
     status: String!
     notes: String
+    # "" for TiBook, "assistant" for the AI-assistant connector. Read only:
+    # the server sets it, so no mutation takes it.
+    source: String
     createdAt: String!
     updatedAt: String!
   }
