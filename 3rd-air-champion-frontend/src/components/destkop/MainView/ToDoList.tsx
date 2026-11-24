@@ -9,6 +9,7 @@ import { CLEANING_LOOKBACK_DAYS, cleaningTaskId, getCleaningCounts, getCleaningI
 import { fetchAssignments, fetchCleaningExtras, CleaningAssignmentType, CleaningExtraType, CleanerType } from "../../../util/cleanerOperations";
 import CleanerAvatar from "../../shared/CleanerAvatar";
 import EarlyCheckinTag from "../../shared/EarlyCheckinTag";
+import SpecialRequestTag from "../../shared/SpecialRequestTag";
 import { cleanerSignoff } from "../../../util/cleanerMessage";
 import { fetchSentReminders, markReminderSent, unmarkReminderSent } from "../../../util/reminderOperations";
 
@@ -297,7 +298,10 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
         // card shows it as a tag and TiWork tells the cleaner to clean this
         // room first, so the text has to say it too.
         const early = it.nextCheckIn?.earlyCheckin ? " · ⏰ EARLY CHECK-IN, clean first" : "";
-        return `${i + 1}. ${room} — for ${n} guest${n === 1 ? "" : "s"}${early}${sofa}`;
+        // The host's own words for the arriving stay, so the text carries what
+        // TiWork shows under the room.
+        const req = it.nextCheckIn?.specialRequest?.trim() ? ` · 📝 ${it.nextCheckIn.specialRequest.trim()}` : "";
+        return `${i + 1}. ${room} — for ${n} guest${n === 1 ? "" : "s"}${early}${sofa}${req}`;
       });
       body =
         `Hi ${first}! Cleaning for today (${dayLabel}) — ${mine.length} room${mine.length === 1 ? "" : "s"}, in suggested order:\n` +
@@ -678,6 +682,7 @@ const ToDoList = ({ monthMap, doorCode, airbnbName, airbnbAddress, houseRules = 
                         🛋 Sofa bed to make up
                       </p>
                     )}
+                    <SpecialRequestTag text={nextCheckIn?.specialRequest} />
                     {booking.lateCheckout && (
                       <p className="text-sm font-semibold text-blue-500">
                         {booking.guest.name === "AirBnB"

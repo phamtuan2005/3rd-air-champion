@@ -378,6 +378,9 @@ router.post("/schedule", async (req: Request, res: any) => {
           // set when that guest arrives on the day of this clean (see
           // ArrivalNeed), so TiWork can tell the cleaner to do this room first.
           earlyCheckin: estimating ? false : !!need?.earlyCheckin,
+          // Same rule again: the request is the arriving stay's. This is the
+          // line the cleaner reads it on (host, 2026-11-24).
+          specialRequest: estimating ? "" : need?.specialRequest ?? "",
         });
       if (a.hours != null) {
         g.recordedHours += a.hours;

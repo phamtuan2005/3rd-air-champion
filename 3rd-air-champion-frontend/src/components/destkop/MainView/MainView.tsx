@@ -1238,6 +1238,8 @@ const MainView = ({
     notes?: string;
     earlyCheckin?: boolean;
     lateCheckout?: boolean;
+    sofaBed?: boolean;
+    specialRequest?: string;
     confirmationCode?: string;
   }) => {
     updateBookingGuest(data, token as string)

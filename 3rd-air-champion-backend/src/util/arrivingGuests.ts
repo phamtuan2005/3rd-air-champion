@@ -35,6 +35,9 @@ export interface Arrival {
   // because it answers the same question — what does this room need doing to
   // it — and because a bed nobody mentioned is a bed nobody makes.
   sofaBed?: boolean;
+  // Anything else the host wrote for this stay ("comforter cover free of
+  // detergent odor"), for whoever makes the room up. "" when none.
+  specialRequest?: string;
   // The guest asked to get in before the usual check-in time.
   earlyCheckin?: boolean;
 }
@@ -42,6 +45,7 @@ export interface Arrival {
 export interface ArrivalNeed {
   guests: number;
   sofaBed: boolean;
+  specialRequest: string;
   // True only when the early arrival is on the SAME day as the clean. That is
   // the only case where it changes the cleaner's morning: that room has to be
   // done first. A guest arriving early three days later changes nothing about
@@ -68,6 +72,7 @@ export const arrivingNeeds = (
       byDayRoom.set(k, {
         guests: a.guests || 1,
         sofaBed: !!a.sofaBed,
+        specialRequest: a.specialRequest ?? "",
         earlyCheckin: !!a.earlyCheckin,
       });
   }

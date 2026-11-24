@@ -31,6 +31,10 @@ export interface bookingType {
   // want it one stay and not the next. It exists mainly so the CLEANER knows
   // there is a bed to make that the room does not normally have.
   sofaBed?: boolean;
+  // How the room must be made ready for THIS stay, in the host's words
+  // ("comforter cover free of detergent odor"). Per booking like sofaBed — the
+  // guest-wide `notes` cannot say "this stay". Shown to the cleaner in TiWork.
+  specialRequest?: string;
   guest: guestType;
   room: roomType;
   description: string;
