@@ -7,7 +7,7 @@ import {
 import { fetchRooms } from "../../../../util/roomOperations";
 import { fetchGuests } from "../../../../util/guestOperations";
 import { syncCalendars } from "../../../../util/syncOperations";
-import { updateBookingAirbnbPrice, updateBookingFees } from "../../../../util/bookingOperations";
+import { updateBookingAirbnbPrice, updateBookingFees, updateBookingGuest } from "../../../../util/bookingOperations";
 import { dayType } from "../../../../util/types/dayType";
 import { roomType } from "../../../../util/types/roomType";
 import { guestType } from "../../../../util/types/guestType";
@@ -181,6 +181,15 @@ export const useCalendarData = ({
       .catch((err) => console.error("Error updating booking fees:", err));
   };
 
+  // The special request alone, saved from its own box in the booking window.
+  // Guests change it often, so it is not tied to the window's full
+  // edit-and-Save; returns the promise so the window can show Saving… and
+  // stay open.
+  const onSpecialRequestUpdate = (bookingId: string, specialRequest: string) =>
+    updateBookingGuest({ id: bookingId, specialRequest }, token).then(() => {
+      setIsCalendarLoading(true);
+    });
+
   useEffect(() => {
     if (airbnbsyncRef.current) {
       localStorage.setItem("syncData", JSON.stringify(airbnbsyncRef.current));
@@ -327,6 +336,7 @@ export const useCalendarData = ({
     blockedAirBnBDates,
     onAirbnbPriceUpdate,
     onFeesUpdate,
+    onSpecialRequestUpdate,
     airBnBBookingCount,
     guestBookingCount,
     syncStatus,

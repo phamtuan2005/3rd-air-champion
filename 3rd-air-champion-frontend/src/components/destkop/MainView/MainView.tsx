@@ -458,6 +458,7 @@ const MainView = ({
     blockedAirBnBDates,
     onAirbnbPriceUpdate,
     onFeesUpdate,
+    onSpecialRequestUpdate,
     airBnBBookingCount,
     guestBookingCount,
     syncStatus,
@@ -2075,6 +2076,7 @@ const MainView = ({
           onUpdateGuests={onUpdateGuest}
           onAirbnbPriceUpdate={onAirbnbPriceUpdate}
           onFeesUpdate={onFeesUpdate}
+          onSpecialRequestUpdate={onSpecialRequestUpdate}
           onPricingUpdate={onPricingUpdate}
           onRequestRemove={(b) => {
             setSelectedBooking(null);

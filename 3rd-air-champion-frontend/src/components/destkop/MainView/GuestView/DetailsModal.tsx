@@ -48,6 +48,7 @@ interface DetailsModalProps {
   }) => void;
   onAirbnbPriceUpdate?: (bookingId: string, airbnbPrice: number) => void;
   onFeesUpdate?: (bookingId: string, fees: feeType[]) => void;
+  onSpecialRequestUpdate?: (bookingId: string, specialRequest: string) => Promise<void>;
   onPricingUpdate: (data: { guest: string; room: string; price: number }[]) => void;
   onRequestRemove?: (booking: bookingType) => void;
 }
@@ -75,9 +76,42 @@ const DetailsModal = ({
   onUpdateGuests,
   onAirbnbPriceUpdate,
   onFeesUpdate,
+  onSpecialRequestUpdate,
   onPricingUpdate,
   onRequestRemove,
 }: DetailsModalProps) => {
+
+  // The special request has its own edit and Save, apart from the window's
+  // full edit: guests change their minds often and the host changes it each
+  // time (2026-11-24). It is kept OUT of the form below on purpose — the
+  // form's Save would write back the value the window opened with, undoing a
+  // request saved here a moment before.
+  const [request, setRequest] = useState(booking.specialRequest ?? "");
+  const [requestDraft, setRequestDraft] = useState<string | null>(null);
+  const [requestSaving, setRequestSaving] = useState(false);
+  const [requestError, setRequestError] = useState("");
+  const requestSavingRef = useRef(false);
+  const saveRequest = () => {
+    if (requestDraft === null || requestSavingRef.current || !onSpecialRequestUpdate) return;
+    const text = requestDraft.trim();
+    if (text.length > 300) {
+      setRequestError("Keep it under 300 characters.");
+      return;
+    }
+    requestSavingRef.current = true;
+    setRequestSaving(true);
+    setRequestError("");
+    onSpecialRequestUpdate(booking.id, text)
+      .then(() => {
+        setRequest(text);
+        setRequestDraft(null);
+      })
+      .catch(() => setRequestError("Could not save that. Try again."))
+      .finally(() => {
+        requestSavingRef.current = false;
+        setRequestSaving(false);
+      });
+  };
 
   // Stays through AirBnB before this guest booked with the house count too
   // (util/airbnbPastStays).
@@ -167,7 +201,6 @@ const DetailsModal = ({
       earlyCheckin: booking.earlyCheckin || false,
       lateCheckout: booking.lateCheckout || false,
       sofaBed: booking.sofaBed || false,
-      specialRequest: booking.specialRequest || "",
       numberOfGuests: booking.numberOfGuests || 1,
     },
   });
@@ -724,43 +757,71 @@ const DetailsModal = ({
               2026-11-24: "comforter cover free of detergent odor"). Always
               shown, like Notes: hidden until filled in, the host opened a
               booking and could not find where to write one. */}
-          {(
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">
-                Special request · the cleaner sees it
-              </p>
-              {isWriting ? (
-                <Controller
-                  name="specialRequest"
-                  control={control}
-                  render={({ field }) => (
-                    <div>
-                      <textarea
-                        {...field}
-                        value={field.value ?? ""}
-                        rows={2}
-                        className="border rounded px-2 py-1 w-full text-sm"
-                        placeholder="e.g. comforter cover free of detergent odor"
-                      />
-                      {errors.specialRequest && (
-                        <span className="text-red-500 text-sm">{errors.specialRequest.message}</span>
-                      )}
-                    </div>
-                  )}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">
+              Special request · the cleaner sees it
+            </p>
+            {requestDraft !== null ? (
+              <div>
+                <textarea
+                  value={requestDraft}
+                  onChange={(e) => setRequestDraft(e.target.value)}
+                  rows={2}
+                  autoFocus
+                  className="border rounded px-2 py-1 w-full text-sm"
+                  placeholder="e.g. comforter cover free of detergent odor"
                 />
-              ) : booking.specialRequest?.trim() ? (
-                <SpecialRequestTag text={booking.specialRequest} />
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setIsWriting(true)}
-                  className="w-full text-left text-sm px-3 py-2 rounded-md bg-gray-50 border border-dashed border-gray-200 text-blue-500 hover:bg-gray-100"
-                >
-                  + Add a request for the cleaner
-                </button>
-              )}
-            </div>
-          )}
+                {requestError && <p className="text-red-500 text-xs mt-1">{requestError}</p>}
+                <div className="mt-1.5 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={saveRequest}
+                    disabled={requestSaving}
+                    className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+                  >
+                    {requestSaving ? "Saving…" : "Save request"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRequestDraft(null);
+                      setRequestError("");
+                    }}
+                    disabled={requestSaving}
+                    className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600"
+                  >
+                    Cancel
+                  </button>
+                  {/* Empties the box; Save request then removes it. The guest
+                      who no longer wants it is the common case. */}
+                  {requestDraft !== "" && (
+                    <button
+                      type="button"
+                      onClick={() => setRequestDraft("")}
+                      disabled={requestSaving}
+                      className="ml-auto text-xs font-semibold text-gray-400 hover:text-gray-700"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : request.trim() ? (
+              // The request itself is the button: tap it to change it.
+              <button type="button" onClick={() => setRequestDraft(request)} className="block w-full text-left">
+                <SpecialRequestTag text={request} />
+                <span className="mt-0.5 block text-[11px] text-gray-400">Tap to change</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setRequestDraft("")}
+                className="w-full text-left text-sm px-3 py-2 rounded-md bg-gray-50 border border-dashed border-gray-200 text-blue-500 hover:bg-gray-100"
+              >
+                + Add a request for the cleaner
+              </button>
+            )}
+          </div>
 
           {/* Phone */}
           {!isAirBnB && booking.guest.phone && (
