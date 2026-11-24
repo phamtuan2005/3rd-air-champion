@@ -42,6 +42,9 @@ export interface WorkShift {
     // for an early guest arriving on a later day; it changes nothing that
     // morning.
     earlyCheckin?: boolean;
+    // The arriving stay's special request, in the host's words. "" or absent
+    // when there is none, or when the headcount is only an estimate.
+    specialRequest?: string;
   }[];
   // Extra jobs on this visit beyond its rooms (windows, baseboards…), by name:
   // the visit is longer than its rooms, and paid by the hours as always.

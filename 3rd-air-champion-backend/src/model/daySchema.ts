@@ -22,6 +22,13 @@ const daySchema = new mongoose.Schema(
         // booking rather than per guest: the same guest may want it one stay
         // and not the next.
         sofaBed: { type: Boolean, default: false },
+        // Anything else the room must be made ready with, in the host's words
+        // ("comforter cover free of detergent odor"). Per STAY, on every night
+        // like sofaBed — not `notes`, which is copied onto every booking the
+        // guest has in that room and so cannot say "this stay". It goes to
+        // the cleaner in TiWork: a request only the host knows about is one
+        // nobody prepares (host, 2026-11-24).
+        specialRequest: { type: String, default: "" },
         room: { type: mongoose.Schema.ObjectId, ref: "Room" },
         guest: { type: mongoose.Schema.ObjectId, ref: "Guest" },
         price: { type: Number, default: "0" },

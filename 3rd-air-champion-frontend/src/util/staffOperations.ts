@@ -171,6 +171,7 @@ export interface HostWorkEntry {
     guests?: number | null;
     sofaBed?: boolean;
     earlyCheckin?: boolean;
+    specialRequest?: string;
   }[];
   // Extra jobs on the cleaner's visit (windows, "Clean floor"), which the hours
   // also paid for. Absent from a backend that predates them.

@@ -13,6 +13,7 @@ import RoomBadge from "../components/shared/RoomBadge";
 import GuestFigures from "../components/shared/GuestFigures";
 import SofaBedTag from "../components/shared/SofaBedTag";
 import EarlyCheckinTag from "../components/shared/EarlyCheckinTag";
+import SpecialRequestTag from "../components/shared/SpecialRequestTag";
 import MonthlyBars from "../components/shared/MonthlyBars";
 import { verdictLabel } from "../util/feedbackVerdict";
 import FeedbackReply from "../components/shared/FeedbackReply";
@@ -940,6 +941,9 @@ const TiWork = () => {
                               <EarlyCheckinTag on wrap label="Early check-in · clean first" />
                             </div>
                           )}
+                          {/* The guest's own request, in the host's words,
+                              under the room it is for. */}
+                          <SpecialRequestTag text={r.specialRequest} />
                           </div>
                           {/* What the guest who stayed after THIS clean of THIS
                               room said — under the room, not under the day. Hung

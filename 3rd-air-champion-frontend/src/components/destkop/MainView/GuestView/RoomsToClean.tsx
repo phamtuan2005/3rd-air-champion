@@ -7,6 +7,7 @@ import { getRoomColor } from "../../../../util/getRoomColor";
 import { fetchAssignments, CleaningAssignmentType, CleanerType } from "../../../../util/cleanerOperations";
 import CleanerAvatar from "../../../shared/CleanerAvatar";
 import EarlyCheckinTag from "../../../shared/EarlyCheckinTag";
+import SpecialRequestTag from "../../../shared/SpecialRequestTag";
 import { cleanerSignoff } from "../../../../util/cleanerMessage";
 import {
   cleaningEntryTaskId,
@@ -356,6 +357,7 @@ const RoomsToClean = ({ selectedDate, monthMap, hostId, token, senderName }: Roo
                   🛋 Sofa bed to make up
                 </p>
               )}
+              {!useGuess && <SpecialRequestTag text={nextCheckIn?.specialRequest} small />}
               {/* Only a real departing stay can have asked for a late checkout —
                   on a probable row `booking` is the ARRIVING stay. */}
               {!probable && booking.lateCheckout && (

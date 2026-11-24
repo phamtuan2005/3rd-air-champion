@@ -5,6 +5,7 @@ import CleanerAvatar from "../../shared/CleanerAvatar";
 import GuestFigures from "../../shared/GuestFigures";
 import SofaBedTag from "../../shared/SofaBedTag";
 import EarlyCheckinTag from "../../shared/EarlyCheckinTag";
+import SpecialRequestTag from "../../shared/SpecialRequestTag";
 import RoomBadge from "../../shared/RoomBadge";
 import { MdCleaningServices } from "react-icons/md";
 import { GUEST_AVATAR_PRESETS } from "../../../util/guestAvatars";
@@ -1194,11 +1195,14 @@ const StaffingModal = ({ hostId, token, onClose, senderName, focusId }: Staffing
                     {(w.rooms?.length ?? 0) > 0 && (
                       <div className="mt-1.5 flex flex-col gap-1">
                         {w.rooms!.map((r, i) => (
-                          <div key={`${r.name}-${i}`} className="flex items-center gap-2">
-                            <RoomBadge room={{ name: r.name, color: r.color }} rooms={w.rooms!} />
-                            <GuestFigures n={r.guests ?? 0} />
-                            <SofaBedTag on={r.sofaBed} />
-                            <EarlyCheckinTag on={r.earlyCheckin} />
+                          <div key={`${r.name}-${i}`} className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2">
+                              <RoomBadge room={{ name: r.name, color: r.color }} rooms={w.rooms!} />
+                              <GuestFigures n={r.guests ?? 0} />
+                              <SofaBedTag on={r.sofaBed} />
+                              <EarlyCheckinTag on={r.earlyCheckin} />
+                            </div>
+                            <SpecialRequestTag text={r.specialRequest} small />
                           </div>
                         ))}
                       </div>

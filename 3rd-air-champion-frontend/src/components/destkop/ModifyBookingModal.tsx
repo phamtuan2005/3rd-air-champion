@@ -183,17 +183,20 @@ const ModifyBookingModal = ({
         // sofa bed is carried only while the headcount is unchanged — a new
         // headcount is a new question, and the booking's own default (on
         // from three guests) answers it.
-        const { earlyCheckin, lateCheckout, sofaBed } = selectedModifyBooking;
+        // The special request carries over as it is: it is about the guest's
+        // needs, which a new date or room does not change.
+        const { earlyCheckin, lateCheckout, sofaBed, specialRequest } = selectedModifyBooking;
         const keepSofaBed =
           sofaBed !== undefined &&
           data.numberOfGuests === (selectedModifyBooking.numberOfGuests || 1);
-        if (earlyCheckin || lateCheckout || keepSofaBed) {
+        if (earlyCheckin || lateCheckout || keepSofaBed || specialRequest) {
           result = await updateBookingGuest(
             {
               id: newBookingId,
               ...(earlyCheckin ? { earlyCheckin } : {}),
               ...(lateCheckout ? { lateCheckout } : {}),
               ...(keepSofaBed ? { sofaBed } : {}),
+              ...(specialRequest ? { specialRequest } : {}),
             },
             token as string,
           );

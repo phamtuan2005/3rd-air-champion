@@ -26,6 +26,7 @@ import {
 import Pricing from "./Pricing";
 import { getLoyaltyTier } from "../../../tibook/GuestLoyaltyBanner";
 import { DANGER_BUTTON } from "../../../shared/dangerButton";
+import SpecialRequestTag from "../../../shared/SpecialRequestTag";
 
 interface DetailsModalProps {
   booking: bookingType;
@@ -42,6 +43,7 @@ interface DetailsModalProps {
     earlyCheckin?: boolean;
     lateCheckout?: boolean;
     sofaBed?: boolean;
+    specialRequest?: string;
     confirmationCode?: string;
   }) => void;
   onAirbnbPriceUpdate?: (bookingId: string, airbnbPrice: number) => void;
@@ -165,6 +167,7 @@ const DetailsModal = ({
       earlyCheckin: booking.earlyCheckin || false,
       lateCheckout: booking.lateCheckout || false,
       sofaBed: booking.sofaBed || false,
+      specialRequest: booking.specialRequest || "",
       numberOfGuests: booking.numberOfGuests || 1,
     },
   });
@@ -714,6 +717,40 @@ const DetailsModal = ({
               </p>
             )}
           </div>
+
+          {/* Special request — per STAY, unlike Notes above, which is copied
+              onto every booking the guest has in the room. Whatever is written
+              here reaches the cleaner preparing the room, in TiWork (host,
+              2026-11-24: "comforter cover free of detergent odor"). */}
+          {(isWriting || booking.specialRequest) && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">
+                Special request · the cleaner sees it
+              </p>
+              {isWriting ? (
+                <Controller
+                  name="specialRequest"
+                  control={control}
+                  render={({ field }) => (
+                    <div>
+                      <textarea
+                        {...field}
+                        value={field.value ?? ""}
+                        rows={2}
+                        className="border rounded px-2 py-1 w-full text-sm"
+                        placeholder="e.g. comforter cover free of detergent odor"
+                      />
+                      {errors.specialRequest && (
+                        <span className="text-red-500 text-sm">{errors.specialRequest.message}</span>
+                      )}
+                    </div>
+                  )}
+                />
+              ) : (
+                <SpecialRequestTag text={booking.specialRequest} />
+              )}
+            </div>
+          )}
 
           {/* Phone */}
           {!isAirBnB && booking.guest.phone && (

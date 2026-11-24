@@ -72,6 +72,7 @@ export const updateBookingGuest = async (
     earlyCheckin?: boolean;
     lateCheckout?: boolean;
     sofaBed?: boolean;
+    specialRequest?: string;
     numberOfGuests?: number;
     alias?: string;
     confirmationCode?: string;

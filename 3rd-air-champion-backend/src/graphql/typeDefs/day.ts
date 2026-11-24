@@ -26,6 +26,7 @@ export const dayDefs = gql`
     earlyCheckin: Boolean
     lateCheckout: Boolean
     sofaBed: Boolean
+    specialRequest: String
     room: Room
     description: String
     duration: Int
@@ -149,6 +150,7 @@ export const dayDefs = gql`
       earlyCheckin: Boolean
       lateCheckout: Boolean
       sofaBed: Boolean
+      specialRequest: String
       numberOfGuests: Int
       confirmationCode: String
     ): [Day]

@@ -122,6 +122,33 @@ describe("arrivingNeeds — early check-in", () => {
   });
 });
 
+describe("arrivingNeeds — special request", () => {
+  // The host's own words for the arriving stay ("comforter cover free of
+  // detergent odor", 2026-11-24). Like the sofa bed, it travels to the clean
+  // that prepares the room for that stay, even days before, because the
+  // bedding is made up then.
+  it("carries the arriving stay's request to the clean that prepares the room", () => {
+    const needs = arrivingNeeds(
+      [{ date: "2026-08-23", roomId: R1, guests: 2, specialRequest: "Comforter cover free of detergent odor" }],
+      [
+        { date: "2026-08-20", roomId: R1 },
+        { date: "2026-08-20", roomId: R2 },
+      ],
+    );
+    expect(needs.get(`2026-08-20|${R1}`)?.specialRequest).toBe("Comforter cover free of detergent odor");
+    // Another room's clean is not told about it.
+    expect(needs.get(`2026-08-20|${R2}`)).toBeUndefined();
+  });
+
+  it("is empty, not undefined, when the stay asked for nothing", () => {
+    const needs = arrivingNeeds(
+      [{ date: "2026-08-20", roomId: R1, guests: 2 }],
+      [{ date: "2026-08-20", roomId: R1 }],
+    );
+    expect(needs.get(`2026-08-20|${R1}`)?.specialRequest).toBe("");
+  });
+});
+
 describe("date keys", () => {
   it("crosses a month end without slipping a day", () => {
     expect(shiftKey("2026-08-31", 1)).toBe("2026-09-01");

@@ -604,6 +604,7 @@ export const dayResolvers = {
             earlyCheckin: !!template.earlyCheckin,
             lateCheckout: !!template.lateCheckout,
             sofaBed: !!template.sofaBed,
+            specialRequest: template.specialRequest ?? "",
           }
         : {
             price: roomPrice,
@@ -683,7 +684,7 @@ export const dayResolvers = {
     },
     updateBookingGuest: async (
       _: unknown,
-      { _id, alias, notes, earlyCheckin, lateCheckout, sofaBed, numberOfGuests, confirmationCode }: any
+      { _id, alias, notes, earlyCheckin, lateCheckout, sofaBed, specialRequest, numberOfGuests, confirmationCode }: any
     ) => {
       const updateBody: {
         "bookings.$[matchingBooking].alias"?: string;
@@ -691,6 +692,7 @@ export const dayResolvers = {
         "bookings.$[matchingBooking].earlyCheckin"?: boolean;
         "bookings.$[matchingBooking].lateCheckout"?: boolean;
         "bookings.$[matchingBooking].sofaBed"?: boolean;
+        "bookings.$[matchingBooking].specialRequest"?: string;
         "bookings.$[matchingBooking].numberOfGuests"?: number;
       } = {};
 
@@ -699,6 +701,9 @@ export const dayResolvers = {
       if (earlyCheckin !== undefined) updateBody["bookings.$[matchingBooking].earlyCheckin"] = earlyCheckin;
       if (lateCheckout !== undefined) updateBody["bookings.$[matchingBooking].lateCheckout"] = lateCheckout;
       if (sofaBed !== undefined) updateBody["bookings.$[matchingBooking].sofaBed"] = sofaBed;
+      // Not truthiness: "" is the host clearing a request that no longer holds.
+      if (specialRequest !== undefined)
+        updateBody["bookings.$[matchingBooking].specialRequest"] = String(specialRequest).trim();
       if (numberOfGuests) updateBody["bookings.$[matchingBooking].numberOfGuests"] = numberOfGuests;
 
       const dayOfBooking = await Day.findOne({ "bookings._id": _id });

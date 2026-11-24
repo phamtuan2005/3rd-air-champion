@@ -139,6 +139,39 @@ describe("bookDays resolver", () => {
 
     expect(res.body.errors).toBeUndefined();
   });
+
+  // The host's words for how to make the room ready for THIS stay, read by the
+  // cleaner in TiWork (2026-11-24). Per stay, on every night, and clearable.
+  it("saves a special request on every night of the stay, and clears it", async () => {
+    await book({
+      calendar: calendarId,
+      date: "2027-10-01",
+      guest: guestId,
+      room: roomId,
+      duration: 3,
+      numberOfGuests: 1,
+      isAirBnB: false,
+    });
+    const day: any = await Day.findOne({ calendar: calendarId });
+    const setRequest = (specialRequest: string) =>
+      request(app)
+        .post("/graphql")
+        .send({
+          query: `mutation U($_id: String!, $specialRequest: String) {
+            updateBookingGuest(_id: $_id, specialRequest: $specialRequest) { date }
+          }`,
+          variables: { _id: day.bookings[0].id, specialRequest },
+        });
+    const requests = async () =>
+      (await Day.find({ calendar: calendarId }).sort({ date: 1 })).map((d: any) => d.bookings[0].specialRequest);
+
+    const res = await setRequest("  Comforter cover free of detergent odor ");
+    expect(res.body.errors).toBeUndefined();
+    expect(await requests()).toEqual(Array(3).fill("Comforter cover free of detergent odor"));
+
+    await setRequest("");
+    expect(await requests()).toEqual(["", "", ""]);
+  });
 });
 
 const BOOK_AIRBNB = `
