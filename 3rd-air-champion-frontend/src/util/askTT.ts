@@ -5,6 +5,7 @@ import { getRoomFacts, houseBathrooms, houseKitchen, houseParking } from "./room
 import { cancellationHeadline, formatCancellationPolicy } from "./cancellationPolicy";
 import { holidayLabelForGuest, usHolidayOn } from "./usHolidays";
 import { PriceRange, priceRangeOf, priceRangeText } from "./priceRange";
+import { scrub } from "./guestScrub";
 import { checkoutReading, chooseRoom, maxGuestsOf, monthAsked, readStay, stayLine, wantsToBook } from "./ttBooking";
 // What TT SAYS goes through t() and fmtDate — in TiBook's language, and English
 // in the tests, which run without the provider. What TT READS does not: the
@@ -1681,16 +1682,9 @@ const privacyRefusal = (q: string, ctx: AskTTContext): TTAnswer | null => {
 // ── Layer 3: nothing private leaves, whatever produced it ────────────────────
 //
 // Shapes, not values: TT does not hold the door codes to look for, which is
-// the point of layer 1. A house-rules note the host typed with a number in it
-// is the case this is mostly for.
-const SCRUBS: RegExp[] = [
-  /\b\d{3,8}#/g, // a door code: "1224#"
-  /[^\s@]+@[^\s@]+\.[^\s@]+/g, // an email
-  /\bhttps?:\/\/\S+|\bwww\.\S+/gi, // a link
-  /\b\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?\b/g, // an IP address
-  /(?:\+?\d[\s().-]*){7,}\d/g, // a phone number, or any long run of digits
-];
-export const scrub = (text: string) => SCRUBS.reduce((t, re) => t.replace(re, "(hidden)"), text);
+// the point of layer 1. The patterns live in guestScrub.ts, shared with the
+// backend's connector for AI assistants.
+export { scrub };
 const scrubAction = (a: TTAction): TTAction =>
   a.kind === "ask" ? { ...a, label: scrub(a.label), query: scrub(a.query) } : { ...a, label: scrub(a.label) };
 

@@ -47,6 +47,7 @@ import { fetchGuestThread } from "../util/guestMessageOperations";
 import { linkTiBookVisitToGuest, recordTiBookVisit, saveStatsCode, unlinkTiBookVisitGuest } from "../util/tibookVisitOperations";
 import { fetchPublishedReviews, PublishedReviews } from "../util/ttQuestionLog";
 import { markTiBookVisited } from "../util/tibookReturning";
+import { STRUCTURED_DATA_ID, tibookStructuredData } from "../util/tibookStructuredData";
 import { readHostView } from "../util/tibookHostView";
 import { getRefreshToken, getToken } from "../util/authSession";
 import { fillRate, habitsOf, lastStayOffer, seriesFor, Proposal } from "../util/bookingHabit";
@@ -240,6 +241,20 @@ const TiBookInner = () => {
     // read as half-translated (host, 2026-11-21).
     fetchPublishedReviews(hostId, lang).then(setPublishedReviews).catch(() => {});
   }, [lang]);
+  // The house and its rooms in schema.org terms, for AI assistants browsing
+  // TiBook for a guest (util/tibookStructuredData). In <head> only while
+  // TiBook is open: the same index.html serves TiMag and TiWork, which must
+  // not describe themselves as a place to stay.
+  useEffect(() => {
+    if (rooms.length === 0) return;
+    const tag = document.createElement("script");
+    tag.type = "application/ld+json";
+    tag.id = STRUCTURED_DATA_ID;
+    tag.text = JSON.stringify(tibookStructuredData(currentHost, rooms, `${window.location.origin}/book`));
+    document.getElementById(STRUCTURED_DATA_ID)?.remove();
+    document.head.appendChild(tag);
+    return () => tag.remove();
+  }, [rooms, currentHost]);
   // /book?stats — a guest the host gave access to, reading the visitor numbers.
   // That link opens it, and so does the row at the bottom of Your Bookings for
   // that guest; see StatsViewerGate.

@@ -1,12 +1,9 @@
 import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import Host from "../model/hostSchema";
-import Room from "../model/roomSchema";
-import Day from "../model/daySchema";
-import BookingRequest from "../model/bookingRequestSchema";
 import WishList from "../model/wishListSchema";
 import GuestMessage from "../model/guestMessageSchema";
-import { nightStatus } from "../shared/generated/util/nightStatus";
+import { HOUSE_TIME_ZONE, addNights, keyOf, loadHouseNights, localDate } from "../util/houseNights";
 import { phoneKey } from "../util/usPhone";
 
 // Tells a wish-list guest, in their TiBook chat, when a night they wished for
@@ -23,22 +20,7 @@ import { phoneKey } from "../util/usPhone";
 // The room stays bookable by anyone, so it is never kept empty waiting for a
 // reply.
 
-// The house is in Silicon Valley. "Tonight" is the house's tonight, not the
-// server's: on a UTC box, 5pm Pacific is already tomorrow, and tonight's
-// freed room would count as past and never be offered.
-const HOUSE_TIME_ZONE = "America/Los_Angeles";
-
-const DAY_MS = 86_400_000;
-
-/** yyyy-MM-dd of a stored date, by its UTC day — how every date here is keyed. */
-const keyOf = (d: Date) => new Date(d).toISOString().slice(0, 10);
-const addNights = (key: string, n: number) => keyOf(new Date(Date.parse(`${key}T00:00:00Z`) + n * DAY_MS));
-// The shared rule reads a night by its LOCAL date parts (it was written for a
-// browser), so a key goes in as local midnight of that same date.
-const localDate = (key: string) => {
-  const [y, m, d] = key.split("-").map(Number);
-  return new Date(y, m - 1, d);
-};
+// "Tonight" is the house's tonight — see HOUSE_TIME_ZONE in util/houseNights.
 
 export interface WishState {
   /** Future nights on the wish list, yyyy-MM-dd. */
@@ -105,48 +87,23 @@ export const notifyWishListsForHost = async (hostId: any, calendarId: any, now =
   const wanted = entries.flatMap((e) => e.dates.map(keyOf)).filter((k) => k >= todayKey).sort();
   const lastKey = wanted[wanted.length - 1] ?? todayKey;
 
-  const rooms = (await Room.find({ host: hostId, active: true }).select("_id name").lean()).map((r: any) => ({
-    id: String(r._id),
-    name: r.name,
-  }));
-  const days = await Day.find({
-    calendar: calendarId,
-    date: { $gte: new Date(`${todayKey}T00:00:00Z`), $lt: new Date(`${addNights(lastKey, 1)}T00:00:00Z`) },
-  })
-    .populate("bookings.guest", "phone")
-    .lean();
-  // The shape the shared rule reads: rooms as { id }.
-  const monthMap = new Map<string, any>();
-  for (const day of days as any[]) {
-    monthMap.set(keyOf(day.date), {
-      isBlocked: day.isBlocked,
-      bookings: (day.bookings ?? []).map((b: any) => ({ room: b.room ? { id: String(b.room) } : null, guest: b.guest })),
-      blockedRooms: (day.blockedRooms ?? []).map((r: any) => ({ id: String(r) })),
-    });
-  }
+  // Which rooms are free, read with the calendar's own rule (util/houseNights).
+  const house = await loadHouseNights(hostId, calendarId, todayKey, addNights(lastKey, 1), todayKey);
+  const monthMap = house.monthMap;
 
-  // Requests by night. A "reserved" one is an unpaid hold: taken, as on the
-  // calendar. A guest's OWN pending or reserved request means they have
-  // already asked for that night — telling them it is free would be noise.
-  const requests = await BookingRequest.find({ host: hostId, status: { $in: ["pending", "reserved"] } }).lean();
-  const reservedMap = new Map<string, Set<string>>();
+  // A guest's OWN pending or reserved request means they have already asked
+  // for that night — telling them it is free would be noise.
   const askedFor = new Map<string, Set<string>>(); // phone key -> nights
-  for (const r of requests as any[]) {
+  for (const r of house.requests) {
     const who = phoneKey(r.guestPhone);
     for (let i = 0; i < r.duration; i++) {
       const night = addNights(keyOf(r.date), i);
-      if (r.status === "reserved") {
-        if (!reservedMap.has(night)) reservedMap.set(night, new Set());
-        reservedMap.get(night)!.add(String(r.room));
-      }
       if (!askedFor.has(who)) askedFor.set(who, new Set());
       askedFor.get(who)!.add(night);
     }
   }
 
-  const today = localDate(todayKey);
-  const freeRoomsOn = (night: string) =>
-    nightStatus(localDate(night), rooms as any, monthMap, reservedMap, today).freeRooms.map((r: any) => r.name as string);
+  const freeRoomsOn = (night: string) => house.freeRoomsOn(night).map((r) => r.name);
 
   let told = 0;
   for (const entry of entries) {

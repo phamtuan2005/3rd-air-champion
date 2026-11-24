@@ -1,5 +1,6 @@
 import BookingRequest from "../../model/bookingRequestSchema";
-import { dropUsCountryCode, phoneRegex } from "../../util/usPhone";
+import { phoneRegex } from "../../util/usPhone";
+import { createBookingRequest } from "../../util/createBookingRequest";
 
 export const bookingRequestResolvers = {
   Query: {
@@ -25,30 +26,9 @@ export const bookingRequestResolvers = {
       _: unknown,
       { host, guestName, guestPhone: typedPhone, date, room, duration, numberOfGuests, notes }: any
     ) => {
-      // Stored without a +1, as every guest phone is (util/usPhone).
-      const guestPhone = dropUsCountryCode(typedPhone);
-      const existing = await BookingRequest.findOne({
-        host,
-        guestPhone,
-        date: new Date(date),
-        room,
-        duration,
-        numberOfGuests,
-        status: "pending",
-      });
-      if (existing) return existing;
-
-      return await new BookingRequest({
-        host,
-        guestName,
-        guestPhone,
-        date,
-        room,
-        duration,
-        numberOfGuests,
-        status: "pending",
-        notes: notes ?? "",
-      }).save();
+      // Written by util/createBookingRequest, which the assistant connector
+      // also uses, so a request reads the same whichever door it came in by.
+      return await createBookingRequest({ host, guestName, guestPhone: typedPhone, date, room, duration, numberOfGuests, notes });
     },
     updateBookingRequest: async (_: unknown, { _id, status }: any) => {
       return await BookingRequest.findByIdAndUpdate(
