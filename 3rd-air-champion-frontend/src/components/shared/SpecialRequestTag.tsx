@@ -10,7 +10,10 @@
  * 2026-11-24: the host had a guest's request and no way to put it in front of
  * the person preparing the room.
  */
-const SpecialRequestTag = ({ text, small }: { text?: string; small?: boolean }) => {
+// `room`: names the room the request is for. Wherever several rooms are listed
+// one under another (TiWork's day, the Hours queue), a request without its
+// room's name read as belonging to the room below it.
+const SpecialRequestTag = ({ text, small, room }: { text?: string; small?: boolean; room?: string }) => {
   const t = (text ?? "").trim();
   if (!t) return null;
   return (
@@ -20,7 +23,10 @@ const SpecialRequestTag = ({ text, small }: { text?: string; small?: boolean }) 
       }`}
     >
       <span aria-hidden>📝</span>
-      <span className="min-w-0 whitespace-pre-line break-words">{t}</span>
+      <span className="min-w-0 whitespace-pre-line break-words">
+        {room && <span className="font-bold">{room}: </span>}
+        {t}
+      </span>
     </p>
   );
 };

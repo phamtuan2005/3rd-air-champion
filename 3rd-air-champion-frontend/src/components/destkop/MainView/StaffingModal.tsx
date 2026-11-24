@@ -1202,7 +1202,7 @@ const StaffingModal = ({ hostId, token, onClose, senderName, focusId }: Staffing
                               <SofaBedTag on={r.sofaBed} />
                               <EarlyCheckinTag on={r.earlyCheckin} />
                             </div>
-                            <SpecialRequestTag text={r.specialRequest} small />
+                            <SpecialRequestTag text={r.specialRequest} room={r.name} small />
                           </div>
                         ))}
                       </div>
