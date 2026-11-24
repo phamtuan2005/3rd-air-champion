@@ -920,7 +920,9 @@ const TiWork = () => {
                             className={`flex min-w-0 flex-col gap-1.5 ${
                               r.earlyCheckin
                                 ? "rounded-xl border-2 border-orange-500 bg-orange-50 px-2 py-1.5"
-                                : ""
+                                : r.specialRequest
+                                  ? "rounded-xl border-2 border-teal-300 px-2 py-1.5"
+                                  : ""
                             }`}
                           >
                           <div className="flex flex-wrap items-center gap-2">
@@ -942,8 +944,11 @@ const TiWork = () => {
                             </div>
                           )}
                           {/* The guest's own request, in the host's words,
-                              under the room it is for. */}
-                          <SpecialRequestTag text={r.specialRequest} />
+                              INSIDE the room's outline and named for it. As a
+                              loose line under the room it sat between Cute and
+                              Cozy, and the cleaner could not tell which room
+                              it was for (host, 2026-11-24). */}
+                          <SpecialRequestTag text={r.specialRequest} room={r.name} />
                           </div>
                           {/* What the guest who stayed after THIS clean of THIS
                               room said — under the room, not under the day. Hung
