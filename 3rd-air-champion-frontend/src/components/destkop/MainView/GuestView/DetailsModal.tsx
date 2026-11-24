@@ -721,8 +721,10 @@ const DetailsModal = ({
           {/* Special request — per STAY, unlike Notes above, which is copied
               onto every booking the guest has in the room. Whatever is written
               here reaches the cleaner preparing the room, in TiWork (host,
-              2026-11-24: "comforter cover free of detergent odor"). */}
-          {(isWriting || booking.specialRequest) && (
+              2026-11-24: "comforter cover free of detergent odor"). Always
+              shown, like Notes: hidden until filled in, the host opened a
+              booking and could not find where to write one. */}
+          {(
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">
                 Special request · the cleaner sees it
@@ -746,8 +748,16 @@ const DetailsModal = ({
                     </div>
                   )}
                 />
-              ) : (
+              ) : booking.specialRequest?.trim() ? (
                 <SpecialRequestTag text={booking.specialRequest} />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsWriting(true)}
+                  className="w-full text-left text-sm px-3 py-2 rounded-md bg-gray-50 border border-dashed border-gray-200 text-blue-500 hover:bg-gray-100"
+                >
+                  + Add a request for the cleaner
+                </button>
               )}
             </div>
           )}
