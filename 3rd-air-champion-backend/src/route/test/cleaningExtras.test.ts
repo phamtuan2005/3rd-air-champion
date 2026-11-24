@@ -123,6 +123,24 @@ describe("extra jobs on a visit", () => {
     expect((await request(app).patch("/cleaner/extras/note").send({ host: h, date: "2026-10-11", cleaner: henry, job: b.id, note: "x" })).status).toBe(404);
   });
 
+  // Real instructions run long; at 120 characters they were cut off
+  // mid-sentence (host, 2026-11-24).
+  it("keeps a long note whole, up to 500 characters", async () => {
+    const h = host();
+    const henry = await cleaner(h, "Henry");
+    await request(app).post("/cleaner/assign").send({ host: h, date: "2026-10-10", room: room(), cleaner: henry });
+    const w = await job(h, "Windows");
+    const long = "Inside and out on the street side. ".repeat(10).trim(); // ~350 characters
+    await request(app).post("/cleaner/extras/toggle").send({ host: h, date: "2026-10-10", cleaner: henry, job: w.id, on: true });
+    await request(app).patch("/cleaner/extras/note").send({ host: h, date: "2026-10-10", cleaner: henry, job: w.id, note: long });
+    const rows = (await request(app).get(`/cleaner/extras?host=${h}&start=2026-10-10&end=2026-10-10`)).body;
+    expect(rows[0].note).toBe(long);
+    // Past 500 it is cut there, not refused.
+    await request(app).patch("/cleaner/extras/note").send({ host: h, date: "2026-10-10", cleaner: henry, job: w.id, note: "x".repeat(600) });
+    const capped = (await request(app).get(`/cleaner/extras?host=${h}&start=2026-10-10&end=2026-10-10`)).body;
+    expect(capped[0].note).toHaveLength(500);
+  });
+
   it("stays while the cleaner still has a room that morning, and goes with the last one", async () => {
     const h = host();
     const henry = await cleaner(h, "Henry");

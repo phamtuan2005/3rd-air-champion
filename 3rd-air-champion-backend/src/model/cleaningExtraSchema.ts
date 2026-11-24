@@ -23,7 +23,9 @@ const cleaningExtraSchema = new mongoose.Schema(
     // King". The job's name stays general ("Baseboard") so it can be picked
     // again next time with a different note ("Chill & Cozy"); writing the rooms
     // into the name made a new job for every combination (host, 2026-10-07).
-    note: { type: String, default: "", maxlength: 120 },
+    // 500, not 120: the host writes real instructions here and 120 cut them
+    // off mid-sentence (2026-11-24). Kept in step with NOTE_MAX in cleanerRoute.
+    note: { type: String, default: "", maxlength: 500 },
   },
   { timestamps: true }
 );

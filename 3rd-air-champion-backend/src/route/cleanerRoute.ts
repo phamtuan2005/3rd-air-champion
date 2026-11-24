@@ -9,6 +9,9 @@ import CleaningExtra from "../model/cleaningExtraSchema";
 import CleaningFeedback, { VERDICTS } from "../model/cleaningFeedbackSchema";
 
 // All routes here are mounted behind the JWT middleware in server.ts.
+// The longest note an extra job on a visit may carry; the schema says the same.
+const NOTE_MAX = 500;
+
 const router = express.Router();
 
 // Rate resolution and the balance walk live in util/cleanerPay, shared with
@@ -694,7 +697,7 @@ router.post("/extras/toggle", async (req: Request, res: any) => {
     }
     const theJob: any = await CleaningJob.findOne({ _id: job, host }).lean();
     if (!theJob) return res.status(404).json({ error: "That job is not on the list." });
-    const note = typeof req.body.note === "string" ? req.body.note.trim().slice(0, 120) : undefined;
+    const note = typeof req.body.note === "string" ? req.body.note.trim().slice(0, NOTE_MAX) : undefined;
     const row: any = await CleaningExtra.findOneAndUpdate(
       { host, date, cleaner, job },
       {
@@ -714,7 +717,7 @@ router.post("/extras/toggle", async (req: Request, res: any) => {
 router.patch("/extras/note", async (req: Request, res: any) => {
   const { host, date, cleaner, job } = req.body;
   if (!host || !date || !cleaner || !job) return res.status(400).json({ error: "host, date, cleaner and job are required" });
-  const note = String(req.body.note ?? "").trim().slice(0, 120);
+  const note = String(req.body.note ?? "").trim().slice(0, NOTE_MAX);
   try {
     const row: any = await CleaningExtra.findOneAndUpdate({ host, date, cleaner, job }, { $set: { note } }, { new: true }).lean();
     if (!row) return res.status(404).json({ error: "That job is not on this visit." });
