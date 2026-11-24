@@ -1303,7 +1303,11 @@ const StaffingModal = ({ hostId, token, onClose, senderName, focusId }: Staffing
                     {editEntry?.id !== w.id && w.report && (
                       <p className="mt-1.5 whitespace-pre-line text-sm text-gray-600">{w.report}</p>
                     )}
-                    {editEntry?.id !== w.id && w.status === "submitted" && (
+                    {/* A declined entry keeps its Approve: Decline sits one
+                        tap from Approve, and the host hit it by mistake on
+                        Henry's 2h50m (2026-11-23) with no way back. The server
+                        has always accepted approved after rejected. */}
+                    {editEntry?.id !== w.id && (w.status === "submitted" || w.status === "rejected") && (
                       <div className="mt-2 flex gap-2">
                         <button
                           type="button"
@@ -1319,6 +1323,7 @@ const StaffingModal = ({ hostId, token, onClose, senderName, focusId }: Staffing
                         >
                           Approve
                         </button>
+                        {w.status === "submitted" && (
                         <button
                           type="button"
                           onClick={() =>
@@ -1330,6 +1335,7 @@ const StaffingModal = ({ hostId, token, onClose, senderName, focusId }: Staffing
                         >
                           Decline
                         </button>
+                        )}
                       </div>
                     )}
                   </div>
